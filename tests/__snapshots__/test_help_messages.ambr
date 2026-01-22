@@ -7207,17 +7207,13 @@
    Lists all available dbt projects.                                              
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
-  |                                 name. For example, list --like "my%" lists   |
-  |                                 all dbt projects that begin with "my".       |
-  |                                 [default: %%]                                |
-  | --in            <TEXT TEXT>...                                               |
-  |                                                                              |
-  |                                 Specifies the scope of this command using    |
-  |                                 '--in  ', for example list --in database     |
-  |                                 my_db.                                       |
-  |                                 [default: None, None]                        |
-  | --help  -h                      Show this message and exit.                  |
+  | --like  -l      TEXT  SQL LIKE pattern for filtering objects by name. For    |
+  |                       example, list --like "my%" lists all dbt projects that |
+  |                       begin with "my".                                       |
+  |                       [default: %%]                                          |
+  | --in            TEXT  Specifies the scope of this command. For example, list |
+  |                       --in account or list --in database my_db.              |
+  | --help  -h            Show this message and exit.                            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -8230,19 +8226,15 @@
    Lists all available DCM Projects.                                              
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --like   -l      TEXT            SQL LIKE pattern for filtering objects by   |
-  |                                  name. For example, list --like "my%" lists  |
-  |                                  all DCM Projects that begin with "my".      |
-  |                                  [default: %%]                               |
-  | --in             <TEXT TEXT>...                                              |
-  |                                                                              |
-  |                                  Specifies the scope of this command using   |
-  |                                  '--in  ', for example list --in database    |
-  |                                  my_db.                                      |
-  |                                  [default: None, None]                       |
-  | --terse                          Returns only a subset of output columns.    |
-  | --limit          INTEGER         Limits the maximum number of rows returned. |
-  | --help   -h                      Show this message and exit.                 |
+  | --like   -l      TEXT     SQL LIKE pattern for filtering objects by name.    |
+  |                           For example, list --like "my%" lists all DCM       |
+  |                           Projects that begin with "my".                     |
+  |                           [default: %%]                                      |
+  | --terse                   Returns only a subset of output columns.           |
+  | --limit          INTEGER  Limits the maximum number of rows returned.        |
+  | --in             TEXT     Specifies the scope of this command. For example,  |
+  |                           list --in account or list --in database my_db.     |
+  | --help   -h               Show this message and exit.                        |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -10155,18 +10147,13 @@
    Lists all available git repositories.                                          
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
-  |                                 name. For example, list --like "my%" lists   |
-  |                                 all git repositories with name that begin    |
-  |                                 with “my”.                                   |
-  |                                 [default: %%]                                |
-  | --in            <TEXT TEXT>...                                               |
-  |                                                                              |
-  |                                 Specifies the scope of this command using    |
-  |                                 '--in  ', for example list --in database     |
-  |                                 my_db.                                       |
-  |                                 [default: None, None]                        |
-  | --help  -h                      Show this message and exit.                  |
+  | --like  -l      TEXT  SQL LIKE pattern for filtering objects by name. For    |
+  |                       example, list --like "my%" lists all git repositories  |
+  |                       with name that begin with “my”.                        |
+  |                       [default: %%]                                          |
+  | --in            TEXT  Specifies the scope of this command. For example, list |
+  |                       --in account or list --in database my_db.              |
+  | --help  -h            Show this message and exit.                            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -11898,20 +11885,13 @@
   |                             [required]                                       |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
-  |                                 name. For example, list function --like      |
-  |                                 "my%" lists all functions that begin with    |
-  |                                 “my”.                                        |
-  |                                 [default: %%]                                |
-  | --in            <TEXT TEXT>...                                               |
-  |                                                                              |
-  |                                 Specifies the scope of this command using    |
-  |                                 '--in  ', for example list table --in        |
-  |                                 database my_db. Some object types have       |
-  |                                 specialized scopes (e.g. list service --in   |
-  |                                 compute-pool my_pool).                       |
-  |                                 [default: None, None]                        |
-  | --help  -h                      Show this message and exit.                  |
+  | --like  -l      TEXT  SQL LIKE pattern for filtering objects by name. For    |
+  |                       example, list function --like "my%" lists all          |
+  |                       functions that begin with "my".                        |
+  |                       [default: %%]                                          |
+  | --in            TEXT  Specifies the scope of this command. For example, list |
+  |                       table --in account or list table --in database my_db.  |
+  | --help  -h            Show this message and exit.                            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -12971,18 +12951,14 @@
   |                       ction}                      [required]                 |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
-  |                                 name. For example, list function --like      |
-  |                                 "my%" lists all functions that begin with    |
-  |                                 “my”.                                        |
-  |                                 [default: %%]                                |
-  | --in            <TEXT TEXT>...                                               |
-  |                                                                              |
-  |                                 Specifies the scope of this command using    |
-  |                                 '--in  ', for example list function --in     |
-  |                                 database my_db.                              |
-  |                                 [default: None, None]                        |
-  | --help  -h                      Show this message and exit.                  |
+  | --like  -l      TEXT  SQL LIKE pattern for filtering objects by name. For    |
+  |                       example, list function --like "my%" lists all          |
+  |                       functions that begin with “my”.                        |
+  |                       [default: %%]                                          |
+  | --in            TEXT  Specifies the scope of this command. For example, list |
+  |                       function --in account or list function --in database   |
+  |                       my_db.                                                 |
+  | --help  -h            Show this message and exit.                            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -16433,17 +16409,13 @@
    Lists all available image repositories.                                        
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
-  |                                 name. For example, --like "my%" lists all    |
-  |                                 image repositories that begin with “my”..    |
-  |                                 [default: %%]                                |
-  | --in            <TEXT TEXT>...                                               |
-  |                                                                              |
-  |                                 Specifies the scope of this command using    |
-  |                                 '--in  ', for example list --in database     |
-  |                                 my_db.                                       |
-  |                                 [default: None, None]                        |
-  | --help  -h                      Show this message and exit.                  |
+  | --like  -l      TEXT  SQL LIKE pattern for filtering objects by name. For    |
+  |                       example, --like "my%" lists all image repositories     |
+  |                       that begin with “my”..                                 |
+  |                       [default: %%]                                          |
+  | --in            TEXT  Specifies the scope of this command. For example, list |
+  |                       --in account or list --in database my_db.              |
+  | --help  -h            Show this message and exit.                            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -18076,17 +18048,13 @@
    Lists all available services.                                                  
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
-  |                                 name. For example, list --like "my%" lists   |
-  |                                 all services that begin with “my”..          |
-  |                                 [default: %%]                                |
-  | --in            <TEXT TEXT>...                                               |
-  |                                                                              |
-  |                                 Specifies the scope of this command using    |
-  |                                 '--in  ', for example list --in compute-pool |
-  |                                 my_pool.                                     |
-  |                                 [default: None, None]                        |
-  | --help  -h                      Show this message and exit.                  |
+  | --like  -l      TEXT  SQL LIKE pattern for filtering objects by name. For    |
+  |                       example, list --like "my%" lists all services that     |
+  |                       begin with “my”..                                      |
+  |                       [default: %%]                                          |
+  | --in            TEXT  Specifies the scope of this command. For example, list |
+  |                       --in account or list --in compute-pool my_pool.        |
+  | --help  -h            Show this message and exit.                            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -20733,17 +20701,13 @@
    Lists all available stages.                                                    
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
-  |                                 name. For example, list --like "my%" lists   |
-  |                                 all stages that begin with "my".             |
-  |                                 [default: %%]                                |
-  | --in            <TEXT TEXT>...                                               |
-  |                                                                              |
-  |                                 Specifies the scope of this command using    |
-  |                                 '--in  ', for example list --in database     |
-  |                                 my_db.                                       |
-  |                                 [default: None, None]                        |
-  | --help  -h                      Show this message and exit.                  |
+  | --like  -l      TEXT  SQL LIKE pattern for filtering objects by name. For    |
+  |                       example, list --like "my%" lists all stages that begin |
+  |                       with "my".                                             |
+  |                       [default: %%]                                          |
+  | --in            TEXT  Specifies the scope of this command. For example, list |
+  |                       --in account or list --in database my_db.              |
+  | --help  -h            Show this message and exit.                            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -21769,17 +21733,13 @@
    Lists all available streamlits.                                                
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
-  |                                 name. For example, list --like "my%" lists   |
-  |                                 all streamlit apps that begin with “my”.     |
-  |                                 [default: %%]                                |
-  | --in            <TEXT TEXT>...                                               |
-  |                                                                              |
-  |                                 Specifies the scope of this command using    |
-  |                                 '--in  ', for example list --in database     |
-  |                                 my_db.                                       |
-  |                                 [default: None, None]                        |
-  | --help  -h                      Show this message and exit.                  |
+  | --like  -l      TEXT  SQL LIKE pattern for filtering objects by name. For    |
+  |                       example, list --like "my%" lists all streamlit apps    |
+  |                       that begin with “my”.                                  |
+  |                       [default: %%]                                          |
+  | --in            TEXT  Specifies the scope of this command. For example, list |
+  |                       --in account or list --in database my_db.              |
+  | --help  -h            Show this message and exit.                            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |

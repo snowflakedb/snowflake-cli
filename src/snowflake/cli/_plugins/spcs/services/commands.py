@@ -22,7 +22,6 @@ import typer
 from click import ClickException
 from snowflake.cli._plugins.object.command_aliases import (
     add_object_command_aliases,
-    scope_option,
 )
 from snowflake.cli._plugins.object.common import CommentOption, Tag, TagOption
 from snowflake.cli._plugins.spcs.common import (
@@ -168,7 +167,7 @@ add_object_command_aliases(
     like_option=like_option(
         help_example='`list --like "my%"` lists all services that begin with “my”.'
     ),
-    scope_option=scope_option(help_example="`list --in compute-pool my_pool`"),
+    scope_option="`list --in account` or `list --in compute-pool my_pool`",
 )
 
 

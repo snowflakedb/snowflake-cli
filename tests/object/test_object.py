@@ -118,19 +118,57 @@ def test_show_with_scope(
 
 @mock.patch("snowflake.connector.connect")
 @pytest.mark.parametrize(
+    "object_type",
+    ["table", "schema", "function", "procedure", "view", "stage"],
+)
+def test_show_with_account_scope(mock_connector, object_type, runner, mock_ctx):
+    """Test that --in account generates correct SQL with account scope (no name required)."""
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    # With the new variadic scope option, --in account doesn't need a second argument
+    result = runner.invoke(["object", "list", object_type, "--in", "account"])
+    obj = OBJECT_TO_NAMES[object_type]
+    assert result.exit_code == 0, result.output
+    assert ctx.get_queries() == [f"show {obj.sf_plural_name} like '%%' in account"]
+
+
+@mock.patch("snowflake.connector.connect")
+def test_show_with_database_scope_no_name(mock_connector, runner, mock_ctx):
+    """Test that --in database generates correct SQL for current database (no name required)."""
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    # With the new variadic scope option, --in database doesn't need a second argument
+    result = runner.invoke(["object", "list", "table", "--in", "database"])
+    assert result.exit_code == 0, result.output
+    assert ctx.get_queries() == ["show tables like '%%' in database"]
+
+
+@mock.patch("snowflake.connector.connect")
+def test_show_with_schema_scope_no_name(mock_connector, runner, mock_ctx):
+    """Test that --in schema generates correct SQL for current schema (no name required)."""
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    # With the new variadic scope option, --in schema doesn't need a second argument
+    result = runner.invoke(["object", "list", "table", "--in", "schema"])
+    assert result.exit_code == 0, result.output
+    assert ctx.get_queries() == ["show tables like '%%' in schema"]
+
+
+@mock.patch("snowflake.connector.connect")
+@pytest.mark.parametrize(
     "object_type, input_scope, input_name, expected",
     [
         (
             "table",
             "invalid_scope",
             "name",
-            "scope must be one of the following",
+            "Scope must be one of the following",
         ),  # invalid scope label
         (
             "table",
             "database",
             "invalid name",
-            "scope name must be a valid identifier",
+            "Scope name must be a valid identifier",
         ),  # invalid scope identifier
     ],
 )
@@ -150,6 +188,9 @@ def test_show_with_invalid_scope(
         ("schema", "database", "test_db"),
         ("table", "schema", "test_schema"),
         ("service", "compute-pool", "test_pool"),
+        ("table", "account", None),  # account scope doesn't require a name
+        ("schema", "account", None),
+        ("function", "account", None),
     ],
 )
 def test_scope_validate(object_type, input_scope, input_name):
@@ -163,9 +204,9 @@ def test_scope_validate(object_type, input_scope, input_name):
             "table",
             "database",
             "invalid identifier",
-            "scope name must be a valid identifier",
+            "Scope name must be a valid identifier",
         ),
-        ("table", "invalid-scope", "identifier", "scope must be one of the following"),
+        ("table", "invalid-scope", "identifier", "Scope must be one of the following"),
         (
             "table",
             "compute-pool",
@@ -334,6 +375,24 @@ def test_show_with_all_options_combined(mock_execute_query, mock_cursor):
     )
 
     expected_query = "show terse tables like 'test%' in database my_db limit 25"
+    mock_execute_query.assert_called_once_with(expected_query)
+
+
+@mock.patch("snowflake.cli._plugins.object.manager.ObjectManager.execute_query")
+def test_show_with_account_scope_manager(mock_execute_query, mock_cursor):
+    """Test ObjectManager.show with account scope (no name)."""
+    from snowflake.cli._plugins.object.manager import ObjectManager
+
+    mock_execute_query.return_value = mock_cursor(["row"], [])
+
+    manager = ObjectManager()
+    manager.show(
+        object_type="table",
+        like="test%",
+        scope=("account", None),
+    )
+
+    expected_query = "show tables like 'test%' in account"
     mock_execute_query.assert_called_once_with(expected_query)
 
 

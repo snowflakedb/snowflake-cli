@@ -22,7 +22,6 @@ import typer
 from click import ClickException
 from snowflake.cli._plugins.object.command_aliases import (
     add_object_command_aliases,
-    scope_option,
 )
 from snowflake.cli._plugins.streamlit.manager import StreamlitManager
 from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity
@@ -79,7 +78,7 @@ add_object_command_aliases(
     like_option=like_option(
         help_example='`list --like "my%"` lists all streamlit apps that begin with “my”'
     ),
-    scope_option=scope_option(help_example="`list --in database my_db`"),
+    scope_option="`list --in account` or `list --in database my_db`",
 )
 
 

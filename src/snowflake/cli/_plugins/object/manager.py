@@ -43,7 +43,10 @@ class ObjectManager(SqlExecutionMixin):
         *,
         object_type: str,
         like: Optional[str] = None,
-        scope: Union[Tuple[str, str], Tuple[None, None]] = (None, None),
+        scope: Union[Tuple[str, str], Tuple[str, None], Tuple[None, None]] = (
+            None,
+            None,
+        ),
         terse: Optional[bool] = False,
         limit: Optional[int] = None,
         **kwargs,
@@ -60,7 +63,11 @@ class ObjectManager(SqlExecutionMixin):
         if like:
             query += f" like '{like}'"
         if scope[0] is not None:
-            query += f" in {scope[0].replace('-', ' ')} {scope[1]}"
+            scope_type = scope[0].replace("-", " ")
+            if scope[1] is None:
+                query += f" in {scope_type}"
+            else:
+                query += f" in {scope_type} {scope[1]}"
         if limit is not None:
             query += f" limit {limit}"
         return self.execute_query(query, **kwargs)

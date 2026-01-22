@@ -31,7 +31,6 @@ from snowflake.cli._plugins.dbt.manager import (
     SemanticVersionType,
 )
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
-from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli.api.commands.decorators import global_options_with_connection
 from snowflake.cli.api.commands.flags import identifier_argument, like_option
 from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
@@ -80,7 +79,7 @@ add_object_command_aliases(
     like_option=like_option(
         help_example='`list --like "my%"` lists all dbt projects that begin with "my"'
     ),
-    scope_option=scope_option(help_example="`list --in database my_db`"),
+    scope_option="`list --in account` or `list --in database my_db`",
     ommit_commands=["create"],
 )
 

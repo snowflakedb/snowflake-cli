@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import typer
 from click import ClickException
@@ -24,8 +24,9 @@ from snowflake.cli._plugins.object.commands import (
     drop,
     limit_option_,
     list_,
-    scope_option,  # noqa: F401
+    scope_option,  # noqa: F401 - kept for backward compatibility
     terse_option_,
+    with_scope,
 )
 from snowflake.cli.api.commands.flags import IfExistsOption
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
@@ -38,7 +39,9 @@ def add_object_command_aliases(
     object_type: ObjectType,
     name_argument: typer.Argument,
     like_option: Optional[typer.Option],
-    scope_option: Optional[typer.Option],
+    scope_option: Optional[
+        str
+    ] = None,  # Now accepts help_example string instead of typer.Option
     ommit_commands: Optional[List[str]] = None,
     terse_option: Optional[typer.Option] = None,
     limit_option: Optional[typer.Option] = None,
@@ -58,29 +61,37 @@ def add_object_command_aliases(
                 limit: Optional[int] = limit_option if limit_option else limit_option_(),  # type: ignore
                 **options,
             ):
+                # Pass scope via options dict since list_ expects it there
+                options["scope"] = ScopeOption.default
                 return list_(
                     object_type=object_type.value.cli_name,
                     like=like,
-                    scope=ScopeOption.default,
                     terse=terse,
                     limit=limit,
                     **options,
                 )
 
         else:
+            # Extract help_example from scope_option if it's a typer.Option (backward compat)
+            # or use it directly if it's a string
+            if isinstance(scope_option, str):
+                help_example = scope_option
+            else:
+                # Backward compatibility: extract from typer.Option help text
+                help_example = getattr(scope_option, "help", "") or ""
 
             @app.command("list", requires_connection=True)
+            @with_scope(help_example=help_example)
             def list_cmd(
                 like: str = like_option,  # type: ignore
-                scope: Tuple[str, str] = scope_option,  # type: ignore
                 terse: bool = terse_option if terse_option else terse_option_(),  # type: ignore
                 limit: Optional[int] = limit_option if limit_option else limit_option_(),  # type: ignore
                 **options,
             ):
+                # scope is already in options from with_scope decorator
                 return list_(
                     object_type=object_type.value.cli_name,
                     like=like,
-                    scope=scope,
                     terse=terse,
                     limit=limit,
                     **options,

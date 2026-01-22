@@ -14,8 +14,10 @@
 
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
+from functools import wraps
+from typing import Any, Callable, List, Optional, Tuple
 
+import click
 import typer
 from click import ClickException
 from snowflake.cli._plugins.object.manager import ObjectManager
@@ -33,6 +35,173 @@ from snowflake.cli.api.exceptions import IncompatibleParametersError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import MessageResult, QueryResult
 from snowflake.cli.api.project.util import is_valid_identifier
+
+Scope = Tuple[Optional[str], Optional[str]]
+
+
+class _ScopeParserOption(click.parser.Option):
+    """Custom parser Option that consumes 1 or 2 arguments for scope."""
+
+    def __init__(self, *args, **kwargs):
+        # Store reference to the Click Option for error messages
+        self._click_option = kwargs.pop("click_option", None)
+        super().__init__(*args, **kwargs)
+
+    def process(self, value: Any, state: Any) -> None:
+        """Process the scope value - value is already a tuple from our custom consumption."""
+        state.opts[self.dest] = value
+        state.order.append(self.obj)
+
+
+class ScopeOption(click.Option):
+    """Custom Click Option that accepts 1 or 2 arguments for scope.
+
+    Supports:
+    - --in account (1 arg, account scope)
+    - --in database (1 arg, current database)
+    - --in database my_db (2 args, specific database)
+    - --in schema (1 arg, current schema)
+    - --in schema my_schema (2 args, specific schema)
+    """
+
+    default = (None, None)
+
+    def __init__(
+        self, *args, help_example: str = "", dest_name: str = "scope", **kwargs
+    ):
+        self.help_example = help_example
+        super().__init__(*args, **kwargs)
+        # Override the name to use 'scope' instead of 'in'
+        self.name = dest_name
+
+    def type_cast_value(self, ctx: click.Context, value: Any) -> Any:
+        """Override to preserve tuple values without conversion."""
+        if isinstance(value, tuple):
+            return value
+        return super().type_cast_value(ctx, value)
+
+    def add_to_parser(self, parser: click.parser.OptionParser, ctx: click.Context):
+        parser_opt = _ScopeParserOption(
+            obj=self,
+            opts=self.opts,
+            dest=self.name,
+            action="store",
+            nargs=1,
+            click_option=self,
+        )
+
+        for opt in self.opts:
+            prefix, value = click.parser.split_opt(opt)
+            if len(prefix) == 1 and len(value) == 1:
+                parser._short_opt[opt] = parser_opt  # noqa: SLF001
+            else:
+                normalized = click.parser.normalize_opt(opt, ctx)
+                parser._long_opt[normalized] = parser_opt  # noqa: SLF001
+            parser._opt_prefixes.add(prefix[0])  # noqa: SLF001
+
+        # Monkey-patch the parser's _get_value_from_state to handle our option specially
+        original_get_value = parser._get_value_from_state  # type: ignore[attr-defined]  # noqa: SLF001
+
+        def _custom_get_value(
+            option_name: str, option: click.parser.Option, state: Any
+        ) -> Any:
+            if option is parser_opt:
+                rargs = state.rargs
+
+                if not rargs:
+                    raise click.BadOptionUsage(
+                        option_name,
+                        "Missing scope type. Use '--in <scope_type>' or '--in <scope_type> <name>'.",
+                        ctx=ctx,
+                    )
+
+                scope_type = rargs.pop(0)
+
+                # Check if next argument exists and is not another option
+                if rargs and not rargs[0].startswith("-"):
+                    scope_name = rargs.pop(0)
+                    return (scope_type, scope_name)
+                else:
+                    # No name provided - valid for account/database/schema
+                    return (scope_type, None)
+            else:
+                return original_get_value(option_name, option, state)
+
+        parser._get_value_from_state = _custom_get_value  # type: ignore[attr-defined]  # noqa: SLF001
+
+
+def _create_scope_command_class(help_example: str):
+    """Create a custom TyperCommand class that includes the ScopeOption."""
+    from typer.core import TyperCommand
+
+    class ScopeTyperCommand(TyperCommand):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            scope_opt = ScopeOption(
+                ["--in"],
+                "scope",
+                default=(None, None),
+                help=f"Specifies the scope of this command. For example, {help_example}.",
+                help_example=help_example,
+            )
+            self.params.append(scope_opt)
+
+    return ScopeTyperCommand
+
+
+def with_scope(help_example: str):
+    """
+    Decorator that adds a variadic --in scope option to a command.
+
+    This decorator injects a custom Click option that can accept 1 or 2 arguments:
+    - --in account (1 arg)
+    - --in database my_db (2 args)
+
+    The scope value is passed to the command via **options as 'scope'.
+
+    Usage:
+        @app.command("list", requires_connection=True)
+        @with_scope(help_example="`--in account` or `--in database my_db`")
+        def list_(object_type: str, **options):
+            scope = options.get("scope", (None, None))
+            ...
+    """
+
+    def decorator(func: Callable) -> Callable:
+        # Store the scope option configuration on the function
+        # This will be used to create a custom command class
+        if not hasattr(func, "_scope_option_config"):
+            func._scope_option_config = {}  # type: ignore[attr-defined]  # noqa: SLF001
+        func._scope_option_config["help_example"] = help_example  # type: ignore[attr-defined]  # noqa: SLF001
+        func._scope_option_config["cls"] = _create_scope_command_class(help_example)  # type: ignore[attr-defined]  # noqa: SLF001
+
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
+
+        # Copy the config to the wrapper
+        wrapper._scope_option_config = func._scope_option_config  # type: ignore[attr-defined]  # noqa: SLF001
+        return wrapper
+
+    return decorator
+
+
+def scope_option(help_example: str):
+    """
+    Create a scope option for use as a function parameter default.
+
+    This returns a typer.Option that serves as a placeholder. The actual
+    variadic behavior is handled by the with_scope decorator.
+
+    For backward compatibility with commands that use:
+        scope: Tuple[str, str] = scope_option(help_example="...")
+    """
+    return typer.Option(
+        (None, None),
+        "--in",
+        help=f"Specifies the scope of this command using '--in <scope> <name>', for example {help_example}.",
+    )
+
 
 app = SnowTyperFactory(
     name="object",
@@ -72,27 +241,29 @@ for every object.
     show_default=False,
 )
 LikeOption = like_option(
-    help_example='`list function --like "my%"` lists all functions that begin with “my”',
+    help_example='`list function --like "my%"` lists all functions that begin with "my"',
 )
 
 
-def _scope_validate(object_type: str, scope: Tuple[str, str]):
-    if scope[1] is not None and not is_valid_identifier(scope[1]):
-        raise ClickException("scope name must be a valid identifier")
-    if scope[0] is not None and scope[0].lower() not in VALID_SCOPES:
+def _scope_validate(object_type: str, scope: Scope):
+    scope_type, scope_name = scope
+
+    if scope_type is None:
+        return
+
+    if scope_type.lower() not in VALID_SCOPES:
         raise ClickException(
-            f"scope must be one of the following: {', '.join(VALID_SCOPES)}"
+            f"Scope must be one of the following: {', '.join(VALID_SCOPES)}."
         )
-    if scope[0] == "compute-pool" and object_type != "service":
-        raise ClickException("compute-pool scope is only supported for listing service")
 
+    # Name validation only applies when a name is provided
+    if scope_name is not None and not is_valid_identifier(scope_name):
+        raise ClickException("Scope name must be a valid identifier.")
 
-def scope_option(help_example: str):
-    return typer.Option(
-        (None, None),
-        "--in",
-        help=f"Specifies the scope of this command using '--in <scope> <name>', for example {help_example}.",
-    )
+    if scope_type == "compute-pool" and object_type != "service":
+        raise ClickException(
+            "compute-pool scope is only supported for listing service."
+        )
 
 
 def terse_option_():
@@ -113,10 +284,6 @@ def limit_option_():
     )
 
 
-ScopeOption = scope_option(
-    help_example="`list table --in database my_db`. Some object types have specialized scopes (e.g. list service --in compute-pool my_pool)"
-)
-
 SUPPORTED_TYPES_MSG = "\n\nSupported types: " + ", ".join(SUPPORTED_OBJECTS)
 
 
@@ -125,14 +292,19 @@ SUPPORTED_TYPES_MSG = "\n\nSupported types: " + ", ".join(SUPPORTED_OBJECTS)
     help=f"Lists all available Snowflake objects of given type.{SUPPORTED_TYPES_MSG}",
     requires_connection=True,
 )
+@with_scope(
+    help_example="`list table --in account` or `list table --in database my_db`"
+)
 def list_(
     object_type: str = ObjectArgument,
     like: str = LikeOption,
-    scope: Tuple[str, str] = ScopeOption,
     terse: Optional[bool] = terse_option_(),
     limit: Optional[int] = limit_option_(),
     **options,
 ):
+    scope = options.get("scope", (None, None))
+    if scope is None:
+        scope = (None, None)
     _scope_validate(object_type, scope)
     return QueryResult(
         ObjectManager().show(
