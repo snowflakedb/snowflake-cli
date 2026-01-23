@@ -21,6 +21,9 @@
 
 ## New additions
 * Added `--in-account` flag to list commands (e.g., `snow object list`, `snow stage list`). This flag allows listing all objects of a given type in the account. Cannot be used together with the `--in` flag.
+* Added `snow spcs service build-image` command to build container images using SPCS service. The command uploads local build context to a stage, executes a build job, and streams logs in real-time until completion.
+* Added `--async` flag to `snow spcs service execute-job` command to execute job services asynchronously without waiting for completion.
+* Added `--replicas` parameter to `snow spcs service execute-job` command to specify the number of job replicas to run.
 
 ## Fixes and improvements
 * all authenticators (including `snowflake-jwt`, `username_password_mfa`, `workload_identity`) are now case-insensitive.
