@@ -21,7 +21,9 @@ from pathlib import Path
 from typing import List, Optional
 
 import yaml
+from snowflake.cli._plugins.connection.util import get_account
 from snowflake.cli._plugins.object.common import Tag
+from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.spcs.common import (
     EVENT_COLUMN_NAMES,
     NoPropertiesProvidedError,
@@ -218,24 +220,45 @@ class ServiceManager(SqlExecutionMixin):
             )
         service_project_paths.clean_up_output()
 
-    def execute_job(
+    def _execute_job_service(
         self,
         job_service_name: str,
         compute_pool: str,
-        spec_path: Path,
-        external_access_integrations: Optional[List[str]],
-        query_warehouse: Optional[str],
-        comment: Optional[str],
+        spec_json: str,
+        external_access_integrations: Optional[List[str]] = None,
+        query_warehouse: Optional[str] = None,
+        comment: Optional[str] = None,
+        async_mode: Optional[bool] = None,
+        replicas: Optional[int] = None,
     ) -> SnowflakeCursor:
-        spec = self._read_yaml(spec_path)
+        """
+        Common method to execute a job service with the given specification.
+
+        Args:
+            job_service_name: Name for the job service
+            compute_pool: Compute pool to run the job
+            spec_json: Job specification as a JSON string
+            external_access_integrations: List of EAI names
+            query_warehouse: Query warehouse to use
+            comment: Comment for the job
+            async_mode: Whether to run asynchronously (if None, parameter is omitted)
+            replicas: Number of job replicas to run (if None, parameter is omitted)
+        """
+
         query = f"""\
                 EXECUTE JOB SERVICE
                 IN COMPUTE POOL {compute_pool}
                 FROM SPECIFICATION $$
-                {spec}
+                {spec_json}
                 $$
                 NAME = {job_service_name}
                 """.splitlines()
+
+        if async_mode is not None:
+            query.append(f"ASYNC = {str(async_mode).upper()}")
+
+        if replicas is not None:
+            query.append(f"REPLICAS = {replicas}")
 
         if external_access_integrations:
             external_access_integration_list = ",".join(
@@ -255,6 +278,137 @@ class ServiceManager(SqlExecutionMixin):
             return self.execute_query(strip_empty_lines(query))
         except ProgrammingError as e:
             handle_object_already_exists(e, ObjectType.SERVICE, job_service_name)
+
+    def execute_job(
+        self,
+        job_service_name: str,
+        compute_pool: str,
+        spec_path: Path,
+        external_access_integrations: Optional[List[str]],
+        query_warehouse: Optional[str],
+        comment: Optional[str],
+        async_mode: bool = False,
+        replicas: Optional[int] = None,
+    ) -> SnowflakeCursor:
+        spec = self._read_yaml(spec_path)
+        return self._execute_job_service(
+            job_service_name=job_service_name,
+            compute_pool=compute_pool,
+            spec_json=spec,
+            external_access_integrations=external_access_integrations,
+            query_warehouse=query_warehouse,
+            comment=comment,
+            async_mode=async_mode
+            if async_mode
+            else None,  # Only pass if True to maintain backward compatibility
+            replicas=replicas,
+        )
+
+    def build_image(
+        self,
+        job_service_name: str,
+        compute_pool: str,
+        image_repository: str,
+        image_name: str,
+        image_tag: str,
+        stage: str,
+        build_context_path: str,
+        external_access_integrations: Optional[List[str]],
+        async_mode: bool = True,
+    ) -> SnowflakeCursor:
+        """
+        Builds a container image using EXECUTE JOB SERVICE with the Snowflake image builder.
+
+        Args:
+            job_service_name: Name for the build job service
+            compute_pool: Compute pool to run the build job
+            image_repository: Repository path in format [db.][schema.]repo_name
+            image_name: Name for the built image
+            image_tag: Tag for the built image
+            stage: Stage where the build context is uploaded
+            build_context_path: Path on stage where build context is located
+            external_access_integrations: List of EAI names
+            async_mode: Whether to run the build asynchronously
+        """
+        # Get organization name
+        # Using execute_string (same as get_account) for consistency
+        *_, org_cursor = self._conn.execute_string(
+            "SELECT CURRENT_ORGANIZATION_NAME()", cursor_class=DictCursor
+        )
+        org_name = org_cursor.fetchone()["CURRENT_ORGANIZATION_NAME()"].lower()
+
+        # Get account name using existing utility function
+        account_name = get_account(self._conn)
+
+        # Parse the image repository using FQN utility
+        # This handles [db.][schema.]repo_name format automatically
+        repo_fqn = FQN.from_string(image_repository).using_connection(self._conn)
+
+        # Validate that we have all required parts
+        # Note: FQN parsing gives us: "db.schema.repo" → both present,
+        # "schema.repo" → only schema, "repo" → neither
+        # It's impossible to have database without schema
+        if not repo_fqn.database or not repo_fqn.schema:
+            missing_parts = []
+            if not repo_fqn.database:
+                missing_parts.append("database")
+            if not repo_fqn.schema:
+                missing_parts.append("schema")
+            raise ValueError(
+                f"Image repository requires database and schema. "
+                f"Missing: {', '.join(missing_parts)}. "
+                f"Either provide a fully qualified name 'database.schema.repository' "
+                f"or set the missing parts in your connection context. "
+                f"Provided: '{image_repository}'"
+            )
+
+        # Build the image registry URL
+        # Format: <org>-<account-name>.registry-local.snowflakecomputing.com/<db>/<schema>/<repo>
+        image_registry_url = (
+            f"{org_name}-{account_name}.registry-local.snowflakecomputing.com/"
+            f"{repo_fqn.database.lower()}/{repo_fqn.schema.lower()}/{repo_fqn.name.lower()}"
+        )
+
+        # Create the specification for the image build job
+        spec = {
+            "spec": {
+                "containers": [
+                    {
+                        "name": "main",
+                        "image": "/snowflake/images/snowflake_images/sf-image-build:0.0.1",
+                        "env": {
+                            "IMAGE_REGISTRY_URL": image_registry_url,
+                            "IMAGE_NAME": image_name,
+                            "IMAGE_TAG": image_tag,
+                            "BUILD_CONTEXT": "/app",
+                        },
+                        "volumeMounts": [
+                            {
+                                "name": "code-volume",
+                                "mountPath": "/app",
+                            }
+                        ],
+                    }
+                ],
+                "volumes": [
+                    {
+                        "name": "code-volume",
+                        "source": f"@{stage}/{build_context_path}",
+                        "uid": 65532,
+                    }
+                ],
+            }
+        }
+
+        spec_json = json.dumps(spec)
+
+        return self._execute_job_service(
+            job_service_name=job_service_name,
+            compute_pool=compute_pool,
+            spec_json=spec_json,
+            external_access_integrations=external_access_integrations,
+            async_mode=async_mode,
+        )
 
     def _read_yaml(self, path: Path) -> str:
         # TODO(aivanou): Add validation towards schema
@@ -292,7 +446,16 @@ class ServiceManager(SqlExecutionMixin):
         since_timestamp: str,
         include_timestamps: bool,
         interval_seconds: int,
+        check_terminal_status: bool = False,
     ):
+        """
+        Stream logs from a service container with optional terminal status checking.
+
+        Args:
+            check_terminal_status: If True, will check service status and stop streaming
+                                  when a terminal status (DONE, FAILED, CANCELLED) is reached.
+                                  The final status will be yielded as the last item.
+        """
         try:
             prev_timestamp = since_timestamp
             prev_log_records: List[str] = []
@@ -324,6 +487,24 @@ class ServiceManager(SqlExecutionMixin):
 
                         prev_timestamp = dedup_log_records[-1].split(" ", 1)[0]
                         prev_log_records = dedup_log_records
+
+                # Check for terminal status if requested
+                if check_terminal_status:
+                    # Use describe API to get service properties including status
+                    describe_result = ObjectManager().describe(
+                        object_type="service",
+                        fqn=FQN.from_string(service_name),
+                        cursor_class=DictCursor,
+                    )
+
+                    # Get the status from describe output (single row with status column)
+                    result_row = describe_result.fetchone()
+                    job_status = result_row.get("status") if result_row else None
+
+                    if job_status and job_status in ["DONE", "FAILED", "CANCELLED"]:
+                        # Yield terminal status as a tuple to distinguish from log lines
+                        yield ("__TERMINAL_STATUS__", job_status)
+                        return
 
                 time.sleep(interval_seconds)
 
