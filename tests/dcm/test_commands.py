@@ -931,3 +931,260 @@ class TestDCMTest:
         mock_pm().test.assert_called_once_with(
             project_identifier=FQN.from_string("my_project")
         )
+
+
+class TestDCMTargetFlag:
+    """Tests for --target flag functionality.
+
+    These tests verify that the --target flag correctly resolves project
+    identifiers from the manifest.yml targets section.
+    """
+
+    @mock.patch(DCMProjectManager)
+    def test_deploy_with_target_flag(
+        self,
+        mock_pm,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_from_resource,
+    ):
+        from snowflake.cli._plugins.dcm.manager import DCMManifest
+
+        mock_pm().deploy.return_value = mock_cursor(
+            rows=[("[]",)], columns=("operations",)
+        )
+        mock_pm().sync_local_files.return_value = mock_from_resource()
+        mock_pm.load_manifest.return_value = DCMManifest.from_dict(
+            {
+                "manifest_version": "2.0",
+                "type": "dcm_project",
+                "default_target": "dev",
+                "targets": {"dev": {"project_name": "my_project"}},
+            }
+        )
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "deploy", "--target", "dev"])
+
+        assert result.exit_code == 0, result.output
+        mock_pm().deploy.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            configuration=None,
+            from_stage=mock_from_resource(),
+            variables=None,
+            alias=None,
+            skip_plan=False,
+        )
+
+    @mock.patch(DCMProjectManager)
+    def test_deploy_with_default_target(
+        self,
+        mock_pm,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_from_resource,
+    ):
+        from snowflake.cli._plugins.dcm.manager import DCMManifest
+
+        mock_pm().deploy.return_value = mock_cursor(
+            rows=[("[]",)], columns=("operations",)
+        )
+        mock_pm().sync_local_files.return_value = mock_from_resource()
+        mock_pm.load_manifest.return_value = DCMManifest.from_dict(
+            {
+                "manifest_version": "2.0",
+                "type": "dcm_project",
+                "default_target": "dev",
+                "targets": {"dev": {"project_name": "my_project"}},
+            }
+        )
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "deploy"])
+
+        assert result.exit_code == 0, result.output
+        mock_pm().deploy.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            configuration=None,
+            from_stage=mock_from_resource(),
+            variables=None,
+            alias=None,
+            skip_plan=False,
+        )
+
+    @mock.patch(DCMProjectManager)
+    def test_deploy_explicit_identifier_overrides_target(
+        self,
+        mock_pm,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_from_resource,
+    ):
+        mock_pm().deploy.return_value = mock_cursor(
+            rows=[("[]",)], columns=("operations",)
+        )
+        mock_pm().sync_local_files.return_value = mock_from_resource()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "deploy", "explicit_project", "--target", "dev"]
+            )
+
+        assert result.exit_code == 0, result.output
+        mock_pm().deploy.assert_called_once_with(
+            project_identifier=FQN.from_string("explicit_project"),
+            configuration=None,
+            from_stage=mock_from_resource(),
+            variables=None,
+            alias=None,
+            skip_plan=False,
+        )
+
+    @mock.patch(DCMProjectManager)
+    def test_deploy_with_target_uses_configuration(
+        self,
+        mock_pm,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_from_resource,
+    ):
+        from snowflake.cli._plugins.dcm.manager import DCMManifest
+
+        mock_pm().deploy.return_value = mock_cursor(
+            rows=[("[]",)], columns=("operations",)
+        )
+        mock_pm().sync_local_files.return_value = mock_from_resource()
+        mock_pm.load_manifest.return_value = DCMManifest.from_dict(
+            {
+                "manifest_version": "2.0",
+                "type": "dcm_project",
+                "default_target": "dev",
+                "targets": {
+                    "dev": {
+                        "project_name": "my_project",
+                        "templating_config": "dev_config",
+                    }
+                },
+                "templating": {"configurations": {"dev_config": {}}},
+            }
+        )
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "deploy", "--target", "dev"])
+
+        assert result.exit_code == 0, result.output
+        mock_pm().deploy.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            configuration="dev_config",
+            from_stage=mock_from_resource(),
+            variables=None,
+            alias=None,
+            skip_plan=False,
+        )
+
+    @mock.patch(DCMProjectManager)
+    def test_refresh_with_target_flag(
+        self, mock_pm, runner, mock_cursor, project_directory
+    ):
+        from snowflake.cli._plugins.dcm.manager import DCMManifest
+
+        refresh_result = {"refreshed_tables": []}
+        mock_pm().refresh.return_value = mock_cursor(
+            rows=[(json.dumps(refresh_result),)], columns=("result",)
+        )
+        mock_pm.load_manifest.return_value = DCMManifest.from_dict(
+            {
+                "manifest_version": "2.0",
+                "type": "dcm_project",
+                "targets": {"dev": {"project_name": "my_project"}},
+            }
+        )
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "refresh", "--target", "dev"])
+
+        assert result.exit_code == 0, result.output
+        mock_pm().refresh.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project")
+        )
+
+    @mock.patch(DCMProjectManager)
+    def test_test_with_target_flag(
+        self, mock_pm, runner, mock_cursor, project_directory
+    ):
+        from snowflake.cli._plugins.dcm.manager import DCMManifest
+
+        test_result = {"expectations": []}
+        mock_pm().test.return_value = mock_cursor(
+            rows=[(json.dumps(test_result),)], columns=("result",)
+        )
+        mock_pm.load_manifest.return_value = DCMManifest.from_dict(
+            {
+                "manifest_version": "2.0",
+                "type": "dcm_project",
+                "targets": {"dev": {"project_name": "my_project"}},
+            }
+        )
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "test", "--target", "dev"])
+
+        assert result.exit_code == 0, result.output
+        mock_pm().test.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project")
+        )
+
+    @mock.patch(DCMProjectManager)
+    def test_list_deployments_with_target_flag(
+        self, mock_pm, runner, mock_cursor, project_directory
+    ):
+        from snowflake.cli._plugins.dcm.manager import DCMManifest
+
+        mock_pm().list_deployments.return_value = mock_cursor(
+            rows=[], columns=("name",)
+        )
+        mock_pm.load_manifest.return_value = DCMManifest.from_dict(
+            {
+                "manifest_version": "2.0",
+                "type": "dcm_project",
+                "targets": {"dev": {"project_name": "my_project"}},
+            }
+        )
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "list-deployments", "--target", "dev"])
+
+        assert result.exit_code == 0, result.output
+        mock_pm().list_deployments.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project")
+        )
+
+    @mock.patch(DCMProjectManager)
+    @mock.patch(ObjectManager)
+    def test_create_with_target_flag(self, mock_om, mock_pm, runner, project_directory):
+        from snowflake.cli._plugins.dcm.manager import DCMManifest
+
+        mock_om().object_exists.return_value = False
+        mock_pm.load_manifest.return_value = DCMManifest.from_dict(
+            {
+                "manifest_version": "2.0",
+                "type": "dcm_project",
+                "targets": {"dev": {"project_name": "my_project"}},
+            }
+        )
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "create", "--target", "dev"])
+
+        assert result.exit_code == 0, result.output
+        mock_pm().create.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project")
+        )
