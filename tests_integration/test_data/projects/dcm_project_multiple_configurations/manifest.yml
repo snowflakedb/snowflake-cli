@@ -1,6 +1,20 @@
 manifest_version: "2.0"
 type: "dcm_project"
 
+default_target: dev
+
+targets:
+  dev:
+    project_name: "project_descriptive_name"
+    templating_config: "dev"
+    output_path: "out/"
+  test:
+    project_name: "project_descriptive_name"
+    templating_config: "test"
+  prod:
+    project_name: "project_descriptive_name"
+    templating_config: "prod"
+
 templating:
   global_variables:
     base_suffix: "_default"

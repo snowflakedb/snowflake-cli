@@ -10,6 +10,7 @@ from snowflake.cli._plugins.dcm.manager import (
     REQUIRED_MANIFEST_VERSION,
     DCMManifest,
     DCMProjectManager,
+    DCMTarget,
     DCMTemplating,
 )
 from snowflake.cli.api.constants import PatternMatchingType
@@ -369,8 +370,44 @@ class TestDCMManifest:
 
         assert manifest.manifest_version == "2.0"
         assert manifest.project_type == "dcm_project"
+        assert manifest.default_target is None
+        assert manifest.targets == {}
         assert manifest.templating.global_variables == {}
         assert manifest.templating.configurations == {}
+
+    def test_manifest_from_dict_with_targets(self):
+        data = {
+            "manifest_version": "2.0",
+            "type": "dcm_project",
+            "default_target": "DEV",
+            "targets": {
+                "DEV": {
+                    "project_name": "DB.SCHEMA.PROJECT_DEV",
+                    "templating_config": "dev",
+                    "output_path": "out/",
+                },
+                "PROD": {
+                    "project_name": "DB.SCHEMA.PROJECT_PROD",
+                    "templating_config": "prod",
+                },
+            },
+            "templating": {
+                "configurations": {
+                    "dev": {"suffix": "_dev"},
+                    "prod": {"suffix": ""},
+                },
+            },
+        }
+        manifest = DCMManifest.from_dict(data)
+
+        assert manifest.default_target == "DEV"
+        assert len(manifest.targets) == 2
+        assert manifest.targets["DEV"].project_name == "DB.SCHEMA.PROJECT_DEV"
+        assert manifest.targets["DEV"].templating_config == "dev"
+        assert manifest.targets["DEV"].output_path == "out/"
+        assert manifest.targets["PROD"].project_name == "DB.SCHEMA.PROJECT_PROD"
+        assert manifest.targets["PROD"].templating_config == "prod"
+        assert manifest.targets["PROD"].output_path is None
 
     def test_manifest_from_dict_with_templating(self):
         data = {
@@ -414,8 +451,104 @@ class TestDCMManifest:
         config_names = manifest.get_configuration_names()
         assert set(config_names) == {"dev", "staging", "prod"}
 
+    def test_manifest_get_target_names(self):
+        data = {
+            "manifest_version": "2.0",
+            "type": "dcm_project",
+            "targets": {
+                "DEV": {"project_name": "P1"},
+                "PROD": {"project_name": "P2"},
+            },
+        }
+        manifest = DCMManifest.from_dict(data)
+
+        target_names = manifest.get_target_names()
+        assert set(target_names) == {"DEV", "PROD"}
+
+    def test_manifest_get_target(self):
+        data = {
+            "manifest_version": "2.0",
+            "type": "dcm_project",
+            "targets": {
+                "DEV": {"project_name": "DB.SCHEMA.PROJECT_DEV"},
+            },
+        }
+        manifest = DCMManifest.from_dict(data)
+
+        target = manifest.get_target("DEV")
+        assert target.project_name == "DB.SCHEMA.PROJECT_DEV"
+
+    def test_manifest_get_target_not_found(self):
+        data = {
+            "manifest_version": "2.0",
+            "type": "dcm_project",
+            "targets": {},
+        }
+        manifest = DCMManifest.from_dict(data)
+
+        with pytest.raises(CliError, match="Target 'UNKNOWN' not found in manifest"):
+            manifest.get_target("UNKNOWN")
+
+    def test_manifest_get_effective_target_explicit(self):
+        data = {
+            "manifest_version": "2.0",
+            "type": "dcm_project",
+            "default_target": "DEV",
+            "targets": {
+                "DEV": {"project_name": "P1"},
+                "PROD": {"project_name": "P2"},
+            },
+        }
+        manifest = DCMManifest.from_dict(data)
+
+        target = manifest.get_effective_target("PROD")
+        assert target.project_name == "P2"
+
+    def test_manifest_get_effective_target_uses_default(self):
+        data = {
+            "manifest_version": "2.0",
+            "type": "dcm_project",
+            "default_target": "DEV",
+            "targets": {
+                "DEV": {"project_name": "P1"},
+                "PROD": {"project_name": "P2"},
+            },
+        }
+        manifest = DCMManifest.from_dict(data)
+
+        target = manifest.get_effective_target()
+        assert target.project_name == "P1"
+
+    def test_manifest_get_effective_target_no_default(self):
+        data = {
+            "manifest_version": "2.0",
+            "type": "dcm_project",
+            "targets": {
+                "DEV": {"project_name": "P1"},
+            },
+        }
+        manifest = DCMManifest.from_dict(data)
+
+        with pytest.raises(
+            CliError, match="No target specified and no default_target defined"
+        ):
+            manifest.get_effective_target()
+
     def test_manifest_validate_success(self):
         data = {"manifest_version": "2.0", "type": "dcm_project"}
+        manifest = DCMManifest.from_dict(data)
+        manifest.validate()
+
+    def test_manifest_validate_with_targets_success(self):
+        data = {
+            "manifest_version": "2.0",
+            "type": "dcm_project",
+            "default_target": "DEV",
+            "targets": {
+                "DEV": {"project_name": "P1", "templating_config": "dev"},
+            },
+            "templating": {"configurations": {"dev": {}}},
+        }
         manifest = DCMManifest.from_dict(data)
         manifest.validate()
 
@@ -442,6 +575,47 @@ class TestDCMManifest:
         with pytest.raises(CliError, match="Manifest version '1.0' is not supported"):
             manifest.validate()
 
+    def test_manifest_validate_invalid_default_target(self):
+        data = {
+            "manifest_version": "2.0",
+            "type": "dcm_project",
+            "default_target": "UNKNOWN",
+            "targets": {"DEV": {"project_name": "P1"}},
+        }
+        manifest = DCMManifest.from_dict(data)
+
+        with pytest.raises(
+            CliError, match="Default target 'UNKNOWN' not found in targets"
+        ):
+            manifest.validate()
+
+    def test_manifest_validate_target_missing_project_name(self):
+        data = {
+            "manifest_version": "2.0",
+            "type": "dcm_project",
+            "targets": {"DEV": {}},
+        }
+        manifest = DCMManifest.from_dict(data)
+
+        with pytest.raises(
+            CliError, match="Target 'DEV' is missing required 'project_name' field"
+        ):
+            manifest.validate()
+
+    def test_manifest_validate_target_unknown_configuration(self):
+        data = {
+            "manifest_version": "2.0",
+            "type": "dcm_project",
+            "targets": {"DEV": {"project_name": "P1", "templating_config": "unknown"}},
+            "templating": {"configurations": {"dev": {}}},
+        }
+        manifest = DCMManifest.from_dict(data)
+
+        with pytest.raises(
+            CliError, match="Target 'DEV' references unknown configuration 'unknown'"
+        ):
+            manifest.validate()
+
 
 class TestDCMTemplating:
     def test_templating_from_dict_none(self):
@@ -465,6 +639,28 @@ class TestDCMTemplating:
 
         assert templating.global_variables == {"key": "value"}
         assert templating.configurations == {"dev": {"suffix": "_dev"}}
+
+
+class TestDCMTarget:
+    def test_target_from_dict_minimal(self):
+        data = {"project_name": "DB.SCHEMA.MY_PROJECT"}
+        target = DCMTarget.from_dict(data)
+
+        assert target.project_name == "DB.SCHEMA.MY_PROJECT"
+        assert target.templating_config is None
+        assert target.output_path is None
+
+    def test_target_from_dict_full(self):
+        data = {
+            "project_name": "DB.SCHEMA.MY_PROJECT",
+            "templating_config": "dev",
+            "output_path": "out/",
+        }
+        target = DCMTarget.from_dict(data)
+
+        assert target.project_name == "DB.SCHEMA.MY_PROJECT"
+        assert target.templating_config == "dev"
+        assert target.output_path == "out/"
 
 
 class TestSyncLocalFiles:

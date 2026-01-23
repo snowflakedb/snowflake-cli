@@ -60,18 +60,44 @@ class DCMTemplating:
 
 
 @dataclass
+class DCMTarget:
+    """Target configuration for DCM manifest v2."""
+
+    project_name: str
+    templating_config: Optional[str] = None
+    output_path: Optional[str] = None
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "DCMTarget":
+        return cls(
+            project_name=data.get("project_name", ""),
+            templating_config=data.get("templating_config"),
+            output_path=data.get("output_path"),
+        )
+
+
+@dataclass
 class DCMManifest:
     """DCM manifest v2 structure."""
 
     manifest_version: str
     project_type: str
+    default_target: Optional[str] = None
+    targets: Dict[str, DCMTarget] = field(default_factory=dict)
     templating: DCMTemplating = field(default_factory=DCMTemplating)
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "DCMManifest":
+        targets_data = data.get("targets", {})
+        targets = {
+            name: DCMTarget.from_dict(target_data)
+            for name, target_data in targets_data.items()
+        }
         return cls(
             manifest_version=str(data.get("manifest_version", "")),
             project_type=data.get("type", ""),
+            default_target=data.get("default_target"),
+            targets=targets,
             templating=DCMTemplating.from_dict(data.get("templating")),
         )
 
@@ -89,10 +115,46 @@ class DCMManifest:
             raise CliError(
                 f"Manifest version '{self.manifest_version}' is not supported. Expected {REQUIRED_MANIFEST_VERSION}."
             )
+        # Validate default_target references an existing target
+        if self.default_target and self.default_target not in self.targets:
+            raise CliError(
+                f"Default target '{self.default_target}' not found in targets."
+            )
+        # Validate targets reference existing configurations
+        for target_name, target in self.targets.items():
+            if not target.project_name:
+                raise CliError(
+                    f"Target '{target_name}' is missing required 'project_name' field."
+                )
+            if (
+                target.templating_config
+                and target.templating_config not in self.templating.configurations
+            ):
+                raise CliError(
+                    f"Target '{target_name}' references unknown configuration '{target.templating_config}'."
+                )
 
     def get_configuration_names(self) -> List[str]:
         """Return list of available configuration names."""
         return list(self.templating.configurations.keys())
+
+    def get_target_names(self) -> List[str]:
+        """Return list of available target names."""
+        return list(self.targets.keys())
+
+    def get_target(self, target_name: str) -> DCMTarget:
+        """Get a specific target by name."""
+        if target_name not in self.targets:
+            raise CliError(f"Target '{target_name}' not found in manifest.")
+        return self.targets[target_name]
+
+    def get_effective_target(self, target_name: Optional[str] = None) -> DCMTarget:
+        """Get effective target - specified target or default."""
+        if target_name:
+            return self.get_target(target_name)
+        if self.default_target:
+            return self.get_target(self.default_target)
+        raise CliError("No target specified and no default_target defined in manifest.")
 
 
 class DCMProjectManager(SqlExecutionMixin):
