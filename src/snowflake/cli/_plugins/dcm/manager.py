@@ -36,6 +36,9 @@ from snowflake.cli.api.utils.path_utils import is_stage_path
 
 MANIFEST_FILE_NAME = "manifest.yml"
 DCM_PROJECT_TYPE = "dcm_project"
+DEFINITIONS_FOLDER = "definitions"
+MACROS_FOLDER = "macros"
+REQUIRED_MANIFEST_VERSION = "2.0"
 
 
 class DCMProjectManager(SqlExecutionMixin):
@@ -201,28 +204,33 @@ class DCMProjectManager(SqlExecutionMixin):
         dcm_manifest_file = source_path / MANIFEST_FILE_NAME
         if not dcm_manifest_file.exists():
             raise CliError(
-                f"{MANIFEST_FILE_NAME} was not found in directory {source_path.path}"
+                f"{MANIFEST_FILE_NAME} was not found in directory {source_path.path}."
             )
 
         with dcm_manifest_file.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
             dcm_manifest = yaml.safe_load(fd)
-            object_type = dcm_manifest.get("type") if dcm_manifest else None
+            if not dcm_manifest:
+                raise CliError(f"Manifest file is empty or invalid.")
+
+            object_type = dcm_manifest.get("type")
             if object_type is None:
                 raise CliError(
-                    f"Manifest file type is undefined. Expected {DCM_PROJECT_TYPE}"
+                    f"Manifest file type is undefined. Expected {DCM_PROJECT_TYPE}."
                 )
             if object_type.lower() != DCM_PROJECT_TYPE:
                 raise CliError(
-                    f"Manifest file is defined for type {object_type}. Expected {DCM_PROJECT_TYPE}"
+                    f"Manifest file is defined for type {object_type}. Expected {DCM_PROJECT_TYPE}."
                 )
 
-            definitions = list(dcm_manifest.get("include_definitions", list()))
-            if MANIFEST_FILE_NAME not in definitions:
-                # append manifest file, but avoid sending it multiple times if
-                # there are manifests from previous runs stored in output path
-                definitions.append(rf"^{MANIFEST_FILE_NAME}")
+            manifest_version = str(dcm_manifest.get("manifest_version", ""))
+            if manifest_version != REQUIRED_MANIFEST_VERSION:
+                raise CliError(
+                    f"Manifest version '{manifest_version}' is not supported. Expected {REQUIRED_MANIFEST_VERSION}."
+                )
 
-        with cli_console.phase(f"Uploading definition files"):
+        artifacts = DCMProjectManager._collect_artifacts(source_path.path)
+
+        with cli_console.phase("Uploading definition files"):
             stage_fqn = FQN.from_resource(
                 ObjectType.DCM_PROJECT, project_identifier, "TMP_STAGE"
             )
@@ -230,8 +238,33 @@ class DCMProjectManager(SqlExecutionMixin):
                 project_paths=ProjectPaths(project_root=source_path.path),
                 stage_root=stage_fqn.identifier,
                 use_temporary_stage=True,
-                artifacts=[PathMapping(src=definition) for definition in definitions],
-                pattern_type=PatternMatchingType.REGEX,
+                artifacts=artifacts,
+                pattern_type=PatternMatchingType.GLOB,
             )
 
         return stage_fqn.identifier
+
+    @staticmethod
+    def _collect_artifacts(source_path: Path) -> List[PathMapping]:
+        """Collect all artifacts from definitions/, macros/ folders and manifest.yml."""
+        artifacts: List[PathMapping] = []
+
+        # Add manifest file
+        artifacts.append(PathMapping(src=MANIFEST_FILE_NAME))
+
+        # Add all .sql files from definitions/ folder recursively
+        definitions_path = source_path / DEFINITIONS_FOLDER
+        if definitions_path.exists() and definitions_path.is_dir():
+            for sql_file in definitions_path.rglob("*.sql"):
+                relative_path = sql_file.relative_to(source_path)
+                artifacts.append(PathMapping(src=str(relative_path)))
+
+        # Add all files from macros/ folder recursively
+        macros_path = source_path / MACROS_FOLDER
+        if macros_path.exists() and macros_path.is_dir():
+            for macro_file in macros_path.rglob("*"):
+                if macro_file.is_file():
+                    relative_path = macro_file.relative_to(source_path)
+                    artifacts.append(PathMapping(src=str(relative_path)))
+
+        return artifacts

@@ -7,12 +7,12 @@ import yaml
 from snowflake.cli._plugins.dcm.manager import (
     DCM_PROJECT_TYPE,
     MANIFEST_FILE_NAME,
+    REQUIRED_MANIFEST_VERSION,
     DCMProjectManager,
 )
 from snowflake.cli.api.constants import PatternMatchingType
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.project.schemas.entities.common import PathMapping
 
 execute_queries = "snowflake.cli._plugins.dcm.manager.DCMProjectManager.execute_query"
 TEST_STAGE = FQN.from_stage("@test_stage")
@@ -370,31 +370,53 @@ class TestSyncLocalFiles:
             ):
                 DCMProjectManager.sync_local_files(project_identifier=TEST_PROJECT)
 
-    def test_raises_when_manifest_file_has_no_type(self, project_directory):
+    def test_raises_when_manifest_file_is_empty(self, project_directory):
         with project_directory("dcm_project") as project_dir:
             (project_dir / MANIFEST_FILE_NAME).unlink()
             (project_dir / MANIFEST_FILE_NAME).touch()
             with pytest.raises(
                 CliError,
-                match=f"Manifest file type is undefined. Expected {DCM_PROJECT_TYPE}",
+                match="Manifest file is empty or invalid",
             ):
                 DCMProjectManager.sync_local_files(project_identifier=TEST_PROJECT)
 
+    def test_raises_when_manifest_file_has_no_type(self, project_directory):
+        with project_directory("dcm_project") as project_dir:
             with open((project_dir / MANIFEST_FILE_NAME), "w") as f:
-                yaml.dump({"definition": "v1"}, f)
+                yaml.dump({"manifest_version": "2.0", "definition": "v1"}, f)
             with pytest.raises(
                 CliError,
                 match=f"Manifest file type is undefined. Expected {DCM_PROJECT_TYPE}",
             ):
                 DCMProjectManager.sync_local_files(project_identifier=TEST_PROJECT)
 
-    def test_raises_when_manifest_file_is_invalid(self, project_directory):
+    def test_raises_when_manifest_file_has_wrong_type(self, project_directory):
         with project_directory("dcm_project") as project_dir:
             with open((project_dir / MANIFEST_FILE_NAME), "w") as f:
-                yaml.dump({"type": "spcs"}, f)
+                yaml.dump({"manifest_version": "2.0", "type": "spcs"}, f)
             with pytest.raises(
                 CliError,
                 match=f"Manifest file is defined for type spcs. Expected {DCM_PROJECT_TYPE}",
+            ):
+                DCMProjectManager.sync_local_files(project_identifier=TEST_PROJECT)
+
+    def test_raises_when_manifest_version_is_invalid(self, project_directory):
+        with project_directory("dcm_project") as project_dir:
+            with open((project_dir / MANIFEST_FILE_NAME), "w") as f:
+                yaml.dump({"manifest_version": "1", "type": "dcm_project"}, f)
+            with pytest.raises(
+                CliError,
+                match=f"Manifest version '1' is not supported. Expected {REQUIRED_MANIFEST_VERSION}",
+            ):
+                DCMProjectManager.sync_local_files(project_identifier=TEST_PROJECT)
+
+    def test_raises_when_manifest_version_is_missing(self, project_directory):
+        with project_directory("dcm_project") as project_dir:
+            with open((project_dir / MANIFEST_FILE_NAME), "w") as f:
+                yaml.dump({"type": "dcm_project"}, f)
+            with pytest.raises(
+                CliError,
+                match=f"Manifest version '' is not supported. Expected {REQUIRED_MANIFEST_VERSION}",
             ):
                 DCMProjectManager.sync_local_files(project_identifier=TEST_PROJECT)
 
@@ -409,21 +431,22 @@ class TestSyncLocalFiles:
         mock_cursor,
         mock_from_resource,
     ):
-
         with project_directory("dcm_project") as project_dir:
             DCMProjectManager.sync_local_files(project_identifier=TEST_PROJECT)
 
             mock_sync_artifacts_with_stage.assert_called_once()
 
-            # due to Windows and inconsistent path resolution in unit tests,
-            # we need to verify call arguments individually, with simplified path comparison
             call_args = mock_sync_artifacts_with_stage.call_args
             assert call_args.kwargs["stage_root"] == str(mock_from_resource())
-            assert call_args.kwargs["artifacts"] == [
-                PathMapping(src="definitions/my_query.sql"),
-                PathMapping(src="^manifest.yml", dest=None, processors=[]),
-            ]
-            assert call_args.kwargs["pattern_type"] == PatternMatchingType.REGEX
+
+            # V2 manifest uses convention-based folders - all .sql files in definitions/
+            artifacts = call_args.kwargs["artifacts"]
+            artifact_srcs = {a.src for a in artifacts}
+            assert MANIFEST_FILE_NAME in artifact_srcs
+            # Check that definitions folder files are included
+            assert any("definitions" in src for src in artifact_srcs)
+
+            assert call_args.kwargs["pattern_type"] == PatternMatchingType.GLOB
             assert call_args.kwargs["use_temporary_stage"] is True
 
             actual_project_root = call_args.kwargs["project_paths"].project_root
@@ -445,14 +468,14 @@ class TestSyncLocalFiles:
         source_dir.mkdir()
 
         manifest_content = {
+            "manifest_version": "2.0",
             "type": "dcm_project",
-            "include_definitions": ["definitions/custom_query.sql"],
         }
         manifest_file = source_dir / MANIFEST_FILE_NAME
         with open(manifest_file, "w") as f:
             yaml.dump(manifest_content, f)
 
-        # Create the definition file
+        # Create the definition file in definitions/ folder
         definitions_dir = source_dir / "definitions"
         definitions_dir.mkdir()
         (definitions_dir / "custom_query.sql").write_text("SELECT 1;")
@@ -465,6 +488,14 @@ class TestSyncLocalFiles:
         call_args = mock_sync_artifacts_with_stage.call_args
         actual_project_root = call_args.kwargs["project_paths"].project_root
         assert actual_project_root.resolve() == source_dir.resolve()
+
+        # Verify artifacts include the definitions file
+        artifacts = call_args.kwargs["artifacts"]
+        artifact_srcs = [a.src for a in artifacts]
+        assert MANIFEST_FILE_NAME in artifact_srcs
+        assert any(
+            "definitions" in src and "custom_query.sql" in src for src in artifact_srcs
+        )
 
     @mock.patch("snowflake.cli._plugins.dcm.manager.sync_artifacts_with_stage")
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
@@ -482,7 +513,7 @@ class TestSyncLocalFiles:
 
         manifest_file = source_dir / MANIFEST_FILE_NAME
         with open(manifest_file, "w") as f:
-            yaml.dump({"type": "dcm_project"}, f)
+            yaml.dump({"manifest_version": "2.0", "type": "dcm_project"}, f)
 
         original_cwd = os.getcwd()
         try:
@@ -490,7 +521,7 @@ class TestSyncLocalFiles:
 
             DCMProjectManager.sync_local_files(
                 project_identifier=TEST_PROJECT,
-                source_directory="relative_source",  # relative path
+                source_directory="relative_source",
             )
 
             mock_sync_artifacts_with_stage.assert_called_once()
@@ -501,3 +532,47 @@ class TestSyncLocalFiles:
             assert actual_project_root.resolve() == source_dir.resolve()
         finally:
             os.chdir(original_cwd)
+
+    @mock.patch("snowflake.cli._plugins.dcm.manager.sync_artifacts_with_stage")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
+    def test_sync_local_files_includes_macros_folder(
+        self,
+        _mock_create_stage,
+        mock_sync_artifacts_with_stage,
+        tmp_path,
+        mock_connect,
+        mock_cursor,
+        mock_from_resource,
+    ):
+        source_dir = tmp_path / "project_with_macros"
+        source_dir.mkdir()
+
+        manifest_file = source_dir / MANIFEST_FILE_NAME
+        with open(manifest_file, "w") as f:
+            yaml.dump({"manifest_version": "2.0", "type": "dcm_project"}, f)
+
+        # Create definitions folder with SQL files
+        definitions_dir = source_dir / "definitions"
+        definitions_dir.mkdir()
+        (definitions_dir / "table.sql").write_text("SELECT 1;")
+
+        # Create macros folder with macro files
+        macros_dir = source_dir / "macros"
+        macros_dir.mkdir()
+        (macros_dir / "helpers.sql").write_text("-- macro")
+        (macros_dir / "utils.jinja").write_text("{% macro test() %}{% endmacro %}")
+
+        DCMProjectManager.sync_local_files(
+            project_identifier=TEST_PROJECT, source_directory=str(source_dir)
+        )
+
+        mock_sync_artifacts_with_stage.assert_called_once()
+        call_args = mock_sync_artifacts_with_stage.call_args
+
+        artifacts = call_args.kwargs["artifacts"]
+        artifact_srcs = [a.src for a in artifacts]
+
+        assert MANIFEST_FILE_NAME in artifact_srcs
+        assert any("definitions" in src and "table.sql" in src for src in artifact_srcs)
+        assert any("macros" in src and "helpers.sql" in src for src in artifact_srcs)
+        assert any("macros" in src and "utils.jinja" in src for src in artifact_srcs)
