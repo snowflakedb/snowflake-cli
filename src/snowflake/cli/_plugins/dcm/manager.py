@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from contextlib import contextmanager, nullcontext
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Generator, List
+from typing import Any, Dict, Generator, List, Optional
 
 import yaml
 from snowflake.cli._plugins.stage.manager import StageManager
@@ -39,6 +40,59 @@ DCM_PROJECT_TYPE = "dcm_project"
 DEFINITIONS_FOLDER = "definitions"
 MACROS_FOLDER = "macros"
 REQUIRED_MANIFEST_VERSION = "2.0"
+
+
+@dataclass
+class DCMTemplating:
+    """Templating configuration for DCM manifest v2."""
+
+    global_variables: Dict[str, Any] = field(default_factory=dict)
+    configurations: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, data: Optional[Dict[str, Any]]) -> "DCMTemplating":
+        if not data:
+            return cls()
+        return cls(
+            global_variables=data.get("global_variables", {}),
+            configurations=data.get("configurations", {}),
+        )
+
+
+@dataclass
+class DCMManifest:
+    """DCM manifest v2 structure."""
+
+    manifest_version: str
+    project_type: str
+    templating: DCMTemplating = field(default_factory=DCMTemplating)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "DCMManifest":
+        return cls(
+            manifest_version=str(data.get("manifest_version", "")),
+            project_type=data.get("type", ""),
+            templating=DCMTemplating.from_dict(data.get("templating")),
+        )
+
+    def validate(self) -> None:
+        """Validate the manifest structure."""
+        if not self.project_type:
+            raise CliError(
+                f"Manifest file type is undefined. Expected {DCM_PROJECT_TYPE}."
+            )
+        if self.project_type.lower() != DCM_PROJECT_TYPE:
+            raise CliError(
+                f"Manifest file is defined for type {self.project_type}. Expected {DCM_PROJECT_TYPE}."
+            )
+        if self.manifest_version != REQUIRED_MANIFEST_VERSION:
+            raise CliError(
+                f"Manifest version '{self.manifest_version}' is not supported. Expected {REQUIRED_MANIFEST_VERSION}."
+            )
+
+    def get_configuration_names(self) -> List[str]:
+        """Return list of available configuration names."""
+        return list(self.templating.configurations.keys())
 
 
 class DCMProjectManager(SqlExecutionMixin):
@@ -192,6 +246,24 @@ class DCMProjectManager(SqlExecutionMixin):
         return query
 
     @staticmethod
+    def load_manifest(source_path: SecurePath) -> DCMManifest:
+        """Load and validate manifest from the given path."""
+        dcm_manifest_file = source_path / MANIFEST_FILE_NAME
+        if not dcm_manifest_file.exists():
+            raise CliError(
+                f"{MANIFEST_FILE_NAME} was not found in directory {source_path.path}."
+            )
+
+        with dcm_manifest_file.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
+            data = yaml.safe_load(fd)
+            if not data:
+                raise CliError("Manifest file is empty or invalid.")
+
+            manifest = DCMManifest.from_dict(data)
+            manifest.validate()
+            return manifest
+
+    @staticmethod
     def sync_local_files(
         project_identifier: FQN, source_directory: str | None = None
     ) -> str:
@@ -201,32 +273,7 @@ class DCMProjectManager(SqlExecutionMixin):
             else SecurePath.cwd()
         )
 
-        dcm_manifest_file = source_path / MANIFEST_FILE_NAME
-        if not dcm_manifest_file.exists():
-            raise CliError(
-                f"{MANIFEST_FILE_NAME} was not found in directory {source_path.path}."
-            )
-
-        with dcm_manifest_file.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
-            dcm_manifest = yaml.safe_load(fd)
-            if not dcm_manifest:
-                raise CliError(f"Manifest file is empty or invalid.")
-
-            object_type = dcm_manifest.get("type")
-            if object_type is None:
-                raise CliError(
-                    f"Manifest file type is undefined. Expected {DCM_PROJECT_TYPE}."
-                )
-            if object_type.lower() != DCM_PROJECT_TYPE:
-                raise CliError(
-                    f"Manifest file is defined for type {object_type}. Expected {DCM_PROJECT_TYPE}."
-                )
-
-            manifest_version = str(dcm_manifest.get("manifest_version", ""))
-            if manifest_version != REQUIRED_MANIFEST_VERSION:
-                raise CliError(
-                    f"Manifest version '{manifest_version}' is not supported. Expected {REQUIRED_MANIFEST_VERSION}."
-                )
+        DCMProjectManager.load_manifest(source_path)
 
         artifacts = DCMProjectManager._collect_artifacts(source_path.path)
 

@@ -8,7 +8,9 @@ from snowflake.cli._plugins.dcm.manager import (
     DCM_PROJECT_TYPE,
     MANIFEST_FILE_NAME,
     REQUIRED_MANIFEST_VERSION,
+    DCMManifest,
     DCMProjectManager,
+    DCMTemplating,
 )
 from snowflake.cli.api.constants import PatternMatchingType
 from snowflake.cli.api.exceptions import CliError
@@ -360,6 +362,111 @@ def test_deploy_project_with_alias_special_characters(
     )
 
 
+class TestDCMManifest:
+    def test_manifest_from_dict_minimal(self):
+        data = {"manifest_version": "2.0", "type": "dcm_project"}
+        manifest = DCMManifest.from_dict(data)
+
+        assert manifest.manifest_version == "2.0"
+        assert manifest.project_type == "dcm_project"
+        assert manifest.templating.global_variables == {}
+        assert manifest.templating.configurations == {}
+
+    def test_manifest_from_dict_with_templating(self):
+        data = {
+            "manifest_version": "2.0",
+            "type": "dcm_project",
+            "templating": {
+                "global_variables": {"db_name": "shared_db", "retry_count": 3},
+                "configurations": {
+                    "dev": {"wh_size": "XSMALL", "suffix": "_dev"},
+                    "prod": {"wh_size": "LARGE", "suffix": ""},
+                },
+            },
+        }
+        manifest = DCMManifest.from_dict(data)
+
+        assert manifest.manifest_version == "2.0"
+        assert manifest.project_type == "dcm_project"
+        assert manifest.templating.global_variables == {
+            "db_name": "shared_db",
+            "retry_count": 3,
+        }
+        assert manifest.templating.configurations == {
+            "dev": {"wh_size": "XSMALL", "suffix": "_dev"},
+            "prod": {"wh_size": "LARGE", "suffix": ""},
+        }
+
+    def test_manifest_get_configuration_names(self):
+        data = {
+            "manifest_version": "2.0",
+            "type": "dcm_project",
+            "templating": {
+                "configurations": {
+                    "dev": {"suffix": "_dev"},
+                    "staging": {"suffix": "_stg"},
+                    "prod": {"suffix": ""},
+                },
+            },
+        }
+        manifest = DCMManifest.from_dict(data)
+
+        config_names = manifest.get_configuration_names()
+        assert set(config_names) == {"dev", "staging", "prod"}
+
+    def test_manifest_validate_success(self):
+        data = {"manifest_version": "2.0", "type": "dcm_project"}
+        manifest = DCMManifest.from_dict(data)
+        manifest.validate()
+
+    def test_manifest_validate_missing_type(self):
+        data = {"manifest_version": "2.0", "type": ""}
+        manifest = DCMManifest.from_dict(data)
+
+        with pytest.raises(CliError, match="Manifest file type is undefined"):
+            manifest.validate()
+
+    def test_manifest_validate_wrong_type(self):
+        data = {"manifest_version": "2.0", "type": "wrong_type"}
+        manifest = DCMManifest.from_dict(data)
+
+        with pytest.raises(
+            CliError, match="Manifest file is defined for type wrong_type"
+        ):
+            manifest.validate()
+
+    def test_manifest_validate_wrong_version(self):
+        data = {"manifest_version": "1.0", "type": "dcm_project"}
+        manifest = DCMManifest.from_dict(data)
+
+        with pytest.raises(CliError, match="Manifest version '1.0' is not supported"):
+            manifest.validate()
+
+
+class TestDCMTemplating:
+    def test_templating_from_dict_none(self):
+        templating = DCMTemplating.from_dict(None)
+
+        assert templating.global_variables == {}
+        assert templating.configurations == {}
+
+    def test_templating_from_dict_empty(self):
+        templating = DCMTemplating.from_dict({})
+
+        assert templating.global_variables == {}
+        assert templating.configurations == {}
+
+    def test_templating_from_dict_with_data(self):
+        data = {
+            "global_variables": {"key": "value"},
+            "configurations": {"dev": {"suffix": "_dev"}},
+        }
+        templating = DCMTemplating.from_dict(data)
+
+        assert templating.global_variables == {"key": "value"}
+        assert templating.configurations == {"dev": {"suffix": "_dev"}}
+
+
 class TestSyncLocalFiles:
     def test_raises_when_manifest_file_is_missing(self, project_directory):
         with project_directory("dcm_project") as project_dir:
@@ -576,3 +683,46 @@ class TestSyncLocalFiles:
         assert any("definitions" in src and "table.sql" in src for src in artifact_srcs)
         assert any("macros" in src and "helpers.sql" in src for src in artifact_srcs)
         assert any("macros" in src and "utils.jinja" in src for src in artifact_srcs)
+
+    @mock.patch("snowflake.cli._plugins.dcm.manager.sync_artifacts_with_stage")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
+    def test_sync_local_files_with_templating_section(
+        self,
+        _mock_create_stage,
+        mock_sync_artifacts_with_stage,
+        tmp_path,
+        mock_connect,
+        mock_cursor,
+        mock_from_resource,
+    ):
+        source_dir = tmp_path / "project_with_templating"
+        source_dir.mkdir()
+
+        manifest_content = {
+            "manifest_version": "2.0",
+            "type": "dcm_project",
+            "templating": {
+                "global_variables": {"db_name": "shared_db"},
+                "configurations": {
+                    "dev": {"suffix": "_dev"},
+                    "prod": {"suffix": ""},
+                },
+            },
+        }
+        manifest_file = source_dir / MANIFEST_FILE_NAME
+        with open(manifest_file, "w") as f:
+            yaml.dump(manifest_content, f)
+
+        definitions_dir = source_dir / "definitions"
+        definitions_dir.mkdir()
+        (definitions_dir / "table.sql").write_text("SELECT 1;")
+
+        DCMProjectManager.sync_local_files(
+            project_identifier=TEST_PROJECT, source_directory=str(source_dir)
+        )
+
+        mock_sync_artifacts_with_stage.assert_called_once()
+        call_args = mock_sync_artifacts_with_stage.call_args
+        artifacts = call_args.kwargs["artifacts"]
+        artifact_srcs = [a.src for a in artifacts]
+        assert MANIFEST_FILE_NAME in artifact_srcs
