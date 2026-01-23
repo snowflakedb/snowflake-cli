@@ -1,6 +1,11 @@
 version = 1
 revision = 3
 requires-python = ">=3.10"
+resolution-markers = [
+    "sys_platform == 'win32'",
+    "sys_platform == 'windows'",
+    "sys_platform != 'win32' and sys_platform != 'windows'",
+]
 
 [[package]]
 name = "annotated-types"
@@ -1112,8 +1117,8 @@ name = "secretstorage"
 version = "3.3.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cryptography" },
-    { name = "jeepney" },
+    { name = "cryptography", marker = "sys_platform != 'win32' and sys_platform != 'windows'" },
+    { name = "jeepney", marker = "sys_platform != 'win32' and sys_platform != 'windows'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/53/a4/f48c9d79cb507ed1373477dbceaba7401fd8a23af63b837fa61f1dcd3691/SecretStorage-3.3.3.tar.gz", hash = "sha256:2403533ef369eca6d2ba81718576c5e0f564d5cca1b58f73a8b23e7d4eeebd77", size = 19739, upload-time = "2022-08-13T16:22:46.976Z" }
 wheels = [
@@ -1169,7 +1174,7 @@ dependencies = [
     { name = "pluggy" },
     { name = "prompt-toolkit" },
     { name = "pydantic" },
-    { name = "pywin32" },
+    { name = "pywin32", marker = "sys_platform == 'win32'" },
     { name = "pyyaml" },
     { name = "requests" },
     { name = "requirements-parser" },
@@ -1214,7 +1219,7 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'development'", specifier = "==8.4.1" },
     { name = "pytest-httpserver", marker = "extra == 'development'", specifier = "==1.1.3" },
     { name = "pytest-randomly", marker = "extra == 'development'", specifier = "==3.16.0" },
-    { name = "pywin32", specifier = ">=311" },
+    { name = "pywin32", marker = "sys_platform == 'win32'", specifier = "==311" },
     { name = "pyyaml", specifier = "==6.0.2" },
     { name = "requests", specifier = "==2.32.4" },
     { name = "requirements-parser", specifier = "==0.13.0" },
