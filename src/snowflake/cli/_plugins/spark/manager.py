@@ -265,7 +265,8 @@ class SparkManager(SqlExecutionMixin):
             )
 
     def check_status(self, spark_application_id: str):
-        query = f"SELECT * FROM TABLE(snowflake.spark.GET_SPARK_APPLICATION_HISTORY()) WHERE ID = '{spark_application_id}'"
+        unquoted_id = spark_application_id.strip("'").strip('"')
+        query = f"SELECT * FROM TABLE(snowflake.spark.GET_SPARK_APPLICATION_HISTORY()) WHERE ID = '{unquoted_id}'"
         try:
             result = self.execute_query(query).fetchone()
             status = [
@@ -282,7 +283,8 @@ class SparkManager(SqlExecutionMixin):
             )
 
     def kill(self, spark_application_id: str):
-        query = f"CALL SYSTEM$CANCEL_SPARK_APPLICATION('{spark_application_id}')"
+        unquoted_id = spark_application_id.strip("'").strip('"')
+        query = f"CALL SYSTEM$CANCEL_SPARK_APPLICATION('{unquoted_id}')"
         try:
             result = self.execute_query(query).fetchone()
             return result[0]
