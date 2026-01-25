@@ -31,6 +31,7 @@
   +- Commands -------------------------------------------------------------------+
   | app                  Manages a Snowflake Native App                          |
   | auth                 Manages authentication methods.                         |
+  | coco                 Runs the Cortex Code CLI.                               |
   | connection           Manages connections to Snowflake.                       |
   | cortex               Provides access to Snowflake Cortex.                    |
   | dbt                  Manages dbt on Snowflake projects.                      |
@@ -95,6 +96,7 @@
   +- Commands -------------------------------------------------------------------+
   | app          Manages a Snowflake Native App                                  |
   | auth         Manages authentication methods.                                 |
+  | coco         Runs the Cortex Code CLI.                                       |
   | connection   Manages connections to Snowflake.                               |
   | cortex       Provides access to Snowflake Cortex.                            |
   | dbt          Manages dbt on Snowflake projects.                              |
@@ -140,6 +142,7 @@
   +- Commands -------------------------------------------------------------------+
   | app                  Manages a Snowflake Native App                          |
   | auth                 Manages authentication methods.                         |
+  | coco                 Runs the Cortex Code CLI.                               |
   | connection           Manages connections to Snowflake.                       |
   | cortex               Provides access to Snowflake Cortex.                    |
   | dbt                  Manages dbt on Snowflake projects.                      |
@@ -224,6 +227,7 @@
   +- Commands -------------------------------------------------------------------+
   | app          Manages a Snowflake Native App                                  |
   | auth         Manages authentication methods.                                 |
+  | coco         Runs the Cortex Code CLI.                                       |
   | connection   Manages connections to Snowflake.                               |
   | cortex       Provides access to Snowflake Cortex.                            |
   | dbt          Manages dbt on Snowflake projects.                              |
