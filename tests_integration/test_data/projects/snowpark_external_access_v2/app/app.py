@@ -1,4 +1,4 @@
-from http.client import HTTPSConnection
+from urllib.request import Request, urlopen
 
 import _snowflake
 from snowflake.snowpark import Session
@@ -16,15 +16,13 @@ def _check_secret_and_get_status():
     generic_secret = _snowflake.get_generic_secret_string("generic_secret")
     assert generic_secret
 
-    host = "docs.snowflake.com"
-    conn = HTTPSConnection(host)
-    conn.request(
-        "GET",
-        "/",
+    url = "https://docs.snowflake.com"
+    request = Request(
+        url,
         headers={
             "User-Agent": "snowpark-external-access-debug/1.0",
             "Accept": "*/*",
         },
     )
-    response = conn.getresponse()
+    response = urlopen(request)
     return response.status
