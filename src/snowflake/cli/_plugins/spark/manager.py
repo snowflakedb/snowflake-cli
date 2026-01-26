@@ -222,11 +222,12 @@ class SubmitQueryBuilder:
 class SparkManager(SqlExecutionMixin):
     # todo: remove this once the image is released
     def _set_session_config(self, image: Optional[str]):
-        if not image:
-            image = "preprod8-scls.awsuswest2preprod8.registry-dev.snowflakecomputing.com/scls_cli_db/test_schema/cli_test_repo/cli_test:2.0"
-        session_config = [
-            f"""alter session set SPARK_APPLICATION_SPARK_IMAGES = '{{"1.0.0":"{image}"}}'"""
-        ]
+        #  image = "preprod8-scls.awsuswest2preprod8.registry-dev.snowflakecomputing.com/scls_cli_db/test_schema/cli_test_repo/cli_test:2.0"
+        session_config = []
+        if image:
+            session_config = [
+                f"""alter session set SPARK_APPLICATION_SPARK_IMAGES = '{{"1.0.0":"{image}"}}'"""
+            ]
         for session_config_query in session_config:
             self.execute_query(session_config_query).fetchone()
 
