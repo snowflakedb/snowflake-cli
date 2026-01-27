@@ -168,6 +168,20 @@ test_qa = [
   "pytest -m 'integration and not no_qa' -n5 --dist=worksteal --deflake-test-type=integration tests_integration/",
 ]
 
+[tool.hatch.envs.ud]
+template = "ud"
+pre-install-commands = [
+  "pip install pytest-xdist",
+]
+features = ["development"]
+
+[tool.hatch.envs.ud.scripts]
+check = [
+  'pip uninstall --yes snowflake-connector-python',
+  'pip install "git+https://github.com/snowflakedb/universal-driver@{env:UD_BRANCH:main}#subdirectory=python"',
+  'pytest -m "integration and not qa_only" -n5 --dist=worksteal --deflake-test-type=integration --ignore=tests_integration/tests_using_container_services tests_integration/ {args}',
+]
+
 [[tool.hatch.envs.local.matrix]]
 python = ["3.10", "3.11", "3.12", "3.13"]
 
