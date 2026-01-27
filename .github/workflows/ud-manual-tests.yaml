@@ -61,7 +61,7 @@ jobs:
       - name: Run UD tests
         run: |
           hatch config set dirs.env.virtual .hatch
-          hatch run ud:test
+          hatch run ud:check
         env:
           GH_TOKEN: ${{ secrets.SNOWFLAKE_GITHUB_TOKEN }}
           PYTHON_VERSION: ${{ inputs.python-version }}
