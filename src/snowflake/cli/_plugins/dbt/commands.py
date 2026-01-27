@@ -25,7 +25,11 @@ from snowflake.cli._plugins.dbt.constants import (
     PROFILES_FILENAME,
     RESULT_COLUMN_NAME,
 )
-from snowflake.cli._plugins.dbt.manager import DBTManager
+from snowflake.cli._plugins.dbt.manager import (
+    DBTDeployAttributes,
+    DBTManager,
+    SemanticVersionType,
+)
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli.api.commands.decorators import global_options_with_connection
@@ -35,6 +39,7 @@ from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CommandResult,
@@ -118,6 +123,14 @@ def deploy_dbt(
         show_default=False,
         help="Installs local dependencies from project that don't require external access.",
     ),
+    dbt_version: Optional[str] = typer.Option(
+        None,
+        "--dbt-version",
+        click_type=SemanticVersionType(),
+        show_default=False,
+        hidden=not FeatureFlag.ENABLE_DBT_VERSION.is_enabled(),
+        help="dbt version to use for the project, for example '1.9.4'.",
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -127,18 +140,24 @@ def deploy_dbt(
         snow dbt deploy PROJECT
         snow dbt deploy PROJECT --source=/Users/jdoe/project --force
     """
+    if not FeatureFlag.ENABLE_DBT_VERSION.is_enabled():
+        dbt_version = None
     project_path = SecurePath(source) if source is not None else SecurePath.cwd()
     profiles_dir_path = SecurePath(profiles_dir) if profiles_dir else project_path
+    attrs = DBTDeployAttributes(
+        default_target=default_target,
+        unset_default_target=unset_default_target,
+        external_access_integrations=external_access_integrations,
+        install_local_deps=install_local_deps,
+        dbt_version=dbt_version,
+    )
     return QueryResult(
         DBTManager().deploy(
             name,
             path=project_path.resolve(),
             profiles_path=profiles_dir_path.resolve(),
             force=force,
-            default_target=default_target,
-            unset_default_target=unset_default_target,
-            external_access_integrations=external_access_integrations,
-            install_local_deps=install_local_deps,
+            attrs=attrs,
         )
     )
 
@@ -159,9 +178,17 @@ def before_callback(
     run_async: Optional[bool] = typer.Option(
         False, help="Run dbt command asynchronously and check it's result later."
     ),
+    dbt_version: Optional[str] = typer.Option(
+        None,
+        "--dbt-version",
+        click_type=SemanticVersionType(),
+        show_default=False,
+        hidden=not FeatureFlag.ENABLE_DBT_VERSION.is_enabled(),
+        help="dbt version to use for execution (ephemeral, does not change project configuration).",
+    ),
     **options,
 ):
-    """Handles global options passed before the command and takes pipeline name to be accessed through child context later"""
+    """Handles global options passed before the command and takes pipeline name to be accessed through child context later."""
     pass
 
 
@@ -182,7 +209,10 @@ for cmd in DBT_COMMANDS:
         dbt_command = ctx.command.name
         name = FQN.from_string(ctx.parent.params["name"])
         run_async = ctx.parent.params["run_async"]
-        execute_args = (dbt_command, name, run_async, *dbt_cli_args)
+        dbt_version = ctx.parent.params.get("dbt_version")
+        if not FeatureFlag.ENABLE_DBT_VERSION.is_enabled():
+            dbt_version = None
+        execute_args = (dbt_command, name, run_async, dbt_version, *dbt_cli_args)
         dbt_manager = DBTManager()
 
         if run_async is True:
