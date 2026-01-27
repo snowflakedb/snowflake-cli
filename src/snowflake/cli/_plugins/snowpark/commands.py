@@ -30,7 +30,7 @@ from snowflake.cli._plugins.object.commands import (
     list_ as object_list,
 )
 from snowflake.cli._plugins.object.commands import (
-    with_scope,
+    scope_option,
 )
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.snowpark import package_utils
@@ -440,18 +440,19 @@ def execute(
 
 
 @app.command("list", requires_connection=True)
-@with_scope(
-    help_example="`list function --in account` or `list function --in database my_db`"
-)
 def list_(
     object_type: SnowparkObject = ObjectTypeArgument,
     like: str = LikeOption,
+    scope: Tuple[str, str] = scope_option(
+        help_example="`list function --in database my_db`"
+    ),
     **options,
 ):
     """Lists all available procedures or functions."""
     return object_list(
         object_type=object_type.value,
         like=like,
+        scope=scope,
         terse=None,
         limit=None,
         **options,

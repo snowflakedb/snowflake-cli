@@ -94,8 +94,7 @@ UNSUPPORTED_OBJECTS = {
 SUPPORTED_OBJECTS = sorted(OBJECT_TO_NAMES.keys() - UNSUPPORTED_OBJECTS)
 
 # Scope names here must replace spaces with '-'. For example 'compute pool' is 'compute-pool'.
-# Note: 'account' scope does not require a name, unlike other scopes.
-VALID_SCOPES = ["database", "schema", "compute-pool", "account"]
+VALID_SCOPES = ["database", "schema", "compute-pool"]
 
 DEFAULT_SIZE_LIMIT_MB = 128
 

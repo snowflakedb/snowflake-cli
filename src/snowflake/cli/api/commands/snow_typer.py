@@ -142,11 +142,6 @@ class SnowTyper(typer.Typer):
                 finally:
                     self.post_execute(execution)
 
-            # Copy scope option config to the decorator if present
-            scope_config = getattr(command_callable, "_scope_option_config", None)
-            if scope_config:
-                command_callable_decorator._scope_option_config = scope_config  # type: ignore[attr-defined]  # noqa: SLF001
-
             return super(SnowTyper, self).command(name=name, **kwargs)(
                 command_callable_decorator
             )
@@ -277,12 +272,6 @@ class SnowTyperFactory:
         for command in self.commands_to_register:
             if self.preview and "preview" not in command.kwargs:
                 command.kwargs["preview"] = True
-
-            # Check if the command has a custom cls from scope_option_config
-            scope_config = getattr(command.func, "_scope_option_config", None)
-            if scope_config and "cls" in scope_config:
-                command.kwargs["cls"] = scope_config["cls"]
-
             app.command(*command.args, **command.kwargs)(command.func)
         # register callbacks
         for callback in self.callbacks_to_register:
@@ -290,7 +279,6 @@ class SnowTyperFactory:
         # add subgroups
         for subapp in self.subapps_to_register:
             app.add_typer(subapp.create_instance())
-
         return app
 
     def command(self, *args, **kwargs):

@@ -25,6 +25,7 @@ from click import ClickException
 from snowflake.cli._plugins.git.manager import GitManager
 from snowflake.cli._plugins.object.command_aliases import (
     add_object_command_aliases,
+    scope_option,
 )
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli.api.commands.common import OnErrorType
@@ -80,7 +81,7 @@ add_object_command_aliases(
     like_option=like_option(
         help_example='`list --like "my%"` lists all git repositories with name that begin with “my”',
     ),
-    scope_option="`list --in account` or `list --in database my_db`",
+    scope_option=scope_option(help_example="`list --in database my_db`"),
 )
 
 from snowflake.cli.api.identifiers import FQN

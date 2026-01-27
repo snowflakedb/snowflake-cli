@@ -22,6 +22,7 @@ import typer
 from click import ClickException
 from snowflake.cli._plugins.object.command_aliases import (
     add_object_command_aliases,
+    scope_option,
 )
 from snowflake.cli._plugins.spcs.image_registry.manager import RegistryManager
 from snowflake.cli._plugins.spcs.image_repository.manager import ImageRepositoryManager
@@ -76,7 +77,7 @@ add_object_command_aliases(
     like_option=like_option(
         help_example='`--like "my%"` lists all image repositories that begin with “my”.'
     ),
-    scope_option="`list --in account` or `list --in database my_db`",
+    scope_option=scope_option(help_example="`list --in database my_db`"),
     ommit_commands=["describe"],
 )
 

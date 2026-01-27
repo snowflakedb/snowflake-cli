@@ -18,6 +18,7 @@ from snowflake.cli._plugins.dcm.manager import DCMProjectManager
 from snowflake.cli._plugins.dcm.reporters import RefreshReporter, TestReporter
 from snowflake.cli._plugins.dcm.utils import mock_dcm_response
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
+from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli.api.commands.flags import (
     IdentifierType,
@@ -101,7 +102,7 @@ add_object_command_aliases(
     like_option=like_option(
         help_example='`list --like "my%"` lists all DCM Projects that begin with "my"'
     ),
-    scope_option="`list --in account` or `list --in database my_db`",
+    scope_option=scope_option(help_example="`list --in database my_db`"),
     ommit_commands=["create"],
     terse_option=terse_option,
     limit_option=limit_option,
