@@ -1,1 +1,0 @@
-/Users/turbaszek/code/snowflake-cli/main.py
