@@ -7,7 +7,6 @@ targets:
   dev:
     project_name: "project_descriptive_name"
     templating_config: "dev"
-    output_path: "out/"
   test:
     project_name: "project_descriptive_name"
     templating_config: "test"

@@ -1,5 +1,4 @@
 import os
-from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -7,7 +6,7 @@ import yaml
 from snowflake.cli._plugins.dcm.manager import (
     DCM_PROJECT_TYPE,
     MANIFEST_FILE_NAME,
-    REQUIRED_MANIFEST_VERSION,
+    SOURCES_FOLDER,
     DCMManifest,
     DCMProjectManager,
     DCMTarget,
@@ -122,8 +121,12 @@ def test_deploy_project_with_default_deployment(mock_execute_query, project_dire
     )
 
 
+@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.get_recursive")
+@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
 @mock.patch(execute_queries)
-def test_plan_project(mock_execute_query, project_directory):
+def test_plan_project(
+    mock_execute_query, mock_create, mock_get_recursive, project_directory
+):
     mgr = DCMProjectManager()
     mgr.plan(
         project_identifier=TEST_PROJECT,
@@ -131,13 +134,20 @@ def test_plan_project(mock_execute_query, project_directory):
         configuration="some_configuration",
     )
 
-    mock_execute_query.assert_called_once_with(
-        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN USING CONFIGURATION some_configuration FROM @test_stage"
-    )
+    mock_execute_query.assert_called_once()
+    query = mock_execute_query.call_args.kwargs["query"]
+    assert "EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN" in query
+    assert "USING CONFIGURATION some_configuration" in query
+    assert "FROM @test_stage" in query
+    assert "OUTPUT_PATH" in query
 
 
+@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.get_recursive")
+@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
 @mock.patch(execute_queries)
-def test_plan_project_with_from_stage(mock_execute_query, project_directory):
+def test_plan_project_with_from_stage(
+    mock_execute_query, mock_create, mock_get_recursive, project_directory
+):
     mgr = DCMProjectManager()
     mgr.plan(
         project_identifier=TEST_PROJECT,
@@ -145,10 +155,11 @@ def test_plan_project_with_from_stage(mock_execute_query, project_directory):
         configuration="some_configuration",
     )
 
-    mock_execute_query.assert_called_once_with(
-        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN USING CONFIGURATION some_configuration"
-        " FROM @my_stage"
-    )
+    mock_execute_query.assert_called_once()
+    query = mock_execute_query.call_args.kwargs["query"]
+    assert "EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN" in query
+    assert "USING CONFIGURATION some_configuration" in query
+    assert "FROM @my_stage" in query
 
 
 @mock.patch(execute_queries)
@@ -262,82 +273,6 @@ def test_test_project(mock_execute_query):
 
 
 @mock.patch(execute_queries)
-def test_plan_project_with_output_path__stage(mock_execute_query, project_directory):
-    mgr = DCMProjectManager()
-    mgr.plan(
-        project_identifier=TEST_PROJECT,
-        from_stage="@test_stage",
-        configuration="some_configuration",
-        output_path="@output_stage/results",
-    )
-
-    mock_execute_query.assert_called_once_with(
-        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN USING CONFIGURATION some_configuration FROM @test_stage OUTPUT_PATH @output_stage/results"
-    )
-
-
-@mock.patch(execute_queries)
-@mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.get_recursive")
-@mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
-def test_plan_project_with_output_path__local_path(
-    mock_create,
-    mock_get_recursive,
-    mock_execute_query,
-    project_directory,
-    mock_from_resource,
-):
-    mgr = DCMProjectManager()
-    mgr.plan(
-        project_identifier=TEST_PROJECT,
-        from_stage="@test_stage",
-        configuration="some_configuration",
-        output_path="output_path/results",
-    )
-
-    temp_stage_fqn = mock_from_resource()
-    mock_execute_query.assert_called_once_with(
-        query=f"EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN USING CONFIGURATION some_configuration FROM @test_stage OUTPUT_PATH @{temp_stage_fqn}/outputs"
-    )
-    mock_create.assert_called_once_with(temp_stage_fqn, temporary=True)
-    mock_get_recursive.assert_called_once_with(
-        stage_path=f"@{str(temp_stage_fqn)}/outputs",
-        dest_path=Path("output_path/results"),
-    )
-
-
-@mock.patch(execute_queries)
-@mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.get_recursive")
-@mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
-def test_plan_project_with_output_path__exception_handling(
-    mock_create,
-    mock_get_recursive,
-    mock_execute_query,
-    project_directory,
-    mock_from_resource,
-):
-    mock_execute_query.side_effect = Exception("Query execution failed")
-
-    mgr = DCMProjectManager()
-
-    with pytest.raises(Exception, match="Query execution failed"):
-        mgr.plan(
-            project_identifier=TEST_PROJECT,
-            from_stage="@test_stage",
-            configuration="some_configuration",
-            output_path="output_path/results",
-        )
-
-    # But the output should still be downloaded before exception is reraised
-    temp_stage_fqn = mock_from_resource()
-    mock_execute_query.assert_called_once()
-    mock_create.assert_called_once_with(temp_stage_fqn, temporary=True)
-    mock_get_recursive.assert_called_once_with(
-        stage_path=f"@{str(temp_stage_fqn)}/outputs",
-        dest_path=Path("output_path/results"),
-    )
-
-
-@mock.patch(execute_queries)
 @pytest.mark.parametrize(
     "alias,expected_alias",
     [
@@ -384,7 +319,6 @@ class TestDCMManifest:
                 "DEV": {
                     "project_name": "DB.SCHEMA.PROJECT_DEV",
                     "templating_config": "dev",
-                    "output_path": "out/",
                 },
                 "PROD": {
                     "project_name": "DB.SCHEMA.PROJECT_PROD",
@@ -404,10 +338,8 @@ class TestDCMManifest:
         assert len(manifest.targets) == 2
         assert manifest.targets["DEV"].project_name == "DB.SCHEMA.PROJECT_DEV"
         assert manifest.targets["DEV"].templating_config == "dev"
-        assert manifest.targets["DEV"].output_path == "out/"
         assert manifest.targets["PROD"].project_name == "DB.SCHEMA.PROJECT_PROD"
         assert manifest.targets["PROD"].templating_config == "prod"
-        assert manifest.targets["PROD"].output_path is None
 
     def test_manifest_from_dict_with_templating(self):
         data = {
@@ -572,8 +504,25 @@ class TestDCMManifest:
         data = {"manifest_version": "1.0", "type": "dcm_project"}
         manifest = DCMManifest.from_dict(data)
 
-        with pytest.raises(CliError, match="Manifest version '1.0' is not supported"):
+        with pytest.raises(
+            CliError, match="Manifest version '1.0' is not supported.*>= 2.0 and < 3.0"
+        ):
             manifest.validate()
+
+    def test_manifest_validate_version_3_not_supported(self):
+        data = {"manifest_version": "3.0", "type": "dcm_project"}
+        manifest = DCMManifest.from_dict(data)
+
+        with pytest.raises(
+            CliError, match="Manifest version '3.0' is not supported.*>= 2.0 and < 3.0"
+        ):
+            manifest.validate()
+
+    @pytest.mark.parametrize("version", ["2", "2.0", "2.1", "2.5", "2.99"])
+    def test_manifest_validate_valid_versions(self, version):
+        data = {"manifest_version": version, "type": "dcm_project"}
+        manifest = DCMManifest.from_dict(data)
+        manifest.validate()
 
     def test_manifest_validate_invalid_default_target(self):
         data = {
@@ -648,19 +597,16 @@ class TestDCMTarget:
 
         assert target.project_name == "DB.SCHEMA.MY_PROJECT"
         assert target.templating_config is None
-        assert target.output_path is None
 
     def test_target_from_dict_full(self):
         data = {
             "project_name": "DB.SCHEMA.MY_PROJECT",
             "templating_config": "dev",
-            "output_path": "out/",
         }
         target = DCMTarget.from_dict(data)
 
         assert target.project_name == "DB.SCHEMA.MY_PROJECT"
         assert target.templating_config == "dev"
-        assert target.output_path == "out/"
 
 
 class TestSyncLocalFiles:
@@ -709,7 +655,7 @@ class TestSyncLocalFiles:
                 yaml.dump({"manifest_version": "1", "type": "dcm_project"}, f)
             with pytest.raises(
                 CliError,
-                match=f"Manifest version '1' is not supported. Expected {REQUIRED_MANIFEST_VERSION}",
+                match=r"Manifest version '1' is not supported.*>= 2.0 and < 3.0",
             ):
                 DCMProjectManager.sync_local_files(project_identifier=TEST_PROJECT)
 
@@ -719,7 +665,7 @@ class TestSyncLocalFiles:
                 yaml.dump({"type": "dcm_project"}, f)
             with pytest.raises(
                 CliError,
-                match=f"Manifest version '' is not supported. Expected {REQUIRED_MANIFEST_VERSION}",
+                match=r"Manifest version '' is not supported.*>= 2.0 and < 3.0",
             ):
                 DCMProjectManager.sync_local_files(project_identifier=TEST_PROJECT)
 
@@ -742,12 +688,10 @@ class TestSyncLocalFiles:
             call_args = mock_sync_artifacts_with_stage.call_args
             assert call_args.kwargs["stage_root"] == str(mock_from_resource())
 
-            # V2 manifest uses convention-based folders - all .sql files in definitions/
             artifacts = call_args.kwargs["artifacts"]
             artifact_srcs = {a.src for a in artifacts}
             assert MANIFEST_FILE_NAME in artifact_srcs
-            # Check that definitions folder files are included
-            assert any("definitions" in src for src in artifact_srcs)
+            assert any(SOURCES_FOLDER in src for src in artifact_srcs)
 
             assert call_args.kwargs["pattern_type"] == PatternMatchingType.GLOB
             assert call_args.kwargs["use_temporary_stage"] is True
@@ -778,10 +722,9 @@ class TestSyncLocalFiles:
         with open(manifest_file, "w") as f:
             yaml.dump(manifest_content, f)
 
-        # Create the definition file in definitions/ folder
-        definitions_dir = source_dir / "definitions"
-        definitions_dir.mkdir()
-        (definitions_dir / "custom_query.sql").write_text("SELECT 1;")
+        sources_dir = source_dir / SOURCES_FOLDER
+        sources_dir.mkdir()
+        (sources_dir / "custom_query.sql").write_text("SELECT 1;")
 
         DCMProjectManager.sync_local_files(
             project_identifier=TEST_PROJECT, source_directory=str(source_dir)
@@ -792,12 +735,11 @@ class TestSyncLocalFiles:
         actual_project_root = call_args.kwargs["project_paths"].project_root
         assert actual_project_root.resolve() == source_dir.resolve()
 
-        # Verify artifacts include the definitions file
         artifacts = call_args.kwargs["artifacts"]
         artifact_srcs = [a.src for a in artifacts]
         assert MANIFEST_FILE_NAME in artifact_srcs
         assert any(
-            "definitions" in src and "custom_query.sql" in src for src in artifact_srcs
+            SOURCES_FOLDER in src and "custom_query.sql" in src for src in artifact_srcs
         )
 
     @mock.patch("snowflake.cli._plugins.dcm.manager.sync_artifacts_with_stage")
@@ -838,7 +780,7 @@ class TestSyncLocalFiles:
 
     @mock.patch("snowflake.cli._plugins.dcm.manager.sync_artifacts_with_stage")
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
-    def test_sync_local_files_includes_macros_folder(
+    def test_sync_local_files_includes_all_files_in_sources(
         self,
         _mock_create_stage,
         mock_sync_artifacts_with_stage,
@@ -847,23 +789,26 @@ class TestSyncLocalFiles:
         mock_cursor,
         mock_from_resource,
     ):
-        source_dir = tmp_path / "project_with_macros"
+        source_dir = tmp_path / "project_with_sources"
         source_dir.mkdir()
 
         manifest_file = source_dir / MANIFEST_FILE_NAME
         with open(manifest_file, "w") as f:
             yaml.dump({"manifest_version": "2.0", "type": "dcm_project"}, f)
 
-        # Create definitions folder with SQL files
-        definitions_dir = source_dir / "definitions"
+        sources_dir = source_dir / SOURCES_FOLDER
+        sources_dir.mkdir()
+
+        definitions_dir = sources_dir / "definitions"
         definitions_dir.mkdir()
         (definitions_dir / "table.sql").write_text("SELECT 1;")
 
-        # Create macros folder with macro files
-        macros_dir = source_dir / "macros"
+        macros_dir = sources_dir / "macros"
         macros_dir.mkdir()
         (macros_dir / "helpers.sql").write_text("-- macro")
         (macros_dir / "utils.jinja").write_text("{% macro test() %}{% endmacro %}")
+
+        (sources_dir / "dbt_project.yml").write_text("name: test")
 
         DCMProjectManager.sync_local_files(
             project_identifier=TEST_PROJECT, source_directory=str(source_dir)
@@ -879,6 +824,7 @@ class TestSyncLocalFiles:
         assert any("definitions" in src and "table.sql" in src for src in artifact_srcs)
         assert any("macros" in src and "helpers.sql" in src for src in artifact_srcs)
         assert any("macros" in src and "utils.jinja" in src for src in artifact_srcs)
+        assert any("dbt_project.yml" in src for src in artifact_srcs)
 
     @mock.patch("snowflake.cli._plugins.dcm.manager.sync_artifacts_with_stage")
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
@@ -909,9 +855,9 @@ class TestSyncLocalFiles:
         with open(manifest_file, "w") as f:
             yaml.dump(manifest_content, f)
 
-        definitions_dir = source_dir / "definitions"
-        definitions_dir.mkdir()
-        (definitions_dir / "table.sql").write_text("SELECT 1;")
+        sources_dir = source_dir / SOURCES_FOLDER
+        sources_dir.mkdir()
+        (sources_dir / "table.sql").write_text("SELECT 1;")
 
         DCMProjectManager.sync_local_files(
             project_identifier=TEST_PROJECT, source_directory=str(source_dir)
@@ -922,3 +868,4 @@ class TestSyncLocalFiles:
         artifacts = call_args.kwargs["artifacts"]
         artifact_srcs = [a.src for a in artifacts]
         assert MANIFEST_FILE_NAME in artifact_srcs
+        assert any(SOURCES_FOLDER in src for src in artifact_srcs)

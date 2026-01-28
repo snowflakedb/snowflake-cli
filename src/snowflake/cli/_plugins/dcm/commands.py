@@ -25,7 +25,6 @@ from snowflake.cli.api.commands.flags import (
     IdentifierType,
     IfExistsOption,
     IfNotExistsOption,
-    OverrideableOption,
     identifier_argument,
     like_option,
     variables_option,
@@ -44,7 +43,6 @@ from snowflake.cli.api.output.types import (
     QueryJsonValueResult,
     QueryResult,
 )
-from snowflake.cli.api.utils.path_utils import is_stage_path
 
 app = SnowTyperFactory(
     name="dcm",
@@ -56,16 +54,10 @@ dcm_identifier = identifier_argument(sf_object="DCM Project", example="MY_PROJEC
 variables_flag = variables_option(
     'Variables for the execution context; for example: `-D "<key>=<value>"`.'
 )
-configuration_flag = typer.Option(
-    None,
-    "--configuration",
-    help="Configuration of the DCM Project to use. If not specified default configuration is used.",
-    show_default=False,
-)
 from_option = typer.Option(
     None,
     "--from",
-    help="Source location: stage path (starting with '@') or local directory path. Omit to use current directory.",
+    help="Local directory path containing DCM project files. Omit to use current directory.",
     show_default=False,
 )
 
@@ -73,11 +65,6 @@ alias_option = typer.Option(
     None,
     "--alias",
     help="Alias for the deployment.",
-    show_default=False,
-)
-output_path_option = OverrideableOption(
-    None,
-    "--output-path",
     show_default=False,
 )
 
@@ -116,7 +103,6 @@ class TargetContext:
 
     project_identifier: FQN
     configuration: Optional[str] = None
-    output_path: Optional[str] = None
 
 
 def _resolve_target_context(
@@ -124,23 +110,19 @@ def _resolve_target_context(
     target: Optional[str],
     source_directory: Optional[str] = None,
     use_config: bool = True,
-    use_output_path: bool = False,
 ) -> TargetContext:
     """
-    Resolve effective project identifier, configuration, and output_path from target.
+    Resolve effective project identifier and configuration from target.
 
     Priority:
     1. Explicit identifier argument overrides target's project_name
     2. Target's templating_config is used if no explicit --configuration is provided
-    3. Target's output_path is used if no explicit --output-path is provided
     """
     from snowflake.cli.api.secure_path import SecurePath
 
-    # If identifier is explicitly provided, use it directly
     if identifier:
         return TargetContext(project_identifier=identifier)
 
-    # Try to load manifest and resolve target
     source_path = (
         SecurePath(source_directory).resolve() if source_directory else SecurePath.cwd()
     )
@@ -156,7 +138,6 @@ def _resolve_target_context(
             "No project identifier specified and no manifest.yml found to resolve target."
         )
 
-    # Get effective target (explicit or default)
     try:
         effective_target = manifest.get_effective_target(target)
     except CliError:
@@ -172,9 +153,6 @@ def _resolve_target_context(
 
     if use_config and effective_target.templating_config:
         context.configuration = effective_target.templating_config
-
-    if use_output_path and effective_target.output_path:
-        context.output_path = effective_target.output_path
 
     return context
 
@@ -198,13 +176,12 @@ def deploy(
     identifier: Optional[FQN] = optional_dcm_identifier,
     from_location: Optional[str] = from_option,
     variables: Optional[List[str]] = variables_flag,
-    configuration: Optional[str] = configuration_flag,
     alias: Optional[str] = alias_option,
     target: Optional[str] = target_option,
     skip_plan: bool = typer.Option(
         False,
         "--skip-plan",
-        help="Skips planning step",
+        help="Skips planning step.",
         hidden=True,
     ),
     **options,
@@ -213,9 +190,8 @@ def deploy(
     Applies changes defined in DCM Project to Snowflake.
     """
     context = _resolve_target_context(
-        identifier, target, from_location, use_config=True, use_output_path=False
+        identifier, target, from_location, use_config=True
     )
-    effective_configuration = configuration or context.configuration
     project_id = context.project_identifier
 
     manager = DCMProjectManager()
@@ -227,7 +203,7 @@ def deploy(
             cli_console.warning("Skipping planning step")
         result = manager.deploy(
             project_identifier=project_id,
-            configuration=effective_configuration,
+            configuration=context.configuration,
             from_stage=effective_stage,
             variables=variables,
             alias=alias,
@@ -241,10 +217,6 @@ def plan(
     identifier: Optional[FQN] = optional_dcm_identifier,
     from_location: Optional[str] = from_option,
     variables: Optional[List[str]] = variables_flag,
-    configuration: Optional[str] = configuration_flag,
-    output_path: Optional[str] = output_path_option(
-        help="Path where the deployment plan output will be stored. Can be a stage path (starting with '@') or a local directory path."
-    ),
     target: Optional[str] = target_option,
     **options,
 ):
@@ -252,10 +224,8 @@ def plan(
     Plans a DCM Project deployment (validates without executing).
     """
     context = _resolve_target_context(
-        identifier, target, from_location, use_config=True, use_output_path=True
+        identifier, target, from_location, use_config=True
     )
-    effective_configuration = configuration or context.configuration
-    effective_output_path = output_path or context.output_path
     project_id = context.project_identifier
 
     manager = DCMProjectManager()
@@ -265,10 +235,9 @@ def plan(
         spinner.add_task(description=f"Planning dcm project {project_id}", total=None)
         result = manager.plan(
             project_identifier=project_id,
-            configuration=effective_configuration,
+            configuration=context.configuration,
             from_stage=effective_stage,
             variables=variables,
-            output_path=effective_output_path,
         )
 
     return QueryJsonValueResult(result)
@@ -369,7 +338,6 @@ def preview(
     ),
     from_location: Optional[str] = from_option,
     variables: Optional[List[str]] = variables_flag,
-    configuration: Optional[str] = configuration_flag,
     limit: Optional[int] = typer.Option(
         None,
         "--limit",
@@ -383,9 +351,8 @@ def preview(
     Returns rows from any table, view, dynamic table.
     """
     context = _resolve_target_context(
-        identifier, target, from_location, use_config=True, use_output_path=False
+        identifier, target, from_location, use_config=True
     )
-    effective_configuration = configuration or context.configuration
     project_id = context.project_identifier
 
     manager = DCMProjectManager()
@@ -399,7 +366,7 @@ def preview(
         result = manager.preview(
             project_identifier=project_id,
             object_identifier=object_identifier,
-            configuration=effective_configuration,
+            configuration=context.configuration,
             from_stage=effective_stage,
             variables=variables,
             limit=limit,
@@ -452,13 +419,14 @@ def test(
 
 
 def _get_effective_stage(identifier: FQN, from_location: Optional[str]):
-    manager = DCMProjectManager()
-    if not from_location:
-        from_stage = manager.sync_local_files(project_identifier=identifier)
-    elif is_stage_path(from_location):
-        from_stage = from_location
-    else:
-        from_stage = manager.sync_local_files(
-            project_identifier=identifier, source_directory=from_location
+    from snowflake.cli.api.utils.path_utils import is_stage_path
+
+    if from_location and is_stage_path(from_location):
+        raise CliError(
+            "Stage paths are not supported for --from option. Use a local directory path instead."
         )
-    return from_stage
+
+    manager = DCMProjectManager()
+    return manager.sync_local_files(
+        project_identifier=identifier, source_directory=from_location
+    )

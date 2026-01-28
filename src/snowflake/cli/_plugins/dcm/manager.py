@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Optional
@@ -33,13 +33,20 @@ from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
-from snowflake.cli.api.utils.path_utils import is_stage_path
 
 MANIFEST_FILE_NAME = "manifest.yml"
 DCM_PROJECT_TYPE = "dcm_project"
-DEFINITIONS_FOLDER = "definitions"
-MACROS_FOLDER = "macros"
-REQUIRED_MANIFEST_VERSION = "2.0"
+SOURCES_FOLDER = "sources"
+OUTPUT_FOLDER = "out"
+
+
+def _is_valid_manifest_version(version: str) -> bool:
+    """Check if manifest version is valid (>= 2.0 and < 3.0)."""
+    try:
+        v = float(version)
+        return 2.0 <= v < 3.0
+    except ValueError:
+        return False
 
 
 @dataclass
@@ -65,14 +72,12 @@ class DCMTarget:
 
     project_name: str
     templating_config: Optional[str] = None
-    output_path: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "DCMTarget":
         return cls(
             project_name=data.get("project_name", ""),
             templating_config=data.get("templating_config"),
-            output_path=data.get("output_path"),
         )
 
 
@@ -111,9 +116,9 @@ class DCMManifest:
             raise CliError(
                 f"Manifest file is defined for type {self.project_type}. Expected {DCM_PROJECT_TYPE}."
             )
-        if self.manifest_version != REQUIRED_MANIFEST_VERSION:
+        if not _is_valid_manifest_version(self.manifest_version):
             raise CliError(
-                f"Manifest version '{self.manifest_version}' is not supported. Expected {REQUIRED_MANIFEST_VERSION}."
+                f"Manifest version '{self.manifest_version}' is not supported. Expected version >= 2.0 and < 3.0."
             )
         # Validate default_target references an existing target
         if self.default_target and self.default_target not in self.targets:
@@ -159,48 +164,35 @@ class DCMManifest:
 
 class DCMProjectManager(SqlExecutionMixin):
     @contextmanager
-    def _collect_output(
-        self, project_identifier: FQN, output_path: str
-    ) -> Generator[str, None, None]:
+    def _collect_output(self, project_identifier: FQN) -> Generator[str, None, None]:
         """
-        Context manager for handling output path - creates temporary stage for local paths,
-        downloads files after execution, and ensures proper cleanup.
+        Context manager for handling plan output - creates temporary stage,
+        downloads files to out/ folder after execution.
 
         Args:
             project_identifier: The DCM project identifier
-            output_path: Either a stage path (@stage/path) or local directory path
 
         Yields:
             str: The effective output path to use in the DCM command
         """
-        temp_stage_for_local_output = None
         stage_manager = StageManager()
-
-        if should_download_files := not is_stage_path(output_path):
-            temp_stage_fqn = FQN.from_resource(
-                ObjectType.DCM_PROJECT, project_identifier, "OUTPUT_TMP_STAGE"
-            )
-            stage_manager.create(temp_stage_fqn, temporary=True)
-            effective_output_path = StagePath.from_stage_str(
-                temp_stage_fqn.identifier
-            ).joinpath("/outputs")
-            temp_stage_for_local_output = (temp_stage_fqn.identifier, Path(output_path))
-        else:
-            effective_output_path = StagePath.from_stage_str(output_path)
+        temp_stage_fqn = FQN.from_resource(
+            ObjectType.DCM_PROJECT, project_identifier, "OUTPUT_TMP_STAGE"
+        )
+        stage_manager.create(temp_stage_fqn, temporary=True)
+        effective_output_path = StagePath.from_stage_str(
+            temp_stage_fqn.identifier
+        ).joinpath("/outputs")
+        local_output_path = Path(OUTPUT_FOLDER)
 
         try:
             yield effective_output_path.absolute_path()
         finally:
-            if should_download_files:
-                assert temp_stage_for_local_output is not None
-                stage_path, local_path = temp_stage_for_local_output
-                stage_manager.get_recursive(
-                    stage_path=effective_output_path.absolute_path(),
-                    dest_path=local_path,
-                )
-                cli_console.step(f"Plan output saved to: {local_path.resolve()}")
-            else:
-                cli_console.step(f"Plan output saved to: {output_path}")
+            stage_manager.get_recursive(
+                stage_path=effective_output_path.absolute_path(),
+                dest_path=local_output_path,
+            )
+            cli_console.step(f"Plan output saved to: {local_output_path.resolve()}")
 
     def deploy(
         self,
@@ -226,18 +218,13 @@ class DCMProjectManager(SqlExecutionMixin):
         from_stage: str,
         configuration: str | None = None,
         variables: List[str] | None = None,
-        output_path: str | None = None,
     ):
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} PLAN"
         query += self._get_configuration_and_variables_query(configuration, variables)
         query += self._get_from_stage_query(from_stage)
-        with self._collect_output(
-            project_identifier, output_path
-        ) if output_path else nullcontext() as output_stage:
-            if output_stage is not None:
-                query += f" OUTPUT_PATH {output_stage}"
+        with self._collect_output(project_identifier) as output_stage:
+            query += f" OUTPUT_PATH {output_stage}"
             result = self.execute_query(query=query)
-
         return result
 
     def create(self, project_identifier: FQN) -> None:
@@ -355,25 +342,16 @@ class DCMProjectManager(SqlExecutionMixin):
 
     @staticmethod
     def _collect_artifacts(source_path: Path) -> List[PathMapping]:
-        """Collect all artifacts from definitions/, macros/ folders and manifest.yml."""
+        """Collect all artifacts from sources/ folder and manifest.yml."""
         artifacts: List[PathMapping] = []
 
-        # Add manifest file
         artifacts.append(PathMapping(src=MANIFEST_FILE_NAME))
 
-        # Add all .sql files from definitions/ folder recursively
-        definitions_path = source_path / DEFINITIONS_FOLDER
-        if definitions_path.exists() and definitions_path.is_dir():
-            for sql_file in definitions_path.rglob("*.sql"):
-                relative_path = sql_file.relative_to(source_path)
-                artifacts.append(PathMapping(src=str(relative_path)))
-
-        # Add all files from macros/ folder recursively
-        macros_path = source_path / MACROS_FOLDER
-        if macros_path.exists() and macros_path.is_dir():
-            for macro_file in macros_path.rglob("*"):
-                if macro_file.is_file():
-                    relative_path = macro_file.relative_to(source_path)
+        sources_path = source_path / SOURCES_FOLDER
+        if sources_path.exists() and sources_path.is_dir():
+            for file in sources_path.rglob("*"):
+                if file.is_file():
+                    relative_path = file.relative_to(source_path)
                     artifacts.append(PathMapping(src=str(relative_path)))
 
         return artifacts
