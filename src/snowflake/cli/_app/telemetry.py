@@ -59,6 +59,7 @@ class CLITelemetryField(Enum):
     COMMAND_OUTPUT_TYPE = "command_output_type"
     COMMAND_EXECUTION_TIME = "command_execution_time"
     COMMAND_CI_ENVIRONMENT = "command_ci_environment"
+    COMMAND_AGENT_ENVIRONMENT = "command_agent_environment"
     # Configuration
     CONFIG_FEATURE_FLAGS = "config_feature_flags"
     CONFIG_PROVIDER_TYPE = "config_provider_type"
@@ -238,6 +239,21 @@ def _get_ci_environment_type() -> str:
     return "UNKNOWN"
 
 
+def _detect_agent_environment() -> str:
+    """Detect AI coding agent based on environment variables."""
+    if any(key.startswith("CORTEX_") for key in os.environ):
+        return "CORTEX"
+    if "CURSOR_AGENT" in os.environ:
+        return "CURSOR"
+    if "GEMINI_CLI" in os.environ:
+        return "GEMINI_CLI"
+    if any(key.startswith("CLAUDE_CODE") for key in os.environ):
+        return "CLAUDE_CODE"
+    if any(key.startswith("CODEX_") for key in os.environ):
+        return "CODEX"
+    return "UNKNOWN"
+
+
 def command_info() -> str:
     info = _find_command_info()
     command = ".".join(info[CLITelemetryField.COMMAND])
@@ -310,6 +326,7 @@ class CLITelemetryClient:
             CLITelemetryField.VERSION_OS: platform.platform(),
             CLITelemetryField.VERSION_PYTHON: python_version(),
             CLITelemetryField.COMMAND_CI_ENVIRONMENT: _get_ci_environment_type(),
+            CLITelemetryField.COMMAND_AGENT_ENVIRONMENT: _detect_agent_environment(),
             CLITelemetryField.CONFIG_FEATURE_FLAGS: {
                 k: str(v) for k, v in get_feature_flags_section().items()
             },
