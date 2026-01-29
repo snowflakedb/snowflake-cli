@@ -295,6 +295,45 @@ def test_detect_agent_environment_returns_unknown_when_no_agent():
         assert _detect_agent_environment() == "UNKNOWN"
 
 
+@pytest.mark.parametrize(
+    "env_var, env_value, expected_agent",
+    [
+        ("CORTEX_SESSION_ID", "abc123", "CORTEX"),
+        ("CURSOR_AGENT", "1", "CURSOR"),
+        ("GEMINI_CLI", "1", "GEMINI_CLI"),
+        ("CLAUDE_CODE", "1", "CLAUDE_CODE"),
+        ("CODEX_API_KEY", "key123", "CODEX"),
+    ],
+)
+def test_detect_agent_environment_returns_correct_agent(
+    env_var, env_value, expected_agent
+):
+    """Test that the correct agent is detected based on environment variables."""
+    from snowflake.cli._app.telemetry import _detect_agent_environment
+
+    with mock.patch.dict(os.environ, {env_var: env_value}, clear=True):
+        assert _detect_agent_environment() == expected_agent
+
+
+def test_agent_context_non_tty_with_agent_detected():
+    """Test the typical AI agent scenario: non-TTY terminal with agent env var set.
+
+    In this case, CI detection should return UNKNOWN (not LOCAL, since no TTY),
+    and agent detection should return the detected agent.
+    """
+    from snowflake.cli._app.telemetry import (
+        _detect_agent_environment,
+        _get_ci_environment_type,
+    )
+
+    with mock.patch.dict(os.environ, {"CURSOR_AGENT": "1"}, clear=True):
+        with mock.patch(
+            "snowflake.cli._app.telemetry._is_interactive_terminal", return_value=False
+        ):
+            assert _get_ci_environment_type() == "UNKNOWN"
+            assert _detect_agent_environment() == "CURSOR"
+
+
 @mock.patch(
     "snowflake.cli._app.telemetry.python_version",
 )
