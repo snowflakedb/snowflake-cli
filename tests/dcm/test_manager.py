@@ -121,12 +121,9 @@ def test_deploy_project_with_default_deployment(mock_execute_query, project_dire
     )
 
 
-@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.get_recursive")
-@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
 @mock.patch(execute_queries)
-def test_plan_project(
-    mock_execute_query, mock_create, mock_get_recursive, project_directory
-):
+def test_plan_project_default_no_download(mock_execute_query, project_directory):
+    """Test plan without save_output (default) - no OUTPUT_PATH in query."""
     mgr = DCMProjectManager()
     mgr.plan(
         project_identifier=TEST_PROJECT,
@@ -139,15 +136,44 @@ def test_plan_project(
     assert "EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN" in query
     assert "USING CONFIGURATION some_configuration" in query
     assert "FROM @test_stage" in query
-    assert "OUTPUT_PATH" in query
+    assert "OUTPUT_PATH" not in query
 
 
+@mock.patch("snowflake.cli._plugins.dcm.manager.cli_console")
+@mock.patch("snowflake.cli._plugins.dcm.manager.FQN.from_resource")
 @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.get_recursive")
 @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
 @mock.patch(execute_queries)
-def test_plan_project_with_from_stage(
-    mock_execute_query, mock_create, mock_get_recursive, project_directory
+def test_plan_project_with_save_output(
+    mock_execute_query,
+    mock_create,
+    mock_get_recursive,
+    mock_from_resource,
+    mock_cli_console,
+    project_directory,
 ):
+    """Test plan with save_output=True - files downloaded to out/."""
+    mock_from_resource.return_value = FQN.from_string("TMP_STAGE")
+    mgr = DCMProjectManager()
+    mgr.plan(
+        project_identifier=TEST_PROJECT,
+        from_stage="@test_stage",
+        configuration="some_configuration",
+        save_output=True,
+    )
+
+    mock_execute_query.assert_called_once()
+    query = mock_execute_query.call_args.kwargs["query"]
+    assert "EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN" in query
+    assert "USING CONFIGURATION some_configuration" in query
+    assert "FROM @test_stage" in query
+    assert "OUTPUT_PATH" in query
+    mock_get_recursive.assert_called_once()
+
+
+@mock.patch(execute_queries)
+def test_plan_project_with_from_stage(mock_execute_query, project_directory):
+    """Test plan with different from_stage - default behavior without OUTPUT_PATH."""
     mgr = DCMProjectManager()
     mgr.plan(
         project_identifier=TEST_PROJECT,
@@ -160,6 +186,7 @@ def test_plan_project_with_from_stage(
     assert "EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN" in query
     assert "USING CONFIGURATION some_configuration" in query
     assert "FROM @my_stage" in query
+    assert "OUTPUT_PATH" not in query
 
 
 @mock.patch(execute_queries)

@@ -245,6 +245,41 @@ class TestDCMPlan:
             configuration=None,
             from_stage=mock_from_resource(),
             variables=["key=value"],
+            save_output=False,
+        )
+
+    @mock.patch(DCMProjectManager)
+    def test_plan_project_with_save_output(
+        self,
+        mock_pm,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_from_resource,
+    ):
+        mock_pm().plan.return_value = mock_cursor(
+            rows=[("[]",)], columns=("operations")
+        )
+        mock_pm().sync_local_files.return_value = mock_from_resource()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                [
+                    "dcm",
+                    "plan",
+                    "fooBar",
+                    "--save-output",
+                ]
+            )
+        assert result.exit_code == 0, result.output
+
+        mock_pm().plan.assert_called_once_with(
+            project_identifier=FQN.from_string("fooBar"),
+            configuration=None,
+            from_stage=mock_from_resource(),
+            variables=None,
+            save_output=True,
         )
 
     @mock.patch(DCMProjectManager)

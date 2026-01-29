@@ -89,6 +89,12 @@ target_option = typer.Option(
     show_default=False,
 )
 
+save_output_option = typer.Option(
+    False,
+    "--save-output",
+    help="Download plan output files to local 'out/' directory.",
+)
+
 optional_dcm_identifier = typer.Argument(
     None,
     help="Identifier of DCM Project. Example: MY_PROJECT. Can be omitted if --target is specified or default_target is defined in manifest.",
@@ -218,6 +224,7 @@ def plan(
     from_location: Optional[str] = from_option,
     variables: Optional[List[str]] = variables_flag,
     target: Optional[str] = target_option,
+    save_output: bool = save_output_option,
     **options,
 ):
     """
@@ -238,6 +245,7 @@ def plan(
             configuration=context.configuration,
             from_stage=effective_stage,
             variables=variables,
+            save_output=save_output,
         )
 
     return QueryJsonValueResult(result)

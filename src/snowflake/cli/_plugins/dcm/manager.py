@@ -218,12 +218,17 @@ class DCMProjectManager(SqlExecutionMixin):
         from_stage: str,
         configuration: str | None = None,
         variables: List[str] | None = None,
+        save_output: bool = False,
     ):
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} PLAN"
         query += self._get_configuration_and_variables_query(configuration, variables)
         query += self._get_from_stage_query(from_stage)
-        with self._collect_output(project_identifier) as output_stage:
-            query += f" OUTPUT_PATH {output_stage}"
+
+        if save_output:
+            with self._collect_output(project_identifier) as output_stage:
+                query += f" OUTPUT_PATH {output_stage}"
+                result = self.execute_query(query=query)
+        else:
             result = self.execute_query(query=query)
         return result
 
