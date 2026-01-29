@@ -62,6 +62,9 @@ def test_executing_command_sends_telemetry_usage_data(
     del usage_command_event["message"][
         "command_ci_environment"
     ]  # to avoid side effect from CI
+    del usage_command_event["message"][
+        "command_agent_environment"
+    ]  # to avoid side effect from agent environment
     assert usage_command_event == {
         "message": {
             "driver_type": "PythonConnector",
@@ -205,6 +208,14 @@ def test_get_ci_environment_type_returns_unknown_for_non_interactive_non_ci():
             "snowflake.cli._app.telemetry._is_interactive_terminal", return_value=False
         ):
             assert _get_ci_environment_type() == "UNKNOWN"
+
+
+def test_detect_agent_environment_returns_unknown_when_no_agent():
+    """Test that UNKNOWN is returned when no agent environment is detected."""
+    from snowflake.cli._app.telemetry import _detect_agent_environment
+
+    with mock.patch.dict(os.environ, {}, clear=True):
+        assert _detect_agent_environment() == "UNKNOWN"
 
 
 @mock.patch(
