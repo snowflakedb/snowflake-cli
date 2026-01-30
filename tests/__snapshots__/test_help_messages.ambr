@@ -12983,18 +12983,20 @@
   |                       ction}                      [required]                 |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
-  |                                 name. For example, list function --like      |
-  |                                 "my%" lists all functions that begin with    |
-  |                                 “my”.                                        |
-  |                                 [default: %%]                                |
-  | --in            <TEXT TEXT>...                                               |
+  | --like        -l      TEXT            SQL LIKE pattern for filtering objects |
+  |                                       by name. For example, list function    |
+  |                                       --like "my%" lists all functions that  |
+  |                                       begin with “my”.                       |
+  |                                       [default: %%]                          |
+  | --in                  <TEXT TEXT>...                                         |
   |                                                                              |
-  |                                 Specifies the scope of this command using    |
-  |                                 '--in  ', for example list function --in     |
-  |                                 database my_db.                              |
-  |                                 [default: None, None]                        |
-  | --help  -h                      Show this message and exit.                  |
+  |                                       Specifies the scope of this command    |
+  |                                       using '--in  ', for example list       |
+  |                                       function --in database my_db.          |
+  |                                       [default: None, None]                  |
+  | --in-account                          Lists objects across the entire        |
+  |                                       account.                               |
+  | --help        -h                      Show this message and exit.            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
