@@ -45,6 +45,7 @@ def submit(
         "--image",
         help="The docker image to use for the Spark application. (for development only)",
         show_default=False,
+        hidden=True,
     ),
     class_name: Optional[str] = typer.Option(
         None,
