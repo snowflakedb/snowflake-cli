@@ -22,6 +22,7 @@
 ## New additions
 
 ## Fixes and improvements
+* all authenticators (including `snowflake-jwt`, `username_password_mfa`, `workload_identity`) are now case-insensitive.
 
 
 # v3.15.0
