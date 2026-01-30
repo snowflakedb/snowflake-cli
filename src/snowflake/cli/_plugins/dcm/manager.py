@@ -243,6 +243,13 @@ class DCMProjectManager(SqlExecutionMixin):
                 )
 
             definitions = list(dcm_manifest.get("include_definitions", list()))
+            macros_path = source_path / "macros"
+            if (
+                macros_path.exists()
+                and macros_path.is_dir()
+                and len([f for f in macros_path.iterdir()])
+            ):
+                definitions.append(f"{macros_path.name}/.*")
             if MANIFEST_FILE_NAME not in definitions:
                 definitions.append(MANIFEST_FILE_NAME)
 
