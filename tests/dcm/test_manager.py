@@ -594,3 +594,153 @@ class TestSyncLocalFiles:
             assert actual_project_root.resolve() == source_dir.resolve()
         finally:
             os.chdir(original_cwd)
+
+    @mock.patch("snowflake.cli._plugins.dcm.manager.sync_artifacts_with_stage")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
+    def test_sync_local_files_auto_includes_macros_directory(
+        self,
+        _mock_create_stage,
+        mock_sync_artifacts_with_stage,
+        tmp_path,
+        mock_connect,
+        mock_cursor,
+        mock_from_resource,
+    ):
+        source_dir = tmp_path / "dcm_with_macros"
+        source_dir.mkdir()
+
+        manifest_content = {
+            "type": "dcm_project",
+            "include_definitions": ["definitions/.*"],
+        }
+        manifest_file = source_dir / MANIFEST_FILE_NAME
+        with open(manifest_file, "w") as f:
+            yaml.dump(manifest_content, f)
+
+        macros_dir = source_dir / "macros"
+        macros_dir.mkdir()
+        (macros_dir / "my_macro.sql").write_text("-- macro definition")
+
+        DCMProjectManager.sync_local_files(
+            project_identifier=TEST_PROJECT, source_directory=str(source_dir)
+        )
+
+        mock_sync_artifacts_with_stage.assert_called_once()
+        call_args = mock_sync_artifacts_with_stage.call_args
+        artifacts = call_args.kwargs["artifacts"]
+
+        artifact_sources = [a.src for a in artifacts]
+        assert "definitions/.*" in artifact_sources
+        assert "macros/.*" in artifact_sources
+        assert MANIFEST_FILE_NAME in artifact_sources
+
+    @mock.patch("snowflake.cli._plugins.dcm.manager.sync_artifacts_with_stage")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
+    def test_sync_local_files_does_not_include_empty_macros_directory(
+        self,
+        _mock_create_stage,
+        mock_sync_artifacts_with_stage,
+        tmp_path,
+        mock_connect,
+        mock_cursor,
+        mock_from_resource,
+    ):
+        source_dir = tmp_path / "dcm_empty_macros"
+        source_dir.mkdir()
+
+        manifest_content = {
+            "type": "dcm_project",
+            "include_definitions": ["definitions/.*"],
+        }
+        manifest_file = source_dir / MANIFEST_FILE_NAME
+        with open(manifest_file, "w") as f:
+            yaml.dump(manifest_content, f)
+
+        macros_dir = source_dir / "macros"
+        macros_dir.mkdir()
+
+        DCMProjectManager.sync_local_files(
+            project_identifier=TEST_PROJECT, source_directory=str(source_dir)
+        )
+
+        mock_sync_artifacts_with_stage.assert_called_once()
+        call_args = mock_sync_artifacts_with_stage.call_args
+        artifacts = call_args.kwargs["artifacts"]
+
+        artifact_sources = [a.src for a in artifacts]
+        assert "macros/.*" not in artifact_sources
+        assert "definitions/.*" in artifact_sources
+        assert MANIFEST_FILE_NAME in artifact_sources
+
+    @mock.patch("snowflake.cli._plugins.dcm.manager.sync_artifacts_with_stage")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
+    def test_sync_local_files_does_not_include_nonexistent_macros_directory(
+        self,
+        _mock_create_stage,
+        mock_sync_artifacts_with_stage,
+        tmp_path,
+        mock_connect,
+        mock_cursor,
+        mock_from_resource,
+    ):
+        source_dir = tmp_path / "dcm_no_macros"
+        source_dir.mkdir()
+
+        manifest_content = {
+            "type": "dcm_project",
+            "include_definitions": ["definitions/.*"],
+        }
+        manifest_file = source_dir / MANIFEST_FILE_NAME
+        with open(manifest_file, "w") as f:
+            yaml.dump(manifest_content, f)
+
+        DCMProjectManager.sync_local_files(
+            project_identifier=TEST_PROJECT, source_directory=str(source_dir)
+        )
+
+        mock_sync_artifacts_with_stage.assert_called_once()
+        call_args = mock_sync_artifacts_with_stage.call_args
+        artifacts = call_args.kwargs["artifacts"]
+
+        artifact_sources = [a.src for a in artifacts]
+        assert "macros/.*" not in artifact_sources
+        assert "definitions/.*" in artifact_sources
+        assert MANIFEST_FILE_NAME in artifact_sources
+
+    @mock.patch("snowflake.cli._plugins.dcm.manager.sync_artifacts_with_stage")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
+    def test_sync_local_files_does_not_duplicate_macros_if_already_in_manifest(
+        self,
+        _mock_create_stage,
+        mock_sync_artifacts_with_stage,
+        tmp_path,
+        mock_connect,
+        mock_cursor,
+        mock_from_resource,
+    ):
+        source_dir = tmp_path / "dcm_macros_in_manifest"
+        source_dir.mkdir()
+
+        manifest_content = {
+            "type": "dcm_project",
+            "include_definitions": ["definitions/.*", "macros/.*"],
+        }
+        manifest_file = source_dir / MANIFEST_FILE_NAME
+        with open(manifest_file, "w") as f:
+            yaml.dump(manifest_content, f)
+
+        macros_dir = source_dir / "macros"
+        macros_dir.mkdir()
+        (macros_dir / "my_macro.sql").write_text("-- macro definition")
+
+        DCMProjectManager.sync_local_files(
+            project_identifier=TEST_PROJECT, source_directory=str(source_dir)
+        )
+
+        mock_sync_artifacts_with_stage.assert_called_once()
+        call_args = mock_sync_artifacts_with_stage.call_args
+        artifacts = call_args.kwargs["artifacts"]
+
+        artifact_sources = [a.src for a in artifacts]
+        macros_count = artifact_sources.count("macros/.*")
+        assert macros_count == 2
