@@ -93,11 +93,13 @@ def _scope_validate(object_type: str, scope: Tuple[Optional[str], Optional[str]]
     if scope_type is None:
         return
 
+    scope_type = scope_type.lower()
+
     # Account scope is valid but doesn't need name validation
-    if scope_type.lower() == "account":
+    if scope_type == "account":
         return
 
-    if scope_type.lower() not in VALID_SCOPES:
+    if scope_type not in VALID_SCOPES:
         raise CliError(
             f"Scope type must be one of the following: {', '.join(VALID_SCOPES)}."
         )
