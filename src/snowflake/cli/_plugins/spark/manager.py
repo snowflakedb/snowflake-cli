@@ -25,10 +25,7 @@ class SubmitQueryBuilder:
     def __init__(self, file_on_stage: str, scls_file_stage: str):
         self.file_on_stage = file_on_stage
         self.snow_file_stage = scls_file_stage
-        self.spark_configurations = {
-            "spark.plugins": "com.snowflake.spark.SnowflakePlugin",
-            "spark.snowflake.backend": "sparkle",
-        }
+        self.spark_configurations: dict[str, str] = {}
         self.class_name: Optional[str] = None
         self.application_arguments: Optional[List[str]] = None
         self.jars: Optional[List[str]] = None

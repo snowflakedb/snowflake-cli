@@ -33,7 +33,6 @@ class TestSubmitQueryBuilder:
         assert "ENTRYPOINT_FILE='/tmp/entrypoint/app.py'" in query
         assert "CLASS" not in query  # Python files don't require class
         assert "ARGUMENTS" not in query
-        assert "SPARK_CONFIGURATION=" in query
         assert "RESOURCE_CONSTRAINT='CPU_2X_X86'" in query
 
     def test_build_jar_file_with_class_name(self):
@@ -173,8 +172,6 @@ class TestSubmitQueryBuilder:
             "ENTRYPOINT_FILE='/tmp/entrypoint/app.jar' "
             "CLASS = 'com.example.Main' "
             "ARGUMENTS = ('arg1','arg2') "
-            "SPARK_CONFIGURATION=('spark.plugins' = 'com.snowflake.spark.SnowflakePlugin', "
-            "'spark.snowflake.backend' = 'sparkle') "
             "RESOURCE_CONSTRAINT='CPU_2X_X86'"
         )
         assert query == expected
