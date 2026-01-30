@@ -230,7 +230,7 @@ class DCMProjectManager(SqlExecutionMixin):
                 project_paths=ProjectPaths(project_root=source_path.path),
                 stage_root=stage_fqn.identifier,
                 use_temporary_stage=True,
-                artifacts=[PathMapping(src=definition) for definition in definitions],
+                artifacts=[PathMapping(src=r"^[^./][^/]*(/[^./][^/]*)*$")],
                 pattern_type=PatternMatchingType.REGEX,
             )
 
