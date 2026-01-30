@@ -19,9 +19,10 @@ from typing import List, Optional, Tuple
 import typer
 from click import ClickException
 from snowflake.cli._plugins.object.commands import (
-    InAccountOption,
+    ScopeOption,
     describe,
     drop,
+    in_account_option_,
     limit_option_,
     list_,
     scope_option,  # noqa: F401
@@ -55,7 +56,7 @@ def add_object_command_aliases(
             @app.command("list", requires_connection=True)
             def list_cmd(
                 like: str = like_option,  # type: ignore
-                in_account: bool = in_account_option if in_account_option else InAccountOption(),  # type: ignore
+                in_account: bool = in_account_option if in_account_option else in_account_option_(),  # type: ignore
                 terse: bool = terse_option if terse_option else terse_option_(),  # type: ignore
                 limit: Optional[int] = limit_option if limit_option else limit_option_(),  # type: ignore
                 **options,
@@ -63,7 +64,7 @@ def add_object_command_aliases(
                 return list_(
                     object_type=object_type.value.cli_name,
                     like=like,
-                    scope=(None, None),
+                    scope=ScopeOption.default,
                     in_account=in_account,
                     terse=terse,
                     limit=limit,
@@ -76,7 +77,7 @@ def add_object_command_aliases(
             def list_cmd(
                 like: str = like_option,  # type: ignore
                 scope: Tuple[str, str] = scope_option,  # type: ignore
-                in_account: bool = in_account_option if in_account_option else InAccountOption(),  # type: ignore
+                in_account: bool = in_account_option if in_account_option else in_account_option_(),  # type: ignore
                 terse: bool = terse_option if terse_option else terse_option_(),  # type: ignore
                 limit: Optional[int] = limit_option if limit_option else limit_option_(),  # type: ignore
                 **options,

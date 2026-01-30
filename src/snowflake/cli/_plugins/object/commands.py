@@ -17,7 +17,6 @@ from __future__ import annotations
 from typing import List, Optional, Tuple
 
 import typer
-from click import ClickException
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli.api.commands.flags import (
     IdentifierType,
@@ -26,11 +25,10 @@ from snowflake.cli.api.commands.flags import (
     ReplaceOption,
     like_option,
 )
-from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.constants import SUPPORTED_OBJECTS, VALID_SCOPES
-from snowflake.cli.api.exceptions import IncompatibleParametersError
+from snowflake.cli.api.exceptions import CliError, IncompatibleParametersError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import MessageResult, QueryResult
 from snowflake.cli.api.project.util import is_valid_identifier
@@ -100,17 +98,15 @@ def _scope_validate(object_type: str, scope: Tuple[Optional[str], Optional[str]]
         return
 
     if scope_type.lower() not in VALID_SCOPES:
-        raise ClickException(
+        raise CliError(
             f"Scope type must be one of the following: {', '.join(VALID_SCOPES)}."
         )
 
     if scope_name is not None and not is_valid_identifier(scope_name):
-        raise ClickException("Scope name must be a valid identifier.")
+        raise CliError("Scope name must be a valid identifier.")
 
     if scope_type == "compute-pool" and object_type != "service":
-        raise ClickException(
-            "compute-pool scope is only supported for listing service."
-        )
+        raise CliError("compute-pool scope is only supported for listing service.")
 
 
 def scope_option(help_example: str):
@@ -121,12 +117,13 @@ def scope_option(help_example: str):
     )
 
 
-InAccountOption = OverrideableOption(
-    False,
-    "--in-account",
-    is_flag=True,
-    help="Lists objects across the entire account.",
-)
+def in_account_option_():
+    return typer.Option(
+        None,
+        "--in-account",
+        is_flag=True,
+        help="Lists objects across the entire account.",
+    )
 
 
 def terse_option_():
@@ -163,7 +160,7 @@ def list_(
     object_type: str = ObjectArgument,
     like: str = LikeOption,
     scope: Tuple[str, str] = ScopeOption,
-    in_account: bool = InAccountOption(),
+    in_account: bool = in_account_option_(),
     terse: Optional[bool] = terse_option_(),
     limit: Optional[int] = limit_option_(),
     **options,
@@ -248,7 +245,7 @@ def create(
         }
 
     else:
-        raise ClickException(
+        raise CliError(
             "Provide either list of object attributes, or object definition in JSON format"
         )
 
