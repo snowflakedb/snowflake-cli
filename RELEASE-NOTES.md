@@ -20,6 +20,7 @@
 ## Deprecations
 
 ## New additions
+* Added global `--color` flag to control colored console output. Use `--color off` to disable colors.
 
 ## Fixes and improvements
 * all authenticators (including `snowflake-jwt`, `username_password_mfa`, `workload_identity`) are now case-insensitive.
