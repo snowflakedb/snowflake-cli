@@ -4,7 +4,7 @@
    * [ ] I've added or updated integration tests to verify correctness of my new code.
    * [ ] I've confirmed that my changes are working by executing CLI's commands manually on MacOS.
    * [ ] I've confirmed that my changes are working by executing CLI's commands manually on Windows.
-   * [ ] I've confirmed that my changes are up-to-date with the target branch.
+   * [ ] I've confirmed that my changes are reasonably up-to-date with the target branch.
    * [ ] I've described my changes in the release notes.
    * [ ] I've described my changes in the section below.
    * [ ] I've described my changes in the documentation.
