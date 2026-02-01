@@ -155,10 +155,7 @@ class SnowTyper(typer.Typer):
         Pay attention to make this method safe to use if performed operations are not necessary
         for executing the command in proper way.
         """
-        from snowflake.cli._app.telemetry import log_command_usage
-
         log.debug("Executing command pre execution callback")
-        log_command_usage(execution)
         if require_warehouse and not SqlExecutionMixin().session_has_warehouse():
             raise ClickException(
                 "The command requires warehouse. No warehouse found in current connection."
@@ -208,9 +205,14 @@ class SnowTyper(typer.Typer):
         Callback executed after running any command callable. Pay attention to make this method safe to
         use if performed operations are not necessary for executing the command in proper way.
         """
-        from snowflake.cli._app.telemetry import flush_telemetry, log_command_result
+        from snowflake.cli._app.telemetry import (
+            flush_telemetry,
+            log_command_result,
+            log_command_usage,
+        )
 
         log.debug("Executing command post execution callback")
+        log_command_usage(execution)
         log_command_result(execution)
         flush_telemetry()
 

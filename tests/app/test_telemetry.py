@@ -256,7 +256,7 @@ def test_failing_executing_command_sends_telemetry_data(
     # The method is called with a TelemetryData type, so we cast it to dict for simpler comparison
     result_command_event = (
         mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-            1
+            0
         ]
         .args[0]
         .to_dict()
