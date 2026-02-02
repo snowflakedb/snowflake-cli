@@ -26,8 +26,6 @@ from snowflake.cli.api.rest_api import RestApi
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
-from snowflake.connector.errors import BadRequest
-from snowflake.connector.vendored.requests.exceptions import HTTPError
 
 
 def _get_object_names(object_type: str) -> ObjectNames:
@@ -111,6 +109,9 @@ class ObjectManager(SqlExecutionMixin):
 
 
 def _handle_create_error_codes(err: Exception) -> None:
+    from snowflake.connector.errors import BadRequest
+    from snowflake.connector.vendored.requests.exceptions import HTTPError
+
     # according to https://docs.snowflake.com/developer-guide/snowflake-rest-api/reference/
     if isinstance(err, BadRequest):
         raise ClickException(

@@ -47,7 +47,7 @@ from snowflake.cli.api.secret import SecretType
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.auth.workload_identity import ApiFederatedAuthenticationType
-from snowflake.connector.errors import DatabaseError, ForbiddenError
+from snowflake.connector.errors import DatabaseError
 
 log = logging.getLogger(__name__)
 
@@ -151,6 +151,7 @@ def connect_to_snowflake(
     connection_name: Optional[str] = None,
     **overrides,
 ) -> SnowflakeConnection:
+    from snowflake.connector.errors import ForbiddenError
     if temporary_connection and connection_name:
         raise ClickException("Can't use connection name and temporary connection.")
     elif not temporary_connection and not connection_name:

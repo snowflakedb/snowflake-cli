@@ -16,15 +16,16 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 from urllib.parse import parse_qsl, urlencode, urlparse
 
 from click import ClickException
 from snowflake.cli.api.constants import SF_REST_API_URL_PREFIX
 from snowflake.connector.connection import SnowflakeConnection
-from snowflake.connector.errors import BadRequest
-from snowflake.connector.network import SnowflakeRestful
 from snowflake.connector.vendored.requests.exceptions import HTTPError
+
+if TYPE_CHECKING:
+    from snowflake.connector.network import SnowflakeRestful
 
 log = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ def _pluralize_object_type(object_type: str) -> str:
 class RestApi:
     def __init__(self, connection: SnowflakeConnection):
         self.conn = connection
-        self.rest: SnowflakeRestful = connection.rest
+        self.rest: "SnowflakeRestful" = connection.rest
 
     def get_endpoint_exists(self, url: str) -> bool:
         """
@@ -57,6 +58,7 @@ class RestApi:
             raise err
 
     def _fetch_endpoint_exists(self, url: str) -> bool:
+        from snowflake.connector.errors import BadRequest
         try:
             result = self.send_rest_request(url, method="get")
             return bool(result)
