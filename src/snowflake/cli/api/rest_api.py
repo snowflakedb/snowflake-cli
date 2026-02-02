@@ -22,7 +22,6 @@ from urllib.parse import parse_qsl, urlencode, urlparse
 from click import ClickException
 from snowflake.cli.api.constants import SF_REST_API_URL_PREFIX
 from snowflake.connector.connection import SnowflakeConnection
-from snowflake.connector.vendored.requests.exceptions import HTTPError
 
 if TYPE_CHECKING:
     from snowflake.connector.network import SnowflakeRestful
@@ -49,6 +48,8 @@ class RestApi:
         """
         Check whether [get] endpoint exists under given URL.
         """
+        from snowflake.connector.vendored.requests.exceptions import HTTPError  # noqa
+
         try:
             self.send_rest_request(url, method="get")
             return True
@@ -59,6 +60,8 @@ class RestApi:
 
     def _fetch_endpoint_exists(self, url: str) -> bool:
         from snowflake.connector.errors import BadRequest
+        from snowflake.connector.vendored.requests.exceptions import HTTPError  # noqa
+
         try:
             result = self.send_rest_request(url, method="get")
             return bool(result)
