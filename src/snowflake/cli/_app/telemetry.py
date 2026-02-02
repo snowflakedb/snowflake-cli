@@ -206,6 +206,11 @@ def _is_interactive_terminal() -> bool:
         return False
 
 
+def _is_env_truthy(name: str) -> bool:
+    """Check if an environment variable has a truthy value."""
+    return os.environ.get(name, "").lower() in ("yes", "true", "1", "on")
+
+
 def _get_ci_environment_type() -> str:
     """Detect CI/CD environment type based on environment variables."""
     if "SF_GITHUB_ACTION" in os.environ:
@@ -232,7 +237,7 @@ def _get_ci_environment_type() -> str:
         return "CODEFRESH"
     if "TRAVIS" in os.environ:
         return "TRAVIS_CI"
-    if os.environ.get("CI", "").lower() in ("true", "1"):
+    if _is_env_truthy("CI"):
         return "UNKNOWN_CI"
     if _is_interactive_terminal():
         return "LOCAL"
@@ -241,15 +246,17 @@ def _get_ci_environment_type() -> str:
 
 def _detect_agent_environment() -> str:
     """Detect AI coding agent based on environment variables."""
-    if any(key.startswith("CORTEX_") for key in os.environ):
+    if "CORTEX_SESSION_ID" in os.environ:
         return "CORTEX"
-    if "CURSOR_AGENT" in os.environ:
+    if _is_env_truthy("CURSOR_AGENT"):
         return "CURSOR"
-    if "GEMINI_CLI" in os.environ:
-        return "GEMINI_CLI"
-    if any(key.startswith("CLAUDE_CODE") for key in os.environ):
+    if _is_env_truthy("CLAUDECODE"):
         return "CLAUDE_CODE"
-    if any(key.startswith("CODEX_") for key in os.environ):
+    if _is_env_truthy("GEMINI_CLI"):
+        return "GEMINI_CLI"
+    if _is_env_truthy("OPENCODE"):
+        return "OPENCODE"
+    if "CODEX_API_KEY" in os.environ:
         return "CODEX"
     return "UNKNOWN"
 

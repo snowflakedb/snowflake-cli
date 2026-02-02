@@ -301,8 +301,9 @@ def test_detect_agent_environment_returns_unknown_when_no_agent():
         ("CORTEX_SESSION_ID", "abc123", "CORTEX"),
         ("CURSOR_AGENT", "1", "CURSOR"),
         ("GEMINI_CLI", "1", "GEMINI_CLI"),
-        ("CLAUDE_CODE", "1", "CLAUDE_CODE"),
+        ("CLAUDECODE", "1", "CLAUDE_CODE"),
         ("CODEX_API_KEY", "key123", "CODEX"),
+        ("OPENCODE", "1", "OPENCODE"),
     ],
 )
 def test_detect_agent_environment_returns_correct_agent(
@@ -451,7 +452,6 @@ def test_flags_from_parent_contexts_are_captured(mock_uuid4, mock_connect, runne
     )
 
     command_flags = usage_command_event["message"]["command_flags"]
-    assert "run_async" in command_flags, (
-        f"run_async flag should be captured in telemetry. "
-        f"Found flags: {command_flags}"
-    )
+    assert (
+        "run_async" in command_flags
+    ), f"run_async flag should be captured in telemetry. Found flags: {command_flags}"
