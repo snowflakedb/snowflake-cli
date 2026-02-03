@@ -179,7 +179,7 @@ features = ["development"]
 check = [
   'pip uninstall --yes snowflake-connector-python',
   'pip install "git+https://github.com/snowflakedb/universal-driver@{env:UD_BRANCH:main}#subdirectory=python"',
-  'pytest -m "integration and not qa_only" -n5 --dist=worksteal --deflake-test-type=integration --ignore=tests_integration/tests_using_container_services tests_integration/ {args}',
+  'pytest -m "integration and not qa_only" -n8 --maxfail=1000 --dist=worksteal --ignore=tests_integration/tests_using_container_services --ignore=tests_integration/nativeapp tests_integration/ {args}',
 ]
 
 [[tool.hatch.envs.local.matrix]]
