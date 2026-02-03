@@ -24,12 +24,14 @@ from typing import List, Tuple
 
 from click.exceptions import ClickException
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
-from snowflake.connector.constants import S3_CHUNK_SIZE, S3_MAX_PARTS, S3_MIN_PART_SIZE
 
 ONE_MEGABYTE = 1024**2
 READ_BUFFER_BYTES = 64 * 1024
 MD5SUM_REGEX = r"^[A-Fa-f0-9]{32}$"
 MULTIPART_MD5SUM_REGEX = r"^([A-Fa-f0-9]{32})-(\d+)$"
+S3_MIN_PART_SIZE = 5 * 1024**2
+S3_MAX_PARTS = 10000
+S3_CHUNK_SIZE = 8388608
 
 log = logging.getLogger(__name__)
 

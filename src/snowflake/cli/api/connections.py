@@ -23,9 +23,9 @@ from pathlib import Path
 from typing import Optional
 
 from snowflake.cli.api.config import get_connection_dict, get_default_connection_name
+from snowflake.cli.api.constants import IS_WINDOWS
 from snowflake.cli.api.exceptions import InvalidSchemaError
 from snowflake.connector import SnowflakeConnection
-from snowflake.connector.compat import IS_WINDOWS
 
 logger = logging.getLogger(__name__)
 

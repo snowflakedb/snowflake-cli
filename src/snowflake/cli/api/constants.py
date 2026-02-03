@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import platform
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -110,3 +111,5 @@ SNOWPARK_SHARED_MIXIN = "snowpark_shared"
 
 DEFAULT_ENV_FILE = "environment.yml"
 DEFAULT_PAGES_DIR = "pages"
+
+IS_WINDOWS = platform.system() == "Windows"
