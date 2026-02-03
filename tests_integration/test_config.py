@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import pytest
-from snowflake.connector.compat import IS_WINDOWS
+from snowflake.cli.api.constants import IS_WINDOWS
 
 from tests_integration.conftest import WORLD_READABLE_CONFIG
 
