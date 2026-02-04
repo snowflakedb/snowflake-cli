@@ -282,7 +282,7 @@ class SparkManager(SqlExecutionMixin):
 
     def kill(self, spark_application_id: str):
         unquoted_id = spark_application_id.strip("'").strip('"')
-        query = f"CALL SYSTEM$CANCEL_SPARK_APPLICATION('{unquoted_id}')"
+        query = f"SELECT snowflake.spark.CANCEL_SPARK_APPLICATION('{unquoted_id}')"
         try:
             result = self.execute_query(query).fetchone()
             return result[0]
