@@ -7373,18 +7373,21 @@
 # name: test_help_messages[dcm.create]
   '''
                                                                                   
-   Usage: root dcm create [OPTIONS] IDENTIFIER                                    
+   Usage: root dcm create [OPTIONS] [IDENTIFIER]                                  
                                                                                   
    Creates a DCM Project in Snowflake.                                            
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    identifier      TEXT  Identifier of the DCM Project; for example:       |
-  |                            MY_PROJECT                                        |
-  |                            [required]                                        |
+  |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
+  |                                 MY_PROJECT. Can be omitted if --target is    |
+  |                                 specified or default_target is defined in    |
+  |                                 manifest.                                    |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --if-not-exists            Do nothing if the project already exists.         |
-  | --help           -h        Show this message and exit.                       |
+  | --if-not-exists                Do nothing if the project already exists.     |
+  | --target                 TEXT  Target profile from manifest.yml to use. Uses |
+  |                                default_target if not specified.              |
+  | --help           -h            Show this message and exit.                   |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -7514,25 +7517,25 @@
 # name: test_help_messages[dcm.deploy]
   '''
                                                                                   
-   Usage: root dcm deploy [OPTIONS] IDENTIFIER                                    
+   Usage: root dcm deploy [OPTIONS] [IDENTIFIER]                                  
                                                                                   
    Applies changes defined in DCM Project to Snowflake.                           
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    identifier      TEXT  Identifier of the DCM Project; for example:       |
-  |                            MY_PROJECT                                        |
-  |                            [required]                                        |
+  |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
+  |                                 MY_PROJECT. Can be omitted if --target is    |
+  |                                 specified or default_target is defined in    |
+  |                                 manifest.                                    |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --from                   TEXT  Source location: stage path (starting with    |
-  |                                '@') or local directory path. Omit to use     |
-  |                                current directory.                            |
-  | --variable       -D      TEXT  Variables for the execution context; for      |
-  |                                example: -D "<key>=<value>".                  |
-  | --configuration          TEXT  Configuration of the DCM Project to use. If   |
-  |                                not specified default configuration is used.  |
-  | --alias                  TEXT  Alias for the deployment.                     |
-  | --help           -h            Show this message and exit.                   |
+  | --from              TEXT  Local directory path containing DCM project files. |
+  |                           Omit to use current directory.                     |
+  | --variable  -D      TEXT  Variables for the execution context; for example:  |
+  |                           -D "<key>=<value>".                                |
+  | --alias             TEXT  Alias for the deployment.                          |
+  | --target            TEXT  Target profile from manifest.yml to use. Uses      |
+  |                           default_target if not specified.                   |
+  | --help      -h            Show this message and exit.                        |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -7662,16 +7665,20 @@
 # name: test_help_messages[dcm.describe]
   '''
                                                                                   
-   Usage: root dcm describe [OPTIONS] NAME                                        
+   Usage: root dcm describe [OPTIONS] [IDENTIFIER]                                
                                                                                   
-   Provides description of DCM Project.                                           
+   Provides description of a DCM Project.                                         
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Identifier of the DCM Project; for example: MY_PROJECT  |
-  |                      [required]                                              |
+  |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
+  |                                 MY_PROJECT. Can be omitted if --target is    |
+  |                                 specified or default_target is defined in    |
+  |                                 manifest.                                    |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
+  | --target          TEXT  Target profile from manifest.yml to use. Uses        |
+  |                         default_target if not specified.                     |
+  | --help    -h            Show this message and exit.                          |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -7801,23 +7808,27 @@
 # name: test_help_messages[dcm.drop-deployment]
   '''
                                                                                   
-   Usage: root dcm drop-deployment [OPTIONS] IDENTIFIER DEPLOYMENT_NAME           
+   Usage: root dcm drop-deployment [OPTIONS] [IDENTIFIER] DEPLOYMENT_NAME         
                                                                                   
    Drops a deployment from the DCM Project.                                       
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    identifier           TEXT  Identifier of the DCM Project; for example:  |
-  |                                 MY_PROJECT                                   |
-  |                                 [required]                                   |
-  | *    deployment_name      TEXT  Name or alias of the deployment to drop. For |
-  |                                 names containing '$', use single quotes to   |
-  |                                 prevent shell expansion (e.g.,               |
-  |                                 'DEPLOYMENT$1').                             |
-  |                                 [required]                                   |
+  |      identifier           [IDENTIFIER]  Identifier of DCM Project. Example:  |
+  |                                         MY_PROJECT. Can be omitted if        |
+  |                                         --target is specified or             |
+  |                                         default_target is defined in         |
+  |                                         manifest.                            |
+  | *    deployment_name      TEXT          Name or alias of the deployment to   |
+  |                                         drop. For names containing '$', use  |
+  |                                         single quotes to prevent shell       |
+  |                                         expansion (e.g., 'DEPLOYMENT$1').    |
+  |                                         [required]                           |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --if-exists            Do nothing if the deployment does not exist.          |
-  | --help       -h        Show this message and exit.                           |
+  | --if-exists                Do nothing if the deployment does not exist.      |
+  | --target             TEXT  Target profile from manifest.yml to use. Uses     |
+  |                            default_target if not specified.                  |
+  | --help       -h            Show this message and exit.                       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -7947,18 +7958,21 @@
 # name: test_help_messages[dcm.drop]
   '''
                                                                                   
-   Usage: root dcm drop [OPTIONS] NAME                                            
+   Usage: root dcm drop [OPTIONS] [IDENTIFIER]                                    
                                                                                   
-   Drops DCM Project with given name.                                             
+   Drops a DCM Project with the given name.                                       
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Identifier of the DCM Project; for example: MY_PROJECT  |
-  |                      [required]                                              |
+  |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
+  |                                 MY_PROJECT. Can be omitted if --target is    |
+  |                                 specified or default_target is defined in    |
+  |                                 manifest.                                    |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --if-exists            Only apply this operation if the specified object     |
-  |                        exists.                                               |
-  | --help       -h        Show this message and exit.                           |
+  | --if-exists                Do nothing if the project does not exist.         |
+  | --target             TEXT  Target profile from manifest.yml to use. Uses     |
+  |                            default_target if not specified.                  |
+  | --help       -h            Show this message and exit.                       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -8088,17 +8102,20 @@
 # name: test_help_messages[dcm.list-deployments]
   '''
                                                                                   
-   Usage: root dcm list-deployments [OPTIONS] IDENTIFIER                          
+   Usage: root dcm list-deployments [OPTIONS] [IDENTIFIER]                        
                                                                                   
    Lists deployments of given DCM Project.                                        
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    identifier      TEXT  Identifier of the DCM Project; for example:       |
-  |                            MY_PROJECT                                        |
-  |                            [required]                                        |
+  |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
+  |                                 MY_PROJECT. Can be omitted if --target is    |
+  |                                 specified or default_target is defined in    |
+  |                                 manifest.                                    |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
+  | --target          TEXT  Target profile from manifest.yml to use. Uses        |
+  |                         default_target if not specified.                     |
+  | --help    -h            Show this message and exit.                          |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -8380,27 +8397,26 @@
 # name: test_help_messages[dcm.plan]
   '''
                                                                                   
-   Usage: root dcm plan [OPTIONS] IDENTIFIER                                      
+   Usage: root dcm plan [OPTIONS] [IDENTIFIER]                                    
                                                                                   
    Plans a DCM Project deployment (validates without executing).                  
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    identifier      TEXT  Identifier of the DCM Project; for example:       |
-  |                            MY_PROJECT                                        |
-  |                            [required]                                        |
+  |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
+  |                                 MY_PROJECT. Can be omitted if --target is    |
+  |                                 specified or default_target is defined in    |
+  |                                 manifest.                                    |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --from                   TEXT  Source location: stage path (starting with    |
-  |                                '@') or local directory path. Omit to use     |
-  |                                current directory.                            |
-  | --variable       -D      TEXT  Variables for the execution context; for      |
-  |                                example: -D "<key>=<value>".                  |
-  | --configuration          TEXT  Configuration of the DCM Project to use. If   |
-  |                                not specified default configuration is used.  |
-  | --output-path            TEXT  Path where the deployment plan output will be |
-  |                                stored. Can be a stage path (starting with    |
-  |                                '@') or a local directory path.               |
-  | --help           -h            Show this message and exit.                   |
+  | --from                 TEXT  Local directory path containing DCM project     |
+  |                              files. Omit to use current directory.           |
+  | --variable     -D      TEXT  Variables for the execution context; for        |
+  |                              example: -D "<key>=<value>".                    |
+  | --target               TEXT  Target profile from manifest.yml to use. Uses   |
+  |                              default_target if not specified.                |
+  | --save-output                Download plan output files to local 'out/'      |
+  |                              directory.                                      |
+  | --help         -h            Show this message and exit.                     |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -8530,30 +8546,28 @@
 # name: test_help_messages[dcm.preview]
   '''
                                                                                   
-   Usage: root dcm preview [OPTIONS] IDENTIFIER                                   
+   Usage: root dcm preview [OPTIONS] [IDENTIFIER]                                 
                                                                                   
    Returns rows from any table, view, dynamic table.                              
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    identifier      TEXT  Identifier of the DCM Project; for example:       |
-  |                            MY_PROJECT                                        |
-  |                            [required]                                        |
+  |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
+  |                                 MY_PROJECT. Can be omitted if --target is    |
+  |                                 specified or default_target is defined in    |
+  |                                 manifest.                                    |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | *  --object                 TEXT     FQN of table/view/dynamic table to be   |
-  |                                      previewed.                              |
-  |                                      [required]                              |
-  |    --from                   TEXT     Source location: stage path (starting   |
-  |                                      with '@') or local directory path. Omit |
-  |                                      to use current directory.               |
-  |    --variable       -D      TEXT     Variables for the execution context;    |
-  |                                      for example: -D "<key>=<value>".        |
-  |    --configuration          TEXT     Configuration of the DCM Project to     |
-  |                                      use. If not specified default           |
-  |                                      configuration is used.                  |
-  |    --limit                  INTEGER  The maximum number of rows to be        |
-  |                                      returned.                               |
-  |    --help           -h               Show this message and exit.             |
+  | *  --object            TEXT     FQN of table/view/dynamic table to be        |
+  |                                 previewed.                                   |
+  |                                 [required]                                   |
+  |    --from              TEXT     Local directory path containing DCM project  |
+  |                                 files. Omit to use current directory.        |
+  |    --variable  -D      TEXT     Variables for the execution context; for     |
+  |                                 example: -D "<key>=<value>".                 |
+  |    --limit             INTEGER  The maximum number of rows to be returned.   |
+  |    --target            TEXT     Target profile from manifest.yml to use.     |
+  |                                 Uses default_target if not specified.        |
+  |    --help      -h               Show this message and exit.                  |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -8683,17 +8697,20 @@
 # name: test_help_messages[dcm.refresh]
   '''
                                                                                   
-   Usage: root dcm refresh [OPTIONS] IDENTIFIER                                   
+   Usage: root dcm refresh [OPTIONS] [IDENTIFIER]                                 
                                                                                   
    Refreshes dynamic tables defined in DCM project.                               
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    identifier      TEXT  Identifier of the DCM Project; for example:       |
-  |                            MY_PROJECT                                        |
-  |                            [required]                                        |
+  |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
+  |                                 MY_PROJECT. Can be omitted if --target is    |
+  |                                 specified or default_target is defined in    |
+  |                                 manifest.                                    |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
+  | --target          TEXT  Target profile from manifest.yml to use. Uses        |
+  |                         default_target if not specified.                     |
+  | --help    -h            Show this message and exit.                          |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -8823,17 +8840,20 @@
 # name: test_help_messages[dcm.test]
   '''
                                                                                   
-   Usage: root dcm test [OPTIONS] IDENTIFIER                                      
+   Usage: root dcm test [OPTIONS] [IDENTIFIER]                                    
                                                                                   
    Tests all expectations defined in DCM project.                                 
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    identifier      TEXT  Identifier of the DCM Project; for example:       |
-  |                            MY_PROJECT                                        |
-  |                            [required]                                        |
+  |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
+  |                                 MY_PROJECT. Can be omitted if --target is    |
+  |                                 specified or default_target is defined in    |
+  |                                 manifest.                                    |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
+  | --target          TEXT  Target profile from manifest.yml to use. Uses        |
+  |                         default_target if not specified.                     |
+  | --help    -h            Show this message and exit.                          |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -8973,8 +8993,8 @@
   +- Commands -------------------------------------------------------------------+
   | create             Creates a DCM Project in Snowflake.                       |
   | deploy             Applies changes defined in DCM Project to Snowflake.      |
-  | describe           Provides description of DCM Project.                      |
-  | drop               Drops DCM Project with given name.                        |
+  | describe           Provides description of a DCM Project.                    |
+  | drop               Drops a DCM Project with the given name.                  |
   | drop-deployment    Drops a deployment from the DCM Project.                  |
   | list               Lists all available DCM Projects.                         |
   | list-deployments   Lists deployments of given DCM Project.                   |
@@ -22720,8 +22740,8 @@
   +- Commands -------------------------------------------------------------------+
   | create             Creates a DCM Project in Snowflake.                       |
   | deploy             Applies changes defined in DCM Project to Snowflake.      |
-  | describe           Provides description of DCM Project.                      |
-  | drop               Drops DCM Project with given name.                        |
+  | describe           Provides description of a DCM Project.                    |
+  | drop               Drops a DCM Project with the given name.                  |
   | drop-deployment    Drops a deployment from the DCM Project.                  |
   | list               Lists all available DCM Projects.                         |
   | list-deployments   Lists deployments of given DCM Project.                   |

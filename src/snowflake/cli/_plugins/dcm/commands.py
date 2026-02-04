@@ -171,7 +171,7 @@ add_object_command_aliases(
         help_example='`list --like "my%"` lists all DCM Projects that begin with "my"'
     ),
     scope_option=scope_option(help_example="`list --in database my_db`"),
-    ommit_commands=["create"],
+    ommit_commands=["create", "drop", "describe"],
     terse_option=terse_option,
     limit_option=limit_option,
 )
@@ -278,6 +278,39 @@ def create(
         dpm.create(project_identifier=project_id)
 
     return MessageResult(f"DCM Project '{project_id}' successfully created.")
+
+
+@app.command(requires_connection=True)
+def drop(
+    identifier: Optional[FQN] = optional_dcm_identifier,
+    if_exists: bool = IfExistsOption(help="Do nothing if the project does not exist."),
+    target: Optional[str] = target_option,
+    **options,
+):
+    """
+    Drops a DCM Project with the given name.
+    """
+    context = _resolve_target_context(identifier, target, use_config=False)
+    project_id = context.project_identifier
+
+    return QueryResult(
+        ObjectManager().drop(object_type="dcm", fqn=project_id, if_exists=if_exists)
+    )
+
+
+@app.command(requires_connection=True)
+def describe(
+    identifier: Optional[FQN] = optional_dcm_identifier,
+    target: Optional[str] = target_option,
+    **options,
+):
+    """
+    Provides description of a DCM Project.
+    """
+    context = _resolve_target_context(identifier, target, use_config=False)
+    project_id = context.project_identifier
+
+    return QueryResult(ObjectManager().describe(object_type="dcm", fqn=project_id))
 
 
 @app.command(requires_connection=True)

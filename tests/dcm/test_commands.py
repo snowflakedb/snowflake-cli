@@ -2,6 +2,7 @@ import json
 from unittest import mock
 
 import pytest
+from snowflake.cli._plugins.dcm.manager import DCMManifest
 from snowflake.cli.api.identifiers import FQN
 
 DCMProjectManager = "snowflake.cli._plugins.dcm.commands.DCMProjectManager"
@@ -528,6 +529,30 @@ class TestDCMDrop:
         assert len(queries) == 2
         assert queries[0] == queries[1] == "drop DCM Project IDENTIFIER('my_project')"
 
+    @mock.patch(DCMProjectManager)
+    @mock.patch(ObjectManager)
+    def test_drop_with_target_flag(
+        self, mock_om, mock_pm, runner, mock_cursor, project_directory
+    ):
+        mock_om().drop.return_value = mock_cursor(rows=[], columns=("status",))
+        mock_pm.load_manifest.return_value = DCMManifest.from_dict(
+            {
+                "manifest_version": "2.0",
+                "type": "dcm_project",
+                "targets": {"dev": {"project_name": "my_project"}},
+            }
+        )
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "drop", "--target", "dev"])
+
+        assert result.exit_code == 0, result.output
+        mock_om().drop.assert_called_once_with(
+            object_type="dcm",
+            fqn=FQN.from_string("my_project"),
+            if_exists=False,
+        )
+
 
 class TestDCMDescribe:
     def test_describe_command_alias(self, mock_connect, runner):
@@ -553,6 +578,29 @@ class TestDCMDescribe:
             queries[0]
             == queries[1]
             == "describe DCM Project IDENTIFIER('PROJECT_NAME')"
+        )
+
+    @mock.patch(DCMProjectManager)
+    @mock.patch(ObjectManager)
+    def test_describe_with_target_flag(
+        self, mock_om, mock_pm, runner, mock_cursor, project_directory
+    ):
+        mock_om().describe.return_value = mock_cursor(rows=[], columns=("name",))
+        mock_pm.load_manifest.return_value = DCMManifest.from_dict(
+            {
+                "manifest_version": "2.0",
+                "type": "dcm_project",
+                "targets": {"dev": {"project_name": "my_project"}},
+            }
+        )
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "describe", "--target", "dev"])
+
+        assert result.exit_code == 0, result.output
+        mock_om().describe.assert_called_once_with(
+            object_type="dcm",
+            fqn=FQN.from_string("my_project"),
         )
 
 
