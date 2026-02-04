@@ -124,13 +124,13 @@ def test_show_with_scope(
             "table",
             "invalid_scope",
             "name",
-            "scope must be one of the following",
+            "Scope type must be one of the following",
         ),  # invalid scope label
         (
             "table",
             "database",
             "invalid name",
-            "scope name must be a valid identifier",
+            "Scope name must be a valid identifier.",
         ),  # invalid scope identifier
     ],
 )
@@ -163,14 +163,19 @@ def test_scope_validate(object_type, input_scope, input_name):
             "table",
             "database",
             "invalid identifier",
-            "scope name must be a valid identifier",
+            "Scope name must be a valid identifier.",
         ),
-        ("table", "invalid-scope", "identifier", "scope must be one of the following"),
+        (
+            "table",
+            "invalid-scope",
+            "identifier",
+            "Scope type must be one of the following",
+        ),
         (
             "table",
             "compute-pool",
             "test_pool",
-            "compute-pool scope is only supported for listing service",
+            "compute-pool scope is only supported for listing service.",
         ),  # 'compute-pool' scope can only be used with 'service'
     ],
 )
@@ -381,3 +386,25 @@ def test_drop_manager_if_exists(
     )
 
     mock_execute_query.assert_called_once_with(expected_query)
+
+
+@mock.patch("snowflake.connector.connect")
+def test_show_with_in_account_flag(mock_connector, runner, mock_ctx):
+    """Test --in-account flag lists objects at account scope."""
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    result = runner.invoke(["object", "list", "table", "--in-account"])
+    assert result.exit_code == 0, result.output
+    assert ctx.get_queries() == ["show tables like '%%' in account"]
+
+
+@mock.patch("snowflake.connector.connect")
+def test_in_account_and_in_are_mutually_exclusive(mock_connector, runner, mock_ctx):
+    """Test that --in-account and --in cannot be used together."""
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    result = runner.invoke(
+        ["object", "list", "table", "--in-account", "--in", "database", "my_db"]
+    )
+    assert result.exit_code == 2, result.output
+    assert "incompatible" in result.output.lower()

@@ -17,7 +17,6 @@ from __future__ import annotations
 from typing import List, Optional, Tuple
 
 import typer
-from click import ClickException
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli.api.commands.flags import (
     IdentifierType,
@@ -29,7 +28,7 @@ from snowflake.cli.api.commands.flags import (
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.constants import SUPPORTED_OBJECTS, VALID_SCOPES
-from snowflake.cli.api.exceptions import IncompatibleParametersError
+from snowflake.cli.api.exceptions import CliError, IncompatibleParametersError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import MessageResult, QueryResult
 from snowflake.cli.api.project.util import is_valid_identifier
@@ -76,15 +75,40 @@ LikeOption = like_option(
 )
 
 
-def _scope_validate(object_type: str, scope: Tuple[str, str]):
-    if scope[1] is not None and not is_valid_identifier(scope[1]):
-        raise ClickException("scope name must be a valid identifier")
-    if scope[0] is not None and scope[0].lower() not in VALID_SCOPES:
-        raise ClickException(
-            f"scope must be one of the following: {', '.join(VALID_SCOPES)}"
+def _get_effective_scope(
+    scope: Tuple[str, str], in_account: bool
+) -> Tuple[Optional[str], Optional[str]]:
+    """Resolve the effective scope from --in and --in-account flags."""
+    scope_provided = scope[0] is not None
+    if in_account and scope_provided:
+        raise IncompatibleParametersError(["--in-account", "--in"])
+    if in_account:
+        return ("account", None)
+    return scope
+
+
+def _scope_validate(object_type: str, scope: Tuple[Optional[str], Optional[str]]):
+    scope_type, scope_name = scope
+
+    if scope_type is None:
+        return
+
+    scope_type = scope_type.lower()
+
+    # Account scope is valid but doesn't need name validation
+    if scope_type == "account":
+        return
+
+    if scope_type not in VALID_SCOPES:
+        raise CliError(
+            f"Scope type must be one of the following: {', '.join(VALID_SCOPES)}."
         )
-    if scope[0] == "compute-pool" and object_type != "service":
-        raise ClickException("compute-pool scope is only supported for listing service")
+
+    if scope_name is not None and not is_valid_identifier(scope_name):
+        raise CliError("Scope name must be a valid identifier.")
+
+    if scope_type == "compute-pool" and object_type != "service":
+        raise CliError("compute-pool scope is only supported for listing service.")
 
 
 def scope_option(help_example: str):
@@ -92,6 +116,15 @@ def scope_option(help_example: str):
         (None, None),
         "--in",
         help=f"Specifies the scope of this command using '--in <scope> <name>', for example {help_example}.",
+    )
+
+
+def in_account_option_():
+    return typer.Option(
+        None,
+        "--in-account",
+        is_flag=True,
+        help="Lists objects across the entire account.",
     )
 
 
@@ -114,7 +147,7 @@ def limit_option_():
 
 
 ScopeOption = scope_option(
-    help_example="`list table --in database my_db`. Some object types have specialized scopes (e.g. list service --in compute-pool my_pool)"
+    help_example="`list table --in database my_db`. Some object types have specialized scopes (e.g. `list service --in compute-pool my_pool`)"
 )
 
 SUPPORTED_TYPES_MSG = "\n\nSupported types: " + ", ".join(SUPPORTED_OBJECTS)
@@ -129,16 +162,18 @@ def list_(
     object_type: str = ObjectArgument,
     like: str = LikeOption,
     scope: Tuple[str, str] = ScopeOption,
+    in_account: bool = in_account_option_(),
     terse: Optional[bool] = terse_option_(),
     limit: Optional[int] = limit_option_(),
     **options,
 ):
-    _scope_validate(object_type, scope)
+    effective_scope = _get_effective_scope(scope, in_account)
+    _scope_validate(object_type, effective_scope)
     return QueryResult(
         ObjectManager().show(
             object_type=object_type,
             like=like,
-            scope=scope,
+            scope=effective_scope,
             terse=terse,
             limit=limit,
         )
@@ -212,7 +247,7 @@ def create(
         }
 
     else:
-        raise ClickException(
+        raise CliError(
             "Provide either list of object attributes, or object definition in JSON format"
         )
 

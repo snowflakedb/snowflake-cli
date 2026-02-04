@@ -38,6 +38,7 @@ from snowflake.cli.api.config import (
 )
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.exceptions import (
+    CliError,
     InvalidConnectionConfigurationError,
     SnowflakeConnectionError,
 )
@@ -203,13 +204,17 @@ def connect_to_snowflake(
     if mfa_passcode:
         connection_parameters["passcode"] = mfa_passcode
 
-    if connection_parameters.get("authenticator") == "username_password_mfa":
+    if (
+        connection_parameters.get("authenticator", "").upper()
+        == "USERNAME_PASSWORD_MFA"
+    ):
         connection_parameters["client_request_mfa_token"] = True
 
     # Handle WORKLOAD_IDENTITY authenticator (OIDC authentication)
     if (
-        connection_parameters.get("authenticator") == AUTHENTICATOR_WORKLOAD_IDENTITY
-        and connection_parameters.get("workload_identity_provider")
+        connection_parameters.get("authenticator", "").upper()
+        == AUTHENTICATOR_WORKLOAD_IDENTITY
+        and connection_parameters.get("workload_identity_provider", "").upper()
         == ApiFederatedAuthenticationType.OIDC.value
     ):
         _maybe_update_oidc_token(connection_parameters)
@@ -287,7 +292,7 @@ def update_connection_details_with_private_key(connection_parameters: Dict):
 
 
 def _load_private_key(connection_parameters: Dict, private_key_var_name: str) -> None:
-    if connection_parameters.get("authenticator") == "SNOWFLAKE_JWT":
+    if connection_parameters.get("authenticator", "").upper() == "SNOWFLAKE_JWT":
         private_key_pem = _load_pem_from_file(
             connection_parameters[private_key_var_name]
         )
@@ -295,7 +300,7 @@ def _load_private_key(connection_parameters: Dict, private_key_var_name: str) ->
         connection_parameters["private_key"] = private_key.value
         del connection_parameters[private_key_var_name]
     else:
-        raise ClickException(
+        raise CliError(
             "Private Key authentication requires authenticator set to SNOWFLAKE_JWT"
         )
 
@@ -303,7 +308,7 @@ def _load_private_key(connection_parameters: Dict, private_key_var_name: str) ->
 def _load_private_key_from_parameters(
     connection_parameters: Dict, private_key_var_name: str
 ) -> None:
-    if connection_parameters.get("authenticator") == "SNOWFLAKE_JWT":
+    if connection_parameters.get("authenticator", "").upper() == "SNOWFLAKE_JWT":
         private_key_pem = _load_pem_from_parameters(
             connection_parameters[private_key_var_name]
         )
@@ -311,7 +316,7 @@ def _load_private_key_from_parameters(
         connection_parameters["private_key"] = private_key.value
         del connection_parameters[private_key_var_name]
     else:
-        raise ClickException(
+        raise CliError(
             "Private Key authentication requires authenticator set to SNOWFLAKE_JWT"
         )
 

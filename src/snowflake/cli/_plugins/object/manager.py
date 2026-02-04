@@ -60,7 +60,11 @@ class ObjectManager(SqlExecutionMixin):
         if like:
             query += f" like '{like}'"
         if scope[0] is not None:
-            query += f" in {scope[0].replace('-', ' ')} {scope[1]}"
+            scope_type = scope[0].replace("-", " ")
+            if scope[1] is not None:
+                query += f" in {scope_type} {scope[1]}"
+            else:
+                query += f" in {scope_type}"
         if limit is not None:
             query += f" limit {limit}"
         return self.execute_query(query, **kwargs)
