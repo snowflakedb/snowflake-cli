@@ -53,7 +53,7 @@ def _is_valid_manifest_version(version: str) -> bool:
 class DCMTemplating:
     """Templating configuration for DCM manifest v2."""
 
-    global_variables: Dict[str, Any] = field(default_factory=dict)
+    defaults: Dict[str, Any] = field(default_factory=dict)
     configurations: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
     @classmethod
@@ -61,7 +61,7 @@ class DCMTemplating:
         if not data:
             return cls()
         return cls(
-            global_variables=data.get("global_variables", {}),
+            defaults=data.get("defaults", {}),
             configurations=data.get("configurations", {}),
         )
 

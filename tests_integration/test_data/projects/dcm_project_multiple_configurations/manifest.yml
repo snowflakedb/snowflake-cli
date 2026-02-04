@@ -15,7 +15,7 @@ targets:
     templating_config: "prod"
 
 templating:
-  global_variables:
+  defaults:
     base_suffix: "_default"
   configurations:
     dev:

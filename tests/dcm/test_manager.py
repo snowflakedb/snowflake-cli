@@ -334,7 +334,7 @@ class TestDCMManifest:
         assert manifest.project_type == "dcm_project"
         assert manifest.default_target is None
         assert manifest.targets == {}
-        assert manifest.templating.global_variables == {}
+        assert manifest.templating.defaults == {}
         assert manifest.templating.configurations == {}
 
     def test_manifest_from_dict_with_targets(self):
@@ -373,7 +373,7 @@ class TestDCMManifest:
             "manifest_version": "2.0",
             "type": "dcm_project",
             "templating": {
-                "global_variables": {"db_name": "shared_db", "retry_count": 3},
+                "defaults": {"db_name": "shared_db", "retry_count": 3},
                 "configurations": {
                     "dev": {"wh_size": "XSMALL", "suffix": "_dev"},
                     "prod": {"wh_size": "LARGE", "suffix": ""},
@@ -384,7 +384,7 @@ class TestDCMManifest:
 
         assert manifest.manifest_version == "2.0"
         assert manifest.project_type == "dcm_project"
-        assert manifest.templating.global_variables == {
+        assert manifest.templating.defaults == {
             "db_name": "shared_db",
             "retry_count": 3,
         }
@@ -597,23 +597,23 @@ class TestDCMTemplating:
     def test_templating_from_dict_none(self):
         templating = DCMTemplating.from_dict(None)
 
-        assert templating.global_variables == {}
+        assert templating.defaults == {}
         assert templating.configurations == {}
 
     def test_templating_from_dict_empty(self):
         templating = DCMTemplating.from_dict({})
 
-        assert templating.global_variables == {}
+        assert templating.defaults == {}
         assert templating.configurations == {}
 
     def test_templating_from_dict_with_data(self):
         data = {
-            "global_variables": {"key": "value"},
+            "defaults": {"key": "value"},
             "configurations": {"dev": {"suffix": "_dev"}},
         }
         templating = DCMTemplating.from_dict(data)
 
-        assert templating.global_variables == {"key": "value"}
+        assert templating.defaults == {"key": "value"}
         assert templating.configurations == {"dev": {"suffix": "_dev"}}
 
 
@@ -871,7 +871,7 @@ class TestSyncLocalFiles:
             "manifest_version": "2.0",
             "type": "dcm_project",
             "templating": {
-                "global_variables": {"db_name": "shared_db"},
+                "defaults": {"db_name": "shared_db"},
                 "configurations": {
                     "dev": {"suffix": "_dev"},
                     "prod": {"suffix": ""},
