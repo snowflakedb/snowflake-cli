@@ -34,7 +34,7 @@ class SubmitQueryBuilder:
         self.files: Optional[List[str]] = None
         self.driver_java_options: Optional[str] = None
         self.snow_stage_mount: dict[str, str] = {}
-        self.snow_environment_runtime_version: str = "1.0-preview"
+        self.snow_environment_runtime_version: str = "0.1"
         self.snow_packages: List[str] = []
         self.snow_external_access_integrations: List[str] = []
         self.snow_secrets: dict[str, str] = {}
