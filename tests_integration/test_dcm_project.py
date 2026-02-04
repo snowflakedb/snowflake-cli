@@ -154,7 +154,7 @@ def test_project_drop_deployment(
 
         # Drop the non-existent deployment (should fail without --if-exists)
         result = runner.invoke_with_connection(
-            ["dcm", "drop-deployment", project_name, "DEPLOYMENT$1"]
+            ["dcm", "drop-deployment", project_name, "--deployment", "DEPLOYMENT$1"]
         )
         assert result.exit_code == 1, result.output
         assert "Deployment does not exist" in result.output
@@ -212,7 +212,7 @@ def test_project_drop_deployment(
         )
         # Drop the deployment by name
         result = runner.invoke_with_connection(
-            ["dcm", "drop-deployment", project_name, "DEPLOYMENT$1"]
+            ["dcm", "drop-deployment", project_name, "--deployment", "DEPLOYMENT$1"]
         )
         assert result.exit_code == 0, result.output
         assert (
@@ -222,7 +222,7 @@ def test_project_drop_deployment(
 
         # Drop the deployment by alias
         result = runner.invoke_with_connection(
-            ["dcm", "drop-deployment", project_name, "test-1"]
+            ["dcm", "drop-deployment", project_name, "--deployment", "test-1"]
         )
         assert result.exit_code == 0, result.output
         assert (
@@ -236,7 +236,7 @@ def test_project_drop_deployment(
 
         # Try to drop the default deployment
         result = runner.invoke_with_connection(
-            ["dcm", "drop-deployment", project_name, "DEPLOYMENT$3"]
+            ["dcm", "drop-deployment", project_name, "--deployment", "DEPLOYMENT$3"]
         )
         assert result.exit_code == 0, result.output
         assert (
@@ -246,14 +246,21 @@ def test_project_drop_deployment(
 
         # Try to drop non-existent deployment without --if-exists (should fail)
         result = runner.invoke_with_connection(
-            ["dcm", "drop-deployment", project_name, "non_existent"]
+            ["dcm", "drop-deployment", project_name, "--deployment", "non_existent"]
         )
         assert result.exit_code == 1, result.output
         assert "Deployment does not exist" in result.output
 
         # Try to drop non-existent deployment with --if-exists (should succeed)
         result = runner.invoke_with_connection(
-            ["dcm", "drop-deployment", project_name, "non_existent", "--if-exists"]
+            [
+                "dcm",
+                "drop-deployment",
+                project_name,
+                "--deployment",
+                "non_existent",
+                "--if-exists",
+            ]
         )
         assert result.exit_code == 0, result.output
         assert (

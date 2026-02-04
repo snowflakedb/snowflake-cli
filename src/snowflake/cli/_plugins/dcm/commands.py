@@ -321,7 +321,9 @@ def list_deployments(
 @app.command(requires_connection=True)
 def drop_deployment(
     identifier: Optional[FQN] = optional_dcm_identifier,
-    deployment_name: str = typer.Argument(
+    deployment: str = typer.Option(
+        ...,
+        "--deployment",
         help="Name or alias of the deployment to drop. For names containing '$', use single quotes to prevent shell expansion (e.g., 'DEPLOYMENT$1').",
         show_default=False,
     ),
@@ -338,20 +340,20 @@ def drop_deployment(
     project_id = context.project_identifier
 
     # Detect potential shell expansion issues
-    if deployment_name and deployment_name.upper() == "DEPLOYMENT":
+    if deployment and deployment.upper() == "DEPLOYMENT":
         cli_console.warning(
-            f"Deployment name '{deployment_name}' might be truncated due to shell expansion. "
+            f"Deployment name '{deployment}' might be truncated due to shell expansion. "
             f"If you meant to use a deployment like 'DEPLOYMENT$1', try using single quotes: 'DEPLOYMENT$1'."
         )
 
     dpm = DCMProjectManager()
     dpm.drop_deployment(
         project_identifier=project_id,
-        deployment_name=deployment_name,
+        deployment_name=deployment,
         if_exists=if_exists,
     )
     return MessageResult(
-        f"Deployment '{deployment_name}' dropped from DCM Project '{project_id}'."
+        f"Deployment '{deployment}' dropped from DCM Project '{project_id}'."
     )
 
 

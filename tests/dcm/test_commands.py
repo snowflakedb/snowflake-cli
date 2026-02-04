@@ -473,7 +473,7 @@ class TestDCMDropDeployment:
     @mock.patch(DCMProjectManager)
     @pytest.mark.parametrize("if_exists", [True, False])
     def test_drop_deployment(self, mock_pm, runner, if_exists):
-        command = ["dcm", "drop-deployment", "fooBar", "v1"]
+        command = ["dcm", "drop-deployment", "fooBar", "--deployment", "v1"]
         if if_exists:
             command.append("--if-exists")
 
@@ -506,7 +506,9 @@ class TestDCMDropDeployment:
         self, mock_pm, runner, deployment_name, should_warn
     ):
         """Test that warning is displayed for deployment names that look like shell expansion results."""
-        result = runner.invoke(["dcm", "drop-deployment", "fooBar", deployment_name])
+        result = runner.invoke(
+            ["dcm", "drop-deployment", "fooBar", "--deployment", deployment_name]
+        )
 
         assert result.exit_code == 0, result.output
 
