@@ -12,6 +12,7 @@
   '''
   
   
+  
   No dynamic tables found in the project.
   
   '''
@@ -45,6 +46,7 @@
 # ---
 # name: TestDCMTest.test_test_with_failures
   '''
+  
   
   ✓ PASS      DB.SCHEMA.EMPLOYEES (ROW_COUNT_CHECK)
   ✗ FAIL      DB.SCHEMA.ORDERS (NULL_CHECK)

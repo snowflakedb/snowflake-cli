@@ -66,6 +66,18 @@ class TestDCMCreate:
             mock_pm().create.assert_not_called()
 
 
+def _manifest_without_config():
+    """Helper to create a manifest with target that has no templating_config."""
+    return DCMManifest.from_dict(
+        {
+            "manifest_version": "2.0",
+            "type": "dcm_project",
+            "default_target": "dev",
+            "targets": {"dev": {"project_name": "ignored"}},
+        }
+    )
+
+
 class TestDCMDeploy:
     @mock.patch(DCMProjectManager)
     def test_deploy_project(
@@ -81,6 +93,7 @@ class TestDCMDeploy:
             rows=[("[]",)], columns=("operations")
         )
         mock_pm().sync_local_files.return_value = mock_from_resource()
+        mock_pm.load_manifest.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
             result = runner.invoke(["dcm", "deploy", "fooBar"])
@@ -112,6 +125,7 @@ class TestDCMDeploy:
             rows=[("[]",)], columns=("operations")
         )
         mock_pm().sync_local_files.return_value = "TMP_STAGE"
+        mock_pm.load_manifest.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
             result = runner.invoke(["dcm", "deploy", "fooBar", "-D", "key=value"])
@@ -134,6 +148,7 @@ class TestDCMDeploy:
             rows=[("[]",)], columns=("operations")
         )
         mock_pm().sync_local_files.return_value = "TMP_STAGE"
+        mock_pm.load_manifest.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
             result = runner.invoke(["dcm", "deploy", "fooBar", "--alias", "my_alias"])
@@ -228,6 +243,7 @@ class TestDCMPlan:
             rows=[("[]",)], columns=("operations")
         )
         mock_pm().sync_local_files.return_value = mock_from_resource()
+        mock_pm.load_manifest.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
             result = runner.invoke(
@@ -263,6 +279,7 @@ class TestDCMPlan:
             rows=[("[]",)], columns=("operations")
         )
         mock_pm().sync_local_files.return_value = mock_from_resource()
+        mock_pm.load_manifest.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
             result = runner.invoke(
@@ -620,6 +637,7 @@ class TestDCMPreview:
             columns=("id", "name", "email"),
         )
         mock_pm().sync_local_files.return_value = mock_from_resource()
+        mock_pm.load_manifest.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
             result = runner.invoke(
@@ -690,6 +708,7 @@ class TestDCMPreview:
             columns=("id", "name", "email"),
         )
         mock_pm().sync_local_files.return_value = "TMP_STAGE"
+        mock_pm.load_manifest.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
             result = runner.invoke(
@@ -948,7 +967,7 @@ class TestDCMTargetFlag:
         )
 
     @mock.patch(DCMProjectManager)
-    def test_deploy_explicit_identifier_overrides_target(
+    def test_deploy_explicit_identifier_still_uses_target_config(
         self,
         mock_pm,
         runner,
@@ -957,10 +976,26 @@ class TestDCMTargetFlag:
         mock_connect,
         mock_from_resource,
     ):
+        """When explicit identifier is provided, it overrides target's project_name
+        but configuration from target should still be applied."""
         mock_pm().deploy.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations",)
         )
         mock_pm().sync_local_files.return_value = mock_from_resource()
+        mock_pm.load_manifest.return_value = DCMManifest.from_dict(
+            {
+                "manifest_version": "2.0",
+                "type": "dcm_project",
+                "default_target": "dev",
+                "targets": {
+                    "dev": {
+                        "project_name": "target_project",
+                        "templating_config": "dev_config",
+                    }
+                },
+                "templating": {"configurations": {"dev_config": {}}},
+            }
+        )
 
         with project_directory("dcm_project"):
             result = runner.invoke(
@@ -970,7 +1005,7 @@ class TestDCMTargetFlag:
         assert result.exit_code == 0, result.output
         mock_pm().deploy.assert_called_once_with(
             project_identifier=FQN.from_string("explicit_project"),
-            configuration=None,
+            configuration="dev_config",
             from_stage=mock_from_resource(),
             variables=None,
             alias=None,

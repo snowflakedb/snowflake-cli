@@ -34,7 +34,7 @@ from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import (
     ObjectType,
 )
-from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.exceptions import CliArgumentError, CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
@@ -43,6 +43,8 @@ from snowflake.cli.api.output.types import (
     QueryJsonValueResult,
     QueryResult,
 )
+from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.api.utils.path_utils import is_stage_path
 
 app = SnowTyperFactory(
     name="dcm",
@@ -114,53 +116,41 @@ class TargetContext:
 def _resolve_target_context(
     identifier: Optional[FQN],
     target: Optional[str],
-    source_directory: Optional[str] = None,
-    use_config: bool = True,
+    source_path: Optional[SecurePath] = None,
 ) -> TargetContext:
     """
-    Resolve effective project identifier and configuration from target.
+    Resolve project identifier and configuration from manifest target.
 
-    Priority:
-    1. Explicit identifier argument overrides target's project_name
-    2. Target's templating_config is used if no explicit --configuration is provided
+    - If identifier is provided, it takes precedence over target's project_name
+    - Configuration is always resolved from target if manifest is available
     """
-    from snowflake.cli.api.secure_path import SecurePath
+    if source_path is None:
+        source_path = SecurePath.cwd()
 
-    if identifier:
-        return TargetContext(project_identifier=identifier)
-
-    source_path = (
-        SecurePath(source_directory).resolve() if source_directory else SecurePath.cwd()
-    )
-
+    # Try to load manifest for configuration (and identifier if not provided)
+    effective_target = None
     try:
         manifest = DCMProjectManager.load_manifest(source_path)
-    except CliError:
-        if target:
-            raise CliError(
-                f"Cannot use --target '{target}' without a valid manifest.yml in the project directory."
-            )
-        raise CliError(
-            "No project identifier specified and no manifest.yml found to resolve target."
-        )
-
-    try:
         effective_target = manifest.get_effective_target(target)
     except CliError:
-        if not target and not manifest.default_target:
-            raise CliError(
-                "No project identifier specified, no --target provided, and no default_target defined in manifest."
-            )
-        raise
+        if not identifier:
+            if target:
+                raise CliError(
+                    f"Cannot use --target '{target}' without a valid manifest.yml."
+                )
+            raise CliError("No project identifier specified and no manifest.yml found.")
 
-    context = TargetContext(
-        project_identifier=FQN.from_string(effective_target.project_name)
-    )
+    # Determine project identifier: explicit identifier takes precedence
+    if identifier:
+        project_id = identifier
+    else:
+        assert effective_target is not None
+        project_id = FQN.from_string(effective_target.project_name)
 
-    if use_config and effective_target.templating_config:
-        context.configuration = effective_target.templating_config
+    # Get configuration from target if available
+    config = effective_target.templating_config if effective_target else None
 
-    return context
+    return TargetContext(project_identifier=project_id, configuration=config)
 
 
 add_object_command_aliases(
@@ -195,9 +185,8 @@ def deploy(
     """
     Applies changes defined in DCM Project to Snowflake.
     """
-    context = _resolve_target_context(
-        identifier, target, from_location, use_config=True
-    )
+    source_path = SecurePath(from_location).resolve() if from_location else None
+    context = _resolve_target_context(identifier, target, source_path)
     project_id = context.project_identifier
 
     manager = DCMProjectManager()
@@ -230,9 +219,8 @@ def plan(
     """
     Plans a DCM Project deployment (validates without executing).
     """
-    context = _resolve_target_context(
-        identifier, target, from_location, use_config=True
-    )
+    source_path = SecurePath(from_location).resolve() if from_location else None
+    context = _resolve_target_context(identifier, target, source_path)
     project_id = context.project_identifier
 
     manager = DCMProjectManager()
@@ -263,7 +251,7 @@ def create(
     """
     Creates a DCM Project in Snowflake.
     """
-    context = _resolve_target_context(identifier, target, use_config=False)
+    context = _resolve_target_context(identifier, target)
     project_id = context.project_identifier
 
     om = ObjectManager()
@@ -290,7 +278,7 @@ def drop(
     """
     Drops a DCM Project with the given name.
     """
-    context = _resolve_target_context(identifier, target, use_config=False)
+    context = _resolve_target_context(identifier, target)
     project_id = context.project_identifier
 
     return QueryResult(
@@ -307,7 +295,7 @@ def describe(
     """
     Provides description of a DCM Project.
     """
-    context = _resolve_target_context(identifier, target, use_config=False)
+    context = _resolve_target_context(identifier, target)
     project_id = context.project_identifier
 
     return QueryResult(ObjectManager().describe(object_type="dcm", fqn=project_id))
@@ -322,7 +310,7 @@ def list_deployments(
     """
     Lists deployments of given DCM Project.
     """
-    context = _resolve_target_context(identifier, target, use_config=False)
+    context = _resolve_target_context(identifier, target)
     project_id = context.project_identifier
 
     pm = DCMProjectManager()
@@ -346,7 +334,7 @@ def drop_deployment(
     """
     Drops a deployment from the DCM Project.
     """
-    context = _resolve_target_context(identifier, target, use_config=False)
+    context = _resolve_target_context(identifier, target)
     project_id = context.project_identifier
 
     # Detect potential shell expansion issues
@@ -391,9 +379,8 @@ def preview(
     """
     Returns rows from any table, view, dynamic table.
     """
-    context = _resolve_target_context(
-        identifier, target, from_location, use_config=True
-    )
+    source_path = SecurePath(from_location).resolve() if from_location else None
+    context = _resolve_target_context(identifier, target, source_path)
     project_id = context.project_identifier
 
     manager = DCMProjectManager()
@@ -426,7 +413,7 @@ def refresh(
     """
     Refreshes dynamic tables defined in DCM project.
     """
-    context = _resolve_target_context(identifier, target, use_config=False)
+    context = _resolve_target_context(identifier, target)
     project_id = context.project_identifier
 
     with cli_console.spinner() as spinner:
@@ -447,7 +434,7 @@ def test(
     """
     Tests all expectations defined in DCM project.
     """
-    context = _resolve_target_context(identifier, target, use_config=False)
+    context = _resolve_target_context(identifier, target)
     project_id = context.project_identifier
 
     with cli_console.spinner() as spinner:
@@ -460,10 +447,8 @@ def test(
 
 
 def _get_effective_stage(identifier: FQN, from_location: Optional[str]):
-    from snowflake.cli.api.utils.path_utils import is_stage_path
-
     if from_location and is_stage_path(from_location):
-        raise CliError(
+        raise CliArgumentError(
             "Stage paths are not supported for --from option. Use a local directory path instead."
         )
 
