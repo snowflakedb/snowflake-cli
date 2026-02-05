@@ -118,21 +118,32 @@ class TestRemoveCortexCode:
 
 
 class TestRunCortexCode:
-    def test_remove_with_args_raises_error(self):
+    @mock.patch(
+        "snowflake.cli._plugins.coco.cortex_code.platform.system", return_value="Darwin"
+    )
+    def test_remove_with_args_raises_error(self, mock_platform):
         with pytest.raises(CliError) as exc_info:
             run_cortex_code(["--help"], remove=True)
         assert "Cannot use --remove with args" in str(exc_info.value)
 
+    @mock.patch(
+        "snowflake.cli._plugins.coco.cortex_code.platform.system", return_value="Darwin"
+    )
     @mock.patch("snowflake.cli._plugins.coco.cortex_code.remove_cortex_code")
     @mock.patch("snowflake.cli._plugins.coco.cortex_code.cli_console")
-    def test_remove_calls_remove_function(self, mock_console, mock_remove):
+    def test_remove_calls_remove_function(
+        self, mock_console, mock_remove, mock_platform
+    ):
         result = run_cortex_code([], remove=True)
         assert result == 0
         mock_remove.assert_called_once()
 
+    @mock.patch(
+        "snowflake.cli._plugins.coco.cortex_code.platform.system", return_value="Darwin"
+    )
     @mock.patch("subprocess.run")
     @mock.patch("snowflake.cli._plugins.coco.cortex_code._find_cortex_code_binary")
-    def test_runs_existing_binary_with_args(self, mock_find, mock_run):
+    def test_runs_existing_binary_with_args(self, mock_find, mock_run, mock_platform):
         mock_find.return_value = "/usr/local/bin/cortex"
         mock_run.return_value = mock.Mock(returncode=0)
 
@@ -141,9 +152,12 @@ class TestRunCortexCode:
         assert result == 0
         mock_run.assert_called_once_with(["/usr/local/bin/cortex", "--help"])
 
+    @mock.patch(
+        "snowflake.cli._plugins.coco.cortex_code.platform.system", return_value="Darwin"
+    )
     @mock.patch("subprocess.run")
     @mock.patch("snowflake.cli._plugins.coco.cortex_code._find_cortex_code_binary")
-    def test_passes_through_exit_code(self, mock_find, mock_run):
+    def test_passes_through_exit_code(self, mock_find, mock_run, mock_platform):
         mock_find.return_value = "/usr/local/bin/cortex"
         mock_run.return_value = mock.Mock(returncode=42)
 
@@ -151,12 +165,15 @@ class TestRunCortexCode:
 
         assert result == 42
 
+    @mock.patch(
+        "snowflake.cli._plugins.coco.cortex_code.platform.system", return_value="Darwin"
+    )
     @mock.patch("snowflake.cli._plugins.coco.cortex_code.cli_console")
     @mock.patch.dict("os.environ", {"CI": ""}, clear=False)
     @mock.patch("sys.stdin")
     @mock.patch("snowflake.cli._plugins.coco.cortex_code._find_cortex_code_binary")
     def test_returns_error_when_not_installed_non_interactive(
-        self, mock_find, mock_stdin, mock_console
+        self, mock_find, mock_stdin, mock_console, mock_platform
     ):
         mock_find.return_value = None
         mock_stdin.isatty.return_value = False
@@ -166,12 +183,15 @@ class TestRunCortexCode:
         assert result == 1
         mock_console.warning.assert_called_once()
 
+    @mock.patch(
+        "snowflake.cli._plugins.coco.cortex_code.platform.system", return_value="Darwin"
+    )
     @mock.patch("snowflake.cli._plugins.coco.cortex_code.cli_console")
     @mock.patch("sys.stdin")
     @mock.patch("typer.confirm")
     @mock.patch("snowflake.cli._plugins.coco.cortex_code._find_cortex_code_binary")
     def test_prompts_for_install_when_interactive(
-        self, mock_find, mock_confirm, mock_stdin, mock_console
+        self, mock_find, mock_confirm, mock_stdin, mock_console, mock_platform
     ):
         mock_find.return_value = None
         mock_stdin.isatty.return_value = True
@@ -182,6 +202,9 @@ class TestRunCortexCode:
         assert result == 1
         mock_confirm.assert_called_once()
 
+    @mock.patch(
+        "snowflake.cli._plugins.coco.cortex_code.platform.system", return_value="Darwin"
+    )
     @mock.patch("subprocess.run")
     @mock.patch("sys.stdin")
     @mock.patch("typer.confirm")
@@ -194,6 +217,7 @@ class TestRunCortexCode:
         mock_confirm,
         mock_stdin,
         mock_run,
+        mock_platform,
     ):
         mock_find.return_value = None
         mock_stdin.isatty.return_value = True

@@ -64,7 +64,7 @@ def coco(
 
     Use `--remove` to remove the downloaded Cortex Code CLI.
 
-    This command is only supported on Windows, Linux, and Darwin, on amd64/x64
+    This command is only supported on Linux, and Darwin, on amd64/x64
     or arm64 architectures.
 
     To prevent `snow` from interpreting flags intended for Cortex Code,
