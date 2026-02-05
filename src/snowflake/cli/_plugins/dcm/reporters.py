@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, Generic, Iterator, List, Optional, Protocol, TypeVar
 
+from pydantic import BaseModel, Field, ValidationError
 from rich.text import Text
 from snowflake.cli._plugins.dcm import styles
 from snowflake.cli.api.console.console import cli_console
@@ -241,6 +242,25 @@ class TestReporter(Reporter[TestRow]):
         return self._summary.failed + self._summary.unknown == 0
 
 
+class RefreshStatistics(BaseModel):
+    inserted_rows: int = 0
+    deleted_rows: int = 0
+
+
+class RefreshTableResult(BaseModel):
+    table_name: str = "UNKNOWN"
+    statistics: Optional[RefreshStatistics] = None
+    data_timestamp: Optional[str] = None
+
+
+class DtsRefreshResult(BaseModel):
+    refreshed_tables: List[RefreshTableResult] = Field(default_factory=list)
+
+
+class RefreshResponse(BaseModel):
+    dts_refresh_result: Optional[DtsRefreshResult] = None
+
+
 class RefreshDataExtractor(Protocol):
     """Temporary protocol for extracting refresh data from backend responses."""
 
@@ -253,28 +273,34 @@ class RefreshDataExtractor(Protocol):
 class NewFormatExtractor:
     """Extractor for new response format with dts_refresh_result wrapper."""
 
-    _DATA_KEY = "refreshed_tables"
-    _WRAPPER_KEY = "dts_refresh_result"
-
     @classmethod
     def extract(cls, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
-        dts_result = result_json.get(cls._WRAPPER_KEY, {})
-        if not isinstance(dts_result, dict):
-            log.debug(
-                "Unexpected dts_refresh_result type: %s, expected dict",
-                type(dts_result),
-            )
+        try:
+            response = RefreshResponse.model_validate(result_json)
+        except ValidationError as e:
+            log.debug("Failed to validate refresh response: %s", e)
             raise CliError("Could not process response.")
 
-        refreshed_tables = dts_result.get(cls._DATA_KEY, [])
-        if not isinstance(refreshed_tables, list):
-            log.warning(
-                "Unexpected refreshed_tables type: %s, expected list",
-                type(refreshed_tables),
-            )
-            raise CliError("Could not process response.")
+        if response.dts_refresh_result is None:
+            return []
 
-        return refreshed_tables
+        return [
+            cls._to_canonical(table)
+            for table in response.dts_refresh_result.refreshed_tables
+        ]
+
+    @classmethod
+    def _to_canonical(cls, table: RefreshTableResult) -> Dict[str, Any]:
+        """Convert Pydantic model to canonical dict format for RefreshRow."""
+        result: Dict[str, Any] = {"table_name": table.table_name}
+        if table.statistics:
+            result["statistics"] = {
+                "inserted_rows": table.statistics.inserted_rows,
+                "deleted_rows": table.statistics.deleted_rows,
+            }
+        else:
+            result["statistics"] = None
+        return result
 
 
 class OldFormatExtractor:

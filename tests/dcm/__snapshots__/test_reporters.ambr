@@ -1,5 +1,5 @@
 # serializer version: 1
-# name: TestNewFormatRefreshReporter.test_ansi_codes_in_table_name
+# name: TestNewRefreshReporter.test_ansi_codes_in_table_name
   '''
   UP-TO-DATE        0       0 DB.SCHEMA.RED_TABLE
   
@@ -7,13 +7,13 @@
   
   '''
 # ---
-# name: TestNewFormatRefreshReporter.test_empty_cursor
+# name: TestNewRefreshReporter.test_empty_cursor
   '''
   No data.
   
   '''
 # ---
-# name: TestNewFormatRefreshReporter.test_large_numbers
+# name: TestNewRefreshReporter.test_large_numbers
   '''
   REFRESHED     +1.5B   -999M DB.SCHEMA.BILLIONS
   REFRESHED     +2.5T   -100B DB.SCHEMA.TRILLIONS
@@ -22,7 +22,7 @@
   
   '''
 # ---
-# name: TestNewFormatRefreshReporter.test_missing_statistics
+# name: TestNewRefreshReporter.test_missing_statistics
   '''
   UNKNOWN                     DB.SCHEMA.NO_STATS
   
@@ -30,7 +30,7 @@
   
   '''
 # ---
-# name: TestNewFormatRefreshReporter.test_missing_table_name
+# name: TestNewRefreshReporter.test_missing_table_name
   '''
   REFRESHED      +100       0 UNKNOWN
   
@@ -38,7 +38,7 @@
   
   '''
 # ---
-# name: TestNewFormatRefreshReporter.test_multiple_tables_mixed_status
+# name: TestNewRefreshReporter.test_multiple_tables_mixed_status
   '''
   REFRESHED      +50k     -1k DB.SCHEMA.TABLE_A
   UP-TO-DATE        0       0 DB.SCHEMA.TABLE_B
@@ -49,14 +49,14 @@
   
   '''
 # ---
-# name: TestNewFormatRefreshReporter.test_no_dynamic_tables
+# name: TestNewRefreshReporter.test_no_dynamic_tables
   '''
   
   No dynamic tables found in the project.
   
   '''
 # ---
-# name: TestNewFormatRefreshReporter.test_only_deletions
+# name: TestNewRefreshReporter.test_only_deletions
   '''
   REFRESHED         0     -3k DB.SCHEMA.DELETES_ONLY
   
@@ -64,7 +64,7 @@
   
   '''
 # ---
-# name: TestNewFormatRefreshReporter.test_only_insertions
+# name: TestNewRefreshReporter.test_only_insertions
   '''
   REFRESHED       +5k       0 DB.SCHEMA.INSERTS_ONLY
   
@@ -72,7 +72,7 @@
   
   '''
 # ---
-# name: TestNewFormatRefreshReporter.test_single_refreshed_table
+# name: TestNewRefreshReporter.test_single_refreshed_table
   '''
   REFRESHED     +1.5k    -200 DB.SCHEMA.CUSTOMERS
   
@@ -80,7 +80,7 @@
   
   '''
 # ---
-# name: TestNewFormatRefreshReporter.test_single_up_to_date_table
+# name: TestNewRefreshReporter.test_single_up_to_date_table
   '''
   UP-TO-DATE        0       0 DB.SCHEMA.ORDERS
   
