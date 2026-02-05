@@ -142,7 +142,8 @@ def run_cortex_code(args: List[str], remove: bool = False) -> int:
             if not confirmed:
                 cli_console.warning("Cortex Code CLI was not installed")
                 return 1
-        elif not os.environ.get("CI"):
+        ci_value = os.environ.get("CI", "").lower()
+        elif not ci_value or ci_value in ("false", "0", "no"):
             cli_console.warning("Cortex Code CLI not installed")
             return 1
 
