@@ -72,3 +72,4 @@ class FeatureFlag(FeatureFlagMixin):
         "ENABLE_STREAMLIT_SPCS_RUNTIME_V2", False
     )
     ENABLE_DBT_VERSION = BooleanFlag("ENABLE_DBT_VERSION", False)
+    ENABLE_SNOWFLAKE_APPS = BooleanFlag("ENABLE_SNOWFLAKE_APPS", False)
