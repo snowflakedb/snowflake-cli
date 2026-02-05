@@ -16,7 +16,7 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, Generic, Iterator, List, Optional, TypeVar
+from typing import Any, Dict, Generic, Iterator, List, Optional, Protocol, TypeVar
 
 from rich.text import Text
 from snowflake.cli._plugins.dcm import styles
@@ -241,6 +241,100 @@ class TestReporter(Reporter[TestRow]):
         return self._summary.failed + self._summary.unknown == 0
 
 
+class RefreshDataExtractor(Protocol):
+    """Temporary protocol for extracting refresh data from backend responses."""
+
+    @classmethod
+    def extract(cls, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Extract and normalize table data to canonical format."""
+        ...
+
+
+class NewFormatExtractor:
+    """Extractor for new response format with dts_refresh_result wrapper."""
+
+    _DATA_KEY = "refreshed_tables"
+    _WRAPPER_KEY = "dts_refresh_result"
+
+    @classmethod
+    def extract(cls, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
+        dts_result = result_json.get(cls._WRAPPER_KEY, {})
+        if not isinstance(dts_result, dict):
+            log.debug(
+                "Unexpected dts_refresh_result type: %s, expected dict",
+                type(dts_result),
+            )
+            raise CliError("Could not process response.")
+
+        refreshed_tables = dts_result.get(cls._DATA_KEY, [])
+        if not isinstance(refreshed_tables, list):
+            log.warning(
+                "Unexpected refreshed_tables type: %s, expected list",
+                type(refreshed_tables),
+            )
+            raise CliError("Could not process response.")
+
+        return refreshed_tables
+
+
+class OldFormatExtractor:
+    """Extractor for old response format (to be removed after migration)."""
+
+    _DATA_KEY = "refreshed_tables"
+    _EMPTY_STAT = "No new data"
+
+    @classmethod
+    def extract(cls, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
+        refreshed_tables = result_json.get(cls._DATA_KEY, [])
+        if not isinstance(refreshed_tables, list):
+            log.warning(
+                "Unexpected refreshed_tables type: %s, expected list",
+                type(refreshed_tables),
+            )
+            raise CliError("Could not process response.")
+
+        return [cls._normalize_table(t) for t in refreshed_tables]
+
+    @classmethod
+    def _normalize_table(cls, table: Any) -> Any:
+        """Normalize old format table entry to canonical (new) format."""
+        if not isinstance(table, dict):
+            return table
+
+        normalized: Dict[str, Any] = {
+            "table_name": table.get("dt_name", "UNKNOWN"),
+        }
+
+        statistics = table.get("statistics")
+        if statistics is None:
+            normalized["statistics"] = None
+        elif isinstance(statistics, dict):
+            normalized["statistics"] = {
+                "inserted_rows": statistics.get("insertedRows", 0),
+                "deleted_rows": statistics.get("deletedRows", 0),
+            }
+        elif isinstance(statistics, str):
+            if statistics == cls._EMPTY_STAT:
+                normalized["statistics"] = {"inserted_rows": 0, "deleted_rows": 0}
+            elif statistics.startswith("{"):
+                try:
+                    stats_data = json.loads(statistics)
+                    normalized["statistics"] = {
+                        "inserted_rows": stats_data.get("insertedRows", 0),
+                        "deleted_rows": stats_data.get("deletedRows", 0),
+                    }
+                except json.JSONDecodeError:
+                    log.debug("Failed to parse statistics JSON: %r", statistics)
+                    normalized["statistics"] = None
+            else:
+                log.debug("Unexpected statistics format: %r", statistics)
+                normalized["statistics"] = None
+        else:
+            normalized["statistics"] = None
+
+        return normalized
+
+
 class RefreshStatus(Enum):
     UNKNOWN = "UNKNOWN"
     UP_TO_DATE = "UP-TO-DATE"
@@ -249,16 +343,17 @@ class RefreshStatus(Enum):
 
 @dataclass
 class RefreshRow:
-    dt_name: str = "UNKNOWN"
+    """Represents a single table row in refresh results."""
+
+    table_name: str = "UNKNOWN"
     status: RefreshStatus = RefreshStatus.UNKNOWN
     _inserted: int = field(default=0, repr=False)
     _deleted: int = field(default=0, repr=False)
 
-    _EMPTY_STAT = "No new data"
     _STATISTICS_KEY = "statistics"
-    _DYNAMIC_TABLE_KEY = "dt_name"
-    _INSERTED_KEY = "insertedRows"
-    _DELETED_KEY = "deletedRows"
+    _TABLE_NAME_KEY = "table_name"
+    _INSERTED_KEY = "inserted_rows"
+    _DELETED_KEY = "deleted_rows"
 
     @staticmethod
     def _safe_int(value: Any) -> int:
@@ -300,9 +395,9 @@ class RefreshRow:
             log.debug("Unexpected table entry type: %s", type(data))
             return None
 
-        raw_dt_name = data.get(cls._DYNAMIC_TABLE_KEY, "UNKNOWN")
-        dt_name = sanitize_for_terminal(str(raw_dt_name))
-        row = cls(dt_name=dt_name)
+        raw_table_name = data.get(cls._TABLE_NAME_KEY, "UNKNOWN")
+        table_name = sanitize_for_terminal(str(raw_table_name))
+        row = cls(table_name=table_name)
 
         statistics = data.get(cls._STATISTICS_KEY)
         if statistics is None:
@@ -311,21 +406,9 @@ class RefreshRow:
         if isinstance(statistics, dict):
             row.inserted = statistics.get(cls._INSERTED_KEY, 0)
             row.deleted = statistics.get(cls._DELETED_KEY, 0)
-        elif isinstance(statistics, str):
-            if statistics == cls._EMPTY_STAT:
-                row.inserted = 0
-                row.deleted = 0
-            elif statistics.startswith("{"):
-                try:
-                    stats_data = json.loads(statistics)
-                    row.inserted = stats_data.get(cls._INSERTED_KEY, 0)
-                    row.deleted = stats_data.get(cls._DELETED_KEY, 0)
-                except json.JSONDecodeError:
-                    log.debug("Failed to parse statistics JSON: %r", statistics)
-                    return row
-            else:
-                log.debug("Unexpected statistics format: %r", statistics)
-                return row
+        else:
+            log.debug("Unexpected statistics type: %s, expected dict", type(statistics))
+            return row
 
         if row.inserted == 0 and row.deleted == 0:
             row.status = RefreshStatus.UP_TO_DATE
@@ -372,7 +455,7 @@ class RefreshRow:
 class RefreshReporter(Reporter[RefreshRow]):
     STATUS_WIDTH = 11
     STATS_WIDTH = 7
-    _DATA_KEY = "refreshed_tables"
+    _NEW_FORMAT_KEY = "dts_refresh_result"
 
     @dataclass
     class Summary:
@@ -389,21 +472,20 @@ class RefreshReporter(Reporter[RefreshRow]):
         self.command_name = "refresh"
         self._summary = self.Summary()
 
+    def _get_extractor_cls(
+        self, result_json: Dict[str, Any]
+    ) -> type[RefreshDataExtractor]:
+        if self._NEW_FORMAT_KEY in result_json:
+            return NewFormatExtractor
+        return OldFormatExtractor
+
     def extract_data(self, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
         if not isinstance(result_json, dict):
             log.debug("Unexpected response type: %s, expected dict", type(result_json))
             raise CliError("Could not process response.")
 
-        refreshed_tables = result_json.get(self._DATA_KEY, list())
-
-        if not isinstance(refreshed_tables, list):
-            log.warning(
-                "Unexpected refreshed_tables type: %s, expected list",
-                type(refreshed_tables),
-            )
-            raise CliError("Could not process response.")
-
-        return refreshed_tables
+        extractor_cls = self._get_extractor_cls(result_json)
+        return extractor_cls.extract(result_json)
 
     def parse_data(self, data: List[Dict[str, Any]]) -> Iterator[RefreshRow]:
         for row in data:
@@ -434,7 +516,7 @@ class RefreshReporter(Reporter[RefreshRow]):
                 row.formatted_deleted.rjust(self.STATS_WIDTH) + " ",
                 style=styles.REMOVED_STYLE,
             )
-            cli_console.styled_message(row.dt_name, style=styles.DOMAIN_STYLE)
+            cli_console.styled_message(row.table_name, style=styles.DOMAIN_STYLE)
             cli_console.styled_message("\n")
 
     def _generate_summary_renderables(self) -> List[Text]:
