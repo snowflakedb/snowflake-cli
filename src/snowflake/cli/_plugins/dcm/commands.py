@@ -56,11 +56,25 @@ dcm_identifier = identifier_argument(sf_object="DCM Project", example="MY_PROJEC
 variables_flag = variables_option(
     'Variables for the execution context; for example: `-D "<key>=<value>"`.'
 )
+
+
+def _resolve_source_path_callback(value: Optional[str]) -> SecurePath:
+    """Callback to convert --from string to SecurePath."""
+    if value is None:
+        return SecurePath.cwd()
+    if is_stage_path(value):
+        raise CliArgumentError(
+            "Stage paths are not supported for --from. Please provide a local directory path."
+        )
+    return SecurePath(value).resolve()
+
+
 from_option = typer.Option(
     None,
     "--from",
     help="Local directory path containing DCM project files. Omit to use current directory.",
     show_default=False,
+    callback=_resolve_source_path_callback,
 )
 
 alias_option = typer.Option(
@@ -116,7 +130,7 @@ class TargetContext:
 def _resolve_target_context(
     identifier: Optional[FQN],
     target: Optional[str],
-    source_path: Optional[SecurePath] = None,
+    source_path: SecurePath,
 ) -> TargetContext:
     """
     Resolve project identifier and configuration from manifest target.
@@ -124,9 +138,6 @@ def _resolve_target_context(
     - If identifier is provided, it takes precedence over target's project_name
     - Configuration is always resolved from target if manifest is available
     """
-    if source_path is None:
-        source_path = SecurePath.cwd()
-
     # Try to load manifest for configuration (and identifier if not provided)
     effective_target = None
     try:
@@ -147,7 +158,6 @@ def _resolve_target_context(
         assert effective_target is not None
         project_id = FQN.from_string(effective_target.project_name)
 
-    # Get configuration from target if available
     config = effective_target.templating_config if effective_target else None
 
     return TargetContext(project_identifier=project_id, configuration=config)
@@ -185,8 +195,7 @@ def deploy(
     """
     Applies changes defined in DCM Project to Snowflake.
     """
-    source_path = SecurePath(from_location).resolve() if from_location else None
-    context = _resolve_target_context(identifier, target, source_path)
+    context = _resolve_target_context(identifier, target, from_location)
     project_id = context.project_identifier
 
     manager = DCMProjectManager()
@@ -219,8 +228,7 @@ def plan(
     """
     Plans a DCM Project deployment (validates without executing).
     """
-    source_path = SecurePath(from_location).resolve() if from_location else None
-    context = _resolve_target_context(identifier, target, source_path)
+    context = _resolve_target_context(identifier, target, from_location)
     project_id = context.project_identifier
 
     manager = DCMProjectManager()
@@ -245,13 +253,14 @@ def create(
     if_not_exists: bool = IfNotExistsOption(
         help="Do nothing if the project already exists."
     ),
+    from_location: Optional[str] = from_option,
     target: Optional[str] = target_option,
     **options,
 ):
     """
     Creates a DCM Project in Snowflake.
     """
-    context = _resolve_target_context(identifier, target)
+    context = _resolve_target_context(identifier, target, from_location)
     project_id = context.project_identifier
 
     om = ObjectManager()
@@ -272,13 +281,14 @@ def create(
 def drop(
     identifier: Optional[FQN] = optional_dcm_identifier,
     if_exists: bool = IfExistsOption(help="Do nothing if the project does not exist."),
+    from_location: Optional[str] = from_option,
     target: Optional[str] = target_option,
     **options,
 ):
     """
     Drops a DCM Project with the given name.
     """
-    context = _resolve_target_context(identifier, target)
+    context = _resolve_target_context(identifier, target, from_location)
     project_id = context.project_identifier
 
     return QueryResult(
@@ -289,13 +299,14 @@ def drop(
 @app.command(requires_connection=True)
 def describe(
     identifier: Optional[FQN] = optional_dcm_identifier,
+    from_location: Optional[str] = from_option,
     target: Optional[str] = target_option,
     **options,
 ):
     """
     Provides description of a DCM Project.
     """
-    context = _resolve_target_context(identifier, target)
+    context = _resolve_target_context(identifier, target, from_location)
     project_id = context.project_identifier
 
     return QueryResult(ObjectManager().describe(object_type="dcm", fqn=project_id))
@@ -304,13 +315,14 @@ def describe(
 @app.command(requires_connection=True)
 def list_deployments(
     identifier: Optional[FQN] = optional_dcm_identifier,
+    from_location: Optional[str] = from_option,
     target: Optional[str] = target_option,
     **options,
 ):
     """
     Lists deployments of given DCM Project.
     """
-    context = _resolve_target_context(identifier, target)
+    context = _resolve_target_context(identifier, target, from_location)
     project_id = context.project_identifier
 
     pm = DCMProjectManager()
@@ -330,13 +342,14 @@ def drop_deployment(
     if_exists: bool = IfExistsOption(
         help="Do nothing if the deployment does not exist."
     ),
+    from_location: Optional[str] = from_option,
     target: Optional[str] = target_option,
     **options,
 ):
     """
     Drops a deployment from the DCM Project.
     """
-    context = _resolve_target_context(identifier, target)
+    context = _resolve_target_context(identifier, target, from_location)
     project_id = context.project_identifier
 
     # Detect potential shell expansion issues
@@ -381,8 +394,7 @@ def preview(
     """
     Returns rows from any table, view, dynamic table.
     """
-    source_path = SecurePath(from_location).resolve() if from_location else None
-    context = _resolve_target_context(identifier, target, source_path)
+    context = _resolve_target_context(identifier, target, from_location)
     project_id = context.project_identifier
 
     manager = DCMProjectManager()
@@ -409,13 +421,14 @@ def preview(
 @mock_dcm_response("refresh")
 def refresh(
     identifier: Optional[FQN] = optional_dcm_identifier,
+    from_location: Optional[str] = from_option,
     target: Optional[str] = target_option,
     **options,
 ):
     """
     Refreshes dynamic tables defined in DCM project.
     """
-    context = _resolve_target_context(identifier, target)
+    context = _resolve_target_context(identifier, target, from_location)
     project_id = context.project_identifier
 
     with cli_console.spinner() as spinner:
@@ -430,13 +443,14 @@ def refresh(
 @mock_dcm_response("test")
 def test(
     identifier: Optional[FQN] = optional_dcm_identifier,
+    from_location: Optional[str] = from_option,
     target: Optional[str] = target_option,
     **options,
 ):
     """
     Tests all expectations defined in DCM project.
     """
-    context = _resolve_target_context(identifier, target)
+    context = _resolve_target_context(identifier, target, from_location)
     project_id = context.project_identifier
 
     with cli_console.spinner() as spinner:
@@ -448,13 +462,9 @@ def test(
     return EmptyResult()
 
 
-def _get_effective_stage(identifier: FQN, from_location: Optional[str]):
-    if from_location and is_stage_path(from_location):
-        raise CliArgumentError(
-            "Stage paths are not supported for --from option. Use a local directory path instead."
-        )
-
+def _get_effective_stage(identifier: FQN, from_location: SecurePath):
     manager = DCMProjectManager()
     return manager.sync_local_files(
-        project_identifier=identifier, source_directory=from_location
+        project_identifier=identifier,
+        source_directory=str(from_location.path),
     )

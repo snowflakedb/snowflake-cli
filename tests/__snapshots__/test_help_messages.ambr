@@ -7385,6 +7385,8 @@
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --if-not-exists                Do nothing if the project already exists.     |
+  | --from                   TEXT  Local directory path containing DCM project   |
+  |                                files. Omit to use current directory.         |
   | --target                 TEXT  Target profile from manifest.yml to use. Uses |
   |                                default_target if not specified.              |
   | --help           -h            Show this message and exit.                   |
@@ -7676,6 +7678,8 @@
   |                                 manifest.                                    |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
+  | --from            TEXT  Local directory path containing DCM project files.   |
+  |                         Omit to use current directory.                       |
   | --target          TEXT  Target profile from manifest.yml to use. Uses        |
   |                         default_target if not specified.                     |
   | --help    -h            Show this message and exit.                          |
@@ -7825,6 +7829,8 @@
   |                                'DEPLOYMENT$1').                              |
   |                                [required]                                    |
   |    --if-exists                 Do nothing if the deployment does not exist.  |
+  |    --from                TEXT  Local directory path containing DCM project   |
+  |                                files. Omit to use current directory.         |
   |    --target              TEXT  Target profile from manifest.yml to use. Uses |
   |                                default_target if not specified.              |
   |    --help        -h            Show this message and exit.                   |
@@ -7969,6 +7975,8 @@
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --if-exists                Do nothing if the project does not exist.         |
+  | --from               TEXT  Local directory path containing DCM project       |
+  |                            files. Omit to use current directory.             |
   | --target             TEXT  Target profile from manifest.yml to use. Uses     |
   |                            default_target if not specified.                  |
   | --help       -h            Show this message and exit.                       |
@@ -8112,6 +8120,8 @@
   |                                 manifest.                                    |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
+  | --from            TEXT  Local directory path containing DCM project files.   |
+  |                         Omit to use current directory.                       |
   | --target          TEXT  Target profile from manifest.yml to use. Uses        |
   |                         default_target if not specified.                     |
   | --help    -h            Show this message and exit.                          |
@@ -8707,6 +8717,8 @@
   |                                 manifest.                                    |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
+  | --from            TEXT  Local directory path containing DCM project files.   |
+  |                         Omit to use current directory.                       |
   | --target          TEXT  Target profile from manifest.yml to use. Uses        |
   |                         default_target if not specified.                     |
   | --help    -h            Show this message and exit.                          |
@@ -8850,6 +8862,8 @@
   |                                 manifest.                                    |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
+  | --from            TEXT  Local directory path containing DCM project files.   |
+  |                         Omit to use current directory.                       |
   | --target          TEXT  Target profile from manifest.yml to use. Uses        |
   |                         default_target if not specified.                     |
   | --help    -h            Show this message and exit.                          |

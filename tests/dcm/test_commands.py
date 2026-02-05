@@ -115,7 +115,7 @@ class TestDCMDeploy:
     ):
         result = runner.invoke(["dcm", "deploy", "fooBar", "--from", "@my_stage"])
         assert result.exit_code == 1, result.output
-        assert "Stage paths are not supported for --from option" in result.output
+        assert "Stage paths are not supported for --from" in result.output
 
     @mock.patch(DCMProjectManager)
     def test_deploy_project_with_variables(
@@ -306,7 +306,7 @@ class TestDCMPlan:
     ):
         result = runner.invoke(["dcm", "plan", "fooBar", "--from", "@my_stage"])
         assert result.exit_code == 1, result.output
-        assert "Stage paths are not supported for --from option" in result.output
+        assert "Stage paths are not supported for --from" in result.output
 
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
     @mock.patch(DCMProjectManager)
@@ -671,7 +671,7 @@ class TestDCMPreview:
             ]
         )
         assert result.exit_code == 1, result.output
-        assert "Stage paths are not supported for --from option" in result.output
+        assert "Stage paths are not supported for --from" in result.output
 
     @mock.patch(DCMProjectManager)
     @pytest.mark.parametrize(
