@@ -4047,6 +4047,51 @@
   
   '''
 # ---
+# name: test_help_messages[coco]
+  '''
+                                                                                  
+   Usage: root coco [OPTIONS]                                                     
+                                                                                  
+   Runs the Cortex Code CLI.                                                      
+                                                                                  
+   If already installed, snow will execute the Cortex Code CLI found in your      
+   PATH.                                                                          
+                                                                                  
+   If the Cortex Code CLI is not installed, it will be downloaded to              
+   ~/.local/share/cortex.                                                         
+                                                                                  
+   Use --remove to remove the downloaded Cortex Code CLI.                         
+                                                                                  
+   This command is only supported on Linux, and Darwin, on amd64/x64 or arm64     
+   architectures.                                                                 
+                                                                                  
+   To prevent snow from interpreting flags intended for Cortex Code, use --       
+   before Cortex Code flags and args.                                             
+                                                                                  
+   Examples:                                                                      
+                                                                                  
+                                                                                  
+    # Run the Cortex Code CLI                                                     
+                                                                                  
+    $ snow coco --                                                                
+                                                                                  
+    # Run the Cortex Code CLI with arguments                                      
+                                                                                  
+    $ snow coco -- --help                                                         
+                                                                                  
+    # Remove the Cortex Code CLI (if installed through snow)                      
+                                                                                  
+    $ snow coco --remove                                                          
+                                                                                  
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | --help    -h        Show this message and exit.                              |
+  | --remove            Remove the downloaded Cortex Code CLI                    |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
 # name: test_help_messages[connection.add]
   '''
                                                                                   

@@ -17,10 +17,7 @@ from __future__ import annotations
 import sys
 
 import typer
-from snowflake.cli._plugins.coco.cortex_code import (
-    _get_install_dir,
-    run_cortex_code,
-)
+from snowflake.cli._plugins.coco.cortex_code import run_cortex_code
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliError
@@ -60,7 +57,7 @@ def coco(
 
     If already installed, `snow` will execute the Cortex Code CLI found in your PATH.
 
-    If the Cortex Code CLI is not installed, it will be downloaded to {install_dir}.
+    If the Cortex Code CLI is not installed, it will be downloaded to ~/.local/share/cortex.
 
     Use `--remove` to remove the downloaded Cortex Code CLI.
 
@@ -83,9 +80,7 @@ def coco(
         # Remove the Cortex Code CLI (if installed through snow)
 
         $ snow coco --remove
-    """.format(
-        install_dir=_get_install_dir()
-    )
+    """
     args = ctx.args
     has_separator = "--" in sys.argv
 
