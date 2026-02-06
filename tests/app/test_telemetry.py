@@ -73,6 +73,9 @@ def test_executing_command_sends_telemetry_usage_data_legacy_config(
         del usage_command_event["message"][
             "command_ci_environment"
         ]  # to avoid side effect from CI
+        del usage_command_event["message"][
+            "command_agent_environment"
+        ]  # to avoid side effect from agent environment
         assert usage_command_event == {
             "message": {
                 "driver_type": "PythonConnector",
@@ -137,6 +140,9 @@ def test_executing_command_sends_telemetry_usage_data_ng_config(
         del usage_command_event["message"][
             "command_ci_environment"
         ]  # to avoid side effect from CI
+        del usage_command_event["message"][
+            "command_agent_environment"
+        ]  # to avoid side effect from agent environment
 
         # Verify common fields
         message = usage_command_event["message"]
@@ -166,12 +172,19 @@ def test_executing_command_sends_telemetry_usage_data_ng_config(
 @pytest.mark.parametrize(
     "ci_type, env_var",
     [
+        ("SF_GITHUB_ACTION", "SF_GITHUB_ACTION"),
         ("GITHUB_ACTIONS", "GITHUB_ACTIONS"),
         ("GITLAB_CI", "GITLAB_CI"),
         ("CIRCLECI", "CIRCLECI"),
         ("JENKINS", "JENKINS_URL"),
         ("JENKINS", "HUDSON_URL"),
         ("AZURE_DEVOPS", "TF_BUILD"),
+        ("BITBUCKET_PIPELINES", "BITBUCKET_BUILD_NUMBER"),
+        ("AWS_CODEBUILD", "CODEBUILD_BUILD_ID"),
+        ("TEAMCITY", "TEAMCITY_VERSION"),
+        ("BUILDKITE", "BUILDKITE"),
+        ("CODEFRESH", "CF_BUILD_ID"),
+        ("TRAVIS_CI", "TRAVIS"),
     ],
 )
 @mock.patch("snowflake.connector.connect")
@@ -191,6 +204,135 @@ def test_executing_command_sends_ci_usage_data(_, mock_conn, runner, env_var, ci
     )
 
     assert usage_command_event["message"]["command_ci_environment"] == ci_type
+
+
+@pytest.mark.parametrize(
+    "ci_value",
+    ["true", "True", "TRUE", "1"],
+)
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+def test_generic_ci_env_variable_returns_unknown_ci(_, mock_conn, runner, ci_value):
+    """Test that generic CI=true/1 returns UNKNOWN_CI when no specific CI is detected."""
+    with mock.patch.dict(os.environ, {"CI": ci_value}, clear=True):
+        result = runner.invoke(["connection", "test"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    usage_command_event = (
+        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
+            0
+        ]
+        .args[0]
+        .to_dict()
+    )
+
+    assert usage_command_event["message"]["command_ci_environment"] == "UNKNOWN_CI"
+
+
+def test_is_interactive_terminal_returns_true_when_tty():
+    """Test _is_interactive_terminal returns True when both stdin and stdout are TTYs."""
+    from snowflake.cli._app.telemetry import _is_interactive_terminal
+
+    with mock.patch("sys.stdin") as mock_stdin, mock.patch("sys.stdout") as mock_stdout:
+        mock_stdin.isatty.return_value = True
+        mock_stdout.isatty.return_value = True
+        assert _is_interactive_terminal() is True
+
+
+def test_is_interactive_terminal_returns_false_when_not_tty():
+    """Test _is_interactive_terminal returns False when stdin or stdout is not a TTY."""
+    from snowflake.cli._app.telemetry import _is_interactive_terminal
+
+    # stdin is not a TTY
+    with mock.patch("sys.stdin") as mock_stdin, mock.patch("sys.stdout") as mock_stdout:
+        mock_stdin.isatty.return_value = False
+        mock_stdout.isatty.return_value = True
+        assert _is_interactive_terminal() is False
+
+    # stdout is not a TTY
+    with mock.patch("sys.stdin") as mock_stdin, mock.patch("sys.stdout") as mock_stdout:
+        mock_stdin.isatty.return_value = True
+        mock_stdout.isatty.return_value = False
+        assert _is_interactive_terminal() is False
+
+
+def test_is_interactive_terminal_returns_false_on_exception():
+    """Test _is_interactive_terminal returns False when isatty() raises an exception."""
+    from snowflake.cli._app.telemetry import _is_interactive_terminal
+
+    with mock.patch("sys.stdin") as mock_stdin:
+        mock_stdin.isatty.side_effect = Exception("No TTY available")
+        assert _is_interactive_terminal() is False
+
+
+def test_get_ci_environment_type_returns_local_for_interactive_terminal():
+    """Test that LOCAL is returned when running in an interactive terminal."""
+    from snowflake.cli._app.telemetry import _get_ci_environment_type
+
+    with mock.patch.dict(os.environ, {}, clear=True):
+        with mock.patch(
+            "snowflake.cli._app.telemetry._is_interactive_terminal", return_value=True
+        ):
+            assert _get_ci_environment_type() == "LOCAL"
+
+
+def test_get_ci_environment_type_returns_unknown_for_non_interactive_non_ci():
+    """Test that UNKNOWN is returned when not in CI and not in an interactive terminal."""
+    from snowflake.cli._app.telemetry import _get_ci_environment_type
+
+    with mock.patch.dict(os.environ, {}, clear=True):
+        with mock.patch(
+            "snowflake.cli._app.telemetry._is_interactive_terminal", return_value=False
+        ):
+            assert _get_ci_environment_type() == "UNKNOWN"
+
+
+def test_detect_agent_environment_returns_unknown_when_no_agent():
+    """Test that UNKNOWN is returned when no agent environment is detected."""
+    from snowflake.cli._app.telemetry import _detect_agent_environment
+
+    with mock.patch.dict(os.environ, {}, clear=True):
+        assert _detect_agent_environment() == "UNKNOWN"
+
+
+@pytest.mark.parametrize(
+    "env_var, env_value, expected_agent",
+    [
+        ("CORTEX_SESSION_ID", "abc123", "CORTEX"),
+        ("CURSOR_AGENT", "1", "CURSOR"),
+        ("GEMINI_CLI", "1", "GEMINI_CLI"),
+        ("CLAUDECODE", "1", "CLAUDE_CODE"),
+        ("CODEX_API_KEY", "key123", "CODEX"),
+        ("OPENCODE", "1", "OPENCODE"),
+    ],
+)
+def test_detect_agent_environment_returns_correct_agent(
+    env_var, env_value, expected_agent
+):
+    """Test that the correct agent is detected based on environment variables."""
+    from snowflake.cli._app.telemetry import _detect_agent_environment
+
+    with mock.patch.dict(os.environ, {env_var: env_value}, clear=True):
+        assert _detect_agent_environment() == expected_agent
+
+
+def test_agent_context_non_tty_with_agent_detected():
+    """Test the typical AI agent scenario: non-TTY terminal with agent env var set.
+
+    In this case, CI detection should return UNKNOWN (not LOCAL, since no TTY),
+    and agent detection should return the detected agent.
+    """
+    from snowflake.cli._app.telemetry import (
+        _detect_agent_environment,
+        _get_ci_environment_type,
+    )
+
+    with mock.patch.dict(os.environ, {"CURSOR_AGENT": "1"}, clear=True):
+        with mock.patch(
+            "snowflake.cli._app.telemetry._is_interactive_terminal", return_value=False
+        ):
+            assert _get_ci_environment_type() == "UNKNOWN"
+            assert _detect_agent_environment() == "CURSOR"
 
 
 @mock.patch(
@@ -310,7 +452,6 @@ def test_flags_from_parent_contexts_are_captured(mock_uuid4, mock_connect, runne
     )
 
     command_flags = usage_command_event["message"]["command_flags"]
-    assert "run_async" in command_flags, (
-        f"run_async flag should be captured in telemetry. "
-        f"Found flags: {command_flags}"
-    )
+    assert (
+        "run_async" in command_flags
+    ), f"run_async flag should be captured in telemetry. Found flags: {command_flags}"
