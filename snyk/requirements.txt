@@ -6,7 +6,7 @@ backports-tarfile==1.2.0 ; python_full_version < '3.12'
 boto3==1.39.14
 botocore==1.39.14
 certifi==2025.7.14
-cffi==1.17.1
+cffi==1.17.1 ; platform_python_implementation != 'PyPy'
 charset-normalizer==3.4.2
 click==8.1.8
 cloudpickle==3.0.0
@@ -35,7 +35,7 @@ platformdirs==4.3.8
 pluggy==1.6.0
 prompt-toolkit==3.0.51
 protobuf==5.29.5
-pycparser==2.22
+pycparser==2.22 ; platform_python_implementation != 'PyPy'
 pydantic==2.12.5
 pydantic-core==2.41.5
 pygments==2.19.2
@@ -54,7 +54,7 @@ setuptools==80.8.0
 shellingham==1.5.4
 six==1.17.0
 smmap==5.0.2
-snowflake-connector-python==3.18.0
+snowflake-connector-python==4.2.0
 snowflake-core==1.10.0
 snowflake-snowpark-python==1.41.0
 sortedcontainers==2.4.0
