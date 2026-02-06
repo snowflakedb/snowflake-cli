@@ -1,4 +1,93 @@
 # serializer version: 1
+# name: TestNewRefreshReporter.test_ansi_codes_in_table_name
+  '''
+  UP-TO-DATE        0       0 DB.SCHEMA.RED_TABLE
+  
+  1 up-to-date.
+  
+  '''
+# ---
+# name: TestNewRefreshReporter.test_empty_cursor
+  '''
+  No data.
+  
+  '''
+# ---
+# name: TestNewRefreshReporter.test_large_numbers
+  '''
+  REFRESHED     +1.5B   -999M DB.SCHEMA.BILLIONS
+  REFRESHED     +2.5T   -100B DB.SCHEMA.TRILLIONS
+  
+  2 refreshed.
+  
+  '''
+# ---
+# name: TestNewRefreshReporter.test_missing_statistics
+  '''
+  UNKNOWN                     DB.SCHEMA.NO_STATS
+  
+  1 unknown.
+  
+  '''
+# ---
+# name: TestNewRefreshReporter.test_missing_table_name
+  '''
+  REFRESHED      +100       0 UNKNOWN
+  
+  1 refreshed.
+  
+  '''
+# ---
+# name: TestNewRefreshReporter.test_multiple_tables_mixed_status
+  '''
+  REFRESHED      +50k     -1k DB.SCHEMA.TABLE_A
+  UP-TO-DATE        0       0 DB.SCHEMA.TABLE_B
+  UP-TO-DATE        0       0 DB.SCHEMA.TABLE_C
+  REFRESHED     +999k    -500 DB.SCHEMA.TABLE_D
+  
+  2 refreshed, 2 up-to-date.
+  
+  '''
+# ---
+# name: TestNewRefreshReporter.test_no_dynamic_tables
+  '''
+  
+  No dynamic tables found in the project.
+  
+  '''
+# ---
+# name: TestNewRefreshReporter.test_only_deletions
+  '''
+  REFRESHED         0     -3k DB.SCHEMA.DELETES_ONLY
+  
+  1 refreshed.
+  
+  '''
+# ---
+# name: TestNewRefreshReporter.test_only_insertions
+  '''
+  REFRESHED       +5k       0 DB.SCHEMA.INSERTS_ONLY
+  
+  1 refreshed.
+  
+  '''
+# ---
+# name: TestNewRefreshReporter.test_single_refreshed_table
+  '''
+  REFRESHED     +1.5k    -200 DB.SCHEMA.CUSTOMERS
+  
+  1 refreshed.
+  
+  '''
+# ---
+# name: TestNewRefreshReporter.test_single_up_to_date_table
+  '''
+  UP-TO-DATE        0       0 DB.SCHEMA.ORDERS
+  
+  1 up-to-date.
+  
+  '''
+# ---
 # name: TestRefreshReporter.test_ansi_codes_in_table_name
   '''
   UP-TO-DATE        0       0 DB.SCHEMA.RED_TABLE
