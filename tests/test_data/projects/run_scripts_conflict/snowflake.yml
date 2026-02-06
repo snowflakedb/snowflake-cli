@@ -1,0 +1,6 @@
+definition_version: 2
+
+scripts:
+  build:
+    cmd: echo "Building from snowflake.yml"
+    description: Build script from snowflake.yml

@@ -40,6 +40,7 @@ from snowflake.cli.api.project.schemas.v1.native_app.native_app import (
     NativeApp,
     NativeAppV11,
 )
+from snowflake.cli.api.project.schemas.scripts import ScriptModel
 from snowflake.cli.api.project.schemas.v1.snowpark.snowpark import Snowpark
 from snowflake.cli.api.project.schemas.v1.streamlit.streamlit import Streamlit
 from snowflake.cli.api.utils.types import Context
@@ -131,6 +132,10 @@ class DefinitionV20(_ProjectDefinitionBase):
     )
     mixins: Optional[Dict[str, Dict]] = Field(
         title="Mixins to apply to entities",
+        default=None,
+    )
+    scripts: Optional[Dict[str, ScriptModel]] = Field(
+        title="Project scripts for common tasks",
         default=None,
     )
 

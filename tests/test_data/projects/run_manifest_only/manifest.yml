@@ -1,0 +1,6 @@
+type: dcm_project
+
+scripts:
+  test:
+    cmd: echo "Testing manifest-only project"
+    description: Test script in manifest-only project
