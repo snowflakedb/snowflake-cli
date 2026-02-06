@@ -1,0 +1,34 @@
+definition_version: 2
+
+env:
+  database: TEMP
+  schema: DEV_PLATFORM
+  connection: snowhouse
+
+scripts:
+  dev:
+    cmd: echo "Starting dev server"
+    description: Start local development server
+
+  build:
+    cmd: echo "Building for ${env.database}.${env.schema}"
+    description: Build the project
+
+  deploy:
+    cmd: echo "Deploying to ${env.connection}"
+    description: Deploy to Snowflake
+
+  deploy-all:
+    run:
+      - build
+      - deploy
+    description: Build and deploy
+
+  shell-test:
+    cmd: echo "test" | cat
+    shell: true
+    description: Test shell execution
+
+  with-env:
+    cmd: echo "User is ${env.USER}"
+    description: Test env variable interpolation

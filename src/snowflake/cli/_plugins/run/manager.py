@@ -1,0 +1,266 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from __future__ import annotations
+
+import logging
+import os
+import re
+import shlex
+import subprocess
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, List, Optional
+
+from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.project.schemas.project_definition import DefinitionV20
+from snowflake.cli.api.project.schemas.scripts import ScriptModel
+from snowflake.cli.api.utils.models import ProjectEnvironment
+
+log = logging.getLogger(__name__)
+
+VARIABLE_PATTERN = re.compile(r"\$\{([^}]+)\}")
+
+
+@dataclass
+class ScriptExecutionResult:
+    script_name: str
+    exit_code: int
+    success: bool
+
+
+class ScriptManager:
+    """Manager for loading and executing project scripts."""
+
+    def __init__(self, project_root: Path):
+        self.project_root = project_root
+        self._scripts: Dict[str, ScriptModel] = {}
+        self._load_scripts()
+
+    def _load_scripts(self) -> None:
+        """Load scripts from project definition."""
+        ctx = get_cli_context()
+        project_def = ctx.project_definition
+        if project_def and isinstance(project_def, DefinitionV20):
+            self._scripts = project_def.scripts or {}
+
+    def list_scripts(self) -> Dict[str, ScriptModel]:
+        """Return all available scripts."""
+        return self._scripts
+
+    def get_script(self, name: str) -> Optional[ScriptModel]:
+        """Get a script by name."""
+        return self._scripts.get(name)
+
+    def _build_variable_context(
+        self, var_overrides: Optional[Dict[str, str]] = None
+    ) -> Dict[str, str]:
+        """Build the context dict for variable interpolation."""
+        ctx = get_cli_context()
+        template_context = ctx.template_context.get("ctx", {})
+
+        variables: Dict[str, str] = {}
+
+        defaults = template_context.get("defaults", {})
+        if defaults:
+            for key in ["database", "schema", "connection"]:
+                if key in defaults and defaults[key]:
+                    variables[key] = str(defaults[key])
+
+        env_section = template_context.get("env")
+        if env_section is not None:
+            if isinstance(env_section, ProjectEnvironment):
+                if env_section.default_env:
+                    for key, value in env_section.default_env.items():
+                        variables[f"env.{key}"] = str(value)
+            elif isinstance(env_section, dict):
+                for key, value in env_section.items():
+                    variables[f"env.{key}"] = str(value)
+
+        for key, value in os.environ.items():
+            env_key = f"env.{key}"
+            if env_key not in variables:
+                variables[env_key] = value
+
+        entities = template_context.get("entities", {})
+        if entities:
+            for entity_name, entity_data in entities.items():
+                if isinstance(entity_data, dict):
+                    self._flatten_entity(
+                        f"entity.{entity_name}", entity_data, variables
+                    )
+
+        if var_overrides:
+            variables.update(var_overrides)
+
+        return variables
+
+    def _flatten_entity(
+        self, prefix: str, data: dict, variables: Dict[str, str]
+    ) -> None:
+        """Flatten nested entity data into dot-notation keys."""
+        for key, value in data.items():
+            full_key = f"{prefix}.{key}"
+            if isinstance(value, dict):
+                self._flatten_entity(full_key, value, variables)
+            elif value is not None:
+                variables[full_key] = str(value)
+
+    def interpolate_variables(
+        self, cmd: str, var_overrides: Optional[Dict[str, str]] = None
+    ) -> str:
+        """Interpolate variables in command string."""
+        variables = self._build_variable_context(var_overrides)
+
+        def replace_var(match: re.Match) -> str:
+            var_name = match.group(1)
+            if var_name in variables:
+                return variables[var_name]
+            log.warning("Variable '${%s}' not found, leaving as-is", var_name)
+            return match.group(0)
+
+        return VARIABLE_PATTERN.sub(replace_var, cmd)
+
+    def execute_script(
+        self,
+        name: str,
+        extra_args: Optional[List[str]] = None,
+        var_overrides: Optional[Dict[str, str]] = None,
+        dry_run: bool = False,
+        verbose: bool = False,
+        continue_on_error: bool = False,
+    ) -> ScriptExecutionResult:
+        """Execute a script by name."""
+        script = self.get_script(name)
+        if not script:
+            raise ValueError(f"Script '{name}' not found")
+
+        if script.run:
+            return self._execute_composite(
+                name, script, extra_args, var_overrides, dry_run, verbose, continue_on_error
+            )
+
+        return self._execute_command(
+            name, script, extra_args, var_overrides, dry_run, verbose
+        )
+
+    def _execute_command(
+        self,
+        name: str,
+        script: ScriptModel,
+        extra_args: Optional[List[str]],
+        var_overrides: Optional[Dict[str, str]],
+        dry_run: bool,
+        verbose: bool,
+    ) -> ScriptExecutionResult:
+        """Execute a single command script."""
+        cmd = self.interpolate_variables(script.cmd, var_overrides)
+
+        if extra_args:
+            cmd = f"{cmd} {' '.join(extra_args)}"
+
+        cc.message(f"Running script: {name}")
+        cc.message(f"> {cmd}")
+
+        if dry_run:
+            return ScriptExecutionResult(name, 0, True)
+
+        cwd = self.project_root
+        if script.cwd:
+            cwd = self.project_root / script.cwd
+
+        env = os.environ.copy()
+        if script.env:
+            env.update(script.env)
+
+        if script.shell:
+            if VARIABLE_PATTERN.search(script.cmd):
+                log.warning(
+                    "Using shell=true with variable interpolation. "
+                    "Ensure interpolated values are safe."
+                )
+
+            if sys.platform == "win32":
+                result = subprocess.run(
+                    cmd,
+                    shell=True,
+                    cwd=cwd,
+                    env=env,
+                )
+            else:
+                result = subprocess.run(
+                    cmd,
+                    shell=True,
+                    cwd=cwd,
+                    env=env,
+                    executable="/bin/sh",
+                )
+        else:
+            args = shlex.split(cmd)
+            result = subprocess.run(
+                args,
+                cwd=cwd,
+                env=env,
+            )
+
+        return ScriptExecutionResult(name, result.returncode, result.returncode == 0)
+
+    def _execute_composite(
+        self,
+        name: str,
+        script: ScriptModel,
+        extra_args: Optional[List[str]],
+        var_overrides: Optional[Dict[str, str]],
+        dry_run: bool,
+        verbose: bool,
+        continue_on_error: bool,
+    ) -> ScriptExecutionResult:
+        """Execute a composite script (list of scripts)."""
+        cc.message(f"Running script: {name}")
+
+        total = len(script.run)
+        failed_scripts = []
+
+        for idx, sub_name in enumerate(script.run, 1):
+            cc.message(f"\n[{idx}/{total}] {sub_name}")
+
+            if sub_name not in self._scripts:
+                cc.warning(f"Script '{sub_name}' not found, skipping")
+                if not continue_on_error:
+                    return ScriptExecutionResult(name, 1, False)
+                failed_scripts.append(sub_name)
+                continue
+
+            result = self.execute_script(
+                sub_name,
+                extra_args=None,
+                var_overrides=var_overrides,
+                dry_run=dry_run,
+                verbose=verbose,
+                continue_on_error=continue_on_error,
+            )
+
+            if not result.success:
+                if not continue_on_error:
+                    return result
+                failed_scripts.append(sub_name)
+
+        if failed_scripts:
+            cc.warning(f"\nCompleted with errors in: {', '.join(failed_scripts)}")
+            return ScriptExecutionResult(name, 1, False)
+
+        cc.message(f"\nDone! ({total} scripts executed)")
+        return ScriptExecutionResult(name, 0, True)
