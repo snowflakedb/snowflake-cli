@@ -144,6 +144,13 @@ QueryWarehouseOption = OverrideableOption(
     help=_QUERY_WAREHOUSE_HELP,
 )
 
+_ASYNC_HELP = "[TRUE | FALSE] Specifies whether to execute the job asynchronously."
+AsyncOption = OverrideableOption(
+    "FALSE",
+    "--async",
+    help=_ASYNC_HELP,
+)
+
 _AUTO_RESUME_HELP = "The service will automatically resume when a service function or ingress is called."
 AutoResumeOption = OverrideableOption(
     True,
@@ -160,6 +167,7 @@ AutoSuspendSecsOption = OverrideableOption(
 )
 
 _COMMENT_HELP = "Comment for the service."
+
 
 add_object_command_aliases(
     app=app,
@@ -277,6 +285,7 @@ def execute_job(
     ),
     query_warehouse: Optional[str] = QueryWarehouseOption(),
     comment: Optional[str] = CommentOption(help=_COMMENT_HELP),
+    async_execution: Optional[str] = AsyncOption(),
     **options,
 ) -> CommandResult:
     """
@@ -289,6 +298,7 @@ def execute_job(
         external_access_integrations=external_access_integrations,
         query_warehouse=query_warehouse,
         comment=comment,
+        async_execution=async_execution,
     )
     return SingleQueryResult(cursor)
 
