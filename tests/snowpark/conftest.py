@@ -56,6 +56,9 @@ def mock_procedure_description(mock_cursor):
             ("installed_packages", "['_libgcc_mutex==0.1']"),
             ("artifact_repository", None),
             ("artifact_repository_packages", None),
+            ("log_level", None),
+            ("trace_level", None),
+            ("metric_level", None),
         ],
         columns=[
             "signature",
@@ -70,5 +73,8 @@ def mock_procedure_description(mock_cursor):
             "runtime_version",
             "packages",
             "installed_packages",
+            "log_level",
+            "trace_level",
+            "metric_level",
         ],
     )

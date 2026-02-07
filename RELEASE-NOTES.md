@@ -59,6 +59,7 @@
 ## Deprecations
 
 ## New additions
+* Added support for LOG_LEVEL, METRIC_LEVEL and TRACE_LEVEL
 
 ## Fixes and improvements
 * Fixed parsing of --vars provided to `snow dbt execute` subcommands. This allows to pass variables in the same way as to dbt cli, i.e. --vars '{"key": "value"}'

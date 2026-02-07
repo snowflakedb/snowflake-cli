@@ -64,6 +64,20 @@
   RESOURCE_CONSTRAINT=(architecture='x86')
   '''
 # ---
+# name: test_get_deploy_sql_with_telemetry_levels
+  '''
+  CREATE FUNCTION IDENTIFIER('func1')
+  COPY GRANTS
+  RETURNS string
+  LANGUAGE PYTHON
+  RUNTIME_VERSION '3.10'
+  IMPORTS=
+  HANDLER='app.func1_handler'
+  LOG_LEVEL = INFO
+  TRACE_LEVEL = ON_EVENT
+  METRIC_LEVEL = ALL
+  '''
+# ---
 # name: test_nativeapp_children_interface
   '''
   CREATE FUNCTION IDENTIFIER('func1')
