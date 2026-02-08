@@ -112,14 +112,16 @@ def is_regionless_redirect(conn: SnowflakeConnection) -> bool:
 def get_host_region(host: str) -> str | None:
     """
     Looks for hosts of form
-    <account>.[x.y.z].snowflakecomputing.com
-    Returns the three-part [region identifier] or None.
+    <account>.[x.y[.z]].snowflakecomputing.com
+    Returns the two-part or three-part [region identifier] or None.
     """
     host_parts = host.split(".")
     if host_parts[-1] == "local":
         return LOCAL_DEPLOYMENT_REGION
     elif len(host_parts) == 6:
         return ".".join(host_parts[1:4])
+    elif len(host_parts) == 5:
+        return ".".join(host_parts[1:3])
     return None
 
 
@@ -172,7 +174,17 @@ def get_context(conn: SnowflakeConnection) -> str:
     return get_region(conn)
 
 
-def get_account(conn: SnowflakeConnection) -> str:
+def get_account_locator(conn: SnowflakeConnection) -> str:
+    """
+    Determines the account locator that this connection refers to.
+    """
+    *_, cursor = conn.execute_string(
+        f"select current_account_locator()", cursor_class=DictCursor
+    )
+    return cursor.fetchone()["CURRENT_ACCOUNT_LOCATOR()"].lower()
+
+
+def get_account_name(conn: SnowflakeConnection) -> str:
     """
     Determines the account that this connection refers to.
     """
@@ -214,9 +226,12 @@ def make_snowsight_url(conn: SnowflakeConnection, path: str) -> str:
     """
     snowsight_host = get_snowsight_host(conn)
     deployment = get_context(conn)
-    account = get_account(conn)
     path_with_slash = path if path.startswith("/") else f"/{path}"
-    return f"{snowsight_host}/{deployment}/{account}{path_with_slash}"
+    if len(deployment.split(".")) == 2:
+        account_locator = get_account_locator(conn)
+        return f"{snowsight_host}/{deployment}/{account_locator}{path_with_slash}"
+    account_name = get_account_name(conn)
+    return f"{snowsight_host}/{deployment}/{account_name}{path_with_slash}"
 
 
 def strip_if_value_present(value: Optional[str]) -> Optional[str]:
