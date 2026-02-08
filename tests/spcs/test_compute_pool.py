@@ -758,3 +758,25 @@ AUTO_RESUME = {expected_value}
 INITIALLY_SUSPENDED = False
 AUTO_SUSPEND_SECS = 3600"""
     )
+
+
+@patch(EXECUTE_QUERY)
+def test_show_instance_families(mock_execute_query):
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_query.return_value = cursor
+    result = ComputePoolManager().show_instance_families()
+    expected_query = "show compute pool instance families"
+    mock_execute_query.assert_called_once_with(expected_query)
+    assert result == cursor
+
+
+@patch(
+    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.show_instance_families"
+)
+def test_show_instance_families_cli(
+    mock_show_instance_families, mock_statement_success, runner
+):
+    mock_show_instance_families.return_value = mock_statement_success()
+    result = runner.invoke(["spcs", "compute-pool", "show-instance-families"])
+    mock_show_instance_families.assert_called_once_with()
+    assert_that_result_is_successful_and_executed_successfully(result)
