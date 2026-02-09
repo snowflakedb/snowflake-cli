@@ -49,6 +49,7 @@ from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
     AnacondaPackagesManager,
 )
 from snowflake.cli._plugins.snowpark.package.commands import app as package_app
+from snowflake.cli._plugins.snowpark.project.commands import app as project_app
 from snowflake.cli._plugins.snowpark.snowpark_entity_model import (
     FunctionEntityModel,
     ProcedureEntityModel,
@@ -113,6 +114,7 @@ app = SnowTyperFactory(
     help="Manages procedures and functions.",
 )
 app.add_typer(package_app)
+app.add_typer(project_app)
 
 ObjectTypeArgument = typer.Argument(
     help="Type of Snowpark object",
