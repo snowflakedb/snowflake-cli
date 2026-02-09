@@ -135,6 +135,11 @@ def execute_sql(
         ),
         is_flag=True,
     ),
+    no_prompt_exit: bool = typer.Option(
+        False,
+        "--no-prompt-exit",
+        help="Do not prompt before exiting.",
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -177,6 +182,7 @@ def execute_sql(
             retain_comments=retain_comments,
             template_syntax_config=template_syntax_config,
             local_only=local_only,
+            no_prompt_exit=no_prompt_exit,
         ).run()
         sys.exit(0)
 
