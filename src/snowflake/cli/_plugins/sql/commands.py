@@ -122,6 +122,11 @@ def execute_sql(
         help="Syntax used to resolve variables before passing queries to Snowflake.",
         case_sensitive=False,
     ),
+    no_prompt_exit: bool = typer.Option(
+        False,
+        "--no-prompt-exit",
+        help="Do not prompt before exiting.",
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -162,6 +167,7 @@ def execute_sql(
             data=data,
             retain_comments=retain_comments,
             template_syntax_config=template_syntax_config,
+            no_prompt_exit=no_prompt_exit,
         ).run()
         sys.exit(0)
 
