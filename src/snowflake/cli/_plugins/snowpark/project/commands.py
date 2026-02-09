@@ -13,7 +13,11 @@
 # limitations under the License.
 
 
+import typer
+from click import ClickException
+from snowflake.cli._plugins.snowpark.project.manager import SnowflakeProjectManager
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.output.types import MessageResult
 
 app = SnowTyperFactory(
     name="project",
@@ -22,11 +26,35 @@ app = SnowTyperFactory(
 
 
 @app.command("create", requires_connection=True)
-def create():
+def create(
+    name: str = typer.Argument(
+        None,
+        help="Name of the Snowpark project.",
+        show_default=False,
+    ),
+    stage: str = typer.Option(
+        None,
+        "--stage",
+        help="The stage containing the project files.",
+        show_default=False,
+    ),
+    overwrite: bool = typer.Option(
+        False,
+        "--overwrite",
+        help="Overwrite the project if it already exists.",
+    ),
+    **options,
+):
     """
     Creates a Snowpark project.
     """
-    pass
+    if not name:
+        raise ClickException("Project name is required.")
+    if not stage:
+        raise ClickException("Stage is required.")
+
+    manager = SnowflakeProjectManager()
+    return MessageResult(manager.create(name=name, stage=stage, overwrite=overwrite))
 
 
 @app.command("drop", requires_connection=True)
@@ -37,8 +65,32 @@ def drop():
     pass
 
 
+@app.command("list", requires_connection=True)
+def list_(
+    **options,
+):
+    """
+    Lists all Snowpark projects.
+    """
+    pass
+
+
 @app.command("execute", requires_connection=True)
-def execute():
+def execute(
+    name: str = typer.Argument(
+        None,
+        help="Name of the Snowpark project.",
+        show_default=False,
+    ),
+    entrypoint: str = typer.Option(
+        None,
+        "--entrypoint",
+        metavar="STAGE FILE PATH",
+        help="The path on the project stage to the entrypoint file for the Snowpark project.",
+        show_default=False,
+    ),
+    **options,
+):
     """
     Executes a Snowpark project.
     """
