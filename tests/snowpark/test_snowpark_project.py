@@ -80,6 +80,25 @@ class TestSnowparkProjectCommands:
         assert result.exit_code == 1, result.output
         assert "Stage is required." in result.output
 
+    def test_drop_project_missing_name(self, runner):
+        """Test that the drop project command fails when name is missing."""
+
+        result = runner.invoke(["snowpark", "project", "drop"])
+        assert result.exit_code == 1, result.output
+        assert "Project name is required." in result.output
+
+    @mock.patch(COMMAND_PROJECT_MANAGER)
+    def test_drop_project(self, mock_manager, runner):
+        """Test that the drop project command drops a project."""
+
+        project_name = "test_project"
+        mock_manager.return_value.drop.return_value = (
+            f"{project_name} successfully dropped."
+        )
+        result = runner.invoke(["snowpark", "project", "drop", project_name])
+        assert result.exit_code == 0, result.output
+        assert f"{project_name} successfully dropped." in result.output
+
 
 class TestSnowparkProjectManager:
     @mock.patch(f"{MANAGER_PROJECT_MANAGER}.execute_query")
@@ -135,4 +154,22 @@ class TestSnowparkProjectManager:
         manager.create(name=project_name, stage=stage, overwrite=True)
         mock_execute_query.assert_called_once_with(
             f"CREATE OR REPLACE SNOWPARK PROJECT {project_name} FROM {stage}"
+        )
+
+    @mock.patch(f"{MANAGER_PROJECT_MANAGER}.execute_query")
+    @mock.patch(f"{MANAGER_PROJECT_MANAGER}._set_session_config")
+    def test_drop_project(
+        self, mock__set_session_config, mock_execute_query, mock_cursor
+    ):
+        """Test that the drop project method drops a project."""
+
+        project_name = "test_project"
+        mock_execute_query.return_value = mock_cursor(
+            rows=[(f"{project_name} successfully dropped.",)], columns=["status"]
+        )
+        mock__set_session_config.return_value = None
+        manager = SnowflakeProjectManager()
+        manager.drop(name=project_name)
+        mock_execute_query.assert_called_once_with(
+            f"DROP SNOWPARK PROJECT {project_name}"
         )

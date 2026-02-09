@@ -58,11 +58,22 @@ def create(
 
 
 @app.command("drop", requires_connection=True)
-def drop():
+def drop(
+    name: str = typer.Argument(
+        None,
+        help="Name of the Snowpark project.",
+        show_default=False,
+    ),
+    **options,
+):
     """
     Drops a Snowpark project.
     """
-    pass
+    if not name:
+        raise ClickException("Project name is required.")
+
+    manager = SnowflakeProjectManager()
+    return MessageResult(manager.drop(name=name))
 
 
 @app.command("list", requires_connection=True)

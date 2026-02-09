@@ -43,3 +43,14 @@ class SnowflakeProjectManager(SqlExecutionMixin):
             return result[0]
         except Exception as e:
             raise ClickException(f"Failed to create Snowpark project: {e}")
+
+    def drop(self, name: str):
+        query = f"DROP SNOWPARK PROJECT {name}"
+        try:
+            self._set_session_config()
+            result = self.execute_query(query).fetchone()
+            log.debug("Snowpark project '%s' dropped successfully.", name)
+            log.debug("Result: %s", result)
+            return result[0]
+        except Exception as e:
+            raise ClickException(f"Failed to drop Snowpark project: {e}")
