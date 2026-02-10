@@ -14,6 +14,7 @@
 from dataclasses import dataclass
 from typing import List, Optional
 
+import click
 import typer
 from snowflake.cli._plugins.dcm.manager import DCMProjectManager
 from snowflake.cli._plugins.dcm.reporters import RefreshReporter, TestReporter
@@ -58,15 +59,22 @@ variables_flag = variables_option(
 )
 
 
-def _resolve_source_path_callback(value: Optional[str]) -> SecurePath:
-    """Callback to convert --from string to SecurePath."""
-    if value is None:
-        return SecurePath.cwd()
-    if is_stage_path(value):
-        raise CliArgumentError(
-            "Stage paths are not supported for --from. Please provide a local directory path."
-        )
-    return SecurePath(value).resolve()
+class LocalDirectoryType(click.ParamType):
+    """Click parameter type that converts a path string to SecurePath."""
+
+    name = "PATH"
+
+    def convert(self, value, param, ctx) -> SecurePath:
+        if is_stage_path(value):
+            raise CliArgumentError(
+                "Stage paths are not supported for --from. Please provide a local directory path."
+            )
+        return SecurePath(value).resolve()
+
+
+def _from_option_callback(value: Optional[SecurePath]) -> SecurePath:
+    """Handles None default by returning cwd."""
+    return value if value is not None else SecurePath.cwd()
 
 
 from_option = typer.Option(
@@ -74,7 +82,8 @@ from_option = typer.Option(
     "--from",
     help="Local directory path containing DCM project files. Omit to use current directory.",
     show_default=False,
-    callback=_resolve_source_path_callback,
+    click_type=LocalDirectoryType(),
+    callback=_from_option_callback,
 )
 
 alias_option = typer.Option(
@@ -180,7 +189,7 @@ add_object_command_aliases(
 @app.command(requires_connection=True)
 def deploy(
     identifier: Optional[FQN] = optional_dcm_identifier,
-    from_location: Optional[str] = from_option,
+    from_location: SecurePath = from_option,
     variables: Optional[List[str]] = variables_flag,
     alias: Optional[str] = alias_option,
     target: Optional[str] = target_option,
@@ -219,7 +228,7 @@ def deploy(
 @app.command(requires_connection=True)
 def plan(
     identifier: Optional[FQN] = optional_dcm_identifier,
-    from_location: Optional[str] = from_option,
+    from_location: SecurePath = from_option,
     variables: Optional[List[str]] = variables_flag,
     target: Optional[str] = target_option,
     save_output: bool = save_output_option,
@@ -253,7 +262,7 @@ def create(
     if_not_exists: bool = IfNotExistsOption(
         help="Do nothing if the project already exists."
     ),
-    from_location: Optional[str] = from_option,
+    from_location: SecurePath = from_option,
     target: Optional[str] = target_option,
     **options,
 ):
@@ -281,7 +290,7 @@ def create(
 def drop(
     identifier: Optional[FQN] = optional_dcm_identifier,
     if_exists: bool = IfExistsOption(help="Do nothing if the project does not exist."),
-    from_location: Optional[str] = from_option,
+    from_location: SecurePath = from_option,
     target: Optional[str] = target_option,
     **options,
 ):
@@ -299,7 +308,7 @@ def drop(
 @app.command(requires_connection=True)
 def describe(
     identifier: Optional[FQN] = optional_dcm_identifier,
-    from_location: Optional[str] = from_option,
+    from_location: SecurePath = from_option,
     target: Optional[str] = target_option,
     **options,
 ):
@@ -315,7 +324,7 @@ def describe(
 @app.command(requires_connection=True)
 def list_deployments(
     identifier: Optional[FQN] = optional_dcm_identifier,
-    from_location: Optional[str] = from_option,
+    from_location: SecurePath = from_option,
     target: Optional[str] = target_option,
     **options,
 ):
@@ -342,7 +351,7 @@ def drop_deployment(
     if_exists: bool = IfExistsOption(
         help="Do nothing if the deployment does not exist."
     ),
-    from_location: Optional[str] = from_option,
+    from_location: SecurePath = from_option,
     target: Optional[str] = target_option,
     **options,
 ):
@@ -380,7 +389,7 @@ def preview(
         show_default=False,
         click_type=IdentifierType(),
     ),
-    from_location: Optional[str] = from_option,
+    from_location: SecurePath = from_option,
     variables: Optional[List[str]] = variables_flag,
     limit: Optional[int] = typer.Option(
         None,
@@ -421,7 +430,7 @@ def preview(
 @mock_dcm_response("refresh")
 def refresh(
     identifier: Optional[FQN] = optional_dcm_identifier,
-    from_location: Optional[str] = from_option,
+    from_location: SecurePath = from_option,
     target: Optional[str] = target_option,
     **options,
 ):
@@ -443,7 +452,7 @@ def refresh(
 @mock_dcm_response("test")
 def test(
     identifier: Optional[FQN] = optional_dcm_identifier,
-    from_location: Optional[str] = from_option,
+    from_location: SecurePath = from_option,
     target: Optional[str] = target_option,
     **options,
 ):
