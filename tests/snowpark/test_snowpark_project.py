@@ -99,6 +99,18 @@ class TestSnowparkProjectCommands:
         assert result.exit_code == 0, result.output
         assert f"{project_name} successfully dropped." in result.output
 
+    @mock.patch(COMMAND_PROJECT_MANAGER)
+    def test_list_projects(self, mock_manager, mock_cursor, runner):
+        """Test that the list projects command lists all projects."""
+
+        mock_manager.return_value.list_projects.return_value = mock_cursor(
+            rows=[("test_project",), ("test_project_2",)], columns=["name"]
+        )
+        result = runner.invoke(["snowpark", "project", "list"])
+        assert result.exit_code == 0, result.output
+        assert "test_project" in result.output
+        assert "test_project_2" in result.output
+
 
 class TestSnowparkProjectManager:
     @mock.patch(f"{MANAGER_PROJECT_MANAGER}.execute_query")
@@ -173,3 +185,18 @@ class TestSnowparkProjectManager:
         mock_execute_query.assert_called_once_with(
             f"DROP SNOWPARK PROJECT {project_name}"
         )
+
+    @mock.patch(f"{MANAGER_PROJECT_MANAGER}.execute_query")
+    @mock.patch(f"{MANAGER_PROJECT_MANAGER}._set_session_config")
+    def test_list_projects(
+        self, mock__set_session_config, mock_execute_query, mock_cursor
+    ):
+        """Test that the list projects method lists all projects."""
+
+        mock_execute_query.return_value = mock_cursor(
+            rows=[("test_project",), ("test_project_2",)], columns=["name"]
+        )
+        mock__set_session_config.return_value = None
+        manager = SnowflakeProjectManager()
+        manager.list_projects()
+        mock_execute_query.assert_called_once_with("SHOW SNOWPARK PROJECTS")

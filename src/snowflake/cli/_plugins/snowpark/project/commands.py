@@ -17,7 +17,7 @@ import typer
 from click import ClickException
 from snowflake.cli._plugins.snowpark.project.manager import SnowflakeProjectManager
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
-from snowflake.cli.api.output.types import MessageResult
+from snowflake.cli.api.output.types import MessageResult, QueryResult
 
 app = SnowTyperFactory(
     name="project",
@@ -77,13 +77,14 @@ def drop(
 
 
 @app.command("list", requires_connection=True)
-def list_(
+def list_projects(
     **options,
 ):
     """
     Lists all Snowpark projects.
     """
-    pass
+    manager = SnowflakeProjectManager()
+    return QueryResult(manager.list_projects())
 
 
 @app.command("execute", requires_connection=True)
