@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import List, Optional
 
 import typer
@@ -29,12 +30,12 @@ from snowflake.cli.api.output.types import CommandResult, MessageResult
 
 app = SnowTyperFactory(
     name="run",
-    help="Execute project scripts defined in snowflake.yml.",
+    help="Execute project scripts defined in snowflake.yml or manifest.yml.",
 )
 
 
 @app.command(name="run", no_args_is_help=False)
-@with_project_definition()
+@with_project_definition(is_optional=True)
 def run_script(
     script_name: Optional[str] = typer.Argument(
         None,
@@ -66,9 +67,9 @@ def run_script(
     **options,
 ) -> CommandResult:
     """
-    Execute project scripts defined in snowflake.yml.
+    Execute project scripts defined in snowflake.yml or manifest.yml.
 
-    Scripts are defined in the 'scripts' section of your snowflake.yml file.
+    Scripts are defined in the 'scripts' section of your snowflake.yml or manifest.yml file.
     Use --list to see available scripts. Pass additional arguments after --.
 
     Example usage:
@@ -89,19 +90,19 @@ def run_script(
     """
     ctx = get_cli_context()
 
-    if ctx.project_definition is None:
-        raise ClickException(
-            "No project definition found. Please run this command in a directory with snowflake.yml."
-        )
+    project_root = ctx.project_root
+    if project_root is None:
+        project_root = Path.cwd()
 
-    manager = ScriptManager(ctx.project_root)
+    manager = ScriptManager(project_root)
 
     if list_scripts:
         scripts = manager.list_scripts()
         if not scripts:
-            return MessageResult("No scripts defined in snowflake.yml")
+            return MessageResult("No scripts defined in snowflake.yml or manifest.yml")
 
-        cc.message("Available scripts:")
+        source = manager.scripts_source or "project"
+        cc.message(f"Available scripts (from {source}):")
         for name, script in scripts.items():
             desc = script.description or "(no description)"
             cc.message(f"  {name:20} {desc}")
@@ -110,11 +111,12 @@ def run_script(
     if not script_name:
         scripts = manager.list_scripts()
         if scripts:
-            cc.message("Available scripts (use --list for details):")
+            source = manager.scripts_source or "project"
+            cc.message(f"Available scripts from {source} (use --list for details):")
             for name in scripts:
                 cc.message(f"  {name}")
             return MessageResult("\nSpecify a script name to run, or use --list")
-        return MessageResult("No scripts defined. Add a 'scripts' section to snowflake.yml")
+        return MessageResult("No scripts defined. Add a 'scripts' section to snowflake.yml or manifest.yml")
 
     vars_dict = {}
     if var_overrides:
@@ -129,7 +131,7 @@ def run_script(
                 f"Script '{script_name}' not found. Available scripts: {', '.join(available)}"
             )
         raise ClickException(
-            f"Script '{script_name}' not found. No scripts defined in snowflake.yml"
+            f"Script '{script_name}' not found. No scripts defined in snowflake.yml or manifest.yml"
         )
 
     result = manager.execute_script(

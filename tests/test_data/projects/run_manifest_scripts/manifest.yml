@@ -1,0 +1,16 @@
+type: dcm_project
+
+scripts:
+  validate:
+    cmd: echo "Validating DCM project"
+    description: Validate DCM configuration
+
+  deploy:
+    cmd: echo "Deploying DCM resources"
+    description: Deploy DCM resources
+
+  all:
+    run:
+      - validate
+      - deploy
+    description: Run all DCM tasks

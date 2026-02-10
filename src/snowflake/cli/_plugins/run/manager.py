@@ -22,17 +22,22 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
+import yaml
+from click import ClickException
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.project.schemas.project_definition import DefinitionV20
 from snowflake.cli.api.project.schemas.scripts import ScriptModel
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils.models import ProjectEnvironment
 
 log = logging.getLogger(__name__)
 
 VARIABLE_PATTERN = re.compile(r"\$\{([^}]+)\}")
+MANIFEST_FILE_NAME = "manifest.yml"
 
 
 @dataclass
@@ -48,14 +53,75 @@ class ScriptManager:
     def __init__(self, project_root: Path):
         self.project_root = project_root
         self._scripts: Dict[str, ScriptModel] = {}
+        self._scripts_source: Optional[str] = None
         self._load_scripts()
 
     def _load_scripts(self) -> None:
-        """Load scripts from project definition."""
+        """Load scripts from snowflake.yml or manifest.yml.
+        
+        Scripts can be defined in either file but not both.
+        Raises ClickException if scripts are found in both files.
+        """
+        snowflake_scripts, snowflake_source = self._load_snowflake_scripts()
+        manifest_scripts, manifest_source = self._load_manifest_scripts()
+
+        if snowflake_scripts and manifest_scripts:
+            raise ClickException(
+                "Scripts defined in both manifest.yml and snowflake.yml.\n"
+                "Scripts must be defined in only one file per directory.\n\n"
+                "Recommendation: Move all scripts to one file.\n"
+                "- Use manifest.yml for DCM-focused projects\n"
+                "- Use snowflake.yml for app-focused projects"
+            )
+
+        if snowflake_scripts:
+            self._scripts = snowflake_scripts
+            self._scripts_source = snowflake_source
+        elif manifest_scripts:
+            self._scripts = manifest_scripts
+            self._scripts_source = manifest_source
+
+    def _load_snowflake_scripts(self) -> Tuple[Optional[Dict[str, ScriptModel]], Optional[str]]:
+        """Load scripts from snowflake.yml via project definition."""
         ctx = get_cli_context()
         project_def = ctx.project_definition
-        if project_def and isinstance(project_def, DefinitionV20):
-            self._scripts = project_def.scripts or {}
+        if project_def and isinstance(project_def, DefinitionV20) and project_def.scripts:
+            return project_def.scripts, "snowflake.yml"
+        return None, None
+
+    def _load_manifest_scripts(self) -> Tuple[Optional[Dict[str, ScriptModel]], Optional[str]]:
+        """Load scripts from manifest.yml if present."""
+        manifest_path = SecurePath(self.project_root / MANIFEST_FILE_NAME)
+        if not manifest_path.exists():
+            return None, None
+
+        try:
+            with manifest_path.open("r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as f:
+                manifest_data = yaml.safe_load(f.read())
+        except Exception as e:
+            log.debug(f"Could not read manifest.yml: {e}")
+            return None, None
+
+        if not manifest_data or "scripts" not in manifest_data:
+            return None, None
+
+        scripts = self._parse_manifest_scripts(manifest_data["scripts"])
+        return scripts, "manifest.yml"
+
+    def _parse_manifest_scripts(self, scripts_data: dict) -> Dict[str, ScriptModel]:
+        """Parse scripts section from manifest.yml into ScriptModel objects."""
+        result = {}
+        for name, script_def in scripts_data.items():
+            if isinstance(script_def, str):
+                result[name] = ScriptModel(cmd=script_def)
+            else:
+                result[name] = ScriptModel(**script_def)
+        return result
+
+    @property
+    def scripts_source(self) -> Optional[str]:
+        """Return the source file for scripts (snowflake.yml or manifest.yml)."""
+        return self._scripts_source
 
     def list_scripts(self) -> Dict[str, ScriptModel]:
         """Return all available scripts."""

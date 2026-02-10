@@ -24,7 +24,7 @@ class TestRunList:
         with project_directory("run_scripts"):
             result = runner.invoke(["run", "--list"])
             assert result.exit_code == 0
-            assert "Available scripts:" in result.output
+            assert "Available scripts" in result.output
             assert "dev" in result.output
             assert "deploy" in result.output
             assert "build" in result.output
@@ -146,3 +146,53 @@ class TestRunHelp:
         assert "Execute project scripts" in result.output
         assert "--list" in result.output
         assert "--dry-run" in result.output
+
+
+class TestRunManifestScripts:
+    def test_list_scripts_from_manifest(self, runner, project_directory):
+        with project_directory("run_manifest_scripts"):
+            result = runner.invoke(["run", "--list"])
+            assert result.exit_code == 0
+            assert "Available scripts" in result.output
+            assert "from manifest.yml" in result.output
+            assert "validate" in result.output
+            assert "deploy" in result.output
+
+    @mock.patch(SUBPROCESS_RUN)
+    def test_run_script_from_manifest(self, mock_run, runner, project_directory):
+        mock_run.return_value = mock.Mock(returncode=0)
+        with project_directory("run_manifest_scripts"):
+            result = runner.invoke(["run", "validate"])
+            assert result.exit_code == 0
+            mock_run.assert_called_once()
+            assert "echo" in mock_run.call_args[0][0][0]
+
+    @mock.patch(SUBPROCESS_RUN)
+    def test_run_composite_script_from_manifest(self, mock_run, runner, project_directory):
+        mock_run.return_value = mock.Mock(returncode=0)
+        with project_directory("run_manifest_scripts"):
+            result = runner.invoke(["run", "all"])
+            assert result.exit_code == 0
+            assert mock_run.call_count == 2
+
+    def test_scripts_conflict_raises_error(self, runner, project_directory):
+        with project_directory("run_scripts_conflict"):
+            result = runner.invoke(["run", "--list"])
+            assert result.exit_code != 0
+            assert "Scripts defined in both" in result.output
+            assert "manifest.yml" in result.output
+            assert "snowflake.yml" in result.output
+
+    def test_list_shows_source_file_snowflake(self, runner, project_directory):
+        with project_directory("run_scripts"):
+            result = runner.invoke(["run", "--list"])
+            assert result.exit_code == 0
+            assert "from snowflake.yml" in result.output
+
+    @mock.patch(SUBPROCESS_RUN)
+    def test_run_manifest_only_project(self, mock_run, runner, project_directory):
+        mock_run.return_value = mock.Mock(returncode=0)
+        with project_directory("run_manifest_only"):
+            result = runner.invoke(["run", "test"])
+            assert result.exit_code == 0
+            mock_run.assert_called_once()
