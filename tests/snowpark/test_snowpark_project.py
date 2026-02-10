@@ -111,6 +111,39 @@ class TestSnowparkProjectCommands:
         assert "test_project" in result.output
         assert "test_project_2" in result.output
 
+    @mock.patch(COMMAND_PROJECT_MANAGER)
+    def test_execute_project(self, mock_manager, mock_cursor, runner):
+        """Test that the execute project command executes a project."""
+
+        mock_manager.return_value.execute.return_value = mock_cursor(
+            rows=[("done",)], columns=["result"]
+        )
+        result = runner.invoke(
+            ["snowpark", "project", "execute", "test_project", "--entrypoint", "app.py"]
+        )
+        assert result.exit_code == 0, result.output
+        assert "done" in result.output
+        assert mock_manager.return_value.execute.call_args.kwargs == {
+            "name": "test_project",
+            "entrypoint": "app.py",
+        }
+
+    def test_execute_project_missing_name(self, runner):
+        """Test that the execute project command fails when name is missing."""
+
+        result = runner.invoke(
+            ["snowpark", "project", "execute", "--entrypoint", "app.py"]
+        )
+        assert result.exit_code == 1, result.output
+        assert "Project name is required." in result.output
+
+    def test_execute_project_missing_entrypoint(self, runner):
+        """Test that the execute project command fails when entrypoint is missing."""
+
+        result = runner.invoke(["snowpark", "project", "execute", "test_project"])
+        assert result.exit_code == 1, result.output
+        assert "Entrypoint is required." in result.output
+
 
 class TestSnowparkProjectManager:
     @mock.patch(f"{MANAGER_PROJECT_MANAGER}.execute_query")
@@ -200,3 +233,20 @@ class TestSnowparkProjectManager:
         manager = SnowflakeProjectManager()
         manager.list_projects()
         mock_execute_query.assert_called_once_with("SHOW SNOWPARK PROJECTS")
+
+    @mock.patch(f"{MANAGER_PROJECT_MANAGER}.execute_query")
+    @mock.patch(f"{MANAGER_PROJECT_MANAGER}._set_session_config")
+    def test_execute_project(
+        self, mock__set_session_config, mock_execute_query, mock_cursor
+    ):
+        """Test that the execute project method executes a project."""
+
+        mock_execute_query.return_value = mock_cursor(
+            rows=[("done",)], columns=["result"]
+        )
+        mock__set_session_config.return_value = None
+        manager = SnowflakeProjectManager()
+        manager.execute(name="test_project", entrypoint="app.py")
+        mock_execute_query.assert_called_once_with(
+            "EXECUTE SNOWPARK PROJECT test_project ENTRYPOINT='app.py'"
+        )

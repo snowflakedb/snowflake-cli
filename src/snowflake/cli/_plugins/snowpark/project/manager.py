@@ -62,3 +62,11 @@ class SnowflakeProjectManager(SqlExecutionMixin):
             return self.execute_query(query)
         except Exception as e:
             raise ClickException(f"Failed to list Snowpark projects: {e}")
+
+    def execute(self, name: str, entrypoint: str):
+        query_parts = ["EXECUTE SNOWPARK PROJECT", name, f"ENTRYPOINT='{entrypoint}'"]
+        try:
+            self._set_session_config()
+            return self.execute_query(" ".join(query_parts))
+        except Exception as e:
+            raise ClickException(f"Failed to execute Snowpark project: {e}")

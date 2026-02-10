@@ -106,4 +106,9 @@ def execute(
     """
     Executes a Snowpark project.
     """
-    pass
+    if not name:
+        raise ClickException("Project name is required.")
+    if not entrypoint:
+        raise ClickException("Entrypoint is required.")
+    manager = SnowflakeProjectManager()
+    return QueryResult(manager.execute(name=name, entrypoint=entrypoint))
