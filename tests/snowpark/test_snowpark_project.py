@@ -161,10 +161,7 @@ class TestSnowparkProjectManager:
         )
 
     @mock.patch(f"{MANAGER_PROJECT_MANAGER}.execute_query")
-    @mock.patch(f"{MANAGER_PROJECT_MANAGER}._set_session_config")
-    def test_create_project(
-        self, mock__set_session_config, mock_execute_query, mock_cursor
-    ):
+    def test_create_project(self, mock_execute_query, mock_cursor):
         """Test that the create project method creates a project."""
 
         project_name = "test_project"
@@ -173,7 +170,6 @@ class TestSnowparkProjectManager:
         mock_execute_query.return_value = mock_cursor(
             rows=[(f"{project_name} successfully created.",)], columns=["status"]
         )
-        mock__set_session_config.return_value = None
 
         manager = SnowflakeProjectManager()
         manager.create(name=project_name, stage=stage, overwrite=False)
@@ -182,10 +178,7 @@ class TestSnowparkProjectManager:
         )
 
     @mock.patch(f"{MANAGER_PROJECT_MANAGER}.execute_query")
-    @mock.patch(f"{MANAGER_PROJECT_MANAGER}._set_session_config")
-    def test_create_project_with_overwrite(
-        self, mock__set_session_config, mock_execute_query, mock_cursor
-    ):
+    def test_create_project_with_overwrite(self, mock_execute_query, mock_cursor):
         """Test that the create project method creates a project with overwrite flag."""
 
         project_name = "test_project"
@@ -194,7 +187,6 @@ class TestSnowparkProjectManager:
         mock_execute_query.return_value = mock_cursor(
             rows=[(f"{project_name} successfully created.",)], columns=["status"]
         )
-        mock__set_session_config.return_value = None
         manager = SnowflakeProjectManager()
         manager.create(name=project_name, stage=stage, overwrite=True)
         mock_execute_query.assert_called_once_with(
@@ -202,17 +194,13 @@ class TestSnowparkProjectManager:
         )
 
     @mock.patch(f"{MANAGER_PROJECT_MANAGER}.execute_query")
-    @mock.patch(f"{MANAGER_PROJECT_MANAGER}._set_session_config")
-    def test_drop_project(
-        self, mock__set_session_config, mock_execute_query, mock_cursor
-    ):
+    def test_drop_project(self, mock_execute_query, mock_cursor):
         """Test that the drop project method drops a project."""
 
         project_name = "test_project"
         mock_execute_query.return_value = mock_cursor(
             rows=[(f"{project_name} successfully dropped.",)], columns=["status"]
         )
-        mock__set_session_config.return_value = None
         manager = SnowflakeProjectManager()
         manager.drop(name=project_name)
         mock_execute_query.assert_called_once_with(
@@ -220,31 +208,23 @@ class TestSnowparkProjectManager:
         )
 
     @mock.patch(f"{MANAGER_PROJECT_MANAGER}.execute_query")
-    @mock.patch(f"{MANAGER_PROJECT_MANAGER}._set_session_config")
-    def test_list_projects(
-        self, mock__set_session_config, mock_execute_query, mock_cursor
-    ):
+    def test_list_projects(self, mock_execute_query, mock_cursor):
         """Test that the list projects method lists all projects."""
 
         mock_execute_query.return_value = mock_cursor(
             rows=[("test_project",), ("test_project_2",)], columns=["name"]
         )
-        mock__set_session_config.return_value = None
         manager = SnowflakeProjectManager()
         manager.list_projects()
         mock_execute_query.assert_called_once_with("SHOW SNOWPARK PROJECTS")
 
     @mock.patch(f"{MANAGER_PROJECT_MANAGER}.execute_query")
-    @mock.patch(f"{MANAGER_PROJECT_MANAGER}._set_session_config")
-    def test_execute_project(
-        self, mock__set_session_config, mock_execute_query, mock_cursor
-    ):
+    def test_execute_project(self, mock_execute_query, mock_cursor):
         """Test that the execute project method executes a project."""
 
         mock_execute_query.return_value = mock_cursor(
             rows=[("done",)], columns=["result"]
         )
-        mock__set_session_config.return_value = None
         manager = SnowflakeProjectManager()
         manager.execute(name="test_project", entrypoint="app.py")
         mock_execute_query.assert_called_once_with(
