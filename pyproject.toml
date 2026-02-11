@@ -45,7 +45,7 @@ dependencies = [
   "snowflake.core==1.10.0",
   "tomlkit==0.13.3",
   "typer==0.17.3",
-  "urllib3>=1.24.3,<2.6",
+  "urllib3>=2.6.3,<3",
 ]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
