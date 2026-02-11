@@ -5,14 +5,11 @@ default_target: dev
 
 targets:
   dev:
-    project_name: "project_descriptive_name"
+    project_name: "project_descriptive_name_dev"
     templating_config: "dev"
   test:
-    project_name: "project_descriptive_name"
+    project_name: "project_descriptive_name_test"
     templating_config: "test"
-  prod:
-    project_name: "project_descriptive_name"
-    templating_config: "prod"
 
 templating:
   defaults:
@@ -22,5 +19,3 @@ templating:
       table_name_suffix: "dev"
     test:
       table_name_suffix: "test"
-    prod:
-      table_name_suffix: "prod"

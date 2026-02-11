@@ -78,29 +78,6 @@ def test_project_deploy(
 
 @pytest.mark.qa_only
 @pytest.mark.integration
-def test_deploy_multiple_configurations(
-    runner,
-    test_database,
-    project_directory,
-):
-    project_name = "project_descriptive_name"
-    with project_directory("dcm_project_multiple_configurations"):
-        result = runner.invoke_with_connection(["dcm", "create", project_name])
-        assert result.exit_code == 0, result.output
-        assert f"DCM Project '{project_name}' successfully created." in result.output
-
-        # Verify project was created
-        result = runner.invoke_with_connection_json(["dcm", "describe", project_name])
-        assert result.exit_code == 0, result.output
-        assert result.json[0]["name"].lower() == project_name.lower()
-
-        # Clean up
-        result = runner.invoke_with_connection(["dcm", "drop", project_name])
-        assert result.exit_code == 0, result.output
-
-
-@pytest.mark.qa_only
-@pytest.mark.integration
 def test_create_corner_cases(
     runner,
     test_database,
@@ -321,6 +298,45 @@ def test_dcm_plan_and_deploy_from_another_directory(
     # Clean up
     result = runner.invoke_with_connection(["dcm", "drop", project_name])
     assert result.exit_code == 0, result.output
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_project_plan_with_save_output(
+    runner,
+    test_database,
+    project_directory,
+):
+    project_name = "project_descriptive_name"
+    output_dir = "out"
+
+    with project_directory("dcm_project") as project_root:
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
+        assert result.exit_code == 0, result.output
+        assert f"DCM Project '{project_name}' successfully created." in result.output
+
+        result = runner.invoke_with_connection_json(
+            [
+                "dcm",
+                "plan",
+                project_name,
+                "--save-output",
+                "-D",
+                f"table_name='{test_database}.PUBLIC.OutputTestTable'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        output_path = project_root / output_dir
+        assert output_path.exists(), f"Output directory {output_dir} was not created."
+
+        local_files = []
+        for root, dirs, files in os.walk(output_path):
+            for file in files:
+                relative_path = os.path.relpath(os.path.join(root, file), output_path)
+                local_files.append(relative_path)
+
+        assert len(local_files) > 0, "No output files were downloaded to ./out/"
 
 
 @pytest.mark.qa_only
@@ -575,3 +591,55 @@ UPDATE {table_name} SET level = 5 WHERE level < 5;
             "1 passed, 0 failed out of 1 total."
             in result.output.strip().split("\n")[-1]
         )
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "target_args,expected_config",
+    [
+        pytest.param([], "dev", id="default_target"),
+        pytest.param(["--target", "test"], "test", id="explicit_target"),
+    ],
+)
+def test_dcm_end_to_end_workflow(
+    runner,
+    test_database,
+    project_directory,
+    target_args,
+    expected_config,
+):
+    target_args = list(target_args)
+
+    with project_directory("dcm_project_multiple_configurations") as project_root:
+        result = runner.invoke_with_connection(["dcm", "create"] + target_args)
+        assert result.exit_code == 0, result.output
+        assert f"successfully created." in result.output
+
+        result = runner.invoke_with_connection_json(["dcm", "describe"] + target_args)
+        assert result.exit_code == 0, result.output
+        assert (
+            result.json[0]["name"]
+            == f"project_descriptive_name_{expected_config}".upper()
+        )
+
+        result = runner.invoke_with_connection_json(
+            ["dcm", "plan", "-D", f"db='{test_database}'"] + target_args
+        )
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection_json(
+            ["dcm", "deploy", "-D", f"db='{test_database}'"] + target_args
+        )
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection(["dcm", "refresh"] + target_args)
+        assert result.exit_code == 0, result.output
+        assert "No dynamic tables found in the project." in result.output
+
+        result = runner.invoke_with_connection(["dcm", "test"] + target_args)
+        assert result.exit_code == 0, result.output
+        assert "No expectations found in the project." in result.output
+
+        result = runner.invoke_with_connection(["dcm", "drop"] + target_args)
+        assert result.exit_code == 0, result.output
