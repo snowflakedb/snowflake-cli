@@ -26,9 +26,17 @@ def _get_windows_whitelisted_users():
     # whitelisted users list obtained in consultation with prodsec: CASEC-9627
     import os
 
+    import win32security
+
+    system_sid = win32security.ConvertStringSidToSid("S-1-5-18")
+    system_name, _, _ = win32security.LookupAccountSid(None, system_sid)
+
+    admins_sid = win32security.ConvertStringSidToSid("S-1-5-32-544")
+    admins_name, _, _ = win32security.LookupAccountSid(None, admins_sid)
+
     return [
-        "SYSTEM",
-        "Administrators",
+        system_name,
+        admins_name,
         "Network",
         "Domain Admins",
         "Domain Users",
