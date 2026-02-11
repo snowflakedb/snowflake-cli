@@ -19,7 +19,7 @@
 
 ## Deprecations
 
-## New addition
+## New additions
 * Added `!spool` command to SQL REPL for writing query output to a file (`!spool <filename>` to start, `!spool off` to stop).
 * Added `--in-account` flag to list commands (e.g., `snow object list`, `snow stage list`). This flag allows listing all objects of a given type in the account. Cannot be used together with the `--in` flag.
 
