@@ -638,7 +638,11 @@ def unset_property(
     return SingleQueryResult(cursor)
 
 
-@app.command("build-image", requires_connection=True)
+@app.command(
+    "build-image",
+    requires_connection=True,
+    hidden=not FeatureFlag.ENABLE_SPCS_BUILD_IMAGE.is_enabled(),
+)
 def build_image(
     compute_pool: str = typer.Option(
         ...,
@@ -697,6 +701,14 @@ def build_image(
 
     **Note:** This command is experimental and subject to change.
 
+    This command is hidden by default. To make it visible in help output, enable the
+    feature flag in your config.toml:
+    [cli.feature_flags]
+    enable_spcs_build_image = true
+
+    Or set the environment variable:
+    export SNOWFLAKE_CLI_FEATURES_ENABLE_SPCS_BUILD_IMAGE=true
+
     This command uploads the build context (Dockerfile and related files) to a stage,
     then executes a job service that builds the container image and pushes it to the
     specified image repository. The build logs are streamed to the terminal in real-time
@@ -744,8 +756,8 @@ def build_image(
     use_temporary_stage = stage is None
 
     if use_temporary_stage:
-        # Create a stage with the same UUID as the job
-        stage = f"snow_build_stage_{build_uuid}"
+        # Create a stage
+        stage = f"{job_name}_stage"
         cli_console.step(f"Creating temporary stage: {stage}")
         stage_fqn = FQN.from_string(stage).using_context()
         stage_manager.create(fqn=stage_fqn)

@@ -2264,3 +2264,10 @@ def test_stream_logs_without_terminal_status_check(mock_sleep, mock_logs):
     assert len(generated_logs) == 2
     assert "log 1" in generated_logs[0]
     assert "log 2" in generated_logs[1]
+
+
+def test_build_image_hidden_by_default(runner):
+    """Test that build-image command is hidden by default (feature flag disabled)."""
+    result = runner.invoke(["spcs", "service", "--help"])
+    assert result.exit_code == 0
+    assert "build-image" not in result.output
