@@ -2,6 +2,7 @@
 # name: TestDCMRefresh.test_refresh_with_fresh_tables
   '''
   
+  
   UP-TO-DATE        0       0 JW_DCM_TESTALL.ANALYTICS.DYNAMIC_EMPLOYEES
   
   1 up-to-date.
@@ -12,12 +13,14 @@
   '''
   
   
+  
   No dynamic tables found in the project.
   
   '''
 # ---
 # name: TestDCMRefresh.test_refresh_with_outdated_tables
   '''
+  
   
   REFRESHED    +12.3k   -999B JW_DCM_TESTALL.ANALYTICS.DYNAMIC_EMPLOYEES
   
@@ -27,6 +30,7 @@
 # ---
 # name: TestDCMTest.test_test_all_passing
   '''
+  
   
   ✓ PASS      DB.SCHEMA.EMPLOYEES (ROW_COUNT_CHECK)
   ✓ PASS      DB.SCHEMA.ORDERS (NULL_CHECK)
@@ -39,12 +43,14 @@
   '''
   
   
+  
   No expectations found in the project.
   
   '''
 # ---
 # name: TestDCMTest.test_test_with_failures
   '''
+  
   
   ✓ PASS      DB.SCHEMA.EMPLOYEES (ROW_COUNT_CHECK)
   ✗ FAIL      DB.SCHEMA.ORDERS (NULL_CHECK)
