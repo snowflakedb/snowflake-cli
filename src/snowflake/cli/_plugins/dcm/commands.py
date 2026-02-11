@@ -14,7 +14,6 @@
 from dataclasses import dataclass
 from typing import List, Optional
 
-import click
 import typer
 from snowflake.cli._plugins.dcm.manager import DCMProjectManager
 from snowflake.cli._plugins.dcm.reporters import RefreshReporter, TestReporter
@@ -26,6 +25,7 @@ from snowflake.cli.api.commands.flags import (
     IdentifierType,
     IfExistsOption,
     IfNotExistsOption,
+    LocalDirectoryType,
     identifier_argument,
     like_option,
     variables_option,
@@ -35,7 +35,7 @@ from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import (
     ObjectType,
 )
-from snowflake.cli.api.exceptions import CliArgumentError, CliError
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
@@ -45,7 +45,6 @@ from snowflake.cli.api.output.types import (
     QueryResult,
 )
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.cli.api.utils.path_utils import is_stage_path
 
 app = SnowTyperFactory(
     name="dcm",
@@ -57,19 +56,6 @@ dcm_identifier = identifier_argument(sf_object="DCM Project", example="MY_PROJEC
 variables_flag = variables_option(
     'Variables for the execution context; for example: `-D "<key>=<value>"`.'
 )
-
-
-class LocalDirectoryType(click.ParamType):
-    """Click parameter type that converts a path string to SecurePath."""
-
-    name = "PATH"
-
-    def convert(self, value, param, ctx) -> SecurePath:
-        if is_stage_path(value):
-            raise CliArgumentError(
-                "Stage paths are not supported for --from. Please provide a local directory path."
-            )
-        return SecurePath(value).resolve()
 
 
 def _from_option_callback(value: Optional[SecurePath]) -> SecurePath:
@@ -145,14 +131,14 @@ def _resolve_target_context(
     Resolve project identifier and configuration from manifest target.
 
     - If identifier is provided, it takes precedence over target's project_name
-    - Configuration is always resolved from target if manifest is available
+    - Configuration is always resolved from target
     """
-    # Try to load manifest for configuration (and identifier if not provided)
     effective_target = None
     try:
         manifest = DCMProjectManager.load_manifest(source_path)
         effective_target = manifest.get_effective_target(target)
     except CliError:
+        # TODO: too complicated
         if not identifier:
             if target:
                 raise CliError(
@@ -208,7 +194,10 @@ def deploy(
     project_id = context.project_identifier
 
     manager = DCMProjectManager()
-    effective_stage = _get_effective_stage(project_id, from_location)
+    effective_stage = manager.sync_local_files(
+        project_identifier=project_id,
+        source_directory=str(from_location.path),
+    )
 
     with cli_console.spinner() as spinner:
         spinner.add_task(description=f"Deploying dcm project {project_id}", total=None)
@@ -241,7 +230,10 @@ def plan(
     project_id = context.project_identifier
 
     manager = DCMProjectManager()
-    effective_stage = _get_effective_stage(project_id, from_location)
+    effective_stage = manager.sync_local_files(
+        project_identifier=project_id,
+        source_directory=str(from_location.path),
+    )
 
     with cli_console.spinner() as spinner:
         spinner.add_task(description=f"Planning dcm project {project_id}", total=None)
@@ -407,7 +399,10 @@ def preview(
     project_id = context.project_identifier
 
     manager = DCMProjectManager()
-    effective_stage = _get_effective_stage(project_id, from_location)
+    effective_stage = manager.sync_local_files(
+        project_identifier=project_id,
+        source_directory=str(from_location.path),
+    )
 
     with cli_console.spinner() as spinner:
         spinner.add_task(
@@ -469,11 +464,3 @@ def test(
     reporter = TestReporter()
     reporter.process(result)
     return EmptyResult()
-
-
-def _get_effective_stage(identifier: FQN, from_location: SecurePath):
-    manager = DCMProjectManager()
-    return manager.sync_local_files(
-        project_identifier=identifier,
-        source_directory=str(from_location.path),
-    )

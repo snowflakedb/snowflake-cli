@@ -98,10 +98,17 @@ class DCMManifest:
             name: DCMTarget.from_dict(target_data)
             for name, target_data in targets_data.items()
         }
+
+        default_target = data.get("default_target")
+
+        # if there's only 1 target defined we assume it's the default
+        if default_target is None and len(targets) == 1:
+            default_target = next(iter(targets.keys()))
+
         return cls(
             manifest_version=str(data.get("manifest_version", "")),
             project_type=data.get("type", ""),
-            default_target=data.get("default_target"),
+            default_target=default_target,
             targets=targets,
             templating=DCMTemplating.from_dict(data.get("templating")),
         )
@@ -120,7 +127,6 @@ class DCMManifest:
             raise CliError(
                 f"Manifest version '{self.manifest_version}' is not supported. Expected version >= 2.0 and < 3.0."
             )
-        # Validate default_target references an existing target
         if self.default_target and self.default_target not in self.targets:
             raise CliError(
                 f"Default target '{self.default_target}' not found in targets."
@@ -301,7 +307,6 @@ class DCMProjectManager(SqlExecutionMixin):
 
     @staticmethod
     def load_manifest(source_path: SecurePath) -> DCMManifest:
-        """Load and validate manifest from the given path."""
         dcm_manifest_file = source_path / MANIFEST_FILE_NAME
         if not dcm_manifest_file.exists():
             raise CliError(
@@ -326,8 +331,6 @@ class DCMProjectManager(SqlExecutionMixin):
             if source_directory
             else SecurePath.cwd()
         )
-
-        DCMProjectManager.load_manifest(source_path)
 
         artifacts = DCMProjectManager._collect_artifacts(source_path.path)
 

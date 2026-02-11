@@ -15,6 +15,7 @@ from snowflake.cli._plugins.dcm.manager import (
 from snowflake.cli.api.constants import PatternMatchingType
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.secure_path import SecurePath
 
 execute_queries = "snowflake.cli._plugins.dcm.manager.DCMProjectManager.execute_query"
 TEST_STAGE = FQN.from_stage("@test_stage")
@@ -479,6 +480,24 @@ class TestDCMManifest:
         assert target.project_name == "P1"
 
     def test_manifest_get_effective_target_no_default(self):
+        """When multiple targets exist and no default_target is defined, should raise error."""
+        data = {
+            "manifest_version": "2.0",
+            "type": "dcm_project",
+            "targets": {
+                "DEV": {"project_name": "P1"},
+                "PROD": {"project_name": "P2"},
+            },
+        }
+        manifest = DCMManifest.from_dict(data)
+
+        with pytest.raises(
+            CliError, match="No target specified and no default_target defined"
+        ):
+            manifest.get_effective_target()
+
+    def test_manifest_single_target_auto_default(self):
+        """When only one target exists and no default_target is defined, it should be auto-selected."""
         data = {
             "manifest_version": "2.0",
             "type": "dcm_project",
@@ -488,10 +507,8 @@ class TestDCMManifest:
         }
         manifest = DCMManifest.from_dict(data)
 
-        with pytest.raises(
-            CliError, match="No target specified and no default_target defined"
-        ):
-            manifest.get_effective_target()
+        target = manifest.get_effective_target()
+        assert target.project_name == "P1"
 
     def test_manifest_validate_success(self):
         data = {"manifest_version": "2.0", "type": "dcm_project"}
@@ -636,7 +653,7 @@ class TestDCMTarget:
         assert target.templating_config == "dev"
 
 
-class TestSyncLocalFiles:
+class TestLoadManifest:
     def test_raises_when_manifest_file_is_missing(self, project_directory):
         with project_directory("dcm_project") as project_dir:
             (project_dir / MANIFEST_FILE_NAME).unlink()
@@ -644,7 +661,7 @@ class TestSyncLocalFiles:
                 CliError,
                 match=f"{MANIFEST_FILE_NAME} was not found in directory",
             ):
-                DCMProjectManager.sync_local_files(project_identifier=TEST_PROJECT)
+                DCMProjectManager.load_manifest(SecurePath(project_dir))
 
     def test_raises_when_manifest_file_is_empty(self, project_directory):
         with project_directory("dcm_project") as project_dir:
@@ -654,7 +671,7 @@ class TestSyncLocalFiles:
                 CliError,
                 match="Manifest file is empty or invalid",
             ):
-                DCMProjectManager.sync_local_files(project_identifier=TEST_PROJECT)
+                DCMProjectManager.load_manifest(SecurePath(project_dir))
 
     def test_raises_when_manifest_file_has_no_type(self, project_directory):
         with project_directory("dcm_project") as project_dir:
@@ -664,7 +681,7 @@ class TestSyncLocalFiles:
                 CliError,
                 match=f"Manifest file type is undefined. Expected {DCM_PROJECT_TYPE}",
             ):
-                DCMProjectManager.sync_local_files(project_identifier=TEST_PROJECT)
+                DCMProjectManager.load_manifest(SecurePath(project_dir))
 
     def test_raises_when_manifest_file_has_wrong_type(self, project_directory):
         with project_directory("dcm_project") as project_dir:
@@ -674,7 +691,7 @@ class TestSyncLocalFiles:
                 CliError,
                 match=f"Manifest file is defined for type spcs. Expected {DCM_PROJECT_TYPE}",
             ):
-                DCMProjectManager.sync_local_files(project_identifier=TEST_PROJECT)
+                DCMProjectManager.load_manifest(SecurePath(project_dir))
 
     def test_raises_when_manifest_version_is_invalid(self, project_directory):
         with project_directory("dcm_project") as project_dir:
@@ -684,7 +701,7 @@ class TestSyncLocalFiles:
                 CliError,
                 match=r"Manifest version '1' is not supported.*>= 2.0 and < 3.0",
             ):
-                DCMProjectManager.sync_local_files(project_identifier=TEST_PROJECT)
+                DCMProjectManager.load_manifest(SecurePath(project_dir))
 
     def test_raises_when_manifest_version_is_missing(self, project_directory):
         with project_directory("dcm_project") as project_dir:
@@ -694,8 +711,10 @@ class TestSyncLocalFiles:
                 CliError,
                 match=r"Manifest version '' is not supported.*>= 2.0 and < 3.0",
             ):
-                DCMProjectManager.sync_local_files(project_identifier=TEST_PROJECT)
+                DCMProjectManager.load_manifest(SecurePath(project_dir))
 
+
+class TestSyncLocalFiles:
     @mock.patch("snowflake.cli._plugins.dcm.manager.sync_artifacts_with_stage")
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
     def test_calls_sync_artifacts_with_stage(
