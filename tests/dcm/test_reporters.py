@@ -16,7 +16,16 @@ from io import StringIO
 from unittest import mock
 
 import pytest
-from snowflake.cli._plugins.dcm.reporters import RefreshReporter, RefreshRow
+from snowflake.cli._plugins.dcm.reporters import (
+    NewFormatExtractor,
+    OldFormatExtractor,
+    RefreshReporter,
+    RefreshRow,
+    TestReporter,
+    TestRow,
+    TestStatus,
+)
+from snowflake.cli.api.exceptions import CliError
 
 
 class FakeCursor:
@@ -45,16 +54,25 @@ def capture_reporter_output(reporter, cursor):
         else:
             output.write(str(text))
 
+    error_message = ""
     with mock.patch(
         "snowflake.cli._plugins.dcm.reporters.cli_console.styled_message",
         side_effect=mock_print,
     ):
-        reporter.process(cursor)
+        try:
+            reporter.process(cursor)
+        except CliError as e:
+            error_message = e.message
 
-    return output.getvalue()
+    result = output.getvalue()
+    if error_message:
+        result += f"\n{error_message}\n"
+    return result
 
 
 class TestRefreshReporter:
+    # TODO: remove once backend moves to new api response format
+
     def test_single_refreshed_table(self, snapshot):
         data = {
             "refreshed_tables": [
@@ -274,3 +292,378 @@ class TestRefreshRowFormatNumber:
     )
     def test_format_number_boundaries(self, input_num, expected):
         assert RefreshRow._format_number(input_num) == expected  # noqa: SLF001
+
+
+class TestNewRefreshReporter:
+    """Tests for RefreshReporter with new response format (to keep after migration)."""
+
+    def test_single_refreshed_table(self, snapshot):
+        data = {
+            "dts_refresh_result": {
+                "refreshed_tables": [
+                    {
+                        "table_name": "DB.SCHEMA.CUSTOMERS",
+                        "statistics": {"inserted_rows": 1500, "deleted_rows": 200},
+                        "data_timestamp": "2026-02-05T12:53:13.464Z",
+                    }
+                ]
+            }
+        }
+        output = capture_reporter_output(RefreshReporter(), FakeCursor(data))
+        assert output == snapshot
+
+    def test_single_up_to_date_table(self, snapshot):
+        data = {
+            "dts_refresh_result": {
+                "refreshed_tables": [
+                    {
+                        "table_name": "DB.SCHEMA.ORDERS",
+                        "statistics": {"inserted_rows": 0, "deleted_rows": 0},
+                        "data_timestamp": "2026-02-05T12:53:13.464Z",
+                    }
+                ]
+            }
+        }
+        output = capture_reporter_output(RefreshReporter(), FakeCursor(data))
+        assert output == snapshot
+
+    def test_multiple_tables_mixed_status(self, snapshot):
+        data = {
+            "dts_refresh_result": {
+                "refreshed_tables": [
+                    {
+                        "table_name": "DB.SCHEMA.TABLE_A",
+                        "statistics": {"inserted_rows": 50000, "deleted_rows": 1000},
+                    },
+                    {
+                        "table_name": "DB.SCHEMA.TABLE_B",
+                        "statistics": {"inserted_rows": 0, "deleted_rows": 0},
+                    },
+                    {
+                        "table_name": "DB.SCHEMA.TABLE_C",
+                        "statistics": {"inserted_rows": 0, "deleted_rows": 0},
+                    },
+                    {
+                        "table_name": "DB.SCHEMA.TABLE_D",
+                        "statistics": {"inserted_rows": 999999, "deleted_rows": 500},
+                    },
+                ]
+            }
+        }
+        output = capture_reporter_output(RefreshReporter(), FakeCursor(data))
+        assert output == snapshot
+
+    def test_large_numbers(self, snapshot):
+        data = {
+            "dts_refresh_result": {
+                "refreshed_tables": [
+                    {
+                        "table_name": "DB.SCHEMA.BILLIONS",
+                        "statistics": {
+                            "inserted_rows": 1500000000,
+                            "deleted_rows": 999999999,
+                        },
+                    },
+                    {
+                        "table_name": "DB.SCHEMA.TRILLIONS",
+                        "statistics": {
+                            "inserted_rows": 2500000000000,
+                            "deleted_rows": 100000000000,
+                        },
+                    },
+                ]
+            }
+        }
+        output = capture_reporter_output(RefreshReporter(), FakeCursor(data))
+        assert output == snapshot
+
+    def test_only_insertions(self, snapshot):
+        data = {
+            "dts_refresh_result": {
+                "refreshed_tables": [
+                    {
+                        "table_name": "DB.SCHEMA.INSERTS_ONLY",
+                        "statistics": {"inserted_rows": 5000, "deleted_rows": 0},
+                    }
+                ]
+            }
+        }
+        output = capture_reporter_output(RefreshReporter(), FakeCursor(data))
+        assert output == snapshot
+
+    def test_only_deletions(self, snapshot):
+        data = {
+            "dts_refresh_result": {
+                "refreshed_tables": [
+                    {
+                        "table_name": "DB.SCHEMA.DELETES_ONLY",
+                        "statistics": {"inserted_rows": 0, "deleted_rows": 3000},
+                    }
+                ]
+            }
+        }
+        output = capture_reporter_output(RefreshReporter(), FakeCursor(data))
+        assert output == snapshot
+
+    def test_empty_cursor(self, snapshot):
+        output = capture_reporter_output(RefreshReporter(), FakeCursor(None))
+        assert output == snapshot
+
+    def test_no_dynamic_tables(self, snapshot):
+        data = {"dts_refresh_result": {"refreshed_tables": []}}
+        output = capture_reporter_output(RefreshReporter(), FakeCursor(data))
+        assert output == snapshot
+
+    def test_missing_statistics(self, snapshot):
+        data = {
+            "dts_refresh_result": {
+                "refreshed_tables": [{"table_name": "DB.SCHEMA.NO_STATS"}]
+            }
+        }
+        output = capture_reporter_output(RefreshReporter(), FakeCursor(data))
+        assert output == snapshot
+
+    def test_missing_table_name(self, snapshot):
+        data = {
+            "dts_refresh_result": {
+                "refreshed_tables": [
+                    {"statistics": {"inserted_rows": 100, "deleted_rows": 0}}
+                ]
+            }
+        }
+        output = capture_reporter_output(RefreshReporter(), FakeCursor(data))
+        assert output == snapshot
+
+    def test_ansi_codes_in_table_name(self, snapshot):
+        data = {
+            "dts_refresh_result": {
+                "refreshed_tables": [
+                    {
+                        "table_name": "DB.SCHEMA.\x1b[31mRED_TABLE\x1b[0m",
+                        "statistics": {"inserted_rows": 0, "deleted_rows": 0},
+                    }
+                ]
+            }
+        }
+        output = capture_reporter_output(RefreshReporter(), FakeCursor(data))
+        assert output == snapshot
+
+    def test_selects_correct_extractor_for_new_format(self):
+        data = {"dts_refresh_result": {"refreshed_tables": []}}
+        reporter = RefreshReporter()
+        extractor_cls = reporter._get_extractor_cls(data)  # noqa: SLF001
+
+        assert extractor_cls is NewFormatExtractor
+
+    def test_selects_correct_extractor_for_old_format(self):
+        data = {"refreshed_tables": []}
+        reporter = RefreshReporter()
+        extractor_cls = reporter._get_extractor_cls(data)  # noqa: SLF001
+
+        assert extractor_cls is OldFormatExtractor
+
+
+class TestTestReporter:
+    def test_single_passing_expectation(self, snapshot):
+        data = {
+            "expectations": [
+                {
+                    "table_name": "DB.SCHEMA.CUSTOMERS",
+                    "expectation_name": "row_count_check",
+                    "expectation_violated": False,
+                    "expectation_expression": "> 0",
+                    "metric_name": "row_count",
+                    "value": "1500",
+                }
+            ]
+        }
+        output = capture_reporter_output(TestReporter(), FakeCursor(data))
+        assert output == snapshot
+
+    def test_single_failing_expectation(self, snapshot):
+        data = {
+            "expectations": [
+                {
+                    "table_name": "DB.SCHEMA.ORDERS",
+                    "expectation_name": "null_check",
+                    "expectation_violated": True,
+                    "expectation_expression": "= 0",
+                    "metric_name": "null_count",
+                    "value": "15",
+                }
+            ]
+        }
+        output = capture_reporter_output(TestReporter(), FakeCursor(data))
+        assert output == snapshot
+
+    def test_multiple_expectations_mixed_status(self, snapshot):
+        data = {
+            "expectations": [
+                {
+                    "table_name": "DB.SCHEMA.TABLE_A",
+                    "expectation_name": "unique_check",
+                    "expectation_violated": False,
+                },
+                {
+                    "table_name": "DB.SCHEMA.TABLE_B",
+                    "expectation_name": "not_null",
+                    "expectation_violated": True,
+                    "expectation_expression": "= 0",
+                    "metric_name": "null_count",
+                    "value": "42",
+                },
+                {
+                    "table_name": "DB.SCHEMA.TABLE_C",
+                    "expectation_name": "range_check",
+                    "expectation_violated": False,
+                },
+            ]
+        }
+        output = capture_reporter_output(TestReporter(), FakeCursor(data))
+        assert output == snapshot
+
+    def test_empty_cursor(self, snapshot):
+        output = capture_reporter_output(TestReporter(), FakeCursor(None))
+        assert output == snapshot
+
+    def test_no_expectations(self, snapshot):
+        data = {"expectations": []}
+        output = capture_reporter_output(TestReporter(), FakeCursor(data))
+        assert output == snapshot
+
+    def test_missing_expectations_key(self, snapshot):
+        data = {"some_other_key": "value"}
+        output = capture_reporter_output(TestReporter(), FakeCursor(data))
+        assert output == snapshot
+
+    def test_missing_expectation_violated_field(self, snapshot):
+        data = {
+            "expectations": [
+                {
+                    "table_name": "DB.SCHEMA.UNKNOWN_STATUS",
+                    "expectation_name": "some_check",
+                }
+            ]
+        }
+        output = capture_reporter_output(TestReporter(), FakeCursor(data))
+        assert output == snapshot
+
+    def test_ansi_codes_in_names(self, snapshot):
+        data = {
+            "expectations": [
+                {
+                    "table_name": "DB.SCHEMA.\x1b[31mRED_TABLE\x1b[0m",
+                    "expectation_name": "\x1b[32mgreen_check\x1b[0m",
+                    "expectation_violated": False,
+                }
+            ]
+        }
+        output = capture_reporter_output(TestReporter(), FakeCursor(data))
+        assert output == snapshot
+
+    def test_non_dict_entries(self, snapshot):
+        data = {
+            "expectations": [
+                "not_a_dict",
+                {
+                    "table_name": "DB.SCHEMA.VALID",
+                    "expectation_name": "valid_check",
+                    "expectation_violated": False,
+                },
+            ]
+        }
+        output = capture_reporter_output(TestReporter(), FakeCursor(data))
+        assert output == snapshot
+
+    def test_process_raises_cli_error_on_failures(self):
+        data = {
+            "expectations": [
+                {
+                    "table_name": "DB.SCHEMA.FAILED",
+                    "expectation_name": "failed_check",
+                    "expectation_violated": True,
+                }
+            ]
+        }
+        reporter = TestReporter()
+        cursor = FakeCursor(data)
+
+        with mock.patch(
+            "snowflake.cli._plugins.dcm.reporters.cli_console.styled_message"
+        ):
+            with pytest.raises(CliError) as exc_info:
+                reporter.process(cursor)
+
+        assert "1 failed" in exc_info.value.message
+
+    def test_process_does_not_raise_on_success(self):
+        data = {
+            "expectations": [
+                {
+                    "table_name": "DB.SCHEMA.PASSED",
+                    "expectation_name": "passed_check",
+                    "expectation_violated": False,
+                }
+            ]
+        }
+        reporter = TestReporter()
+        cursor = FakeCursor(data)
+
+        with mock.patch(
+            "snowflake.cli._plugins.dcm.reporters.cli_console.styled_message"
+        ):
+            reporter.process(cursor)  # Should not raise
+
+
+class TestTestRow:
+    def test_from_dict_with_passing_expectation(self):
+        data = {
+            "table_name": "MY_TABLE",
+            "expectation_name": "my_check",
+            "expectation_violated": False,
+            "expectation_expression": "> 100",
+            "metric_name": "row_count",
+            "value": "500",
+        }
+        row = TestRow.from_dict(data)
+        assert row is not None
+        assert row.table_name == "MY_TABLE"
+        assert row.expectation_name == "my_check"
+        assert row.status == TestStatus.PASS
+        assert row.expectation_expression == "> 100"
+        assert row.metric_name == "row_count"
+        assert row.actual_value == "500"
+
+    def test_from_dict_with_failing_expectation(self):
+        data = {
+            "table_name": "MY_TABLE",
+            "expectation_name": "my_check",
+            "expectation_violated": True,
+        }
+        row = TestRow.from_dict(data)
+        assert row is not None
+        assert row.status == TestStatus.FAIL
+
+    def test_from_dict_with_unknown_status(self):
+        data = {
+            "table_name": "MY_TABLE",
+            "expectation_name": "my_check",
+        }
+        row = TestRow.from_dict(data)
+        assert row is not None
+        assert row.status == TestStatus.UNKNOWN
+
+    def test_from_dict_with_non_dict(self):
+        row = TestRow.from_dict("not a dict")
+        assert row is None
+
+    def test_from_dict_sanitizes_names(self):
+        data = {
+            "table_name": "TABLE\x1b[31mRED\x1b[0m",
+            "expectation_name": "CHECK\x1b[32mGREEN\x1b[0m",
+            "expectation_violated": False,
+        }
+        row = TestRow.from_dict(data)
+        assert row is not None
+        assert "\x1b" not in row.table_name
+        assert "\x1b" not in row.expectation_name

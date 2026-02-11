@@ -41,7 +41,7 @@ def test_temporary_connection(runner, snapshot):
                 "--host",
                 os.environ["SNOWFLAKE_CONNECTIONS_INTEGRATION_HOST"],
                 "--authenticator",
-                "SNOWFLAKE_JWT",
+                "snowflake_jwt",
                 "--account",
                 os.environ["SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT"],
                 "--user",

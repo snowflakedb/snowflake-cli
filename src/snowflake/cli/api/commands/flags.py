@@ -28,13 +28,18 @@ from snowflake.cli.api.cli_global_context import (
 from snowflake.cli.api.commands.common import OnErrorType
 from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
 from snowflake.cli.api.commands.utils import parse_key_value_variables
-from snowflake.cli.api.config import get_all_connections, get_config_value
+from snowflake.cli.api.config import (
+    get_all_connections,
+    get_config_value,
+    get_env_value,
+)
 from snowflake.cli.api.connections import ConnectionContext
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.secret import SecretType
 from snowflake.cli.api.stage_path import StagePath
+from snowflake.cli.api.utils.types import try_cast_to_int
 from snowflake.connector.auth.workload_identity import ApiFederatedAuthenticationType
 
 DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
@@ -515,16 +520,36 @@ EnhancedExitCodesOption = typer.Option(
 )
 
 
-def _decimal_precision_callback(value: int | None):
+def _decimal_precision_callback(value: int | str | None):
     """Callback to set decimal precision globally when provided."""
     if value is None:
         try:
-            value = get_config_value(key="decimal_precision", default=None)
+            value = get_config_value("cli", key="decimal_precision", default=None)
         except Exception:
             pass
 
+        # env variable name and it's expected location within config file got inconsistent, so we
+        # need to handle this extra pattern
+        env_variable = get_env_value(key="decimal_precision")
+        if env_variable:
+            value = env_variable
+
     if value is not None:
-        getcontext().prec = value
+        try:
+            int_value = try_cast_to_int(value)
+        except ValueError:
+            raise ClickException(
+                f"Invalid value for decimal_precision: '{value}'. Must be a positive integer."
+            )
+
+        if int_value <= 0:
+            raise ClickException(
+                f"Invalid value for decimal_precision: '{value}'. Must be a positive integer."
+            )
+
+        getcontext().prec = int_value
+        return int_value
+
     return value
 
 

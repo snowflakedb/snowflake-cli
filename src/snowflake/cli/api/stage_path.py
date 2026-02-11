@@ -19,8 +19,13 @@ class StagePath:
         path: str | PurePosixPath | None = None,
         git_ref: str | None = None,
         trailing_slash: bool = False,
+        is_snow_prefixed: bool | None = None,
     ):
-        self._is_snow_prefixed_stage = stage_name.startswith(SNOW_PREFIX)
+        # If is_snow_prefixed is explicitly provided, use it; otherwise auto-detect from stage_name
+        if is_snow_prefixed is not None:
+            self._is_snow_prefixed_stage = is_snow_prefixed
+        else:
+            self._is_snow_prefixed_stage = stage_name.startswith(SNOW_PREFIX)
         self._stage_name = self.strip_stage_prefixes(stage_name)
         self._path = PurePosixPath(path) if path else PurePosixPath(".")
 
@@ -198,13 +203,18 @@ class StagePath:
             stage_name=self._stage_name,
             path=PurePosixPath(self._path) / path.lstrip("/"),
             git_ref=self._git_ref,
+            is_snow_prefixed=self._is_snow_prefixed_stage,
         )
 
     def __truediv__(self, path: str):
         return self.joinpath(path)
 
     def with_stage(self, stage_name: str) -> StagePath:
-        """Returns a new path with new stage name"""
+        """Returns a new path with new stage name.
+
+        Note: The snow:// prefix is determined by the new stage_name,
+        not inherited from the current instance.
+        """
         return StagePath(
             stage_name=stage_name,
             path=self._path,
@@ -240,7 +250,10 @@ class StagePath:
     @property
     def parent(self) -> StagePath:
         return StagePath(
-            stage_name=self._stage_name, path=self._path.parent, git_ref=self._git_ref
+            stage_name=self._stage_name,
+            path=self._path.parent,
+            git_ref=self._git_ref,
+            is_snow_prefixed=self._is_snow_prefixed_stage,
         )
 
     def is_root(self) -> bool:
@@ -248,8 +261,15 @@ class StagePath:
 
     def root_path(self) -> StagePath:
         if self.is_git_repo():
-            return StagePath(stage_name=self._stage_name, git_ref=self._git_ref)
-        return StagePath(stage_name=self._stage_name)
+            return StagePath(
+                stage_name=self._stage_name,
+                git_ref=self._git_ref,
+                is_snow_prefixed=self._is_snow_prefixed_stage,
+            )
+        return StagePath(
+            stage_name=self._stage_name,
+            is_snow_prefixed=self._is_snow_prefixed_stage,
+        )
 
     def is_quoted(self) -> bool:
         path = self.absolute_path()

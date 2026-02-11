@@ -14,11 +14,14 @@
 
 from __future__ import annotations
 
+import re
 from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Dict, List, Optional, TypedDict
 
+import click
 import yaml
 from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
 from snowflake.cli._plugins.object.manager import ObjectManager
@@ -32,10 +35,43 @@ from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 
+SEMANTIC_VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+$")
+
+
+class SemanticVersionType(click.ParamType):
+    """Custom Click type that validates semantic version format (major.minor.patch)."""
+
+    name = "VERSION"
+
+    def convert(self, value, param, ctx):
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            self.fail(f"Expected string, got {type(value).__name__}.", param, ctx)
+        if not SEMANTIC_VERSION_PATTERN.match(value):
+            self.fail(
+                f"Invalid version format '{value}'. Expected format: major.minor.patch (e.g., '1.9.4').",
+                param,
+                ctx,
+            )
+        return value
+
 
 class DBTObjectEditableAttributes(TypedDict):
     default_target: Optional[str]
     external_access_integrations: Optional[List[str]]
+    dbt_version: Optional[str]
+
+
+@dataclass
+class DBTDeployAttributes:
+    """Attributes for deploying a DBT project."""
+
+    default_target: Optional[str] = None
+    unset_default_target: bool = False
+    external_access_integrations: Optional[List[str]] = None
+    install_local_deps: bool = False
+    dbt_version: Optional[str] = None
 
 
 class DBTManager(SqlExecutionMixin):
@@ -90,6 +126,7 @@ class DBTManager(SqlExecutionMixin):
         return DBTObjectEditableAttributes(
             default_target=row_dict.get("default_target"),
             external_access_integrations=external_access_integrations,
+            dbt_version=row_dict.get("dbt_version"),
         )
 
     def deploy(
@@ -98,10 +135,7 @@ class DBTManager(SqlExecutionMixin):
         path: SecurePath,
         profiles_path: SecurePath,
         force: bool,
-        default_target: Optional[str] = None,
-        unset_default_target: bool = False,
-        external_access_integrations: Optional[List[str]] = None,
-        install_local_deps: bool = False,
+        attrs: DBTDeployAttributes,
     ) -> SnowflakeCursor:
         dbt_project_path = path / "dbt_project.yml"
         if not dbt_project_path.exists():
@@ -116,7 +150,7 @@ class DBTManager(SqlExecutionMixin):
             except KeyError:
                 raise CliError("`profile` is not defined in dbt_project.yml")
 
-        self._validate_profiles(profiles_path, profile, default_target)
+        self._validate_profiles(profiles_path, profile, attrs.default_target)
 
         with cli_console.phase("Creating temporary stage"):
             stage_manager = StageManager()
@@ -140,43 +174,22 @@ class DBTManager(SqlExecutionMixin):
 
         with cli_console.phase("Creating DBT project"):
             if force is True:
-                return self._deploy_create_or_replace(
-                    fqn,
-                    stage_name,
-                    default_target,
-                    external_access_integrations,
-                    install_local_deps,
-                )
+                return self._deploy_create_or_replace(fqn, stage_name, attrs)
             else:
                 dbt_object_attributes = self.get_dbt_object_attributes(fqn)
                 if dbt_object_attributes is not None:
                     return self._deploy_alter(
-                        fqn,
-                        stage_name,
-                        dbt_object_attributes,
-                        default_target,
-                        unset_default_target,
-                        external_access_integrations,
-                        install_local_deps,
+                        fqn, stage_name, dbt_object_attributes, attrs
                     )
                 else:
-                    return self._deploy_create(
-                        fqn,
-                        stage_name,
-                        default_target,
-                        external_access_integrations,
-                        install_local_deps,
-                    )
+                    return self._deploy_create(fqn, stage_name, attrs)
 
     def _deploy_alter(
         self,
         fqn: FQN,
         stage_name: str,
         dbt_object_attributes: DBTObjectEditableAttributes,
-        default_target: Optional[str],
-        unset_default_target: bool,
-        external_access_integrations: Optional[List[str]],
-        install_local_deps: bool,
+        attrs: DBTDeployAttributes,
     ) -> SnowflakeCursor:
         query = f"ALTER DBT PROJECT {fqn} ADD VERSION"
         query += f"\nFROM {stage_name}"
@@ -186,28 +199,35 @@ class DBTManager(SqlExecutionMixin):
         unset_properties = []
 
         current_default_target = dbt_object_attributes.get("default_target")
-        if unset_default_target and current_default_target is not None:
+        if attrs.unset_default_target and current_default_target is not None:
             unset_properties.append("DEFAULT_TARGET")
-        elif default_target and (
+        elif attrs.default_target and (
             current_default_target is None
-            or current_default_target.lower() != default_target.lower()
+            or current_default_target.lower() != attrs.default_target.lower()
         ):
-            set_properties.append(f"DEFAULT_TARGET='{default_target}'")
+            set_properties.append(f"DEFAULT_TARGET='{attrs.default_target}'")
+
+        # Comparing dbt_version to existing project's dbt_version might be ambiguous
+        # if previously project was locked to just minor version and now user wants to
+        # lock it to a patch as well. If target version is provided, it's better to just
+        # apply it.
+        if attrs.dbt_version:
+            set_properties.append(f"DBT_VERSION='{attrs.dbt_version}'")
 
         current_external_access_integrations = dbt_object_attributes.get(
             "external_access_integrations"
         )
         if self._should_update_external_access_integrations(
             current_external_access_integrations,
-            external_access_integrations,
-            install_local_deps,
+            attrs.external_access_integrations,
+            attrs.install_local_deps,
         ):
-            if external_access_integrations:
-                integrations_str = ", ".join(sorted(external_access_integrations))
+            if attrs.external_access_integrations:
+                integrations_str = ", ".join(sorted(attrs.external_access_integrations))
                 set_properties.append(
                     f"EXTERNAL_ACCESS_INTEGRATIONS=({integrations_str})"
                 )
-            elif install_local_deps:
+            elif attrs.install_local_deps:
                 set_properties.append("EXTERNAL_ACCESS_INTEGRATIONS=()")
 
         if set_properties or unset_properties:
@@ -245,16 +265,16 @@ class DBTManager(SqlExecutionMixin):
         self,
         fqn: FQN,
         stage_name: str,
-        default_target: Optional[str],
-        external_access_integrations: Optional[List[str]],
-        install_local_deps: bool,
+        attrs: DBTDeployAttributes,
     ) -> SnowflakeCursor:
         query = f"CREATE DBT PROJECT {fqn}"
         query += f"\nFROM {stage_name}"
-        if default_target:
-            query += f" DEFAULT_TARGET='{default_target}'"
+        if attrs.default_target:
+            query += f" DEFAULT_TARGET='{attrs.default_target}'"
+        if attrs.dbt_version:
+            query += f" DBT_VERSION='{attrs.dbt_version}'"
         query = self._handle_external_access_integrations_query(
-            query, external_access_integrations, install_local_deps
+            query, attrs.external_access_integrations, attrs.install_local_deps
         )
         return self.execute_query(query)
 
@@ -276,16 +296,16 @@ class DBTManager(SqlExecutionMixin):
         self,
         fqn: FQN,
         stage_name: str,
-        default_target: Optional[str],
-        external_access_integrations: Optional[List[str]],
-        install_local_deps: bool,
+        attrs: DBTDeployAttributes,
     ) -> SnowflakeCursor:
         query = f"CREATE OR REPLACE DBT PROJECT {fqn}"
         query += f"\nFROM {stage_name}"
-        if default_target:
-            query += f" DEFAULT_TARGET='{default_target}'"
+        if attrs.default_target:
+            query += f" DEFAULT_TARGET='{attrs.default_target}'"
+        if attrs.dbt_version:
+            query += f" DBT_VERSION='{attrs.dbt_version}'"
         query = self._handle_external_access_integrations_query(
-            query, external_access_integrations, install_local_deps
+            query, attrs.external_access_integrations, attrs.install_local_deps
         )
         return self.execute_query(query)
 
@@ -379,13 +399,21 @@ class DBTManager(SqlExecutionMixin):
             yaml.safe_dump(yaml.safe_load(sfd), tfd)
 
     def execute(
-        self, dbt_command: str, name: FQN, run_async: bool, *dbt_cli_args
+        self,
+        dbt_command: str,
+        name: FQN,
+        run_async: bool,
+        dbt_version: Optional[str] = None,
+        *dbt_cli_args,
     ) -> SnowflakeCursor:
         if dbt_cli_args:
             processed_args = self._process_dbt_args(dbt_cli_args)
             dbt_command = f"{dbt_command} {processed_args}".strip()
         dbt_command_escaped = dbt_command.replace("'", "\\'")
-        query = f"EXECUTE DBT PROJECT {name} args='{dbt_command_escaped}'"
+        query = f"EXECUTE DBT PROJECT {name}"
+        if dbt_version:
+            query += f" dbt_version='{dbt_version}'"
+        query += f" args='{dbt_command_escaped}'"
         return self.execute_query(query, _exec_async=run_async)
 
     @staticmethod

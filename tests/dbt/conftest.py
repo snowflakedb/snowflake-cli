@@ -59,7 +59,7 @@ def dbt_project_path(project_path, profile):
 def mock_get_dbt_object_attributes():
     with mock.patch(
         "snowflake.cli._plugins.dbt.manager.DBTManager.get_dbt_object_attributes",
-        return_value=None,
+        return_value=None,  # None means object doesn't exist;
     ) as _fixture:
         yield _fixture
 

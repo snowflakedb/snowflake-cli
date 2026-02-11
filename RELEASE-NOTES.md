@@ -15,11 +15,26 @@
  -->
 # Unreleased version
 ## Backward incompatibility
+* **Configuration System (NG)**: File-based configuration sources (`snowsql_config`, `cli_config_toml`, `connections_toml`) now use **connection-level replacement** instead of field-level merging. When a later file source defines a connection, it completely replaces the entire connection from earlier file sources - fields are NOT inherited. Environment variables and CLI arguments continue to overlay per-field on top of the file-derived connection. This provides more predictable configuration behavior where file-defined connections are atomic units.
+
+## Deprecations
+
+## New addition
+* Added `!spool` command to SQL REPL for writing query output to a file (`!spool <filename>` to start, `!spool off` to stop).
+* Added `--in-account` flag to list commands (e.g., `snow object list`, `snow stage list`). This flag allows listing all objects of a given type in the account. Cannot be used together with the `--in` flag.
+
+## Fixes and improvements
+* Updated `snowflake-connector-python` to version 4.2.0.
+* all authenticators (including `snowflake-jwt`, `username_password_mfa`, `workload_identity`) are now case-insensitive.
+* Fixed `snow streamlit deploy --prune` failing with incorrect stage path format for streamlit entities using versioned deployment. The `snow://` prefix is now correctly preserved through all stage path operations.
+
+
+# v3.15.0
 
 ## Deprecations
 
 ## New additions
-* Added `!spool` command to SQL REPL for writing query output to a file (`!spool <filename>` to start, `!spool off` to stop).
+* Added `--if-exists` option to `snow object drop` command and object-specific drop commands (e.g., `snow stage drop`) to drop objects only if they exist, preventing errors when dropping non-existent objects.
 
 ## Fixes and improvements
 * Fix git repository path parsing to allow quotes around both repo and branch names (e.g., `@"example-repo"/branches/"feature/branch"/*`).

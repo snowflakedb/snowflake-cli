@@ -494,3 +494,150 @@ def test_oidc_token_not_set_when_workload_identity_provider_missing(
     assert "workload_identity_provider" not in call_kwargs
     # Verify that OidcManager was not called at all
     mock_oidc_manager_class.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "authenticator_value",
+    [
+        "username_password_mfa",
+        "USERNAME_PASSWORD_MFA",
+        "Username_Password_Mfa",
+    ],
+)
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+@mock.patch("snowflake.connector.connect")
+def test_username_password_mfa_authenticator_is_case_insensitive(
+    mock_connect, mock_command_info, authenticator_value, test_snowcli_config
+):
+    """Test that username_password_mfa authenticator comparison is case-insensitive."""
+    from snowflake.cli._app.snow_connector import connect_to_snowflake
+    from snowflake.cli.api.config import config_init
+
+    config_init(test_snowcli_config)
+    mock_command_info.return_value = "SNOWCLI.TEST"
+
+    connect_to_snowflake(
+        temporary_connection=True,
+        authenticator=authenticator_value,
+        account="test_account",
+        user="test_user",
+        password="test_password",
+    )
+
+    mock_connect.assert_called_once()
+    call_kwargs = mock_connect.call_args[1]
+
+    assert call_kwargs["authenticator"] == authenticator_value
+    assert call_kwargs["client_request_mfa_token"] is True
+
+
+@pytest.mark.parametrize(
+    "authenticator_value",
+    [
+        "workload_identity",
+        "WORKLOAD_IDENTITY",
+        "Workload_Identity",
+    ],
+)
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+@mock.patch("snowflake.cli._app.snow_connector.OidcManager")
+@mock.patch("snowflake.connector.connect")
+def test_workload_identity_authenticator_is_case_insensitive(
+    mock_connect,
+    mock_oidc_manager_class,
+    mock_command_info,
+    authenticator_value,
+    test_snowcli_config,
+):
+    """Test that WORKLOAD_IDENTITY authenticator comparison is case-insensitive."""
+    from snowflake.cli._app.snow_connector import connect_to_snowflake
+    from snowflake.cli.api.config import config_init
+
+    config_init(test_snowcli_config)
+    mock_command_info.return_value = "SNOWCLI.TEST"
+    mock_manager = mock.Mock()
+    mock_oidc_manager_class.return_value = mock_manager
+    mock_token = "test-oidc-token"
+    mock_manager.read_token.return_value = mock_token
+
+    connect_to_snowflake(
+        temporary_connection=True,
+        authenticator=authenticator_value,
+        workload_identity_provider=ApiFederatedAuthenticationType.OIDC.value,
+        account="test_account",
+        user="test_user",
+    )
+
+    mock_connect.assert_called_once()
+    call_kwargs = mock_connect.call_args[1]
+
+    assert call_kwargs["authenticator"] == authenticator_value
+    assert call_kwargs["token"] == mock_token
+
+
+@pytest.mark.parametrize(
+    "authenticator_value",
+    [
+        "snowflake_jwt",
+        "SNOWFLAKE_JWT",
+        "Snowflake_Jwt",
+    ],
+)
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+@mock.patch("snowflake.cli._app.snow_connector._load_pem_to_der")
+@mock.patch("snowflake.cli._app.snow_connector._load_pem_from_file")
+@mock.patch("snowflake.connector.connect")
+def test_snowflake_jwt_authenticator_is_case_insensitive(
+    mock_connect,
+    mock_load_pem_from_file,
+    mock_load_pem_to_der,
+    mock_command_info,
+    authenticator_value,
+    test_snowcli_config,
+):
+    """Test that SNOWFLAKE_JWT authenticator comparison is case-insensitive."""
+    from snowflake.cli._app.snow_connector import connect_to_snowflake
+    from snowflake.cli.api.config import config_init
+
+    config_init(test_snowcli_config)
+    mock_command_info.return_value = "SNOWCLI.TEST"
+    key = SecretType(b"bytes")
+    mock_load_pem_from_file.return_value = key
+    mock_load_pem_to_der.return_value = key
+
+    connect_to_snowflake(
+        temporary_connection=True,
+        authenticator=authenticator_value,
+        private_key_file="/path/to/key.pem",
+        account="test_account",
+        user="test_user",
+    )
+
+    mock_connect.assert_called_once()
+    call_kwargs = mock_connect.call_args[1]
+
+    assert call_kwargs["private_key"] == b"bytes"
+    mock_load_pem_from_file.assert_called_once_with("/path/to/key.pem")
+
+
+@pytest.mark.parametrize(
+    "authenticator_value",
+    [
+        "externalbrowser",
+        "EXTERNALBROWSER",
+        "ExternalBrowser",
+    ],
+)
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+@mock.patch("snowflake.connector.connect")
+def test_externalbrowser_authenticator_is_case_insensitive(
+    mock_connect, mock_command_info, authenticator_value, test_snowcli_config
+):
+    """Test that externalbrowser authenticator comparison is case-insensitive for stream mirroring."""
+    from snowflake.cli._app.snow_connector import _build_silent_streams
+
+    connection_parameters = {"authenticator": authenticator_value}
+    stdout_stream, stderr_stream = _build_silent_streams(connection_parameters)
+
+    # For externalbrowser, stdout should mirror to stderr
+    assert stdout_stream._mirror is not None  # noqa: SLF001

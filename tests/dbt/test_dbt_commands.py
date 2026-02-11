@@ -23,7 +23,10 @@ from snowflake.cli._plugins.dbt.constants import (
     PROFILES_FILENAME,
     RESULT_COLUMN_NAME,
 )
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.secure_path import SecurePath
+
+from tests_common.feature_flag_utils import with_feature_flags
 
 
 class TestDBTList:
@@ -135,6 +138,7 @@ class TestDBTDeploy:
         call_kwargs = mock_deploy.call_args[1]
         assert str(mock_deploy.call_args[0][0]) == "TEST_PIPELINE"
         assert call_kwargs["path"] == SecurePath(dbt_project_path)
+        assert call_kwargs["attrs"].dbt_version is None
 
     def test_force_flag_uses_create_or_replace(self, runner, mock_deploy):
         result = runner.invoke(
@@ -208,8 +212,8 @@ class TestDBTDeploy:
         assert result.exit_code == 0, result.output
         mock_deploy.assert_called_once()
         call_kwargs = mock_deploy.call_args[1]
-        assert call_kwargs["default_target"] == "prod"
-        assert call_kwargs["unset_default_target"] is False
+        assert call_kwargs["attrs"].default_target == "prod"
+        assert call_kwargs["attrs"].unset_default_target is False
 
     def test_deploy_with_unset_default_target_passes_to_manager(
         self, runner, dbt_project_path, mock_deploy
@@ -227,8 +231,8 @@ class TestDBTDeploy:
         assert result.exit_code == 0, result.output
         mock_deploy.assert_called_once()
         call_kwargs = mock_deploy.call_args[1]
-        assert call_kwargs["default_target"] is None
-        assert call_kwargs["unset_default_target"] is True
+        assert call_kwargs["attrs"].default_target is None
+        assert call_kwargs["attrs"].unset_default_target is True
 
     def test_deploys_project_with_single_external_access_integration(
         self,
@@ -250,10 +254,10 @@ class TestDBTDeploy:
         assert result.exit_code == 0, result.output
         mock_deploy.assert_called_once()
         call_kwargs = mock_deploy.call_args[1]
-        assert call_kwargs["external_access_integrations"] == [
+        assert call_kwargs["attrs"].external_access_integrations == [
             "google_apis_access_integration"
         ]
-        assert call_kwargs["install_local_deps"] is False
+        assert call_kwargs["attrs"].install_local_deps is False
 
     def test_deploys_project_with_multiple_external_access_integrations(
         self,
@@ -277,10 +281,10 @@ class TestDBTDeploy:
         assert result.exit_code == 0, result.output
         mock_deploy.assert_called_once()
         call_kwargs = mock_deploy.call_args[1]
-        assert sorted(call_kwargs["external_access_integrations"]) == sorted(
+        assert sorted(call_kwargs["attrs"].external_access_integrations) == sorted(
             ["google_apis_access_integration", "dbt_hub"]
         )
-        assert call_kwargs["install_local_deps"] is False
+        assert call_kwargs["attrs"].install_local_deps is False
 
     def test_deploys_project_with_local_deps(
         self,
@@ -301,8 +305,8 @@ class TestDBTDeploy:
         assert result.exit_code == 0, result.output
         mock_deploy.assert_called_once()
         call_kwargs = mock_deploy.call_args[1]
-        assert not call_kwargs["external_access_integrations"]
-        assert call_kwargs["install_local_deps"] is True
+        assert not call_kwargs["attrs"].external_access_integrations
+        assert call_kwargs["attrs"].install_local_deps is True
 
     def test_deploy_with_both_default_target_and_unset_default_target_fails(
         self,
@@ -326,6 +330,62 @@ class TestDBTDeploy:
             "Parameters '--unset-default-target' and '--default-target' are incompatible"
             in result.output
         )
+
+    @with_feature_flags({FeatureFlag.ENABLE_DBT_VERSION: True})
+    def test_deploy_with_dbt_version_passes_to_manager(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                "--dbt-version=1.9.0",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        mock_deploy.assert_called_once()
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["attrs"].dbt_version == "1.9.0"
+
+    @with_feature_flags({FeatureFlag.ENABLE_DBT_VERSION: True})
+    def test_deploy_with_invalid_dbt_version_fails(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                "--dbt-version=1.9",
+            ]
+        )
+
+        assert result.exit_code == 2, result.output
+        assert "Invalid version format '1.9'" in result.output
+        mock_deploy.assert_not_called()
+
+    @with_feature_flags({FeatureFlag.ENABLE_DBT_VERSION: True})
+    def test_deploy_with_patch_version_passes_to_manager(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                "--dbt-version=1.9.4",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        mock_deploy.assert_called_once()
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["attrs"].dbt_version == "1.9.4"
 
 
 class TestDBTExecute:
@@ -564,3 +624,68 @@ class TestDBTExecute:
 
         assert result.exit_code == 1, result.output
         assert "No data returned from server" in result.output
+
+    @with_feature_flags({FeatureFlag.ENABLE_DBT_VERSION: True})
+    def test_dbt_execute_with_dbt_version_when_flag_enabled(
+        self, mock_connect, mock_cursor, runner
+    ):
+        cursor = mock_cursor(
+            rows=[(True, "very detailed logs")],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "execute",
+                "--dbt-version=2.0.0",
+                "pipeline_name",
+                "run",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert (
+            mock_connect.mocked_ctx.get_query()
+            == "EXECUTE DBT PROJECT pipeline_name dbt_version='2.0.0' args='run'"
+        )
+
+    @with_feature_flags({FeatureFlag.ENABLE_DBT_VERSION: True})
+    def test_dbt_execute_with_invalid_dbt_version_fails(self, mock_connect, runner):
+        result = runner.invoke(
+            [
+                "dbt",
+                "execute",
+                "--dbt-version=1.2.3.beta",
+                "pipeline_name",
+                "run",
+            ]
+        )
+
+        assert result.exit_code == 2, result.output
+        assert "Invalid version format '1.2.3.beta'" in result.output
+
+    @with_feature_flags({FeatureFlag.ENABLE_DBT_VERSION: True})
+    def test_dbt_execute_with_patch_version(self, mock_connect, mock_cursor, runner):
+        cursor = mock_cursor(
+            rows=[(True, "very detailed logs")],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "execute",
+                "--dbt-version=1.9.4",
+                "pipeline_name",
+                "run",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert (
+            mock_connect.mocked_ctx.get_query()
+            == "EXECUTE DBT PROJECT pipeline_name dbt_version='1.9.4' args='run'"
+        )

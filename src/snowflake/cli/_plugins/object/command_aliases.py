@@ -22,11 +22,13 @@ from snowflake.cli._plugins.object.commands import (
     ScopeOption,
     describe,
     drop,
+    in_account_option_,
     limit_option_,
     list_,
     scope_option,  # noqa: F401
     terse_option_,
 )
+from snowflake.cli.api.commands.flags import IfExistsOption
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
@@ -41,6 +43,7 @@ def add_object_command_aliases(
     ommit_commands: Optional[List[str]] = None,
     terse_option: Optional[typer.Option] = None,
     limit_option: Optional[typer.Option] = None,
+    in_account_option: Optional[typer.Option] = None,
 ):
     if ommit_commands is None:
         ommit_commands = list()
@@ -53,6 +56,7 @@ def add_object_command_aliases(
             @app.command("list", requires_connection=True)
             def list_cmd(
                 like: str = like_option,  # type: ignore
+                in_account: bool = in_account_option if in_account_option else in_account_option_(),  # type: ignore
                 terse: bool = terse_option if terse_option else terse_option_(),  # type: ignore
                 limit: Optional[int] = limit_option if limit_option else limit_option_(),  # type: ignore
                 **options,
@@ -61,6 +65,7 @@ def add_object_command_aliases(
                     object_type=object_type.value.cli_name,
                     like=like,
                     scope=ScopeOption.default,
+                    in_account=in_account,
                     terse=terse,
                     limit=limit,
                     **options,
@@ -72,6 +77,7 @@ def add_object_command_aliases(
             def list_cmd(
                 like: str = like_option,  # type: ignore
                 scope: Tuple[str, str] = scope_option,  # type: ignore
+                in_account: bool = in_account_option if in_account_option else in_account_option_(),  # type: ignore
                 terse: bool = terse_option if terse_option else terse_option_(),  # type: ignore
                 limit: Optional[int] = limit_option if limit_option else limit_option_(),  # type: ignore
                 **options,
@@ -80,6 +86,7 @@ def add_object_command_aliases(
                     object_type=object_type.value.cli_name,
                     like=like,
                     scope=scope,
+                    in_account=in_account,
                     terse=terse,
                     limit=limit,
                     **options,
@@ -90,10 +97,15 @@ def add_object_command_aliases(
     if "drop" not in ommit_commands:
 
         @app.command("drop", requires_connection=True)
-        def drop_cmd(name: FQN = name_argument, **options):
+        def drop_cmd(
+            name: FQN = name_argument,
+            if_exists: bool = IfExistsOption(),
+            **options,
+        ):
             return drop(
                 object_type=object_type.value.cli_name,
                 object_name=name,
+                if_exists=if_exists,
                 **options,
             )
 

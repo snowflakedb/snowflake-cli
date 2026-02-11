@@ -1,6 +1,11 @@
 name: Bug Report
 description: File a bug report
 body:
+  - type: markdown
+    attributes:
+      value: |
+        If you need **urgent assistance** then [file a case with Snowflake Support](https://community.snowflake.com/s/article/How-To-Submit-a-Support-Case-in-Snowflake-Lodge).
+        Otherwise continue here.
   - type: input
     attributes:
       label: "SnowCLI version"

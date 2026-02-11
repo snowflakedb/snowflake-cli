@@ -29,7 +29,6 @@ from snowflake.cli.api.commands.flags import (
 )
 from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
-from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.exceptions import CliArgumentError
 from snowflake.cli.api.output.types import (
     CommandResult,
@@ -136,9 +135,9 @@ def execute_sql(
     The command supports variable substitution that happens on client-side.
     """
 
-    data = {}
-    if data_override:
-        data = {v.key: v.value for v in parse_key_value_variables(data_override)}
+    from snowflake.cli.api.config_ng import get_merged_variables
+
+    data = get_merged_variables(data_override)
 
     template_syntax_config = _parse_template_syntax_config(enabled_templating)
 

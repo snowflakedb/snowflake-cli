@@ -27,10 +27,11 @@ from snowflake.cli._plugins.object.commands import (
     drop as object_drop,
 )
 from snowflake.cli._plugins.object.commands import (
-    list_ as object_list,
+    in_account_option_,
+    scope_option,
 )
 from snowflake.cli._plugins.object.commands import (
-    scope_option,
+    list_ as object_list,
 )
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.snowpark import package_utils
@@ -71,6 +72,7 @@ from snowflake.cli.api.commands.decorators import (
 )
 from snowflake.cli.api.commands.flags import (
     ForceReplaceOption,
+    IfExistsOption,
     PruneOption,
     ReplaceOption,
     execution_identifier_argument,
@@ -445,6 +447,7 @@ def list_(
     scope: Tuple[str, str] = scope_option(
         help_example="`list function --in database my_db`"
     ),
+    in_account: bool = in_account_option_(),
     **options,
 ):
     """Lists all available procedures or functions."""
@@ -452,6 +455,7 @@ def list_(
         object_type=object_type.value,
         like=like,
         scope=scope,
+        in_account=in_account,
         terse=None,
         limit=None,
         **options,
@@ -462,10 +466,16 @@ def list_(
 def drop(
     object_type: SnowparkObject = ObjectTypeArgument,
     identifier: FQN = IdentifierArgument,
+    if_exists: bool = IfExistsOption(),
     **options,
 ):
     """Drop procedure or function."""
-    return object_drop(object_type=object_type.value, object_name=identifier, **options)
+    return object_drop(
+        object_type=object_type.value,
+        object_name=identifier,
+        if_exists=if_exists,
+        **options,
+    )
 
 
 @app.command("describe", requires_connection=True)

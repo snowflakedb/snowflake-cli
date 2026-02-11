@@ -18,8 +18,11 @@ from pathlib import Path
 import pytest
 import yaml
 
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
+
+from tests_common.feature_flag_utils import with_feature_flags
 
 
 def _setup_dbt_profile(root_dir: Path, snowflake_session):
@@ -72,6 +75,16 @@ def _verify_dbt_project_exists(runner, name: str):
     dbt_object = result.json[0]
     assert dbt_object["name"].lower() == name.lower()
     return dbt_object
+
+
+def _assert_dbt_version(name, runner, dbt_version):
+    result = runner.invoke_with_connection_json(["dbt", "list", "--like", name.upper()])
+    assert result.exit_code == 0, result.output
+    assert len(result.json) == 1
+    if dbt_version is None:
+        assert result.json[0].get("dbt_version") is None
+    else:
+        assert result.json[0]["dbt_version"] == dbt_version
 
 
 def _setup_external_access_integration(runner, integration_name: str):
@@ -617,3 +630,66 @@ def test_execute_with_variables(
         assert len(result.json) == 1, result.json
         assert result.json[0]["ENV_TMPL"] == "prod", result.json[0]
         assert result.json[0]["USER_TMPL"] == "prod_user", result.json[0]
+
+
+@with_feature_flags({FeatureFlag.ENABLE_DBT_VERSION: True})
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_deploy_with_dbt_version(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    with project_directory("dbt_project") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_project_version_{ts}"
+
+        _setup_dbt_profile(root_dir, snowflake_session)
+
+        result = runner.invoke_with_connection_json(
+            ["dbt", "deploy", name, "--dbt-version", "1.9.4"]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_dbt_version(name, runner, "1.9.4")
+
+        result = runner.invoke_with_connection_json(
+            ["dbt", "deploy", name, "--dbt-version", "1.10.15"]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_dbt_version(name, runner, "1.10.15")
+
+
+@with_feature_flags({FeatureFlag.ENABLE_DBT_VERSION: True})
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_execute_with_dbt_version(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    with project_directory("dbt_project") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_project_exec_version_{ts}"
+
+        _setup_dbt_profile(root_dir, snowflake_session)
+
+        result = runner.invoke_with_connection_json(
+            ["dbt", "deploy", name, "--dbt-version", "1.9.4"]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_dbt_version(name, runner, "1.9.4")
+
+        result = runner.invoke_passthrough_with_connection(
+            args=[
+                "dbt",
+                "execute",
+                "--dbt-version=1.10.15",
+            ],
+            passthrough_args=[name, "run"],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "Running with dbt=1.10.15" in result.output
+        assert "Done. PASS=2 WARN=0 ERROR=0 SKIP=0 NO-OP=0 TOTAL=2" in result.output
