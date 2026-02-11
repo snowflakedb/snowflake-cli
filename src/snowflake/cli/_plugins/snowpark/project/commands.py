@@ -43,6 +43,11 @@ def create(
         "--overwrite",
         help="Overwrite the project if it already exists.",
     ),
+    set_session_config: bool = typer.Option(
+        False,
+        "--set-session-config",
+        help="Set the session config for Snowpark project.",
+    ),
     **options,
 ):
     """
@@ -53,7 +58,7 @@ def create(
     if not stage:
         raise ClickException("Stage is required.")
 
-    manager = SnowflakeProjectManager()
+    manager = SnowflakeProjectManager(set_session_config=set_session_config)
     return MessageResult(manager.create(name=name, stage=stage, overwrite=overwrite))
 
 
@@ -64,6 +69,11 @@ def drop(
         help="Name of the Snowpark project.",
         show_default=False,
     ),
+    set_session_config: bool = typer.Option(
+        False,
+        "--set-session-config",
+        help="Set the session config for Snowpark project.",
+    ),
     **options,
 ):
     """
@@ -72,18 +82,23 @@ def drop(
     if not name:
         raise ClickException("Project name is required.")
 
-    manager = SnowflakeProjectManager()
+    manager = SnowflakeProjectManager(set_session_config=set_session_config)
     return MessageResult(manager.drop(name=name))
 
 
 @app.command("list", requires_connection=True)
 def list_projects(
+    set_session_config: bool = typer.Option(
+        False,
+        "--set-session-config",
+        help="Set the session config for Snowpark project.",
+    ),
     **options,
 ):
     """
     Lists all Snowpark projects.
     """
-    manager = SnowflakeProjectManager()
+    manager = SnowflakeProjectManager(set_session_config=set_session_config)
     return QueryResult(manager.list_projects())
 
 
@@ -101,6 +116,11 @@ def execute(
         help="The path on the project stage to the entrypoint file for the Snowpark project.",
         show_default=False,
     ),
+    set_session_config: bool = typer.Option(
+        False,
+        "--set-session-config",
+        help="Set the session config for Snowpark project.",
+    ),
     **options,
 ):
     """
@@ -110,5 +130,5 @@ def execute(
         raise ClickException("Project name is required.")
     if not entrypoint:
         raise ClickException("Entrypoint is required.")
-    manager = SnowflakeProjectManager()
+    manager = SnowflakeProjectManager(set_session_config=set_session_config)
     return QueryResult(manager.execute(name=name, entrypoint=entrypoint))
