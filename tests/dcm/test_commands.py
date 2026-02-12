@@ -2,7 +2,7 @@ import json
 from unittest import mock
 
 import pytest
-from snowflake.cli._plugins.dcm.manifest import DCMManifest
+from snowflake.cli._plugins.dcm.models import DCMManifest
 from snowflake.cli.api.identifiers import FQN
 
 

@@ -15,7 +15,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Generator, List
 
-from snowflake.cli._plugins.dcm.manifest import MANIFEST_FILE_NAME
+from snowflake.cli._plugins.dcm.models import MANIFEST_FILE_NAME
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.artifacts.upload import sync_artifacts_with_stage
 from snowflake.cli.api.commands.utils import parse_key_value_variables

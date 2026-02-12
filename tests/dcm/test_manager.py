@@ -22,7 +22,7 @@ from snowflake.cli._plugins.dcm.manager import (
     SOURCES_FOLDER,
     DCMProjectManager,
 )
-from snowflake.cli._plugins.dcm.manifest import MANIFEST_FILE_NAME
+from snowflake.cli._plugins.dcm.models import MANIFEST_FILE_NAME
 from snowflake.cli.api.constants import PatternMatchingType
 from snowflake.cli.api.identifiers import FQN
 

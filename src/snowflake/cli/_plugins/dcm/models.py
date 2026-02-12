@@ -15,24 +15,17 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
 import yaml
+from snowflake.cli._plugins.dcm.exceptions import (
+    InvalidManifestError,
+    ManifestConfigurationError,
+    ManifestNotFoundError,
+)
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.secure_path import SecurePath
 
 MANIFEST_FILE_NAME = "manifest.yml"
 DCM_PROJECT_TYPE = "dcm_project"
-
-
-class ManifestNotFoundError(Exception):
-    """Manifest file does not exist."""
-
-
-class InvalidManifestError(Exception):
-    """Manifest file is not valid (empty, wrong type, wrong version)."""
-
-
-class ManifestConfigurationError(Exception):
-    """Manifest is valid but has configuration issues (target not found, config doesn't exist)."""
 
 
 def _is_valid_manifest_version(version: str) -> bool:

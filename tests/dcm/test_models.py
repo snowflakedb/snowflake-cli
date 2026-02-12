@@ -14,13 +14,15 @@
 
 import pytest
 import yaml
-from snowflake.cli._plugins.dcm.manifest import (
-    DCM_PROJECT_TYPE,
-    MANIFEST_FILE_NAME,
-    DCMManifest,
+from snowflake.cli._plugins.dcm.exceptions import (
     InvalidManifestError,
     ManifestConfigurationError,
     ManifestNotFoundError,
+)
+from snowflake.cli._plugins.dcm.models import (
+    DCM_PROJECT_TYPE,
+    MANIFEST_FILE_NAME,
+    DCMManifest,
 )
 from snowflake.cli.api.secure_path import SecurePath
 

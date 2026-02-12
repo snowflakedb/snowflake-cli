@@ -14,14 +14,13 @@
 from typing import List, Optional
 
 import typer
-from snowflake.cli._plugins.dcm.manager import DCMProjectManager
-from snowflake.cli._plugins.dcm.manifest import (
-    DCMManifest,
+from snowflake.cli._plugins.dcm.exceptions import (
     InvalidManifestError,
     ManifestConfigurationError,
     ManifestNotFoundError,
-    TargetContext,
 )
+from snowflake.cli._plugins.dcm.manager import DCMProjectManager
+from snowflake.cli._plugins.dcm.models import DCMManifest, TargetContext
 from snowflake.cli._plugins.dcm.reporters import RefreshReporter, TestReporter
 from snowflake.cli._plugins.dcm.utils import mock_dcm_response
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
