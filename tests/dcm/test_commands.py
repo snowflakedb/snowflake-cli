@@ -2,11 +2,12 @@ import json
 from unittest import mock
 
 import pytest
-from snowflake.cli._plugins.dcm.manager import DCMManifest
+from snowflake.cli._plugins.dcm.manifest import DCMManifest
 from snowflake.cli.api.identifiers import FQN
 
 DCMProjectManager = "snowflake.cli._plugins.dcm.commands.DCMProjectManager"
 ObjectManager = "snowflake.cli._plugins.dcm.commands.ObjectManager"
+DCMManifestLoad = "snowflake.cli._plugins.dcm.commands.DCMManifest.load"
 
 
 @pytest.fixture
@@ -79,10 +80,12 @@ def _manifest_without_config():
 
 
 class TestDCMDeploy:
+    @mock.patch(DCMManifestLoad)
     @mock.patch(DCMProjectManager)
     def test_deploy_project(
         self,
         mock_pm,
+        mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
@@ -93,7 +96,7 @@ class TestDCMDeploy:
             rows=[("[]",)], columns=("operations")
         )
         mock_pm().sync_local_files.return_value = mock_from_resource()
-        mock_pm.load_manifest.return_value = _manifest_without_config()
+        mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
             result = runner.invoke(["dcm", "deploy", "fooBar"])
@@ -117,15 +120,22 @@ class TestDCMDeploy:
         assert result.exit_code == 1, result.output
         assert "Stage paths are not supported" in result.output
 
+    @mock.patch(DCMManifestLoad)
     @mock.patch(DCMProjectManager)
     def test_deploy_project_with_variables(
-        self, mock_pm, runner, project_directory, mock_cursor, mock_connect
+        self,
+        mock_pm,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
     ):
         mock_pm().deploy.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
         mock_pm().sync_local_files.return_value = "TMP_STAGE"
-        mock_pm.load_manifest.return_value = _manifest_without_config()
+        mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
             result = runner.invoke(["dcm", "deploy", "fooBar", "-D", "key=value"])
@@ -140,15 +150,22 @@ class TestDCMDeploy:
             skip_plan=False,
         )
 
+    @mock.patch(DCMManifestLoad)
     @mock.patch(DCMProjectManager)
     def test_deploy_project_with_alias(
-        self, mock_pm, runner, project_directory, mock_cursor, mock_connect
+        self,
+        mock_pm,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
     ):
         mock_pm().deploy.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
         mock_pm().sync_local_files.return_value = "TMP_STAGE"
-        mock_pm.load_manifest.return_value = _manifest_without_config()
+        mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
             result = runner.invoke(["dcm", "deploy", "fooBar", "--alias", "my_alias"])
@@ -190,10 +207,12 @@ class TestDCMDeploy:
         assert "DCM_FOOBAR" in call_args.kwargs["from_stage"]
         assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
 
+    @mock.patch(DCMManifestLoad)
     @mock.patch(DCMProjectManager)
     def test_deploy_project_with_from_local_directory(
         self,
         mock_pm,
+        mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
@@ -206,6 +225,7 @@ class TestDCMDeploy:
         mock_pm().sync_local_files.return_value = (
             "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
         )
+        mock_manifest_load.return_value = _manifest_without_config()
 
         source_dir = tmp_path / "source_project"
         source_dir.mkdir()
@@ -229,10 +249,12 @@ class TestDCMDeploy:
 
 
 class TestDCMPlan:
+    @mock.patch(DCMManifestLoad)
     @mock.patch(DCMProjectManager)
     def test_plan_project(
         self,
         mock_pm,
+        mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
@@ -243,7 +265,7 @@ class TestDCMPlan:
             rows=[("[]",)], columns=("operations")
         )
         mock_pm().sync_local_files.return_value = mock_from_resource()
-        mock_pm.load_manifest.return_value = _manifest_without_config()
+        mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
             result = runner.invoke(
@@ -265,10 +287,12 @@ class TestDCMPlan:
             save_output=False,
         )
 
+    @mock.patch(DCMManifestLoad)
     @mock.patch(DCMProjectManager)
     def test_plan_project_with_save_output(
         self,
         mock_pm,
+        mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
@@ -279,7 +303,7 @@ class TestDCMPlan:
             rows=[("[]",)], columns=("operations")
         )
         mock_pm().sync_local_files.return_value = mock_from_resource()
-        mock_pm.load_manifest.return_value = _manifest_without_config()
+        mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
             result = runner.invoke(
@@ -335,10 +359,12 @@ class TestDCMPlan:
             assert "DCM_FOOBAR_" in call_args.kwargs["from_stage"]
             assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
 
+    @mock.patch(DCMManifestLoad)
     @mock.patch(DCMProjectManager)
     def test_plan_project_with_from_local_directory(
         self,
         mock_pm,
+        mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
@@ -351,6 +377,7 @@ class TestDCMPlan:
         mock_pm().sync_local_files.return_value = (
             "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
         )
+        mock_manifest_load.return_value = _manifest_without_config()
 
         source_dir = tmp_path / "source_project"
         source_dir.mkdir()
@@ -548,13 +575,20 @@ class TestDCMDrop:
         assert len(queries) == 2
         assert queries[0] == queries[1] == "drop DCM Project IDENTIFIER('my_project')"
 
+    @mock.patch(DCMManifestLoad)
     @mock.patch(DCMProjectManager)
     @mock.patch(ObjectManager)
     def test_drop_with_target_flag(
-        self, mock_om, mock_pm, runner, mock_cursor, project_directory
+        self,
+        mock_om,
+        mock_pm,
+        mock_manifest_load,
+        runner,
+        mock_cursor,
+        project_directory,
     ):
         mock_om().drop.return_value = mock_cursor(rows=[], columns=("status",))
-        mock_pm.load_manifest.return_value = DCMManifest.from_dict(
+        mock_manifest_load.return_value = DCMManifest.from_dict(
             {
                 "manifest_version": "2.0",
                 "type": "dcm_project",
@@ -599,13 +633,20 @@ class TestDCMDescribe:
             == "describe DCM Project IDENTIFIER('PROJECT_NAME')"
         )
 
+    @mock.patch(DCMManifestLoad)
     @mock.patch(DCMProjectManager)
     @mock.patch(ObjectManager)
     def test_describe_with_target_flag(
-        self, mock_om, mock_pm, runner, mock_cursor, project_directory
+        self,
+        mock_om,
+        mock_pm,
+        mock_manifest_load,
+        runner,
+        mock_cursor,
+        project_directory,
     ):
         mock_om().describe.return_value = mock_cursor(rows=[], columns=("name",))
-        mock_pm.load_manifest.return_value = DCMManifest.from_dict(
+        mock_manifest_load.return_value = DCMManifest.from_dict(
             {
                 "manifest_version": "2.0",
                 "type": "dcm_project",
@@ -624,10 +665,12 @@ class TestDCMDescribe:
 
 
 class TestDCMPreview:
+    @mock.patch(DCMManifestLoad)
     @mock.patch(DCMProjectManager)
     def test_preview_basic(
         self,
         mock_pm,
+        mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
@@ -639,7 +682,7 @@ class TestDCMPreview:
             columns=("id", "name", "email"),
         )
         mock_pm().sync_local_files.return_value = mock_from_resource()
-        mock_pm.load_manifest.return_value = _manifest_without_config()
+        mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
             result = runner.invoke(
@@ -673,6 +716,7 @@ class TestDCMPreview:
         assert result.exit_code == 1, result.output
         assert "Stage paths are not supported" in result.output
 
+    @mock.patch(DCMManifestLoad)
     @mock.patch(DCMProjectManager)
     @pytest.mark.parametrize(
         "extra_args,expected_vars,expected_limit",
@@ -697,6 +741,7 @@ class TestDCMPreview:
     def test_preview_with_various_options(
         self,
         mock_pm,
+        mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
@@ -710,7 +755,7 @@ class TestDCMPreview:
             columns=("id", "name", "email"),
         )
         mock_pm().sync_local_files.return_value = "TMP_STAGE"
-        mock_pm.load_manifest.return_value = _manifest_without_config()
+        mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
             result = runner.invoke(
@@ -892,23 +937,23 @@ class TestDCMTargetFlag:
     identifiers from the manifest.yml targets section.
     """
 
+    @mock.patch(DCMManifestLoad)
     @mock.patch(DCMProjectManager)
     def test_deploy_with_target_flag(
         self,
         mock_pm,
+        mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
         mock_from_resource,
     ):
-        from snowflake.cli._plugins.dcm.manager import DCMManifest
-
         mock_pm().deploy.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations",)
         )
         mock_pm().sync_local_files.return_value = mock_from_resource()
-        mock_pm.load_manifest.return_value = DCMManifest.from_dict(
+        mock_manifest_load.return_value = DCMManifest.from_dict(
             {
                 "manifest_version": "2.0",
                 "type": "dcm_project",
@@ -930,23 +975,23 @@ class TestDCMTargetFlag:
             skip_plan=False,
         )
 
+    @mock.patch(DCMManifestLoad)
     @mock.patch(DCMProjectManager)
     def test_deploy_with_default_target(
         self,
         mock_pm,
+        mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
         mock_from_resource,
     ):
-        from snowflake.cli._plugins.dcm.manager import DCMManifest
-
         mock_pm().deploy.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations",)
         )
         mock_pm().sync_local_files.return_value = mock_from_resource()
-        mock_pm.load_manifest.return_value = DCMManifest.from_dict(
+        mock_manifest_load.return_value = DCMManifest.from_dict(
             {
                 "manifest_version": "2.0",
                 "type": "dcm_project",
@@ -968,10 +1013,12 @@ class TestDCMTargetFlag:
             skip_plan=False,
         )
 
+    @mock.patch(DCMManifestLoad)
     @mock.patch(DCMProjectManager)
     def test_deploy_explicit_identifier_still_uses_target_config(
         self,
         mock_pm,
+        mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
@@ -984,7 +1031,7 @@ class TestDCMTargetFlag:
             rows=[("[]",)], columns=("operations",)
         )
         mock_pm().sync_local_files.return_value = mock_from_resource()
-        mock_pm.load_manifest.return_value = DCMManifest.from_dict(
+        mock_manifest_load.return_value = DCMManifest.from_dict(
             {
                 "manifest_version": "2.0",
                 "type": "dcm_project",
@@ -1014,23 +1061,23 @@ class TestDCMTargetFlag:
             skip_plan=False,
         )
 
+    @mock.patch(DCMManifestLoad)
     @mock.patch(DCMProjectManager)
     def test_deploy_with_target_uses_configuration(
         self,
         mock_pm,
+        mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
         mock_from_resource,
     ):
-        from snowflake.cli._plugins.dcm.manager import DCMManifest
-
         mock_pm().deploy.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations",)
         )
         mock_pm().sync_local_files.return_value = mock_from_resource()
-        mock_pm.load_manifest.return_value = DCMManifest.from_dict(
+        mock_manifest_load.return_value = DCMManifest.from_dict(
             {
                 "manifest_version": "2.0",
                 "type": "dcm_project",
@@ -1058,17 +1105,16 @@ class TestDCMTargetFlag:
             skip_plan=False,
         )
 
+    @mock.patch(DCMManifestLoad)
     @mock.patch(DCMProjectManager)
     def test_refresh_with_target_flag(
-        self, mock_pm, runner, mock_cursor, project_directory
+        self, mock_pm, mock_manifest_load, runner, mock_cursor, project_directory
     ):
-        from snowflake.cli._plugins.dcm.manager import DCMManifest
-
         refresh_result = {"refreshed_tables": []}
         mock_pm().refresh.return_value = mock_cursor(
             rows=[(json.dumps(refresh_result),)], columns=("result",)
         )
-        mock_pm.load_manifest.return_value = DCMManifest.from_dict(
+        mock_manifest_load.return_value = DCMManifest.from_dict(
             {
                 "manifest_version": "2.0",
                 "type": "dcm_project",
@@ -1084,17 +1130,16 @@ class TestDCMTargetFlag:
             project_identifier=FQN.from_string("my_project")
         )
 
+    @mock.patch(DCMManifestLoad)
     @mock.patch(DCMProjectManager)
     def test_test_with_target_flag(
-        self, mock_pm, runner, mock_cursor, project_directory
+        self, mock_pm, mock_manifest_load, runner, mock_cursor, project_directory
     ):
-        from snowflake.cli._plugins.dcm.manager import DCMManifest
-
         test_result = {"expectations": []}
         mock_pm().test.return_value = mock_cursor(
             rows=[(json.dumps(test_result),)], columns=("result",)
         )
-        mock_pm.load_manifest.return_value = DCMManifest.from_dict(
+        mock_manifest_load.return_value = DCMManifest.from_dict(
             {
                 "manifest_version": "2.0",
                 "type": "dcm_project",
@@ -1110,16 +1155,15 @@ class TestDCMTargetFlag:
             project_identifier=FQN.from_string("my_project")
         )
 
+    @mock.patch(DCMManifestLoad)
     @mock.patch(DCMProjectManager)
     def test_list_deployments_with_target_flag(
-        self, mock_pm, runner, mock_cursor, project_directory
+        self, mock_pm, mock_manifest_load, runner, mock_cursor, project_directory
     ):
-        from snowflake.cli._plugins.dcm.manager import DCMManifest
-
         mock_pm().list_deployments.return_value = mock_cursor(
             rows=[], columns=("name",)
         )
-        mock_pm.load_manifest.return_value = DCMManifest.from_dict(
+        mock_manifest_load.return_value = DCMManifest.from_dict(
             {
                 "manifest_version": "2.0",
                 "type": "dcm_project",
@@ -1135,13 +1179,14 @@ class TestDCMTargetFlag:
             project_identifier=FQN.from_string("my_project")
         )
 
+    @mock.patch(DCMManifestLoad)
     @mock.patch(DCMProjectManager)
     @mock.patch(ObjectManager)
-    def test_create_with_target_flag(self, mock_om, mock_pm, runner, project_directory):
-        from snowflake.cli._plugins.dcm.manager import DCMManifest
-
+    def test_create_with_target_flag(
+        self, mock_om, mock_pm, mock_manifest_load, runner, project_directory
+    ):
         mock_om().object_exists.return_value = False
-        mock_pm.load_manifest.return_value = DCMManifest.from_dict(
+        mock_manifest_load.return_value = DCMManifest.from_dict(
             {
                 "manifest_version": "2.0",
                 "type": "dcm_project",

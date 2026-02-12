@@ -11,11 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from dataclasses import dataclass
 from typing import List, Optional
 
 import typer
 from snowflake.cli._plugins.dcm.manager import DCMProjectManager
+from snowflake.cli._plugins.dcm.manifest import (
+    DCMManifest,
+    InvalidManifestError,
+    ManifestConfigurationError,
+    ManifestNotFoundError,
+    TargetContext,
+)
 from snowflake.cli._plugins.dcm.reporters import RefreshReporter, TestReporter
 from snowflake.cli._plugins.dcm.utils import mock_dcm_response
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
@@ -114,14 +120,6 @@ optional_dcm_identifier = typer.Argument(
 )
 
 
-@dataclass
-class TargetContext:
-    """Resolved context from target configuration."""
-
-    project_identifier: FQN
-    configuration: Optional[str] = None
-
-
 def _resolve_target_context(
     identifier: Optional[FQN],
     target: Optional[str],
@@ -132,30 +130,25 @@ def _resolve_target_context(
 
     - If identifier is provided, it takes precedence over target's project_name
     - Configuration is always resolved from target
+
+    Raises:
+        ManifestNotFoundError: When manifest.yml doesn't exist (caller decides handling)
+        CliError: When manifest is invalid or misconfigured
     """
-    effective_target = None
     try:
-        manifest = DCMProjectManager.load_manifest(source_path)
+        manifest = DCMManifest.load(source_path)
         effective_target = manifest.get_effective_target(target)
-    except CliError:
-        # TODO: too complicated
-        if not identifier:
-            if target:
-                raise CliError(
-                    f"Cannot use --target '{target}' without a valid manifest.yml."
-                )
-            raise CliError("No project identifier specified and no manifest.yml found.")
+    except ManifestNotFoundError:
+        raise
+    except (InvalidManifestError, ManifestConfigurationError) as e:
+        raise CliError(str(e))
 
-    # Determine project identifier: explicit identifier takes precedence
-    if identifier:
-        project_id = identifier
-    else:
-        assert effective_target is not None
-        project_id = FQN.from_string(effective_target.project_name)
-
-    config = effective_target.templating_config if effective_target else None
-
-    return TargetContext(project_identifier=project_id, configuration=config)
+    project_id = (
+        identifier if identifier else FQN.from_string(effective_target.project_name)
+    )
+    return TargetContext(
+        project_identifier=project_id, configuration=effective_target.templating_config
+    )
 
 
 add_object_command_aliases(
@@ -190,7 +183,10 @@ def deploy(
     """
     Applies changes defined in DCM Project to Snowflake.
     """
-    context = _resolve_target_context(identifier, target, from_location)
+    try:
+        context = _resolve_target_context(identifier, target, from_location)
+    except ManifestNotFoundError as e:
+        raise CliError(str(e))
     project_id = context.project_identifier
 
     manager = DCMProjectManager()
@@ -226,7 +222,10 @@ def plan(
     """
     Plans a DCM Project deployment (validates without executing).
     """
-    context = _resolve_target_context(identifier, target, from_location)
+    try:
+        context = _resolve_target_context(identifier, target, from_location)
+    except ManifestNotFoundError as e:
+        raise CliError(str(e))
     project_id = context.project_identifier
 
     manager = DCMProjectManager()
@@ -261,7 +260,12 @@ def create(
     """
     Creates a DCM Project in Snowflake.
     """
-    context = _resolve_target_context(identifier, target, from_location)
+    try:
+        context = _resolve_target_context(identifier, target, from_location)
+    except ManifestNotFoundError:
+        if not identifier:
+            raise CliError("No project identifier specified and no manifest.yml found.")
+        context = TargetContext(project_identifier=identifier)
     project_id = context.project_identifier
 
     om = ObjectManager()
@@ -289,7 +293,12 @@ def drop(
     """
     Drops a DCM Project with the given name.
     """
-    context = _resolve_target_context(identifier, target, from_location)
+    try:
+        context = _resolve_target_context(identifier, target, from_location)
+    except ManifestNotFoundError:
+        if not identifier:
+            raise CliError("No project identifier specified and no manifest.yml found.")
+        context = TargetContext(project_identifier=identifier)
     project_id = context.project_identifier
 
     return QueryResult(
@@ -307,7 +316,12 @@ def describe(
     """
     Provides description of a DCM Project.
     """
-    context = _resolve_target_context(identifier, target, from_location)
+    try:
+        context = _resolve_target_context(identifier, target, from_location)
+    except ManifestNotFoundError:
+        if not identifier:
+            raise CliError("No project identifier specified and no manifest.yml found.")
+        context = TargetContext(project_identifier=identifier)
     project_id = context.project_identifier
 
     return QueryResult(ObjectManager().describe(object_type="dcm", fqn=project_id))
@@ -323,7 +337,12 @@ def list_deployments(
     """
     Lists deployments of given DCM Project.
     """
-    context = _resolve_target_context(identifier, target, from_location)
+    try:
+        context = _resolve_target_context(identifier, target, from_location)
+    except ManifestNotFoundError:
+        if not identifier:
+            raise CliError("No project identifier specified and no manifest.yml found.")
+        context = TargetContext(project_identifier=identifier)
     project_id = context.project_identifier
 
     pm = DCMProjectManager()
@@ -350,7 +369,12 @@ def drop_deployment(
     """
     Drops a deployment from the DCM Project.
     """
-    context = _resolve_target_context(identifier, target, from_location)
+    try:
+        context = _resolve_target_context(identifier, target, from_location)
+    except ManifestNotFoundError:
+        if not identifier:
+            raise CliError("No project identifier specified and no manifest.yml found.")
+        context = TargetContext(project_identifier=identifier)
     project_id = context.project_identifier
 
     # Detect potential shell expansion issues
@@ -395,7 +419,10 @@ def preview(
     """
     Returns rows from any table, view, dynamic table.
     """
-    context = _resolve_target_context(identifier, target, from_location)
+    try:
+        context = _resolve_target_context(identifier, target, from_location)
+    except ManifestNotFoundError as e:
+        raise CliError(str(e))
     project_id = context.project_identifier
 
     manager = DCMProjectManager()
@@ -432,7 +459,12 @@ def refresh(
     """
     Refreshes dynamic tables defined in DCM project.
     """
-    context = _resolve_target_context(identifier, target, from_location)
+    try:
+        context = _resolve_target_context(identifier, target, from_location)
+    except ManifestNotFoundError:
+        if not identifier:
+            raise CliError("No project identifier specified and no manifest.yml found.")
+        context = TargetContext(project_identifier=identifier)
     project_id = context.project_identifier
 
     with cli_console.spinner() as spinner:
@@ -454,7 +486,12 @@ def test(
     """
     Tests all expectations defined in DCM project.
     """
-    context = _resolve_target_context(identifier, target, from_location)
+    try:
+        context = _resolve_target_context(identifier, target, from_location)
+    except ManifestNotFoundError:
+        if not identifier:
+            raise CliError("No project identifier specified and no manifest.yml found.")
+        context = TargetContext(project_identifier=identifier)
     project_id = context.project_identifier
 
     with cli_console.spinner() as spinner:

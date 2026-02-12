@@ -4,16 +4,20 @@ from unittest import mock
 import pytest
 import yaml
 from snowflake.cli._plugins.dcm.manager import (
+    SOURCES_FOLDER,
+    DCMProjectManager,
+)
+from snowflake.cli._plugins.dcm.manifest import (
     DCM_PROJECT_TYPE,
     MANIFEST_FILE_NAME,
-    SOURCES_FOLDER,
     DCMManifest,
-    DCMProjectManager,
     DCMTarget,
     DCMTemplating,
+    InvalidManifestError,
+    ManifestConfigurationError,
+    ManifestNotFoundError,
 )
 from snowflake.cli.api.constants import PatternMatchingType
-from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.secure_path import SecurePath
 
@@ -446,7 +450,9 @@ class TestDCMManifest:
         }
         manifest = DCMManifest.from_dict(data)
 
-        with pytest.raises(CliError, match="Target 'UNKNOWN' not found in manifest"):
+        with pytest.raises(
+            ManifestConfigurationError, match="Target 'UNKNOWN' not found in manifest"
+        ):
             manifest.get_target("UNKNOWN")
 
     def test_manifest_get_effective_target_explicit(self):
@@ -492,7 +498,8 @@ class TestDCMManifest:
         manifest = DCMManifest.from_dict(data)
 
         with pytest.raises(
-            CliError, match="No target specified and no default_target defined"
+            ManifestConfigurationError,
+            match="No target specified and no default_target defined",
         ):
             manifest.get_effective_target()
 
@@ -532,7 +539,9 @@ class TestDCMManifest:
         data = {"manifest_version": "2.0", "type": ""}
         manifest = DCMManifest.from_dict(data)
 
-        with pytest.raises(CliError, match="Manifest file type is undefined"):
+        with pytest.raises(
+            InvalidManifestError, match="Manifest file type is undefined"
+        ):
             manifest.validate()
 
     def test_manifest_validate_wrong_type(self):
@@ -540,7 +549,7 @@ class TestDCMManifest:
         manifest = DCMManifest.from_dict(data)
 
         with pytest.raises(
-            CliError, match="Manifest file is defined for type wrong_type"
+            InvalidManifestError, match="Manifest file is defined for type wrong_type"
         ):
             manifest.validate()
 
@@ -549,7 +558,8 @@ class TestDCMManifest:
         manifest = DCMManifest.from_dict(data)
 
         with pytest.raises(
-            CliError, match="Manifest version '1.0' is not supported.*>= 2.0 and < 3.0"
+            InvalidManifestError,
+            match="Manifest version '1.0' is not supported.*>= 2.0 and < 3.0",
         ):
             manifest.validate()
 
@@ -558,7 +568,8 @@ class TestDCMManifest:
         manifest = DCMManifest.from_dict(data)
 
         with pytest.raises(
-            CliError, match="Manifest version '3.0' is not supported.*>= 2.0 and < 3.0"
+            InvalidManifestError,
+            match="Manifest version '3.0' is not supported.*>= 2.0 and < 3.0",
         ):
             manifest.validate()
 
@@ -568,34 +579,8 @@ class TestDCMManifest:
         manifest = DCMManifest.from_dict(data)
         manifest.validate()
 
-    def test_manifest_validate_invalid_default_target(self):
-        data = {
-            "manifest_version": "2.0",
-            "type": "dcm_project",
-            "default_target": "UNKNOWN",
-            "targets": {"DEV": {"project_name": "P1"}},
-        }
-        manifest = DCMManifest.from_dict(data)
-
-        with pytest.raises(
-            CliError, match="Default target 'UNKNOWN' not found in targets"
-        ):
-            manifest.validate()
-
-    def test_manifest_validate_target_missing_project_name(self):
-        data = {
-            "manifest_version": "2.0",
-            "type": "dcm_project",
-            "targets": {"DEV": {}},
-        }
-        manifest = DCMManifest.from_dict(data)
-
-        with pytest.raises(
-            CliError, match="Target 'DEV' is missing required 'project_name' field"
-        ):
-            manifest.validate()
-
-    def test_manifest_validate_target_unknown_configuration(self):
+    def test_manifest_get_target_unknown_configuration(self):
+        """Configuration validation happens when getting target, not during validate()."""
         data = {
             "manifest_version": "2.0",
             "type": "dcm_project",
@@ -603,11 +588,13 @@ class TestDCMManifest:
             "templating": {"configurations": {"dev": {}}},
         }
         manifest = DCMManifest.from_dict(data)
+        manifest.validate()
 
         with pytest.raises(
-            CliError, match="Target 'DEV' references unknown configuration 'unknown'"
+            ManifestConfigurationError,
+            match="Target 'DEV' references unknown configuration 'unknown'",
         ):
-            manifest.validate()
+            manifest.get_target("DEV")
 
 
 class TestDCMTemplating:
@@ -658,60 +645,60 @@ class TestLoadManifest:
         with project_directory("dcm_project") as project_dir:
             (project_dir / MANIFEST_FILE_NAME).unlink()
             with pytest.raises(
-                CliError,
+                ManifestNotFoundError,
                 match=f"{MANIFEST_FILE_NAME} was not found in directory",
             ):
-                DCMProjectManager.load_manifest(SecurePath(project_dir))
+                DCMManifest.load(SecurePath(project_dir))
 
     def test_raises_when_manifest_file_is_empty(self, project_directory):
         with project_directory("dcm_project") as project_dir:
             (project_dir / MANIFEST_FILE_NAME).unlink()
             (project_dir / MANIFEST_FILE_NAME).touch()
             with pytest.raises(
-                CliError,
+                InvalidManifestError,
                 match="Manifest file is empty or invalid",
             ):
-                DCMProjectManager.load_manifest(SecurePath(project_dir))
+                DCMManifest.load(SecurePath(project_dir))
 
     def test_raises_when_manifest_file_has_no_type(self, project_directory):
         with project_directory("dcm_project") as project_dir:
             with open((project_dir / MANIFEST_FILE_NAME), "w") as f:
                 yaml.dump({"manifest_version": "2.0", "definition": "v1"}, f)
             with pytest.raises(
-                CliError,
+                InvalidManifestError,
                 match=f"Manifest file type is undefined. Expected {DCM_PROJECT_TYPE}",
             ):
-                DCMProjectManager.load_manifest(SecurePath(project_dir))
+                DCMManifest.load(SecurePath(project_dir))
 
     def test_raises_when_manifest_file_has_wrong_type(self, project_directory):
         with project_directory("dcm_project") as project_dir:
             with open((project_dir / MANIFEST_FILE_NAME), "w") as f:
                 yaml.dump({"manifest_version": "2.0", "type": "spcs"}, f)
             with pytest.raises(
-                CliError,
+                InvalidManifestError,
                 match=f"Manifest file is defined for type spcs. Expected {DCM_PROJECT_TYPE}",
             ):
-                DCMProjectManager.load_manifest(SecurePath(project_dir))
+                DCMManifest.load(SecurePath(project_dir))
 
     def test_raises_when_manifest_version_is_invalid(self, project_directory):
         with project_directory("dcm_project") as project_dir:
             with open((project_dir / MANIFEST_FILE_NAME), "w") as f:
                 yaml.dump({"manifest_version": "1", "type": "dcm_project"}, f)
             with pytest.raises(
-                CliError,
+                InvalidManifestError,
                 match=r"Manifest version '1' is not supported.*>= 2.0 and < 3.0",
             ):
-                DCMProjectManager.load_manifest(SecurePath(project_dir))
+                DCMManifest.load(SecurePath(project_dir))
 
     def test_raises_when_manifest_version_is_missing(self, project_directory):
         with project_directory("dcm_project") as project_dir:
             with open((project_dir / MANIFEST_FILE_NAME), "w") as f:
                 yaml.dump({"type": "dcm_project"}, f)
             with pytest.raises(
-                CliError,
+                InvalidManifestError,
                 match=r"Manifest version '' is not supported.*>= 2.0 and < 3.0",
             ):
-                DCMProjectManager.load_manifest(SecurePath(project_dir))
+                DCMManifest.load(SecurePath(project_dir))
 
 
 class TestSyncLocalFiles:
