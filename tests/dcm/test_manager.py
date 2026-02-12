@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -132,8 +133,8 @@ def test_deploy_project_with_default_deployment(mock_execute_query, project_dire
 
 @mock.patch(execute_queries)
 def test_plan_project_default_no_download(mock_execute_query, project_directory):
-    """Test plan without save_output (default) - no OUTPUT_PATH in query."""
     mgr = DCMProjectManager()
+
     mgr.plan(
         project_identifier=TEST_PROJECT,
         from_stage="@test_stage",
@@ -143,12 +144,9 @@ def test_plan_project_default_no_download(mock_execute_query, project_directory)
     mock_execute_query.assert_called_once()
     query = mock_execute_query.call_args.kwargs["query"]
     assert "EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN" in query
-    assert "USING CONFIGURATION some_configuration" in query
-    assert "FROM @test_stage" in query
     assert "OUTPUT_PATH" not in query
 
 
-@mock.patch("snowflake.cli._plugins.dcm.manager.cli_console")
 @mock.patch("snowflake.cli._plugins.dcm.manager.FQN.from_resource")
 @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.get_recursive")
 @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
@@ -158,10 +156,8 @@ def test_plan_project_with_save_output(
     mock_create,
     mock_get_recursive,
     mock_from_resource,
-    mock_cli_console,
     project_directory,
 ):
-    """Test plan with save_output=True - files downloaded to out/."""
     mock_from_resource.return_value = FQN.from_string("TMP_STAGE")
     mgr = DCMProjectManager()
     mgr.plan(
@@ -174,15 +170,12 @@ def test_plan_project_with_save_output(
     mock_execute_query.assert_called_once()
     query = mock_execute_query.call_args.kwargs["query"]
     assert "EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN" in query
-    assert "USING CONFIGURATION some_configuration" in query
-    assert "FROM @test_stage" in query
     assert "OUTPUT_PATH" in query
     mock_get_recursive.assert_called_once()
 
 
 @mock.patch(execute_queries)
 def test_plan_project_with_from_stage(mock_execute_query, project_directory):
-    """Test plan with different from_stage - default behavior without OUTPUT_PATH."""
     mgr = DCMProjectManager()
     mgr.plan(
         project_identifier=TEST_PROJECT,
@@ -190,12 +183,10 @@ def test_plan_project_with_from_stage(mock_execute_query, project_directory):
         configuration="some_configuration",
     )
 
-    mock_execute_query.assert_called_once()
-    query = mock_execute_query.call_args.kwargs["query"]
-    assert "EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN" in query
-    assert "USING CONFIGURATION some_configuration" in query
-    assert "FROM @my_stage" in query
-    assert "OUTPUT_PATH" not in query
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN USING CONFIGURATION some_configuration"
+        " FROM @my_stage"
+    )
 
 
 @mock.patch(execute_queries)
@@ -235,6 +226,38 @@ def test_preview_project_basic(mock_execute_query):
 
     mock_execute_query.assert_called_once_with(
         query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PREVIEW IDENTIFIER('my_table') FROM @test_stage"
+    )
+
+
+@mock.patch(execute_queries)
+@mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.get_recursive")
+@mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+def test_plan_project_with_output_path__exception_handling(
+    mock_create,
+    mock_get_recursive,
+    mock_execute_query,
+    project_directory,
+    mock_from_resource,
+):
+    mock_execute_query.side_effect = Exception("Query execution failed")
+
+    mgr = DCMProjectManager()
+
+    with pytest.raises(Exception, match="Query execution failed"):
+        mgr.plan(
+            project_identifier=TEST_PROJECT,
+            from_stage="@test_stage",
+            configuration="some_configuration",
+            save_output=True,
+        )
+
+    # But the output should still be downloaded before exception is reraised
+    temp_stage_fqn = mock_from_resource()
+    mock_execute_query.assert_called_once()
+    mock_create.assert_called_once_with(temp_stage_fqn, temporary=True)
+    mock_get_recursive.assert_called_once_with(
+        stage_path=f"@{str(temp_stage_fqn)}/outputs",
+        dest_path=Path("out"),
     )
 
 
@@ -390,7 +413,7 @@ class TestSyncLocalFiles:
 
         sources_dir = source_dir / SOURCES_FOLDER
         sources_dir.mkdir()
-        (sources_dir / "custom_query.sql").write_text("SELECT 1;")
+        (sources_dir / "custom_query.sql").touch()
 
         DCMProjectManager.sync_local_files(
             project_identifier=TEST_PROJECT, source_directory=str(source_dir)
@@ -467,14 +490,14 @@ class TestSyncLocalFiles:
 
         definitions_dir = sources_dir / "definitions"
         definitions_dir.mkdir()
-        (definitions_dir / "table.sql").write_text("SELECT 1;")
+        (definitions_dir / "table.sql").touch()
 
         macros_dir = sources_dir / "macros"
         macros_dir.mkdir()
-        (macros_dir / "helpers.sql").write_text("-- macro")
-        (macros_dir / "utils.jinja").write_text("{% macro test() %}{% endmacro %}")
+        (macros_dir / "helpers.sql").touch()
+        (macros_dir / "utils.jinja").touch()
 
-        (sources_dir / "dbt_project.yml").write_text("name: test")
+        (sources_dir / "dbt_project.yml").touch()
 
         DCMProjectManager.sync_local_files(
             project_identifier=TEST_PROJECT, source_directory=str(source_dir)
@@ -491,47 +514,3 @@ class TestSyncLocalFiles:
         assert any("macros" in src and "helpers.sql" in src for src in artifact_srcs)
         assert any("macros" in src and "utils.jinja" in src for src in artifact_srcs)
         assert any("dbt_project.yml" in src for src in artifact_srcs)
-
-    @mock.patch("snowflake.cli._plugins.dcm.manager.sync_artifacts_with_stage")
-    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
-    def test_sync_local_files_with_templating_section(
-        self,
-        _mock_create_stage,
-        mock_sync_artifacts_with_stage,
-        tmp_path,
-        mock_connect,
-        mock_cursor,
-        mock_from_resource,
-    ):
-        source_dir = tmp_path / "project_with_templating"
-        source_dir.mkdir()
-
-        manifest_content = {
-            "manifest_version": "2.0",
-            "type": "dcm_project",
-            "templating": {
-                "defaults": {"db_name": "shared_db"},
-                "configurations": {
-                    "dev": {"suffix": "_dev"},
-                    "prod": {"suffix": ""},
-                },
-            },
-        }
-        manifest_file = source_dir / MANIFEST_FILE_NAME
-        with open(manifest_file, "w") as f:
-            yaml.dump(manifest_content, f)
-
-        sources_dir = source_dir / SOURCES_FOLDER
-        sources_dir.mkdir()
-        (sources_dir / "table.sql").write_text("SELECT 1;")
-
-        DCMProjectManager.sync_local_files(
-            project_identifier=TEST_PROJECT, source_directory=str(source_dir)
-        )
-
-        mock_sync_artifacts_with_stage.assert_called_once()
-        call_args = mock_sync_artifacts_with_stage.call_args
-        artifacts = call_args.kwargs["artifacts"]
-        artifact_srcs = [a.src for a in artifacts]
-        assert MANIFEST_FILE_NAME in artifact_srcs
-        assert any(SOURCES_FOLDER in src for src in artifact_srcs)

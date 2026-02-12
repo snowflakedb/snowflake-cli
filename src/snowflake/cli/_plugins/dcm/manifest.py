@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import yaml
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
@@ -153,14 +153,6 @@ class DCMManifest:
             raise ManifestConfigurationError(
                 f"Target '{target.name}' references unknown configuration '{target.templating_config}'."
             )
-
-    def get_configuration_names(self) -> List[str]:
-        """Return list of available configuration names."""
-        return list(self.templating.configurations.keys())
-
-    def get_target_names(self) -> List[str]:
-        """Return list of available target names."""
-        return list(self.targets.keys())
 
     def get_target(self, target_name: str) -> DCMTarget:
         """Get a specific target by name."""

@@ -56,14 +56,14 @@ class DCMProjectManager(SqlExecutionMixin):
         effective_output_path = StagePath.from_stage_str(
             temp_stage_fqn.identifier
         ).joinpath("/outputs")
-        local_output_path = Path(OUTPUT_FOLDER)
+        local_output_path = SecurePath(OUTPUT_FOLDER)
 
         try:
             yield effective_output_path.absolute_path()
         finally:
             stage_manager.get_recursive(
                 stage_path=effective_output_path.absolute_path(),
-                dest_path=local_output_path,
+                dest_path=local_output_path.path,
             )
             cli_console.step(f"Plan output saved to: {local_output_path.resolve()}")
 

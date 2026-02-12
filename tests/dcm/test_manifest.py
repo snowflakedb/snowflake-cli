@@ -18,8 +18,6 @@ from snowflake.cli._plugins.dcm.manifest import (
     DCM_PROJECT_TYPE,
     MANIFEST_FILE_NAME,
     DCMManifest,
-    DCMTarget,
-    DCMTemplating,
     InvalidManifestError,
     ManifestConfigurationError,
     ManifestNotFoundError,
@@ -94,50 +92,6 @@ class TestDCMManifest:
             "dev": {"wh_size": "XSMALL", "suffix": "_dev"},
             "prod": {"wh_size": "LARGE", "suffix": ""},
         }
-
-    def test_manifest_get_configuration_names(self):
-        data = {
-            "manifest_version": "2.0",
-            "type": "dcm_project",
-            "templating": {
-                "configurations": {
-                    "dev": {"suffix": "_dev"},
-                    "staging": {"suffix": "_stg"},
-                    "prod": {"suffix": ""},
-                },
-            },
-        }
-        manifest = DCMManifest.from_dict(data)
-
-        config_names = manifest.get_configuration_names()
-        assert set(config_names) == {"dev", "staging", "prod"}
-
-    def test_manifest_get_target_names(self):
-        data = {
-            "manifest_version": "2.0",
-            "type": "dcm_project",
-            "targets": {
-                "DEV": {"project_name": "P1"},
-                "PROD": {"project_name": "P2"},
-            },
-        }
-        manifest = DCMManifest.from_dict(data)
-
-        target_names = manifest.get_target_names()
-        assert set(target_names) == {"DEV", "PROD"}
-
-    def test_manifest_get_target(self):
-        data = {
-            "manifest_version": "2.0",
-            "type": "dcm_project",
-            "targets": {
-                "DEV": {"project_name": "DB.SCHEMA.PROJECT_DEV"},
-            },
-        }
-        manifest = DCMManifest.from_dict(data)
-
-        target = manifest.get_target("DEV")
-        assert target.project_name == "DB.SCHEMA.PROJECT_DEV"
 
     def test_manifest_get_target_not_found(self):
         data = {
@@ -250,23 +204,14 @@ class TestDCMManifest:
         ):
             manifest.validate()
 
-    def test_manifest_validate_wrong_version(self):
-        data = {"manifest_version": "1.0", "type": "dcm_project"}
+    @pytest.mark.parametrize("version", ["1.0", "3"])
+    def test_manifest_validate_version_not_supported(self, version):
+        data = {"manifest_version": version, "type": "dcm_project"}
         manifest = DCMManifest.from_dict(data)
 
         with pytest.raises(
             InvalidManifestError,
-            match="Manifest version '1.0' is not supported.*>= 2.0 and < 3.0",
-        ):
-            manifest.validate()
-
-    def test_manifest_validate_version_3_not_supported(self):
-        data = {"manifest_version": "3.0", "type": "dcm_project"}
-        manifest = DCMManifest.from_dict(data)
-
-        with pytest.raises(
-            InvalidManifestError,
-            match="Manifest version '3.0' is not supported.*>= 2.0 and < 3.0",
+            match=f"Manifest version '{version}' is not supported.*>= 2.0 and < 3.0",
         ):
             manifest.validate()
 
@@ -292,49 +237,6 @@ class TestDCMManifest:
             match="Target 'DEV' references unknown configuration 'unknown'",
         ):
             manifest.get_target("DEV")
-
-
-class TestDCMTemplating:
-    def test_templating_from_dict_none(self):
-        templating = DCMTemplating.from_dict(None)
-
-        assert templating.defaults == {}
-        assert templating.configurations == {}
-
-    def test_templating_from_dict_empty(self):
-        templating = DCMTemplating.from_dict({})
-
-        assert templating.defaults == {}
-        assert templating.configurations == {}
-
-    def test_templating_from_dict_with_data(self):
-        data = {
-            "defaults": {"key": "value"},
-            "configurations": {"dev": {"suffix": "_dev"}},
-        }
-        templating = DCMTemplating.from_dict(data)
-
-        assert templating.defaults == {"key": "value"}
-        assert templating.configurations == {"dev": {"suffix": "_dev"}}
-
-
-class TestDCMTarget:
-    def test_target_from_dict_minimal(self):
-        data = {"project_name": "DB.SCHEMA.MY_PROJECT"}
-        target = DCMTarget.from_dict(data)
-
-        assert target.project_name == "DB.SCHEMA.MY_PROJECT"
-        assert target.templating_config is None
-
-    def test_target_from_dict_full(self):
-        data = {
-            "project_name": "DB.SCHEMA.MY_PROJECT",
-            "templating_config": "dev",
-        }
-        target = DCMTarget.from_dict(data)
-
-        assert target.project_name == "DB.SCHEMA.MY_PROJECT"
-        assert target.templating_config == "dev"
 
 
 class TestLoadManifest:

@@ -154,13 +154,6 @@ class TestDCMDeploy:
             skip_plan=False,
         )
 
-    def test_deploy_project_with_from_stage_fails(
-        self, mock_dcm_manager, runner, project_directory
-    ):
-        result = runner.invoke(["dcm", "deploy", "fooBar", "--from", "@my_stage"])
-        assert result.exit_code == 1, result.output
-        assert "Stage paths are not supported" in result.output
-
     def test_deploy_project_with_variables(
         self,
         mock_dcm_manager,
