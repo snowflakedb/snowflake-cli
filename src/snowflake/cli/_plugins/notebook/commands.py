@@ -18,6 +18,7 @@ import typer
 from click import UsageError
 from snowflake.cli._plugins.notebook.manager import NotebookManager
 from snowflake.cli._plugins.notebook.notebook_entity_model import NotebookEntityModel
+from snowflake.cli._plugins.notebook.project.commands import app as project_app
 from snowflake.cli._plugins.notebook.types import NotebookStagePath
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.cli_global_context import get_cli_context
@@ -51,6 +52,8 @@ NotebookFile: NotebookStagePath = typer.Option(
     help="Stage path with notebook file. For example `@stage/path/to/notebook.ipynb`",
     show_default=False,
 )
+
+app.add_typer(project_app)
 
 
 @app.command(requires_connection=True)
