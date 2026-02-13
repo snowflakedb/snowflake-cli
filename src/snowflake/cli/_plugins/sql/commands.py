@@ -29,6 +29,7 @@ from snowflake.cli.api.commands.flags import (
 )
 from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.config import get_config_value
 from snowflake.cli.api.exceptions import CliArgumentError
 from snowflake.cli.api.output.types import (
     CommandResult,
@@ -122,10 +123,12 @@ def execute_sql(
         help="Syntax used to resolve variables before passing queries to Snowflake.",
         case_sensitive=False,
     ),
-    no_prompt_exit: bool = typer.Option(
-        False,
+    no_prompt_exit: Optional[bool] = typer.Option(
+        None,
         "--no-prompt-exit",
         help="Do not prompt before exiting.",
+        envvar="SNOWFLAKE_NO_PROMPT_EXIT",
+        show_default=False,
     ),
     **options,
 ) -> CommandResult:
@@ -149,6 +152,9 @@ def execute_sql(
     retain_comments = bool(retain_comments)
     single_transaction = bool(single_transaction)
     std_in = bool(std_in)
+
+    if no_prompt_exit is None:
+        no_prompt_exit = get_config_value("cli", key="no_prompt_exit", default=False)
 
     no_source_provided = not any([query, files, std_in])
     if no_source_provided and not sys.stdin.isatty():
