@@ -126,7 +126,7 @@ def execute_sql(
     no_prompt_exit_repl: Optional[bool] = typer.Option(
         None,
         "--no-prompt-exit-repl",
-        help="Do not prompt before exiting.",
+        help="Do not prompt before exiting the REPL.",
         envvar="SNOWFLAKE_NO_PROMPT_EXIT_REPL",
         show_default=False,
     ),
