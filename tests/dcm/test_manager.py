@@ -34,7 +34,7 @@ TEST_PROJECT = FQN.from_string("my_project")
 @pytest.fixture
 def mock_from_resource():
     with mock.patch(
-        "snowflake.cli._plugins.dbt.manager.FQN.from_resource",
+        "snowflake.cli._plugins.dcm.manager.FQN.from_resource",
         return_value=FQN(
             database="MockDatabase",
             schema="MockSchema",
@@ -155,10 +155,8 @@ def test_plan_project_with_save_output(
     mock_execute_query,
     mock_create,
     mock_get_recursive,
-    mock_from_resource,
     project_directory,
 ):
-    mock_from_resource.return_value = FQN.from_string("TMP_STAGE")
     mgr = DCMProjectManager()
     mgr.plan(
         project_identifier=TEST_PROJECT,
@@ -230,8 +228,8 @@ def test_preview_project_basic(mock_execute_query):
 
 
 @mock.patch(execute_queries)
-@mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.get_recursive")
-@mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.get_recursive")
+@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
 def test_plan_project_with_output_path__exception_handling(
     mock_create,
     mock_get_recursive,

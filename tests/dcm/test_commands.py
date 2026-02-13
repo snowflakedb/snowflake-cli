@@ -35,19 +35,6 @@ def mock_project_exists():
         yield _fixture
 
 
-@pytest.fixture
-def mock_from_resource():
-    with mock.patch(
-        "snowflake.cli._plugins.dbt.manager.FQN.from_resource",
-        return_value=FQN(
-            database="MockDatabase",
-            schema="MockSchema",
-            name="DCM_TEST_PIPELINE_1757333281_OUTPUT_TMP_STAGE",
-        ),
-    ) as _fixture:
-        yield _fixture
-
-
 class TestDCMCreate:
     def test_create(
         self, mock_dcm_manager, mock_object_manager, runner, project_directory
@@ -132,12 +119,11 @@ class TestDCMDeploy:
         project_directory,
         mock_cursor,
         mock_connect,
-        mock_from_resource,
     ):
         mock_dcm_manager().deploy.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
-        mock_dcm_manager().sync_local_files.return_value = mock_from_resource()
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
@@ -148,7 +134,7 @@ class TestDCMDeploy:
         mock_dcm_manager().deploy.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
-            from_stage=mock_from_resource(),
+            from_stage="TMP_STAGE",
             variables=None,
             alias=None,
             skip_plan=False,
@@ -282,12 +268,11 @@ class TestDCMDeploy:
         project_directory,
         mock_cursor,
         mock_connect,
-        mock_from_resource,
     ):
         mock_dcm_manager().deploy.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations",)
         )
-        mock_dcm_manager().sync_local_files.return_value = mock_from_resource()
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
                 "manifest_version": "2.0",
@@ -304,7 +289,7 @@ class TestDCMDeploy:
         mock_dcm_manager().deploy.assert_called_once_with(
             project_identifier=FQN.from_string("my_project"),
             configuration=None,
-            from_stage=mock_from_resource(),
+            from_stage="TMP_STAGE",
             variables=None,
             alias=None,
             skip_plan=False,
@@ -318,12 +303,11 @@ class TestDCMDeploy:
         project_directory,
         mock_cursor,
         mock_connect,
-        mock_from_resource,
     ):
         mock_dcm_manager().deploy.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations",)
         )
-        mock_dcm_manager().sync_local_files.return_value = mock_from_resource()
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
                 "manifest_version": "2.0",
@@ -340,7 +324,7 @@ class TestDCMDeploy:
         mock_dcm_manager().deploy.assert_called_once_with(
             project_identifier=FQN.from_string("my_project"),
             configuration=None,
-            from_stage=mock_from_resource(),
+            from_stage="TMP_STAGE",
             variables=None,
             alias=None,
             skip_plan=False,
@@ -354,14 +338,13 @@ class TestDCMDeploy:
         project_directory,
         mock_cursor,
         mock_connect,
-        mock_from_resource,
     ):
         """When explicit identifier is provided, it overrides target's project_name
         but configuration from target should still be applied."""
         mock_dcm_manager().deploy.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations",)
         )
-        mock_dcm_manager().sync_local_files.return_value = mock_from_resource()
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
                 "manifest_version": "2.0",
@@ -386,7 +369,7 @@ class TestDCMDeploy:
         mock_dcm_manager().deploy.assert_called_once_with(
             project_identifier=FQN.from_string("explicit_project"),
             configuration="dev_config",
-            from_stage=mock_from_resource(),
+            from_stage="TMP_STAGE",
             variables=None,
             alias=None,
             skip_plan=False,
@@ -400,12 +383,11 @@ class TestDCMDeploy:
         project_directory,
         mock_cursor,
         mock_connect,
-        mock_from_resource,
     ):
         mock_dcm_manager().deploy.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations",)
         )
-        mock_dcm_manager().sync_local_files.return_value = mock_from_resource()
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
                 "manifest_version": "2.0",
@@ -428,7 +410,7 @@ class TestDCMDeploy:
         mock_dcm_manager().deploy.assert_called_once_with(
             project_identifier=FQN.from_string("my_project"),
             configuration="dev_config",
-            from_stage=mock_from_resource(),
+            from_stage="TMP_STAGE",
             variables=None,
             alias=None,
             skip_plan=False,
@@ -444,12 +426,11 @@ class TestDCMPlan:
         project_directory,
         mock_cursor,
         mock_connect,
-        mock_from_resource,
     ):
         mock_dcm_manager().plan.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
-        mock_dcm_manager().sync_local_files.return_value = mock_from_resource()
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
@@ -467,7 +448,7 @@ class TestDCMPlan:
         mock_dcm_manager().plan.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
-            from_stage=mock_from_resource(),
+            from_stage="TMP_STAGE",
             variables=["key=value"],
             save_output=False,
         )
@@ -480,12 +461,11 @@ class TestDCMPlan:
         project_directory,
         mock_cursor,
         mock_connect,
-        mock_from_resource,
     ):
         mock_dcm_manager().plan.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
-        mock_dcm_manager().sync_local_files.return_value = mock_from_resource()
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
@@ -502,7 +482,7 @@ class TestDCMPlan:
         mock_dcm_manager().plan.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
-            from_stage=mock_from_resource(),
+            from_stage="TMP_STAGE",
             variables=None,
             save_output=True,
         )
@@ -874,13 +854,12 @@ class TestDCMPreview:
         project_directory,
         mock_cursor,
         mock_connect,
-        mock_from_resource,
     ):
         mock_dcm_manager().preview.return_value = mock_cursor(
             rows=[(1, "Alice", "alice@example.com"), (2, "Bob", "bob@example.com")],
             columns=("id", "name", "email"),
         )
-        mock_dcm_manager().sync_local_files.return_value = mock_from_resource()
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
@@ -894,7 +873,7 @@ class TestDCMPreview:
             project_identifier=FQN.from_string("my_project"),
             object_identifier=FQN.from_string("my_table"),
             configuration=None,
-            from_stage=mock_from_resource(),
+            from_stage="TMP_STAGE",
             variables=None,
             limit=None,
         )
