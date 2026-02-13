@@ -136,11 +136,11 @@ def execute_sql(
         ),
         is_flag=True,
     ),
-    no_prompt_exit: Optional[bool] = typer.Option(
+    no_prompt_exit_repl: Optional[bool] = typer.Option(
         None,
-        "--no-prompt-exit",
+        "--no-prompt-exit-repl",
         help="Do not prompt before exiting.",
-        envvar="SNOWFLAKE_NO_PROMPT_EXIT",
+        envvar="SNOWFLAKE_NO_PROMPT_EXIT_REPL",
         show_default=False,
     ),
     **options,
@@ -167,8 +167,10 @@ def execute_sql(
     std_in = bool(std_in)
     local_only = bool(local_only)
 
-    if no_prompt_exit is None:
-        no_prompt_exit = get_config_value("cli", key="no_prompt_exit", default=False)
+    if no_prompt_exit_repl is None:
+        no_prompt_exit_repl = get_config_value(
+            "cli", key="no_prompt_exit_repl", default=False
+        )
 
     no_source_provided = not any([query, files, std_in])
     if no_source_provided and not sys.stdin.isatty():
@@ -188,7 +190,7 @@ def execute_sql(
             retain_comments=retain_comments,
             template_syntax_config=template_syntax_config,
             local_only=local_only,
-            no_prompt_exit=no_prompt_exit,
+            no_prompt_exit_repl=no_prompt_exit_repl,
         ).run()
         sys.exit(0)
 

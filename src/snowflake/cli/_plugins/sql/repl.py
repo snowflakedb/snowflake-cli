@@ -61,7 +61,7 @@ class Repl:
         retain_comments: bool = False,
         template_syntax_config: SQLTemplateSyntaxConfig = SQLTemplateSyntaxConfig(),
         local_only: bool = False,
-        no_prompt_exit: bool = False,
+        no_prompt_exit_repl: bool = False,
     ):
         """Requires a `SqlManager` instance to execute queries.
 
@@ -75,7 +75,7 @@ class Repl:
         self._retain_comments = retain_comments
         self._template_syntax_config = template_syntax_config
         self._local_only = local_only
-        self._no_prompt_exit = no_prompt_exit
+        self._no_prompt_exit_repl = no_prompt_exit_repl
         self._history = FileHistory(_get_history_file())
         self._lexer = PygmentsLexer(CliLexer)
         self._completer = cli_completer
@@ -266,7 +266,7 @@ class Repl:
             except EOFError:  # a.k.a Ctrl-D
                 log.debug("user interrupted with Ctrl-D")
 
-                if self._no_prompt_exit:
+                if self._no_prompt_exit_repl:
                     raise EOFError
                 elif self.ask_yn("Do you want to leave?"):
                     raise EOFError
