@@ -133,6 +133,42 @@ class JiraClient:
             print(f"❌ Error creating issue: {e}", file=sys.stderr)
             return None
 
+    def transition_to_todo(self, issue_key: str) -> bool:
+        """Transition a newly created issue to TODO status."""
+        try:
+            url = f"{self.base_url}/rest/api/2/issue/{issue_key}/transitions"
+            response = self.session.get(url)
+            if response.status_code != 200:
+                print(
+                    f"    ⚠️  Failed to get transitions: {response.text}",
+                    file=sys.stderr,
+                )
+                return False
+
+            transitions = response.json().get("transitions", [])
+
+            todo_transition = None
+            for trans in transitions:
+                name = trans.get("name", "")
+                if (
+                    "todo" in name.lower()
+                    or "to do" in name.lower()
+                    or "to-do" in name.lower()
+                ):
+                    todo_transition = trans.get("id")
+                    break
+
+            if todo_transition:
+                payload = {"transition": {"id": todo_transition}}
+                response = self.session.post(url, json=payload)
+                return response.status_code in [200, 204]
+            else:
+                print("    ⚠️  Could not find TODO transition", file=sys.stderr)
+                return False
+        except Exception as e:
+            print(f"    ⚠️  Error transitioning to TODO: {e}", file=sys.stderr)
+            return False
+
 
 def process_cves(cves_file: str, parent_key: str, workflow_url: str):
     """Process CVEs and create/update JIRA tickets."""
@@ -266,6 +302,10 @@ _This ticket was automatically created by the Daily CVE Check workflow._"""
         issue_key = jira.create_issue(payload)
         if issue_key:
             print(f"✅ Created JIRA ticket: {issue_key} for {cve_id}")
+            if jira.transition_to_todo(issue_key):
+                print(f"  ✅ Transitioned to TODO status")
+            else:
+                print(f"  ⚠️  Could not transition to TODO (may already be in TODO)")
             created += 1
         else:
             failed += 1

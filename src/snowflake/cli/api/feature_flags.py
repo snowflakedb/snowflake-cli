@@ -75,3 +75,4 @@ class FeatureFlag(FeatureFlagMixin):
     ENFORCE_STRICT_CONFIG_PERMISSIONS = BooleanFlag(
         "ENFORCE_STRICT_CONFIG_PERMISSIONS", False
     )
+    ENABLE_SPCS_BUILD_IMAGE = BooleanFlag("ENABLE_SPCS_BUILD_IMAGE", False)

@@ -21,9 +21,12 @@
 
 ## New additions
 * Added `--in-account` flag to list commands (e.g., `snow object list`, `snow stage list`). This flag allows listing all objects of a given type in the account. Cannot be used together with the `--in` flag.
+* Added **experimental** command `snow spcs service build-image` to build container images using SPCS service. The command uploads local build context to a stage, executes a build job, and streams logs in real-time until completion. This command is experimental and subject to change.
+* Added `--async` flag to `snow spcs service execute-job` command to execute job services asynchronously without waiting for completion.
+* Added `--replicas` parameter to `snow spcs service execute-job` command to specify the number of job replicas to run.
 
 ## Fixes and improvements
-* Updated `snowflake-connector-python` to version 4.2.0.
+* Updated `snowflake-connector-python` to version 4.3.0.
 * all authenticators (including `snowflake-jwt`, `username_password_mfa`, `workload_identity`) are now case-insensitive.
 * Fixed `snow streamlit deploy --prune` failing with incorrect stage path format for streamlit entities using versioned deployment. The `snow://` prefix is now correctly preserved through all stage path operations.
 
