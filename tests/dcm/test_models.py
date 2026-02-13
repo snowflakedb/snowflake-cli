@@ -63,12 +63,12 @@ class TestDCMManifest:
         }
         manifest = DCMManifest.from_dict(data)
 
-        assert manifest.default_target == "DEV"
+        assert manifest.default_target == "dev"
         assert len(manifest.targets) == 2
-        assert manifest.targets["DEV"].project_name == "DB.SCHEMA.PROJECT_DEV"
-        assert manifest.targets["DEV"].templating_config == "dev"
-        assert manifest.targets["PROD"].project_name == "DB.SCHEMA.PROJECT_PROD"
-        assert manifest.targets["PROD"].templating_config == "prod"
+        assert manifest.targets["dev"].project_name == "DB.SCHEMA.PROJECT_DEV"
+        assert manifest.targets["dev"].templating_config == "dev"
+        assert manifest.targets["prod"].project_name == "DB.SCHEMA.PROJECT_PROD"
+        assert manifest.targets["prod"].templating_config == "prod"
 
     def test_manifest_from_dict_with_templating(self):
         data = {
@@ -104,7 +104,7 @@ class TestDCMManifest:
         manifest = DCMManifest.from_dict(data)
 
         with pytest.raises(
-            ManifestConfigurationError, match="Target 'UNKNOWN' not found in manifest"
+            ManifestConfigurationError, match="Target 'unknown' not found in manifest"
         ):
             manifest.get_target("UNKNOWN")
 
@@ -236,7 +236,7 @@ class TestDCMManifest:
 
         with pytest.raises(
             ManifestConfigurationError,
-            match="Target 'DEV' references unknown configuration 'unknown'",
+            match="Target 'dev' references unknown configuration 'unknown'",
         ):
             manifest.get_target("DEV")
 
@@ -297,6 +297,6 @@ class TestLoadManifest:
                 yaml.dump({"type": "dcm_project"}, f)
             with pytest.raises(
                 InvalidManifestError,
-                match=r"Manifest version '' is not supported.*>= 2.0 and < 3.0",
+                match=r"Manifest version is undefined.",
             ):
                 DCMManifest.load(SecurePath(project_dir))

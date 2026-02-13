@@ -65,7 +65,7 @@ class DCMTarget:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "DCMTarget":
         return cls(
-            name=data.get("name", ""),
+            name=data.get("name", "").lower(),
             project_name=data.get("project_name", ""),
             templating_config=data.get("templating_config"),
         )
@@ -85,7 +85,7 @@ class DCMManifest:
     def from_dict(cls, data: Dict[str, Any]) -> "DCMManifest":
         targets_data = data.get("targets", {})
         targets = {
-            name: DCMTarget.from_dict(target_data | {"name": name})
+            name.lower(): DCMTarget.from_dict(target_data | {"name": name})
             for name, target_data in targets_data.items()
         }
 
@@ -97,8 +97,10 @@ class DCMManifest:
 
         return cls(
             manifest_version=str(data.get("manifest_version", "")),
-            project_type=data.get("type", ""),
-            default_target=default_target,
+            project_type=data.get("type", "").lower(),
+            default_target=default_target.lower()
+            if isinstance(default_target, str)
+            else None,
             targets=targets,
             templating=DCMTemplating.from_dict(data.get("templating")),
         )
@@ -133,6 +135,9 @@ class DCMManifest:
                 f"Manifest file is defined for type {self.project_type}. Expected {DCM_PROJECT_TYPE}."
             )
 
+        if not self.manifest_version:
+            raise InvalidManifestError(f"Manifest version is undefined.")
+
         if not _is_valid_manifest_version(self.manifest_version):
             raise InvalidManifestError(
                 f"Manifest version '{self.manifest_version}' is not supported. Expected version >= 2.0 and < 3.0."
@@ -149,6 +154,7 @@ class DCMManifest:
 
     def get_target(self, target_name: str) -> DCMTarget:
         """Get a specific target by name."""
+        target_name = target_name.lower()
         if target_name not in self.targets:
             raise ManifestConfigurationError(
                 f"Target '{target_name}' not found in manifest."
