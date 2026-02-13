@@ -13,7 +13,9 @@
 # limitations under the License.
 
 
+from snowflake.cli._plugins.notebook.project.manager import NotebookProjectManager
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.output.types import QueryResult
 
 app = SnowTyperFactory(
     name="project",
@@ -27,10 +29,11 @@ def create(**options):
     pass
 
 
-@app.command(requires_connection=True)
+@app.command("list", requires_connection=True)
 def list_projects(**options):
     """Lists notebook projects in Snowflake."""
-    pass
+    manager = NotebookProjectManager()
+    return QueryResult(manager.list_projects())
 
 
 @app.command(requires_connection=True)
