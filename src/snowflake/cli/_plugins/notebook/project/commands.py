@@ -13,9 +13,13 @@
 # limitations under the License.
 
 
+from typing import Optional
+
+import typer
+from click import ClickException
 from snowflake.cli._plugins.notebook.project.manager import NotebookProjectManager
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
-from snowflake.cli.api.output.types import QueryResult
+from snowflake.cli.api.output.types import MessageResult, QueryResult
 
 app = SnowTyperFactory(
     name="project",
@@ -23,10 +27,34 @@ app = SnowTyperFactory(
 )
 
 
-@app.command(requires_connection=True)
-def create(**options):
+@app.command("create", requires_connection=True)
+def create(
+    name: str = typer.Argument(
+        None,
+        help="Name of the Snowpark project.",
+        show_default=False,
+    ),
+    source: str = typer.Option(
+        None,
+        "--source",
+        help="Source location of the notebook project. Supports stage path (starting with '@') or workspace path (starting with 'snow://workspace/').",
+        show_default=False,
+    ),
+    comment: Optional[str] = typer.Option(
+        None,
+        "--comment",
+        help="Comment for the notebook project.",
+        show_default=False,
+    ),
+    **options,
+):
     """Creates a notebook project in Snowflake."""
-    pass
+    if not name:
+        raise ClickException("Name is required.")
+    if not source:
+        raise ClickException("Source is required.")
+    manager = NotebookProjectManager()
+    return MessageResult(manager.create(name, source, comment))
 
 
 @app.command("list", requires_connection=True)
