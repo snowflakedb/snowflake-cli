@@ -6,6 +6,7 @@ MACHINE=$(uname -m | tr '[:upper:]' '[:lower:]')
 PLATFORM="${SYSTEM}-${MACHINE}"
 
 echo "--- creating virtualenv ---"
+echo '3.11' > .python-version
 python3.11 -m venv venv
 . venv/bin/activate
 python --version
