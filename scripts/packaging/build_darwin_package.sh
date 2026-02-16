@@ -26,6 +26,7 @@ else
   echo "Unsupported machine: ${MACHINE}"
   exit 1
 fi
+. "$HOME/.cargo/env"
 rustup default stable
 
 
