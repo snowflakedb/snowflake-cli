@@ -30,3 +30,47 @@ class TestNotebookProjectCommands:
         assert "test_project" in result.output
         assert "test_project_2" in result.output
         mock_project_manager.return_value.list_projects.assert_called_once_with()
+
+    @mock.patch(PROJECT_MANAGER)
+    def test_create_project(self, mock_project_manager, runner):
+        mock_project_manager.return_value.create.return_value = (
+            "Project successfully created."
+        )
+        result = runner.invoke(
+            [
+                "notebook",
+                "project",
+                "create",
+                "test_project",
+                "--source",
+                'snow://workspace/"test_workspace"',
+                "--comment",
+                "test comment",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Project successfully created." in result.output
+        mock_project_manager.return_value.create.assert_called_once_with(
+            "test_project", 'snow://workspace/"test_workspace"', "test comment"
+        )
+
+    @mock.patch(PROJECT_MANAGER)
+    def test_create_project_without_comment(self, mock_project_manager, runner):
+        mock_project_manager.return_value.create.return_value = (
+            "Project successfully created."
+        )
+        result = runner.invoke(
+            [
+                "notebook",
+                "project",
+                "create",
+                "test_project",
+                "--source",
+                'snow://workspace/"test_workspace"',
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Project successfully created." in result.output
+        mock_project_manager.return_value.create.assert_called_once_with(
+            "test_project", 'snow://workspace/"test_workspace"', None
+        )
