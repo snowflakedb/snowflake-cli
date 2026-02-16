@@ -35,13 +35,13 @@ from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 
-SEMANTIC_VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+$")
+SEMANTIC_VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+(-[a-zA-Z0-9]+)?$")
 
 
 class SemanticVersionType(click.ParamType):
-    """Custom Click type that validates semantic version format (major.minor.patch)."""
+    """Custom Click type that validates semantic version format (major.minor.patch or major.minor.patch-prerelease)."""
 
-    name = "VERSION"
+    name = "TEXT"
 
     def convert(self, value, param, ctx):
         if value is None:
@@ -50,7 +50,7 @@ class SemanticVersionType(click.ParamType):
             self.fail(f"Expected string, got {type(value).__name__}.", param, ctx)
         if not SEMANTIC_VERSION_PATTERN.match(value):
             self.fail(
-                f"Invalid version format '{value}'. Expected format: major.minor.patch (e.g., '1.9.4').",
+                f"Invalid version format '{value}'. Expected format: major.minor.patch or major.minor.patch-preview (e.g., '1.9.4' or '2.0.0-preview').",
                 param,
                 ctx,
             )
