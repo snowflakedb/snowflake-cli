@@ -32,3 +32,33 @@ class TestNotebookProjectManager:
         assert result.fetchall() == [("test_project",), ("test_project_2",)]
         assert [col.name for col in result.description] == ["name"]
         mock_execute_query.assert_called_once_with("SHOW NOTEBOOK PROJECTS")
+
+    @mock.patch(f"{PROJECT_MANAGER}.execute_query")
+    def test_create_project(self, mock_execute_query, mock_cursor):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[("Project successfully created.",)], columns=["value"]
+        )
+        result = NotebookProjectManager().create(
+            name="test_project",
+            source='snow://workspace/"test_workspace"',
+            comment="test comment",
+        )
+        assert result == "Project successfully created."
+        mock_execute_query.assert_called_once_with(
+            """CREATE NOTEBOOK PROJECT test_project FROM 'snow://workspace/"test_workspace"' COMMENT = 'test comment'"""
+        )
+
+    @mock.patch(f"{PROJECT_MANAGER}.execute_query")
+    def test_create_project_without_comment(self, mock_execute_query, mock_cursor):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[("Project successfully created.",)], columns=["value"]
+        )
+        result = NotebookProjectManager().create(
+            name="test_project",
+            source='snow://workspace/"test_workspace"',
+            comment=None,
+        )
+        assert result == "Project successfully created."
+        mock_execute_query.assert_called_once_with(
+            """CREATE NOTEBOOK PROJECT test_project FROM 'snow://workspace/"test_workspace"'"""
+        )
