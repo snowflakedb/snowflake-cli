@@ -203,11 +203,11 @@ class TestDeploy:
         calls = mock_execute_query.call_args_list
         assert (
             calls[0][0][0]
-            == f"ALTER DBT PROJECT test_project ADD VERSION\nFROM {mock_from_resource()}"
+            == "ALTER DBT PROJECT test_project SET EXTERNAL_ACCESS_INTEGRATIONS=(dbt_hub_integration, google_apis_access_integration)"
         )
         assert (
             calls[1][0][0]
-            == "ALTER DBT PROJECT test_project SET EXTERNAL_ACCESS_INTEGRATIONS=(dbt_hub_integration, google_apis_access_integration)"
+            == f"ALTER DBT PROJECT test_project ADD VERSION\nFROM {mock_from_resource()}"
         )
 
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
@@ -247,11 +247,11 @@ class TestDeploy:
         calls = mock_execute_query.call_args_list
         assert (
             calls[0][0][0]
-            == f"ALTER DBT PROJECT test_project ADD VERSION\nFROM {mock_from_resource()}"
+            == "ALTER DBT PROJECT test_project SET DEFAULT_TARGET='prod', EXTERNAL_ACCESS_INTEGRATIONS=(dbt_hub_integration, google_apis_access_integration)"
         )
         assert (
             calls[1][0][0]
-            == "ALTER DBT PROJECT test_project SET DEFAULT_TARGET='prod', EXTERNAL_ACCESS_INTEGRATIONS=(dbt_hub_integration, google_apis_access_integration)"
+            == f"ALTER DBT PROJECT test_project ADD VERSION\nFROM {mock_from_resource()}"
         )
 
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
@@ -436,11 +436,11 @@ class TestDeploy:
         )
 
         calls = [call.args[0] for call in mock_execute_query.call_args_list]
+        assert "ALTER DBT PROJECT TEST_PIPELINE SET DEFAULT_TARGET='prod'" in calls[0]
         assert (
             f"ALTER DBT PROJECT TEST_PIPELINE ADD VERSION\nFROM {mock_from_resource()}"
-            in calls[0]
+            in calls[1]
         )
-        assert "ALTER DBT PROJECT TEST_PIPELINE SET DEFAULT_TARGET='prod'" in calls[1]
 
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
@@ -502,11 +502,11 @@ class TestDeploy:
         )
 
         calls = [call.args[0] for call in mock_execute_query.call_args_list]
+        assert "ALTER DBT PROJECT TEST_PIPELINE UNSET DEFAULT_TARGET" in calls[0]
         assert (
             f"ALTER DBT PROJECT TEST_PIPELINE ADD VERSION\nFROM {mock_from_resource()}"
-            in calls[0]
+            in calls[1]
         )
-        assert "ALTER DBT PROJECT TEST_PIPELINE UNSET DEFAULT_TARGET" in calls[1]
 
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
@@ -774,11 +774,11 @@ dev
         assert mock_execute_query.call_count == 2
         calls = mock_execute_query.call_args_list
         assert (
-            calls[0][0][0]
-            == f"ALTER DBT PROJECT test_project ADD VERSION\nFROM {mock_from_resource()}"
+            calls[0][0][0] == "ALTER DBT PROJECT test_project SET DBT_VERSION='1.9.0'"
         )
         assert (
-            calls[1][0][0] == "ALTER DBT PROJECT test_project SET DBT_VERSION='1.9.0'"
+            calls[1][0][0]
+            == f"ALTER DBT PROJECT test_project ADD VERSION\nFROM {mock_from_resource()}"
         )
 
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
@@ -811,11 +811,11 @@ dev
         assert mock_execute_query.call_count == 2
         calls = mock_execute_query.call_args_list
         assert (
-            calls[0][0][0]
-            == f"ALTER DBT PROJECT test_project ADD VERSION\nFROM {mock_from_resource()}"
+            calls[0][0][0] == "ALTER DBT PROJECT test_project SET DBT_VERSION='1.9.0'"
         )
         assert (
-            calls[1][0][0] == "ALTER DBT PROJECT test_project SET DBT_VERSION='1.9.0'"
+            calls[1][0][0]
+            == f"ALTER DBT PROJECT test_project ADD VERSION\nFROM {mock_from_resource()}"
         )
 
 

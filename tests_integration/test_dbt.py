@@ -489,8 +489,6 @@ def test_dbt_deploy_with_external_access_integrations(
                 ext_access_integration,
                 "--external-access-integration",
                 second_access_integration,
-                "--default-target",
-                "prod",
             ]
         )
         assert result.exit_code == 0, result.output

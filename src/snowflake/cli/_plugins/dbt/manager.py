@@ -168,10 +168,6 @@ class DBTManager(SqlExecutionMixin):
         dbt_object_attributes: DBTObjectEditableAttributes,
         attrs: DBTDeployAttributes,
     ) -> SnowflakeCursor:
-        query = f"ALTER DBT PROJECT {fqn} ADD VERSION"
-        query += f"\nFROM {stage_name}"
-        result = self.execute_query(query)
-
         set_properties = []
         unset_properties = []
 
@@ -209,6 +205,10 @@ class DBTManager(SqlExecutionMixin):
 
         if set_properties or unset_properties:
             self._execute_property_updates(fqn, set_properties, unset_properties)
+
+        query = f"ALTER DBT PROJECT {fqn} ADD VERSION"
+        query += f"\nFROM {stage_name}"
+        result = self.execute_query(query)
 
         return result
 
