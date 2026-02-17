@@ -65,9 +65,17 @@ def list_projects(**options):
 
 
 @app.command(requires_connection=True)
-def delete(**options):
-    """Deletes a notebook project in Snowflake."""
-    pass
+def drop(
+    name: str = typer.Argument(
+        None, help="Name of the Snowpark project.", show_default=False
+    ),
+    **options,
+):
+    """Drops a notebook project in Snowflake."""
+    if not name:
+        raise ClickException("Name is required.")
+    manager = NotebookProjectManager()
+    return MessageResult(manager.drop(name))
 
 
 @app.command(requires_connection=True)

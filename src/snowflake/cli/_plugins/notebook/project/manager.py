@@ -40,6 +40,13 @@ class NotebookProjectManager(SqlExecutionMixin):
         logger.debug("Result: %s", result)
         return result[0]
 
+    def drop(self, name: str):
+        query = f"DROP NOTEBOOK PROJECT {name}"
+        result = self.execute_query(query).fetchone()
+        logger.info("Drop notebook project %s", name)
+        logger.debug("Result: %s", result)
+        return result[0]
+
     def _quote_string(self, value: str):
         if not (value.startswith("'") and value.endswith("'")):
             value = "'" + value.replace("'", "''") + "'"
