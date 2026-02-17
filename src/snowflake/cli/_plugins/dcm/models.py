@@ -97,7 +97,7 @@ class DCMManifest:
                 f"Manifest version '{data.get('manifest_version')}' is not valid. Expected an integer."
             )
 
-        return cls(
+        manifest = cls(
             manifest_version=manifest_version,
             project_type=data.get("type", "").lower(),
             default_target=default_target.upper()
@@ -106,6 +106,8 @@ class DCMManifest:
             targets=targets,
             templating=DCMTemplating.from_dict(data.get("templating")),
         )
+        manifest.validate()
+        return manifest
 
     @classmethod
     def load(cls, source_path: SecurePath) -> "DCMManifest":
@@ -121,9 +123,7 @@ class DCMManifest:
             if not data:
                 raise InvalidManifestError("Manifest file is empty or invalid.")
 
-            manifest = cls.from_dict(data)
-            manifest.validate()
-            return manifest
+            return cls.from_dict(data)
 
     def validate(self) -> None:
         """Validate the manifest structure."""

@@ -173,8 +173,7 @@ class TestDCMManifest:
 
     def test_manifest_validate_success(self):
         data = {"manifest_version": 2, "type": "dcm_project"}
-        manifest = DCMManifest.from_dict(data)
-        manifest.validate()
+        DCMManifest.from_dict(data)
 
     def test_manifest_validate_with_targets_success(self):
         data = {
@@ -186,37 +185,33 @@ class TestDCMManifest:
             },
             "templating": {"configurations": {"dev": {}}},
         }
-        manifest = DCMManifest.from_dict(data)
-        manifest.validate()
+        DCMManifest.from_dict(data)
 
     def test_manifest_validate_missing_type(self):
         data = {"manifest_version": 2, "type": ""}
-        manifest = DCMManifest.from_dict(data)
 
         with pytest.raises(
             InvalidManifestError, match="Manifest file type is undefined"
         ):
-            manifest.validate()
+            DCMManifest.from_dict(data)
 
     def test_manifest_validate_wrong_type(self):
         data = {"manifest_version": 2, "type": "wrong_type"}
-        manifest = DCMManifest.from_dict(data)
 
         with pytest.raises(
             InvalidManifestError, match="Manifest file is defined for type wrong_type"
         ):
-            manifest.validate()
+            DCMManifest.from_dict(data)
 
     @pytest.mark.parametrize("version", [1, 3])
     def test_manifest_validate_version_not_supported(self, version):
         data = {"manifest_version": version, "type": "dcm_project"}
-        manifest = DCMManifest.from_dict(data)
 
         with pytest.raises(
             InvalidManifestError,
             match=f"Manifest version '{version}' is not supported. Expected version 2.",
         ):
-            manifest.validate()
+            DCMManifest.from_dict(data)
 
     def test_manifest_validate_invalid_version_string(self):
         data = {"manifest_version": "2.0", "type": "dcm_project"}
@@ -228,7 +223,7 @@ class TestDCMManifest:
             DCMManifest.from_dict(data)
 
     def test_manifest_get_target_unknown_configuration(self):
-        """Configuration validation happens when getting target, not during validate()."""
+        """Configuration validation happens when getting target, not during from_dict()."""
         data = {
             "manifest_version": 2,
             "type": "dcm_project",
@@ -236,7 +231,6 @@ class TestDCMManifest:
             "templating": {"configurations": {"dev": {}}},
         }
         manifest = DCMManifest.from_dict(data)
-        manifest.validate()
 
         with pytest.raises(
             ManifestConfigurationError,
