@@ -74,3 +74,13 @@ class TestNotebookProjectCommands:
         mock_project_manager.return_value.create.assert_called_once_with(
             "test_project", 'snow://workspace/"test_workspace"', None
         )
+
+    @mock.patch(PROJECT_MANAGER)
+    def test_drop_project(self, mock_project_manager, runner):
+        mock_project_manager.return_value.drop.return_value = (
+            "Project successfully dropped."
+        )
+        result = runner.invoke(["notebook", "project", "drop", "test_project"])
+        assert result.exit_code == 0, result.output
+        assert "Project successfully dropped." in result.output
+        mock_project_manager.return_value.drop.assert_called_once_with("test_project")

@@ -62,3 +62,12 @@ class TestNotebookProjectManager:
         mock_execute_query.assert_called_once_with(
             """CREATE NOTEBOOK PROJECT test_project FROM 'snow://workspace/"test_workspace"'"""
         )
+
+    @mock.patch(f"{PROJECT_MANAGER}.execute_query")
+    def test_drop_project(self, mock_execute_query, mock_cursor):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[("Project successfully dropped.",)], columns=["value"]
+        )
+        result = NotebookProjectManager().drop(name="test_project")
+        assert result == "Project successfully dropped."
+        mock_execute_query.assert_called_once_with("DROP NOTEBOOK PROJECT test_project")
