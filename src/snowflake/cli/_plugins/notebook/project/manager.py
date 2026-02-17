@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import logging
-from typing import Optional
+from typing import List, Optional
 
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 
@@ -44,6 +44,40 @@ class NotebookProjectManager(SqlExecutionMixin):
         query = f"DROP NOTEBOOK PROJECT {name}"
         result = self.execute_query(query).fetchone()
         logger.info("Drop notebook project %s", name)
+        logger.debug("Result: %s", result)
+        return result[0]
+
+    def execute(
+        self,
+        name: str,
+        arguments: Optional[List[str]],
+        main_file: str,
+        compute_pool: str,
+        query_warehouse: str,
+        runtime: str,
+        requirements_file: Optional[str],
+        external_access_integrations: Optional[List[str]],
+    ):
+        query_parts = [
+            f"EXECUTE NOTEBOOK PROJECT {name}",
+            f"MAIN_FILE = {self._quote_string(main_file)}",
+            f"COMPUTE_POOL = {self._quote_string(compute_pool)}",
+            f"QUERY_WAREHOUSE = {self._quote_string(query_warehouse)}",
+            f"RUNTIME = {self._quote_string(runtime)}",
+        ]
+        if requirements_file:
+            query_parts.append(
+                f"REQUIREMENTS_FILE = {self._quote_string(requirements_file)}"
+            )
+        if external_access_integrations:
+            eais = []
+            for integration in external_access_integrations:
+                eais.append(self._quote_string(integration))
+            query_parts.append(f"EXTERNAL_ACCESS_INTEGRATIONS = ({','.join(eais)})")
+        if arguments:
+            query_parts.append(f"ARGUMENTS = {self._quote_string(' '.join(arguments))}")
+        result = self.execute_query(" ".join(query_parts)).fetchone()
+        logger.info("Executed notebook project %s", name)
         logger.debug("Result: %s", result)
         return result[0]
 

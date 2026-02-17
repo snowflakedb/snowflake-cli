@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-from typing import Optional
+from typing import List, Optional
 
 import typer
 from click import ClickException
@@ -67,7 +67,7 @@ def list_projects(**options):
 @app.command(requires_connection=True)
 def drop(
     name: str = typer.Argument(
-        None, help="Name of the Snowpark project.", show_default=False
+        None, help="Name of the notebook project.", show_default=False
     ),
     **options,
 ):
@@ -79,6 +79,75 @@ def drop(
 
 
 @app.command(requires_connection=True)
-def execute(**options):
+def execute(
+    name: str = typer.Argument(
+        None, help="Name of the notebook project.", show_default=False
+    ),
+    arguments: Optional[List[str]] = typer.Argument(
+        None,
+        metavar="ARGUMENTS",
+        help="Arguments to pass to the notebook project.",
+        show_default=False,
+    ),
+    main_file: str = typer.Option(
+        None,
+        "--main-file",
+        help="Main file of the notebook project.",
+        show_default=False,
+    ),
+    compute_pool: str = typer.Option(
+        None,
+        "--compute-pool",
+        help="Compute pool to run the notebook project on.",
+        show_default=False,
+    ),
+    query_warehouse: str = typer.Option(
+        None,
+        "--query-warehouse",
+        help="Query warehouse to run the notebook project on.",
+        show_default=False,
+    ),
+    runtime: str = typer.Option(
+        None,
+        "--runtime",
+        help="Runtime to run the notebook project on.",
+        show_default=False,
+    ),
+    requirements_file: Optional[str] = typer.Option(
+        None,
+        "--requirements-file",
+        help="Requirements file to use for the notebook project.",
+        show_default=False,
+    ),
+    external_access_integrations: Optional[List[str]] = typer.Option(
+        None,
+        "--external-access-integrations",
+        help="External access integrations to use for the notebook project.",
+        show_default=False,
+    ),
+    **options,
+):
     """Executes a notebook project in Snowflake."""
-    pass
+    if not name:
+        raise ClickException("Name is required.")
+    if not main_file:
+        raise ClickException("Main file is required.")
+    if not compute_pool:
+        raise ClickException("Compute pool is required.")
+    if not query_warehouse:
+        raise ClickException("Query warehouse is required.")
+    if not runtime:
+        raise ClickException("Runtime is required.")
+    manager = NotebookProjectManager()
+    return MessageResult(
+        manager.execute(
+            name,
+            arguments,
+            main_file,
+            compute_pool,
+            query_warehouse,
+            runtime,
+            requirements_file,
+            external_access_integrations,
+        )
+    )

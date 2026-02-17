@@ -71,3 +71,138 @@ class TestNotebookProjectManager:
         result = NotebookProjectManager().drop(name="test_project")
         assert result == "Project successfully dropped."
         mock_execute_query.assert_called_once_with("DROP NOTEBOOK PROJECT test_project")
+
+    @mock.patch(f"{PROJECT_MANAGER}.execute_query")
+    def test_execute_project_with_all_params(self, mock_execute_query, mock_cursor):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[("Project successfully executed.",)], columns=["value"]
+        )
+        result = NotebookProjectManager().execute(
+            name="test_project",
+            arguments=["arg1", "arg2"],
+            main_file="main_file.ipynb",
+            compute_pool="compute_pool",
+            query_warehouse="query_warehouse",
+            runtime="runtime",
+            requirements_file="requirements.txt",
+            external_access_integrations=["integration1", "integration2"],
+        )
+        assert result == "Project successfully executed."
+        mock_execute_query.assert_called_once_with(
+            "EXECUTE NOTEBOOK PROJECT test_project "
+            "MAIN_FILE = 'main_file.ipynb' "
+            "COMPUTE_POOL = 'compute_pool' "
+            "QUERY_WAREHOUSE = 'query_warehouse' "
+            "RUNTIME = 'runtime' "
+            "REQUIREMENTS_FILE = 'requirements.txt' "
+            "EXTERNAL_ACCESS_INTEGRATIONS = ('integration1','integration2') "
+            "ARGUMENTS = 'arg1 arg2'"
+        )
+
+    @mock.patch(f"{PROJECT_MANAGER}.execute_query")
+    def test_execute_project_without_arguments(self, mock_execute_query, mock_cursor):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[("Project successfully executed.",)], columns=["value"]
+        )
+        result = NotebookProjectManager().execute(
+            name="test_project",
+            arguments=None,
+            main_file="main_file.ipynb",
+            compute_pool="compute_pool",
+            query_warehouse="query_warehouse",
+            runtime="runtime",
+            requirements_file="requirements.txt",
+            external_access_integrations=["integration1"],
+        )
+        assert result == "Project successfully executed."
+        mock_execute_query.assert_called_once_with(
+            "EXECUTE NOTEBOOK PROJECT test_project "
+            "MAIN_FILE = 'main_file.ipynb' "
+            "COMPUTE_POOL = 'compute_pool' "
+            "QUERY_WAREHOUSE = 'query_warehouse' "
+            "RUNTIME = 'runtime' "
+            "REQUIREMENTS_FILE = 'requirements.txt' "
+            "EXTERNAL_ACCESS_INTEGRATIONS = ('integration1')"
+        )
+
+    @mock.patch(f"{PROJECT_MANAGER}.execute_query")
+    def test_execute_project_without_requirements_file(
+        self, mock_execute_query, mock_cursor
+    ):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[("Project successfully executed.",)], columns=["value"]
+        )
+        result = NotebookProjectManager().execute(
+            name="test_project",
+            arguments=["arg1"],
+            main_file="main_file.ipynb",
+            compute_pool="compute_pool",
+            query_warehouse="query_warehouse",
+            runtime="runtime",
+            requirements_file=None,
+            external_access_integrations=["integration1"],
+        )
+        assert result == "Project successfully executed."
+        mock_execute_query.assert_called_once_with(
+            "EXECUTE NOTEBOOK PROJECT test_project "
+            "MAIN_FILE = 'main_file.ipynb' "
+            "COMPUTE_POOL = 'compute_pool' "
+            "QUERY_WAREHOUSE = 'query_warehouse' "
+            "RUNTIME = 'runtime' "
+            "EXTERNAL_ACCESS_INTEGRATIONS = ('integration1') "
+            "ARGUMENTS = 'arg1'"
+        )
+
+    @mock.patch(f"{PROJECT_MANAGER}.execute_query")
+    def test_execute_project_without_external_access_integrations(
+        self, mock_execute_query, mock_cursor
+    ):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[("Project successfully executed.",)], columns=["value"]
+        )
+        result = NotebookProjectManager().execute(
+            name="test_project",
+            arguments=["arg1", "arg2"],
+            main_file="main_file.ipynb",
+            compute_pool="compute_pool",
+            query_warehouse="query_warehouse",
+            runtime="runtime",
+            requirements_file="requirements.txt",
+            external_access_integrations=None,
+        )
+        assert result == "Project successfully executed."
+        mock_execute_query.assert_called_once_with(
+            "EXECUTE NOTEBOOK PROJECT test_project "
+            "MAIN_FILE = 'main_file.ipynb' "
+            "COMPUTE_POOL = 'compute_pool' "
+            "QUERY_WAREHOUSE = 'query_warehouse' "
+            "RUNTIME = 'runtime' "
+            "REQUIREMENTS_FILE = 'requirements.txt' "
+            "ARGUMENTS = 'arg1 arg2'"
+        )
+
+    @mock.patch(f"{PROJECT_MANAGER}.execute_query")
+    def test_execute_project_with_only_required_params(
+        self, mock_execute_query, mock_cursor
+    ):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[("Project successfully executed.",)], columns=["value"]
+        )
+        result = NotebookProjectManager().execute(
+            name="test_project",
+            arguments=None,
+            main_file="main_file.ipynb",
+            compute_pool="compute_pool",
+            query_warehouse="query_warehouse",
+            runtime="runtime",
+            requirements_file=None,
+            external_access_integrations=None,
+        )
+        assert result == "Project successfully executed."
+        mock_execute_query.assert_called_once_with(
+            "EXECUTE NOTEBOOK PROJECT test_project "
+            "MAIN_FILE = 'main_file.ipynb' "
+            "COMPUTE_POOL = 'compute_pool' "
+            "QUERY_WAREHOUSE = 'query_warehouse' "
+            "RUNTIME = 'runtime'"
+        )
