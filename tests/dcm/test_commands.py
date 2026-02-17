@@ -83,7 +83,7 @@ class TestDCMCreate:
         mock_object_manager().object_exists.return_value = False
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
-                "manifest_version": "2.0",
+                "manifest_version": 2,
                 "type": "dcm_project",
                 "targets": {"dev": {"project_name": "my_project"}},
             }
@@ -102,7 +102,7 @@ def _manifest_without_config():
     """Helper to create a manifest with target that has no templating_config."""
     return DCMManifest.from_dict(
         {
-            "manifest_version": "2.0",
+            "manifest_version": 2,
             "type": "dcm_project",
             "default_target": "dev",
             "targets": {"dev": {"project_name": "ignored"}},
@@ -275,7 +275,7 @@ class TestDCMDeploy:
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
-                "manifest_version": "2.0",
+                "manifest_version": 2,
                 "type": "dcm_project",
                 "default_target": "dev",
                 "targets": {"dev": {"project_name": "my_project"}},
@@ -310,7 +310,7 @@ class TestDCMDeploy:
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
-                "manifest_version": "2.0",
+                "manifest_version": 2,
                 "type": "dcm_project",
                 "default_target": "dev",
                 "targets": {"dev": {"project_name": "my_project"}},
@@ -347,7 +347,7 @@ class TestDCMDeploy:
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
-                "manifest_version": "2.0",
+                "manifest_version": 2,
                 "type": "dcm_project",
                 "default_target": "dev",
                 "targets": {
@@ -390,7 +390,7 @@ class TestDCMDeploy:
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
-                "manifest_version": "2.0",
+                "manifest_version": 2,
                 "type": "dcm_project",
                 "default_target": "dev",
                 "targets": {
@@ -666,7 +666,7 @@ class TestDCMListDeployments:
         )
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
-                "manifest_version": "2.0",
+                "manifest_version": 2,
                 "type": "dcm_project",
                 "targets": {"dev": {"project_name": "my_project"}},
             }
@@ -772,7 +772,7 @@ class TestDCMDrop:
         )
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
-                "manifest_version": "2.0",
+                "manifest_version": 2,
                 "type": "dcm_project",
                 "targets": {"dev": {"project_name": "my_project"}},
             }
@@ -829,7 +829,7 @@ class TestDCMDescribe:
         )
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
-                "manifest_version": "2.0",
+                "manifest_version": 2,
                 "type": "dcm_project",
                 "targets": {"dev": {"project_name": "my_project"}},
             }
@@ -1045,7 +1045,7 @@ class TestDCMRefresh:
         )
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
-                "manifest_version": "2.0",
+                "manifest_version": 2,
                 "type": "dcm_project",
                 "targets": {"dev": {"project_name": "my_project"}},
             }
@@ -1148,7 +1148,7 @@ class TestDCMTest:
         )
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
-                "manifest_version": "2.0",
+                "manifest_version": 2,
                 "type": "dcm_project",
                 "targets": {"dev": {"project_name": "my_project"}},
             }

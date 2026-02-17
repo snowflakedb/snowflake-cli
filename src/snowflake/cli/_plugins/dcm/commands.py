@@ -131,14 +131,11 @@ def _resolve_target_context(
     - Configuration is always resolved from target
 
     Raises:
-        ManifestNotFoundError: When manifest.yml doesn't exist (caller decides handling)
         CliError: When manifest is invalid or misconfigured
     """
     try:
         manifest = DCMManifest.load(source_path)
         effective_target = manifest.get_effective_target(target)
-    except ManifestNotFoundError:
-        raise
     except (InvalidManifestError, ManifestConfigurationError) as e:
         raise CliError(str(e))
 
@@ -167,7 +164,13 @@ def _resolve_context_with_optional_manifest(
         context = _resolve_target_context(identifier, target, from_location)
     except ManifestNotFoundError:
         if not identifier:
-            raise CliError("No project identifier specified and no manifest.yml found.")
+            raise CliError(
+                "No manifest.yml found. Please provide a project identifier or create a manifest.yml file."
+            )
+        if target:
+            raise CliError(
+                f"Cannot use --target '{target}' without a valid manifest.yml."
+            )
         context = TargetContext(project_identifier=identifier)
     return context
 

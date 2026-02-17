@@ -26,15 +26,7 @@ from snowflake.cli.api.secure_path import SecurePath
 
 MANIFEST_FILE_NAME = "manifest.yml"
 DCM_PROJECT_TYPE = "dcm_project"
-
-
-def _is_valid_manifest_version(version: str) -> bool:
-    """Check if manifest version is valid (>= 2.0 and < 3.0)."""
-    try:
-        v = float(version)
-        return 2.0 <= v < 3.0
-    except ValueError:
-        return False
+SUPPORTED_MANIFEST_VERSION = 2
 
 
 @dataclass
@@ -65,7 +57,7 @@ class DCMTarget:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "DCMTarget":
         return cls(
-            name=data.get("name", "").lower(),
+            name=data.get("name", "").upper(),
             project_name=data.get("project_name", ""),
             templating_config=data.get("templating_config"),
         )
@@ -75,7 +67,7 @@ class DCMTarget:
 class DCMManifest:
     """DCM manifest v2 structure."""
 
-    manifest_version: str
+    manifest_version: int
     project_type: str
     default_target: Optional[str] = None
     targets: Dict[str, DCMTarget] = field(default_factory=dict)
@@ -85,7 +77,7 @@ class DCMManifest:
     def from_dict(cls, data: Dict[str, Any]) -> "DCMManifest":
         targets_data = data.get("targets", {})
         targets = {
-            name.lower(): DCMTarget.from_dict(target_data | {"name": name})
+            name.upper(): DCMTarget.from_dict(target_data | {"name": name.upper()})
             for name, target_data in targets_data.items()
         }
 
@@ -95,10 +87,20 @@ class DCMManifest:
         if default_target is None and len(targets) == 1:
             default_target = next(iter(targets.keys()))
 
+        manifest_version = data.get("manifest_version")
+        if manifest_version is None:
+            raise InvalidManifestError("Manifest version is undefined.")
+        try:
+            manifest_version = int(manifest_version)
+        except (ValueError, TypeError):
+            raise InvalidManifestError(
+                f"Manifest version '{data.get('manifest_version')}' is not valid. Expected an integer."
+            )
+
         return cls(
-            manifest_version=str(data.get("manifest_version", "")),
+            manifest_version=manifest_version,
             project_type=data.get("type", "").lower(),
-            default_target=default_target.lower()
+            default_target=default_target.upper()
             if isinstance(default_target, str)
             else None,
             targets=targets,
@@ -135,15 +137,12 @@ class DCMManifest:
                 f"Manifest file is defined for type {self.project_type}. Expected {DCM_PROJECT_TYPE}."
             )
 
-        if not self.manifest_version:
-            raise InvalidManifestError(f"Manifest version is undefined.")
-
-        if not _is_valid_manifest_version(self.manifest_version):
+        if self.manifest_version != SUPPORTED_MANIFEST_VERSION:
             raise InvalidManifestError(
-                f"Manifest version '{self.manifest_version}' is not supported. Expected version >= 2.0 and < 3.0."
+                f"Manifest version '{self.manifest_version}' is not supported. Expected version {SUPPORTED_MANIFEST_VERSION}."
             )
 
-    def validate_target_configuration_exists(self, target: DCMTarget):
+    def _validate_target_configuration_exists(self, target: DCMTarget):
         if (
             target.templating_config
             and target.templating_config not in self.templating.configurations
@@ -154,13 +153,13 @@ class DCMManifest:
 
     def get_target(self, target_name: str) -> DCMTarget:
         """Get a specific target by name."""
-        target_name = target_name.lower()
+        target_name = target_name.upper()
         if target_name not in self.targets:
             raise ManifestConfigurationError(
                 f"Target '{target_name}' not found in manifest."
             )
         target = self.targets[target_name]
-        self.validate_target_configuration_exists(target)
+        self._validate_target_configuration_exists(target)
         return target
 
     def get_effective_target(self, target_name: Optional[str] = None) -> DCMTarget:

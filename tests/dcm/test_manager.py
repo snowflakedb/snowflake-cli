@@ -402,7 +402,7 @@ class TestSyncLocalFiles:
         source_dir.mkdir()
 
         manifest_content = {
-            "manifest_version": "2.0",
+            "manifest_version": 2,
             "type": "dcm_project",
         }
         manifest_file = source_dir / MANIFEST_FILE_NAME
@@ -445,7 +445,7 @@ class TestSyncLocalFiles:
 
         manifest_file = source_dir / MANIFEST_FILE_NAME
         with open(manifest_file, "w") as f:
-            yaml.dump({"manifest_version": "2.0", "type": "dcm_project"}, f)
+            yaml.dump({"manifest_version": 2, "type": "dcm_project"}, f)
 
         original_cwd = os.getcwd()
         try:
@@ -481,7 +481,7 @@ class TestSyncLocalFiles:
 
         manifest_file = source_dir / MANIFEST_FILE_NAME
         with open(manifest_file, "w") as f:
-            yaml.dump({"manifest_version": "2.0", "type": "dcm_project"}, f)
+            yaml.dump({"manifest_version": 2, "type": "dcm_project"}, f)
 
         sources_dir = source_dir / SOURCES_FOLDER
         sources_dir.mkdir()

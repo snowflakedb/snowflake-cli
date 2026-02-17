@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import pytest
 import yaml
 from snowflake.cli._plugins.dcm.exceptions import (
@@ -29,10 +30,10 @@ from snowflake.cli.api.secure_path import SecurePath
 
 class TestDCMManifest:
     def test_manifest_from_dict_minimal(self):
-        data = {"manifest_version": "2.0", "type": "dcm_project"}
+        data = {"manifest_version": 2, "type": "dcm_project"}
         manifest = DCMManifest.from_dict(data)
 
-        assert manifest.manifest_version == "2.0"
+        assert manifest.manifest_version == 2
         assert manifest.project_type == "dcm_project"
         assert manifest.default_target is None
         assert manifest.targets == {}
@@ -41,7 +42,7 @@ class TestDCMManifest:
 
     def test_manifest_from_dict_with_targets(self):
         data = {
-            "manifest_version": "2.0",
+            "manifest_version": 2,
             "type": "dcm_project",
             "default_target": "DEV",
             "targets": {
@@ -63,16 +64,16 @@ class TestDCMManifest:
         }
         manifest = DCMManifest.from_dict(data)
 
-        assert manifest.default_target == "dev"
+        assert manifest.default_target == "DEV"
         assert len(manifest.targets) == 2
-        assert manifest.targets["dev"].project_name == "DB.SCHEMA.PROJECT_DEV"
-        assert manifest.targets["dev"].templating_config == "dev"
-        assert manifest.targets["prod"].project_name == "DB.SCHEMA.PROJECT_PROD"
-        assert manifest.targets["prod"].templating_config == "prod"
+        assert manifest.targets["DEV"].project_name == "DB.SCHEMA.PROJECT_DEV"
+        assert manifest.targets["DEV"].templating_config == "dev"
+        assert manifest.targets["PROD"].project_name == "DB.SCHEMA.PROJECT_PROD"
+        assert manifest.targets["PROD"].templating_config == "prod"
 
     def test_manifest_from_dict_with_templating(self):
         data = {
-            "manifest_version": "2.0",
+            "manifest_version": 2,
             "type": "dcm_project",
             "templating": {
                 "defaults": {"db_name": "shared_db", "retry_count": 3},
@@ -84,7 +85,7 @@ class TestDCMManifest:
         }
         manifest = DCMManifest.from_dict(data)
 
-        assert manifest.manifest_version == "2.0"
+        assert manifest.manifest_version == 2
         assert manifest.project_type == "dcm_project"
         assert manifest.templating.defaults == {
             "db_name": "shared_db",
@@ -97,20 +98,20 @@ class TestDCMManifest:
 
     def test_manifest_get_target_not_found(self):
         data = {
-            "manifest_version": "2.0",
+            "manifest_version": 2,
             "type": "dcm_project",
             "targets": {},
         }
         manifest = DCMManifest.from_dict(data)
 
         with pytest.raises(
-            ManifestConfigurationError, match="Target 'unknown' not found in manifest"
+            ManifestConfigurationError, match="Target 'UNKNOWN' not found in manifest"
         ):
             manifest.get_target("UNKNOWN")
 
     def test_manifest_get_effective_target_explicit(self):
         data = {
-            "manifest_version": "2.0",
+            "manifest_version": 2,
             "type": "dcm_project",
             "default_target": "DEV",
             "targets": {
@@ -125,7 +126,7 @@ class TestDCMManifest:
 
     def test_manifest_get_effective_target_uses_default(self):
         data = {
-            "manifest_version": "2.0",
+            "manifest_version": 2,
             "type": "dcm_project",
             "default_target": "DEV",
             "targets": {
@@ -141,7 +142,7 @@ class TestDCMManifest:
     def test_manifest_get_effective_target_no_default(self):
         """When multiple targets exist and no default_target is defined, should raise error."""
         data = {
-            "manifest_version": "2.0",
+            "manifest_version": 2,
             "type": "dcm_project",
             "targets": {
                 "DEV": {"project_name": "P1"},
@@ -159,7 +160,7 @@ class TestDCMManifest:
     def test_manifest_single_target_auto_default(self):
         """When only one target exists and no default_target is defined, it should be auto-selected."""
         data = {
-            "manifest_version": "2.0",
+            "manifest_version": 2,
             "type": "dcm_project",
             "targets": {
                 "DEV": {"project_name": "P1"},
@@ -171,13 +172,13 @@ class TestDCMManifest:
         assert target.project_name == "P1"
 
     def test_manifest_validate_success(self):
-        data = {"manifest_version": "2.0", "type": "dcm_project"}
+        data = {"manifest_version": 2, "type": "dcm_project"}
         manifest = DCMManifest.from_dict(data)
         manifest.validate()
 
     def test_manifest_validate_with_targets_success(self):
         data = {
-            "manifest_version": "2.0",
+            "manifest_version": 2,
             "type": "dcm_project",
             "default_target": "DEV",
             "targets": {
@@ -189,7 +190,7 @@ class TestDCMManifest:
         manifest.validate()
 
     def test_manifest_validate_missing_type(self):
-        data = {"manifest_version": "2.0", "type": ""}
+        data = {"manifest_version": 2, "type": ""}
         manifest = DCMManifest.from_dict(data)
 
         with pytest.raises(
@@ -198,7 +199,7 @@ class TestDCMManifest:
             manifest.validate()
 
     def test_manifest_validate_wrong_type(self):
-        data = {"manifest_version": "2.0", "type": "wrong_type"}
+        data = {"manifest_version": 2, "type": "wrong_type"}
         manifest = DCMManifest.from_dict(data)
 
         with pytest.raises(
@@ -206,27 +207,30 @@ class TestDCMManifest:
         ):
             manifest.validate()
 
-    @pytest.mark.parametrize("version", ["1.0", "3"])
+    @pytest.mark.parametrize("version", [1, 3])
     def test_manifest_validate_version_not_supported(self, version):
         data = {"manifest_version": version, "type": "dcm_project"}
         manifest = DCMManifest.from_dict(data)
 
         with pytest.raises(
             InvalidManifestError,
-            match=f"Manifest version '{version}' is not supported.*>= 2.0 and < 3.0",
+            match=f"Manifest version '{version}' is not supported. Expected version 2.",
         ):
             manifest.validate()
 
-    @pytest.mark.parametrize("version", ["2", "2.0", "2.1", "2.5", "2.99"])
-    def test_manifest_validate_valid_versions(self, version):
-        data = {"manifest_version": version, "type": "dcm_project"}
-        manifest = DCMManifest.from_dict(data)
-        manifest.validate()
+    def test_manifest_validate_invalid_version_string(self):
+        data = {"manifest_version": "2.0", "type": "dcm_project"}
+
+        with pytest.raises(
+            InvalidManifestError,
+            match="Manifest version '2.0' is not valid. Expected an integer.",
+        ):
+            DCMManifest.from_dict(data)
 
     def test_manifest_get_target_unknown_configuration(self):
         """Configuration validation happens when getting target, not during validate()."""
         data = {
-            "manifest_version": "2.0",
+            "manifest_version": 2,
             "type": "dcm_project",
             "targets": {"DEV": {"project_name": "P1", "templating_config": "unknown"}},
             "templating": {"configurations": {"dev": {}}},
@@ -236,7 +240,7 @@ class TestDCMManifest:
 
         with pytest.raises(
             ManifestConfigurationError,
-            match="Target 'dev' references unknown configuration 'unknown'",
+            match="Target 'DEV' references unknown configuration 'unknown'",
         ):
             manifest.get_target("DEV")
 
@@ -264,7 +268,7 @@ class TestLoadManifest:
     def test_raises_when_manifest_file_has_no_type(self, project_directory):
         with project_directory("dcm_project") as project_dir:
             with open((project_dir / MANIFEST_FILE_NAME), "w") as f:
-                yaml.dump({"manifest_version": "2.0", "definition": "v1"}, f)
+                yaml.dump({"manifest_version": 2, "definition": "v1"}, f)
             with pytest.raises(
                 InvalidManifestError,
                 match=f"Manifest file type is undefined. Expected {DCM_PROJECT_TYPE}",
@@ -274,7 +278,7 @@ class TestLoadManifest:
     def test_raises_when_manifest_file_has_wrong_type(self, project_directory):
         with project_directory("dcm_project") as project_dir:
             with open((project_dir / MANIFEST_FILE_NAME), "w") as f:
-                yaml.dump({"manifest_version": "2.0", "type": "spcs"}, f)
+                yaml.dump({"manifest_version": 2, "type": "spcs"}, f)
             with pytest.raises(
                 InvalidManifestError,
                 match=f"Manifest file is defined for type spcs. Expected {DCM_PROJECT_TYPE}",
@@ -284,10 +288,10 @@ class TestLoadManifest:
     def test_raises_when_manifest_version_is_invalid(self, project_directory):
         with project_directory("dcm_project") as project_dir:
             with open((project_dir / MANIFEST_FILE_NAME), "w") as f:
-                yaml.dump({"manifest_version": "1", "type": "dcm_project"}, f)
+                yaml.dump({"manifest_version": 1, "type": "dcm_project"}, f)
             with pytest.raises(
                 InvalidManifestError,
-                match=r"Manifest version '1' is not supported.*>= 2.0 and < 3.0",
+                match=r"Manifest version '1' is not supported. Expected version 2.",
             ):
                 DCMManifest.load(SecurePath(project_dir))
 

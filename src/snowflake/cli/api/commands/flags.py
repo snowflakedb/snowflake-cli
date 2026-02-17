@@ -718,7 +718,9 @@ class LocalDirectoryType(click.ParamType):
 
     name = "PATH"
 
-    def convert(self, value, param, ctx) -> SecurePath:
+    def convert(
+        self, value: str, param: click.Parameter | None, ctx: click.Context | None
+    ) -> SecurePath:
         if is_stage_path(value):
             raise CliArgumentError(
                 "Stage paths are not supported. Please provide a local directory path."
