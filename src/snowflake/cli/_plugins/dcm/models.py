@@ -40,9 +40,10 @@ class DCMTemplating:
     def from_dict(cls, data: Optional[Dict[str, Any]]) -> "DCMTemplating":
         if not data:
             return cls()
+        configurations = data.get("configurations", {})
         return cls(
             defaults=data.get("defaults", {}),
-            configurations=data.get("configurations", {}),
+            configurations={k.upper(): v for k, v in configurations.items()},
         )
 
 
@@ -56,10 +57,11 @@ class DCMTarget:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "DCMTarget":
+        templating_config = data.get("templating_config")
         return cls(
             name=data.get("name", "").upper(),
             project_name=data.get("project_name", ""),
-            templating_config=data.get("templating_config"),
+            templating_config=templating_config.upper() if templating_config else None,
         )
 
 

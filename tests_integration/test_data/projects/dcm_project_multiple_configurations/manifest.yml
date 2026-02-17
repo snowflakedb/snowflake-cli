@@ -6,7 +6,7 @@ default_target: dev
 targets:
   dev:
     project_name: "project_descriptive_name_dev"
-    templating_config: "dev"
+    templating_config: "DEV"
   test:
     project_name: "project_descriptive_name_test"
     templating_config: "test"
@@ -15,7 +15,7 @@ templating:
   defaults:
     base_suffix: "_default"
   configurations:
-    dev:
+    Dev:
       table_name_suffix: "dev"
     test:
       table_name_suffix: "test"

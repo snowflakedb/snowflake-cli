@@ -368,7 +368,7 @@ class TestDCMDeploy:
         assert result.exit_code == 0, result.output
         mock_dcm_manager().deploy.assert_called_once_with(
             project_identifier=FQN.from_string("explicit_project"),
-            configuration="dev_config",
+            configuration="DEV_CONFIG",
             from_stage="TMP_STAGE",
             variables=None,
             alias=None,
@@ -409,7 +409,7 @@ class TestDCMDeploy:
         assert result.exit_code == 0, result.output
         mock_dcm_manager().deploy.assert_called_once_with(
             project_identifier=FQN.from_string("my_project"),
-            configuration="dev_config",
+            configuration="DEV_CONFIG",
             from_stage="TMP_STAGE",
             variables=None,
             alias=None,

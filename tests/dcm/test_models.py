@@ -67,9 +67,9 @@ class TestDCMManifest:
         assert manifest.default_target == "DEV"
         assert len(manifest.targets) == 2
         assert manifest.targets["DEV"].project_name == "DB.SCHEMA.PROJECT_DEV"
-        assert manifest.targets["DEV"].templating_config == "dev"
+        assert manifest.targets["DEV"].templating_config == "DEV"
         assert manifest.targets["PROD"].project_name == "DB.SCHEMA.PROJECT_PROD"
-        assert manifest.targets["PROD"].templating_config == "prod"
+        assert manifest.targets["PROD"].templating_config == "PROD"
 
     def test_manifest_from_dict_with_templating(self):
         data = {
@@ -92,8 +92,8 @@ class TestDCMManifest:
             "retry_count": 3,
         }
         assert manifest.templating.configurations == {
-            "dev": {"wh_size": "XSMALL", "suffix": "_dev"},
-            "prod": {"wh_size": "LARGE", "suffix": ""},
+            "DEV": {"wh_size": "XSMALL", "suffix": "_dev"},
+            "PROD": {"wh_size": "LARGE", "suffix": ""},
         }
 
     def test_manifest_get_target_not_found(self):
@@ -187,6 +187,19 @@ class TestDCMManifest:
         }
         DCMManifest.from_dict(data)
 
+    def test_manifest_with_case_insensitive_keys(self):
+        data = {
+            "manifest_version": 2,
+            "type": "dcm_project",
+            "default_target": "Dev",
+            "targets": {
+                "dEv": {"project_name": "P1", "templating_config": "DEV_config"},
+            },
+            "templating": {"configurations": {"dev_CONFIG": {}}},
+        }
+        manifest = DCMManifest.from_dict(data)
+        assert manifest.get_effective_target("DEV").templating_config == "DEV_CONFIG"
+
     def test_manifest_validate_missing_type(self):
         data = {"manifest_version": 2, "type": ""}
 
@@ -234,7 +247,7 @@ class TestDCMManifest:
 
         with pytest.raises(
             ManifestConfigurationError,
-            match="Target 'DEV' references unknown configuration 'unknown'",
+            match="Target 'DEV' references unknown configuration 'UNKNOWN'",
         ):
             manifest.get_target("DEV")
 
