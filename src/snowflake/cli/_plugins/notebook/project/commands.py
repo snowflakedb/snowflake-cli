@@ -111,19 +111,19 @@ def execute(
         help="Main file of the notebook project.",
         show_default=False,
     ),
-    compute_pool: str = typer.Option(
+    compute_pool: Optional[str] = typer.Option(
         None,
         "--compute-pool",
         help="Compute pool to run the notebook project on.",
         show_default=False,
     ),
-    query_warehouse: str = typer.Option(
+    query_warehouse: Optional[str] = typer.Option(
         None,
         "--query-warehouse",
         help="Query warehouse to run the notebook project on.",
         show_default=False,
     ),
-    runtime: str = typer.Option(
+    runtime: Optional[str] = typer.Option(
         None,
         "--runtime",
         help="Runtime to run the notebook project on.",
@@ -148,12 +148,6 @@ def execute(
         raise ClickException("Name is required.")
     if not main_file:
         raise ClickException("Main file is required.")
-    if not compute_pool:
-        raise ClickException("Compute pool is required.")
-    if not query_warehouse:
-        raise ClickException("Query warehouse is required.")
-    if not runtime:
-        raise ClickException("Runtime is required.")
     manager = NotebookProjectManager()
     return MessageResult(
         manager.execute(

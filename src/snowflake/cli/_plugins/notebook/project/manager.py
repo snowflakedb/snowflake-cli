@@ -67,19 +67,24 @@ class NotebookProjectManager(SqlExecutionMixin):
         name: str,
         arguments: Optional[List[str]],
         main_file: str,
-        compute_pool: str,
-        query_warehouse: str,
-        runtime: str,
+        compute_pool: Optional[str],
+        query_warehouse: Optional[str],
+        runtime: Optional[str],
         requirements_file: Optional[str],
         external_access_integrations: Optional[List[str]],
     ):
         query_parts = [
             f"EXECUTE NOTEBOOK PROJECT {name}",
             f"MAIN_FILE = {self._quote_string(main_file)}",
-            f"COMPUTE_POOL = {self._quote_string(compute_pool)}",
-            f"QUERY_WAREHOUSE = {self._quote_string(query_warehouse)}",
-            f"RUNTIME = {self._quote_string(runtime)}",
         ]
+        if compute_pool:
+            query_parts.append(f"COMPUTE_POOL = {self._quote_string(compute_pool)}")
+        if query_warehouse:
+            query_parts.append(
+                f"QUERY_WAREHOUSE = {self._quote_string(query_warehouse)}"
+            )
+        if runtime:
+            query_parts.append(f"RUNTIME = {self._quote_string(runtime)}")
         if requirements_file:
             query_parts.append(
                 f"REQUIREMENTS_FILE = {self._quote_string(requirements_file)}"
