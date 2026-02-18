@@ -46,6 +46,18 @@ def create(
         help="Comment for the notebook project.",
         show_default=False,
     ),
+    overwrite: bool = typer.Option(
+        False,
+        "--overwrite",
+        help="Overwrite the notebook project if it already exists.",
+        show_default=False,
+    ),
+    skip_if_exists: bool = typer.Option(
+        False,
+        "--skip-if-exists",
+        help="Skip the creation of the notebook project if it already exists.",
+        show_default=False,
+    ),
     **options,
 ):
     """Creates a notebook project in Snowflake."""
@@ -53,8 +65,12 @@ def create(
         raise ClickException("Name is required.")
     if not source:
         raise ClickException("Source is required.")
+    if overwrite and skip_if_exists:
+        raise ClickException("overwrite and skip_if_exists cannot be used together")
     manager = NotebookProjectManager()
-    return MessageResult(manager.create(name, source, comment))
+    return MessageResult(
+        manager.create(name, source, comment, overwrite, skip_if_exists)
+    )
 
 
 @app.command("list", requires_connection=True)

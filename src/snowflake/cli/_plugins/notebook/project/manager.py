@@ -25,9 +25,24 @@ class NotebookProjectManager(SqlExecutionMixin):
         query = "SHOW NOTEBOOK PROJECTS"
         return self.execute_query(query)
 
-    def create(self, name: str, source: str, comment: Optional[str]):
+    def create(
+        self,
+        name: str,
+        source: str,
+        comment: Optional[str] = None,
+        overwrite: bool = False,
+        skip_if_exists: bool = False,
+    ):
+        create_project = "CREATE NOTEBOOK PROJECT"
+        if overwrite and skip_if_exists:
+            raise ValueError("overwrite and skip_if_exists cannot be used together")
+        if overwrite:
+            create_project = "CREATE OR REPLACE NOTEBOOK PROJECT"
+        if skip_if_exists:
+            create_project = "CREATE NOTEBOOK PROJECT IF NOT EXISTS"
         query_parts = [
-            f"CREATE NOTEBOOK PROJECT {name}",
+            create_project,
+            name,
             f"FROM {self._quote_string(source)}",
         ]
         if comment:
