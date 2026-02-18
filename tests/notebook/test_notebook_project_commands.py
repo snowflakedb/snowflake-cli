@@ -90,175 +90,6 @@ class TestNotebookProjectCommands:
         mock_project_manager.return_value.drop.assert_called_once_with("test_project")
 
     @mock.patch(PROJECT_MANAGER)
-    def test_execute_project_with_all_params(self, mock_project_manager, runner):
-        mock_project_manager.return_value.execute.return_value = (
-            "Project successfully executed."
-        )
-        result = runner.invoke(
-            [
-                "notebook",
-                "project",
-                "execute",
-                "test_project",
-                "arg1",
-                "arg2",
-                "--main-file",
-                "main.ipynb",
-                "--compute-pool",
-                "my_pool",
-                "--query-warehouse",
-                "my_warehouse",
-                "--runtime",
-                "my_runtime",
-                "--requirements-file",
-                "requirements.txt",
-                "--external-access-integrations",
-                "integration1",
-                "--external-access-integrations",
-                "integration2",
-            ]
-        )
-        assert result.exit_code == 0, result.output
-        assert "Project successfully executed." in result.output
-        mock_project_manager.return_value.execute.assert_called_once_with(
-            "test_project",
-            ["arg1", "arg2"],
-            "main.ipynb",
-            "my_pool",
-            "my_warehouse",
-            "my_runtime",
-            "requirements.txt",
-            ["integration1", "integration2"],
-        )
-
-    @mock.patch(PROJECT_MANAGER)
-    def test_execute_project_with_only_required_params(
-        self, mock_project_manager, runner
-    ):
-        mock_project_manager.return_value.execute.return_value = (
-            "Project successfully executed."
-        )
-        result = runner.invoke(
-            [
-                "notebook",
-                "project",
-                "execute",
-                "test_project",
-                "--main-file",
-                "main.ipynb",
-                "--compute-pool",
-                "my_pool",
-                "--query-warehouse",
-                "my_warehouse",
-                "--runtime",
-                "my_runtime",
-            ]
-        )
-        assert result.exit_code == 0, result.output
-        assert "Project successfully executed." in result.output
-        mock_project_manager.return_value.execute.assert_called_once_with(
-            "test_project",
-            None,
-            "main.ipynb",
-            "my_pool",
-            "my_warehouse",
-            "my_runtime",
-            None,
-            None,
-        )
-
-    def test_execute_project_missing_name(self, runner):
-        result = runner.invoke(
-            [
-                "notebook",
-                "project",
-                "execute",
-                "--main-file",
-                "main.ipynb",
-                "--compute-pool",
-                "my_pool",
-                "--query-warehouse",
-                "my_warehouse",
-                "--runtime",
-                "my_runtime",
-            ]
-        )
-        assert result.exit_code == 1
-        assert "Name is required" in result.output
-
-    def test_execute_project_missing_main_file(self, runner):
-        result = runner.invoke(
-            [
-                "notebook",
-                "project",
-                "execute",
-                "test_project",
-                "--compute-pool",
-                "my_pool",
-                "--query-warehouse",
-                "my_warehouse",
-                "--runtime",
-                "my_runtime",
-            ]
-        )
-        assert result.exit_code == 1
-        assert "Main file is required" in result.output
-
-    def test_execute_project_missing_compute_pool(self, runner):
-        result = runner.invoke(
-            [
-                "notebook",
-                "project",
-                "execute",
-                "test_project",
-                "--main-file",
-                "main.ipynb",
-                "--query-warehouse",
-                "my_warehouse",
-                "--runtime",
-                "my_runtime",
-            ]
-        )
-        assert result.exit_code == 1
-        assert "Compute pool is required" in result.output
-
-    def test_execute_project_missing_query_warehouse(self, runner):
-        result = runner.invoke(
-            [
-                "notebook",
-                "project",
-                "execute",
-                "test_project",
-                "--main-file",
-                "main.ipynb",
-                "--compute-pool",
-                "my_pool",
-                "--runtime",
-                "my_runtime",
-            ]
-        )
-        assert result.exit_code == 1
-        assert "Query warehouse is required" in result.output
-
-    def test_execute_project_missing_runtime(self, runner):
-        result = runner.invoke(
-            [
-                "notebook",
-                "project",
-                "execute",
-                "test_project",
-                "--main-file",
-                "main.ipynb",
-                "--compute-pool",
-                "my_pool",
-                "--query-warehouse",
-                "my_warehouse",
-            ]
-        )
-        assert result.exit_code == 1
-        assert "Runtime is required" in result.output
-
-    @mock.patch(PROJECT_MANAGER)
     def test_create_project_with_overwrite_and_skip_if_exists(
         self, mock_project_manager, runner
     ):
@@ -334,3 +165,165 @@ class TestNotebookProjectCommands:
             False,
             True,
         )
+
+    @mock.patch(PROJECT_MANAGER)
+    def test_execute_project_with_all_params(self, mock_project_manager, runner):
+        mock_project_manager.return_value.execute.return_value = (
+            "Project successfully executed."
+        )
+        result = runner.invoke(
+            [
+                "notebook",
+                "project",
+                "execute",
+                "test_project",
+                "arg1",
+                "arg2",
+                "--main-file",
+                "main.ipynb",
+                "--compute-pool",
+                "my_pool",
+                "--query-warehouse",
+                "my_warehouse",
+                "--runtime",
+                "my_runtime",
+                "--requirements-file",
+                "requirements.txt",
+                "--external-access-integrations",
+                "integration1",
+                "--external-access-integrations",
+                "integration2",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Project successfully executed." in result.output
+        mock_project_manager.return_value.execute.assert_called_once_with(
+            "test_project",
+            ["arg1", "arg2"],
+            "main.ipynb",
+            "my_pool",
+            "my_warehouse",
+            "my_runtime",
+            "requirements.txt",
+            ["integration1", "integration2"],
+        )
+
+    @mock.patch(PROJECT_MANAGER)
+    def test_execute_project_with_only_required_params(
+        self, mock_project_manager, runner
+    ):
+        mock_project_manager.return_value.execute.return_value = (
+            "Project successfully executed."
+        )
+        result = runner.invoke(
+            [
+                "notebook",
+                "project",
+                "execute",
+                "test_project",
+                "--main-file",
+                "main.ipynb",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Project successfully executed." in result.output
+        mock_project_manager.return_value.execute.assert_called_once_with(
+            "test_project",
+            None,
+            "main.ipynb",
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+
+    @mock.patch(PROJECT_MANAGER)
+    def test_execute_project_with_some_optional_params(
+        self, mock_project_manager, runner
+    ):
+        mock_project_manager.return_value.execute.return_value = (
+            "Project successfully executed."
+        )
+        result = runner.invoke(
+            [
+                "notebook",
+                "project",
+                "execute",
+                "test_project",
+                "--main-file",
+                "main.ipynb",
+                "--compute-pool",
+                "my_pool",
+                "--runtime",
+                "my_runtime",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Project successfully executed." in result.output
+        mock_project_manager.return_value.execute.assert_called_once_with(
+            "test_project",
+            None,
+            "main.ipynb",
+            "my_pool",
+            None,
+            "my_runtime",
+            None,
+            None,
+        )
+
+    @mock.patch(PROJECT_MANAGER)
+    def test_execute_project_with_arguments_only(self, mock_project_manager, runner):
+        mock_project_manager.return_value.execute.return_value = (
+            "Project successfully executed."
+        )
+        result = runner.invoke(
+            [
+                "notebook",
+                "project",
+                "execute",
+                "test_project",
+                "arg1",
+                "arg2",
+                "arg3",
+                "--main-file",
+                "main.ipynb",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Project successfully executed." in result.output
+        mock_project_manager.return_value.execute.assert_called_once_with(
+            "test_project",
+            ["arg1", "arg2", "arg3"],
+            "main.ipynb",
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+
+    def test_execute_project_missing_name(self, runner):
+        result = runner.invoke(
+            [
+                "notebook",
+                "project",
+                "execute",
+                "--main-file",
+                "main.ipynb",
+            ]
+        )
+        assert result.exit_code == 1
+        assert "Name is required" in result.output
+
+    def test_execute_project_missing_main_file(self, runner):
+        result = runner.invoke(
+            [
+                "notebook",
+                "project",
+                "execute",
+                "test_project",
+            ]
+        )
+        assert result.exit_code == 1
+        assert "Main file is required" in result.output
