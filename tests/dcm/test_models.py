@@ -222,7 +222,7 @@ class TestDCMManifest:
 
         with pytest.raises(
             InvalidManifestError,
-            match=f"Manifest version '{version}' is not supported. Expected version 2.",
+            match=f"Manifest version {version} is not supported. Expected version 2.",
         ):
             DCMManifest.from_dict(data)
 
@@ -298,7 +298,7 @@ class TestLoadManifest:
                 yaml.dump({"manifest_version": 1, "type": "dcm_project"}, f)
             with pytest.raises(
                 InvalidManifestError,
-                match=r"Manifest version '1' is not supported. Expected version 2.",
+                match=r"Manifest version 1 is not supported. Expected version 2.",
             ):
                 DCMManifest.load(SecurePath(project_dir))
 

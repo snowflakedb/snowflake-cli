@@ -141,7 +141,7 @@ class DCMManifest:
 
         if self.manifest_version != SUPPORTED_MANIFEST_VERSION:
             raise InvalidManifestError(
-                f"Manifest version '{self.manifest_version}' is not supported. Expected version {SUPPORTED_MANIFEST_VERSION}."
+                f"Manifest version {self.manifest_version} is not supported. Expected version {SUPPORTED_MANIFEST_VERSION}."
             )
 
     def _validate_target_configuration_exists(self, target: DCMTarget):
