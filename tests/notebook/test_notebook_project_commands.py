@@ -51,7 +51,11 @@ class TestNotebookProjectCommands:
         assert result.exit_code == 0, result.output
         assert "Project successfully created." in result.output
         mock_project_manager.return_value.create.assert_called_once_with(
-            "test_project", 'snow://workspace/"test_workspace"', "test comment"
+            "test_project",
+            'snow://workspace/"test_workspace"',
+            "test comment",
+            False,
+            False,
         )
 
     @mock.patch(PROJECT_MANAGER)
@@ -72,7 +76,7 @@ class TestNotebookProjectCommands:
         assert result.exit_code == 0, result.output
         assert "Project successfully created." in result.output
         mock_project_manager.return_value.create.assert_called_once_with(
-            "test_project", 'snow://workspace/"test_workspace"', None
+            "test_project", 'snow://workspace/"test_workspace"', None, False, False
         )
 
     @mock.patch(PROJECT_MANAGER)
@@ -253,3 +257,80 @@ class TestNotebookProjectCommands:
         )
         assert result.exit_code == 1
         assert "Runtime is required" in result.output
+
+    @mock.patch(PROJECT_MANAGER)
+    def test_create_project_with_overwrite_and_skip_if_exists(
+        self, mock_project_manager, runner
+    ):
+        result = runner.invoke(
+            [
+                "notebook",
+                "project",
+                "create",
+                "test_project",
+                "--source",
+                'snow://workspace/"test_workspace"',
+                "--comment",
+                "test comment",
+                "--overwrite",
+                "--skip-if-exists",
+            ]
+        )
+        assert result.exit_code == 1
+        assert "overwrite and skip_if_exists cannot be used together" in result.output
+
+    @mock.patch(PROJECT_MANAGER)
+    def test_create_project_with_overwrite(self, mock_project_manager, runner):
+        mock_project_manager.return_value.create.return_value = (
+            "Project successfully created."
+        )
+        result = runner.invoke(
+            [
+                "notebook",
+                "project",
+                "create",
+                "test_project",
+                "--source",
+                'snow://workspace/"test_workspace"',
+                "--comment",
+                "test comment",
+                "--overwrite",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Project successfully created." in result.output
+        mock_project_manager.return_value.create.assert_called_once_with(
+            "test_project",
+            'snow://workspace/"test_workspace"',
+            "test comment",
+            True,
+            False,
+        )
+
+    @mock.patch(PROJECT_MANAGER)
+    def test_create_project_with_skip_if_exists(self, mock_project_manager, runner):
+        mock_project_manager.return_value.create.return_value = (
+            "Project successfully created."
+        )
+        result = runner.invoke(
+            [
+                "notebook",
+                "project",
+                "create",
+                "test_project",
+                "--source",
+                'snow://workspace/"test_workspace"',
+                "--comment",
+                "test comment",
+                "--skip-if-exists",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Project successfully created." in result.output
+        mock_project_manager.return_value.create.assert_called_once_with(
+            "test_project",
+            'snow://workspace/"test_workspace"',
+            "test comment",
+            False,
+            True,
+        )
