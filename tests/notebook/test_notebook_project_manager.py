@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 from unittest import mock
 
+import pytest
 from snowflake.cli._plugins.notebook.project.manager import NotebookProjectManager
 
 PROJECT_MANAGER = (
@@ -205,4 +205,51 @@ class TestNotebookProjectManager:
             "COMPUTE_POOL = 'compute_pool' "
             "QUERY_WAREHOUSE = 'query_warehouse' "
             "RUNTIME = 'runtime'"
+        )
+
+    @mock.patch(f"{PROJECT_MANAGER}.execute_query")
+    def test_create_project_with_overwrite_and_skip_if_exists(
+        self, mock_execute_query, mock_cursor
+    ):
+        with pytest.raises(ValueError):
+            NotebookProjectManager().create(
+                name="test_project",
+                source='snow://workspace/"test_workspace"',
+                comment="test comment",
+                overwrite=True,
+                skip_if_exists=True,
+            )
+
+    @mock.patch(f"{PROJECT_MANAGER}.execute_query")
+    def test_create_project_with_overwrite(self, mock_execute_query, mock_cursor):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[("Project successfully created.",)], columns=["value"]
+        )
+        result = NotebookProjectManager().create(
+            name="test_project",
+            source='snow://workspace/"test_workspace"',
+            comment="test comment",
+            overwrite=True,
+            skip_if_exists=False,
+        )
+        assert result == "Project successfully created."
+        mock_execute_query.assert_called_once_with(
+            """CREATE OR REPLACE NOTEBOOK PROJECT test_project FROM 'snow://workspace/"test_workspace"' COMMENT = 'test comment'"""
+        )
+
+    @mock.patch(f"{PROJECT_MANAGER}.execute_query")
+    def test_create_project_with_skip_if_exists(self, mock_execute_query, mock_cursor):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[("Project successfully created.",)], columns=["value"]
+        )
+        result = NotebookProjectManager().create(
+            name="test_project",
+            source='snow://workspace/"test_workspace"',
+            comment="test comment",
+            overwrite=False,
+            skip_if_exists=True,
+        )
+        assert result == "Project successfully created."
+        mock_execute_query.assert_called_once_with(
+            """CREATE NOTEBOOK PROJECT IF NOT EXISTS test_project FROM 'snow://workspace/"test_workspace"' COMMENT = 'test comment'"""
         )
