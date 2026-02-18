@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import json
 from typing import List, Optional
 
 import typer
@@ -44,12 +45,13 @@ from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
+    CollectionResult,
     EmptyResult,
     MessageResult,
-    QueryJsonValueResult,
     QueryResult,
 )
 from snowflake.cli.api.secure_path import SecurePath
+from snowflake.connector.cursor import SnowflakeCursor
 
 app = SnowTyperFactory(
     name="dcm",
@@ -175,6 +177,29 @@ def _resolve_context_with_optional_manifest(
     return context
 
 
+def _process_plan_result(cursor: SnowflakeCursor) -> CollectionResult:
+    """
+    Process plan result, detecting format and returning appropriate result type.
+    """
+    rows = list(cursor)
+    if not rows:
+        return CollectionResult([])
+
+    first_row = rows[0]
+    first_value = list(first_row)[0] if first_row else None
+    if not first_value:
+        return CollectionResult([])
+
+    data = json.loads(first_value)
+
+    # Handle new format
+    if isinstance(data, dict) and data.get("version", 0) == 2:
+        return CollectionResult(data.get("changeset", list()))
+
+    # Old format
+    return CollectionResult(data)
+
+
 add_object_command_aliases(
     app=app,
     object_type=ObjectType.DCM_PROJECT,
@@ -228,7 +253,8 @@ def deploy(
             alias=alias,
             skip_plan=skip_plan,
         )
-    return QueryJsonValueResult(result)
+
+    return _process_plan_result(result)
 
 
 @app.command(requires_connection=True)
@@ -262,7 +288,7 @@ def plan(
             save_output=save_output,
         )
 
-    return QueryJsonValueResult(result)
+    return _process_plan_result(result)
 
 
 @app.command(requires_connection=True)
