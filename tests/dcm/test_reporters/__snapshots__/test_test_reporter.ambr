@@ -1,0 +1,73 @@
+# serializer version: 1
+# name: TestTestReporter.test_ansi_codes_in_names
+  '''
+  ✓ PASS      DB.SCHEMA.RED_TABLE (green_check)
+  
+  1 passed, 0 failed out of 1 total.
+  
+  '''
+# ---
+# name: TestTestReporter.test_empty_cursor
+  '''
+  No data.
+  
+  '''
+# ---
+# name: TestTestReporter.test_missing_expectation_violated_field
+  '''
+  ? UNKNOWN   DB.SCHEMA.UNKNOWN_STATUS (some_check)
+  
+  0 passed, 0 failed, 1 unknown out of 1 total.
+  
+  '''
+# ---
+# name: TestTestReporter.test_missing_expectations_key
+  '''
+  
+  No expectations found in the project.
+  
+  '''
+# ---
+# name: TestTestReporter.test_multiple_expectations_mixed_status
+  '''
+  ✓ PASS      DB.SCHEMA.TABLE_A (unique_check)
+  ✗ FAIL      DB.SCHEMA.TABLE_B (not_null)
+    └─ Expected: = 0, Got: 42 (Metric: null_count)
+  ✓ PASS      DB.SCHEMA.TABLE_C (range_check)
+  
+  2 passed, 1 failed out of 3 total.
+  
+  '''
+# ---
+# name: TestTestReporter.test_no_expectations
+  '''
+  
+  No expectations found in the project.
+  
+  '''
+# ---
+# name: TestTestReporter.test_non_dict_entries
+  '''
+  ✓ PASS      DB.SCHEMA.VALID (valid_check)
+  
+  1 passed, 0 failed out of 1 total.
+  
+  '''
+# ---
+# name: TestTestReporter.test_single_failing_expectation
+  '''
+  ✗ FAIL      DB.SCHEMA.ORDERS (null_check)
+    └─ Expected: = 0, Got: 15 (Metric: null_count)
+  
+  0 passed, 1 failed out of 1 total.
+  
+  '''
+# ---
+# name: TestTestReporter.test_single_passing_expectation
+  '''
+  ✓ PASS      DB.SCHEMA.CUSTOMERS (row_count_check)
+  
+  1 passed, 0 failed out of 1 total.
+  
+  '''
+# ---
