@@ -73,6 +73,53 @@ class TestNotebookProjectManager:
         mock_execute_query.assert_called_once_with("DROP NOTEBOOK PROJECT test_project")
 
     @mock.patch(f"{PROJECT_MANAGER}.execute_query")
+    def test_create_project_with_overwrite_and_skip_if_exists(
+        self, mock_execute_query, mock_cursor
+    ):
+        with pytest.raises(ValueError):
+            NotebookProjectManager().create(
+                name="test_project",
+                source='snow://workspace/"test_workspace"',
+                comment="test comment",
+                overwrite=True,
+                skip_if_exists=True,
+            )
+
+    @mock.patch(f"{PROJECT_MANAGER}.execute_query")
+    def test_create_project_with_overwrite(self, mock_execute_query, mock_cursor):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[("Project successfully created.",)], columns=["value"]
+        )
+        result = NotebookProjectManager().create(
+            name="test_project",
+            source='snow://workspace/"test_workspace"',
+            comment="test comment",
+            overwrite=True,
+            skip_if_exists=False,
+        )
+        assert result == "Project successfully created."
+        mock_execute_query.assert_called_once_with(
+            """CREATE OR REPLACE NOTEBOOK PROJECT test_project FROM 'snow://workspace/"test_workspace"' COMMENT = 'test comment'"""
+        )
+
+    @mock.patch(f"{PROJECT_MANAGER}.execute_query")
+    def test_create_project_with_skip_if_exists(self, mock_execute_query, mock_cursor):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[("Project successfully created.",)], columns=["value"]
+        )
+        result = NotebookProjectManager().create(
+            name="test_project",
+            source='snow://workspace/"test_workspace"',
+            comment="test comment",
+            overwrite=False,
+            skip_if_exists=True,
+        )
+        assert result == "Project successfully created."
+        mock_execute_query.assert_called_once_with(
+            """CREATE NOTEBOOK PROJECT IF NOT EXISTS test_project FROM 'snow://workspace/"test_workspace"' COMMENT = 'test comment'"""
+        )
+
+    @mock.patch(f"{PROJECT_MANAGER}.execute_query")
     def test_execute_project_with_all_params(self, mock_execute_query, mock_cursor):
         mock_execute_query.return_value = mock_cursor(
             rows=[("Project successfully executed.",)], columns=["value"]
@@ -100,6 +147,28 @@ class TestNotebookProjectManager:
         )
 
     @mock.patch(f"{PROJECT_MANAGER}.execute_query")
+    def test_execute_project_with_only_required_params(
+        self, mock_execute_query, mock_cursor
+    ):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[("Project successfully executed.",)], columns=["value"]
+        )
+        result = NotebookProjectManager().execute(
+            name="test_project",
+            arguments=None,
+            main_file="main_file.ipynb",
+            compute_pool=None,
+            query_warehouse=None,
+            runtime=None,
+            requirements_file=None,
+            external_access_integrations=None,
+        )
+        assert result == "Project successfully executed."
+        mock_execute_query.assert_called_once_with(
+            "EXECUTE NOTEBOOK PROJECT test_project MAIN_FILE = 'main_file.ipynb'"
+        )
+
+    @mock.patch(f"{PROJECT_MANAGER}.execute_query")
     def test_execute_project_without_arguments(self, mock_execute_query, mock_cursor):
         mock_execute_query.return_value = mock_cursor(
             rows=[("Project successfully executed.",)], columns=["value"]
@@ -123,6 +192,82 @@ class TestNotebookProjectManager:
             "RUNTIME = 'runtime' "
             "REQUIREMENTS_FILE = 'requirements.txt' "
             "EXTERNAL_ACCESS_INTEGRATIONS = ('integration1')"
+        )
+
+    @mock.patch(f"{PROJECT_MANAGER}.execute_query")
+    def test_execute_project_without_compute_pool(
+        self, mock_execute_query, mock_cursor
+    ):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[("Project successfully executed.",)], columns=["value"]
+        )
+        result = NotebookProjectManager().execute(
+            name="test_project",
+            arguments=["arg1"],
+            main_file="main_file.ipynb",
+            compute_pool=None,
+            query_warehouse="query_warehouse",
+            runtime="runtime",
+            requirements_file=None,
+            external_access_integrations=None,
+        )
+        assert result == "Project successfully executed."
+        mock_execute_query.assert_called_once_with(
+            "EXECUTE NOTEBOOK PROJECT test_project "
+            "MAIN_FILE = 'main_file.ipynb' "
+            "QUERY_WAREHOUSE = 'query_warehouse' "
+            "RUNTIME = 'runtime' "
+            "ARGUMENTS = 'arg1'"
+        )
+
+    @mock.patch(f"{PROJECT_MANAGER}.execute_query")
+    def test_execute_project_without_query_warehouse(
+        self, mock_execute_query, mock_cursor
+    ):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[("Project successfully executed.",)], columns=["value"]
+        )
+        result = NotebookProjectManager().execute(
+            name="test_project",
+            arguments=["arg1"],
+            main_file="main_file.ipynb",
+            compute_pool="compute_pool",
+            query_warehouse=None,
+            runtime="runtime",
+            requirements_file=None,
+            external_access_integrations=None,
+        )
+        assert result == "Project successfully executed."
+        mock_execute_query.assert_called_once_with(
+            "EXECUTE NOTEBOOK PROJECT test_project "
+            "MAIN_FILE = 'main_file.ipynb' "
+            "COMPUTE_POOL = 'compute_pool' "
+            "RUNTIME = 'runtime' "
+            "ARGUMENTS = 'arg1'"
+        )
+
+    @mock.patch(f"{PROJECT_MANAGER}.execute_query")
+    def test_execute_project_without_runtime(self, mock_execute_query, mock_cursor):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[("Project successfully executed.",)], columns=["value"]
+        )
+        result = NotebookProjectManager().execute(
+            name="test_project",
+            arguments=["arg1"],
+            main_file="main_file.ipynb",
+            compute_pool="compute_pool",
+            query_warehouse="query_warehouse",
+            runtime=None,
+            requirements_file=None,
+            external_access_integrations=None,
+        )
+        assert result == "Project successfully executed."
+        mock_execute_query.assert_called_once_with(
+            "EXECUTE NOTEBOOK PROJECT test_project "
+            "MAIN_FILE = 'main_file.ipynb' "
+            "COMPUTE_POOL = 'compute_pool' "
+            "QUERY_WAREHOUSE = 'query_warehouse' "
+            "ARGUMENTS = 'arg1'"
         )
 
     @mock.patch(f"{PROJECT_MANAGER}.execute_query")
@@ -179,77 +324,4 @@ class TestNotebookProjectManager:
             "RUNTIME = 'runtime' "
             "REQUIREMENTS_FILE = 'requirements.txt' "
             "ARGUMENTS = 'arg1 arg2'"
-        )
-
-    @mock.patch(f"{PROJECT_MANAGER}.execute_query")
-    def test_execute_project_with_only_required_params(
-        self, mock_execute_query, mock_cursor
-    ):
-        mock_execute_query.return_value = mock_cursor(
-            rows=[("Project successfully executed.",)], columns=["value"]
-        )
-        result = NotebookProjectManager().execute(
-            name="test_project",
-            arguments=None,
-            main_file="main_file.ipynb",
-            compute_pool="compute_pool",
-            query_warehouse="query_warehouse",
-            runtime="runtime",
-            requirements_file=None,
-            external_access_integrations=None,
-        )
-        assert result == "Project successfully executed."
-        mock_execute_query.assert_called_once_with(
-            "EXECUTE NOTEBOOK PROJECT test_project "
-            "MAIN_FILE = 'main_file.ipynb' "
-            "COMPUTE_POOL = 'compute_pool' "
-            "QUERY_WAREHOUSE = 'query_warehouse' "
-            "RUNTIME = 'runtime'"
-        )
-
-    @mock.patch(f"{PROJECT_MANAGER}.execute_query")
-    def test_create_project_with_overwrite_and_skip_if_exists(
-        self, mock_execute_query, mock_cursor
-    ):
-        with pytest.raises(ValueError):
-            NotebookProjectManager().create(
-                name="test_project",
-                source='snow://workspace/"test_workspace"',
-                comment="test comment",
-                overwrite=True,
-                skip_if_exists=True,
-            )
-
-    @mock.patch(f"{PROJECT_MANAGER}.execute_query")
-    def test_create_project_with_overwrite(self, mock_execute_query, mock_cursor):
-        mock_execute_query.return_value = mock_cursor(
-            rows=[("Project successfully created.",)], columns=["value"]
-        )
-        result = NotebookProjectManager().create(
-            name="test_project",
-            source='snow://workspace/"test_workspace"',
-            comment="test comment",
-            overwrite=True,
-            skip_if_exists=False,
-        )
-        assert result == "Project successfully created."
-        mock_execute_query.assert_called_once_with(
-            """CREATE OR REPLACE NOTEBOOK PROJECT test_project FROM 'snow://workspace/"test_workspace"' COMMENT = 'test comment'"""
-        )
-
-    @mock.patch(f"{PROJECT_MANAGER}.execute_query")
-    def test_create_project_with_skip_if_exists(self, mock_execute_query, mock_cursor):
-        mock_execute_query.return_value = mock_cursor(
-            rows=[("Project successfully created.",)], columns=["value"]
-        )
-        result = NotebookProjectManager().create(
-            name="test_project",
-            source='snow://workspace/"test_workspace"',
-            comment="test comment",
-            overwrite=False,
-            skip_if_exists=True,
-        )
-        assert result == "Project successfully created."
-        mock_execute_query.assert_called_once_with(
-            """CREATE NOTEBOOK PROJECT IF NOT EXISTS test_project FROM 'snow://workspace/"test_workspace"' COMMENT = 'test comment'"""
         )
