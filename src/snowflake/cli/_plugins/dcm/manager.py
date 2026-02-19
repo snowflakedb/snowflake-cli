@@ -85,6 +85,18 @@ class DCMProjectManager(SqlExecutionMixin):
             query += f" SKIP PLAN"
         return self.execute_query(query=query)
 
+    def raw_analyze(
+        self,
+        project_identifier: FQN,
+        from_stage: str,
+        configuration: str | None = None,
+        variables: List[str] | None = None,
+    ):
+        query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} ANALYZE"
+        query += self._get_configuration_and_variables_query(configuration, variables)
+        query += self._get_from_stage_query(from_stage)
+        return self.execute_query(query=query)
+
     def plan(
         self,
         project_identifier: FQN,
