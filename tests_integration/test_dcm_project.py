@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import os
 import pytest
 
@@ -30,6 +31,17 @@ def _assert_project_has_deployments(
         (deployment["name"], deployment["alias"]) for deployment in result.json
     }
     assert deployments == expected_deployments
+
+
+def _extract_and_validate_raw_analyze_json(output: str):
+    lines = output.strip().split("\n")
+    json_line = next(
+        (line for line in reversed(lines) if line.strip().startswith(("{", "["))), None
+    )
+    assert json_line, "No JSON output found"
+    output_json = json.loads(json_line)
+    assert isinstance(output_json, (list, dict)), "Expected JSON response"
+    return output_json
 
 
 @pytest.mark.qa_only
@@ -672,7 +684,7 @@ def test_dcm_raw_analyze_basic(
         assert result.exit_code == 0, result.output
 
         # Run raw-analyze command
-        result = runner.invoke_with_connection_json(
+        result = runner.invoke_with_connection(
             [
                 "dcm",
                 "raw-analyze",
@@ -683,9 +695,8 @@ def test_dcm_raw_analyze_basic(
         )
         assert result.exit_code == 0, result.output
 
-        # Verify response is valid JSON
-        assert isinstance(result.json, list), "Expected JSON array response"
-        assert len(result.json) > 0, "Expected non-empty result"
+        output_json = _extract_and_validate_raw_analyze_json(result.output)
+        assert len(output_json) > 0, "Expected non-empty result"
 
         # Clean up
         result = runner.invoke_with_connection(["dcm", "drop", project_name])
@@ -714,13 +725,12 @@ def test_dcm_raw_analyze_with_variables(
         assert result.exit_code == 0, result.output
 
         # Run raw-analyze with variables
-        result = runner.invoke_with_connection_json(
+        result = runner.invoke_with_connection(
             ["dcm", "raw-analyze", project_name, "-D", table_var]
         )
         assert result.exit_code == 0, result.output
 
-        # Verify output is valid JSON
-        assert isinstance(result.json, list), "Expected JSON array response"
+        _extract_and_validate_raw_analyze_json(result.output)
 
         # Clean up
         result = runner.invoke_with_connection(["dcm", "drop", project_name])
@@ -763,7 +773,7 @@ def test_dcm_raw_analyze_from_another_directory(
         assert result.exit_code == 0, result.output
 
         # Run raw-analyze from a different directory
-        result = runner.invoke_with_connection_json(
+        result = runner.invoke_with_connection(
             [
                 "dcm",
                 "raw-analyze",
@@ -776,8 +786,7 @@ def test_dcm_raw_analyze_from_another_directory(
         )
         assert result.exit_code == 0, result.output
 
-        # Verify command succeeds when run from outside project directory
-        assert isinstance(result.json, list), "Expected JSON array response"
+        _extract_and_validate_raw_analyze_json(result.output)
     finally:
         os.chdir(original_cwd)
 
@@ -817,13 +826,12 @@ def test_dcm_raw_analyze_with_target(
         assert result.exit_code == 0, result.output
 
         # Run raw-analyze with target
-        result = runner.invoke_with_connection_json(
+        result = runner.invoke_with_connection(
             ["dcm", "raw-analyze", "-D", f"db='{test_database}'"] + target_args
         )
         assert result.exit_code == 0, result.output
 
-        # Verify target-specific project is analyzed
-        assert isinstance(result.json, list), "Expected JSON array response"
+        _extract_and_validate_raw_analyze_json(result.output)
 
         # Clean up
         result = runner.invoke_with_connection(["dcm", "drop"] + target_args)

@@ -318,7 +318,13 @@ def raw_analyze(
             variables=variables,
         )
 
-    return QueryResult(result)
+    row = result.fetchone()
+    if row and row[0]:
+        cli_console.styled_message(row[0])
+    else:
+        cli_console.styled_message("No data.")
+
+    return EmptyResult()
 
 
 @app.command(requires_connection=True)
