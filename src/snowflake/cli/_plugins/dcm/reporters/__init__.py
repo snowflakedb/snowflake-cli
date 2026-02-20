@@ -13,7 +13,14 @@
 # limitations under the License.
 from snowflake.cli._plugins.dcm.reporters.analyze import AnalyzeReporter
 from snowflake.cli._plugins.dcm.reporters.base import Reporter
+from snowflake.cli._plugins.dcm.reporters.plan import PlanReporter
 from snowflake.cli._plugins.dcm.reporters.refresh import RefreshReporter
 from snowflake.cli._plugins.dcm.reporters.test import TestReporter
 
-__all__ = ["AnalyzeReporter", "Reporter", "RefreshReporter", "TestReporter"]
+__all__ = [
+    "AnalyzeReporter",
+    "Reporter",
+    "PlanReporter",
+    "RefreshReporter",
+    "TestReporter",
+]

@@ -199,7 +199,8 @@ def test_plan_project_default_no_download(mock_execute_query, project_directory)
         configuration="some_configuration",
     )
 
-    mock_execute_query.assert_called_once()
+    # First call sets session parameters, second executes the plan
+    assert mock_execute_query.call_count == 2
     query = mock_execute_query.call_args.kwargs["query"]
     assert "EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN" in query
     assert "OUTPUT_PATH" not in query
@@ -223,7 +224,8 @@ def test_plan_project_with_save_output(
         save_output=True,
     )
 
-    mock_execute_query.assert_called_once()
+    # First call sets session parameters, second executes the plan with output
+    assert mock_execute_query.call_count == 2
     query = mock_execute_query.call_args.kwargs["query"]
     assert "EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN" in query
     assert "OUTPUT_PATH" in query
@@ -239,7 +241,9 @@ def test_plan_project_with_from_stage(mock_execute_query, project_directory):
         configuration="some_configuration",
     )
 
-    mock_execute_query.assert_called_once_with(
+    # First call sets session parameters, second executes the plan
+    assert mock_execute_query.call_count == 2
+    mock_execute_query.assert_called_with(
         query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN USING CONFIGURATION some_configuration"
         " FROM @my_stage"
     )
@@ -295,7 +299,8 @@ def test_plan_project_with_output_path__exception_handling(
     project_directory,
     mock_from_resource,
 ):
-    mock_execute_query.side_effect = Exception("Query execution failed")
+    # First call (ALTER SESSION) succeeds, second call (plan query) fails
+    mock_execute_query.side_effect = [None, Exception("Query execution failed")]
 
     mgr = DCMProjectManager()
 
@@ -309,7 +314,7 @@ def test_plan_project_with_output_path__exception_handling(
 
     # But the output should still be downloaded before exception is reraised
     temp_stage_fqn = mock_from_resource()
-    mock_execute_query.assert_called_once()
+    assert mock_execute_query.call_count == 2
     mock_create.assert_called_once_with(temp_stage_fqn, temporary=True)
     mock_get_recursive.assert_called_once_with(
         stage_path=f"@{str(temp_stage_fqn)}/outputs",

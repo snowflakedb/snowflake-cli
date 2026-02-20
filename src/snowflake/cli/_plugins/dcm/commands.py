@@ -24,10 +24,11 @@ from snowflake.cli._plugins.dcm.manager import DCMProjectManager
 from snowflake.cli._plugins.dcm.models import DCMManifest, TargetContext
 from snowflake.cli._plugins.dcm.reporters import (
     AnalyzeReporter,
+    PlanReporter,
     RefreshReporter,
     TestReporter,
 )
-from snowflake.cli._plugins.dcm.utils import mock_dcm_response
+from snowflake.cli._plugins.dcm.utils import mock_dcm_response, FakeCursor
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.object.manager import ObjectManager
@@ -181,9 +182,15 @@ def _resolve_context_with_optional_manifest(
     return context
 
 
-def _process_plan_result(cursor: SnowflakeCursor) -> CollectionResult:
+def _process_plan_result(
+    cursor: SnowflakeCursor,
+    verbose: bool = False,
+) -> CollectionResult | EmptyResult:
     """
     Process plan result, detecting format and returning appropriate result type.
+
+    For new format (version 2), uses the appropriate plan reporter.
+    For old format, returns raw data as CollectionResult.
     """
     rows = list(cursor)
     if not rows:
@@ -196,9 +203,10 @@ def _process_plan_result(cursor: SnowflakeCursor) -> CollectionResult:
 
     data = json.loads(first_value)
 
-    # Handle new format
+    # Handle new format with reporter
     if isinstance(data, dict) and data.get("version", 0) == 2:
-        return CollectionResult(data.get("changeset", list()))
+        PlanReporter(verbose=verbose).process(FakeCursor(data))
+        return EmptyResult()
 
     # Old format
     return CollectionResult(data)
@@ -262,6 +270,7 @@ def deploy(
 
 
 @app.command(requires_connection=True)
+@mock_dcm_response("plan")
 def plan(
     identifier: Optional[FQN] = optional_dcm_identifier,
     from_location: SecurePath = from_option,

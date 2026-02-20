@@ -570,6 +570,28 @@ class TestDCMPlan:
         call_args = mock_dcm_manager().plan.call_args
         assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
 
+    @mock.patch("snowflake.cli._plugins.dcm.commands.PlanReporter")
+    def test_plan_project_uses_plan_reporter(
+        self,
+        mock_plan_reporter,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+    ):
+        mock_dcm_manager().plan.return_value = [
+            (json.dumps({"version": 2, "metadata": {}, "changeset": []}),)
+        ]
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "plan", "fooBar"])
+        assert result.exit_code == 0, result.output
+
+        mock_plan_reporter.assert_called_once_with(verbose=False)
+        mock_plan_reporter.return_value.process.assert_called_once()
+
 
 class TestDCMRawAnalyze:
     def test_raw_analyze_basic(

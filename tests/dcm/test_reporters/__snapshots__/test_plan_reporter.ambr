@@ -1,0 +1,37 @@
+# serializer version: 1
+# name: TestPlanReporterTerse.test_mixed_operations
+  '''
+  CREATE   DATABASE         MY_DB
+  ALTER    WAREHOUSE        MY_WH
+  DROP     ROLE             OLD_ROLE
+  
+  Planned 3 entities (1 to create, 1 to alter, 1 to drop).
+  
+  '''
+# ---
+# name: TestPlanReporterTerse.test_plan5_terse
+  '''
+  ALTER    DYNAMIC_TABLE    DCM_PROJECT_JW_DCM_GLOB_DB.ANALYTICS.V_CUSTOMER_SPENDING_SUMMARY
+  ALTER    DYNAMIC_TABLE    DCM_PROJECT_JW_DCM_GLOB_DB.ANALYTICS.V_ENRICHED_ORDER_DETAILS
+  ALTER    DYNAMIC_TABLE    DCM_PROJECT_JW_DCM_GLOB_DB.ANALYTICS.V_MENU_ITEM_POPULARITY
+  DROP     DYNAMIC_TABLE    DCM_PROJECT_JW_DCM_GLOB_DB.ANALYTICS.V_REFRESHABLE_2
+  ALTER    DYNAMIC_TABLE    DCM_PROJECT_JW_DCM_GLOB_DB.ANALYTICS.V_TRUCK_PERFORMANCE
+  ALTER    TABLE            DCM_PROJECT_JW_DCM_GLOB_DB.RAW.INVENTORY
+  ALTER    TABLE            DCM_PROJECT_JW_DCM_GLOB_DB.RAW.T_REFRESHABLE
+  ALTER    ROLE             DCM_PROJECT_JW_DCM_GLOB_DB_READ
+  CREATE   ROLE             DCM_PROJECT_JW_DCM_GLOB_DB_WRITE
+  ALTER    WAREHOUSE        DCM_PROJECT_WH_JW_DCM_GLOB_DB
+  ALTER    USER             JWILKOWSKI
+  
+  Planned 11 entities (1 to create, 9 to alter, 1 to drop).
+  
+  '''
+# ---
+# name: TestPlanReporterTerse.test_single_create
+  '''
+  CREATE   TABLE            DB.SCH.ORDERS
+  
+  Planned 1 entities (1 to create).
+  
+  '''
+# ---
