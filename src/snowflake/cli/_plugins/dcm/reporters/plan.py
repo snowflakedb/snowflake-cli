@@ -199,7 +199,7 @@ def _display_fqn(fqn: FQN) -> str:
 
 
 @dataclass
-class PlanDisplayEntry:
+class PlanRow:
     """Parsed entry ready for display -- the common currency of plan reporters."""
 
     operation: str
@@ -228,7 +228,7 @@ def _style_for_operation(operation: str) -> Style:
     return styles.STATUS_STYLE
 
 
-def _print_terse(entry: PlanDisplayEntry) -> None:
+def _print_terse(entry: PlanRow) -> None:
     """Print a single terse plan entry line."""
     style = _style_for_operation(entry.operation)
 
@@ -253,9 +253,7 @@ def _print_terse(entry: PlanDisplayEntry) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _parse_entity_change(
-    entry_dict: Dict[str, Any], summary
-) -> Optional[PlanDisplayEntry]:
+def _parse_entity_change(entry_dict: Dict[str, Any], summary) -> Optional[PlanRow]:
     """Parse a version 2 changeset entry into a display entry without dropping data."""
     try:
         entity = PlanEntityChange.model_validate(entry_dict)
@@ -291,7 +289,7 @@ def _parse_entity_change(
     elif operation == "DROP":
         summary.dropped += 1
 
-    return PlanDisplayEntry(
+    return PlanRow(
         operation=operation,
         domain=domain,
         fqn=fqn,
@@ -305,7 +303,7 @@ def _parse_entity_change(
 # ---------------------------------------------------------------------------
 
 
-class PlanReporter(Reporter[PlanDisplayEntry]):
+class PlanReporter(Reporter[PlanRow]):
     """Reporter for generic human-friendly plan output."""
 
     @dataclass
@@ -318,9 +316,9 @@ class PlanReporter(Reporter[PlanDisplayEntry]):
         def total(self):
             return self.created + self.altered + self.dropped
 
-    def __init__(self, verbose: bool = True):
+    def __init__(self, verbose: bool = True, command_name: str = "plan"):
         super().__init__()
-        self.command_name = "plan"
+        self.command_name = command_name
         self._summary = self.Summary()
         self._verbose = verbose
 
@@ -342,13 +340,13 @@ class PlanReporter(Reporter[PlanDisplayEntry]):
             )
         return response.changeset
 
-    def parse_data(self, data: List[Dict[str, Any]]) -> Iterator[PlanDisplayEntry]:
+    def parse_data(self, data: List[Dict[str, Any]]) -> Iterator[PlanRow]:
         for entry_dict in data:
             parsed = _parse_entity_change(entry_dict, self._summary)
             if parsed is not None:
                 yield parsed
 
-    def print_renderables(self, data: Iterator[PlanDisplayEntry]) -> None:
+    def print_renderables(self, data: Iterator[PlanRow]) -> None:
         for entry in data:
             _print_terse(entry)
 
@@ -358,16 +356,33 @@ class PlanReporter(Reporter[PlanDisplayEntry]):
             return [Text("No changes detected.")]
 
         parts = []
+        operations = {
+            "plan": ("to create", "to alter", "to drop", "Planned"),
+            "deploy": ("created", "altered", "dropped", "Deployed"),
+        }
         if self._summary.created > 0:
             parts.append(
-                Text(f"{self._summary.created} to create", styles.CREATE_STYLE)
+                Text(
+                    f"{self._summary.created} {operations[self.command_name][0]}",
+                    styles.CREATE_STYLE,
+                )
             )
         if self._summary.altered > 0:
-            parts.append(Text(f"{self._summary.altered} to alter", styles.ALTER_STYLE))
+            parts.append(
+                Text(
+                    f"{self._summary.altered} {operations[self.command_name][1]}",
+                    styles.ALTER_STYLE,
+                )
+            )
         if self._summary.dropped > 0:
-            parts.append(Text(f"{self._summary.dropped} to drop", styles.DROP_STYLE))
+            parts.append(
+                Text(
+                    f"{self._summary.dropped} {operations[self.command_name][2]}",
+                    styles.DROP_STYLE,
+                )
+            )
 
-        result = [Text(f"Planned {total} entities (")]
+        result = [Text(f"{operations[self.command_name][3]} {total} entities (")]
         for i, part in enumerate(parts):
             if i > 0:
                 result.append(Text(", "))

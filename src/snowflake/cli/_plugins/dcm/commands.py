@@ -28,7 +28,7 @@ from snowflake.cli._plugins.dcm.reporters import (
     RefreshReporter,
     TestReporter,
 )
-from snowflake.cli._plugins.dcm.utils import mock_dcm_response, FakeCursor
+from snowflake.cli._plugins.dcm.utils import mock_dcm_response
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.object.manager import ObjectManager
@@ -185,6 +185,7 @@ def _resolve_context_with_optional_manifest(
 def _process_plan_result(
     cursor: SnowflakeCursor,
     verbose: bool = False,
+    command_name: str = "plan",
 ) -> CollectionResult | EmptyResult:
     """
     Process plan result, detecting format and returning appropriate result type.
@@ -205,7 +206,8 @@ def _process_plan_result(
 
     # Handle new format with reporter
     if isinstance(data, dict) and data.get("version", 0) == 2:
-        PlanReporter(verbose=verbose).process(FakeCursor(data))
+        reporter = PlanReporter(verbose=verbose, command_name=command_name)
+        reporter.process_payload(data)
         return EmptyResult()
 
     # Old format
@@ -266,7 +268,7 @@ def deploy(
             skip_plan=skip_plan,
         )
 
-    return _process_plan_result(result)
+    return _process_plan_result(result, command_name="deploy")
 
 
 @app.command(requires_connection=True)
@@ -301,7 +303,7 @@ def plan(
             save_output=save_output,
         )
 
-    return _process_plan_result(result)
+    return _process_plan_result(result, command_name="plan")
 
 
 @app.command(requires_connection=True, hidden=True)

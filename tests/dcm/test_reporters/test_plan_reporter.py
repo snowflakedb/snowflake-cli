@@ -99,3 +99,26 @@ class TestPlanReporterTerse:
         data = _load_plan_data("plan5.json")
         output = capture_reporter_output(PlanReporter(verbose=False), FakeCursor(data))
         assert output == snapshot
+
+    def test_deploy_summary_prefix(self):
+        data = {
+            "version": 2,
+            "metadata": {},
+            "changeset": [
+                {
+                    "type": "CREATE",
+                    "object_id": {
+                        "domain": "TABLE",
+                        "name": '"ORDERS"',
+                        "fqn": '"DB"."SCH"."ORDERS"',
+                        "database": '"DB"',
+                        "schema": '"SCH"',
+                    },
+                    "changes": [],
+                }
+            ],
+        }
+        reporter = PlanReporter(verbose=False)
+        reporter.command_name = "deploy"
+        output = capture_reporter_output(reporter, FakeCursor(data))
+        assert "Deployed 1 entities (1 created)." in output
