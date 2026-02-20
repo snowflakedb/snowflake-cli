@@ -836,3 +836,37 @@ def test_dcm_raw_analyze_with_target(
         # Clean up
         result = runner.invoke_with_connection(["dcm", "drop"] + target_args)
         assert result.exit_code == 0, result.output
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_dcm_raw_analyze_with_errors(
+    runner,
+    test_database,
+    project_directory,
+    object_name_provider,
+):
+    project_name = object_name_provider.create_and_get_next_object_name()
+    correct_table_fqn = f"{test_database}.PUBLIC.CORRECT_TABLE"
+    incorrect_table_fqn = f"{test_database}.PUBLIC.INCORRECT_TABLE"
+
+    with project_directory("dcm_project") as project_root:
+        # Create the project
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
+        assert result.exit_code == 0, result.output
+
+        # Define one correct and one incorrect table
+        file_a_path = project_root / "sources" / "definitions" / "file_a.sql"
+        file_a_path.write_text(
+            f"define table identifier('{correct_table_fqn}') (id int, name varchar);\n"
+            f"define table identifier('{incorrect_table_fqn}') (id int, name unknown_type);\n"
+        )
+
+        # raw-analyze should detect the error and fail with exit code 1
+        result = runner.invoke_with_connection(["dcm", "raw-analyze", project_name])
+        assert result.exit_code == 1, result.output
+        assert "Analysis found 1 error(s)." in result.output
+
+        # Clean up
+        result = runner.invoke_with_connection(["dcm", "drop", project_name])
+        assert result.exit_code == 0, result.output

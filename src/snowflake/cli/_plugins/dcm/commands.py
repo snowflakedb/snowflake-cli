@@ -22,7 +22,11 @@ from snowflake.cli._plugins.dcm.exceptions import (
 )
 from snowflake.cli._plugins.dcm.manager import DCMProjectManager
 from snowflake.cli._plugins.dcm.models import DCMManifest, TargetContext
-from snowflake.cli._plugins.dcm.reporters import RefreshReporter, TestReporter
+from snowflake.cli._plugins.dcm.reporters import (
+    AnalyzeReporter,
+    RefreshReporter,
+    TestReporter,
+)
 from snowflake.cli._plugins.dcm.utils import mock_dcm_response
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
@@ -292,6 +296,7 @@ def plan(
 
 
 @app.command(requires_connection=True, hidden=True)
+@mock_dcm_response("analyze")
 def raw_analyze(
     identifier: Optional[FQN] = optional_dcm_identifier,
     from_location: SecurePath = from_option,
@@ -318,12 +323,8 @@ def raw_analyze(
             variables=variables,
         )
 
-    row = result.fetchone()
-    if row and row[0]:
-        cli_console.styled_message(row[0])
-    else:
-        cli_console.styled_message("No data.")
-
+    reporter = AnalyzeReporter()
+    reporter.process(result)
     return EmptyResult()
 
 
