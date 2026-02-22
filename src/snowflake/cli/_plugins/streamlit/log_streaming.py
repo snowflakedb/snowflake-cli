@@ -12,51 +12,53 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+WebSocket log streaming client for Streamlit developer logs.
+
+Connects to the Streamlit container runtime's developer log service
+via WebSocket and streams log entries in real time.
+"""
+
 from __future__ import annotations
 
 import json
 import logging
 import sys
-from datetime import datetime, timezone
-from typing import Tuple
+from dataclasses import dataclass
 
+import websocket
 from click import ClickException
-from snowflake.cli._plugins.streamlit.proto.generated.developer.v1 import (
-    logs_service_pb2 as pb,
+from google.protobuf.message import DecodeError
+from snowflake.cli._plugins.streamlit.proto_codec import (
+    decode_log_entry,
+    encode_stream_logs_request,
 )
 from snowflake.cli.api.console import cli_console
 from snowflake.connector import SnowflakeConnection
 
 log = logging.getLogger(__name__)
 
-# LogSource enum labels
-_LOG_SOURCE_LABELS = {
-    pb.LOG_SOURCE_UNSPECIFIED: "UNKNOWN",
-    pb.LOG_SOURCE_APP: "APP",
-    pb.LOG_SOURCE_MANAGER: "MGR",
-}
-
-# LogLevel enum labels
-_LOG_LEVEL_LABELS = {
-    pb.LOG_LEVEL_UNSPECIFIED: "UNKNOWN",
-    pb.LOG_LEVEL_DEBUG: "DEBUG",
-    pb.LOG_LEVEL_INFO: "INFO",
-    pb.LOG_LEVEL_WARN: "WARN",
-    pb.LOG_LEVEL_ERROR: "ERROR",
-}
-
 DEFAULT_TAIL_LINES = 100
 MAX_TAIL_LINES = 10000
 
-# Timeout for each ws.recv() call — mirrors the Go client's 90-second read
-# deadline.  When no log entry arrives within this window, we re-issue recv()
-# so the loop stays responsive to KeyboardInterrupt.
+# Timeout for each ws.recv_data() call — mirrors the Go client's 90-second
+# read deadline.  When no log entry arrives within this window, we re-issue
+# recv_data() so the loop stays responsive to KeyboardInterrupt.
 _WS_RECV_TIMEOUT_SECONDS = 90
 
+_HANDSHAKE_TIMEOUT_SECONDS = 10
 
-def get_developer_api_token(conn: SnowflakeConnection, fqn: str) -> Tuple[str, str]:
+
+@dataclass
+class DeveloperApiToken:
+    token: str
+    resource_uri: str
+
+
+def get_developer_api_token(conn: SnowflakeConnection, fqn: str) -> DeveloperApiToken:
     """
-    Calls SYSTEM$GET_STREAMLIT_DEVELOPER_API_TOKEN and returns (token, resource_uri).
+    Calls SYSTEM$GET_STREAMLIT_DEVELOPER_API_TOKEN and returns a
+    DeveloperApiToken with the token and resource URI.
     """
     if "'" in fqn:
         raise ClickException(
@@ -92,7 +94,7 @@ def get_developer_api_token(conn: SnowflakeConnection, fqn: str) -> Tuple[str, s
         raise ClickException("Empty resourceUri in developer API response")
 
     log.debug("Resource URI: %s", resource_uri)
-    return token, resource_uri
+    return DeveloperApiToken(token=token, resource_uri=resource_uri)
 
 
 def build_ws_url(resource_uri: str) -> str:
@@ -101,38 +103,6 @@ def build_ws_url(resource_uri: str) -> str:
         "http://", "ws://", 1
     )
     return ws_url.rstrip("/") + "/logs"
-
-
-def _parse_timestamp(entry: pb.LogEntry) -> datetime:
-    """Extract a timezone-aware UTC datetime from a LogEntry."""
-    if entry.HasField("timestamp"):
-        return entry.timestamp.ToDatetime(tzinfo=timezone.utc)
-    return datetime.fromtimestamp(0, tz=timezone.utc)
-
-
-def format_log_entry(entry: pb.LogEntry) -> str:
-    """Format a LogEntry protobuf message into a human-readable line."""
-    ts = _parse_timestamp(entry)
-    ts_str = ts.strftime("%Y-%m-%d %H:%M:%S.") + f"{ts.microsecond // 1000:03d}"
-
-    source = _LOG_SOURCE_LABELS.get(entry.log_source, "UNKNOWN")
-    level = _LOG_LEVEL_LABELS.get(entry.level, "UNKNOWN")
-    return f"[{ts_str}] [{level}] [{source}] [seq:{entry.sequence}] {entry.content}"
-
-
-def log_entry_to_dict(entry: pb.LogEntry) -> dict:
-    """Convert a LogEntry protobuf message into a JSON-serializable dict."""
-    ts = _parse_timestamp(entry)
-    return {
-        "timestamp": ts.isoformat(),
-        "level": _LOG_LEVEL_LABELS.get(entry.level, "UNKNOWN"),
-        "source": _LOG_SOURCE_LABELS.get(entry.log_source, "UNKNOWN"),
-        "sequence": entry.sequence,
-        "content": entry.content,
-    }
-
-
-_HANDSHAKE_TIMEOUT_SECONDS = 10
 
 
 def stream_logs(
@@ -148,18 +118,16 @@ def stream_logs(
     When *json_output* is True each log entry is emitted as a single-line
     JSON object (JSONL), suitable for piping to ``jq`` or other tools.
     """
-    import websocket
-
     # 1. Get token
     cli_console.step("Fetching developer API token...")
-    token, resource_uri = get_developer_api_token(conn, fqn)
+    token_info = get_developer_api_token(conn, fqn)
 
     # 2. Build WebSocket URL
-    ws_url = build_ws_url(resource_uri)
+    ws_url = build_ws_url(token_info.resource_uri)
     cli_console.step(f"Connecting to log stream: {ws_url}")
 
     # 3. Connect
-    header = [f'Authorization: Snowflake Token="{token}"']
+    header = [f'Authorization: Snowflake Token="{token_info.token}"']
     ws = websocket.WebSocket()
     ws.timeout = _WS_RECV_TIMEOUT_SECONDS
 
@@ -170,8 +138,7 @@ def stream_logs(
 
     try:
         # 4. Send StreamLogsRequest
-        request = pb.StreamLogsRequest(tail_lines=tail_lines)
-        ws.send_binary(request.SerializeToString())
+        ws.send_binary(encode_stream_logs_request(tail_lines))
         log.debug("Sent StreamLogsRequest with tail_lines=%d", tail_lines)
 
         cli_console.step(f"Streaming logs (tail={tail_lines}). Press Ctrl+C to stop.")
@@ -194,12 +161,15 @@ def stream_logs(
                 break
 
             if opcode == websocket.ABNF.OPCODE_BINARY:
-                entry = pb.LogEntry()
-                entry.ParseFromString(data)
+                try:
+                    entry = decode_log_entry(data)
+                except (DecodeError, ValueError) as e:
+                    log.warning("Failed to decode log entry: %s", e)
+                    continue
                 if json_output:
-                    sys.stdout.write(json.dumps(log_entry_to_dict(entry)) + "\n")
+                    sys.stdout.write(json.dumps(entry.to_dict()) + "\n")
                 else:
-                    sys.stdout.write(format_log_entry(entry) + "\n")
+                    sys.stdout.write(entry.format_line() + "\n")
                 sys.stdout.flush()
             elif opcode == websocket.ABNF.OPCODE_CLOSE:
                 break
@@ -210,7 +180,7 @@ def stream_logs(
         pass
     finally:
         try:
-            ws.close()
+            ws.close(status=websocket.STATUS_NORMAL)
         except Exception:
             pass
         sys.stdout.write("\n--- Log streaming stopped.\n")
