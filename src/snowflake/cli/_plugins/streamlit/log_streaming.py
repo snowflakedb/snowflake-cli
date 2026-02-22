@@ -38,9 +38,6 @@ from snowflake.connector import SnowflakeConnection
 
 log = logging.getLogger(__name__)
 
-DEFAULT_TAIL_LINES = 100
-MAX_TAIL_LINES = 1000
-
 # Timeout for each ws.recv_data() call — mirrors the Go client's 90-second
 # read deadline.  When no log entry arrives within this window, we re-issue
 # recv_data() so the loop stays responsive to KeyboardInterrupt.
@@ -118,6 +115,9 @@ def validate_spcs_v2_runtime(conn: SnowflakeConnection, fqn: str) -> None:
 
     cursor = conn.cursor()
     try:
+        # fqn is already validated by IdentifierType / FQN.using_connection —
+        # DESCRIBE uses identifier syntax, not string literals, so no
+        # single-quote injection risk.
         cursor.execute(f"DESCRIBE STREAMLIT {fqn}")
         row = cursor.fetchone()
         description = cursor.description
@@ -145,7 +145,7 @@ def validate_spcs_v2_runtime(conn: SnowflakeConnection, fqn: str) -> None:
 def stream_logs(
     conn: SnowflakeConnection,
     fqn: str,
-    tail_lines: int = DEFAULT_TAIL_LINES,
+    tail_lines: int = 100,
     json_output: bool = False,
 ) -> None:
     """
@@ -164,6 +164,8 @@ def stream_logs(
     cli_console.step(f"Connecting to log stream: {ws_url}")
 
     # 3. Connect
+    # NOTE: Do not log `header` — it contains the auth token. Also be aware
+    # that websocket.enableTrace(True) will dump headers to stderr.
     header = [f'Authorization: Snowflake Token="{token_info.token}"']
     ws = websocket.WebSocket()
     ws.timeout = _WS_RECV_TIMEOUT_SECONDS
@@ -195,7 +197,7 @@ def stream_logs(
             except websocket.WebSocketConnectionClosedException:
                 log.debug("WebSocket connection closed by server")
                 break
-            except Exception as e:
+            except (websocket.WebSocketException, OSError) as e:
                 log.debug("WebSocket recv error: %s", e)
                 break
 
@@ -220,8 +222,8 @@ def stream_logs(
     finally:
         try:
             ws.close(status=websocket.STATUS_NORMAL)
-        except Exception:
-            pass
+        except Exception as e:
+            log.debug("Error closing WebSocket: %s", e)
         if streaming:
             sys.stdout.write("\n--- Log streaming stopped.\n")
             sys.stdout.flush()

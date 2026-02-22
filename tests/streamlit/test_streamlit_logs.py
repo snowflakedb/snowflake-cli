@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from unittest import mock
 
 import pytest
+import websocket as ws_lib
 from click import ClickException
 from snowflake.cli._plugins.streamlit.log_streaming import (
     DeveloperApiToken,
@@ -240,44 +241,60 @@ class TestDecodeLogEntry:
         }
 
 
-class TestStreamLogs:
-    def _make_entry_bytes(self, log_source, content, seconds, sequence, level):
-        from snowflake.cli._plugins.streamlit.proto.generated.developer.v1 import (
-            logs_service_pb2 as pb2,
-        )
+def _make_entry_bytes(log_source, content, seconds, sequence, level):
+    """Serialize a protobuf LogEntry for use in tests."""
+    from snowflake.cli._plugins.streamlit.proto.generated.developer.v1 import (
+        logs_service_pb2 as pb2,
+    )
 
-        entry = pb2.LogEntry(
-            log_source=log_source, content=content, sequence=sequence, level=level
-        )
-        entry.timestamp.seconds = seconds
-        return entry.SerializeToString()
+    entry = pb2.LogEntry(
+        log_source=log_source, content=content, sequence=sequence, level=level
+    )
+    entry.timestamp.seconds = seconds
+    return entry.SerializeToString()
 
-    def _mock_conn_with_token(self):
-        """Return a mock connection that returns a valid token response."""
-        mock_cursor = mock.Mock()
-        mock_cursor.fetchone.return_value = (
-            '{"token": "test-token", "resourceUri": "https://test.snowflakecomputing.com/api"}',
-        )
-        mock_conn = mock.Mock()
-        mock_conn.cursor.return_value = mock_cursor
-        return mock_conn
 
-    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.cli_console")
-    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.websocket")
-    def test_streams_log_entries_to_stdout(self, mock_ws_module, mock_console, capsys):
-        import websocket as ws_lib
+def _mock_conn_with_token():
+    """Return a mock connection that returns a valid token response."""
+    mock_cursor = mock.Mock()
+    mock_cursor.fetchone.return_value = (
+        '{"token": "test-token", "resourceUri": "https://test.snowflakecomputing.com/api"}',
+    )
+    mock_conn = mock.Mock()
+    mock_conn.cursor.return_value = mock_cursor
+    return mock_conn
 
-        mock_ws = mock.Mock()
-        mock_ws_module.WebSocket.return_value = mock_ws
+
+@pytest.fixture
+def mock_ws():
+    """Patch the websocket module in log_streaming and wire up real constants."""
+    with mock.patch(
+        "snowflake.cli._plugins.streamlit.log_streaming.websocket"
+    ) as mock_ws_module:
+        ws = mock.Mock()
+        mock_ws_module.WebSocket.return_value = ws
         mock_ws_module.ABNF = ws_lib.ABNF
         mock_ws_module.WebSocketTimeoutException = ws_lib.WebSocketTimeoutException
         mock_ws_module.WebSocketConnectionClosedException = (
             ws_lib.WebSocketConnectionClosedException
         )
+        mock_ws_module.WebSocketException = ws_lib.WebSocketException
         mock_ws_module.STATUS_NORMAL = ws_lib.STATUS_NORMAL
+        yield ws
 
-        entry1 = self._make_entry_bytes(1, "line one", 1700000000, 1, 2)
-        entry2 = self._make_entry_bytes(2, "line two", 1700000001, 2, 3)
+
+@pytest.fixture
+def mock_console():
+    with mock.patch(
+        "snowflake.cli._plugins.streamlit.log_streaming.cli_console"
+    ) as console:
+        yield console
+
+
+class TestStreamLogs:
+    def test_streams_log_entries_to_stdout(self, mock_ws, mock_console, capsys):
+        entry1 = _make_entry_bytes(1, "line one", 1700000000, 1, 2)
+        entry2 = _make_entry_bytes(2, "line two", 1700000001, 2, 3)
 
         mock_ws.recv_data.side_effect = [
             (ws_lib.ABNF.OPCODE_BINARY, entry1),
@@ -285,7 +302,7 @@ class TestStreamLogs:
             (ws_lib.ABNF.OPCODE_CLOSE, b""),
         ]
 
-        conn = self._mock_conn_with_token()
+        conn = _mock_conn_with_token()
         stream_logs(conn=conn, fqn="DB.SCHEMA.APP", tail_lines=100)
 
         captured = capsys.readouterr()
@@ -294,30 +311,17 @@ class TestStreamLogs:
         assert "[APP]" in captured.out
         assert "[MGR]" in captured.out
 
-    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.cli_console")
-    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.websocket")
-    def test_json_output(self, mock_ws_module, mock_console, capsys):
+    def test_json_output(self, mock_ws, mock_console, capsys):
         import json
 
-        import websocket as ws_lib
-
-        mock_ws = mock.Mock()
-        mock_ws_module.WebSocket.return_value = mock_ws
-        mock_ws_module.ABNF = ws_lib.ABNF
-        mock_ws_module.WebSocketTimeoutException = ws_lib.WebSocketTimeoutException
-        mock_ws_module.WebSocketConnectionClosedException = (
-            ws_lib.WebSocketConnectionClosedException
-        )
-        mock_ws_module.STATUS_NORMAL = ws_lib.STATUS_NORMAL
-
-        entry_bytes = self._make_entry_bytes(1, "json test", 1700000000, 1, 2)
+        entry_bytes = _make_entry_bytes(1, "json test", 1700000000, 1, 2)
 
         mock_ws.recv_data.side_effect = [
             (ws_lib.ABNF.OPCODE_BINARY, entry_bytes),
             (ws_lib.ABNF.OPCODE_CLOSE, b""),
         ]
 
-        conn = self._mock_conn_with_token()
+        conn = _mock_conn_with_token()
         stream_logs(conn=conn, fqn="DB.SCHEMA.APP", tail_lines=50, json_output=True)
 
         captured = capsys.readouterr()
@@ -331,43 +335,17 @@ class TestStreamLogs:
         assert parsed["source"] == "APP"
         assert parsed["level"] == "INFO"
 
-    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.cli_console")
-    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.websocket")
-    def test_handles_connection_closed(self, mock_ws_module, mock_console, capsys):
-        import websocket as ws_lib
-
-        mock_ws = mock.Mock()
-        mock_ws_module.WebSocket.return_value = mock_ws
-        mock_ws_module.ABNF = ws_lib.ABNF
-        mock_ws_module.WebSocketTimeoutException = ws_lib.WebSocketTimeoutException
-        mock_ws_module.WebSocketConnectionClosedException = (
-            ws_lib.WebSocketConnectionClosedException
-        )
-        mock_ws_module.STATUS_NORMAL = ws_lib.STATUS_NORMAL
-
+    def test_handles_connection_closed(self, mock_ws, mock_console, capsys):
         mock_ws.recv_data.side_effect = ws_lib.WebSocketConnectionClosedException()
 
-        conn = self._mock_conn_with_token()
+        conn = _mock_conn_with_token()
         stream_logs(conn=conn, fqn="DB.SCHEMA.APP", tail_lines=100)
 
         captured = capsys.readouterr()
         assert "Log streaming stopped" in captured.out
 
-    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.cli_console")
-    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.websocket")
-    def test_timeout_continues_loop(self, mock_ws_module, mock_console, capsys):
-        import websocket as ws_lib
-
-        mock_ws = mock.Mock()
-        mock_ws_module.WebSocket.return_value = mock_ws
-        mock_ws_module.ABNF = ws_lib.ABNF
-        mock_ws_module.WebSocketTimeoutException = ws_lib.WebSocketTimeoutException
-        mock_ws_module.WebSocketConnectionClosedException = (
-            ws_lib.WebSocketConnectionClosedException
-        )
-        mock_ws_module.STATUS_NORMAL = ws_lib.STATUS_NORMAL
-
-        entry_bytes = self._make_entry_bytes(1, "after timeout", 1700000000, 1, 2)
+    def test_timeout_continues_loop(self, mock_ws, mock_console, capsys):
+        entry_bytes = _make_entry_bytes(1, "after timeout", 1700000000, 1, 2)
 
         # Timeout once, then get a message, then close
         mock_ws.recv_data.side_effect = [
@@ -376,50 +354,24 @@ class TestStreamLogs:
             (ws_lib.ABNF.OPCODE_CLOSE, b""),
         ]
 
-        conn = self._mock_conn_with_token()
+        conn = _mock_conn_with_token()
         stream_logs(conn=conn, fqn="DB.SCHEMA.APP", tail_lines=100)
 
         captured = capsys.readouterr()
         assert "after timeout" in captured.out
 
-    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.cli_console")
-    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.websocket")
-    def test_graceful_close(self, mock_ws_module, mock_console):
-        import websocket as ws_lib
-
-        mock_ws = mock.Mock()
-        mock_ws_module.WebSocket.return_value = mock_ws
-        mock_ws_module.ABNF = ws_lib.ABNF
-        mock_ws_module.WebSocketTimeoutException = ws_lib.WebSocketTimeoutException
-        mock_ws_module.WebSocketConnectionClosedException = (
-            ws_lib.WebSocketConnectionClosedException
-        )
-        mock_ws_module.STATUS_NORMAL = ws_lib.STATUS_NORMAL
-
+    def test_graceful_close(self, mock_ws, mock_console):
         mock_ws.recv_data.side_effect = [
             (ws_lib.ABNF.OPCODE_CLOSE, b""),
         ]
 
-        conn = self._mock_conn_with_token()
+        conn = _mock_conn_with_token()
         stream_logs(conn=conn, fqn="DB.SCHEMA.APP", tail_lines=100)
 
         mock_ws.close.assert_called_once_with(status=ws_lib.STATUS_NORMAL)
 
-    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.cli_console")
-    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.websocket")
-    def test_skips_malformed_protobuf(self, mock_ws_module, mock_console, capsys):
-        import websocket as ws_lib
-
-        mock_ws = mock.Mock()
-        mock_ws_module.WebSocket.return_value = mock_ws
-        mock_ws_module.ABNF = ws_lib.ABNF
-        mock_ws_module.WebSocketTimeoutException = ws_lib.WebSocketTimeoutException
-        mock_ws_module.WebSocketConnectionClosedException = (
-            ws_lib.WebSocketConnectionClosedException
-        )
-        mock_ws_module.STATUS_NORMAL = ws_lib.STATUS_NORMAL
-
-        good_entry = self._make_entry_bytes(1, "good line", 1700000000, 1, 2)
+    def test_skips_malformed_protobuf(self, mock_ws, mock_console, capsys):
+        good_entry = _make_entry_bytes(1, "good line", 1700000000, 1, 2)
 
         mock_ws.recv_data.side_effect = [
             (ws_lib.ABNF.OPCODE_BINARY, b"\xff\xff\xff"),  # invalid protobuf
@@ -427,98 +379,50 @@ class TestStreamLogs:
             (ws_lib.ABNF.OPCODE_CLOSE, b""),
         ]
 
-        conn = self._mock_conn_with_token()
+        conn = _mock_conn_with_token()
         stream_logs(conn=conn, fqn="DB.SCHEMA.APP", tail_lines=100)
 
         captured = capsys.readouterr()
         # The malformed entry is skipped but the good entry still shows
         assert "good line" in captured.out
 
-    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.cli_console")
-    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.websocket")
-    def test_responds_to_ping(self, mock_ws_module, mock_console):
-        import websocket as ws_lib
-
-        mock_ws = mock.Mock()
-        mock_ws_module.WebSocket.return_value = mock_ws
-        mock_ws_module.ABNF = ws_lib.ABNF
-        mock_ws_module.WebSocketTimeoutException = ws_lib.WebSocketTimeoutException
-        mock_ws_module.WebSocketConnectionClosedException = (
-            ws_lib.WebSocketConnectionClosedException
-        )
-        mock_ws_module.STATUS_NORMAL = ws_lib.STATUS_NORMAL
-
+    def test_responds_to_ping(self, mock_ws, mock_console):
         mock_ws.recv_data.side_effect = [
             (ws_lib.ABNF.OPCODE_PING, b"ping-data"),
             (ws_lib.ABNF.OPCODE_CLOSE, b""),
         ]
 
-        conn = self._mock_conn_with_token()
+        conn = _mock_conn_with_token()
         stream_logs(conn=conn, fqn="DB.SCHEMA.APP", tail_lines=100)
 
         mock_ws.pong.assert_called_once_with(b"ping-data")
 
-    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.cli_console")
-    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.websocket")
-    def test_keyboard_interrupt_prints_stopped(
-        self, mock_ws_module, mock_console, capsys
-    ):
-        import websocket as ws_lib
-
-        mock_ws = mock.Mock()
-        mock_ws_module.WebSocket.return_value = mock_ws
-        mock_ws_module.ABNF = ws_lib.ABNF
-        mock_ws_module.WebSocketTimeoutException = ws_lib.WebSocketTimeoutException
-        mock_ws_module.WebSocketConnectionClosedException = (
-            ws_lib.WebSocketConnectionClosedException
-        )
-        mock_ws_module.STATUS_NORMAL = ws_lib.STATUS_NORMAL
-
+    def test_keyboard_interrupt_prints_stopped(self, mock_ws, mock_console, capsys):
         mock_ws.recv_data.side_effect = KeyboardInterrupt()
 
-        conn = self._mock_conn_with_token()
+        conn = _mock_conn_with_token()
         stream_logs(conn=conn, fqn="DB.SCHEMA.APP", tail_lines=100)
 
         captured = capsys.readouterr()
         assert "Log streaming stopped" in captured.out
         mock_ws.close.assert_called_once_with(status=ws_lib.STATUS_NORMAL)
 
-    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.cli_console")
-    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.websocket")
-    def test_connect_failure_raises(self, mock_ws_module, mock_console):
-        import websocket as ws_lib
-
-        mock_ws = mock.Mock()
-        mock_ws_module.WebSocket.return_value = mock_ws
-        mock_ws_module.STATUS_NORMAL = ws_lib.STATUS_NORMAL
+    def test_connect_failure_raises(self, mock_ws, mock_console):
         mock_ws.connect.side_effect = ConnectionRefusedError("Connection refused")
 
-        conn = self._mock_conn_with_token()
+        conn = _mock_conn_with_token()
         with pytest.raises(ClickException, match="Failed to connect"):
             stream_logs(conn=conn, fqn="DB.SCHEMA.APP", tail_lines=100)
 
         # WebSocket should still be closed in the finally block
         mock_ws.close.assert_called_once_with(status=ws_lib.STATUS_NORMAL)
 
-    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.cli_console")
-    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.websocket")
-    def test_sends_stream_logs_request(self, mock_ws_module, mock_console):
-        import websocket as ws_lib
-
-        mock_ws = mock.Mock()
-        mock_ws_module.WebSocket.return_value = mock_ws
-        mock_ws_module.ABNF = ws_lib.ABNF
-        mock_ws_module.WebSocketTimeoutException = ws_lib.WebSocketTimeoutException
-        mock_ws_module.WebSocketConnectionClosedException = (
-            ws_lib.WebSocketConnectionClosedException
-        )
-        mock_ws_module.STATUS_NORMAL = ws_lib.STATUS_NORMAL
-
+    def test_sends_stream_logs_request(self, mock_ws, mock_console):
         mock_ws.recv_data.side_effect = [
             (ws_lib.ABNF.OPCODE_CLOSE, b""),
         ]
 
-        conn = self._mock_conn_with_token()
+        conn = _mock_conn_with_token()
         stream_logs(conn=conn, fqn="DB.SCHEMA.APP", tail_lines=42)
 
         mock_ws.send_binary.assert_called_once()
@@ -612,3 +516,110 @@ class TestValidateSpcsV2Runtime:
             validate_spcs_v2_runtime(mock_conn, "DB.SCHEMA.MY_APP")
 
         mock_cursor.close.assert_called_once()
+
+
+SPCS_V2_NAME = "SYSTEM$ST_CONTAINER_RUNTIME_PY3_11"
+
+
+class TestStreamlitLogsCommand:
+    """Tests for the streamlit_logs command handler in commands.py."""
+
+    @mock.patch("snowflake.cli._plugins.streamlit.commands.get_cli_context")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.log_streaming.validate_spcs_v2_runtime"
+    )
+    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.stream_logs")
+    def test_name_flag_resolves_fqn_and_validates(
+        self, mock_stream_logs, mock_validate, mock_get_ctx
+    ):
+        """When --name is provided, resolve FQN and validate via DESCRIBE."""
+        from snowflake.cli._plugins.streamlit.commands import streamlit_logs
+        from snowflake.cli.api.identifiers import FQN
+
+        mock_conn = mock.Mock()
+        mock_conn.database = "DB"
+        mock_conn.schema = "SCHEMA"
+
+        mock_ctx = mock.Mock()
+        mock_ctx.connection = mock_conn
+        mock_ctx.output_format.is_json = False
+        mock_get_ctx.return_value = mock_ctx
+
+        fqn = FQN.from_string("MY_APP")
+        resolved = fqn.using_connection(mock_conn)
+
+        result = streamlit_logs(entity_id=None, name=fqn, tail=100)
+
+        mock_validate.assert_called_once_with(mock_conn, str(resolved))
+        mock_stream_logs.assert_called_once_with(
+            conn=mock_conn,
+            fqn=str(resolved),
+            tail_lines=100,
+            json_output=False,
+        )
+        assert result.message == "Log streaming ended."
+
+    @mock.patch("snowflake.cli._plugins.streamlit.commands.get_cli_context")
+    def test_name_and_entity_id_raises(self, mock_get_ctx):
+        """When both --name and entity_id are provided, raise an error."""
+        from snowflake.cli._plugins.streamlit.commands import streamlit_logs
+        from snowflake.cli.api.identifiers import FQN
+
+        mock_ctx = mock.Mock()
+        mock_ctx.connection = mock.Mock()
+        mock_get_ctx.return_value = mock_ctx
+
+        with pytest.raises(ClickException, match="Cannot specify both"):
+            streamlit_logs(
+                entity_id="my_entity", name=FQN.from_string("MY_APP"), tail=100
+            )
+
+    @mock.patch("snowflake.cli._plugins.streamlit.commands.get_cli_context")
+    def test_no_name_no_project_definition_raises(self, mock_get_ctx):
+        """When neither --name nor project definition is available, raise an error."""
+        from snowflake.cli._plugins.streamlit.commands import streamlit_logs
+
+        mock_ctx = mock.Mock()
+        mock_ctx.connection = mock.Mock()
+        mock_ctx.project_definition = None
+        mock_get_ctx.return_value = mock_ctx
+
+        with pytest.raises(ClickException, match="No Streamlit app specified"):
+            streamlit_logs(entity_id=None, name=None, tail=100)
+
+    @mock.patch("snowflake.cli._plugins.streamlit.commands.get_cli_context")
+    @mock.patch("snowflake.cli._plugins.streamlit.commands.get_entity_for_operation")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.log_streaming.validate_spcs_v2_runtime"
+    )
+    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.stream_logs")
+    def test_project_definition_path(
+        self, mock_stream_logs, mock_validate, mock_get_entity, mock_get_ctx
+    ):
+        """When using project definition, resolve entity and validate via DESCRIBE."""
+        from snowflake.cli._plugins.streamlit.commands import streamlit_logs
+        from snowflake.cli.api.identifiers import FQN
+
+        mock_conn = mock.Mock()
+        mock_conn.database = "DB"
+        mock_conn.schema = "PUBLIC"
+
+        mock_pd = mock.Mock()
+        mock_pd.meets_version_requirement.return_value = True
+
+        mock_ctx = mock.Mock()
+        mock_ctx.connection = mock_conn
+        mock_ctx.project_definition = mock_pd
+        mock_ctx.output_format.is_json = False
+        mock_get_ctx.return_value = mock_ctx
+
+        mock_entity = mock.Mock()
+        mock_entity.fqn = FQN.from_string("DB.PUBLIC.MY_STREAMLIT")
+        mock_get_entity.return_value = mock_entity
+
+        result = streamlit_logs(entity_id=None, name=None, tail=50)
+
+        mock_validate.assert_called_once()
+        mock_stream_logs.assert_called_once()
+        assert mock_stream_logs.call_args.kwargs["tail_lines"] == 50
+        assert result.message == "Log streaming ended."
