@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Snowflake Inc.
+# Copyright (c) 2026 Snowflake Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,6 +23,10 @@ from click import ClickException
 from snowflake.cli._plugins.object.command_aliases import (
     add_object_command_aliases,
     scope_option,
+)
+from snowflake.cli._plugins.streamlit.log_streaming import (
+    stream_logs,
+    validate_spcs_v2_runtime,
 )
 from snowflake.cli._plugins.streamlit.manager import StreamlitManager
 from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity
@@ -246,11 +250,6 @@ def streamlit_logs(
 
     Log streaming requires SPCSv2 runtime.
     """
-    from snowflake.cli._plugins.streamlit.log_streaming import (
-        stream_logs,
-        validate_spcs_v2_runtime,
-    )
-
     cli_context = get_cli_context()
     conn = cli_context.connection
 

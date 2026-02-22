@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Snowflake Inc.
+# Copyright (c) 2026 Snowflake Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,18 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 from datetime import datetime, timezone
 from unittest import mock
 
 import pytest
 import websocket as ws_lib
 from click import ClickException
+from snowflake.cli._plugins.streamlit.commands import streamlit_logs
 from snowflake.cli._plugins.streamlit.log_streaming import (
     DeveloperApiToken,
     build_ws_url,
     get_developer_api_token,
     stream_logs,
     validate_spcs_v2_runtime,
+)
+from snowflake.cli._plugins.streamlit.proto.generated.developer.v1 import (
+    logs_service_pb2 as pb2,
 )
 from snowflake.cli._plugins.streamlit.proto_codec import (
     LOG_LEVEL_INFO,
@@ -34,6 +39,7 @@ from snowflake.cli._plugins.streamlit.proto_codec import (
     decode_log_entry,
     encode_stream_logs_request,
 )
+from snowflake.cli.api.identifiers import FQN
 
 
 class TestBuildWsUrl:
@@ -141,10 +147,6 @@ class TestEncodeStreamLogsRequest:
 
     def test_roundtrip_via_pb2(self):
         """Verify encoding matches what the protobuf library produces."""
-        from snowflake.cli._plugins.streamlit.proto.generated.developer.v1 import (
-            logs_service_pb2 as pb2,
-        )
-
         for tail_lines in [0, 1, 50, 100, 1000, 10000]:
             encoded = encode_stream_logs_request(tail_lines)
             decoded = pb2.StreamLogsRequest()
@@ -154,10 +156,6 @@ class TestEncodeStreamLogsRequest:
 
 class TestDecodeLogEntry:
     def _make_pb2_log_entry(self, log_source, content, seconds, nanos, sequence, level):
-        from snowflake.cli._plugins.streamlit.proto.generated.developer.v1 import (
-            logs_service_pb2 as pb2,
-        )
-
         entry = pb2.LogEntry()
         entry.log_source = log_source
         entry.content = content
@@ -243,10 +241,6 @@ class TestDecodeLogEntry:
 
 def _make_entry_bytes(log_source, content, seconds, sequence, level):
     """Serialize a protobuf LogEntry for use in tests."""
-    from snowflake.cli._plugins.streamlit.proto.generated.developer.v1 import (
-        logs_service_pb2 as pb2,
-    )
-
     entry = pb2.LogEntry(
         log_source=log_source, content=content, sequence=sequence, level=level
     )
@@ -312,8 +306,6 @@ class TestStreamLogs:
         assert "[MGR]" in captured.out
 
     def test_json_output(self, mock_ws, mock_console, capsys):
-        import json
-
         entry_bytes = _make_entry_bytes(1, "json test", 1700000000, 1, 2)
 
         mock_ws.recv_data.side_effect = [
@@ -429,10 +421,6 @@ class TestStreamLogs:
         sent_bytes = mock_ws.send_binary.call_args[0][0]
 
         # Verify the sent bytes decode to a StreamLogsRequest with tail_lines=42
-        from snowflake.cli._plugins.streamlit.proto.generated.developer.v1 import (
-            logs_service_pb2 as pb2,
-        )
-
         request = pb2.StreamLogsRequest()
         request.ParseFromString(sent_bytes)
         assert request.tail_lines == 42
@@ -525,17 +513,12 @@ class TestStreamlitLogsCommand:
     """Tests for the streamlit_logs command handler in commands.py."""
 
     @mock.patch("snowflake.cli._plugins.streamlit.commands.get_cli_context")
-    @mock.patch(
-        "snowflake.cli._plugins.streamlit.log_streaming.validate_spcs_v2_runtime"
-    )
-    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.stream_logs")
+    @mock.patch("snowflake.cli._plugins.streamlit.commands.validate_spcs_v2_runtime")
+    @mock.patch("snowflake.cli._plugins.streamlit.commands.stream_logs")
     def test_name_flag_resolves_fqn_and_validates(
         self, mock_stream_logs, mock_validate, mock_get_ctx
     ):
         """When --name is provided, resolve FQN and validate via DESCRIBE."""
-        from snowflake.cli._plugins.streamlit.commands import streamlit_logs
-        from snowflake.cli.api.identifiers import FQN
-
         mock_conn = mock.Mock()
         mock_conn.database = "DB"
         mock_conn.schema = "SCHEMA"
@@ -562,9 +545,6 @@ class TestStreamlitLogsCommand:
     @mock.patch("snowflake.cli._plugins.streamlit.commands.get_cli_context")
     def test_name_and_entity_id_raises(self, mock_get_ctx):
         """When both --name and entity_id are provided, raise an error."""
-        from snowflake.cli._plugins.streamlit.commands import streamlit_logs
-        from snowflake.cli.api.identifiers import FQN
-
         mock_ctx = mock.Mock()
         mock_ctx.connection = mock.Mock()
         mock_get_ctx.return_value = mock_ctx
@@ -577,8 +557,6 @@ class TestStreamlitLogsCommand:
     @mock.patch("snowflake.cli._plugins.streamlit.commands.get_cli_context")
     def test_no_name_no_project_definition_raises(self, mock_get_ctx):
         """When neither --name nor project definition is available, raise an error."""
-        from snowflake.cli._plugins.streamlit.commands import streamlit_logs
-
         mock_ctx = mock.Mock()
         mock_ctx.connection = mock.Mock()
         mock_ctx.project_definition = None
@@ -589,17 +567,12 @@ class TestStreamlitLogsCommand:
 
     @mock.patch("snowflake.cli._plugins.streamlit.commands.get_cli_context")
     @mock.patch("snowflake.cli._plugins.streamlit.commands.get_entity_for_operation")
-    @mock.patch(
-        "snowflake.cli._plugins.streamlit.log_streaming.validate_spcs_v2_runtime"
-    )
-    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.stream_logs")
+    @mock.patch("snowflake.cli._plugins.streamlit.commands.validate_spcs_v2_runtime")
+    @mock.patch("snowflake.cli._plugins.streamlit.commands.stream_logs")
     def test_project_definition_path(
         self, mock_stream_logs, mock_validate, mock_get_entity, mock_get_ctx
     ):
         """When using project definition, resolve entity and validate via DESCRIBE."""
-        from snowflake.cli._plugins.streamlit.commands import streamlit_logs
-        from snowflake.cli.api.identifiers import FQN
-
         mock_conn = mock.Mock()
         mock_conn.database = "DB"
         mock_conn.schema = "PUBLIC"
