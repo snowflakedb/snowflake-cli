@@ -215,6 +215,62 @@ def get_url(
     return MessageResult(url)
 
 
+@app.command("logs", requires_connection=True)
+@with_project_definition()
+def streamlit_logs(
+    entity_id: str = entity_argument("streamlit"),
+    tail: int = typer.Option(
+        100,
+        "--tail",
+        "-n",
+        help="Number of historical log lines to fetch (max: 10000). Use 0 for live logs only.",
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Streams live logs from a deployed Streamlit app to your terminal.
+
+    Reads the Streamlit app name from the project definition file (snowflake.yml).
+    Connects to the app's developer log service via WebSocket and prints
+    log entries in real time. Press Ctrl+C to stop streaming.
+    """
+    from snowflake.cli._plugins.streamlit.log_streaming import (
+        MAX_TAIL_LINES,
+        stream_logs,
+    )
+
+    if tail < 0 or tail > MAX_TAIL_LINES:
+        raise ClickException(f"--tail must be between 0 and {MAX_TAIL_LINES}")
+
+    cli_context = get_cli_context()
+    conn = cli_context.connection
+
+    pd = cli_context.project_definition
+    if not pd.meets_version_requirement("2"):
+        if not pd.streamlit:
+            raise NoProjectDefinitionError(
+                project_type="streamlit", project_root=cli_context.project_root
+            )
+        pd = convert_project_definition_to_v2(cli_context.project_root, pd)
+
+    entity_model = get_entity_for_operation(
+        cli_context=cli_context,
+        entity_id=entity_id,
+        project_definition=pd,
+        entity_type=ObjectType.STREAMLIT.value.cli_name,
+    )
+
+    fqn = entity_model.fqn.using_connection(conn)
+
+    stream_logs(
+        conn=conn,
+        fqn=str(fqn),
+        tail_lines=tail,
+        json_output=cli_context.output_format.is_json,
+    )
+    return MessageResult("Log streaming ended.")
+
+
 def _get_current_workspace_context():
     ctx = get_cli_context()
 
