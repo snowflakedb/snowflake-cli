@@ -74,7 +74,7 @@ class LogEntry:
         ts = self.timestamp.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
         return f"[{ts}] [{self.level_label}] [{self.source_label}] [seq:{self.sequence}] {self.content}"
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, str | int]:
         return {
             "timestamp": self.timestamp.isoformat(),
             "level": self.level_label,
