@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Generator, cast
 
 import click
 import typer
@@ -50,6 +51,7 @@ from snowflake.cli.api.output.types import (
     CommandResult,
     MessageResult,
     SingleQueryResult,
+    StreamResult,
 )
 from snowflake.cli.api.project.definition_conversion import (
     convert_project_definition_to_v2,
@@ -213,6 +215,49 @@ def get_url(
     if open_:
         typer.launch(url)
     return MessageResult(url)
+
+
+@app.command("logs", requires_connection=True)
+def streamlit_logs(
+    name: FQN = StreamlitNameArgument,
+    tail: int = typer.Option(
+        100,
+        "--tail",
+        "-n",
+        help="Number of historical log lines to retrieve before streaming live logs.",
+        min=0,
+        max=10000,
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Streams live logs from a deployed Streamlit app.
+
+    Connects to the Streamlit app's developer log service via WebSocket
+    and streams log entries to the terminal in real time. Press Ctrl+C to stop.
+    """
+    from snowflake.cli._plugins.streamlit.log_streaming import (
+        build_websocket_url,
+        get_developer_api_token,
+        stream_logs,
+    )
+
+    cli_context = get_cli_context()
+    fqn = name.using_connection(cli_context.connection)
+
+    token_info = get_developer_api_token(
+        connection=cli_context.connection,
+        fqn=str(fqn),
+    )
+
+    ws_url = build_websocket_url(token_info.resource_uri)
+    log.debug("Connecting to log stream: %s", ws_url)
+
+    def generate_log_lines():
+        for entry in stream_logs(ws_url, token_info.token, tail):
+            yield MessageResult(entry.format_line())
+
+    return StreamResult(cast(Generator[CommandResult, None, None], generate_log_lines()))
 
 
 def _get_current_workspace_context():
