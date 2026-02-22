@@ -33,6 +33,7 @@ from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
 from snowflake.cli.api.commands.flags import (
+    IdentifierType,
     PruneOption,
     ReplaceOption,
     entity_argument,
@@ -216,9 +217,16 @@ def get_url(
 
 
 @app.command("logs", requires_connection=True)
-@with_project_definition()
+@with_project_definition(is_optional=True)
 def streamlit_logs(
     entity_id: str = entity_argument("streamlit"),
+    name: FQN = typer.Option(
+        None,
+        "--name",
+        help="Fully qualified name of the Streamlit app (e.g. my_app, schema.my_app, or db.schema.my_app). "
+        "Overrides the project definition when provided.",
+        click_type=IdentifierType(),
+    ),
     tail: int = typer.Option(
         100,
         "--tail",
@@ -232,33 +240,59 @@ def streamlit_logs(
     """
     Streams live logs from a deployed Streamlit app to your terminal.
 
-    Reads the Streamlit app name from the project definition file (snowflake.yml).
-    Connects to the app's developer log service via WebSocket and prints
-    log entries in real time. Press Ctrl+C to stop streaming.
+    Reads the Streamlit app name from the project definition file (snowflake.yml)
+    or from the --name option. Connects to the app's developer log service via
+    WebSocket and prints log entries in real time. Press Ctrl+C to stop streaming.
+
+    Log streaming requires SPCSv2 runtime.
     """
     from snowflake.cli._plugins.streamlit.log_streaming import (
         stream_logs,
+        validate_spcs_v2_runtime,
+    )
+    from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
+        SPCS_RUNTIME_V2_NAME,
     )
 
     cli_context = get_cli_context()
     conn = cli_context.connection
 
-    pd = cli_context.project_definition
-    if not pd.meets_version_requirement("2"):
-        if not pd.streamlit:
-            raise NoProjectDefinitionError(
-                project_type="streamlit", project_root=cli_context.project_root
+    if name is not None:
+        # --name flag provided: resolve FQN and validate via server-side DESCRIBE
+        fqn = name.using_connection(conn)
+        validate_spcs_v2_runtime(conn, str(fqn))
+    else:
+        # No --name: require project definition
+        pd = cli_context.project_definition
+        if pd is None:
+            raise ClickException(
+                "No Streamlit app specified. Provide --name or run from a "
+                "directory with a snowflake.yml project definition."
             )
-        pd = convert_project_definition_to_v2(cli_context.project_root, pd)
+        if not pd.meets_version_requirement("2"):
+            if not pd.streamlit:
+                raise NoProjectDefinitionError(
+                    project_type="streamlit", project_root=cli_context.project_root
+                )
+            pd = convert_project_definition_to_v2(cli_context.project_root, pd)
 
-    entity_model = get_entity_for_operation(
-        cli_context=cli_context,
-        entity_id=entity_id,
-        project_definition=pd,
-        entity_type=ObjectType.STREAMLIT.value.cli_name,
-    )
+        entity_model = get_entity_for_operation(
+            cli_context=cli_context,
+            entity_id=entity_id,
+            project_definition=pd,
+            entity_type=ObjectType.STREAMLIT.value.cli_name,
+        )
 
-    fqn = entity_model.fqn.using_connection(conn)
+        # Validate SPCSv2 runtime from entity model
+        if entity_model.runtime_name != SPCS_RUNTIME_V2_NAME:
+            raise ClickException(
+                f"Log streaming is only supported for Streamlit apps running on "
+                f"SPCSv2 runtime ({SPCS_RUNTIME_V2_NAME}). "
+                f"Entity '{entity_id or entity_model.fqn}' has "
+                f"runtime_name='{entity_model.runtime_name}'."
+            )
+
+        fqn = entity_model.fqn.using_connection(conn)
 
     stream_logs(
         conn=conn,
