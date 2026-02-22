@@ -250,14 +250,17 @@ def streamlit_logs(
         stream_logs,
         validate_spcs_v2_runtime,
     )
-    from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
-        SPCS_RUNTIME_V2_NAME,
-    )
 
     cli_context = get_cli_context()
     conn = cli_context.connection
 
     if name is not None:
+        if entity_id is not None:
+            raise ClickException(
+                "Cannot specify both --name and an entity ID. "
+                "Use --name to identify the app directly, or use an "
+                "entity ID to reference a snowflake.yml definition."
+            )
         # --name flag provided: resolve FQN and validate via server-side DESCRIBE
         fqn = name.using_connection(conn)
         validate_spcs_v2_runtime(conn, str(fqn))
@@ -283,16 +286,9 @@ def streamlit_logs(
             entity_type=ObjectType.STREAMLIT.value.cli_name,
         )
 
-        # Validate SPCSv2 runtime from entity model
-        if entity_model.runtime_name != SPCS_RUNTIME_V2_NAME:
-            raise ClickException(
-                f"Log streaming is only supported for Streamlit apps running on "
-                f"SPCSv2 runtime ({SPCS_RUNTIME_V2_NAME}). "
-                f"Entity '{entity_id or entity_model.fqn}' has "
-                f"runtime_name='{entity_model.runtime_name}'."
-            )
-
         fqn = entity_model.fqn.using_connection(conn)
+        # Validate SPCSv2 runtime via server-side DESCRIBE (same path as --name)
+        validate_spcs_v2_runtime(conn, str(fqn))
 
     stream_logs(
         conn=conn,
