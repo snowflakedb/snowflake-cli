@@ -132,6 +132,9 @@ def log_entry_to_dict(entry: pb.LogEntry) -> dict:
     }
 
 
+_HANDSHAKE_TIMEOUT_SECONDS = 10
+
+
 def stream_logs(
     conn: SnowflakeConnection,
     fqn: str,
@@ -145,13 +148,7 @@ def stream_logs(
     When *json_output* is True each log entry is emitted as a single-line
     JSON object (JSONL), suitable for piping to ``jq`` or other tools.
     """
-    try:
-        import websockets.sync.client as ws_client
-    except ImportError:
-        raise ClickException(
-            "The 'websockets' package is required for log streaming. "
-            "Install it with: pip install websockets"
-        )
+    import websocket
 
     # 1. Get token
     cli_console.step("Fetching developer API token...")
@@ -162,29 +159,19 @@ def stream_logs(
     cli_console.step(f"Connecting to log stream: {ws_url}")
 
     # 3. Connect
-    additional_headers = {
-        "Authorization": f'Snowflake Token="{token}"',
-    }
+    header = [f'Authorization: Snowflake Token="{token}"']
+    ws = websocket.WebSocket()
+    ws.timeout = _WS_RECV_TIMEOUT_SECONDS
 
     try:
-        ws = ws_client.connect(
-            ws_url,
-            additional_headers=additional_headers,
-            open_timeout=10,
-            close_timeout=5,
-            # Disable automatic WebSocket ping/pong.  The log-streaming
-            # server doesn't respond to pings, so leaving them enabled
-            # causes the client to close the connection after ~40 s.
-            ping_interval=None,
-            ping_timeout=None,
-        )
+        ws.connect(ws_url, header=header, timeout=_HANDSHAKE_TIMEOUT_SECONDS)
     except Exception as e:
         raise ClickException(f"Failed to connect to log stream: {e}") from e
 
     try:
         # 4. Send StreamLogsRequest
         request = pb.StreamLogsRequest(tail_lines=tail_lines)
-        ws.send(request.SerializeToString())
+        ws.send_binary(request.SerializeToString())
         log.debug("Sent StreamLogsRequest with tail_lines=%d", tail_lines)
 
         cli_console.step(f"Streaming logs (tail={tail_lines}). Press Ctrl+C to stop.")
@@ -194,28 +181,30 @@ def stream_logs(
         # 5. Read loop
         while True:
             try:
-                message = ws.recv(timeout=_WS_RECV_TIMEOUT_SECONDS)
-            except TimeoutError:
+                opcode, data = ws.recv_data()
+            except websocket.WebSocketTimeoutException:
                 # No message within the timeout window — loop back so we
                 # stay responsive to KeyboardInterrupt.
                 continue
+            except websocket.WebSocketConnectionClosedException:
+                log.debug("WebSocket connection closed by server")
+                break
             except Exception as e:
-                # ConnectionClosed or unexpected error — stop streaming.
                 log.debug("WebSocket recv error: %s", e)
                 break
 
-            if isinstance(message, bytes):
+            if opcode == websocket.ABNF.OPCODE_BINARY:
                 entry = pb.LogEntry()
-                entry.ParseFromString(message)
+                entry.ParseFromString(data)
                 if json_output:
                     sys.stdout.write(json.dumps(log_entry_to_dict(entry)) + "\n")
                 else:
                     sys.stdout.write(format_log_entry(entry) + "\n")
                 sys.stdout.flush()
-            else:
-                # Text message (unexpected, but write it)
-                sys.stdout.write(str(message) + "\n")
-                sys.stdout.flush()
+            elif opcode == websocket.ABNF.OPCODE_CLOSE:
+                break
+            elif opcode == websocket.ABNF.OPCODE_PING:
+                ws.pong(data)
 
     except KeyboardInterrupt:
         pass
