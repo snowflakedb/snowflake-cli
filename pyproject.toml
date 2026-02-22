@@ -47,6 +47,7 @@ dependencies = [
   "tomlkit==0.13.3",
   "typer==0.17.3",
   "urllib3>=2.6.3,<3",
+  "websockets>=16.0,<17",
 ]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
