@@ -223,7 +223,9 @@ def streamlit_logs(
         100,
         "--tail",
         "-n",
-        help="Number of historical log lines to fetch (max: 10000). Use 0 for live logs only.",
+        min=0,
+        max=10000,
+        help="Number of historical log lines to fetch. Use 0 for live logs only.",
     ),
     **options,
 ) -> CommandResult:
@@ -235,12 +237,8 @@ def streamlit_logs(
     log entries in real time. Press Ctrl+C to stop streaming.
     """
     from snowflake.cli._plugins.streamlit.log_streaming import (
-        MAX_TAIL_LINES,
         stream_logs,
     )
-
-    if tail < 0 or tail > MAX_TAIL_LINES:
-        raise ClickException(f"--tail must be between 0 and {MAX_TAIL_LINES}")
 
     cli_context = get_cli_context()
     conn = cli_context.connection
