@@ -224,7 +224,7 @@ def streamlit_logs(
         "--tail",
         "-n",
         min=0,
-        max=10000,
+        max=1000,  # server-side buffer size limit (see logs_service.proto)
         help="Number of historical log lines to fetch. Use 0 for live logs only.",
     ),
     **options,
