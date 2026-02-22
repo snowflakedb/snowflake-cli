@@ -39,7 +39,7 @@ from snowflake.connector import SnowflakeConnection
 log = logging.getLogger(__name__)
 
 DEFAULT_TAIL_LINES = 100
-MAX_TAIL_LINES = 10000
+MAX_TAIL_LINES = 1000
 
 # Timeout for each ws.recv_data() call — mirrors the Go client's 90-second
 # read deadline.  When no log entry arrives within this window, we re-issue
@@ -130,13 +130,14 @@ def stream_logs(
     header = [f'Authorization: Snowflake Token="{token_info.token}"']
     ws = websocket.WebSocket()
     ws.timeout = _WS_RECV_TIMEOUT_SECONDS
+    streaming = False
 
     try:
-        ws.connect(ws_url, header=header, timeout=_HANDSHAKE_TIMEOUT_SECONDS)
-    except Exception as e:
-        raise ClickException(f"Failed to connect to log stream: {e}") from e
+        try:
+            ws.connect(ws_url, header=header, timeout=_HANDSHAKE_TIMEOUT_SECONDS)
+        except Exception as e:
+            raise ClickException(f"Failed to connect to log stream: {e}") from e
 
-    try:
         # 4. Send StreamLogsRequest
         ws.send_binary(encode_stream_logs_request(tail_lines))
         log.debug("Sent StreamLogsRequest with tail_lines=%d", tail_lines)
@@ -144,6 +145,7 @@ def stream_logs(
         cli_console.step(f"Streaming logs (tail={tail_lines}). Press Ctrl+C to stop.")
         sys.stdout.write("---\n")
         sys.stdout.flush()
+        streaming = True
 
         # 5. Read loop
         while True:
@@ -183,5 +185,6 @@ def stream_logs(
             ws.close(status=websocket.STATUS_NORMAL)
         except Exception:
             pass
-        sys.stdout.write("\n--- Log streaming stopped.\n")
-        sys.stdout.flush()
+        if streaming:
+            sys.stdout.write("\n--- Log streaming stopped.\n")
+            sys.stdout.flush()

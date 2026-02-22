@@ -456,3 +456,78 @@ class TestStreamLogs:
         stream_logs(conn=conn, fqn="DB.SCHEMA.APP", tail_lines=100)
 
         mock_ws.pong.assert_called_once_with(b"ping-data")
+
+    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.cli_console")
+    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.websocket")
+    def test_keyboard_interrupt_prints_stopped(
+        self, mock_ws_module, mock_console, capsys
+    ):
+        import websocket as ws_lib
+
+        mock_ws = mock.Mock()
+        mock_ws_module.WebSocket.return_value = mock_ws
+        mock_ws_module.ABNF = ws_lib.ABNF
+        mock_ws_module.WebSocketTimeoutException = ws_lib.WebSocketTimeoutException
+        mock_ws_module.WebSocketConnectionClosedException = (
+            ws_lib.WebSocketConnectionClosedException
+        )
+        mock_ws_module.STATUS_NORMAL = ws_lib.STATUS_NORMAL
+
+        mock_ws.recv_data.side_effect = KeyboardInterrupt()
+
+        conn = self._mock_conn_with_token()
+        stream_logs(conn=conn, fqn="DB.SCHEMA.APP", tail_lines=100)
+
+        captured = capsys.readouterr()
+        assert "Log streaming stopped" in captured.out
+        mock_ws.close.assert_called_once_with(status=ws_lib.STATUS_NORMAL)
+
+    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.cli_console")
+    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.websocket")
+    def test_connect_failure_raises(self, mock_ws_module, mock_console):
+        import websocket as ws_lib
+
+        mock_ws = mock.Mock()
+        mock_ws_module.WebSocket.return_value = mock_ws
+        mock_ws_module.STATUS_NORMAL = ws_lib.STATUS_NORMAL
+        mock_ws.connect.side_effect = ConnectionRefusedError("Connection refused")
+
+        conn = self._mock_conn_with_token()
+        with pytest.raises(ClickException, match="Failed to connect"):
+            stream_logs(conn=conn, fqn="DB.SCHEMA.APP", tail_lines=100)
+
+        # WebSocket should still be closed in the finally block
+        mock_ws.close.assert_called_once_with(status=ws_lib.STATUS_NORMAL)
+
+    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.cli_console")
+    @mock.patch("snowflake.cli._plugins.streamlit.log_streaming.websocket")
+    def test_sends_stream_logs_request(self, mock_ws_module, mock_console):
+        import websocket as ws_lib
+
+        mock_ws = mock.Mock()
+        mock_ws_module.WebSocket.return_value = mock_ws
+        mock_ws_module.ABNF = ws_lib.ABNF
+        mock_ws_module.WebSocketTimeoutException = ws_lib.WebSocketTimeoutException
+        mock_ws_module.WebSocketConnectionClosedException = (
+            ws_lib.WebSocketConnectionClosedException
+        )
+        mock_ws_module.STATUS_NORMAL = ws_lib.STATUS_NORMAL
+
+        mock_ws.recv_data.side_effect = [
+            (ws_lib.ABNF.OPCODE_CLOSE, b""),
+        ]
+
+        conn = self._mock_conn_with_token()
+        stream_logs(conn=conn, fqn="DB.SCHEMA.APP", tail_lines=42)
+
+        mock_ws.send_binary.assert_called_once()
+        sent_bytes = mock_ws.send_binary.call_args[0][0]
+
+        # Verify the sent bytes decode to a StreamLogsRequest with tail_lines=42
+        from snowflake.cli._plugins.streamlit.proto.generated.developer.v1 import (
+            logs_service_pb2 as pb2,
+        )
+
+        request = pb2.StreamLogsRequest()
+        request.ParseFromString(sent_bytes)
+        assert request.tail_lines == 42
