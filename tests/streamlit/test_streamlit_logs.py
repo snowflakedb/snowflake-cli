@@ -22,6 +22,7 @@ from snowflake.cli._plugins.streamlit.log_streaming import (
     build_ws_url,
     get_developer_api_token,
     stream_logs,
+    validate_spcs_v2_runtime,
 )
 from snowflake.cli._plugins.streamlit.proto_codec import (
     LOG_LEVEL_INFO,
@@ -531,3 +532,83 @@ class TestStreamLogs:
         request = pb2.StreamLogsRequest()
         request.ParseFromString(sent_bytes)
         assert request.tail_lines == 42
+
+
+class TestValidateSpcsV2Runtime:
+    SPCS_V2 = "SYSTEM$ST_CONTAINER_RUNTIME_PY3_11"
+
+    def _mock_describe_cursor(self, runtime_name):
+        """Return a mock cursor whose DESCRIBE STREAMLIT result has the given runtime_name."""
+        mock_cursor = mock.Mock()
+        # Simulate DESCRIBE STREAMLIT columns (subset relevant to our code)
+        mock_cursor.description = [
+            ("title",),
+            ("main_file",),
+            ("query_warehouse",),
+            ("compute_pool",),
+            ("runtime_name",),
+            ("name",),
+        ]
+        mock_cursor.fetchone.return_value = (
+            "My App",
+            "streamlit_app.py",
+            "WH",
+            "my_pool",
+            runtime_name,
+            "MY_APP",
+        )
+        return mock_cursor
+
+    def test_passes_for_spcs_v2_runtime(self):
+        mock_cursor = self._mock_describe_cursor(self.SPCS_V2)
+        mock_conn = mock.Mock()
+        mock_conn.cursor.return_value = mock_cursor
+
+        # Should not raise
+        validate_spcs_v2_runtime(mock_conn, "DB.SCHEMA.MY_APP")
+
+        mock_cursor.execute.assert_called_once_with(
+            "DESCRIBE STREAMLIT DB.SCHEMA.MY_APP"
+        )
+        mock_cursor.close.assert_called_once()
+
+    def test_raises_for_non_spcs_v2_runtime(self):
+        mock_cursor = self._mock_describe_cursor(None)
+        mock_conn = mock.Mock()
+        mock_conn.cursor.return_value = mock_cursor
+
+        with pytest.raises(ClickException, match="only supported for Streamlit apps"):
+            validate_spcs_v2_runtime(mock_conn, "DB.SCHEMA.MY_APP")
+
+        mock_cursor.close.assert_called_once()
+
+    def test_raises_for_wrong_runtime_name(self):
+        mock_cursor = self._mock_describe_cursor("SOME_OTHER_RUNTIME")
+        mock_conn = mock.Mock()
+        mock_conn.cursor.return_value = mock_cursor
+
+        with pytest.raises(ClickException, match="SOME_OTHER_RUNTIME"):
+            validate_spcs_v2_runtime(mock_conn, "DB.SCHEMA.MY_APP")
+
+    def test_raises_for_empty_describe_result(self):
+        mock_cursor = mock.Mock()
+        mock_cursor.fetchone.return_value = None
+        mock_cursor.description = None
+        mock_conn = mock.Mock()
+        mock_conn.cursor.return_value = mock_cursor
+
+        with pytest.raises(ClickException, match="Could not describe"):
+            validate_spcs_v2_runtime(mock_conn, "DB.SCHEMA.MY_APP")
+
+        mock_cursor.close.assert_called_once()
+
+    def test_cursor_closed_on_sql_error(self):
+        mock_cursor = mock.Mock()
+        mock_cursor.execute.side_effect = Exception("SQL error")
+        mock_conn = mock.Mock()
+        mock_conn.cursor.return_value = mock_cursor
+
+        with pytest.raises(Exception, match="SQL error"):
+            validate_spcs_v2_runtime(mock_conn, "DB.SCHEMA.MY_APP")
+
+        mock_cursor.close.assert_called_once()
