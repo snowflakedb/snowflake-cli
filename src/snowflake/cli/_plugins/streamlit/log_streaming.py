@@ -105,6 +105,43 @@ def build_ws_url(resource_uri: str) -> str:
     return ws_url.rstrip("/") + "/logs"
 
 
+def validate_spcs_v2_runtime(conn: SnowflakeConnection, fqn: str) -> None:
+    """
+    Run DESCRIBE STREAMLIT and verify the app uses SPCSv2 runtime.
+
+    Raises ClickException if the app does not use the SPCS Runtime V2
+    (required for log streaming).
+    """
+    from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
+        SPCS_RUNTIME_V2_NAME,
+    )
+
+    cursor = conn.cursor()
+    try:
+        cursor.execute(f"DESCRIBE STREAMLIT {fqn}")
+        row = cursor.fetchone()
+        description = cursor.description
+    finally:
+        cursor.close()
+
+    if not row or not description:
+        raise ClickException(
+            f"Could not describe Streamlit app {fqn}. "
+            "Verify the app exists and you have access."
+        )
+
+    # Build column-name -> value mapping from cursor.description
+    columns = {desc[0].lower(): val for desc, val in zip(description, row)}
+    runtime_name = columns.get("runtime_name")
+
+    if runtime_name != SPCS_RUNTIME_V2_NAME:
+        raise ClickException(
+            f"Log streaming is only supported for Streamlit apps running on "
+            f"SPCSv2 runtime ({SPCS_RUNTIME_V2_NAME}). "
+            f"App '{fqn}' has runtime_name='{runtime_name}'."
+        )
+
+
 def stream_logs(
     conn: SnowflakeConnection,
     fqn: str,
