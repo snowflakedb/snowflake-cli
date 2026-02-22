@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Snowflake Inc.
+# Copyright (c) 2026 Snowflake Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,6 +32,9 @@ from google.protobuf.message import DecodeError
 from snowflake.cli._plugins.streamlit.proto_codec import (
     decode_log_entry,
     encode_stream_logs_request,
+)
+from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
+    SPCS_RUNTIME_V2_NAME,
 )
 from snowflake.cli.api.console import cli_console
 from snowflake.connector import SnowflakeConnection
@@ -109,10 +112,6 @@ def validate_spcs_v2_runtime(conn: SnowflakeConnection, fqn: str) -> None:
     Raises ClickException if the app does not use the SPCS Runtime V2
     (required for log streaming).
     """
-    from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
-        SPCS_RUNTIME_V2_NAME,
-    )
-
     cursor = conn.cursor()
     try:
         # fqn is already validated by IdentifierType / FQN.using_connection —
