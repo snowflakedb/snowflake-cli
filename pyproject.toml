@@ -35,6 +35,7 @@ dependencies = [
   "pip==25.3",
   "pluggy==1.6.0",
   "prompt-toolkit==3.0.51",
+  "protobuf>=3.20,<7",
   "pydantic==2.12.5",
   "requests==2.32.4",
   "requirements-parser==0.13.0",
@@ -46,6 +47,7 @@ dependencies = [
   "tomlkit==0.13.3",
   "typer==0.17.3",
   "urllib3>=2.6.3,<3",
+  "websockets>=16.0,<17",
 ]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
