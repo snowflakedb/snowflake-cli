@@ -7,12 +7,30 @@
 #     --python_out=src/snowflake/cli/_plugins/streamlit/proto/generated \
 #     developer/v1/logs_service.proto
 # ruff: noqa: SLF001
+# NOTE: The runtime version check below is wrapped in a try/except for
+# compatibility with protobuf 5.x (pulled by snowflake-connector-python) and 6.x.
+# IMPORTANT: After regenerating, you must re-apply the try/except wrapper around
+# the ValidateProtobufRuntimeVersion call.
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
 from google.protobuf import symbol_database as _symbol_database
 from google.protobuf import timestamp_pb2 as _timestamp_pb2  # noqa: F401
 from google.protobuf.internal import builder as _builder
+
+try:
+    from google.protobuf import runtime_version as _runtime_version
+
+    _runtime_version.ValidateProtobufRuntimeVersion(
+        _runtime_version.Domain.PUBLIC,
+        6,
+        32,
+        1,
+        "",
+        "developer/v1/logs_service.proto",
+    )
+except Exception:
+    pass  # protobuf 5.x compat: may lack runtime_version or fail version check
 
 # @@protoc_insertion_point(imports)
 
