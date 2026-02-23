@@ -34,7 +34,7 @@ def _load_plan_data(filename: str):
 class TestPlanReporterTerse:
     def test_empty_changeset(self):
         data = {"version": 2, "metadata": {}, "changeset": []}
-        output = capture_reporter_output(PlanReporter(verbose=False), FakeCursor(data))
+        output = capture_reporter_output(PlanReporter(), FakeCursor(data))
         assert "No changes detected." in output
 
     def test_single_create(self, snapshot):
@@ -55,7 +55,7 @@ class TestPlanReporterTerse:
                 }
             ],
         }
-        output = capture_reporter_output(PlanReporter(verbose=False), FakeCursor(data))
+        output = capture_reporter_output(PlanReporter(), FakeCursor(data))
         assert output == snapshot
 
     def test_mixed_operations(self, snapshot):
@@ -92,7 +92,7 @@ class TestPlanReporterTerse:
                 },
             ],
         }
-        output = capture_reporter_output(PlanReporter(verbose=False), FakeCursor(data))
+        output = capture_reporter_output(PlanReporter(), FakeCursor(data))
         assert output == snapshot
 
     def test_deploy_summary_prefix(self):
@@ -113,7 +113,6 @@ class TestPlanReporterTerse:
                 }
             ],
         }
-        reporter = PlanReporter(verbose=False)
-        reporter.command_name = "deploy"
+        reporter = PlanReporter(command_name="deploy")
         output = capture_reporter_output(reporter, FakeCursor(data))
         assert "Deployed 1 entities (1 created)." in output

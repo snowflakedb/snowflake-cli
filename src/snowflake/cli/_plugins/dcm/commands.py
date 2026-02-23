@@ -184,7 +184,6 @@ def _resolve_context_with_optional_manifest(
 
 def _process_plan_result(
     cursor: SnowflakeCursor,
-    verbose: bool = False,
     command_name: str = "plan",
 ) -> CollectionResult | EmptyResult:
     """
@@ -206,7 +205,7 @@ def _process_plan_result(
 
     # Handle new format with reporter
     if isinstance(data, dict) and data.get("version", 0) == 2:
-        reporter = PlanReporter(verbose=verbose, command_name=command_name)
+        reporter = PlanReporter(command_name=command_name)
         reporter.process_payload(data)
         return EmptyResult()
 
