@@ -635,6 +635,14 @@ def test_dcm_end_to_end_workflow(
             == f"project_descriptive_name_{expected_config}".upper()
         )
 
+        # Run raw-analyze
+        result = runner.invoke_with_connection(
+            ["dcm", "raw-analyze", "-D", f"db='{test_database}'"] + target_args
+        )
+        assert result.exit_code == 0, result.output
+        _extract_and_validate_raw_analyze_json(result.output)
+        assert "Analysis completed successfully." in result.output
+
         result = runner.invoke_with_connection_json(
             ["dcm", "plan", "-D", f"db='{test_database}'"] + target_args
         )
@@ -655,45 +663,6 @@ def test_dcm_end_to_end_workflow(
 
         result = runner.invoke_with_connection(["dcm", "drop"] + target_args)
         assert result.exit_code == 0, result.output
-
-
-@pytest.mark.qa_only
-@pytest.mark.integration
-@pytest.mark.parametrize(
-    "args,expected_project_suffix",
-    [
-        pytest.param([], "dev", id="default_target"),
-        pytest.param(["--target", "test"], "test", id="explicit_target"),
-    ],
-)
-def test_dcm_raw_analyze_success(
-    runner,
-    test_database,
-    project_directory,
-    args,
-    expected_project_suffix,
-):
-    args = list(args)
-
-    with project_directory("dcm_project_multiple_configurations"):
-        # Create project using target configuration
-        result = runner.invoke_with_connection(["dcm", "create"] + args)
-        assert result.exit_code == 0, result.output
-        assert "successfully created" in result.output
-
-        # Deploy the project
-        result = runner.invoke_with_connection_json(
-            ["dcm", "deploy", "-D", f"db='{test_database}'"] + args
-        )
-        assert result.exit_code == 0, result.output
-
-        # Run raw-analyze with target
-        result = runner.invoke_with_connection(
-            ["dcm", "raw-analyze", "-D", f"db='{test_database}'"] + args
-        )
-        assert result.exit_code == 0, result.output
-
-        _extract_and_validate_raw_analyze_json(result.output)
 
 
 @pytest.mark.qa_only
