@@ -20,6 +20,7 @@ from urllib.parse import urlparse
 
 import requests
 from click import ClickException
+from snowflake.cli.api.encoding import get_subprocess_encoding
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import DictCursor
 
@@ -113,8 +114,13 @@ class RegistryManager(SqlExecutionMixin):
             registry_url,
         ]
         try:
+            encoding = get_subprocess_encoding()
             return subprocess.check_output(
-                command, input=json.dumps(token), text=True, stderr=subprocess.PIPE
+                command,
+                input=json.dumps(token),
+                text=True,
+                encoding=encoding,
+                stderr=subprocess.PIPE,
             )
         except subprocess.CalledProcessError as e:
             raise ClickException(f"Login Failed: {e.stderr}".strip())

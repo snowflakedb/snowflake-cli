@@ -43,9 +43,10 @@ from snowflake.cli.api.project.schemas.entities.common import (
     PathMapping,
     ProcessorMapping,
 )
+from snowflake.cli.api.secure_path import SecurePath
 
 DEFAULT_TIMEOUT = 30
-DRIVER_PATH = Path(__file__).parent / "setup_driver.py.source"
+DRIVER_PATH = SecurePath(__file__).parent / "setup_driver.py.source"
 
 log = logging.getLogger(__name__)
 
