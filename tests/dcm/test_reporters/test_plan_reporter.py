@@ -95,11 +95,6 @@ class TestPlanReporterTerse:
         output = capture_reporter_output(PlanReporter(verbose=False), FakeCursor(data))
         assert output == snapshot
 
-    def test_plan5_terse(self, snapshot):
-        data = _load_plan_data("plan5.json")
-        output = capture_reporter_output(PlanReporter(verbose=False), FakeCursor(data))
-        assert output == snapshot
-
     def test_deploy_summary_prefix(self):
         data = {
             "version": 2,

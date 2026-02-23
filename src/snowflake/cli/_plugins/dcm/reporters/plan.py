@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-from dataclasses import dataclass, field
-from typing import Annotated, Any, Dict, Iterator, List, Literal, Optional, Union
+from dataclasses import dataclass
+from typing import Any, Dict, Iterator, List, Optional
 
-from pydantic import BaseModel, Discriminator, Field, Tag, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 from rich.style import Style
 from rich.text import Text
 from snowflake.cli._plugins.dcm import styles
@@ -27,122 +27,8 @@ from snowflake.cli.api.sanitizers import sanitize_for_terminal
 
 log = logging.getLogger(__name__)
 
-
-# ---------------------------------------------------------------------------
-# Pydantic models for the Change type hierarchy
-# Based on TypeScript interface in plans/plan_refactor/3_typescript_interface.md
-# ---------------------------------------------------------------------------
-
-# --- Attribute operations ---
-
-
-class AttributeSet(BaseModel):
-    """A new property or initial state being set."""
-
-    kind: Literal["set"]
-    attribute_name: str
-    value: Any
-
-
-class AttributeUnset(BaseModel):
-    """A property being explicitly removed or reset."""
-
-    kind: Literal["unset"]
-    attribute_name: str
-    prev_value: Any
-
-
-class AttributeChanged(BaseModel):
-    """A simple update to an existing scalar field."""
-
-    kind: Literal["changed"]
-    attribute_name: str
-    value: Any
-    prev_value: Any
-
-
-# --- Collection item types ---
-
-ItemId = Union[str, int, Dict[str, Any]]
-
-
-class ItemAdded(BaseModel):
-    """An item added to a collection."""
-
-    kind: Literal["added"]
-    item_id: ItemId
-    changes: List["Change"] = Field(default_factory=list)
-
-
-class ItemModified(BaseModel):
-    """An existing item modified within a collection."""
-
-    kind: Literal["modified"]
-    item_id: ItemId
-    changes: List["Change"] = Field(default_factory=list)
-
-
-class ItemRemoved(BaseModel):
-    """An item removed from a collection."""
-
-    kind: Literal["removed"]
-    item_id: ItemId
-    changes: List["Change"] = Field(default_factory=list)
-
-
-CollectionItemChange = Annotated[
-    Union[
-        Annotated[ItemAdded, Tag("added")],
-        Annotated[ItemModified, Tag("modified")],
-        Annotated[ItemRemoved, Tag("removed")],
-    ],
-    Discriminator("kind"),
-]
-
-
-# --- Collection and nested changes ---
-
-
-class CollectionChange(BaseModel):
-    """A unified list of items (columns, grants, constraints, etc.)."""
-
-    kind: Literal["collection"]
-    collection_name: str
-    id_label: Optional[str] = None
-    changes: List[CollectionItemChange] = Field(default_factory=list)
-
-
-class NestedChange(BaseModel):
-    """A logical grouping of changes for a specific nested path."""
-
-    kind: Literal["nested"]
-    attribute_name: str
-    changes: List["Change"] = Field(default_factory=list)
-
-
-# --- The unified Change discriminated union ---
-
-Change = Annotated[
-    Union[
-        Annotated[AttributeSet, Tag("set")],
-        Annotated[AttributeUnset, Tag("unset")],
-        Annotated[AttributeChanged, Tag("changed")],
-        Annotated[CollectionChange, Tag("collection")],
-        Annotated[NestedChange, Tag("nested")],
-    ],
-    Discriminator("kind"),
-]
-
-# Rebuild models that use forward references to Change
-ItemAdded.model_rebuild()
-ItemModified.model_rebuild()
-ItemRemoved.model_rebuild()
-NestedChange.model_rebuild()
-
-
-# ---------------------------------------------------------------------------
-# Pydantic models for the version 2 plan response envelope
-# ---------------------------------------------------------------------------
+_OPERATION_WIDTH = 8
+_DOMAIN_WIDTH = 16
 
 
 class PlanObjectId(BaseModel):
@@ -164,9 +50,8 @@ class PlanObjectId(BaseModel):
 class PlanEntityChange(BaseModel):
     """Top-level entity change in the changeset."""
 
-    type: str  # noqa: A003
+    type_: str = Field(None, alias="type")
     object_id: PlanObjectId
-    changes: List[Change] = Field(default_factory=list)
 
 
 class PlanResponse(BaseModel):
@@ -174,28 +59,7 @@ class PlanResponse(BaseModel):
 
     version: int
     metadata: Dict[str, Any] = Field(default_factory=dict)
-    changeset: List[Dict[str, Any]] = Field(default_factory=list)
-
-
-# ---------------------------------------------------------------------------
-# Display helpers
-# ---------------------------------------------------------------------------
-
-
-def _display_fqn(fqn: FQN) -> str:
-    """Format an FQN for human-friendly display (unquoted)."""
-    parts = []
-    if fqn.database:
-        parts.append(unquote_identifier(fqn.database))
-    if fqn.schema:
-        parts.append(unquote_identifier(fqn.schema))
-    parts.append(unquote_identifier(fqn.name))
-    return ".".join(parts)
-
-
-# ---------------------------------------------------------------------------
-# Parsed display model
-# ---------------------------------------------------------------------------
+    changeset: List[PlanEntityChange] = Field(default_factory=list)
 
 
 @dataclass
@@ -206,15 +70,20 @@ class PlanRow:
     domain: str
     fqn: Optional[FQN] = None
     fqn_text: str = ""
-    changes: List[Dict[str, Any]] = field(default_factory=list)
 
+    def display_fqn(self) -> str:
+        """Format an FQN for human-friendly display (unquoted)."""
+        if self.fqn is not None:
+            parts = []
+            if self.fqn.database:
+                parts.append(unquote_identifier(self.fqn.database))
+            if self.fqn.schema:
+                parts.append(unquote_identifier(self.fqn.schema))
+            parts.append(unquote_identifier(self.fqn.name))
+            return ".".join(parts)
 
-# ---------------------------------------------------------------------------
-# Terse output
-# ---------------------------------------------------------------------------
-
-_OPERATION_WIDTH = 8
-_DOMAIN_WIDTH = 16
+        fallback = self.fqn_text if self.fqn_text else "UNKNOWN"
+        return sanitize_for_terminal(fallback)
 
 
 def _style_for_operation(operation: str) -> Style:
@@ -228,41 +97,14 @@ def _style_for_operation(operation: str) -> Style:
     return styles.STATUS_STYLE
 
 
-def _print_terse(entry: PlanRow) -> None:
-    """Print a single terse plan entry line."""
-    style = _style_for_operation(entry.operation)
-
-    cli_console.styled_message(
-        entry.operation.ljust(_OPERATION_WIDTH) + " ",
-        style=style,
-    )
-    cli_console.styled_message(entry.domain.ljust(_DOMAIN_WIDTH) + " ")
-
-    if entry.fqn is not None:
-        fqn_text = sanitize_for_terminal(_display_fqn(entry.fqn))
-    else:
-        fallback = entry.fqn_text if entry.fqn_text else "UNKNOWN"
-        fqn_text = sanitize_for_terminal(fallback)
-    cli_console.styled_message(fqn_text, style=styles.DOMAIN_STYLE)
-
-    cli_console.styled_message("\n")
-
-
-# ---------------------------------------------------------------------------
-# Parse entity change
-# ---------------------------------------------------------------------------
-
-
-def _parse_entity_change(entry_dict: Dict[str, Any], summary) -> Optional[PlanRow]:
+def _parse_entity_change(entry_dict: Dict[str, Any]) -> Optional[PlanRow]:
     """Parse a version 2 changeset entry into a display entry without dropping data."""
     try:
         entity = PlanEntityChange.model_validate(entry_dict)
-        operation = entity.type.upper()
+        operation = entity.type_.upper()
         domain = entity.object_id.domain
         fqn = entity.object_id.to_fqn()
         fqn_text = ""
-        raw_changes = entry_dict.get("changes", [])
-        changes = raw_changes if isinstance(raw_changes, list) else []
     except ValidationError as e:
         log.debug(
             "Failed strict validation for changeset entry, using fallback parser: %s", e
@@ -279,28 +121,13 @@ def _parse_entity_change(entry_dict: Dict[str, Any], summary) -> Optional[PlanRo
                 fqn = FQN.from_string(str(object_id["fqn"]))
         except Exception:  # noqa: BLE001
             fqn = None
-        raw_changes = entry_dict.get("changes", [])
-        changes = raw_changes if isinstance(raw_changes, list) else []
-
-    if operation == "CREATE":
-        summary.created += 1
-    elif operation == "ALTER":
-        summary.altered += 1
-    elif operation == "DROP":
-        summary.dropped += 1
 
     return PlanRow(
         operation=operation,
         domain=domain,
         fqn=fqn,
         fqn_text=fqn_text,
-        changes=changes,
     )
-
-
-# ---------------------------------------------------------------------------
-# PlanReporter
-# ---------------------------------------------------------------------------
 
 
 class PlanReporter(Reporter[PlanRow]):
@@ -322,7 +149,7 @@ class PlanReporter(Reporter[PlanRow]):
         self._summary = self.Summary()
         self._verbose = verbose
 
-    def extract_data(self, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def extract_data(self, result_json: Dict[str, Any]) -> List[PlanEntityChange]:
         if not isinstance(result_json, dict):
             log.debug("Unexpected response type: %s, expected dict", type(result_json))
             raise CliError("Could not process response.")
@@ -342,13 +169,32 @@ class PlanReporter(Reporter[PlanRow]):
 
     def parse_data(self, data: List[Dict[str, Any]]) -> Iterator[PlanRow]:
         for entry_dict in data:
-            parsed = _parse_entity_change(entry_dict, self._summary)
+            parsed = _parse_entity_change(entry_dict)
             if parsed is not None:
+                if parsed.operation == "CREATE":
+                    self._summary.created += 1
+                elif parsed.operation == "ALTER":
+                    self._summary.altered += 1
+                elif parsed.operation == "DROP":
+                    self._summary.dropped += 1
                 yield parsed
 
     def print_renderables(self, data: Iterator[PlanRow]) -> None:
         for entry in data:
-            _print_terse(entry)
+            style = _style_for_operation(entry.operation)
+
+            cli_console.styled_message(
+                entry.operation.ljust(_OPERATION_WIDTH) + " ",
+                style=style,
+            )
+            cli_console.styled_message(entry.domain.ljust(_DOMAIN_WIDTH) + " ")
+
+            if entry.fqn is not None:
+                fqn_text = sanitize_for_terminal(entry.display_fqn())
+
+            cli_console.styled_message(fqn_text, style=styles.DOMAIN_STYLE)
+
+            cli_console.styled_message("\n")
 
     def _generate_summary_renderables(self) -> List[Text]:
         total = self._summary.total
