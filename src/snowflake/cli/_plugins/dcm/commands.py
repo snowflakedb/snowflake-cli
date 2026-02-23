@@ -296,7 +296,6 @@ def plan(
 
 
 @app.command(requires_connection=True, hidden=True)
-@mock_dcm_response("analyze")
 def raw_analyze(
     identifier: Optional[FQN] = optional_dcm_identifier,
     from_location: SecurePath = from_option,
