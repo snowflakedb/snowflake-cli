@@ -20,6 +20,7 @@ from sys import stdin, stdout
 from typing import Iterable, Optional, Union
 
 from click import ClickException
+from snowflake.cli.api.secure_path import SecurePath
 
 
 def needs_confirmation(needs_confirm: bool, auto_yes: bool) -> bool:
@@ -47,7 +48,7 @@ def get_first_paragraph_from_markdown_file(file_path: Path) -> Optional[str]:
     if not file_path.exists():
         raise FileNotFoundError(file_path)
 
-    with open(file_path, "r") as markdown_file:
+    with SecurePath(file_path).open("r") as markdown_file:
         paragraph_text = None
 
         for line in markdown_file:

@@ -505,13 +505,15 @@ def get_feature_flags_section() -> Dict[str, bool | Literal["UNKNOWN"]]:
 
 
 def _read_config_file_toml() -> dict:
-    return tomlkit.loads(get_config_manager().file_path.read_text()).unwrap()
+    return tomlkit.loads(
+        SecurePath(get_config_manager().file_path).read_text()
+    ).unwrap()
 
 
 def _read_connections_toml() -> dict:
-    return tomlkit.loads(get_connections_file().read_text()).unwrap()
+    return tomlkit.loads(SecurePath(get_connections_file()).read_text()).unwrap()
 
 
 def _update_connections_toml(connections: dict):
-    with open(get_connections_file(), "w") as f:
+    with SecurePath(get_connections_file()).open("w") as f:
         f.write(tomlkit.dumps(connections))

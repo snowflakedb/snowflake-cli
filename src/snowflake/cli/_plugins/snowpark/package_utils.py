@@ -15,7 +15,6 @@
 from __future__ import annotations
 
 import dataclasses
-import locale
 import logging
 import os
 import re
@@ -34,6 +33,7 @@ from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
     AnacondaPackages,
 )
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
+from snowflake.cli.api.encoding import get_subprocess_encoding
 from snowflake.cli.api.secure_path import SecurePath
 
 log = logging.getLogger(__name__)
@@ -219,11 +219,12 @@ def pip_wheel(
         "Running pip wheel with command: %s",
         " ".join([str(com) for com in command]),
     )
+    encoding = get_subprocess_encoding()
     result = subprocess.run(
         ["python", *command],
         capture_output=True,
         text=True,
-        encoding=locale.getpreferredencoding(),
+        encoding=encoding,
     )
     if result.returncode != 0:
         log.info(
