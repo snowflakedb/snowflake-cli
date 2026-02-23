@@ -426,6 +426,52 @@ def test_copy_stage_to_stage(mock_execute, runner, mock_cursor):
                 "get @exe/s1.sql file://{}/ parallel=4",
             ],
         ),
+        (
+            "@db.schema.exe",
+            ["a/s2.sql", "a/b/s3.sql", "s1.sql"],
+            "@db.schema.exe",
+            [
+                "get @db.schema.exe/a/s2.sql file://{}/a/ parallel=4",
+                "get @db.schema.exe/a/b/s3.sql file://{}/a/b/ parallel=4",
+                "get @db.schema.exe/s1.sql file://{}/ parallel=4",
+            ],
+        ),
+        (
+            "@db.schema.exe/",
+            ["a/s2.sql", "a/b/s3.sql", "s1.sql"],
+            "@db.schema.exe/",
+            [
+                "get @db.schema.exe/a/s2.sql file://{}/a/ parallel=4",
+                "get @db.schema.exe/a/b/s3.sql file://{}/a/b/ parallel=4",
+                "get @db.schema.exe/s1.sql file://{}/ parallel=4",
+            ],
+        ),
+        (
+            "@db.schema.exe/a/",
+            ["a/s2.sql", "a/b/s3.sql"],
+            "@db.schema.exe/a/",
+            [
+                "get @db.schema.exe/a/s2.sql file://{}/ parallel=4",
+                "get @db.schema.exe/a/b/s3.sql file://{}/b/ parallel=4",
+            ],
+        ),
+        (
+            "@db.schema.exe/a/b/s3.sql",
+            ["a/b/s3.sql"],
+            "@db.schema.exe/a/b/s3.sql",
+            [
+                "get @db.schema.exe/a/b/s3.sql file://{}/ parallel=4",
+            ],
+        ),
+        (
+            "@schema.exe",
+            ["a/s2.sql", "s1.sql"],
+            "@schema.exe",
+            [
+                "get @schema.exe/a/s2.sql file://{}/a/ parallel=4",
+                "get @schema.exe/s1.sql file://{}/ parallel=4",
+            ],
+        ),
     ],
 )
 @mock.patch(f"{STAGE_MANAGER}.execute_query")
@@ -509,6 +555,68 @@ def test_copy_get_recursive_from_user_stage(
 
     ls_call, *copy_calls = mock_execute.mock_calls
     assert ls_call == mock.call(f"ls '{expected_stage_path}'", cursor_class=DictCursor)
+    assert copy_calls == [
+        mock.call(c.format(temporary_directory)) for c in expected_calls
+    ]
+
+
+GIT_MANAGER = "snowflake.cli._plugins.git.manager.GitManager"
+
+
+@pytest.mark.parametrize(
+    "stage_path, files_on_stage, expected_stage_path, expected_calls",
+    [
+        (
+            "@repo/tags/v3.6.0/Casks",
+            [
+                "repo/tags/v3.6.0/Casks/snowcli.rb",
+                "repo/tags/v3.6.0/Casks/snowcli.tmpl.rb",
+            ],
+            "@repo/tags/v3.6.0/Casks",
+            [
+                "get @repo/tags/v3.6.0/Casks/snowcli.rb file://{}/ parallel=4",
+                "get @repo/tags/v3.6.0/Casks/snowcli.tmpl.rb file://{}/ parallel=4",
+            ],
+        ),
+        (
+            "@repo/branches/main/",
+            ["repo/branches/main/README.md", "repo/branches/main/dir/file.txt"],
+            "@repo/branches/main/",
+            [
+                "get @repo/branches/main/README.md file://{}/ parallel=4",
+                "get @repo/branches/main/dir/file.txt file://{}/dir/ parallel=4",
+            ],
+        ),
+        (
+            "@repo/tags/v3.6.0/README.md",
+            ["repo/tags/v3.6.0/README.md"],
+            "@repo/tags/v3.6.0/README.md",
+            [
+                "get @repo/tags/v3.6.0/README.md file://{}/ parallel=4",
+            ],
+        ),
+    ],
+)
+@mock.patch(f"{GIT_MANAGER}.execute_query")
+def test_copy_get_recursive_from_git_repo(
+    mock_execute,
+    mock_cursor,
+    temporary_directory,
+    stage_path,
+    files_on_stage,
+    expected_stage_path,
+    expected_calls,
+):
+    from snowflake.cli._plugins.git.manager import GitManager
+
+    mock_execute.return_value = mock_cursor(
+        [{"name": file} for file in files_on_stage], []
+    )
+
+    GitManager().get_recursive(stage_path, Path(temporary_directory))
+
+    ls_call, *copy_calls = mock_execute.mock_calls
+    assert ls_call == mock.call(f"ls {expected_stage_path}", cursor_class=DictCursor)
     assert copy_calls == [
         mock.call(c.format(temporary_directory)) for c in expected_calls
     ]
