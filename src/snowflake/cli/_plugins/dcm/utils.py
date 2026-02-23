@@ -18,7 +18,6 @@ from pathlib import Path
 from typing import Any
 
 from snowflake.cli._plugins.dcm.reporters import (
-    AnalyzeReporter,
     RefreshReporter,
     TestReporter,
 )
@@ -84,7 +83,6 @@ def mock_dcm_response(command_name: str):
             reporter_mapping = {
                 "refresh": RefreshReporter,
                 "test": TestReporter,
-                "analyze": AnalyzeReporter,
             }
 
             reporter = reporter_mapping[command_name]()
