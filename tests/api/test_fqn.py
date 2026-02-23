@@ -236,8 +236,8 @@ class TestFromResource:
 
         result = FQN.from_resource(ObjectType.STAGE, resource_fqn, "TEST")
 
-        assert result.database == "context_db"
-        assert result.schema == "context_schema"
+        assert result.database == "resource_db"
+        assert result.schema == "resource_schema"
         assert result.name == "STAGE_RESOURCE_1234567890_TEST"
 
     @pytest.mark.parametrize(
@@ -256,3 +256,39 @@ class TestFromResource:
         result = FQN.from_resource(ObjectType.DCM_PROJECT, resource_fqn, "TEMP_STAGE")
 
         assert result.identifier == f"test_db.test_schema.{expected_name}"
+
+    def test_falls_back_to_connection_when_resource_has_no_db_schema(
+        self, mock_ctx, mock_time
+    ):
+        mock_ctx().connection = MagicMock(
+            database="context_db", schema="context_schema"
+        )
+        resource_fqn = FQN(name="resource", database=None, schema=None)
+
+        result = FQN.from_resource(ObjectType.STAGE, resource_fqn, "TEST")
+
+        assert result.database == "context_db"
+        assert result.schema == "context_schema"
+        assert result.name == "STAGE_RESOURCE_1234567890_TEST"
+
+    def test_partial_resource_fqn_with_schema_only(self, mock_ctx, mock_time):
+        mock_ctx().connection = MagicMock(
+            database="context_db", schema="context_schema"
+        )
+        resource_fqn = FQN(name="resource", database=None, schema="resource_schema")
+
+        result = FQN.from_resource(ObjectType.STAGE, resource_fqn, "TEST")
+
+        assert result.database == "context_db"
+        assert result.schema == "resource_schema"
+        assert result.name == "STAGE_RESOURCE_1234567890_TEST"
+
+    def test_no_db_schema_from_any_source(self, mock_ctx, mock_time):
+        mock_ctx().connection = MagicMock(database=None, schema=None)
+        resource_fqn = FQN(name="resource", database=None, schema=None)
+
+        result = FQN.from_resource(ObjectType.STAGE, resource_fqn, "TEST")
+
+        assert result.database is None
+        assert result.schema is None
+        assert result.name == "STAGE_RESOURCE_1234567890_TEST"
