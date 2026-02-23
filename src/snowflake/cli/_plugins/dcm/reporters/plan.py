@@ -42,10 +42,6 @@ class PlanObjectId(BaseModel):
 
     model_config = {"populate_by_name": True}
 
-    def to_fqn(self) -> FQN:
-        """Convert to CLI FQN instance."""
-        return FQN.from_string(self.fqn)
-
 
 class PlanEntityChange(BaseModel):
     """Top-level entity change in the changeset."""
@@ -69,10 +65,9 @@ class PlanRow:
     operation: str
     domain: str
     fqn: Optional[FQN] = None
-    fqn_text: str = ""
 
     @classmethod
-    def from_dict(cls, entry_dict: Dict[str, Any]) -> Optional["PlanRow"]:
+    def from_dict(cls, entry_dict: Dict[str, Any]) -> "PlanRow":
         """Parse a version 2 changeset entry into a display entry without dropping data."""
         try:
             entity = PlanEntityChange.model_validate(entry_dict)
@@ -80,7 +75,6 @@ class PlanRow:
             domain = sanitize_for_terminal(entity.object_id.domain)
             sanitized_fqn = sanitize_for_terminal(entity.object_id.fqn)
             fqn = FQN.from_string(sanitized_fqn)
-            fqn_text = ""
         except ValidationError as e:
             log.debug(
                 "Failed strict validation for changeset entry, using fallback parser: %s",
@@ -92,8 +86,6 @@ class PlanRow:
             object_id = entry_dict.get("object_id", {})
             object_id = object_id if isinstance(object_id, dict) else {}
             domain = sanitize_for_terminal(str(object_id.get("domain", "UNKNOWN")))
-            raw_fqn_text = object_id.get("fqn") or object_id.get("name") or "UNKNOWN"
-            fqn_text = sanitize_for_terminal(str(raw_fqn_text))
             fqn = None
             try:
                 if "fqn" in object_id:
@@ -105,21 +97,19 @@ class PlanRow:
             operation=operation,
             domain=domain,
             fqn=fqn,
-            fqn_text=fqn_text,
         )
 
     def display_fqn(self) -> str:
         """Format an FQN for human-friendly display (unquoted)."""
-        if self.fqn is not None:
-            parts = []
-            if self.fqn.database:
-                parts.append(unquote_identifier(self.fqn.database))
-            if self.fqn.schema:
-                parts.append(unquote_identifier(self.fqn.schema))
-            parts.append(unquote_identifier(self.fqn.name))
-            return ".".join(parts)
-
-        return self.fqn_text if self.fqn_text else "UNKNOWN"
+        if self.fqn is None:
+            return "UNKNOWN"
+        parts = []
+        if self.fqn.database:
+            parts.append(unquote_identifier(self.fqn.database))
+        if self.fqn.schema:
+            parts.append(unquote_identifier(self.fqn.schema))
+        parts.append(unquote_identifier(self.fqn.name))
+        return ".".join(parts)
 
 
 class PlanReporter(Reporter[PlanRow]):
@@ -172,14 +162,13 @@ class PlanReporter(Reporter[PlanRow]):
     def parse_data(self, data: List[Dict[str, Any]]) -> Iterator[PlanRow]:
         for entry_dict in data:
             parsed = PlanRow.from_dict(entry_dict)
-            if parsed is not None:
-                if parsed.operation == "CREATE":
-                    self._summary.created += 1
-                elif parsed.operation == "ALTER":
-                    self._summary.altered += 1
-                elif parsed.operation == "DROP":
-                    self._summary.dropped += 1
-                yield parsed
+            if parsed.operation == "CREATE":
+                self._summary.created += 1
+            elif parsed.operation == "ALTER":
+                self._summary.altered += 1
+            elif parsed.operation == "DROP":
+                self._summary.dropped += 1
+            yield parsed
 
     def print_renderables(self, data: Iterator[PlanRow]) -> None:
         for entry in data:
