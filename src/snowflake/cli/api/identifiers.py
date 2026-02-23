@@ -27,6 +27,7 @@ from snowflake.cli.api.project.schemas.v1.identifier_model import (
 from snowflake.cli.api.project.util import (
     VALID_IDENTIFIER_REGEX,
     identifier_for_url,
+    sanitize_identifier,
     unquote_identifier,
 )
 
@@ -179,9 +180,10 @@ class FQN:
     ) -> "FQN":
         """Create an instance related to another Snowflake resource."""
         unquoted_name = unquote_identifier(resource_fqn.name)
+        safe_name = sanitize_identifier(unquoted_name)
         safe_cli_name = resource_type.value.cli_name.upper().replace("-", "_")
         return cls.from_string(
-            f"{safe_cli_name}_{unquoted_name}_{int(time.time())}_{purpose.upper()}"
+            f"{safe_cli_name}_{safe_name}_{int(time.time())}_{purpose.upper()}"
         ).using_context()
 
     def set_database(self, database: str | None) -> "FQN":

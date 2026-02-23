@@ -226,16 +226,6 @@ class TestFromResource:
             == "test_db.test_schema.DBT_PROJECT_MY_PIPELINE_1234567890_STAGE"
         )
 
-    def test_with_quoted_identifier(self, mock_ctx, mock_time):
-        resource_fqn = FQN(name='"caseSenSITIVEnAME"', database=None, schema=None)
-
-        result = FQN.from_resource(ObjectType.DCM_PROJECT, resource_fqn, "TEMP_STAGE")
-
-        assert (
-            result.identifier
-            == "test_db.test_schema.DCM_caseSenSITIVEnAME_1234567890_TEMP_STAGE"
-        )
-
     def test_with_fqn_resource(self, mock_ctx, mock_time):
         mock_ctx().connection = MagicMock(
             database="context_db", schema="context_schema"
@@ -249,3 +239,20 @@ class TestFromResource:
         assert result.database == "context_db"
         assert result.schema == "context_schema"
         assert result.name == "STAGE_RESOURCE_1234567890_TEST"
+
+    @pytest.mark.parametrize(
+        "name, expected_name",
+        [
+            ('"caseSenSITIVEnAME"', "DCM_caseSenSITIVEnAME_1234567890_TEMP_STAGE"),
+            ('"Six Flags DCM"', "DCM_SixFlagsDCM_1234567890_TEMP_STAGE"),
+            ('"project.v2.0"', "DCM_projectv20_1234567890_TEMP_STAGE"),
+            ('"my-project!@#name"', "DCM_myprojectname_1234567890_TEMP_STAGE"),
+            ('"say ""hello"" world"', "DCM_sayhelloworld_1234567890_TEMP_STAGE"),
+        ],
+    )
+    def test_with_special_characters(self, mock_ctx, mock_time, name, expected_name):
+        resource_fqn = FQN(name=name, database=None, schema=None)
+
+        result = FQN.from_resource(ObjectType.DCM_PROJECT, resource_fqn, "TEMP_STAGE")
+
+        assert result.identifier == f"test_db.test_schema.{expected_name}"
