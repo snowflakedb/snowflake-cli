@@ -474,3 +474,122 @@ class TestSubmitQueryBuilder:
 
         query = builder.build()
         assert "SECRETS" not in query
+
+    @pytest.mark.parametrize(
+        "file_path,expected",
+        [
+            ("s3://bucket/path/to/file.jar", "s3://bucket/path/to/file.jar"),
+            ("https://example.com/file.jar", "https://example.com/file.jar"),
+            ("hdfs://cluster/path/file.jar", "hdfs://cluster/path/file.jar"),
+            ("gs://bucket/path/file.jar", "gs://bucket/path/file.jar"),
+            ("local://path/to/file.jar", "local://path/to/file.jar"),
+            ("file:///path/to/file.jar", "file:///path/to/file.jar"),
+        ],
+    )
+    def test_get_file_stage_path_returns_remote_path_as_is(self, file_path, expected):
+        """Test that _get_file_stage_path returns remote paths unchanged."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        assert builder._get_file_stage_path(file_path) == expected  # noqa: SLF001
+
+    @pytest.mark.parametrize(
+        "file_path,expected",
+        [
+            ("app.jar", "/tmp/entrypoint/app.jar"),
+            ("app.py", "/tmp/entrypoint/app.py"),
+            ("subdir/app.jar", "/tmp/entrypoint/subdir/app.jar"),
+            ("my-app-1.0.jar", "/tmp/entrypoint/my-app-1.0.jar"),
+            ("libs/dependency.jar", "/tmp/entrypoint/libs/dependency.jar"),
+        ],
+    )
+    def test_get_file_stage_path_prepends_stage_path_for_local_files(
+        self, file_path, expected
+    ):
+        """Test that _get_file_stage_path prepends file_stage_path for local paths."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        assert builder._get_file_stage_path(file_path) == expected  # noqa: SLF001
+
+    def test_build_with_local_protocol_entrypoint_file(self):
+        """Test that entrypoint_file with local:// prefix is used as-is."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="local://container/path/app.py", scls_file_stage="@my_stage"
+        )
+
+        query = builder.build()
+
+        assert "ENTRYPOINT_FILE='local://container/path/app.py'" in query
+
+    def test_build_with_local_protocol_jar_entrypoint(self):
+        """Test that JAR entrypoint_file with local:// prefix is used as-is."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="local://container/path/app.jar", scls_file_stage="@my_stage"
+        )
+        builder.with_class_name("com.example.Main")
+
+        query = builder.build()
+
+        assert "ENTRYPOINT_FILE='local://container/path/app.jar'" in query
+        assert "CLASS = 'com.example.Main'" in query
+
+    def test_build_with_local_protocol_jars(self):
+        """Test that jars with local:// prefix are used as-is in spark.jars config."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        builder.with_jars(
+            ["local://container/libs/dep1.jar", "local://container/libs/dep2.jar"]
+        )
+
+        query = builder.build()
+
+        assert (
+            "'spark.jars' = 'local://container/libs/dep1.jar,local://container/libs/dep2.jar'"
+            in query
+        )
+
+    def test_build_with_local_protocol_py_files(self):
+        """Test that py_files with local:// prefix are used as-is in spark.submit.pyFiles config."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        builder.with_py_files(
+            ["local://container/libs/utils.py", "local://container/libs/helpers.py"]
+        )
+
+        query = builder.build()
+
+        assert (
+            "'spark.submit.pyFiles' = 'local://container/libs/utils.py,local://container/libs/helpers.py'"
+            in query
+        )
+
+    def test_build_with_mixed_local_and_stage_jars(self):
+        """Test mixing local:// jars with stage-uploaded jars."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        builder.with_jars(["local://container/libs/external.jar", "uploaded.jar"])
+
+        query = builder.build()
+
+        assert (
+            "'spark.jars' = 'local://container/libs/external.jar,/tmp/entrypoint/uploaded.jar'"
+            in query
+        )
+
+    def test_build_with_mixed_local_and_stage_py_files(self):
+        """Test mixing local:// py_files with stage-uploaded py_files."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        builder.with_py_files(["local://container/libs/external.py", "uploaded.py"])
+
+        query = builder.build()
+
+        assert (
+            "'spark.submit.pyFiles' = 'local://container/libs/external.py,/tmp/entrypoint/uploaded.py'"
+            in query
+        )

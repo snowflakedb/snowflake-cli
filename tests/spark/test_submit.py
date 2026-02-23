@@ -501,3 +501,39 @@ class TestSclsSubmit:
             "SECRETS=('secret1' = secret1_value, 'secret2' = secret2_value)"
             in submit_query
         )
+
+    @mock.patch(SCLS_MANAGER)
+    def test_load_entrypoint_file_from_stage(self, mock_manager, runner, tmp_path):
+        """Test loading an entrypoint file from a stage."""
+
+        mock_manager().upload_file_to_stage.side_effect = [
+            "local:///tmp/path1/app.jar",
+            "local:///tmp/path1/common.jar",
+            "local:///tmp/path1/lib.jar",
+        ]
+        mock_manager().submit.return_value = (
+            "Spark Application ID: app-with-entrypoint-from-stage"
+        )
+
+        result = runner.invoke(
+            [
+                "spark",
+                "submit",
+                "--snow-stage-mount",
+                "@my_stage:/tmp/path1",
+                "--jars",
+                "local:///tmp/path1/common.jar,local:///tmp/path1/lib.jar",
+                "--class",
+                "com.example.Main",
+                "local:///tmp/path1/app.jar",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Spark Application ID: app-with-entrypoint-from-stage" in result.output
+        submit_query = mock_manager().submit.call_args[0][0]
+        assert "ENTRYPOINT_FILE='local:///tmp/path1/app.jar'" in submit_query
+        assert (
+            "'spark.jars' = 'local:///tmp/path1/common.jar,local:///tmp/path1/lib.jar'"
+            in submit_query
+        )
+        assert "STAGE_MOUNTS=('@my_stage:/tmp/path1')" in submit_query

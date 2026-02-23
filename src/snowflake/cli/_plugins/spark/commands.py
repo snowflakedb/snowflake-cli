@@ -156,8 +156,6 @@ def submit(
         # validate required arguments
         if not entrypoint_file:
             raise ClickException("Entrypoint file path is required")
-        if not snow_file_stage:
-            raise ClickException(f"--snow-file-stage is required")
 
         file_name = manager.upload_file_to_stage(entrypoint_file, snow_file_stage)
 

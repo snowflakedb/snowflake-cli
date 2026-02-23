@@ -22,7 +22,18 @@ log = logging.getLogger(__name__)
 
 
 class SubmitQueryBuilder:
-    def __init__(self, file_on_stage: str, scls_file_stage: str):
+    file_stage_path = "/tmp/entrypoint"
+
+    def _get_file_stage_path(self, file_path: str) -> str:
+        # if the file path is a remote path, return the file path as is
+        if "://" in file_path:
+            return file_path
+        # file path should never start with a slash
+        if file_path.startswith("/"):
+            raise ClickException("Absolute file paths are not supported")
+        return f"{self.file_stage_path}/{file_path}"
+
+    def __init__(self, file_on_stage: str, scls_file_stage: Optional[str]):
         self.file_on_stage = file_on_stage
         self.snow_file_stage = scls_file_stage
         self.spark_configurations: dict[str, str] = {}
@@ -60,7 +71,7 @@ class SubmitQueryBuilder:
         self.jars = jars
         if jars and len(jars) > 0:
             self.spark_configurations["spark.jars"] = ",".join(
-                f"/tmp/entrypoint/{jar}" for jar in jars
+                self._get_file_stage_path(jar) for jar in jars
             )
         return self
 
@@ -68,7 +79,7 @@ class SubmitQueryBuilder:
         self.py_files = py_files
         if py_files and len(py_files) > 0:
             self.spark_configurations["spark.submit.pyFiles"] = ",".join(
-                f"/tmp/entrypoint/{py_file}" for py_file in py_files
+                self._get_file_stage_path(py_file) for py_file in py_files
             )
         return self
 
@@ -149,13 +160,13 @@ class SubmitQueryBuilder:
         return self
 
     def build(self) -> str:
-        stage_name = (
-            self.snow_file_stage
-            if not self.snow_file_stage.endswith("/")
-            else f"@{self.snow_file_stage.rstrip('/')}"
-        )
-
-        self.snow_stage_mount[stage_name] = "/tmp/entrypoint"
+        if self.snow_file_stage:
+            stage_name = (
+                self.snow_file_stage
+                if not self.snow_file_stage.endswith("/")
+                else f"@{self.snow_file_stage.rstrip('/')}"
+            )
+            self.snow_stage_mount[stage_name] = self.file_stage_path
 
         query_parts = [
             "EXECUTE SPARK APPLICATION",
@@ -167,7 +178,9 @@ class SubmitQueryBuilder:
         )
         query_parts.append(f"STAGE_MOUNTS=({mount_str})")
 
-        query_parts.append(f"ENTRYPOINT_FILE='/tmp/entrypoint/{self.file_on_stage}'")
+        query_parts.append(
+            f"ENTRYPOINT_FILE='{self._get_file_stage_path(self.file_on_stage)}'"
+        )
 
         # Scala/Java applications require a main class name
         if self.file_on_stage.endswith(".jar"):
@@ -242,8 +255,22 @@ class SparkManager(SqlExecutionMixin):
         except Exception as e:
             raise ClickException(f"Failed to submit Spark application: {e}")
 
-    def upload_file_to_stage(self, entrypoint_file: str, scls_file_stage: str):
-        query = f"PUT file://{entrypoint_file} {scls_file_stage} AUTO_COMPRESS=FALSE OVERWRITE=TRUE"
+    def upload_file_to_stage(
+        self, entrypoint_file: str, scls_file_stage: Optional[str]
+    ):
+        if not self._is_local_file(entrypoint_file):
+            log.debug("File %s is a remote file, skipping upload", entrypoint_file)
+            return entrypoint_file
+
+        if not scls_file_stage:
+            raise ClickException(f"--snow-file-stage is required")
+
+        # Strip file:// prefix if present to avoid double-prefixing
+        file_path = entrypoint_file
+        if file_path.lower().startswith("file://"):
+            file_path = file_path[7:]
+
+        query = f"PUT file://{file_path} {scls_file_stage} AUTO_COMPRESS=FALSE OVERWRITE=TRUE"
         log.debug("Uploading %s to %s", entrypoint_file, scls_file_stage)
         try:
             result = self.execute_query(query).fetchone()
@@ -288,3 +315,6 @@ class SparkManager(SqlExecutionMixin):
             return result[0]
         except Exception as e:
             raise ClickException(f"Failed to kill {spark_application_id}: {e}")
+
+    def _is_local_file(self, file_path: str) -> bool:
+        return file_path.lower().startswith("file://") or "://" not in file_path

@@ -114,6 +114,90 @@ class TestSclsManager:
         assert "Stage not found" in str(exc_info.value.message)
 
     @mock.patch(f"{SCLS_MANAGER}.execute_query")
+    def test_upload_file_to_stage_skips_remote_s3_file(self, mock_execute_query):
+        """Test that upload_file_to_stage skips upload for s3:// remote files."""
+        manager = SparkManager()
+        result = manager.upload_file_to_stage(
+            "s3://bucket/path/to/app.jar", "@my_stage/jars"
+        )
+
+        assert result == "s3://bucket/path/to/app.jar"
+        mock_execute_query.assert_not_called()
+
+    @mock.patch(f"{SCLS_MANAGER}.execute_query")
+    def test_upload_file_to_stage_skips_remote_https_file(self, mock_execute_query):
+        """Test that upload_file_to_stage skips upload for https:// remote files."""
+        manager = SparkManager()
+        result = manager.upload_file_to_stage(
+            "https://example.com/app.jar", "@my_stage/jars"
+        )
+
+        assert result == "https://example.com/app.jar"
+        mock_execute_query.assert_not_called()
+
+    @mock.patch(f"{SCLS_MANAGER}.execute_query")
+    def test_upload_file_to_stage_skips_remote_hdfs_file(self, mock_execute_query):
+        """Test that upload_file_to_stage skips upload for hdfs:// remote files."""
+        manager = SparkManager()
+        result = manager.upload_file_to_stage(
+            "hdfs://cluster/path/to/app.jar", "@my_stage/jars"
+        )
+
+        assert result == "hdfs://cluster/path/to/app.jar"
+        mock_execute_query.assert_not_called()
+
+    @mock.patch(f"{SCLS_MANAGER}.execute_query")
+    def test_upload_file_to_stage_skips_local_protocol_file(self, mock_execute_query):
+        """Test that upload_file_to_stage skips upload for local:// files (container path)."""
+        manager = SparkManager()
+        result = manager.upload_file_to_stage(
+            "local://path/to/app.jar", "@my_stage/jars"
+        )
+
+        assert result == "local://path/to/app.jar"
+        mock_execute_query.assert_not_called()
+
+    @mock.patch(f"{SCLS_MANAGER}.execute_query")
+    def test_upload_file_to_stage_uploads_file_protocol(
+        self, mock_execute_query, mock_cursor
+    ):
+        """Test that upload_file_to_stage uploads files with file:// protocol."""
+        mock_execute_query.return_value = mock_cursor(
+            rows=[
+                (
+                    "file:///path/to/app.jar",
+                    "app.jar",
+                    1024,
+                    1024,
+                    "none",
+                    "none",
+                    "UPLOADED",
+                    "",
+                )
+            ],
+            columns=[
+                "source",
+                "target",
+                "source_size",
+                "target_size",
+                "source_compression",
+                "target_compression",
+                "status",
+                "message",
+            ],
+        )
+
+        manager = SparkManager()
+        result = manager.upload_file_to_stage(
+            "file:///path/to/app.jar", "@my_stage/jars"
+        )
+
+        assert result == "app.jar"
+        mock_execute_query.assert_called_once_with(
+            "PUT file:///path/to/app.jar @my_stage/jars AUTO_COMPRESS=FALSE OVERWRITE=TRUE"
+        )
+
+    @mock.patch(f"{SCLS_MANAGER}.execute_query")
     def test_check_status_success(self, mock_execute_query, mock_cursor):
         """Test successful status check of a Spark application."""
         expected_cursor = mock_cursor(
@@ -276,3 +360,26 @@ class TestSclsManager:
         mock_execute_query.assert_called_once_with(
             "SELECT * FROM TABLE(snowflake.spark.GET_SPARK_APPLICATION_HISTORY()) WHERE ID = 'app-123'"
         )
+
+    @pytest.mark.parametrize(
+        "file_path,expected",
+        [
+            ("file:///path/to/file.jar", True),
+            ("FILE:///path/to/file.jar", True),
+            ("File:///path/to/file.jar", True),
+            ("FiLe:///path/to/file.jar", True),
+            ("/path/to/file.jar", True),
+            ("./relative/path/file.jar", True),
+            ("relative/path/file.jar", True),
+            ("@stage/path/file.jar", True),
+            ("s3://bucket/path/file.jar", False),
+            ("https://example.com/file.jar", False),
+            ("hdfs://cluster/path/file.jar", False),
+            ("gs://bucket/path/file.jar", False),
+            ("local://path/to/file.jar", False),
+        ],
+    )
+    def test_is_local_file(self, file_path, expected):
+        """Test _is_local_file returns correct value for various file paths."""
+        manager = SparkManager()
+        assert manager._is_local_file(file_path) == expected  # noqa: SLF001
