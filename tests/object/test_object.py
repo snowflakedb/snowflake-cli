@@ -408,3 +408,22 @@ def test_in_account_and_in_are_mutually_exclusive(mock_connector, runner, mock_c
     )
     assert result.exit_code == 2, result.output
     assert "incompatible" in result.output.lower()
+
+
+@mock.patch("snowflake.connector.connect")
+@pytest.mark.parametrize(
+    "object_type, expected_query",
+    [
+        ("external-access-integration", "show external access integrations like '%%'"),
+        ("integration", "show integrations like '%%'"),
+    ],
+)
+def test_show_integration_with_in_account_flag(
+    mock_connector, runner, mock_ctx, object_type, expected_query
+):
+    """Test that --in-account flag is effectively ignored for integration objects"""
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    result = runner.invoke(["object", "list", object_type, "--in-account"])
+    assert result.exit_code == 0, result.output
+    assert ctx.get_queries() == [expected_query]
