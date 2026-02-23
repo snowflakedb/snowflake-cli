@@ -28,6 +28,7 @@ T = TypeVar("T")
 
 class Reporter(ABC, Generic[T]):
     def __init__(self) -> None:
+        self.result_raw_data = None
         self.command_name = ""
 
     @abstractmethod
@@ -75,6 +76,7 @@ class Reporter(ABC, Generic[T]):
             result_json = (
                 json.loads(result_data) if isinstance(result_data, str) else result_data
             )
+            self.result_raw_data = result_data
         except IndexError:
             log.debug("Unexpected response format: %s", row)
             raise CliError("Could not process response.")
