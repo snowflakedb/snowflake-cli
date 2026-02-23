@@ -698,10 +698,6 @@ def test_dcm_raw_analyze_basic(
         output_json = _extract_and_validate_raw_analyze_json(result.output)
         assert len(output_json) > 0, "Expected non-empty result"
 
-        # Clean up
-        result = runner.invoke_with_connection(["dcm", "drop", project_name])
-        assert result.exit_code == 0, result.output
-
 
 @pytest.mark.qa_only
 @pytest.mark.integration
@@ -741,10 +737,6 @@ def test_dcm_raw_analyze_with_target(
 
         _extract_and_validate_raw_analyze_json(result.output)
 
-        # Clean up
-        result = runner.invoke_with_connection(["dcm", "drop"] + target_args)
-        assert result.exit_code == 0, result.output
-
 
 @pytest.mark.qa_only
 @pytest.mark.integration
@@ -774,7 +766,3 @@ def test_dcm_raw_analyze_with_errors(
         result = runner.invoke_with_connection(["dcm", "raw-analyze", project_name])
         assert result.exit_code == 1, result.output
         assert "Analysis found 1 error(s)." in result.output
-
-        # Clean up
-        result = runner.invoke_with_connection(["dcm", "drop", project_name])
-        assert result.exit_code == 0, result.output
