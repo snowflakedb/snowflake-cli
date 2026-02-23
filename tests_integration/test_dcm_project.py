@@ -659,79 +659,37 @@ def test_dcm_end_to_end_workflow(
 
 @pytest.mark.qa_only
 @pytest.mark.integration
-def test_dcm_raw_analyze_basic(
-    runner,
-    test_database,
-    project_directory,
-    object_name_provider,
-):
-    project_name = object_name_provider.create_and_get_next_object_name()
-
-    with project_directory("dcm_project"):
-        result = runner.invoke_with_connection(["dcm", "create", project_name])
-        assert result.exit_code == 0, result.output
-
-        # Deploy the project with test data
-        result = runner.invoke_with_connection(
-            [
-                "dcm",
-                "deploy",
-                project_name,
-                "-D",
-                f"table_name='{test_database}.PUBLIC.AnalyzeTestTable'",
-            ]
-        )
-        assert result.exit_code == 0, result.output
-
-        # Run raw-analyze command
-        result = runner.invoke_with_connection(
-            [
-                "dcm",
-                "raw-analyze",
-                project_name,
-                "-D",
-                f"table_name='{test_database}.PUBLIC.AnalyzeTestTable'",
-            ]
-        )
-        assert result.exit_code == 0, result.output
-
-        output_json = _extract_and_validate_raw_analyze_json(result.output)
-        assert len(output_json) > 0, "Expected non-empty result"
-
-
-@pytest.mark.qa_only
-@pytest.mark.integration
 @pytest.mark.parametrize(
-    "target_args,expected_project_suffix",
+    "args,expected_project_suffix",
     [
         pytest.param([], "dev", id="default_target"),
         pytest.param(["--target", "test"], "test", id="explicit_target"),
     ],
 )
-def test_dcm_raw_analyze_with_target(
+def test_dcm_raw_analyze_success(
     runner,
     test_database,
     project_directory,
-    target_args,
+    args,
     expected_project_suffix,
 ):
-    target_args = list(target_args)
+    args = list(args)
 
     with project_directory("dcm_project_multiple_configurations"):
         # Create project using target configuration
-        result = runner.invoke_with_connection(["dcm", "create"] + target_args)
+        result = runner.invoke_with_connection(["dcm", "create"] + args)
         assert result.exit_code == 0, result.output
         assert "successfully created" in result.output
 
         # Deploy the project
         result = runner.invoke_with_connection_json(
-            ["dcm", "deploy", "-D", f"db='{test_database}'"] + target_args
+            ["dcm", "deploy", "-D", f"db='{test_database}'"] + args
         )
         assert result.exit_code == 0, result.output
 
         # Run raw-analyze with target
         result = runner.invoke_with_connection(
-            ["dcm", "raw-analyze", "-D", f"db='{test_database}'"] + target_args
+            ["dcm", "raw-analyze", "-D", f"db='{test_database}'"] + args
         )
         assert result.exit_code == 0, result.output
 
