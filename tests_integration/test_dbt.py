@@ -691,3 +691,54 @@ def test_execute_with_dbt_version(
         assert result.exit_code == 0, result.output
         assert "Running with dbt=1.10.15" in result.output
         assert "Done. PASS=2 WARN=0 ERROR=0 SKIP=0 NO-OP=0 TOTAL=2" in result.output
+
+
+@pytest.mark.integration
+def test_deploy_with_fqn_schema_takes_priority_over_connection(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    """
+    Verify that when deploying with a fully qualified project name,
+    the database and schema from the project FQN are used for the
+    temporary stage (not the connection's default database/schema).
+    """
+    with project_directory("dbt_project") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        alt_schema = f"{snowflake_session.schema}_ALT_{ts}"
+
+        # Create an alternative schema distinct from the connection's default
+        snowflake_session.execute_string(f"CREATE SCHEMA IF NOT EXISTS {alt_schema}")
+
+        try:
+            name = f"dbt_project_{ts}"
+            fqn = FQN.from_string(f"{snowflake_session.database}.{alt_schema}.{name}")
+
+            _setup_dbt_profile(root_dir, snowflake_session)
+
+            # Deploy using a FQN whose schema differs from the connection default.
+            result = runner.invoke_with_connection_json(["dbt", "deploy", str(fqn)])
+            assert result.exit_code == 0, result.output
+
+            # Verify the project was created under the alternative schema
+            result = runner.invoke_with_connection_json(
+                [
+                    "sql",
+                    "-q",
+                    f"SHOW DBT PROJECTS LIKE '{name}' IN SCHEMA {snowflake_session.database}.{alt_schema}",
+                ]
+            )
+            assert result.exit_code == 0, result.output
+            assert len(result.json) == 1, f"Expected 1 project, got: {result.json}"
+        finally:
+            # Cleanup: drop the project and the alternative schema
+            runner.invoke_with_connection(
+                [
+                    "sql",
+                    "-q",
+                    f"DROP DBT PROJECT IF EXISTS {snowflake_session.database}.{alt_schema}.{name}",
+                ]
+            )
+            snowflake_session.execute_string(f"DROP SCHEMA IF EXISTS {alt_schema}")
