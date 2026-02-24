@@ -30,7 +30,7 @@
 * all authenticators (including `snowflake-jwt`, `username_password_mfa`, `workload_identity`) are now case-insensitive.
 * Fixed `snow streamlit deploy --prune` failing with incorrect stage path format for streamlit entities using versioned deployment. The `snow://` prefix is now correctly preserved through all stage path operations.
 * Fixed a bug with `snow dbt deploy` where dbt project would have files uploaded first and project properties updated afterwards. This could lead to failed deploys if for example project lacked external access integrations and dependencies were specified.
-* Changed how fully qualified name for temporary stages is established for `snow dbt deploy`. Database and schema from dbt project object's fully qualified name take precedence over database and schema from session.
+* Changed how the fully qualified name for temporary stages is established for `snow dbt deploy`. The database and schema from the DBT Project object's fully qualified name take precedence over those from the session.
 
 # v3.15.0
 
