@@ -457,7 +457,6 @@ def test_bundle_map_allows_deploying_other_sources_to_renamed_directory(bundle_m
     )
 
 
-@pytest.mark.skip(reason="Checking deep tree hierarchies is not yet supported")
 def test_bundle_map_disallows_collisions_anywhere_in_deployed_hierarchy(bundle_map):
     bundle_map.add(PathMapping(src="src/snowpark", dest="./snowpark"))
     bundle_map.add(PathMapping(src="README.md", dest="snowpark/"))
@@ -468,6 +467,26 @@ def test_bundle_map_disallows_collisions_anywhere_in_deployed_hierarchy(bundle_m
 
     with pytest.raises(TooManyFilesError):
         bundle_map.add(PathMapping(src="app/manifest.yml", dest="snowpark/a/file1.py"))
+
+
+def test_bundle_map_deduplicates_directory_and_glob_overlap(bundle_map):
+    bundle_map.add(PathMapping(src="src/snowpark", dest="./snowpark"))
+    bundle_map.add(PathMapping(src="src/snowpark/main.py", dest="snowpark/main.py"))
+
+    verify_mappings(
+        bundle_map,
+        expected_mappings={
+            "src/snowpark": "snowpark",
+        },
+    )
+
+
+def test_bundle_map_disallows_different_source_collision_with_directory_child(
+    bundle_map,
+):
+    bundle_map.add(PathMapping(src="src/snowpark", dest="./snowpark"))
+    with pytest.raises(TooManyFilesError):
+        bundle_map.add(PathMapping(src="app/manifest.yml", dest="snowpark/main.py"))
 
 
 def test_bundle_map_disallows_mapping_outside_deploy_root(bundle_map):

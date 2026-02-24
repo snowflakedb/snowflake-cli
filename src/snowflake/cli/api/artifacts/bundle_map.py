@@ -452,10 +452,12 @@ class _ArtifactPathMap:
                 raise TooManyFilesError(dest)
         else:
             # file -> file
-            # Check that there is no previous mapping for the same file.
-            if current_source is not None and current_source != src:
-                # There is already a different source mapping to this destination
-                raise TooManyFilesError(dest)
+            if current_source is not None:
+                if current_source != src:
+                    raise TooManyFilesError(dest)
+                # Same source already maps to this destination (e.g., via a parent directory).
+                # Skip adding a duplicate mapping.
+                return
 
         if src_is_dir:
             # mark all subdirectories of this source as directories so that we can
@@ -465,7 +467,13 @@ class _ArtifactPathMap:
                 canonical_dest_subdir = dest / canonical_subdir
                 self._update_dest_is_dir(canonical_dest_subdir, is_dir=True)
                 for f in files:
-                    self._update_dest_is_dir(canonical_dest_subdir / f, is_dir=False)
+                    child_dest = canonical_dest_subdir / f
+                    child_src = src / canonical_subdir / f
+                    self._update_dest_is_dir(child_dest, is_dir=False)
+                    existing_source = self.__dest_to_src.get(child_dest)
+                    if existing_source is not None and existing_source != child_src:
+                        raise TooManyFilesError(child_dest)
+                    self.__dest_to_src[child_dest] = child_src
 
         # make sure we check for dest_is_dir consistency regardless of whether the
         # insertion happened. This update can fail, so we need to do it first to
