@@ -11,24 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import json
-from pathlib import Path
-
-from snowflake.cli._plugins.dcm.reporters.plan import PlanReporter
+from snowflake.cli._plugins.dcm.reporters.plan import PlanReporter, PlanRow
+from snowflake.cli.api.identifiers import FQN
 
 from tests.dcm.test_reporters.utils import FakeCursor, capture_reporter_output
-
-_PLANS_DIR = Path(__file__).resolve().parents[3] / "plans" / "plan_refactor"
-
-
-def _load_plan_data(filename: str):
-    with open(_PLANS_DIR / filename) as f:
-        data = json.load(f)
-    if isinstance(data, list) and len(data) > 0:
-        first = data[0]
-        if isinstance(first, dict) and "result" in first:
-            return first["result"]
-    return data
 
 
 class TestPlanReporterTerse:
@@ -114,5 +100,152 @@ class TestPlanReporterTerse:
             ],
         }
         reporter = PlanReporter(command_name="deploy")
+
         output = capture_reporter_output(reporter, FakeCursor(data))
+
         assert "Deployed 1 entities (1 created)." in output
+
+    def test_empty_cursor(self):
+        output = capture_reporter_output(PlanReporter(), FakeCursor(None))
+
+        assert "No data." in output
+
+    def test_version_1_raises_error(self):
+        data = {"version": 1, "changeset": []}
+
+        output = capture_reporter_output(PlanReporter(), FakeCursor(data))
+
+        assert "Only version 2+ plan responses are supported." in output
+
+    def test_version_3_renders_in_compatibility_mode(self):
+        data = {
+            "version": 3,
+            "metadata": {},
+            "changeset": [
+                {
+                    "type": "CREATE",
+                    "object_id": {
+                        "domain": "TABLE",
+                        "name": '"T"',
+                        "fqn": '"T"',
+                    },
+                }
+            ],
+        }
+
+        output = capture_reporter_output(PlanReporter(), FakeCursor(data))
+
+        assert "CREATE" in output
+        assert "Planned 1 entities" in output
+
+
+class TestPlanRow:
+    def test_from_dict_valid_entry(self):
+        entry = {
+            "type": "CREATE",
+            "object_id": {
+                "domain": "TABLE",
+                "name": '"ORDERS"',
+                "fqn": '"DB"."SCH"."ORDERS"',
+                "database": '"DB"',
+                "schema": '"SCH"',
+            },
+        }
+
+        row = PlanRow.from_dict(entry)
+
+        assert row.operation == "CREATE"
+        assert row.domain == "TABLE"
+        assert row.fqn is not None
+        assert row.display_fqn() == "DB.SCH.ORDERS"
+
+    def test_from_dict_fallback_on_missing_required_fields(self):
+        entry = {
+            "type": "ALTER",
+            "object_id": "not_a_dict",
+        }
+
+        row = PlanRow.from_dict(entry)
+
+        assert row.operation == "ALTER"
+        assert row.domain == "UNKNOWN"
+        assert row.fqn is None
+
+    def test_from_dict_fallback_missing_type(self):
+        entry = {"object_id": "bad"}
+
+        row = PlanRow.from_dict(entry)
+
+        assert row.operation == "UNKNOWN"
+
+    def test_from_dict_fallback_with_parseable_fqn(self):
+        entry = {
+            "type": "DROP",
+            "object_id": {
+                "domain": "ROLE",
+                "fqn": '"MY_ROLE"',
+            },
+        }
+
+        row = PlanRow.from_dict(entry)
+
+        assert row.operation == "DROP"
+        assert row.domain == "ROLE"
+        assert row.fqn is not None
+        assert row.display_fqn() == "MY_ROLE"
+
+    def test_from_dict_sanitizes_ansi_codes(self):
+        entry = {
+            "type": "CREATE",
+            "object_id": {
+                "domain": "TABLE\x1b[31m",
+                "name": '"T"',
+                "fqn": '"DB\x1b[0m"."SCH"."T"',
+            },
+        }
+
+        row = PlanRow.from_dict(entry)
+
+        assert "\x1b" not in row.domain
+        assert row.fqn is not None
+        assert "\x1b" not in row.display_fqn()
+
+    def test_from_dict_fallback_sanitizes_ansi_codes(self):
+        entry = {
+            "type": "ALTER\x1b[31m",
+            "object_id": {
+                "domain": "TABLE\x1b[0m",
+                "fqn": "unparseable\x1b[32m",
+            },
+        }
+
+        row = PlanRow.from_dict(entry)
+
+        assert "\x1b" not in row.operation
+        assert "\x1b" not in row.domain
+
+    def test_display_fqn_with_none(self):
+        row = PlanRow(operation="CREATE", domain="TABLE", fqn=None)
+
+        assert row.display_fqn() == "UNKNOWN"
+
+    def test_display_fqn_name_only(self):
+        fqn = FQN(database=None, schema=None, name='"MY_TABLE"')
+
+        row = PlanRow(operation="CREATE", domain="TABLE", fqn=fqn)
+
+        assert row.display_fqn() == "MY_TABLE"
+
+    def test_display_fqn_fully_qualified(self):
+        fqn = FQN(database='"DB"', schema='"SCH"', name='"TBL"')
+
+        row = PlanRow(operation="CREATE", domain="TABLE", fqn=fqn)
+
+        assert row.display_fqn() == "DB.SCH.TBL"
+
+    def test_display_fqn_schema_and_name(self):
+        fqn = FQN(database=None, schema='"SCH"', name='"TBL"')
+
+        row = PlanRow(operation="CREATE", domain="TABLE", fqn=fqn)
+
+        assert row.display_fqn() == "SCH.TBL"
