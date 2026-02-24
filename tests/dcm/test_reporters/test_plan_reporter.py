@@ -110,7 +110,7 @@ class TestPlanReporterTerse:
 
         output = capture_reporter_output(reporter, FakeCursor(data))
 
-        assert "Deployed 1 entities (1 created)." in output
+        assert "Deployed 1 entity (1 created)." in output
 
     def test_empty_cursor(self):
         output = capture_reporter_output(PlanReporter(), FakeCursor(None))
@@ -143,7 +143,7 @@ class TestPlanReporterTerse:
         output = capture_reporter_output(PlanReporter(), FakeCursor(data))
 
         assert "CREATE" in output
-        assert "Planned 1 entities" in output
+        assert "Planned 1 entity" in output
 
     def _output_lines(self, changeset):
         data = {"version": 2, "metadata": {}, "changeset": changeset}

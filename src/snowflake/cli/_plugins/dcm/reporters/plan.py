@@ -227,8 +227,12 @@ class PlanReporter(Reporter[PlanRow]):
                     styles.DROP_STYLE,
                 )
             )
-
-        result = [Text(f"{operations[self.command_name][3]} {total} entities (")]
+        entity_singular_or_plural = "entity" if total == 1 else "entities"
+        result = [
+            Text(
+                f"{operations[self.command_name][3]} {total} {entity_singular_or_plural} ("
+            )
+        ]
         for i, part in enumerate(parts):
             if i > 0:
                 result.append(Text(", "))

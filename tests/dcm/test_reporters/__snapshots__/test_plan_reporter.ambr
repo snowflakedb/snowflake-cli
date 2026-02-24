@@ -13,7 +13,7 @@
   '''
   CREATE   TABLE                DB.SCH.ORDERS
   
-  Planned 1 entities (1 to create).
+  Planned 1 entity (1 to create).
   
   '''
 # ---
