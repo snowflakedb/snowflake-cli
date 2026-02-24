@@ -145,9 +145,6 @@ def _cleanup_external_access_integration(runner, integration_name: str):
 
 @contextmanager
 def no_db_schema_connection_context(runner):
-    """Context manager that removes database and schema from the connection config
-    and environment variables. This forces the CLI to rely solely on the FQN for
-    database/schema resolution."""
     runner.use_config("connection_configs_no_db_schema.toml")
 
     env = dict(os.environ)
