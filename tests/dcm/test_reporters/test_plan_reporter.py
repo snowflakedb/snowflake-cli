@@ -176,7 +176,7 @@ class TestPlanReporterTerse:
         assert "TABLE" in lines[1]
         assert "WAREHOUSE" in lines[2]
 
-    def test_full_ordering(self):
+    def test_full_ordering(self, snapshot):
         changeset = [
             plan_entity_change_factory("ALTER", "WAREHOUSE", "W1"),
             plan_entity_change_factory("DROP", "TABLE", "T_OLD"),
@@ -187,7 +187,9 @@ class TestPlanReporterTerse:
             plan_entity_change_factory("CREATE", "DATABASE", "D1"),
         ]
 
-        lines = self._output_lines(changeset)
+        data = {"version": 2, "metadata": {}, "changeset": changeset}
+        output = capture_reporter_output(PlanReporter(), FakeCursor(data))
+        lines = [line for line in output.strip().split("\n") if line.strip()]
 
         # CREATEs first, sorted by domain
         assert lines[0].startswith("CREATE") and "DATABASE" in lines[0]
@@ -199,6 +201,8 @@ class TestPlanReporterTerse:
         # DROPs last, sorted by domain
         assert lines[5].startswith("DROP") and "ROLE" in lines[5]
         assert lines[6].startswith("DROP") and "TABLE" in lines[6]
+
+        assert output == snapshot
 
     def test_unknown_operations_sort_last(self):
         changeset = [

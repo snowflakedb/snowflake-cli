@@ -199,7 +199,7 @@ def test_plan_project_default_no_download(mock_execute_query, project_directory)
         configuration="some_configuration",
     )
 
-    assert mock_execute_query.call_count == 1
+    mock_execute_query.assert_called_once()
     query = mock_execute_query.call_args.kwargs["query"]
     assert "EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN" in query
     assert "OUTPUT_PATH" not in query
@@ -223,7 +223,7 @@ def test_plan_project_with_save_output(
         save_output=True,
     )
 
-    assert mock_execute_query.call_count == 1
+    mock_execute_query.assert_called_once()
     query = mock_execute_query.call_args.kwargs["query"]
     assert "EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN" in query
     assert "OUTPUT_PATH" in query
@@ -239,8 +239,7 @@ def test_plan_project_with_from_stage(mock_execute_query, project_directory):
         configuration="some_configuration",
     )
 
-    assert mock_execute_query.call_count == 1
-    mock_execute_query.assert_called_with(
+    mock_execute_query.assert_called_once_with(
         query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN USING CONFIGURATION some_configuration"
         " FROM @my_stage"
     )
@@ -310,7 +309,7 @@ def test_plan_project_with_output_path__exception_handling(
 
     # But the output should still be downloaded before exception is reraised
     temp_stage_fqn = mock_from_resource()
-    assert mock_execute_query.call_count == 1
+    mock_execute_query.assert_called_once()
     mock_create.assert_called_once_with(temp_stage_fqn, temporary=True)
     mock_get_recursive.assert_called_once_with(
         stage_path=f"@{str(temp_stage_fqn)}/outputs",

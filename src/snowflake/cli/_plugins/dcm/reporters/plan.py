@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+from collections import namedtuple
 from dataclasses import dataclass
 from typing import Any, Dict, Iterator, List, Optional
 
@@ -38,7 +39,7 @@ class PlanObjectId(BaseModel):
     name: str
     fqn: str
     database: Optional[str] = None
-    schema_: Optional[str] = Field(None, alias="schema")
+    schema: Optional[str] = None
 
     model_config = {"populate_by_name": True}
 
@@ -63,7 +64,7 @@ _OPERATION_ORDER = {"CREATE": 0, "ALTER": 1, "DROP": 2}
 
 @dataclass
 class PlanRow:
-    """Parsed entry ready for display -- the common currency of plan reporters."""
+    """Parsed entry ready for display"""
 
     operation: str
     domain: str
@@ -83,7 +84,7 @@ class PlanRow:
         try:
             entity = PlanEntityChange.model_validate(entry_dict)
             operation = sanitize_for_terminal(entity.type_.upper())
-            domain = sanitize_for_terminal(entity.object_id.domain)
+            domain = sanitize_for_terminal(entity.object_id.domain.upper())
             sanitized_fqn = sanitize_for_terminal(entity.object_id.fqn)
             fqn = FQN.from_string(sanitized_fqn)
         except ValidationError as e:
@@ -150,7 +151,7 @@ class PlanReporter(Reporter[PlanRow]):
             return styles.ALTER_STYLE
         elif operation == "DROP":
             return styles.DROP_STYLE
-        return styles.STATUS_STYLE
+        return styles.UNKNOWN_STYLE
 
     def extract_data(self, result_json: Dict[str, Any]) -> List[PlanEntityChange]:
         if not isinstance(result_json, dict):
@@ -165,7 +166,7 @@ class PlanReporter(Reporter[PlanRow]):
             raise CliError("Only version 2+ plan responses are supported.")
         if response.version > 2:
             log.debug(
-                "Plan response version %s detected; rendering in compatibility mode.",
+                "Plan response version %s is newer than supported (v2); rendering with best effort.",
                 response.version,
             )
         return response.changeset
@@ -202,37 +203,38 @@ class PlanReporter(Reporter[PlanRow]):
             return [Text("No changes detected.")]
 
         parts = []
-        operations = {
-            "plan": ("to create", "to alter", "to drop", "Planned"),
-            "deploy": ("created", "altered", "dropped", "Deployed"),
-        }
+
+        SummaryLabels = namedtuple(
+            "SummaryLabels", ["created", "altered", "dropped", "header"]
+        )
+        labels = {
+            "plan": SummaryLabels("to create", "to alter", "to drop", "Planned"),
+            "deploy": SummaryLabels("created", "altered", "dropped", "Deployed"),
+        }[self.command_name]
+
         if self._summary.created > 0:
             parts.append(
                 Text(
-                    f"{self._summary.created} {operations[self.command_name][0]}",
+                    f"{self._summary.created} {labels.created}",
                     styles.CREATE_STYLE,
                 )
             )
         if self._summary.altered > 0:
             parts.append(
                 Text(
-                    f"{self._summary.altered} {operations[self.command_name][1]}",
+                    f"{self._summary.altered} {labels.altered}",
                     styles.ALTER_STYLE,
                 )
             )
         if self._summary.dropped > 0:
             parts.append(
                 Text(
-                    f"{self._summary.dropped} {operations[self.command_name][2]}",
+                    f"{self._summary.dropped} {labels.dropped}",
                     styles.DROP_STYLE,
                 )
             )
         entity_singular_or_plural = "entity" if total == 1 else "entities"
-        result = [
-            Text(
-                f"{operations[self.command_name][3]} {total} {entity_singular_or_plural} ("
-            )
-        ]
+        result = [Text(f"{labels.header} {total} {entity_singular_or_plural} (")]
         for i, part in enumerate(parts):
             if i > 0:
                 result.append(Text(", "))
