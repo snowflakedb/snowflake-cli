@@ -32,6 +32,7 @@ from typing import (
 
 import tomlkit
 from click import ClickException
+from snowflake.cli.api.constants import IS_WINDOWS
 from snowflake.cli.api.exceptions import (
     ConfigFileTooWidePermissionsError,
     MissingConfigurationError,
@@ -46,7 +47,6 @@ from snowflake.cli.api.secure_utils import (
 from snowflake.cli.api.utils.dict_utils import remove_key_from_nested_dict_if_exists
 from snowflake.cli.api.utils.path_utils import path_resolver
 from snowflake.cli.api.utils.types import try_cast_to_bool
-from snowflake.connector.compat import IS_WINDOWS
 from snowflake.connector.constants import CONFIG_FILE
 from snowflake.connector.errors import ConfigSourceError, MissingConfigOptionError
 from tomlkit import TOMLDocument, dump

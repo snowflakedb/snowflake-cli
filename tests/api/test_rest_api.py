@@ -19,10 +19,8 @@ from unittest import mock
 
 import pytest
 from snowflake.cli.api.rest_api import CannotDetermineCreateURLException, RestApi
-from snowflake.connector.vendored.requests.exceptions import HTTPError
 
 _DUMMY_SERVER_URL = "https://DUMMY_SERVER_URL"
-_mock_error_404 = HTTPError(response=mock.MagicMock(status_code=404))
 
 
 @dataclass
@@ -90,6 +88,9 @@ def test_endpoint_exists(mock_rest_connection, return_value):
 def test_endpoint_exists_handles_404(
     mock_rest_connection,
 ):
+    from snowflake.connector.vendored.requests.exceptions import HTTPError
+
+    _mock_error_404 = HTTPError(response=mock.MagicMock(status_code=404))
     mock_rest_connection.setup(fetch_side_effects=[_mock_error_404])
     rest_api = RestApi(mock_rest_connection)
     assert not rest_api.get_endpoint_exists("/dummy_url")
@@ -100,6 +101,9 @@ def test_endpoint_exists_handles_404(
 
 @pytest.mark.parametrize("number_of_fails", range(4))
 def test_determine_create_url(mock_rest_connection, number_of_fails):
+    from snowflake.connector.vendored.requests.exceptions import HTTPError
+
+    _mock_error_404 = HTTPError(response=mock.MagicMock(status_code=404))
     fetch_side_effects = [_mock_error_404] * number_of_fails + [[]]
     mock_rest_connection.setup(fetch_side_effects=fetch_side_effects)
     mock_rest_connection.connection.database = "DB"

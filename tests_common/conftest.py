@@ -102,13 +102,16 @@ def snowflake_home(monkeypatch):
         snowflake_home.mkdir()
         monkeypatch.setenv("SNOWFLAKE_HOME", str(snowflake_home))
         for module in [
-            sys.modules["snowflake.connector.constants"],
-            sys.modules["snowflake.connector.config_manager"],
-            sys.modules["snowflake.connector.log_configuration"],
-            sys.modules["snowflake.cli.api.config"],
-            sys.modules["snowflake.cli.api.cli_global_context"],
+            "snowflake.connector.constants",
+            "snowflake.connector.config_manager",
+            "snowflake.connector.log_configuration",
+            "snowflake.cli.api.config",
+            "snowflake.cli.api.cli_global_context",
         ]:
-            importlib.reload(module)
+            try:
+                importlib.reload(sys.modules[module])
+            except:
+                pass
 
         yield snowflake_home
 

@@ -17,7 +17,7 @@ import stat
 from pathlib import Path
 from typing import List
 
-from snowflake.connector.compat import IS_WINDOWS
+from snowflake.cli.api.constants import IS_WINDOWS
 
 log = logging.getLogger(__name__)
 

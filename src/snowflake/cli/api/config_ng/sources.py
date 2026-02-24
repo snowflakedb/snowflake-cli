@@ -37,12 +37,12 @@ from typing import Any, Dict, Final, List, Optional, Tuple
 
 from snowflake.cli.api.config_ng.constants import SNOWFLAKE_HOME_ENV
 from snowflake.cli.api.config_ng.core import SourceDiagnostic, SourceType, ValueSource
+from snowflake.cli.api.constants import IS_WINDOWS
 from snowflake.cli.api.exceptions import (
     ConfigFileTooWidePermissionsError,
 )
 from snowflake.cli.api.secure_utils import file_permissions_are_strict
 from snowflake.cli.api.utils.types import try_cast_to_bool
-from snowflake.connector.compat import IS_WINDOWS
 
 log = logging.getLogger(__name__)
 

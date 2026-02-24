@@ -18,8 +18,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from click.exceptions import ClickException, UsageError
-from snowflake.cli.api.constants import ObjectType
-from snowflake.connector.compat import IS_WINDOWS
+from snowflake.cli.api.constants import IS_WINDOWS, ObjectType
 
 
 class BaseCliError(ClickException):
