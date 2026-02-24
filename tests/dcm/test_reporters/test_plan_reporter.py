@@ -17,6 +17,13 @@ from snowflake.cli.api.identifiers import FQN
 from tests.dcm.test_reporters.utils import FakeCursor, capture_reporter_output
 
 
+def plan_entity_change_factory(operation: str, domain: str, name: str):
+    return {
+        "type": operation,
+        "object_id": {"domain": domain, "name": f'"{name}"', "fqn": f'"{name}"'},
+    }
+
+
 class TestPlanReporterTerse:
     def test_empty_changeset(self):
         data = {"version": 2, "metadata": {}, "changeset": []}
@@ -137,6 +144,72 @@ class TestPlanReporterTerse:
 
         assert "CREATE" in output
         assert "Planned 1 entities" in output
+
+    def _output_lines(self, changeset):
+        data = {"version": 2, "metadata": {}, "changeset": changeset}
+        output = capture_reporter_output(PlanReporter(), FakeCursor(data))
+        return [line for line in output.strip().split("\n") if line.strip()]
+
+    def test_orders_by_operation_type(self):
+        changeset = [
+            plan_entity_change_factory("DROP", "ROLE", "R1"),
+            plan_entity_change_factory("CREATE", "TABLE", "T1"),
+            plan_entity_change_factory("ALTER", "WAREHOUSE", "W1"),
+        ]
+
+        lines = self._output_lines(changeset)
+
+        assert lines[0].startswith("CREATE")
+        assert lines[1].startswith("ALTER")
+        assert lines[2].startswith("DROP")
+
+    def test_orders_by_domain_within_same_operation(self):
+        changeset = [
+            plan_entity_change_factory("CREATE", "WAREHOUSE", "W1"),
+            plan_entity_change_factory("CREATE", "DATABASE", "D1"),
+            plan_entity_change_factory("CREATE", "TABLE", "T1"),
+        ]
+
+        lines = self._output_lines(changeset)
+
+        assert "DATABASE" in lines[0]
+        assert "TABLE" in lines[1]
+        assert "WAREHOUSE" in lines[2]
+
+    def test_full_ordering(self):
+        changeset = [
+            plan_entity_change_factory("ALTER", "WAREHOUSE", "W1"),
+            plan_entity_change_factory("DROP", "TABLE", "T_OLD"),
+            plan_entity_change_factory("CREATE", "TABLE", "T1"),
+            plan_entity_change_factory("ALTER", "DATABASE", "D1"),
+            plan_entity_change_factory("CREATE", "ROLE", "R1"),
+            plan_entity_change_factory("DROP", "ROLE", "R_OLD"),
+            plan_entity_change_factory("CREATE", "DATABASE", "D1"),
+        ]
+
+        lines = self._output_lines(changeset)
+
+        # CREATEs first, sorted by domain
+        assert lines[0].startswith("CREATE") and "DATABASE" in lines[0]
+        assert lines[1].startswith("CREATE") and "ROLE" in lines[1]
+        assert lines[2].startswith("CREATE") and "TABLE" in lines[2]
+        # ALTERs next, sorted by domain
+        assert lines[3].startswith("ALTER") and "DATABASE" in lines[3]
+        assert lines[4].startswith("ALTER") and "WAREHOUSE" in lines[4]
+        # DROPs last, sorted by domain
+        assert lines[5].startswith("DROP") and "ROLE" in lines[5]
+        assert lines[6].startswith("DROP") and "TABLE" in lines[6]
+
+    def test_unknown_operations_sort_last(self):
+        changeset = [
+            plan_entity_change_factory("WEIRD", "TABLE", "T1"),
+            plan_entity_change_factory("CREATE", "TABLE", "T2"),
+        ]
+
+        lines = self._output_lines(changeset)
+
+        assert lines[0].startswith("CREATE")
+        assert lines[1].startswith("WEIRD")
 
 
 class TestPlanRow:

@@ -28,7 +28,7 @@ from snowflake.cli.api.sanitizers import sanitize_for_terminal
 log = logging.getLogger(__name__)
 
 _OPERATION_WIDTH = 8
-_DOMAIN_WIDTH = 16
+_DOMAIN_WIDTH = 20
 
 
 class PlanObjectId(BaseModel):
@@ -58,6 +58,9 @@ class PlanResponse(BaseModel):
     changeset: List[PlanEntityChange] = Field(default_factory=list)
 
 
+_OPERATION_ORDER = {"CREATE": 0, "ALTER": 1, "DROP": 2}
+
+
 @dataclass
 class PlanRow:
     """Parsed entry ready for display -- the common currency of plan reporters."""
@@ -65,6 +68,14 @@ class PlanRow:
     operation: str
     domain: str
     fqn: Optional[FQN] = None
+
+    @property
+    def sort_key(self) -> tuple:
+        """Sort key: operation priority (CREATE < ALTER < DROP < unknown), then domain alphabetically."""
+        return (
+            _OPERATION_ORDER.get(self.operation, len(_OPERATION_ORDER)),
+            self.domain,
+        )
 
     @classmethod
     def from_dict(cls, entry_dict: Dict[str, Any]) -> "PlanRow":
@@ -160,6 +171,7 @@ class PlanReporter(Reporter[PlanRow]):
         return response.changeset
 
     def parse_data(self, data: List[Dict[str, Any]]) -> Iterator[PlanRow]:
+        rows: List[PlanRow] = []
         for entry_dict in data:
             parsed = PlanRow.from_dict(entry_dict)
             if parsed.operation == "CREATE":
@@ -168,7 +180,9 @@ class PlanReporter(Reporter[PlanRow]):
                 self._summary.altered += 1
             elif parsed.operation == "DROP":
                 self._summary.dropped += 1
-            yield parsed
+            rows.append(parsed)
+        rows.sort(key=lambda row: row.sort_key)
+        return iter(rows)
 
     def print_renderables(self, data: Iterator[PlanRow]) -> None:
         for entry in data:

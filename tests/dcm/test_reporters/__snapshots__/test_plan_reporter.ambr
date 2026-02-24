@@ -1,9 +1,9 @@
 # serializer version: 1
 # name: TestPlanReporterTerse.test_mixed_operations
   '''
-  CREATE   DATABASE         MY_DB
-  ALTER    WAREHOUSE        MY_WH
-  DROP     ROLE             OLD_ROLE
+  CREATE   DATABASE             MY_DB
+  ALTER    WAREHOUSE            MY_WH
+  DROP     ROLE                 OLD_ROLE
   
   Planned 3 entities (1 to create, 1 to alter, 1 to drop).
   
@@ -11,7 +11,7 @@
 # ---
 # name: TestPlanReporterTerse.test_single_create
   '''
-  CREATE   TABLE            DB.SCH.ORDERS
+  CREATE   TABLE                DB.SCH.ORDERS
   
   Planned 1 entities (1 to create).
   
