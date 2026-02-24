@@ -152,6 +152,7 @@ def connect_to_snowflake(
     **overrides,
 ) -> SnowflakeConnection:
     from snowflake.connector.errors import ForbiddenError
+
     if temporary_connection and connection_name:
         raise ClickException("Can't use connection name and temporary connection.")
     elif not temporary_connection and not connection_name:
