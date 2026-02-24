@@ -1,8 +1,8 @@
-manifest_version: 1
-
+manifest_version: 2
 type: "dcm_project"
 
-include_definitions:
-  - file_a.sql
-template_variables:
-  - table_name: "wont_be_used"
+default_target: dev
+
+targets:
+  dev:
+    project_name: "project_descriptive_name"

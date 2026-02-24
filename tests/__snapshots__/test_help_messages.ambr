@@ -7207,17 +7207,20 @@
    Lists all available dbt projects.                                              
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
-  |                                 name. For example, list --like "my%" lists   |
-  |                                 all dbt projects that begin with "my".       |
-  |                                 [default: %%]                                |
-  | --in            <TEXT TEXT>...                                               |
+  | --like        -l      TEXT            SQL LIKE pattern for filtering objects |
+  |                                       by name. For example, list --like      |
+  |                                       "my%" lists all dbt projects that      |
+  |                                       begin with "my".                       |
+  |                                       [default: %%]                          |
+  | --in                  <TEXT TEXT>...                                         |
   |                                                                              |
-  |                                 Specifies the scope of this command using    |
-  |                                 '--in  ', for example list --in database     |
-  |                                 my_db.                                       |
-  |                                 [default: None, None]                        |
-  | --help  -h                      Show this message and exit.                  |
+  |                                       Specifies the scope of this command    |
+  |                                       using '--in  ', for example list --in  |
+  |                                       database my_db.                        |
+  |                                       [default: None, None]                  |
+  | --in-account                          Lists objects across the entire        |
+  |                                       account.                               |
+  | --help        -h                      Show this message and exit.            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -7370,18 +7373,23 @@
 # name: test_help_messages[dcm.create]
   '''
                                                                                   
-   Usage: root dcm create [OPTIONS] IDENTIFIER                                    
+   Usage: root dcm create [OPTIONS] [IDENTIFIER]                                  
                                                                                   
    Creates a DCM Project in Snowflake.                                            
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    identifier      TEXT  Identifier of the DCM Project; for example:       |
-  |                            MY_PROJECT                                        |
-  |                            [required]                                        |
+  |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
+  |                                 MY_PROJECT. Can be omitted if --target is    |
+  |                                 specified or default_target is defined in    |
+  |                                 manifest.                                    |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --if-not-exists            Do nothing if the project already exists.         |
-  | --help           -h        Show this message and exit.                       |
+  | --if-not-exists                Do nothing if the project already exists.     |
+  | --from                   PATH  Local directory path containing DCM project   |
+  |                                files. Omit to use current directory.         |
+  | --target                 TEXT  Target profile from manifest.yml to use. Uses |
+  |                                default_target if not specified.              |
+  | --help           -h            Show this message and exit.                   |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -7511,25 +7519,25 @@
 # name: test_help_messages[dcm.deploy]
   '''
                                                                                   
-   Usage: root dcm deploy [OPTIONS] IDENTIFIER                                    
+   Usage: root dcm deploy [OPTIONS] [IDENTIFIER]                                  
                                                                                   
    Applies changes defined in DCM Project to Snowflake.                           
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    identifier      TEXT  Identifier of the DCM Project; for example:       |
-  |                            MY_PROJECT                                        |
-  |                            [required]                                        |
+  |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
+  |                                 MY_PROJECT. Can be omitted if --target is    |
+  |                                 specified or default_target is defined in    |
+  |                                 manifest.                                    |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --from                   TEXT  Source location: stage path (starting with    |
-  |                                '@') or local directory path. Omit to use     |
-  |                                current directory.                            |
-  | --variable       -D      TEXT  Variables for the execution context; for      |
-  |                                example: -D "<key>=<value>".                  |
-  | --configuration          TEXT  Configuration of the DCM Project to use. If   |
-  |                                not specified default configuration is used.  |
-  | --alias                  TEXT  Alias for the deployment.                     |
-  | --help           -h            Show this message and exit.                   |
+  | --from              PATH  Local directory path containing DCM project files. |
+  |                           Omit to use current directory.                     |
+  | --variable  -D      TEXT  Variables for the execution context; for example:  |
+  |                           -D "<key>=<value>".                                |
+  | --alias             TEXT  Alias for the deployment.                          |
+  | --target            TEXT  Target profile from manifest.yml to use. Uses      |
+  |                           default_target if not specified.                   |
+  | --help      -h            Show this message and exit.                        |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -7659,16 +7667,22 @@
 # name: test_help_messages[dcm.describe]
   '''
                                                                                   
-   Usage: root dcm describe [OPTIONS] NAME                                        
+   Usage: root dcm describe [OPTIONS] [IDENTIFIER]                                
                                                                                   
-   Provides description of DCM Project.                                           
+   Provides description of a DCM Project.                                         
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Identifier of the DCM Project; for example: MY_PROJECT  |
-  |                      [required]                                              |
+  |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
+  |                                 MY_PROJECT. Can be omitted if --target is    |
+  |                                 specified or default_target is defined in    |
+  |                                 manifest.                                    |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
+  | --from            PATH  Local directory path containing DCM project files.   |
+  |                         Omit to use current directory.                       |
+  | --target          TEXT  Target profile from manifest.yml to use. Uses        |
+  |                         default_target if not specified.                     |
+  | --help    -h            Show this message and exit.                          |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -7798,23 +7812,28 @@
 # name: test_help_messages[dcm.drop-deployment]
   '''
                                                                                   
-   Usage: root dcm drop-deployment [OPTIONS] IDENTIFIER DEPLOYMENT_NAME           
+   Usage: root dcm drop-deployment [OPTIONS] [IDENTIFIER]                         
                                                                                   
    Drops a deployment from the DCM Project.                                       
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    identifier           TEXT  Identifier of the DCM Project; for example:  |
-  |                                 MY_PROJECT                                   |
-  |                                 [required]                                   |
-  | *    deployment_name      TEXT  Name or alias of the deployment to drop. For |
-  |                                 names containing '$', use single quotes to   |
-  |                                 prevent shell expansion (e.g.,               |
-  |                                 'DEPLOYMENT$1').                             |
-  |                                 [required]                                   |
+  |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
+  |                                 MY_PROJECT. Can be omitted if --target is    |
+  |                                 specified or default_target is defined in    |
+  |                                 manifest.                                    |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --if-exists            Do nothing if the deployment does not exist.          |
-  | --help       -h        Show this message and exit.                           |
+  | *  --deployment          TEXT  Name or alias of the deployment to drop. For  |
+  |                                names containing '$', use single quotes to    |
+  |                                prevent shell expansion (e.g.,                |
+  |                                'DEPLOYMENT$1').                              |
+  |                                [required]                                    |
+  |    --if-exists                 Do nothing if the deployment does not exist.  |
+  |    --from                PATH  Local directory path containing DCM project   |
+  |                                files. Omit to use current directory.         |
+  |    --target              TEXT  Target profile from manifest.yml to use. Uses |
+  |                                default_target if not specified.              |
+  |    --help        -h            Show this message and exit.                   |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -7944,18 +7963,23 @@
 # name: test_help_messages[dcm.drop]
   '''
                                                                                   
-   Usage: root dcm drop [OPTIONS] NAME                                            
+   Usage: root dcm drop [OPTIONS] [IDENTIFIER]                                    
                                                                                   
-   Drops DCM Project with given name.                                             
+   Drops a DCM Project with the given name.                                       
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Identifier of the DCM Project; for example: MY_PROJECT  |
-  |                      [required]                                              |
+  |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
+  |                                 MY_PROJECT. Can be omitted if --target is    |
+  |                                 specified or default_target is defined in    |
+  |                                 manifest.                                    |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --if-exists            Only apply this operation if the specified object     |
-  |                        exists.                                               |
-  | --help       -h        Show this message and exit.                           |
+  | --if-exists                Do nothing if the project does not exist.         |
+  | --from               PATH  Local directory path containing DCM project       |
+  |                            files. Omit to use current directory.             |
+  | --target             TEXT  Target profile from manifest.yml to use. Uses     |
+  |                            default_target if not specified.                  |
+  | --help       -h            Show this message and exit.                       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -8085,17 +8109,22 @@
 # name: test_help_messages[dcm.list-deployments]
   '''
                                                                                   
-   Usage: root dcm list-deployments [OPTIONS] IDENTIFIER                          
+   Usage: root dcm list-deployments [OPTIONS] [IDENTIFIER]                        
                                                                                   
    Lists deployments of given DCM Project.                                        
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    identifier      TEXT  Identifier of the DCM Project; for example:       |
-  |                            MY_PROJECT                                        |
-  |                            [required]                                        |
+  |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
+  |                                 MY_PROJECT. Can be omitted if --target is    |
+  |                                 specified or default_target is defined in    |
+  |                                 manifest.                                    |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
+  | --from            PATH  Local directory path containing DCM project files.   |
+  |                         Omit to use current directory.                       |
+  | --target          TEXT  Target profile from manifest.yml to use. Uses        |
+  |                         default_target if not specified.                     |
+  | --help    -h            Show this message and exit.                          |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -8230,19 +8259,24 @@
    Lists all available DCM Projects.                                              
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --like   -l      TEXT            SQL LIKE pattern for filtering objects by   |
-  |                                  name. For example, list --like "my%" lists  |
-  |                                  all DCM Projects that begin with "my".      |
-  |                                  [default: %%]                               |
-  | --in             <TEXT TEXT>...                                              |
+  | --like        -l      TEXT            SQL LIKE pattern for filtering objects |
+  |                                       by name. For example, list --like      |
+  |                                       "my%" lists all DCM Projects that      |
+  |                                       begin with "my".                       |
+  |                                       [default: %%]                          |
+  | --in                  <TEXT TEXT>...                                         |
   |                                                                              |
-  |                                  Specifies the scope of this command using   |
-  |                                  '--in  ', for example list --in database    |
-  |                                  my_db.                                      |
-  |                                  [default: None, None]                       |
-  | --terse                          Returns only a subset of output columns.    |
-  | --limit          INTEGER         Limits the maximum number of rows returned. |
-  | --help   -h                      Show this message and exit.                 |
+  |                                       Specifies the scope of this command    |
+  |                                       using '--in  ', for example list --in  |
+  |                                       database my_db.                        |
+  |                                       [default: None, None]                  |
+  | --in-account                          Lists objects across the entire        |
+  |                                       account.                               |
+  | --terse                               Returns only a subset of output        |
+  |                                       columns.                               |
+  | --limit               INTEGER         Limits the maximum number of rows      |
+  |                                       returned.                              |
+  | --help        -h                      Show this message and exit.            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -8372,27 +8406,26 @@
 # name: test_help_messages[dcm.plan]
   '''
                                                                                   
-   Usage: root dcm plan [OPTIONS] IDENTIFIER                                      
+   Usage: root dcm plan [OPTIONS] [IDENTIFIER]                                    
                                                                                   
    Plans a DCM Project deployment (validates without executing).                  
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    identifier      TEXT  Identifier of the DCM Project; for example:       |
-  |                            MY_PROJECT                                        |
-  |                            [required]                                        |
+  |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
+  |                                 MY_PROJECT. Can be omitted if --target is    |
+  |                                 specified or default_target is defined in    |
+  |                                 manifest.                                    |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --from                   TEXT  Source location: stage path (starting with    |
-  |                                '@') or local directory path. Omit to use     |
-  |                                current directory.                            |
-  | --variable       -D      TEXT  Variables for the execution context; for      |
-  |                                example: -D "<key>=<value>".                  |
-  | --configuration          TEXT  Configuration of the DCM Project to use. If   |
-  |                                not specified default configuration is used.  |
-  | --output-path            TEXT  Path where the deployment plan output will be |
-  |                                stored. Can be a stage path (starting with    |
-  |                                '@') or a local directory path.               |
-  | --help           -h            Show this message and exit.                   |
+  | --from                 PATH  Local directory path containing DCM project     |
+  |                              files. Omit to use current directory.           |
+  | --variable     -D      TEXT  Variables for the execution context; for        |
+  |                              example: -D "<key>=<value>".                    |
+  | --target               TEXT  Target profile from manifest.yml to use. Uses   |
+  |                              default_target if not specified.                |
+  | --save-output                Download plan output files to local 'out/'      |
+  |                              directory.                                      |
+  | --help         -h            Show this message and exit.                     |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -8522,30 +8555,175 @@
 # name: test_help_messages[dcm.preview]
   '''
                                                                                   
-   Usage: root dcm preview [OPTIONS] IDENTIFIER                                   
+   Usage: root dcm preview [OPTIONS] [IDENTIFIER]                                 
                                                                                   
    Returns rows from any table, view, dynamic table.                              
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    identifier      TEXT  Identifier of the DCM Project; for example:       |
-  |                            MY_PROJECT                                        |
-  |                            [required]                                        |
+  |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
+  |                                 MY_PROJECT. Can be omitted if --target is    |
+  |                                 specified or default_target is defined in    |
+  |                                 manifest.                                    |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | *  --object                 TEXT     FQN of table/view/dynamic table to be   |
-  |                                      previewed.                              |
-  |                                      [required]                              |
-  |    --from                   TEXT     Source location: stage path (starting   |
-  |                                      with '@') or local directory path. Omit |
-  |                                      to use current directory.               |
-  |    --variable       -D      TEXT     Variables for the execution context;    |
-  |                                      for example: -D "<key>=<value>".        |
-  |    --configuration          TEXT     Configuration of the DCM Project to     |
-  |                                      use. If not specified default           |
-  |                                      configuration is used.                  |
-  |    --limit                  INTEGER  The maximum number of rows to be        |
-  |                                      returned.                               |
-  |    --help           -h               Show this message and exit.             |
+  | *  --object            TEXT     FQN of table/view/dynamic table to be        |
+  |                                 previewed.                                   |
+  |                                 [required]                                   |
+  |    --from              PATH     Local directory path containing DCM project  |
+  |                                 files. Omit to use current directory.        |
+  |    --variable  -D      TEXT     Variables for the execution context; for     |
+  |                                 example: -D "<key>=<value>".                 |
+  |    --limit             INTEGER  The maximum number of rows to be returned.   |
+  |    --target            TEXT     Target profile from manifest.yml to use.     |
+  |                                 Uses default_target if not specified.        |
+  |    --help      -h               Show this message and exit.                  |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment    -c      TEXT     Name of the connection, as    |
+  |                                                defined in your config.toml   |
+  |                                                file. Default: default.       |
+  | --host                                TEXT     Host address for the          |
+  |                                                connection. Overrides the     |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --port                                INTEGER  Port for the connection.      |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --account,--accountname               TEXT     Name assigned to your         |
+  |                                                Snowflake account. Overrides  |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --user,--username                     TEXT     Username to connect to        |
+  |                                                Snowflake. Overrides the      |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --password                            TEXT     Snowflake password. Overrides |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --authenticator                       TEXT     Snowflake authenticator.      |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --workload-identity-provider          TEXT     Workload identity provider    |
+  |                                                (AWS, AZURE, GCP, OIDC).      |
+  |                                                Overrides the value specified |
+  |                                                for the connection            |
+  | --private-key-file,--privat…          TEXT     Snowflake private key file    |
+  |                                                path. Overrides the value     |
+  |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
+  | --token-file-path                     TEXT     Path to file with an OAuth    |
+  |                                                token to use when connecting  |
+  |                                                to Snowflake.                 |
+  | --database,--dbname                   TEXT     Database to use. Overrides    |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --schema,--schemaname                 TEXT     Database schema to use.       |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --role,--rolename                     TEXT     Role to use. Overrides the    |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --warehouse                           TEXT     Warehouse to use. Overrides   |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --temporary-connection        -x               Uses a connection defined     |
+  |                                                with command-line parameters, |
+  |                                                instead of one defined in     |
+  |                                                config                        |
+  | --mfa-passcode                        TEXT     Token to use for multi-factor |
+  |                                                authentication (MFA)          |
+  | --enable-diag                                  Whether to generate a         |
+  |                                                connection diagnostic report. |
+  | --diag-log-path                       TEXT     Path for the generated        |
+  |                                                report. Defaults to system    |
+  |                                                temporary directory.          |
+  | --diag-allowlist-path                 TEXT     Path to a JSON file that      |
+  |                                                contains allowlist            |
+  |                                                parameters.                   |
+  | --oauth-client-id                     TEXT     Value of client id provided   |
+  |                                                by the Identity Provider for  |
+  |                                                Snowflake integration.        |
+  | --oauth-client-secret                 TEXT     Value of the client secret    |
+  |                                                provided by the Identity      |
+  |                                                Provider for Snowflake        |
+  |                                                integration.                  |
+  | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
+  |                                                supplying the authorization   |
+  |                                                code to the driver.           |
+  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
+  |                                                supplying the access tokens   |
+  |                                                to the driver.                |
+  | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
+  |                                                code redirection.             |
+  | --oauth-scope                         TEXT     Scope requested in the        |
+  |                                                Identity Provider             |
+  |                                                authorization request.        |
+  | --oauth-disable-pkce                           Disables Proof Key for Code   |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
+  | --oauth-enable-refresh-toke…                   Enables a silent              |
+  |                                                re-authentication when the    |
+  |                                                actual access token becomes   |
+  |                                                outdated. Default: False.     |
+  | --oauth-enable-single-use-r…                   Whether to opt-in to          |
+  |                                                single-use refresh token      |
+  |                                                semantics. Default: False.    |
+  | --client-store-temporary-cr…                   Store the temporary           |
+  |                                                credential.                   |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
+  |                                CSV]                   format.                |
+  |                                                       [default: TABLE]       |
+  | --verbose              -v                             Displays log entries   |
+  |                                                       for log levels info    |
+  |                                                       and higher.            |
+  | --debug                                               Displays log entries   |
+  |                                                       for log levels debug   |
+  |                                                       and higher; debug logs |
+  |                                                       contain additional     |
+  |                                                       information.           |
+  | --silent                                              Turns off intermediate |
+  |                                                       output to console.     |
+  | --enhanced-exit-codes                                 Differentiate exit     |
+  |                                                       error codes based on   |
+  |                                                       failure type.          |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified. [env var:   |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[dcm.raw-analyze]
+  '''
+                                                                                  
+   Usage: root dcm raw-analyze [OPTIONS] [IDENTIFIER]                             
+                                                                                  
+   Analyzes a DCM Project.                                                        
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
+  |                                 MY_PROJECT. Can be omitted if --target is    |
+  |                                 specified or default_target is defined in    |
+  |                                 manifest.                                    |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | --from              PATH  Local directory path containing DCM project files. |
+  |                           Omit to use current directory.                     |
+  | --variable  -D      TEXT  Variables for the execution context; for example:  |
+  |                           -D "<key>=<value>".                                |
+  | --target            TEXT  Target profile from manifest.yml to use. Uses      |
+  |                           default_target if not specified.                   |
+  | --help      -h            Show this message and exit.                        |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -8675,17 +8853,22 @@
 # name: test_help_messages[dcm.refresh]
   '''
                                                                                   
-   Usage: root dcm refresh [OPTIONS] IDENTIFIER                                   
+   Usage: root dcm refresh [OPTIONS] [IDENTIFIER]                                 
                                                                                   
    Refreshes dynamic tables defined in DCM project.                               
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    identifier      TEXT  Identifier of the DCM Project; for example:       |
-  |                            MY_PROJECT                                        |
-  |                            [required]                                        |
+  |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
+  |                                 MY_PROJECT. Can be omitted if --target is    |
+  |                                 specified or default_target is defined in    |
+  |                                 manifest.                                    |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
+  | --from            PATH  Local directory path containing DCM project files.   |
+  |                         Omit to use current directory.                       |
+  | --target          TEXT  Target profile from manifest.yml to use. Uses        |
+  |                         default_target if not specified.                     |
+  | --help    -h            Show this message and exit.                          |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -8815,17 +8998,22 @@
 # name: test_help_messages[dcm.test]
   '''
                                                                                   
-   Usage: root dcm test [OPTIONS] IDENTIFIER                                      
+   Usage: root dcm test [OPTIONS] [IDENTIFIER]                                    
                                                                                   
    Tests all expectations defined in DCM project.                                 
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    identifier      TEXT  Identifier of the DCM Project; for example:       |
-  |                            MY_PROJECT                                        |
-  |                            [required]                                        |
+  |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
+  |                                 MY_PROJECT. Can be omitted if --target is    |
+  |                                 specified or default_target is defined in    |
+  |                                 manifest.                                    |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
+  | --from            PATH  Local directory path containing DCM project files.   |
+  |                         Omit to use current directory.                       |
+  | --target          TEXT  Target profile from manifest.yml to use. Uses        |
+  |                         default_target if not specified.                     |
+  | --help    -h            Show this message and exit.                          |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -8965,8 +9153,8 @@
   +- Commands -------------------------------------------------------------------+
   | create             Creates a DCM Project in Snowflake.                       |
   | deploy             Applies changes defined in DCM Project to Snowflake.      |
-  | describe           Provides description of DCM Project.                      |
-  | drop               Drops DCM Project with given name.                        |
+  | describe           Provides description of a DCM Project.                    |
+  | drop               Drops a DCM Project with the given name.                  |
   | drop-deployment    Drops a deployment from the DCM Project.                  |
   | list               Lists all available DCM Projects.                         |
   | list-deployments   Lists deployments of given DCM Project.                   |
@@ -10155,18 +10343,20 @@
    Lists all available git repositories.                                          
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
-  |                                 name. For example, list --like "my%" lists   |
-  |                                 all git repositories with name that begin    |
-  |                                 with “my”.                                   |
-  |                                 [default: %%]                                |
-  | --in            <TEXT TEXT>...                                               |
+  | --like        -l      TEXT            SQL LIKE pattern for filtering objects |
+  |                                       by name. For example, list --like      |
+  |                                       "my%" lists all git repositories with  |
+  |                                       name that begin with “my”.             |
+  |                                       [default: %%]                          |
+  | --in                  <TEXT TEXT>...                                         |
   |                                                                              |
-  |                                 Specifies the scope of this command using    |
-  |                                 '--in  ', for example list --in database     |
-  |                                 my_db.                                       |
-  |                                 [default: None, None]                        |
-  | --help  -h                      Show this message and exit.                  |
+  |                                       Specifies the scope of this command    |
+  |                                       using '--in  ', for example list --in  |
+  |                                       database my_db.                        |
+  |                                       [default: None, None]                  |
+  | --in-account                          Lists objects across the entire        |
+  |                                       account.                               |
+  | --help        -h                      Show this message and exit.            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -11898,20 +12088,22 @@
   |                             [required]                                       |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
-  |                                 name. For example, list function --like      |
-  |                                 "my%" lists all functions that begin with    |
-  |                                 “my”.                                        |
-  |                                 [default: %%]                                |
-  | --in            <TEXT TEXT>...                                               |
+  | --like        -l      TEXT            SQL LIKE pattern for filtering objects |
+  |                                       by name. For example, list function    |
+  |                                       --like "my%" lists all functions that  |
+  |                                       begin with “my”.                       |
+  |                                       [default: %%]                          |
+  | --in                  <TEXT TEXT>...                                         |
   |                                                                              |
-  |                                 Specifies the scope of this command using    |
-  |                                 '--in  ', for example list table --in        |
-  |                                 database my_db. Some object types have       |
-  |                                 specialized scopes (e.g. list service --in   |
-  |                                 compute-pool my_pool).                       |
-  |                                 [default: None, None]                        |
-  | --help  -h                      Show this message and exit.                  |
+  |                                       Specifies the scope of this command    |
+  |                                       using '--in  ', for example list table |
+  |                                       --in database my_db. Some object types |
+  |                                       have specialized scopes (e.g. list     |
+  |                                       service --in compute-pool my_pool).    |
+  |                                       [default: None, None]                  |
+  | --in-account                          Lists objects across the entire        |
+  |                                       account.                               |
+  | --help        -h                      Show this message and exit.            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -12971,18 +13163,20 @@
   |                       ction}                      [required]                 |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
-  |                                 name. For example, list function --like      |
-  |                                 "my%" lists all functions that begin with    |
-  |                                 “my”.                                        |
-  |                                 [default: %%]                                |
-  | --in            <TEXT TEXT>...                                               |
+  | --like        -l      TEXT            SQL LIKE pattern for filtering objects |
+  |                                       by name. For example, list function    |
+  |                                       --like "my%" lists all functions that  |
+  |                                       begin with “my”.                       |
+  |                                       [default: %%]                          |
+  | --in                  <TEXT TEXT>...                                         |
   |                                                                              |
-  |                                 Specifies the scope of this command using    |
-  |                                 '--in  ', for example list function --in     |
-  |                                 database my_db.                              |
-  |                                 [default: None, None]                        |
-  | --help  -h                      Show this message and exit.                  |
+  |                                       Specifies the scope of this command    |
+  |                                       using '--in  ', for example list       |
+  |                                       function --in database my_db.          |
+  |                                       [default: None, None]                  |
+  | --in-account                          Lists objects across the entire        |
+  |                                       account.                               |
+  | --help        -h                      Show this message and exit.            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -14228,11 +14422,12 @@
    Lists all available compute pools.                                             
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --like  -l      TEXT  SQL LIKE pattern for filtering objects by name. For    |
-  |                       example, list --like "my%" lists all compute pools     |
-  |                       that begin with “my”..                                 |
-  |                       [default: %%]                                          |
-  | --help  -h            Show this message and exit.                            |
+  | --like        -l      TEXT  SQL LIKE pattern for filtering objects by name.  |
+  |                             For example, list --like "my%" lists all compute |
+  |                             pools that begin with “my”..                     |
+  |                             [default: %%]                                    |
+  | --in-account                Lists objects across the entire account.         |
+  | --help        -h            Show this message and exit.                      |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -16433,17 +16628,20 @@
    Lists all available image repositories.                                        
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
-  |                                 name. For example, --like "my%" lists all    |
-  |                                 image repositories that begin with “my”..    |
-  |                                 [default: %%]                                |
-  | --in            <TEXT TEXT>...                                               |
+  | --like        -l      TEXT            SQL LIKE pattern for filtering objects |
+  |                                       by name. For example, --like "my%"     |
+  |                                       lists all image repositories that      |
+  |                                       begin with “my”..                      |
+  |                                       [default: %%]                          |
+  | --in                  <TEXT TEXT>...                                         |
   |                                                                              |
-  |                                 Specifies the scope of this command using    |
-  |                                 '--in  ', for example list --in database     |
-  |                                 my_db.                                       |
-  |                                 [default: None, None]                        |
-  | --help  -h                      Show this message and exit.                  |
+  |                                       Specifies the scope of this command    |
+  |                                       using '--in  ', for example list --in  |
+  |                                       database my_db.                        |
+  |                                       [default: None, None]                  |
+  | --in-account                          Lists objects across the entire        |
+  |                                       account.                               |
+  | --help        -h                      Show this message and exit.            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -16732,6 +16930,193 @@
   |               This command is deprecated and will be removed                 |
   |               in a future release. Use list-images instead.                  |
   | url           Returns the URL for the given repository.                      |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[spcs.service.build-image]
+  '''
+                                                                                  
+   Usage: root spcs service build-image [OPTIONS]                                 
+                                                                                  
+   [Experimental] Builds a container image using SPCS service.                    
+                                                                                  
+   Note: This command is experimental and subject to change.                      
+                                                                                  
+   This command is hidden by default. To make it visible in help output, enable   
+   the feature flag in your config.toml: [cli.feature_flags]                      
+   enable_spcs_build_image = true                                                 
+                                                                                  
+   Or set the environment variable: export                                        
+   SNOWFLAKE_CLI_FEATURES_ENABLE_SPCS_BUILD_IMAGE=true                            
+                                                                                  
+   This command uploads the build context (Dockerfile and related files) to a     
+   stage, then executes a job service that builds the container image and pushes  
+   it to the specified image repository. The build logs are streamed to the       
+   terminal in real-time until the build completes or fails.                      
+                                                                                  
+   If --stage is not provided, a stage will be automatically created using the    
+   current session's database and schema context, and dropped after the build     
+   completes. If your session doesn't have a database/schema set, you should      
+   provide --stage explicitly.                                                    
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | *  --compute-pool               TEXT       Compute pool to run the image     |
+  |                                            build job on.                     |
+  |                                            [required]                        |
+  | *  --image-repository           TEXT       Image repository in format        |
+  |                                            [db.][schema.]repo_name (e.g.,    |
+  |                                            my_db.my_schema.my_repo or        |
+  |                                            my_repo).                         |
+  |                                            [required]                        |
+  | *  --image-name                 TEXT       Name for the built image.         |
+  |                                            [required]                        |
+  | *  --image-tag                  TEXT       Tag for the built image.          |
+  |                                            [required]                        |
+  | *  --build-context-dir          DIRECTORY  Directory to use as build         |
+  |                                            context. Must contain a           |
+  |                                            Dockerfile.                       |
+  |                                            [required]                        |
+  |    --stage                      TEXT       Stage to store build context      |
+  |                                            files. Format:                    |
+  |                                            [db.][schema.]stage_name. If not  |
+  |                                            provided, a temporary stage will  |
+  |                                            be created and dropped            |
+  |                                            automatically. If provided, only  |
+  |                                            the uploaded build context files  |
+  |                                            will be removed after the build   |
+  |                                            completes.                        |
+  |    --job-name                   TEXT       Name for the build job service.   |
+  |                                            If not provided, a name will be   |
+  |                                            auto-generated.                   |
+  |    --eai-name                   TEXT       Identifies external access        |
+  |                                            integrations (EAI) that the build |
+  |                                            job can access. This option may   |
+  |                                            be specified multiple times for   |
+  |                                            multiple EAIs.                    |
+  |    --help               -h                 Show this message and exit.       |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment    -c      TEXT     Name of the connection, as    |
+  |                                                defined in your config.toml   |
+  |                                                file. Default: default.       |
+  | --host                                TEXT     Host address for the          |
+  |                                                connection. Overrides the     |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --port                                INTEGER  Port for the connection.      |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --account,--accountname               TEXT     Name assigned to your         |
+  |                                                Snowflake account. Overrides  |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --user,--username                     TEXT     Username to connect to        |
+  |                                                Snowflake. Overrides the      |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --password                            TEXT     Snowflake password. Overrides |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --authenticator                       TEXT     Snowflake authenticator.      |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --workload-identity-provider          TEXT     Workload identity provider    |
+  |                                                (AWS, AZURE, GCP, OIDC).      |
+  |                                                Overrides the value specified |
+  |                                                for the connection            |
+  | --private-key-file,--privat…          TEXT     Snowflake private key file    |
+  |                                                path. Overrides the value     |
+  |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
+  | --token-file-path                     TEXT     Path to file with an OAuth    |
+  |                                                token to use when connecting  |
+  |                                                to Snowflake.                 |
+  | --database,--dbname                   TEXT     Database to use. Overrides    |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --schema,--schemaname                 TEXT     Database schema to use.       |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --role,--rolename                     TEXT     Role to use. Overrides the    |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --warehouse                           TEXT     Warehouse to use. Overrides   |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --temporary-connection        -x               Uses a connection defined     |
+  |                                                with command-line parameters, |
+  |                                                instead of one defined in     |
+  |                                                config                        |
+  | --mfa-passcode                        TEXT     Token to use for multi-factor |
+  |                                                authentication (MFA)          |
+  | --enable-diag                                  Whether to generate a         |
+  |                                                connection diagnostic report. |
+  | --diag-log-path                       TEXT     Path for the generated        |
+  |                                                report. Defaults to system    |
+  |                                                temporary directory.          |
+  | --diag-allowlist-path                 TEXT     Path to a JSON file that      |
+  |                                                contains allowlist            |
+  |                                                parameters.                   |
+  | --oauth-client-id                     TEXT     Value of client id provided   |
+  |                                                by the Identity Provider for  |
+  |                                                Snowflake integration.        |
+  | --oauth-client-secret                 TEXT     Value of the client secret    |
+  |                                                provided by the Identity      |
+  |                                                Provider for Snowflake        |
+  |                                                integration.                  |
+  | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
+  |                                                supplying the authorization   |
+  |                                                code to the driver.           |
+  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
+  |                                                supplying the access tokens   |
+  |                                                to the driver.                |
+  | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
+  |                                                code redirection.             |
+  | --oauth-scope                         TEXT     Scope requested in the        |
+  |                                                Identity Provider             |
+  |                                                authorization request.        |
+  | --oauth-disable-pkce                           Disables Proof Key for Code   |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
+  | --oauth-enable-refresh-toke…                   Enables a silent              |
+  |                                                re-authentication when the    |
+  |                                                actual access token becomes   |
+  |                                                outdated. Default: False.     |
+  | --oauth-enable-single-use-r…                   Whether to opt-in to          |
+  |                                                single-use refresh token      |
+  |                                                semantics. Default: False.    |
+  | --client-store-temporary-cr…                   Store the temporary           |
+  |                                                credential.                   |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
+  |                                CSV]                   format.                |
+  |                                                       [default: TABLE]       |
+  | --verbose              -v                             Displays log entries   |
+  |                                                       for log levels info    |
+  |                                                       and higher.            |
+  | --debug                                               Displays log entries   |
+  |                                                       for log levels debug   |
+  |                                                       and higher; debug logs |
+  |                                                       contain additional     |
+  |                                                       information.           |
+  | --silent                                              Turns off intermediate |
+  |                                                       output to console.     |
+  | --enhanced-exit-codes                                 Differentiate exit     |
+  |                                                       error codes based on   |
+  |                                                       failure type.          |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified. [env var:   |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -17372,20 +17757,33 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | *  --compute-pool             TEXT  Compute pool to run the job service on.  |
-  |                                     [required]                               |
-  | *  --spec-path                FILE  Path to service specification file.      |
-  |                                     [required]                               |
-  |    --eai-name                 TEXT  Identifies external access integrations  |
-  |                                     (EAI) that the job service can access.   |
-  |                                     This option may be specified multiple    |
-  |                                     times for multiple EAIs.                 |
-  |    --query-warehouse          TEXT  Warehouse to use if a service container  |
-  |                                     connects to Snowflake to execute a query |
-  |                                     without explicitly specifying a          |
-  |                                     warehouse to use.                        |
-  |    --comment                  TEXT  Comment for the service.                 |
-  |    --help             -h            Show this message and exit.              |
+  | *  --compute-pool             TEXT                  Compute pool to run the  |
+  |                                                     job service on.          |
+  |                                                     [required]               |
+  | *  --spec-path                FILE                  Path to service          |
+  |                                                     specification file.      |
+  |                                                     [required]               |
+  |    --eai-name                 TEXT                  Identifies external      |
+  |                                                     access integrations      |
+  |                                                     (EAI) that the job       |
+  |                                                     service can access. This |
+  |                                                     option may be specified  |
+  |                                                     multiple times for       |
+  |                                                     multiple EAIs.           |
+  |    --query-warehouse          TEXT                  Warehouse to use if a    |
+  |                                                     service container        |
+  |                                                     connects to Snowflake to |
+  |                                                     execute a query without  |
+  |                                                     explicitly specifying a  |
+  |                                                     warehouse to use.        |
+  |    --comment                  TEXT                  Comment for the service. |
+  |    --async                                          Execute the job          |
+  |                                                     asynchronously without   |
+  |                                                     waiting for completion.  |
+  |    --replicas                 INTEGER RANGE [x>=1]  Number of job replicas   |
+  |                                                     to run.                  |
+  |    --help             -h                            Show this message and    |
+  |                                                     exit.                    |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -18076,17 +18474,20 @@
    Lists all available services.                                                  
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
-  |                                 name. For example, list --like "my%" lists   |
-  |                                 all services that begin with “my”..          |
-  |                                 [default: %%]                                |
-  | --in            <TEXT TEXT>...                                               |
+  | --like        -l      TEXT            SQL LIKE pattern for filtering objects |
+  |                                       by name. For example, list --like      |
+  |                                       "my%" lists all services that begin    |
+  |                                       with “my”..                            |
+  |                                       [default: %%]                          |
+  | --in                  <TEXT TEXT>...                                         |
   |                                                                              |
-  |                                 Specifies the scope of this command using    |
-  |                                 '--in  ', for example list --in compute-pool |
-  |                                 my_pool.                                     |
-  |                                 [default: None, None]                        |
-  | --help  -h                      Show this message and exit.                  |
+  |                                       Specifies the scope of this command    |
+  |                                       using '--in  ', for example list --in  |
+  |                                       compute-pool my_pool.                  |
+  |                                       [default: None, None]                  |
+  | --in-account                          Lists objects across the entire        |
+  |                                       account.                               |
+  | --help        -h                      Show this message and exit.            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -20733,17 +21134,20 @@
    Lists all available stages.                                                    
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
-  |                                 name. For example, list --like "my%" lists   |
-  |                                 all stages that begin with "my".             |
-  |                                 [default: %%]                                |
-  | --in            <TEXT TEXT>...                                               |
+  | --like        -l      TEXT            SQL LIKE pattern for filtering objects |
+  |                                       by name. For example, list --like      |
+  |                                       "my%" lists all stages that begin with |
+  |                                       "my".                                  |
+  |                                       [default: %%]                          |
+  | --in                  <TEXT TEXT>...                                         |
   |                                                                              |
-  |                                 Specifies the scope of this command using    |
-  |                                 '--in  ', for example list --in database     |
-  |                                 my_db.                                       |
-  |                                 [default: None, None]                        |
-  | --help  -h                      Show this message and exit.                  |
+  |                                       Specifies the scope of this command    |
+  |                                       using '--in  ', for example list --in  |
+  |                                       database my_db.                        |
+  |                                       [default: None, None]                  |
+  | --in-account                          Lists objects across the entire        |
+  |                                       account.                               |
+  | --help        -h                      Show this message and exit.            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -21769,17 +22173,20 @@
    Lists all available streamlits.                                                
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
-  |                                 name. For example, list --like "my%" lists   |
-  |                                 all streamlit apps that begin with “my”.     |
-  |                                 [default: %%]                                |
-  | --in            <TEXT TEXT>...                                               |
+  | --like        -l      TEXT            SQL LIKE pattern for filtering objects |
+  |                                       by name. For example, list --like      |
+  |                                       "my%" lists all streamlit apps that    |
+  |                                       begin with “my”.                       |
+  |                                       [default: %%]                          |
+  | --in                  <TEXT TEXT>...                                         |
   |                                                                              |
-  |                                 Specifies the scope of this command using    |
-  |                                 '--in  ', for example list --in database     |
-  |                                 my_db.                                       |
-  |                                 [default: None, None]                        |
-  | --help  -h                      Show this message and exit.                  |
+  |                                       Specifies the scope of this command    |
+  |                                       using '--in  ', for example list --in  |
+  |                                       database my_db.                        |
+  |                                       [default: None, None]                  |
+  | --in-account                          Lists objects across the entire        |
+  |                                       account.                               |
+  | --help        -h                      Show this message and exit.            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -22493,8 +22900,8 @@
   +- Commands -------------------------------------------------------------------+
   | create             Creates a DCM Project in Snowflake.                       |
   | deploy             Applies changes defined in DCM Project to Snowflake.      |
-  | describe           Provides description of DCM Project.                      |
-  | drop               Drops DCM Project with given name.                        |
+  | describe           Provides description of a DCM Project.                    |
+  | drop               Drops a DCM Project with the given name.                  |
   | drop-deployment    Drops a deployment from the DCM Project.                  |
   | list               Lists all available DCM Projects.                         |
   | list-deployments   Lists deployments of given DCM Project.                   |

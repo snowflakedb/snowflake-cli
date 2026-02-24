@@ -611,3 +611,121 @@ def test_local_dir_with_dot_are_identified_as_dir_not_file():
 
         assert stage_path.is_dir()
         assert not stage_path.is_file()
+
+
+class TestVstagePathOperationsPreserveSnowPrefix:
+    """
+    Tests for issue #2747: vstage path operations should preserve snow:// prefix.
+    When using joinpath, parent, root_path, or / operator on vstage paths,
+    the snow:// prefix must be preserved to generate correct SQL commands.
+    """
+
+    @pytest.mark.parametrize(
+        "vstage_path",
+        [
+            "snow://streamlit/db.schema.name/versions/live",
+            "snow://notebook/db.schema.name/versions/live",
+            "snow://streamlit/schema.name/versions/live",
+            "snow://streamlit/name/versions/live",
+        ],
+    )
+    def test_joinpath_preserves_snow_prefix(self, vstage_path):
+        """joinpath() should preserve snow:// prefix for vstage paths."""
+        stage_path = StagePath.from_stage_str(vstage_path)
+        joined = stage_path.joinpath(".streamlit/config.toml")
+
+        assert joined.absolute_path().startswith("snow://")
+        assert joined.absolute_path() == f"{vstage_path}/.streamlit/config.toml"
+
+    @pytest.mark.parametrize(
+        "vstage_path",
+        [
+            "snow://streamlit/db.schema.name/versions/live",
+            "snow://notebook/db.schema.name/versions/live",
+        ],
+    )
+    def test_division_operator_preserves_snow_prefix(self, vstage_path):
+        """/ operator should preserve snow:// prefix for vstage paths."""
+        stage_path = StagePath.from_stage_str(vstage_path)
+        joined = stage_path / "subdir" / "file.py"
+
+        assert joined.absolute_path().startswith("snow://")
+        assert joined.absolute_path() == f"{vstage_path}/subdir/file.py"
+
+    @pytest.mark.parametrize(
+        "vstage_path",
+        [
+            "snow://streamlit/db.schema.name/versions/live/subdir/file.py",
+            "snow://notebook/db.schema.name/versions/live/.streamlit/config.toml",
+        ],
+    )
+    def test_parent_preserves_snow_prefix(self, vstage_path):
+        """parent property should preserve snow:// prefix for vstage paths."""
+        stage_path = StagePath.from_stage_str(vstage_path)
+        parent = stage_path.parent
+
+        assert parent.absolute_path().startswith("snow://")
+
+    @pytest.mark.parametrize(
+        "vstage_path,expected_root",
+        [
+            (
+                "snow://streamlit/db.schema.name/versions/live",
+                "snow://streamlit/db.schema.name",
+            ),
+            (
+                "snow://notebook/schema.name/versions/live/file.py",
+                "snow://notebook/schema.name",
+            ),
+        ],
+    )
+    def test_root_path_preserves_snow_prefix(self, vstage_path, expected_root):
+        """root_path() should preserve snow:// prefix for vstage paths."""
+        stage_path = StagePath.from_stage_str(vstage_path)
+        root = stage_path.root_path()
+
+        assert root.absolute_path().startswith("snow://")
+        assert root.absolute_path() == expected_root
+
+    def test_chained_operations_preserve_snow_prefix(self):
+        """Chained operations should preserve snow:// prefix throughout."""
+        vstage_path = "snow://streamlit/db.schema.name/versions/live"
+        stage_path = StagePath.from_stage_str(vstage_path)
+
+        # Chain multiple operations
+        result = (stage_path / "dir1" / "dir2").parent / "other_file.py"
+
+        assert result.absolute_path().startswith("snow://")
+        assert (
+            result.absolute_path()
+            == "snow://streamlit/db.schema.name/versions/live/dir1/other_file.py"
+        )
+
+    def test_regular_stage_not_affected(self):
+        """Regular @ stage paths should continue to use @ prefix."""
+        stage_path = StagePath.from_stage_str("@my_stage/path")
+        joined = stage_path / "file.py"
+
+        assert joined.absolute_path().startswith("@")
+        assert joined.absolute_path() == "@my_stage/path/file.py"
+
+    def test_path_for_sql_generates_correct_sql_for_vstage(self):
+        """path_for_sql() should generate properly quoted SQL for vstage paths.
+
+        This is critical because path_for_sql() is what actually gets used in
+        SQL commands like REMOVE, not absolute_path().
+        """
+        vstage_path = "snow://streamlit/db.schema.name/versions/live"
+        stage_path = StagePath.from_stage_str(vstage_path)
+        joined = stage_path / ".streamlit/config.toml"
+
+        sql_path = joined.path_for_sql()
+
+        # snow:// paths should be quoted in SQL (wrapped in single quotes)
+        assert sql_path.startswith("'snow://")
+        assert sql_path.endswith("'")
+        assert ".streamlit/config.toml" in sql_path
+        assert (
+            sql_path
+            == "'snow://streamlit/db.schema.name/versions/live/.streamlit/config.toml'"
+        )

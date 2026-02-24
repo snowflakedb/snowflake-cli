@@ -72,3 +72,7 @@ class FeatureFlag(FeatureFlagMixin):
         "ENABLE_STREAMLIT_SPCS_RUNTIME_V2", False
     )
     ENABLE_DBT_VERSION = BooleanFlag("ENABLE_DBT_VERSION", False)
+    ENFORCE_STRICT_CONFIG_PERMISSIONS = BooleanFlag(
+        "ENFORCE_STRICT_CONFIG_PERMISSIONS", False
+    )
+    ENABLE_SPCS_BUILD_IMAGE = BooleanFlag("ENABLE_SPCS_BUILD_IMAGE", False)

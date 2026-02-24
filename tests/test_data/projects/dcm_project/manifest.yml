@@ -1,4 +1,8 @@
+manifest_version: 2
 type: "dcm_project"
 
-include_definitions:
-  - definitions/my_query.sql
+default_target: dev
+
+targets:
+  dev:
+    project_name: "my_project"

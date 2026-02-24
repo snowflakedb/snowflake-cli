@@ -1,13 +1,21 @@
-manifest_version: 1
-
+manifest_version: 2
 type: "dcm_project"
 
-include_definitions:
-  - file_a.sql
-configurations:
+default_target: dev
+
+targets:
   dev:
-    table_name_suffix: "dev"
+    project_name: "project_descriptive_name_dev"
+    templating_config: "DEV"
   test:
-    table_name_suffix: "test"
-  prod:
-    table_name_suffix: "prod"
+    project_name: "project_descriptive_name_test"
+    templating_config: "test"
+
+templating:
+  defaults:
+    base_suffix: "_default"
+  configurations:
+    Dev:
+      table_name_suffix: "dev"
+    test:
+      table_name_suffix: "test"

@@ -11,77 +11,61 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Generator, List
 
-import yaml
+from snowflake.cli._plugins.dcm.models import MANIFEST_FILE_NAME
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.artifacts.upload import sync_artifacts_with_stage
 from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import (
-    DEFAULT_SIZE_LIMIT_MB,
     ObjectType,
     PatternMatchingType,
 )
-from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import ProjectPaths
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
-from snowflake.cli.api.utils.path_utils import is_stage_path
 
-MANIFEST_FILE_NAME = "manifest.yml"
-DCM_PROJECT_TYPE = "dcm_project"
+SOURCES_FOLDER = "sources"
+OUTPUT_FOLDER = "out"
 
 
 class DCMProjectManager(SqlExecutionMixin):
     @contextmanager
-    def _collect_output(
-        self, project_identifier: FQN, output_path: str
-    ) -> Generator[str, None, None]:
+    def _collect_output(self, project_identifier: FQN) -> Generator[str, None, None]:
         """
-        Context manager for handling output path - creates temporary stage for local paths,
-        downloads files after execution, and ensures proper cleanup.
+        Context manager for handling plan output - creates temporary stage,
+        downloads files to out/ folder after execution.
 
         Args:
             project_identifier: The DCM project identifier
-            output_path: Either a stage path (@stage/path) or local directory path
 
         Yields:
             str: The effective output path to use in the DCM command
         """
-        temp_stage_for_local_output = None
         stage_manager = StageManager()
-
-        if should_download_files := not is_stage_path(output_path):
-            temp_stage_fqn = FQN.from_resource(
-                ObjectType.DCM_PROJECT, project_identifier, "OUTPUT_TMP_STAGE"
-            )
-            stage_manager.create(temp_stage_fqn, temporary=True)
-            effective_output_path = StagePath.from_stage_str(
-                temp_stage_fqn.identifier
-            ).joinpath("/outputs")
-            temp_stage_for_local_output = (temp_stage_fqn.identifier, Path(output_path))
-        else:
-            effective_output_path = StagePath.from_stage_str(output_path)
+        temp_stage_fqn = FQN.from_resource(
+            ObjectType.DCM_PROJECT, project_identifier, "OUTPUT_TMP_STAGE"
+        )
+        stage_manager.create(temp_stage_fqn, temporary=True)
+        effective_output_path = StagePath.from_stage_str(
+            temp_stage_fqn.identifier
+        ).joinpath("/outputs")
+        local_output_path = SecurePath(OUTPUT_FOLDER)
 
         try:
             yield effective_output_path.absolute_path()
         finally:
-            if should_download_files:
-                assert temp_stage_for_local_output is not None
-                stage_path, local_path = temp_stage_for_local_output
-                stage_manager.get_recursive(
-                    stage_path=effective_output_path.absolute_path(),
-                    dest_path=local_path,
-                )
-                cli_console.step(f"Plan output saved to: {local_path.resolve()}")
-            else:
-                cli_console.step(f"Plan output saved to: {output_path}")
+            stage_manager.get_recursive(
+                stage_path=effective_output_path.absolute_path(),
+                dest_path=local_output_path.path,
+            )
+            cli_console.step(f"Plan output saved to: {local_output_path.resolve()}")
 
     def deploy(
         self,
@@ -101,24 +85,36 @@ class DCMProjectManager(SqlExecutionMixin):
             query += f" SKIP PLAN"
         return self.execute_query(query=query)
 
+    def raw_analyze(
+        self,
+        project_identifier: FQN,
+        from_stage: str,
+        configuration: str | None = None,
+        variables: List[str] | None = None,
+    ):
+        query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} ANALYZE"
+        query += self._get_configuration_and_variables_query(configuration, variables)
+        query += self._get_from_stage_query(from_stage)
+        return self.execute_query(query=query)
+
     def plan(
         self,
         project_identifier: FQN,
         from_stage: str,
         configuration: str | None = None,
         variables: List[str] | None = None,
-        output_path: str | None = None,
+        save_output: bool = False,
     ):
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} PLAN"
         query += self._get_configuration_and_variables_query(configuration, variables)
         query += self._get_from_stage_query(from_stage)
-        with self._collect_output(
-            project_identifier, output_path
-        ) if output_path else nullcontext() as output_stage:
-            if output_stage is not None:
-                query += f" OUTPUT_PATH {output_stage}"
-            result = self.execute_query(query=query)
 
+        if save_output:
+            with self._collect_output(project_identifier) as output_stage:
+                query += f" OUTPUT_PATH {output_stage}"
+                result = self.execute_query(query=query)
+        else:
+            result = self.execute_query(query=query)
         return result
 
     def create(self, project_identifier: FQN) -> None:
@@ -198,31 +194,9 @@ class DCMProjectManager(SqlExecutionMixin):
             else SecurePath.cwd()
         )
 
-        dcm_manifest_file = source_path / MANIFEST_FILE_NAME
-        if not dcm_manifest_file.exists():
-            raise CliError(
-                f"{MANIFEST_FILE_NAME} was not found in directory {source_path.path}"
-            )
+        artifacts = DCMProjectManager._collect_artifacts(source_path.path)
 
-        with dcm_manifest_file.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
-            dcm_manifest = yaml.safe_load(fd)
-            object_type = dcm_manifest.get("type") if dcm_manifest else None
-            if object_type is None:
-                raise CliError(
-                    f"Manifest file type is undefined. Expected {DCM_PROJECT_TYPE}"
-                )
-            if object_type.lower() != DCM_PROJECT_TYPE:
-                raise CliError(
-                    f"Manifest file is defined for type {object_type}. Expected {DCM_PROJECT_TYPE}"
-                )
-
-            definitions = list(dcm_manifest.get("include_definitions", list()))
-            if MANIFEST_FILE_NAME not in definitions:
-                # append manifest file, but avoid sending it multiple times if
-                # there are manifests from previous runs stored in output path
-                definitions.append(rf"^{MANIFEST_FILE_NAME}")
-
-        with cli_console.phase(f"Uploading definition files"):
+        with cli_console.phase("Uploading definition files"):
             stage_fqn = FQN.from_resource(
                 ObjectType.DCM_PROJECT, project_identifier, "TMP_STAGE"
             )
@@ -230,8 +204,24 @@ class DCMProjectManager(SqlExecutionMixin):
                 project_paths=ProjectPaths(project_root=source_path.path),
                 stage_root=stage_fqn.identifier,
                 use_temporary_stage=True,
-                artifacts=[PathMapping(src=definition) for definition in definitions],
-                pattern_type=PatternMatchingType.REGEX,
+                artifacts=artifacts,
+                pattern_type=PatternMatchingType.GLOB,
             )
 
         return stage_fqn.identifier
+
+    @staticmethod
+    def _collect_artifacts(source_path: Path) -> List[PathMapping]:
+        """Collect all artifacts from sources/ folder and manifest.yml."""
+        artifacts: List[PathMapping] = []
+
+        artifacts.append(PathMapping(src=MANIFEST_FILE_NAME))
+
+        sources_path = source_path / SOURCES_FOLDER
+        if sources_path.exists() and sources_path.is_dir():
+            for file in sources_path.rglob("*"):
+                if file.is_file():
+                    relative_path = file.relative_to(source_path)
+                    artifacts.append(PathMapping(src=str(relative_path)))
+
+        return artifacts
