@@ -203,7 +203,9 @@ def _process_plan_result(
 
     data = json.loads(first_value)
 
-    # Handle new format with reporter
+    # Handle new format with reporter.
+    # Uses process_payload (not process) because we need to branch on
+    # old vs. new format and return CollectionResult for old format.
     if isinstance(data, dict) and data.get("version", 0) == 2:
         reporter = PlanReporter(command_name=command_name)
         reporter.process_payload(data)

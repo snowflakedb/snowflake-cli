@@ -36,12 +36,7 @@ class PlanObjectId(BaseModel):
     """Object identifier within a changeset entry."""
 
     domain: str
-    name: str
     fqn: str
-    database: Optional[str] = None
-    schema: Optional[str] = None
-
-    model_config = {"populate_by_name": True}
 
 
 class PlanEntityChange(BaseModel):
@@ -55,7 +50,6 @@ class PlanResponse(BaseModel):
     """Top-level version 2 plan response."""
 
     version: int
-    metadata: Dict[str, Any] = Field(default_factory=dict)
     changeset: List[PlanEntityChange] = Field(default_factory=list)
 
 
@@ -88,6 +82,8 @@ class PlanRow:
             sanitized_fqn = sanitize_for_terminal(entity.object_id.fqn)
             fqn = FQN.from_string(sanitized_fqn)
         except ValidationError as e:
+            # Forward-compatible fallback: if a future version changes the
+            # changeset entry shape, the CLI degrades gracefully instead of crashing.
             log.debug(
                 "Failed strict validation for changeset entry, using fallback parser: %s",
                 e,
@@ -125,7 +121,7 @@ class PlanRow:
 
 
 class PlanReporter(Reporter[PlanRow]):
-    """Reporter for generic human-friendly plan output."""
+    """Reporter for generic human-friendly plan/deploy output."""
 
     @dataclass
     class Summary:
@@ -181,6 +177,8 @@ class PlanReporter(Reporter[PlanRow]):
                 self._summary.altered += 1
             elif parsed.operation == "DROP":
                 self._summary.dropped += 1
+            else:
+                log.debug("Unknown operation type: %s", parsed.operation)
             rows.append(parsed)
         rows.sort(key=lambda row: row.sort_key)
         return iter(rows)
@@ -202,8 +200,6 @@ class PlanReporter(Reporter[PlanRow]):
         if total == 0:
             return [Text("No changes detected.")]
 
-        parts = []
-
         SummaryLabels = namedtuple(
             "SummaryLabels", ["created", "altered", "dropped", "header"]
         )
@@ -212,27 +208,20 @@ class PlanReporter(Reporter[PlanRow]):
             "deploy": SummaryLabels("created", "altered", "dropped", "Deployed"),
         }[self.command_name]
 
-        if self._summary.created > 0:
-            parts.append(
-                Text(
-                    f"{self._summary.created} {labels.created}",
-                    styles.CREATE_STYLE,
-                )
-            )
-        if self._summary.altered > 0:
-            parts.append(
-                Text(
-                    f"{self._summary.altered} {labels.altered}",
-                    styles.ALTER_STYLE,
-                )
-            )
-        if self._summary.dropped > 0:
-            parts.append(
-                Text(
-                    f"{self._summary.dropped} {labels.dropped}",
-                    styles.DROP_STYLE,
-                )
-            )
+        parts = [
+            Text(
+                f"{self._summary.created} {labels.created}",
+                styles.CREATE_STYLE,
+            ),
+            Text(
+                f"{self._summary.altered} {labels.altered}",
+                styles.ALTER_STYLE,
+            ),
+            Text(
+                f"{self._summary.dropped} {labels.dropped}",
+                styles.DROP_STYLE,
+            ),
+        ]
         entity_singular_or_plural = "entity" if total == 1 else "entities"
         result = [Text(f"{labels.header} {total} {entity_singular_or_plural} (")]
         for i, part in enumerate(parts):

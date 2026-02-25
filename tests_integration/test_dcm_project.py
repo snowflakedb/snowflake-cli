@@ -345,7 +345,9 @@ def test_dcm_plan_with_save_output(
             ]
         )
         assert result.exit_code == 0, result.output
-        assert_last_stdout_line_equals("Planned 1 entity (1 to create)", result)
+        assert_last_stdout_line_equals(
+            "Planned 1 entity (1 to create, 0 to alter, 0 to drop).", result
+        )
 
         output_path = project_root / output_dir
         assert output_path.exists(), f"Output directory {output_dir} was not created."
