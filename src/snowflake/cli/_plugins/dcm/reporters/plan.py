@@ -93,7 +93,9 @@ class PlanRow:
             )
             object_id = entry_dict.get("object_id", {})
             object_id = object_id if isinstance(object_id, dict) else {}
-            domain = sanitize_for_terminal(str(object_id.get("domain", "UNKNOWN")))
+            domain = sanitize_for_terminal(
+                str(object_id.get("domain", "UNKNOWN")).upper()
+            )
             fqn = None
             try:
                 if "fqn" in object_id:
