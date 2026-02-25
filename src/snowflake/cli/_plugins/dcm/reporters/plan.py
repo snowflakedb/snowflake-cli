@@ -21,7 +21,7 @@ from rich.style import Style
 from rich.text import Text
 from snowflake.cli._plugins.dcm import styles
 from snowflake.cli._plugins.dcm.reporters.base import Reporter, cli_console
-from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.exceptions import CliError, FQNNameError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import unquote_identifier
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
@@ -81,7 +81,7 @@ class PlanRow:
             domain = sanitize_for_terminal(entity.object_id.domain.upper())
             sanitized_fqn = sanitize_for_terminal(entity.object_id.fqn)
             fqn = FQN.from_string(sanitized_fqn)
-        except ValidationError as e:
+        except (ValidationError, FQNNameError) as e:
             # Forward-compatible fallback: if a future version changes the
             # changeset entry shape, the CLI degrades gracefully instead of crashing.
             log.debug(
@@ -100,7 +100,11 @@ class PlanRow:
             try:
                 if "fqn" in object_id:
                     fqn = FQN.from_string(sanitize_for_terminal(str(object_id["fqn"])))
-            except Exception:  # noqa: BLE001
+            except Exception as e:  # noqa: BLE001
+                log.debug(
+                    "Failed to read FQN from provided string: %s",
+                    e,
+                )
                 fqn = None
 
         return cls(

@@ -301,6 +301,59 @@ class TestPlanRow:
         assert "\x1b" not in row.operation
         assert "\x1b" not in row.domain
 
+    def test_from_dict_fallback_defaults_when_entry_is_missing(self):
+        entry = {}
+
+        row = PlanRow.from_dict(entry)
+
+        assert row.operation == "UNKNOWN"
+        assert row.domain == "UNKNOWN"
+        assert row.fqn is None
+
+    def test_from_dict_fallback_unparseable_fqn_yields_none(self):
+        entry = {
+            "type": "CREATE",
+            "object_id": {
+                "domain": "TABLE",
+                "fqn": "completely invalid fqn!!!",
+            },
+        }
+
+        row = PlanRow.from_dict(entry)
+
+        assert row.operation == "CREATE"
+        assert row.domain == "TABLE"
+        assert row.fqn is None
+
+    def test_from_dict_fallback_no_fqn_key_yields_none(self):
+        entry = {
+            "type": "DROP",
+            "object_id": {
+                "domain": "ROLE",
+            },
+        }
+
+        row = PlanRow.from_dict(entry)
+
+        assert row.operation == "DROP"
+        assert row.domain == "ROLE"
+        assert row.fqn is None
+
+    def test_from_dict_fallback_all_keys_wrong(self):
+        entry = {
+            "type_v2": "CREATE",
+            "object_id": {
+                "DOMAIN_v2": "TABLE",
+                "FQN_v2": '"DB"."SCH"."ORDERS"',
+            },
+        }
+
+        row = PlanRow.from_dict(entry)
+
+        assert row.operation == "UNKNOWN"
+        assert row.domain == "UNKNOWN"
+        assert row.fqn is None
+
     def test_display_fqn_with_none(self):
         row = PlanRow(operation="CREATE", domain="TABLE", fqn=None)
 
