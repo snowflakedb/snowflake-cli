@@ -99,6 +99,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         prune: bool = False,
         bundle_map: Optional[BundleMap] = None,
         legacy: bool = False,
+        skip_stage_creation: bool = False,
         *args,
         **kwargs,
     ):
@@ -140,9 +141,9 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 )
 
         if legacy:
-            self._deploy_legacy(bundle_map=bundle_map, replace=replace, prune=prune)
+            self._deploy_legacy(bundle_map=bundle_map, replace=replace, prune=prune, skip_stage_creation=skip_stage_creation)
         else:
-            self._deploy_versioned(bundle_map=bundle_map, replace=replace, prune=prune)
+            self._deploy_versioned(bundle_map=bundle_map, replace=replace, prune=prune, skip_stage_creation=skip_stage_creation)
 
         return self.perform(EntityActions.GET_URL, action_context, *args, **kwargs)
 
@@ -256,7 +257,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             return False
 
     def _deploy_legacy(
-        self, bundle_map: BundleMap, replace: bool = False, prune: bool = False
+        self, bundle_map: BundleMap, replace: bool = False, prune: bool = False, skip_stage_creation: bool = False
     ):
         console = self._workspace_ctx.console
         console.step(f"Uploading artifacts to stage {self.model.stage}")
@@ -278,6 +279,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             recursive=True,
             stage_path_parts=StageManager().stage_path_parts_from_str(stage_root),
             print_diff=True,
+            skip_stage_creation=skip_stage_creation,
         )
 
         console.step(f"Creating Streamlit object {self.model.fqn.sql_identifier}")
@@ -293,7 +295,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         StreamlitManager(connection=self._conn).grant_privileges(self.model)
 
     def _deploy_versioned(
-        self, bundle_map: BundleMap, replace: bool = False, prune: bool = False
+        self, bundle_map: BundleMap, replace: bool = False, prune: bool = False, skip_stage_creation: bool = False
     ):
         self._execute_query(
             self.get_deploy_sql(
@@ -322,6 +324,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             stage_path_parts=stage_path_parts,
             print_diff=True,
             force_overwrite=True,  # files copied to streamlit vstage need to be overwritten
+            skip_stage_creation=skip_stage_creation,
         )
 
         StreamlitManager(connection=self._conn).grant_privileges(self.model)
