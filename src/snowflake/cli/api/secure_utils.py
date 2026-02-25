@@ -39,7 +39,7 @@ def _get_windows_whitelisted_users():
 def _run_icacls(file_path: Path) -> str:
     import subprocess
 
-    from snowflake.cli.api.encoding import get_subprocess_encoding
+    from snowflake.cli.api.config import get_subprocess_encoding
 
     encoding = get_subprocess_encoding()
     return subprocess.check_output(

@@ -20,7 +20,7 @@ from urllib.parse import urlparse
 
 import requests
 from click import ClickException
-from snowflake.cli.api.encoding import get_subprocess_encoding
+from snowflake.cli.api.config import get_subprocess_encoding
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import DictCursor
 

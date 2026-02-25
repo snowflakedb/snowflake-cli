@@ -181,7 +181,7 @@ class SecurePath:
         self._assert_file_size_limit(file_size_limit_mb)
 
         if encoding is None:
-            from snowflake.cli.api.encoding import get_file_io_encoding
+            from snowflake.cli.api.config import get_file_io_encoding
 
             encoding = get_file_io_encoding()
 
@@ -203,7 +203,7 @@ class SecurePath:
             self.touch()
 
         if encoding is None:
-            from snowflake.cli.api.encoding import get_file_io_encoding
+            from snowflake.cli.api.config import get_file_io_encoding
 
             encoding = get_file_io_encoding()
 
@@ -242,7 +242,7 @@ class SecurePath:
             self.touch()  # makes sure permissions of freshly-created file are strict
 
         if encoding is None:
-            from snowflake.cli.api.encoding import get_file_io_encoding
+            from snowflake.cli.api.config import get_file_io_encoding
 
             encoding = get_file_io_encoding()
 

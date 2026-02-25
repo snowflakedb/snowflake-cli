@@ -24,7 +24,7 @@ from typing import Any, Mapping, Optional, Sequence, Union
 from venv import EnvBuilder
 
 from click.exceptions import ClickException
-from snowflake.cli.api.encoding import get_subprocess_encoding
+from snowflake.cli.api.config import get_subprocess_encoding
 
 EnvVars = Mapping[str, str]  # Only support str -> str for cross-platform compatibility
 

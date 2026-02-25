@@ -32,8 +32,8 @@ from snowflake.cli._plugins.snowpark.models import (
 from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
     AnacondaPackages,
 )
+from snowflake.cli.api.config import get_subprocess_encoding
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
-from snowflake.cli.api.encoding import get_subprocess_encoding
 from snowflake.cli.api.secure_path import SecurePath
 
 log = logging.getLogger(__name__)
