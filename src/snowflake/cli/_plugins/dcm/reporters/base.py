@@ -64,6 +64,19 @@ class Reporter(ABC, Generic[T]):
             cli_console.styled_message(renderable.plain, style=renderable.style)
         cli_console.styled_message("\n")
 
+    def process_payload(self, result_json: Dict[str, Any]) -> None:
+        """Process already decoded response payload and print results."""
+        raw_data = self.extract_data(result_json)
+        parsed_data: Iterator[T] = self.parse_data(raw_data)
+        self.print_renderables(parsed_data)
+        if self._is_success():
+            self.print_summary()
+        else:
+            message = "".join(
+                renderable.plain for renderable in self._generate_summary_renderables()
+            )
+            raise CliError(message)
+
     def process(self, cursor: SnowflakeCursor) -> None:
         """Process cursor data and print results."""
         row = cursor.fetchone()
@@ -84,13 +97,4 @@ class Reporter(ABC, Generic[T]):
             log.debug("Could not decode response: %s", e)
             raise CliError("Could not process response.")
 
-        raw_data = self.extract_data(result_json)
-        parsed_data: Iterator[T] = self.parse_data(raw_data)
-        self.print_renderables(parsed_data)
-        if self._is_success():
-            self.print_summary()
-        else:
-            message = "".join(
-                renderable.plain for renderable in self._generate_summary_renderables()
-            )
-            raise CliError(message)
+        self.process_payload(result_json)

@@ -24,6 +24,7 @@ from snowflake.cli._plugins.dcm.manager import DCMProjectManager
 from snowflake.cli._plugins.dcm.models import DCMManifest, TargetContext
 from snowflake.cli._plugins.dcm.reporters import (
     AnalyzeReporter,
+    PlanReporter,
     RefreshReporter,
     TestReporter,
 )
@@ -181,9 +182,15 @@ def _resolve_context_with_optional_manifest(
     return context
 
 
-def _process_plan_result(cursor: SnowflakeCursor) -> CollectionResult:
+def _process_plan_result(
+    cursor: SnowflakeCursor,
+    command_name: str = "plan",
+) -> CollectionResult | EmptyResult:
     """
     Process plan result, detecting format and returning appropriate result type.
+
+    For new format (version 2), uses the appropriate plan reporter.
+    For old format, returns raw data as CollectionResult.
     """
     rows = list(cursor)
     if not rows:
@@ -196,9 +203,13 @@ def _process_plan_result(cursor: SnowflakeCursor) -> CollectionResult:
 
     data = json.loads(first_value)
 
-    # Handle new format
+    # Handle new format with reporter.
+    # Uses process_payload (not process) because we need to branch on
+    # old vs. new format and return CollectionResult for old format.
     if isinstance(data, dict) and data.get("version", 0) == 2:
-        return CollectionResult(data.get("changeset", list()))
+        reporter = PlanReporter(command_name=command_name)
+        reporter.process_payload(data)
+        return EmptyResult()
 
     # Old format
     return CollectionResult(data)
@@ -258,10 +269,11 @@ def deploy(
             skip_plan=skip_plan,
         )
 
-    return _process_plan_result(result)
+    return _process_plan_result(result, command_name="deploy")
 
 
 @app.command(requires_connection=True)
+@mock_dcm_response("plan")
 def plan(
     identifier: Optional[FQN] = optional_dcm_identifier,
     from_location: SecurePath = from_option,
@@ -292,7 +304,7 @@ def plan(
             save_output=save_output,
         )
 
-    return _process_plan_result(result)
+    return _process_plan_result(result, command_name="plan")
 
 
 @app.command(requires_connection=True, hidden=True)

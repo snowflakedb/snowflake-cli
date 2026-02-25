@@ -18,8 +18,7 @@ from typing import Any, Dict, Iterator, List, Optional
 
 from rich.text import Text
 from snowflake.cli._plugins.dcm import styles
-from snowflake.cli._plugins.dcm.reporters.base import Reporter
-from snowflake.cli.api.console.console import cli_console
+from snowflake.cli._plugins.dcm.reporters.base import Reporter, cli_console
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 

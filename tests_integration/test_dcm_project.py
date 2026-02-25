@@ -18,6 +18,8 @@ import pytest
 
 from typing import Set, Optional, Tuple
 
+from tests_integration.conftest import CommandResult
+
 
 def _assert_project_has_deployments(
     runner, project_name: str, expected_deployments: Set[Tuple[str, Optional[str]]]
@@ -44,9 +46,14 @@ def _extract_and_validate_raw_analyze_json(output: str):
     return output_json
 
 
+def assert_last_stdout_line_equals(expected, result: CommandResult):
+    assert result.output is not None
+    assert expected in result.output.strip().split("\n")[-1], result.output
+
+
 @pytest.mark.qa_only
 @pytest.mark.integration
-def test_project_deploy(
+def test_dcm_deploy(
     runner,
     test_database,
     project_directory,
@@ -125,7 +132,7 @@ def test_create_corner_cases(
 
 @pytest.mark.qa_only
 @pytest.mark.integration
-def test_project_drop_deployment(
+def test_dcm_drop_deployment(
     runner,
     test_database,
     project_directory,
@@ -314,7 +321,7 @@ def test_dcm_plan_and_deploy_from_another_directory(
 
 @pytest.mark.qa_only
 @pytest.mark.integration
-def test_project_plan_with_save_output(
+def test_dcm_plan_with_save_output(
     runner,
     test_database,
     project_directory,
@@ -327,7 +334,7 @@ def test_project_plan_with_save_output(
         assert result.exit_code == 0, result.output
         assert f"DCM Project '{project_name}' successfully created." in result.output
 
-        result = runner.invoke_with_connection_json(
+        result = runner.invoke_with_connection(
             [
                 "dcm",
                 "plan",
@@ -338,6 +345,9 @@ def test_project_plan_with_save_output(
             ]
         )
         assert result.exit_code == 0, result.output
+        assert_last_stdout_line_equals(
+            "Planned 1 entity (1 to create, 0 to alter, 0 to drop).", result
+        )
 
         output_path = project_root / output_dir
         assert output_path.exists(), f"Output directory {output_dir} was not created."
@@ -465,7 +475,9 @@ def test_dcm_refresh_command(
         # 1) Without any dynamic tables, run refresh command - should report no dynamic tables.
         result = runner.invoke_with_connection(["dcm", "refresh", project_name])
         assert result.exit_code == 0, result.output
-        assert "No dynamic tables found in the project." in result.output
+        assert_last_stdout_line_equals(
+            "No dynamic tables found in the project.", result
+        )
 
         # 2) Define base table and dynamic table with long refresh time.
         table_definitions = f"""
@@ -507,13 +519,13 @@ INSERT INTO {base_table_name} (id, name, email) VALUES
         result = runner.invoke_with_connection(["dcm", "refresh", project_name])
         assert result.exit_code == 0, result.output
         # Should show at least 1 table was refreshed
-        assert "1 refreshed." in result.output.strip().split("\n")[-1]
+        assert_last_stdout_line_equals("1 refreshed.", result)
 
         # 5) Run dcm refresh command again. Response should be different because there's nothing to update
         result = runner.invoke_with_connection(["dcm", "refresh", project_name])
         assert result.exit_code == 0, result.output
         # Should show at least 1 table was refreshed
-        assert "1 up-to-date." in result.output.strip().split("\n")[-1]
+        assert_last_stdout_line_equals("1 up-to-date.", result)
 
 
 @pytest.mark.qa_only
@@ -536,7 +548,7 @@ def test_dcm_test_command(
         # 1) Without any data metric functions, run test command to assert that exitcode is 0 and message is returned.
         result = runner.invoke_with_connection(["dcm", "test", project_name])
         assert result.exit_code == 0, result.output
-        assert "No expectations found in the project." in result.output
+        assert_last_stdout_line_equals("No expectations found in the project.", result)
 
         # Define table and deploy
         table_definition = f"""
@@ -599,10 +611,7 @@ UPDATE {table_name} SET level = 5 WHERE level < 5;
 
         result = runner.invoke_with_connection(["dcm", "test", project_name])
         assert result.exit_code == 0, result.output
-        assert (
-            "1 passed, 0 failed out of 1 total."
-            in result.output.strip().split("\n")[-1]
-        )
+        assert_last_stdout_line_equals("1 passed, 0 failed out of 1 total.", result)
 
 
 @pytest.mark.qa_only
