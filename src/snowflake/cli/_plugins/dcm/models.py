@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
@@ -27,6 +28,7 @@ from snowflake.cli.api.secure_path import SecurePath
 MANIFEST_FILE_NAME = "manifest.yml"
 DCM_PROJECT_TYPE = "dcm_project"
 SUPPORTED_MANIFEST_VERSION = 2
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -88,6 +90,10 @@ class DCMManifest:
         # if there's only 1 target defined we assume it's the default
         if default_target is None and len(targets) == 1:
             default_target = next(iter(targets.keys()))
+            log.info(
+                "Derived default target from single target manifest (default_target=%s).",
+                default_target,
+            )
 
         manifest_version = data.get("manifest_version")
         if manifest_version is None:
@@ -115,7 +121,9 @@ class DCMManifest:
     def load(cls, source_path: SecurePath) -> "DCMManifest":
         """Load and validate manifest from source path."""
         dcm_manifest_file = source_path / MANIFEST_FILE_NAME
+        log.info("Loading DCM manifest from %s.", dcm_manifest_file)
         if not dcm_manifest_file.exists():
+            log.info("DCM manifest file not found at %s.", dcm_manifest_file)
             raise ManifestNotFoundError(
                 f"{MANIFEST_FILE_NAME} was not found in directory {source_path.path}."
             )
@@ -123,6 +131,9 @@ class DCMManifest:
         with dcm_manifest_file.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
             data = yaml.safe_load(fd)
             if not data:
+                log.info(
+                    "DCM manifest file is empty or invalid at %s.", dcm_manifest_file
+                )
                 raise InvalidManifestError("Manifest file is empty or invalid.")
 
             return cls.from_dict(data)
@@ -149,6 +160,11 @@ class DCMManifest:
             target.templating_config
             and target.templating_config not in self.templating.configurations
         ):
+            log.info(
+                "DCM target references unknown templating configuration (target=%s, configuration=%s).",
+                target.name,
+                target.templating_config,
+            )
             raise ManifestConfigurationError(
                 f"Target '{target.name}' references unknown configuration '{target.templating_config}'."
             )
@@ -156,7 +172,11 @@ class DCMManifest:
     def get_target(self, target_name: str) -> DCMTarget:
         """Get a specific target by name."""
         target_name = target_name.upper()
+        log.info("Resolving DCM target '%s'.", target_name)
         if target_name not in self.targets:
+            log.info(
+                "Requested DCM target '%s' was not found in manifest.", target_name
+            )
             raise ManifestConfigurationError(
                 f"Target '{target_name}' not found in manifest."
             )
@@ -170,6 +190,9 @@ class DCMManifest:
             return self.get_target(target_name)
         if self.default_target:
             return self.get_target(self.default_target)
+        log.info(
+            "No DCM target specified and no default target configured in manifest."
+        )
         raise ManifestConfigurationError(
             "No target specified and no default_target defined in manifest."
         )

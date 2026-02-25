@@ -63,7 +63,7 @@ class NewFormatExtractor:
         try:
             response = RefreshResponse.model_validate(result_json)
         except ValidationError as e:
-            log.debug("Failed to validate refresh response: %s", e)
+            log.info("Failed to validate refresh response: %s", e)
             raise CliError("Could not process response.")
 
         if response.dts_refresh_result is None:
@@ -135,10 +135,10 @@ class OldFormatExtractor:
                         "deleted_rows": stats_data.get("deletedRows", 0),
                     }
                 except json.JSONDecodeError:
-                    log.debug("Failed to parse statistics JSON: %r", statistics)
+                    log.info("Failed to parse statistics JSON: %r", statistics)
                     normalized["statistics"] = None
             else:
-                log.debug("Unexpected statistics format: %r", statistics)
+                log.info("Unexpected statistics format: %r", statistics)
                 normalized["statistics"] = None
         else:
             normalized["statistics"] = None
@@ -173,7 +173,7 @@ class RefreshRow:
         try:
             return int(value)
         except (ValueError, TypeError):
-            log.debug("Could not convert value to int: %r", value)
+            log.info("Could not convert value to int: %r", value)
             return 0
 
     @staticmethod
@@ -203,7 +203,7 @@ class RefreshRow:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> Optional["RefreshRow"]:
         if not isinstance(data, dict):
-            log.debug("Unexpected table entry type: %s", type(data))
+            log.info("Unexpected table entry type: %s", type(data))
             return None
 
         raw_table_name = data.get(cls._TABLE_NAME_KEY, "UNKNOWN")
@@ -218,7 +218,7 @@ class RefreshRow:
             row.inserted = statistics.get(cls._INSERTED_KEY, 0)
             row.deleted = statistics.get(cls._DELETED_KEY, 0)
         else:
-            log.debug("Unexpected statistics type: %s, expected dict", type(statistics))
+            log.info("Unexpected statistics type: %s, expected dict", type(statistics))
             return row
 
         if row.inserted == 0 and row.deleted == 0:
@@ -292,7 +292,7 @@ class RefreshReporter(Reporter[RefreshRow]):
 
     def extract_data(self, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
         if not isinstance(result_json, dict):
-            log.debug("Unexpected response type: %s, expected dict", type(result_json))
+            log.info("Unexpected response type: %s, expected dict", type(result_json))
             raise CliError("Could not process response.")
 
         extractor_cls = self._get_extractor_cls(result_json)
