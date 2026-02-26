@@ -47,6 +47,8 @@ SYSTEM_COMPUTE_POOL = "SYSTEM_COMPUTE_POOL_CPU"
 SNOW_APPS_COMPUTE_POOL = "SNOW_APPS_COMPUTE_POOL"
 DEFAULT_EXTERNAL_ACCESS = "SNOW_APPS_DEFAULT_EXTERNAL_ACCESS"
 DEFAULT_ARTIFACT_REPOSITORY = "SNOW_APPS_DEFAULT_ARTIFACT_REPOSITORY"
+# TODO: Replace with artifact_repository from entity config once supported
+DEFAULT_IMAGE_REPOSITORY = "SNOW_APPS_DEFAULT_IMAGE_REPOSITORY"
 
 
 def _check_feature_enabled():
@@ -188,6 +190,92 @@ class SnowAppManager(SqlExecutionMixin):
         self.execute_query(
             f"CREATE STAGE IF NOT EXISTS {stage_fqn} ENCRYPTION = (TYPE = '{encryption_type}')"
         )
+
+    def drop_service_if_exists(self, service_fqn: str) -> None:
+        """Drop a service if it exists."""
+        self.execute_query(f"DROP SERVICE IF EXISTS {service_fqn}")
+
+    def get_image_repo_url(self, repo_name: str) -> str:
+        """Get the image repository URL and convert to local registry."""
+        row = self.show_specific_object("image repositories", repo_name)
+        if not row:
+            raise CliError(f"Image repository '{repo_name}' not found")
+
+        # Get repository_url from the result
+        repo_url = row["repository_url"]
+
+        # Convert to local registry URL (replace .registry-dev. or .registry. with .registry-local.)
+        local_url = repo_url.replace(".registry-dev.", ".registry-local.")
+        local_url = local_url.replace(".registry.", ".registry-local.")
+        local_url = local_url.replace(".awsuswest2qa6.", ".")
+
+        return local_url
+
+    def execute_build_job(
+        self,
+        job_service_name: str,
+        compute_pool: str,
+        code_stage: str,
+        image_repo_url: str,
+        app_id: str,
+        external_access_integration: Optional[str] = None,
+    ) -> None:
+        """Execute a build job service."""
+        spec = f"""spec:
+  containers:
+  - name: main
+    image: "/snowflake/images/snowflake_images/sf-image-build:0.0.1"
+    env:
+      IMAGE_REGISTRY_URL: "{image_repo_url}"
+      IMAGE_NAME: "{app_id.lower()}"
+      IMAGE_TAG: "latest"
+      BUILD_CONTEXT: "/app"
+    volumeMounts:
+      - name: code-volume
+        mountPath: /app
+  volumes:
+  - name: code-volume
+    source: "@{code_stage}"
+    uid: 65532"""
+
+        query_lines = [
+            f"EXECUTE JOB SERVICE IN COMPUTE POOL {compute_pool}",
+            f"NAME = {job_service_name}",
+            "ASYNC = TRUE",
+            f"FROM SPECIFICATION $${spec}$$",
+        ]
+
+        if external_access_integration:
+            query_lines.insert(
+                3, f"EXTERNAL_ACCESS_INTEGRATIONS = ({external_access_integration})"
+            )
+
+        query = "\n".join(query_lines)
+        self.execute_query(query)
+
+    def get_build_status(self, database: str, schema: str, job_name: str) -> str:
+        """
+        Get the status of the build job service.
+
+        Returns:
+            - "IDLE" if the job service doesn't exist
+            - The actual status from SHOW SERVICES (e.g., "PENDING", "RUNNING", "DONE", "FAILED")
+        """
+        schema_fqn = f"{database}.{schema}"
+        self.execute_query(f"SHOW SERVICES IN SCHEMA {schema_fqn}")
+
+        # Query the result to find the job status
+        result = self.execute_query(
+            f'SELECT COUNT(*), MAX("status") '
+            f"FROM TABLE(RESULT_SCAN(LAST_QUERY_ID())) "
+            f"WHERE \"name\" = '{job_name}'"
+        )
+        row = result.fetchone()
+
+        if not row or row[0] == 0:
+            return "IDLE"
+
+        return row[1]
 
 
 def _generate_snowflake_yml(
@@ -341,8 +429,31 @@ def build(
     # Get artifacts configuration
     artifacts = getattr(entity, "artifacts", [])
 
-    # Build fully qualified stage name
+    # Get build configuration
+    build_compute_pool_config = getattr(entity, "build_compute_pool", None)
+    build_compute_pool = (
+        getattr(build_compute_pool_config, "name", None)
+        if build_compute_pool_config
+        else None
+    )
+
+    build_eai_config = getattr(entity, "build_eai", None)
+    build_eai = getattr(build_eai_config, "name", None) if build_eai_config else None
+
+    # TODO: Replace with artifact_repository from entity config once supported
+    image_repository = DEFAULT_IMAGE_REPOSITORY
+
+    # Validate required configuration
+    if not build_compute_pool:
+        raise CliError(
+            "build_compute_pool is required for build. "
+            "Please configure it in snowflake.yml."
+        )
+
+    # Build fully qualified names
     stage_fqn = f"{database}.{schema}.{stage_name}"
+    build_job_service_name = f"{resolved_entity_id.upper()}_BUILD_JOB"
+    build_job_name = f"{database}.{schema}.{build_job_service_name}"
 
     manager = SnowAppManager()
     stage_manager = StageManager()
@@ -383,17 +494,43 @@ def build(
                     auto_compress=False,
                 )
 
-    # Fake status messages for job service execution (placeholder for future implementation)
-    _print_messages_with_delay(
-        [
-            "Dropping service if exists...",
-            "Executing job service...",
-            "Status: PENDING",
-            "Status: PENDING",
-            "Status: RUNNING",
-            "Status: DONE",
-        ]
+    # Step 4: Get image repository URL
+    cli_console.step(f"Getting image repository URL for {image_repository}")
+    image_repo_url = manager.get_image_repo_url(image_repository)
+
+    # Step 5: Drop service if exists
+    cli_console.step(f"Dropping service if exists: {build_job_name}")
+    manager.drop_service_if_exists(build_job_name)
+
+    # Step 6: Execute job service
+    cli_console.step(f"Executing build job service: {build_job_name}")
+    manager.execute_build_job(
+        job_service_name=build_job_name,
+        compute_pool=build_compute_pool,
+        code_stage=stage_fqn,
+        image_repo_url=image_repo_url,
+        app_id=resolved_entity_id,
+        external_access_integration=build_eai,
     )
+
+    # Step 7: Poll for job status
+    cli_console.step("Waiting for build to complete...")
+    while True:
+        time.sleep(5)
+        status = manager.get_build_status(database, schema, build_job_service_name)
+        cli_console.step(f"Status: {status}")
+
+        if status == "DONE":
+            break
+        elif status == "FAILED":
+            raise CliError(f"Build failed. Check service logs: {build_job_name}")
+        elif status == "IDLE":
+            # Service disappeared unexpectedly
+            raise CliError(f"Build job service not found. It may have failed to start.")
+        elif status not in ("PENDING", "RUNNING"):
+            # Unknown status - print and break
+            cli_console.step(f"Unknown status: {status}")
+            break
 
     return MessageResult("Build complete.")
 
