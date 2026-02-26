@@ -32,7 +32,7 @@ jobs:
           python-version: "3.10"
       - name: Install hatch
         run: |
-          pip install -U click==8.2.1 hatch
+          pip install -U click==8.2.1 hatch==1.15.1 virtualenv==20.39.1
           hatch env create default
       - name: Run performance tests
         run: hatch run performance:test
