@@ -176,11 +176,12 @@ pre-install-commands = [
 features = ["development"]
 
 [tool.hatch.envs.ud.scripts]
-check = [
+install = [
   'pip uninstall --yes snowflake-connector-python',
   'pip install "git+https://github.com/snowflakedb/universal-driver@{env:UD_BRANCH:main}#subdirectory=python"',
-  'pytest -m "integration and not qa_only" -n8 --maxfail=1000 --dist=worksteal --ignore=tests_integration/tests_using_container_services --ignore=tests_integration/nativeapp tests_integration/ {args}',
 ]
+
+test = 'pytest -m "integration and not qa_only" -n8 --maxfail=1000 --dist=worksteal --ignore=tests_integration/tests_using_container_services --ignore=tests_integration/nativeapp tests_integration/ {args}'
 
 [[tool.hatch.envs.local.matrix]]
 python = ["3.10", "3.11", "3.12", "3.13"]

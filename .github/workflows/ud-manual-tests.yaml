@@ -58,14 +58,23 @@ jobs:
           pip install click==8.2.1 hatch "virtualenv<21.0.0"
           hatch --version
 
-      - name: Run UD tests
+      - name: Install UD
         run: |
           hatch config set dirs.env.virtual .hatch
-          hatch run ud:check
+          hatch run ud:install
         env:
           GH_TOKEN: ${{ secrets.SNOWFLAKE_GITHUB_TOKEN }}
           PYTHON_VERSION: ${{ inputs.python-version }}
           UD_BRANCH: ${{ inputs.ud-branch }}
+          TERM: unknown
+        shell: bash
+
+      - name: Run UD tests
+        run: |
+          hatch run ud:test
+        env:
+          GH_TOKEN: ${{ secrets.SNOWFLAKE_GITHUB_TOKEN }}
+          PYTHON_VERSION: ${{ inputs.python-version }}
           TERM: unknown
           PYTEST_ADDOPTS: --color=yes --tb=short -v
           SNOWFLAKE_CONNECTIONS_INTEGRATION_AUTHENTICATOR: SNOWFLAKE_JWT
