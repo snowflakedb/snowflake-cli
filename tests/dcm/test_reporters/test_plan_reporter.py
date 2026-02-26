@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import pytest
 from snowflake.cli._plugins.dcm.reporters.plan import PlanReporter, PlanRow
 from snowflake.cli.api.identifiers import FQN
 
@@ -87,6 +88,26 @@ class TestPlanReporterTerse:
         }
         output = capture_reporter_output(PlanReporter(), FakeCursor(data))
         assert output == snapshot
+
+    def test_signature_in_object_id(self):
+        data = {
+            "version": 2,
+            "metadata": {},
+            "changeset": [
+                {
+                    "type": "CREATE",
+                    "object_id": {
+                        "domain": "FUNCTION",
+                        "database": '"DB"',
+                        "schema": '"SCH"',
+                        "name": "'AREA_OF_CIRCLE'",
+                        "fqn": '"DB"."SCH"."AREA_OF_CIRCLE"(FLOAT, FLOAT)',
+                    },
+                },
+            ],
+        }
+        output = capture_reporter_output(PlanReporter(), FakeCursor(data))
+        assert "AREA_OF_CIRCLE(FLOAT, FLOAT)" in output
 
     def test_deploy_summary_prefix(self):
         data = {
@@ -354,28 +375,35 @@ class TestPlanRow:
         assert row.domain == "UNKNOWN"
         assert row.fqn is None
 
-    def test_display_fqn_with_none(self):
-        row = PlanRow(operation="CREATE", domain="TABLE", fqn=None)
-
-        assert row.display_fqn() == "UNKNOWN"
-
-    def test_display_fqn_name_only(self):
-        fqn = FQN(database=None, schema=None, name='"MY_TABLE"')
-
+    @pytest.mark.parametrize(
+        "fqn,expected_display",
+        [
+            (FQN(database=None, schema=None, name='"TBL"'), "TBL"),
+            (FQN(database=None, schema='"SCH"', name='"TBL"'), "SCH.TBL"),
+            (FQN(database='"DB"', schema='"SCH"', name='"TBL"'), "DB.SCH.TBL"),
+            (
+                FQN(database='"DB"', schema='"SCH"', name='"FUNC"', signature="()"),
+                "DB.SCH.FUNC()",
+            ),
+            (
+                FQN(
+                    database='"DB"', schema='"SCH"', name='"FUNC"', signature="(FLOAT)"
+                ),
+                "DB.SCH.FUNC(FLOAT)",
+            ),
+            (
+                FQN(
+                    database='"DB"',
+                    schema='"SCH"',
+                    name='"FUNC"',
+                    signature="(FLOAT, FLOAT)",
+                ),
+                "DB.SCH.FUNC(FLOAT, FLOAT)",
+            ),
+            (None, "UNKNOWN"),
+        ],
+    )
+    def test_display_fqn(self, fqn, expected_display):
         row = PlanRow(operation="CREATE", domain="TABLE", fqn=fqn)
 
-        assert row.display_fqn() == "MY_TABLE"
-
-    def test_display_fqn_fully_qualified(self):
-        fqn = FQN(database='"DB"', schema='"SCH"', name='"TBL"')
-
-        row = PlanRow(operation="CREATE", domain="TABLE", fqn=fqn)
-
-        assert row.display_fqn() == "DB.SCH.TBL"
-
-    def test_display_fqn_schema_and_name(self):
-        fqn = FQN(database=None, schema='"SCH"', name='"TBL"')
-
-        row = PlanRow(operation="CREATE", domain="TABLE", fqn=fqn)
-
-        assert row.display_fqn() == "SCH.TBL"
+        assert row.display_fqn() == expected_display

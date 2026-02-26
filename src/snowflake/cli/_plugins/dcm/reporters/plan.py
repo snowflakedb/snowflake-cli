@@ -123,7 +123,10 @@ class PlanRow:
         if self.fqn.schema:
             parts.append(unquote_identifier(self.fqn.schema))
         parts.append(unquote_identifier(self.fqn.name))
-        return ".".join(parts)
+        result = ".".join(parts)
+        if self.fqn.signature:
+            result += self.fqn.signature
+        return result
 
 
 class PlanReporter(Reporter[PlanRow]):
