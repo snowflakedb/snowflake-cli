@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import time
 from pathlib import Path
 from textwrap import dedent
@@ -276,6 +277,113 @@ class SnowAppManager(SqlExecutionMixin):
             return "IDLE"
 
         return row[1]
+
+    def create_service(
+        self,
+        service_name: str,
+        compute_pool: str,
+        query_warehouse: str,
+        app_comment: Optional[str] = None,
+    ) -> None:
+        """Create a service with a placeholder spec (suspended by default)."""
+        spec = """spec:
+  containers:
+    - name: main
+      image: "/snowflake/images/snowflake_images/sf-image-build:0.0.1"
+      command:
+        - sleep
+        - infinity
+  endpoints:
+    - name: app-endpoint
+      port: 3000
+      public: true
+serviceRoles:
+  - name: viewer
+    endpoints:
+      - app-endpoint"""
+
+        query = (
+            f"CREATE SERVICE IF NOT EXISTS {service_name}\n"
+            f"IN COMPUTE POOL {compute_pool}\n"
+            f"FROM SPECIFICATION $${spec}$$\n"
+            f"QUERY_WAREHOUSE = {query_warehouse}"
+        )
+        self.execute_query(query)
+
+        if app_comment:
+            escaped_comment = app_comment.replace("'", "''")
+            self.execute_query(
+                f"ALTER SERVICE {service_name} SET COMMENT = '{escaped_comment}'"
+            )
+
+        # Suspend the service after creation (deploy will resume it)
+        self.execute_query(f"ALTER SERVICE {service_name} SUSPEND")
+
+    def alter_service_spec(
+        self,
+        service_name: str,
+        image_url: str,
+    ) -> None:
+        """Alter a service with the built image spec."""
+        spec = f"""spec:
+  containers:
+    - name: main
+      image: "{image_url}"
+  endpoints:
+    - name: app-endpoint
+      port: 3000
+      public: true
+serviceRoles:
+  - name: viewer
+    endpoints:
+      - app-endpoint"""
+
+        query = f"ALTER SERVICE {service_name}\n" f"FROM SPECIFICATION $${spec}$$"
+        self.execute_query(query)
+
+    def resume_service(self, service_name: str) -> None:
+        """Resume a suspended service."""
+        self.execute_query(f"ALTER SERVICE {service_name} RESUME")
+
+    def get_service_status(self, database: str, schema: str, service_name: str) -> str:
+        """
+        Get the status of a service.
+
+        Returns:
+            - "IDLE" if the service doesn't exist
+            - The actual status from SHOW SERVICES (e.g., "PENDING", "READY", "SUSPENDED", "FAILED")
+        """
+        schema_fqn = f"{database}.{schema}"
+        self.execute_query(f"SHOW SERVICES IN SCHEMA {schema_fqn}")
+
+        result = self.execute_query(
+            f'SELECT COUNT(*), MAX("status") '
+            f"FROM TABLE(RESULT_SCAN(LAST_QUERY_ID())) "
+            f"WHERE \"name\" = '{service_name}'"
+        )
+        row = result.fetchone()
+
+        if not row or row[0] == 0:
+            return "IDLE"
+
+        return row[1]
+
+    def get_service_endpoint_url(
+        self, service_fqn: str, endpoint_name: str = "app-endpoint"
+    ) -> Optional[str]:
+        """Get the ingress URL for a service endpoint."""
+        self.execute_query(f"SHOW ENDPOINTS IN SERVICE {service_fqn}")
+
+        result = self.execute_query(
+            f'SELECT "ingress_url" '
+            f"FROM TABLE(RESULT_SCAN(LAST_QUERY_ID())) "
+            f"WHERE \"name\" = '{endpoint_name}'"
+        )
+        row = result.fetchone()
+
+        if row:
+            return row[0]
+        return None
 
 
 def _generate_snowflake_yml(
@@ -552,17 +660,102 @@ def deploy(
     """
     _check_feature_enabled()
     resolved_entity_id = _resolve_entity_id(entity_id)
+    entity = _get_entity(resolved_entity_id)
 
-    _print_messages_with_delay(
-        [
-            "Updating service...",
-            "Resuming service...",
-            "Status: PENDING",
-            "Status: PENDING",
-            "Status: READY",
-        ]
+    # Get entity configuration
+    identifier = getattr(entity, "identifier", {})
+    database = getattr(identifier, "database", None) or "<default_db>"
+    schema = (
+        getattr(identifier, "schema_", None) or f"SNOW_APP_{resolved_entity_id.upper()}"
     )
 
-    return MessageResult(
-        f"App ready at https://{resolved_entity_id}.snowflakecomputing.app/"
+    service_compute_pool_config = getattr(entity, "service_compute_pool", None)
+    service_compute_pool = (
+        getattr(service_compute_pool_config, "name", None)
+        if service_compute_pool_config
+        else None
     )
+
+    query_warehouse = getattr(entity, "query_warehouse", None)
+
+    meta = getattr(entity, "meta", None)
+    app_title = getattr(meta, "title", None) if meta else None
+    app_description = getattr(meta, "description", None) if meta else None
+
+    # Validate required configuration
+    if not service_compute_pool:
+        raise CliError(
+            "service_compute_pool is required for deploy. "
+            "Please configure it in snowflake.yml."
+        )
+
+    if not query_warehouse:
+        raise CliError(
+            "query_warehouse is required for deploy. "
+            "Please configure it in snowflake.yml."
+        )
+
+    # Build names
+    service_name_short = f"{resolved_entity_id.upper()}_SERVICE"
+    service_fqn = f"{database}.{schema}.{service_name_short}"
+    # TODO
+    image_url = f"/{database}/PUBLIC/{DEFAULT_IMAGE_REPOSITORY}/{resolved_entity_id.lower()}:latest"
+
+    # Build app comment with metadata
+    comment_data = {"appId": resolved_entity_id.upper()}
+    if app_title:
+        comment_data["appName"] = app_title
+    if app_description:
+        comment_data["appDescription"] = app_description
+    app_comment = json.dumps(comment_data)
+
+    manager = SnowAppManager()
+
+    # Step 1: Create service if it doesn't exist
+    cli_console.step(f"Creating service {service_fqn} if it doesn't exist")
+    manager.create_service(
+        service_name=service_fqn,
+        compute_pool=service_compute_pool,
+        query_warehouse=query_warehouse,
+        app_comment=app_comment,
+    )
+
+    # Step 2: Alter service with built image
+    cli_console.step(f"Updating service with image: {image_url}")
+    manager.alter_service_spec(
+        service_name=service_fqn,
+        image_url=image_url,
+    )
+
+    # Step 3: Resume service
+    cli_console.step("Resuming service")
+    manager.resume_service(service_fqn)
+
+    # Step 4: Poll until service is RUNNING
+    cli_console.step("Waiting for service to be ready...")
+    while True:
+        time.sleep(5)
+        status = manager.get_service_status(database, schema, service_name_short)
+        cli_console.step(f"Status: {status}")
+
+        if status == "RUNNING":
+            break
+        elif status == "FAILED":
+            raise CliError(f"Service failed. Check service logs: {service_fqn}")
+        elif status == "IDLE":
+            raise CliError(f"Service not found: {service_fqn}")
+        elif status not in ("PENDING", "SUSPENDING", "SUSPENDED"):
+            cli_console.step(f"Unknown status: {status}")
+            break
+
+    # Step 5: Get endpoint URL
+    cli_console.step("Getting endpoint URL")
+    endpoint_url = manager.get_service_endpoint_url(service_fqn)
+
+    if endpoint_url:
+        return MessageResult(f"App ready at https://{endpoint_url}")
+    else:
+        return MessageResult(
+            f"App deployed but endpoint URL not yet available. "
+            f'Check with: snow sql -q "SHOW ENDPOINTS IN SERVICE {service_fqn}"'
+        )
