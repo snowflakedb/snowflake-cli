@@ -42,6 +42,6 @@ ENV PATH="/usr/local/bin:$PATH"
 
 # Install build tools - these are not embedded in final binary so can use pre-built wheels
 # pinning click to 8.2.1 due to issues with 8.3.0 https://github.com/pypa/hatch/issues/2050
-RUN python -m pip install -U click==8.2.1 uv hatch==1.15.1
+RUN python -m pip install -U click==8.2.1 uv hatch==1.15.1 virtualenv==20.39.1
 
 WORKDIR /snowflake-cli

@@ -11,7 +11,7 @@ python3.11 -m venv venv
 python --version
 
 echo "--- installing dependencies ---"
-pip install click==8.2.1 hatch==1.15.1
+pip install click==8.2.1 hatch==1.15.1 virtualenv==20.39.1
 
 # install cargo
 if [[ ${MACHINE} == "arm64" ]]; then
