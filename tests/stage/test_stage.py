@@ -620,6 +620,111 @@ def test_copy_get_recursive_from_git_repo(
     ]
 
 
+@pytest.mark.parametrize(
+    "stage_path, files_on_stage, expected_stage_path, expected_calls",
+    [
+        (
+            "snow://project/DCM_DEMO.PROJECTS.DCM_PROJECT_DEV/deployments/DEPLOYMENT$3/",
+            [
+                "deployments/DEPLOYMENT$3/manifest.yml",
+                "deployments/DEPLOYMENT$3/scripts/setup.sql",
+            ],
+            "'snow://project/DCM_DEMO.PROJECTS.DCM_PROJECT_DEV/deployments/DEPLOYMENT$3/'",
+            [
+                "get 'snow://project/DCM_DEMO.PROJECTS.DCM_PROJECT_DEV/deployments/DEPLOYMENT$3/manifest.yml' file://{}/ parallel=4",
+                "get 'snow://project/DCM_DEMO.PROJECTS.DCM_PROJECT_DEV/deployments/DEPLOYMENT$3/scripts/setup.sql' file://{}/scripts/ parallel=4",
+            ],
+        ),
+        (
+            "snow://project/MY_DB.MY_SCHEMA.MY_PROJECT/deployments/deploy_v1/",
+            [
+                "deployments/deploy_v1/app.py",
+                "deployments/deploy_v1/lib/utils.py",
+            ],
+            "'snow://project/MY_DB.MY_SCHEMA.MY_PROJECT/deployments/deploy_v1/'",
+            [
+                "get 'snow://project/MY_DB.MY_SCHEMA.MY_PROJECT/deployments/deploy_v1/app.py' file://{}/ parallel=4",
+                "get 'snow://project/MY_DB.MY_SCHEMA.MY_PROJECT/deployments/deploy_v1/lib/utils.py' file://{}/lib/ parallel=4",
+            ],
+        ),
+        (
+            "snow://streamlit/DB.SCHEMA.MY_APP/",
+            [
+                "streamlit_app.py",
+                "pages/page1.py",
+            ],
+            "'snow://streamlit/DB.SCHEMA.MY_APP/'",
+            [
+                "get 'snow://streamlit/DB.SCHEMA.MY_APP/streamlit_app.py' file://{}/ parallel=4",
+                "get 'snow://streamlit/DB.SCHEMA.MY_APP/pages/page1.py' file://{}/pages/ parallel=4",
+            ],
+        ),
+    ],
+)
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_copy_get_recursive_from_vstage(
+    mock_execute,
+    mock_cursor,
+    temporary_directory,
+    stage_path,
+    files_on_stage,
+    expected_stage_path,
+    expected_calls,
+):
+    mock_execute.return_value = mock_cursor(
+        [{"name": file} for file in files_on_stage], []
+    )
+
+    StageManager().get_recursive(stage_path, Path(temporary_directory))
+
+    ls_call, *copy_calls = mock_execute.mock_calls
+    assert ls_call == mock.call(f"ls {expected_stage_path}", cursor_class=DictCursor)
+    assert copy_calls == [
+        mock.call(c.format(temporary_directory)) for c in expected_calls
+    ]
+
+
+@pytest.mark.parametrize(
+    "stage_path, files_on_stage, expected_stage_path, expected_calls",
+    [
+        # Snowflake returns lowercase identifiers in ls output (DEPLOYMENT$1 -> deployment$1)
+        (
+            "snow://project/TEMP.DEV_PLATFORM_MAA.DEVPLATFORM_MAA_PROJECT/deployments/DEPLOYMENT$1/",
+            [
+                "deployments/deployment$1/deploy_metadata.json",
+                "deployments/deployment$1/scripts/setup.sql",
+            ],
+            "'snow://project/TEMP.DEV_PLATFORM_MAA.DEVPLATFORM_MAA_PROJECT/deployments/DEPLOYMENT$1/'",
+            [
+                "get 'snow://project/TEMP.DEV_PLATFORM_MAA.DEVPLATFORM_MAA_PROJECT/deployments/deployment$1/deploy_metadata.json' file://{}/ parallel=4",
+                "get 'snow://project/TEMP.DEV_PLATFORM_MAA.DEVPLATFORM_MAA_PROJECT/deployments/deployment$1/scripts/setup.sql' file://{}/scripts/ parallel=4",
+            ],
+        ),
+    ],
+)
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_copy_get_recursive_from_vstage_case_mismatch(
+    mock_execute,
+    mock_cursor,
+    temporary_directory,
+    stage_path,
+    files_on_stage,
+    expected_stage_path,
+    expected_calls,
+):
+    mock_execute.return_value = mock_cursor(
+        [{"name": file} for file in files_on_stage], []
+    )
+
+    StageManager().get_recursive(stage_path, Path(temporary_directory))
+
+    ls_call, *copy_calls = mock_execute.mock_calls
+    assert ls_call == mock.call(f"ls {expected_stage_path}", cursor_class=DictCursor)
+    assert copy_calls == [
+        mock.call(c.format(temporary_directory)) for c in expected_calls
+    ]
+
+
 @mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_stage_create(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])

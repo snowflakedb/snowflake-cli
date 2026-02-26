@@ -567,6 +567,8 @@ class StageManager(SqlExecutionMixin):
                 path = StagePath.get_user_stage() / file["name"]
             elif stage_path.is_git_repo():
                 path = self.build_path(file["name"])
+            elif stage_path.absolute_path().startswith(SNOW_PREFIX):
+                path = stage_path.root_path() / file["name"]
             else:
                 # Snowflake `ls` returns unqualified names; re-attach the original FQN.
                 file_name = file["name"]
