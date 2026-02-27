@@ -410,7 +410,7 @@ def drop(
         ObjectManager().drop(object_type="dcm", fqn=project_id, if_exists=if_exists)
     )
     log.info(
-        "DCM project %s dropped.",
+        "DCM project %s is deleted (if_exists).",
         project_id,
     )
     return result
