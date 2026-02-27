@@ -12,17 +12,56 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+import logging
 import os
 from functools import wraps
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict
 
-from snowflake.cli._plugins.dcm.reporters import (
-    PlanReporter,
-    RefreshReporter,
-    TestReporter,
-)
+from snowflake.cli._plugins.dcm.manager import OUTPUT_FOLDER
+from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.output.types import EmptyResult
+from snowflake.cli.api.secure_path import SecurePath
+
+log = logging.getLogger(__name__)
+
+
+def clear_command_artifacts(command_name: str) -> None:
+    """Clear previous artifacts for the given command from the out/ directory."""
+    output_dir = SecurePath(OUTPUT_FOLDER)
+    if not output_dir.exists():
+        return
+
+    json_file = output_dir / f"{command_name}.json"
+    if json_file.exists():
+        json_file.unlink()
+
+    artifacts_dir = output_dir / command_name
+    if artifacts_dir.exists():
+        artifacts_dir.rmdir(recursive=True)
+
+    log.info("Cleared previous artifacts for command '%s'.", command_name)
+
+
+def save_command_response(command_name: str, raw_data: Dict[str, Any] | str) -> None:
+    """Save raw JSON response to out/<command>.json."""
+    output_dir = SecurePath(OUTPUT_FOLDER)
+    output_dir.mkdir(exist_ok=True)
+    json_file = output_dir / f"{command_name}.json"
+    try:
+        if isinstance(raw_data, str):
+            json_file.write_text(raw_data)
+        else:
+            json_file.write_text(json.dumps(raw_data))
+    except Exception as e:
+        log.error("Failed to save command response: %s", e)
+        return
+    log.info(
+        "Saved raw JSON response for command '%s' in %s.",
+        command_name,
+        json_file.resolve(),
+    )
+    cli_console.step(f"Artifacts saved to: {output_dir.resolve()}")
 
 
 class FakeCursor:
@@ -82,6 +121,13 @@ def mock_dcm_response(command_name: str):
 
             if data is None:
                 return func(*args, **kwargs)
+
+            # Lazy imports to avoid circular dependency with reporters.
+            from snowflake.cli._plugins.dcm.reporters import (
+                PlanReporter,
+                RefreshReporter,
+                TestReporter,
+            )
 
             cursor = FakeCursor(data)
             reporter_mapping = {

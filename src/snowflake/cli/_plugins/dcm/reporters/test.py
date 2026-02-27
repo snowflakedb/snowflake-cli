@@ -87,8 +87,8 @@ class TestReporter(Reporter[TestRow]):
         def total(self):
             return self.passed + self.failed + self.unknown
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, save_output: bool = False):
+        super().__init__(save_output=save_output)
         self.command_name = "test"
         self._summary = self.Summary()
 

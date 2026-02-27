@@ -39,13 +39,16 @@ log = logging.getLogger(__name__)
 
 class DCMProjectManager(SqlExecutionMixin):
     @contextmanager
-    def _collect_output(self, project_identifier: FQN) -> Generator[str, None, None]:
+    def _collect_output(
+        self, project_identifier: FQN, command_name: str = "plan"
+    ) -> Generator[str, None, None]:
         """
-        Context manager for handling plan output - creates temporary stage,
-        downloads files to out/ folder after execution.
+        Context manager for handling command output artifacts - creates temporary stage,
+        downloads files to out/<command_name>/ folder after execution.
 
         Args:
             project_identifier: The DCM project identifier
+            command_name: Name of the command, used for the output subdirectory
 
         Yields:
             str: The effective output path to use in the DCM command
@@ -55,7 +58,8 @@ class DCMProjectManager(SqlExecutionMixin):
             ObjectType.DCM_PROJECT, project_identifier, "OUTPUT_TMP_STAGE"
         )
         log.info(
-            "Creating temporary output stage for DCM plan output (project_identifier=%s, stage=%s).",
+            "Creating temporary output stage for DCM %s artifacts (project_identifier=%s, stage=%s).",
+            command_name,
             project_identifier,
             temp_stage_fqn.identifier,
         )
@@ -63,22 +67,23 @@ class DCMProjectManager(SqlExecutionMixin):
         effective_output_path = StagePath.from_stage_str(
             temp_stage_fqn.identifier
         ).joinpath("/outputs")
-        local_output_path = SecurePath(OUTPUT_FOLDER)
+        local_output_path = SecurePath(OUTPUT_FOLDER) / command_name
 
         try:
             yield effective_output_path.absolute_path()
         finally:
             log.info(
-                "Downloading DCM plan output from stage to local path (project_identifier=%s, stage_path=%s, local_path=%s).",
+                "Downloading DCM %s artifacts from stage to local path (project_identifier=%s, stage_path=%s, local_path=%s).",
+                command_name,
                 project_identifier,
                 effective_output_path.absolute_path(),
                 local_output_path.resolve(),
             )
+            local_output_path.mkdir(parents=True, exist_ok=True)
             stage_manager.get_recursive(
                 stage_path=effective_output_path.absolute_path(),
                 dest_path=local_output_path.path,
             )
-            cli_console.step(f"Plan output saved to: {local_output_path.resolve()}")
 
     def deploy(
         self,
