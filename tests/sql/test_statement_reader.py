@@ -425,3 +425,29 @@ def test_parse_unknown_command():
     assert parsed_statement.statement.read() == query
     assert parsed_statement.source_path is None
     assert parsed_statement.error == "Unknown command: unknown_cmd"
+
+
+def test_files_reader_utf8_content(tmp_path_factory):
+    """SQL files with non-ASCII UTF-8 content should be readable."""
+    f1 = tmp_path_factory.mktemp("enc") / "japanese.sql"
+    f1.write_text(
+        "-- テスト用SQLファイル\nSELECT 1;\n-- データベース確認\nSELECT 2;\n",
+        encoding="utf-8",
+    )
+    source = files_reader((SecurePath(f1),), WORKING_OPERATOR_FUNCS)
+    errors, cnt, compiled = compile_statements(source)
+    assert not errors
+    assert cnt == 2
+    assert compiled == [
+        CompiledStatement(statement="-- テスト用SQLファイル\nSELECT 1;"),
+        CompiledStatement(statement="-- データベース確認\nSELECT 2;"),
+    ]
+
+
+def test_from_file_utf8_content(tmp_path_factory):
+    """ParsedStatement.from_file with non-ASCII UTF-8 file should work."""
+    f1 = tmp_path_factory.mktemp("enc") / "japanese.sql"
+    f1.write_text("-- 日本語コメント\nSELECT 1;\n", encoding="utf-8")
+    result = ParsedStatement.from_file(str(f1), f"!source {f1};")
+    assert result.error is None
+    assert result.statement_type == StatementType.FILE

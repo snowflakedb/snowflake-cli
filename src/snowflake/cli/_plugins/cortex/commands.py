@@ -41,6 +41,7 @@ from snowflake.cli.api.commands.overrideable_parameter import (
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, PYTHON_3_12
+from snowflake.cli.api.encoding import get_file_io_encoding
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -168,7 +169,10 @@ def complete(
     if text:
         prompt = text
     elif file:
-        prompt = SecurePath(file).read_text(file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB)
+        prompt = SecurePath(file).read_text(
+            file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB,
+            encoding=get_file_io_encoding(),
+        )
         is_file_input = True
     else:
         raise UsageError("Either --file option or TEXT argument has to be provided.")

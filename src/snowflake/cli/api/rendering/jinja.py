@@ -21,6 +21,7 @@ from typing import Any, Dict, Optional
 
 import jinja2
 from jinja2 import Environment, StrictUndefined, loaders
+from snowflake.cli.api.encoding import get_file_io_encoding
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 
 CONTEXT_KEY = "ctx"
@@ -28,7 +29,9 @@ FUNCTION_KEY = "fn"
 
 
 def read_file_content(file_name: str):
-    return SecurePath(file_name).read_text(file_size_limit_mb=UNLIMITED)
+    return SecurePath(file_name).read_text(
+        file_size_limit_mb=UNLIMITED, encoding=get_file_io_encoding()
+    )
 
 
 @jinja2.pass_environment  # type: ignore
@@ -47,7 +50,9 @@ def procedure_from_js_file(env: jinja2.Environment, file_name: str):
         )
     )
     return template.render(
-        code=SecurePath(file_name).read_text(file_size_limit_mb=UNLIMITED)
+        code=SecurePath(file_name).read_text(
+            file_size_limit_mb=UNLIMITED, encoding=get_file_io_encoding()
+        )
     )
 
 
