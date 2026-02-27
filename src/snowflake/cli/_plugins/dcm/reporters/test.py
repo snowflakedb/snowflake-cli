@@ -50,7 +50,7 @@ class TestRow:
             return sanitize_for_terminal(str(data.get(key, "UNKNOWN")))
 
         if not isinstance(data, dict):
-            log.debug("Unexpected test entry type: %s", type(data))
+            log.info("Unexpected test entry type: %s", type(data))
             return None
 
         row = cls(
@@ -94,7 +94,7 @@ class TestReporter(Reporter[TestRow]):
 
     def extract_data(self, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
         if not isinstance(result_json, dict):
-            log.debug("Unexpected response type: %s, expected dict", type(result_json))
+            log.info("Unexpected response type: %s, expected dict", type(result_json))
             raise CliError("Could not process response.")
 
         expectations = result_json.get(self._DATA_KEY, list())

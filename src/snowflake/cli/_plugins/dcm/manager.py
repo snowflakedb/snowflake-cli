@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import logging
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Generator, List
@@ -33,6 +34,7 @@ from snowflake.cli.api.stage_path import StagePath
 
 SOURCES_FOLDER = "sources"
 OUTPUT_FOLDER = "out"
+log = logging.getLogger(__name__)
 
 
 class DCMProjectManager(SqlExecutionMixin):
@@ -52,6 +54,11 @@ class DCMProjectManager(SqlExecutionMixin):
         temp_stage_fqn = FQN.from_resource(
             ObjectType.DCM_PROJECT, project_identifier, "OUTPUT_TMP_STAGE"
         )
+        log.info(
+            "Creating temporary output stage for DCM plan output (project_identifier=%s, stage=%s).",
+            project_identifier,
+            temp_stage_fqn.identifier,
+        )
         stage_manager.create(temp_stage_fqn, temporary=True)
         effective_output_path = StagePath.from_stage_str(
             temp_stage_fqn.identifier
@@ -61,6 +68,12 @@ class DCMProjectManager(SqlExecutionMixin):
         try:
             yield effective_output_path.absolute_path()
         finally:
+            log.info(
+                "Downloading DCM plan output from stage to local path (project_identifier=%s, stage_path=%s, local_path=%s).",
+                project_identifier,
+                effective_output_path.absolute_path(),
+                local_output_path.resolve(),
+            )
             stage_manager.get_recursive(
                 stage_path=effective_output_path.absolute_path(),
                 dest_path=local_output_path.path,
@@ -76,6 +89,13 @@ class DCMProjectManager(SqlExecutionMixin):
         alias: str | None = None,
         skip_plan: bool = False,
     ):
+        log.info(
+            "Running DCM deploy manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d, skip_plan=%s).",
+            project_identifier,
+            bool(configuration),
+            len(variables or []),
+            skip_plan,
+        )
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} DEPLOY"
         if alias:
             query += f' AS "{alias}"'
@@ -92,6 +112,12 @@ class DCMProjectManager(SqlExecutionMixin):
         configuration: str | None = None,
         variables: List[str] | None = None,
     ):
+        log.info(
+            "Running DCM raw-analyze manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d).",
+            project_identifier,
+            bool(configuration),
+            len(variables or []),
+        )
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} ANALYZE"
         query += self._get_configuration_and_variables_query(configuration, variables)
         query += self._get_from_stage_query(from_stage)
@@ -105,6 +131,13 @@ class DCMProjectManager(SqlExecutionMixin):
         variables: List[str] | None = None,
         save_output: bool = False,
     ):
+        log.info(
+            "Running DCM plan manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d, save_output=%s).",
+            project_identifier,
+            bool(configuration),
+            len(variables or []),
+            save_output,
+        )
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} PLAN"
         query += self._get_configuration_and_variables_query(configuration, variables)
         query += self._get_from_stage_query(from_stage)
@@ -118,10 +151,18 @@ class DCMProjectManager(SqlExecutionMixin):
         return result
 
     def create(self, project_identifier: FQN) -> None:
+        log.info(
+            "Running DCM create manager operation (project_identifier=%s).",
+            project_identifier,
+        )
         query = f"CREATE DCM PROJECT {project_identifier.sql_identifier}"
         self.execute_query(query)
 
     def list_deployments(self, project_identifier: FQN):
+        log.info(
+            "Running DCM list-deployments manager operation (project_identifier=%s).",
+            project_identifier,
+        )
         query = f"SHOW DEPLOYMENTS IN DCM PROJECT {project_identifier.identifier}"
         return self.execute_query(query=query)
 
@@ -134,6 +175,11 @@ class DCMProjectManager(SqlExecutionMixin):
         """
         Drops a deployment from the DCM Project.
         """
+        log.info(
+            "Running DCM drop-deployment manager operation (project_identifier=%s, if_exists=%s).",
+            project_identifier,
+            if_exists,
+        )
         query = f"ALTER DCM PROJECT {project_identifier.identifier} DROP DEPLOYMENT"
         if if_exists:
             query += " IF EXISTS"
@@ -149,6 +195,12 @@ class DCMProjectManager(SqlExecutionMixin):
         variables: List[str] | None = None,
         limit: int | None = None,
     ):
+        log.info(
+            "Running DCM preview manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d).",
+            project_identifier,
+            bool(configuration),
+            len(variables or []),
+        )
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} PREVIEW {object_identifier.sql_identifier}"
         query += self._get_configuration_and_variables_query(configuration, variables)
         query += self._get_from_stage_query(from_stage)
@@ -157,10 +209,18 @@ class DCMProjectManager(SqlExecutionMixin):
         return self.execute_query(query=query)
 
     def refresh(self, project_identifier: FQN):
+        log.info(
+            "Running DCM refresh manager operation (project_identifier=%s).",
+            project_identifier,
+        )
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} REFRESH ALL"
         return self.execute_query(query=query)
 
     def test(self, project_identifier: FQN):
+        log.info(
+            "Running DCM test manager operation (project_identifier=%s).",
+            project_identifier,
+        )
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} TEST ALL"
         return self.execute_query(query=query)
 
@@ -193,8 +253,18 @@ class DCMProjectManager(SqlExecutionMixin):
             if source_directory
             else SecurePath.cwd()
         )
+        log.info(
+            "Syncing local DCM files to temporary stage (project_identifier=%s, source_directory=%s).",
+            project_identifier,
+            source_path,
+        )
 
         artifacts = DCMProjectManager._collect_artifacts(source_path.path)
+        log.info(
+            "Collected DCM artifacts for sync (project_identifier=%s, artifacts_count=%d).",
+            project_identifier,
+            len(artifacts),
+        )
 
         with cli_console.phase("Uploading definition files"):
             stage_fqn = FQN.from_resource(
@@ -208,6 +278,11 @@ class DCMProjectManager(SqlExecutionMixin):
                 pattern_type=PatternMatchingType.GLOB,
             )
 
+        log.info(
+            "Finished syncing DCM files (project_identifier=%s, stage=%s).",
+            project_identifier,
+            stage_fqn.identifier,
+        )
         return stage_fqn.identifier
 
     @staticmethod

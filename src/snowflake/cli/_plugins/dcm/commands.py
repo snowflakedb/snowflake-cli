@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+import logging
 from typing import List, Optional
 
 import typer
@@ -57,6 +58,8 @@ from snowflake.cli.api.output.types import (
 )
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector.cursor import SnowflakeCursor
+
+log = logging.getLogger(__name__)
 
 app = SnowTyperFactory(
     name="dcm",
@@ -140,14 +143,26 @@ def _resolve_target_context(
     Raises:
         CliError: When manifest is invalid or misconfigured
     """
+    log.info(
+        "Resolving DCM target context (has_identifier=%s, target=%s, source_path=%s).",
+        bool(identifier),
+        target,
+        source_path,
+    )
     try:
         manifest = DCMManifest.load(source_path)
         effective_target = manifest.get_effective_target(target)
     except (InvalidManifestError, ManifestConfigurationError) as e:
+        log.info("Failed to resolve DCM manifest context: %s.", e)
         raise CliError(str(e))
 
     project_id = (
         identifier if identifier else FQN.from_string(effective_target.project_name)
+    )
+    log.info(
+        "Resolved DCM target context (project_identifier=%s, has_configuration=%s).",
+        project_id,
+        bool(effective_target.templating_config),
     )
     return TargetContext(
         project_identifier=project_id, configuration=effective_target.templating_config
@@ -207,11 +222,15 @@ def _process_plan_result(
     # Uses process_payload (not process) because we need to branch on
     # old vs. new format and return CollectionResult for old format.
     if isinstance(data, dict) and data.get("version", 0) == 2:
+        log.info(
+            "Detected DCM plan result version 2 format.",
+        )
         reporter = PlanReporter(command_name=command_name)
         reporter.process_payload(data)
         return EmptyResult()
 
     # Old format
+    log.info("Detected legacy DCM plan result format.")
     return CollectionResult(data)
 
 
@@ -358,6 +377,10 @@ def create(
     om = ObjectManager()
     if om.object_exists(object_type="dcm", fqn=project_id):
         message = f"DCM Project '{project_id}' already exists."
+        log.info(
+            "DCM project already exists during create (project_identifier=%s).",
+            project_id,
+        )
         if if_not_exists:
             return MessageResult(message)
         raise CliError(message)
@@ -383,9 +406,14 @@ def drop(
     context = _resolve_context_with_optional_manifest(from_location, identifier, target)
     project_id = context.project_identifier
 
-    return QueryResult(
+    result = QueryResult(
         ObjectManager().drop(object_type="dcm", fqn=project_id, if_exists=if_exists)
     )
+    log.info(
+        "DCM project %s is deleted (if_exists).",
+        project_id,
+    )
+    return result
 
 
 @app.command(requires_connection=True)
@@ -456,6 +484,11 @@ def drop_deployment(
         project_identifier=project_id,
         deployment_name=deployment,
         if_exists=if_exists,
+    )
+    log.info(
+        "Dropped %s deployment from project %s.",
+        deployment,
+        project_id,
     )
     return MessageResult(
         f"Deployment '{deployment}' dropped from DCM Project '{project_id}'."

@@ -91,10 +91,10 @@ class Reporter(ABC, Generic[T]):
             )
             self.result_raw_data = result_data
         except IndexError:
-            log.debug("Unexpected response format: %s", row)
+            log.info("Unexpected response format: %s", row)
             raise CliError("Could not process response.")
         except json.JSONDecodeError as e:
-            log.debug("Could not decode response: %s", e)
+            log.info("Could not decode response: %s", e)
             raise CliError("Could not process response.")
 
         self.process_payload(result_json)

@@ -84,7 +84,7 @@ class PlanRow:
         except (ValidationError, FQNNameError) as e:
             # Forward-compatible fallback: if a future version changes the
             # changeset entry shape, the CLI degrades gracefully instead of crashing.
-            log.debug(
+            log.info(
                 "Failed strict validation for changeset entry, using fallback parser: %s",
                 e,
             )
@@ -101,7 +101,7 @@ class PlanRow:
                 if "fqn" in object_id:
                     fqn = FQN.from_string(sanitize_for_terminal(str(object_id["fqn"])))
             except Exception as e:  # noqa: BLE001
-                log.debug(
+                log.info(
                     "Failed to read FQN from provided string: %s",
                     e,
                 )
@@ -160,17 +160,17 @@ class PlanReporter(Reporter[PlanRow]):
 
     def extract_data(self, result_json: Dict[str, Any]) -> List[PlanEntityChange]:
         if not isinstance(result_json, dict):
-            log.debug("Unexpected response type: %s, expected dict", type(result_json))
+            log.info("Unexpected response type: %s, expected dict", type(result_json))
             raise CliError("Could not process response.")
         try:
             response = PlanResponse.model_validate(result_json)
         except ValidationError as e:
-            log.debug("Failed to validate plan response: %s", e)
+            log.info("Failed to validate plan response: %s", e)
             raise CliError("Could not process response.")
         if response.version < 2:
             raise CliError("Only version 2+ plan responses are supported.")
         if response.version > 2:
-            log.debug(
+            log.info(
                 "Plan response version %s is newer than supported (v2); rendering with best effort.",
                 response.version,
             )
@@ -187,7 +187,7 @@ class PlanReporter(Reporter[PlanRow]):
             elif parsed.operation == "DROP":
                 self._summary.dropped += 1
             else:
-                log.debug("Unknown operation type: %s", parsed.operation)
+                log.info("Unknown operation type: %s", parsed.operation)
             rows.append(parsed)
         rows.sort(key=lambda row: row.sort_key)
         return iter(rows)

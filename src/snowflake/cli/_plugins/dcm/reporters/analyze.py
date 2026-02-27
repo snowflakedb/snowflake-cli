@@ -32,7 +32,7 @@ class AnalyzeReporter(Reporter[Dict[str, Any]]):
     def extract_data(self, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
         files = result_json.get(self._FILES_KEY, [])
         if not isinstance(files, list):
-            log.debug(
+            log.info(
                 'Unexpected response format. Expected "files" to be a list: %s', files
             )
             raise CliError("Could not process response.")
