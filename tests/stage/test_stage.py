@@ -17,6 +17,7 @@ from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
+from snowflake.cli._plugins.git.manager import GitManager
 from snowflake.cli._plugins.stage.manager import StageManager, TemporaryDirectory
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
 from snowflake.cli.api.stage_path import StagePath
@@ -30,6 +31,7 @@ if IS_WINDOWS:
 
 
 STAGE_MANAGER = "snowflake.cli._plugins.stage.manager.StageManager"
+GIT_MANAGER = "snowflake.cli._plugins.git.manager.GitManager"
 
 
 @pytest.mark.parametrize(
@@ -560,9 +562,6 @@ def test_copy_get_recursive_from_user_stage(
     ]
 
 
-GIT_MANAGER = "snowflake.cli._plugins.git.manager.GitManager"
-
-
 @pytest.mark.parametrize(
     "stage_path, files_on_stage, expected_stage_path, expected_calls",
     [
@@ -607,8 +606,6 @@ def test_copy_get_recursive_from_git_repo(
     expected_stage_path,
     expected_calls,
 ):
-    from snowflake.cli._plugins.git.manager import GitManager
-
     mock_execute.return_value = mock_cursor(
         [{"name": file} for file in files_on_stage], []
     )
