@@ -45,7 +45,7 @@ IS_PERSONAL_DB_SUPPORTED = False  # Will be enabled in the future
 
 # Default resource names for Snow Apps
 SYSTEM_COMPUTE_POOL = "SYSTEM_COMPUTE_POOL_CPU"
-SNOW_APPS_COMPUTE_POOL = "SNOW_APPS_COMPUTE_POOL"
+SNOW_APPS_COMPUTE_POOL = "SNOW_APPS_DEFAULT_COMPUTE_POOL"
 DEFAULT_EXTERNAL_ACCESS = "SNOW_APPS_DEFAULT_EXTERNAL_ACCESS"
 DEFAULT_ARTIFACT_REPOSITORY = "SNOW_APPS_DEFAULT_ARTIFACT_REPOSITORY"
 # TODO: Replace with artifact_repository from entity config once supported
@@ -84,7 +84,8 @@ def _get_compute_pool() -> Optional[str]:
 
     Returns None if neither exists.
     """
-    if _object_exists("compute-pool", SYSTEM_COMPUTE_POOL):
+    # TODO: Enable when SYSTEM_COMPUTE_POOL is supported for SPCS
+    if False and _object_exists("compute-pool", SYSTEM_COMPUTE_POOL):
         return SYSTEM_COMPUTE_POOL
     if _object_exists("compute-pool", SNOW_APPS_COMPUTE_POOL):
         return SNOW_APPS_COMPUTE_POOL
@@ -198,7 +199,29 @@ class SnowAppManager(SqlExecutionMixin):
 
     def get_image_repo_url(self, repo_name: str) -> str:
         """Get the image repository URL and convert to local registry."""
-        row = self.show_specific_object("image repositories", repo_name)
+        from snowflake.cli.api.project.util import (
+            identifier_to_show_like_pattern,
+            unquote_identifier,
+        )
+        from snowflake.connector.cursor import DictCursor
+
+        show_obj_query = (
+            f"show image repositories like {identifier_to_show_like_pattern(repo_name)}"
+        )
+        cursor = self.execute_query(show_obj_query, cursor_class=DictCursor)
+
+        if cursor.rowcount is None or cursor.rowcount == 0:
+            raise CliError(f"Image repository '{repo_name}' not found")
+
+        unqualified_name = unquote_identifier(repo_name)
+        rows = cursor.fetchall()
+        row = next(
+            (r for r in rows if r["name"].upper() == unqualified_name.upper()),
+            None,
+        )
+        if not row:
+            # Fall back to the first row if name matching fails
+            row = rows[0] if rows else None
         if not row:
             raise CliError(f"Image repository '{repo_name}' not found")
 
@@ -209,6 +232,7 @@ class SnowAppManager(SqlExecutionMixin):
         local_url = repo_url.replace(".registry-dev.", ".registry-local.")
         local_url = local_url.replace(".registry.", ".registry-local.")
         local_url = local_url.replace(".awsuswest2qa6.", ".")
+        local_url = local_url.replace(".awsuswest2qa3.", ".")
 
         return local_url
 
@@ -414,8 +438,10 @@ def _generate_snowflake_yml(
             service_compute_pool:
               name: {compute_pool}"""
     else:
-        compute_pool_yaml = """build_compute_pool: null
-            service_compute_pool: null"""
+        compute_pool_yaml = f"""build_compute_pool:
+              name: null
+            service_compute_pool:
+              name: null"""
 
     # Build EAI: check for existing integrations
     build_eai = _get_external_access(app_id)
@@ -698,8 +724,15 @@ def deploy(
     # Build names
     service_name_short = f"{resolved_entity_id.upper()}_SERVICE"
     service_fqn = f"{database}.{schema}.{service_name_short}"
-    # TODO
-    image_url = f"/{database}/PUBLIC/{DEFAULT_IMAGE_REPOSITORY}/{resolved_entity_id.lower()}:latest"
+
+    manager = SnowAppManager()
+
+    # Fetch the image repository URL and construct the image path
+    image_repo_url = manager.get_image_repo_url(DEFAULT_IMAGE_REPOSITORY)
+    # image_repo_url is a full registry URL like "host/db/schema/repo_name"
+    # Extract the path portion (everything after the host) for the service spec
+    repo_path = "/" + "/".join(image_repo_url.split("/")[1:])
+    image_url = f"{repo_path}/{resolved_entity_id.lower()}:latest"
 
     # Build app comment with metadata
     comment_data = {"appId": resolved_entity_id.upper()}
@@ -708,8 +741,6 @@ def deploy(
     if app_description:
         comment_data["appDescription"] = app_description
     app_comment = json.dumps(comment_data)
-
-    manager = SnowAppManager()
 
     # Step 1: Create service if it doesn't exist
     cli_console.step(f"Creating service {service_fqn} if it doesn't exist")
