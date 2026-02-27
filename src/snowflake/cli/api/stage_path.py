@@ -287,7 +287,25 @@ class StagePath:
         return to_string_literal(self.absolute_path())
 
     def relative_to(self, stage_path: StagePath) -> PurePosixPath:
-        return self.path.relative_to(stage_path.path)
+        # Snowflake normalizes unquoted identifiers to lowercase in ls output,
+        # but the user-specified path may use uppercase (e.g. DEPLOYMENT$1 vs
+        # deployment$1). PurePosixPath.relative_to() is case-sensitive, so we
+        # do a case-insensitive prefix check and return the actual-cased tail.
+        self_parts = self.path.parts
+        other_parts = stage_path.path.parts
+        if len(self_parts) < len(other_parts):
+            raise ValueError(
+                f"{self.path!r} is not in the subpath of {stage_path.path!r}"
+            )
+        for s, o in zip(self_parts[: len(other_parts)], other_parts):
+            if s.lower() != o.lower():
+                raise ValueError(
+                    f"{self.path!r} is not in the subpath of {stage_path.path!r}"
+                )
+        remainder = self_parts[len(other_parts) :]
+        if remainder:
+            return PurePosixPath(*remainder)
+        return PurePosixPath(".")
 
     def get_local_target_path(self, target_dir: Path, stage_root: StagePath):
         # Case for downloading @stage/aa/file.py with root @stage/aa

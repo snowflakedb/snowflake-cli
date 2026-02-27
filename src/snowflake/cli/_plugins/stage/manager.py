@@ -563,6 +563,8 @@ class StageManager(SqlExecutionMixin):
         for file in self.list_files(stage_path.absolute_path()).fetchall():
             if stage_path.is_user_stage():
                 path = StagePath.get_user_stage() / file["name"]
+            elif stage_path.absolute_path().startswith(SNOW_PREFIX):
+                path = stage_path.root_path() / file["name"]
             else:
                 path = self.build_path(file["name"])
             yield path
