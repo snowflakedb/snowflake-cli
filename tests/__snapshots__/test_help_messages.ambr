@@ -9160,9 +9160,6 @@
   | list-deployments   Lists deployments of given DCM Project.                   |
   | plan               Plans a DCM Project deployment (validates without         |
   |                    executing).                                               |
-  | preview            Returns rows from any table, view, dynamic table.         |
-  | refresh            Refreshes dynamic tables defined in DCM project.          |
-  | test               Tests all expectations defined in DCM project.            |
   +------------------------------------------------------------------------------+
   
   
@@ -22907,9 +22904,6 @@
   | list-deployments   Lists deployments of given DCM Project.                   |
   | plan               Plans a DCM Project deployment (validates without         |
   |                    executing).                                               |
-  | preview            Returns rows from any table, view, dynamic table.         |
-  | refresh            Refreshes dynamic tables defined in DCM project.          |
-  | test               Tests all expectations defined in DCM project.            |
   +------------------------------------------------------------------------------+
   
   

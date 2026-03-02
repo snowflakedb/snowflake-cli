@@ -495,7 +495,7 @@ def drop_deployment(
     )
 
 
-@app.command(requires_connection=True)
+@app.command(requires_connection=True, hidden=True)
 def preview(
     identifier: Optional[FQN] = optional_dcm_identifier,
     object_identifier: FQN = typer.Option(
@@ -545,7 +545,7 @@ def preview(
     return QueryResult(result)
 
 
-@app.command(requires_connection=True)
+@app.command(requires_connection=True, hidden=True)
 @mock_dcm_response("refresh")
 def refresh(
     identifier: Optional[FQN] = optional_dcm_identifier,
@@ -567,7 +567,7 @@ def refresh(
     return EmptyResult()
 
 
-@app.command(requires_connection=True)
+@app.command(requires_connection=True, hidden=True)
 @mock_dcm_response("test")
 def test(
     identifier: Optional[FQN] = optional_dcm_identifier,
