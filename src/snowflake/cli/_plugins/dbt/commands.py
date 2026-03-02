@@ -40,7 +40,6 @@ from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import CliError
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CommandResult,
@@ -151,7 +150,6 @@ def deploy_dbt(
         "--dbt-version",
         click_type=SemanticVersionType(),
         show_default=False,
-        hidden=not FeatureFlag.ENABLE_DBT_VERSION.is_enabled(),
         help="dbt version to use for the project, for example '1.9.4'.",
     ),
     **options,
@@ -163,8 +161,6 @@ def deploy_dbt(
         snow dbt deploy PROJECT
         snow dbt deploy PROJECT --source=/Users/jdoe/project --force
     """
-    if not FeatureFlag.ENABLE_DBT_VERSION.is_enabled():
-        dbt_version = None
     project_path = SecurePath(source) if source is not None else SecurePath.cwd()
     profiles_dir_path = SecurePath(profiles_dir) if profiles_dir else project_path
     attrs = DBTDeployAttributes(
@@ -206,7 +202,6 @@ def before_callback(
         "--dbt-version",
         click_type=SemanticVersionType(),
         show_default=False,
-        hidden=not FeatureFlag.ENABLE_DBT_VERSION.is_enabled(),
         help="dbt version to use for execution (ephemeral, does not change project configuration).",
     ),
     **options,
@@ -233,8 +228,6 @@ for cmd in DBT_COMMANDS:
         name = FQN.from_string(ctx.parent.params["name"])
         run_async = ctx.parent.params["run_async"]
         dbt_version = ctx.parent.params.get("dbt_version")
-        if not FeatureFlag.ENABLE_DBT_VERSION.is_enabled():
-            dbt_version = None
         execute_args = (dbt_command, name, run_async, dbt_version, *dbt_cli_args)
         dbt_manager = DBTManager()
 

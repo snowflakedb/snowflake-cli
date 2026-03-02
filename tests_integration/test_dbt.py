@@ -20,11 +20,8 @@ from unittest import mock
 import pytest
 import yaml
 
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
-
-from tests_common.feature_flag_utils import with_feature_flags
 
 
 def _setup_dbt_profile(root_dir: Path, snowflake_session):
@@ -653,8 +650,6 @@ def test_execute_with_variables(
         assert result.json[0]["USER_TMPL"] == "prod_user", result.json[0]
 
 
-@with_feature_flags({FeatureFlag.ENABLE_DBT_VERSION: True})
-@pytest.mark.qa_only
 @pytest.mark.integration
 def test_deploy_with_dbt_version(
     runner,
@@ -681,8 +676,6 @@ def test_deploy_with_dbt_version(
         _assert_dbt_version(name, runner, "1.10.15")
 
 
-@with_feature_flags({FeatureFlag.ENABLE_DBT_VERSION: True})
-@pytest.mark.qa_only
 @pytest.mark.integration
 def test_execute_with_dbt_version(
     runner,
