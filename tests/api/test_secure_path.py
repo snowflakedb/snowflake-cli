@@ -562,11 +562,6 @@ def test_file_size_limit_calculation(temporary_directory):
         SecurePath(a_file).read_text(file_size_limit_mb=1)
 
 
-# ============================================================================
-# Encoding parameter tests
-# ============================================================================
-
-
 def test_read_text_with_explicit_encoding(temporary_directory, save_logs):
     """Test read_text with explicit encoding parameter"""
     path = Path(temporary_directory) / "file.txt"
@@ -607,11 +602,12 @@ def test_read_text_with_configured_encoding(
     monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "utf-8")
 
     path = Path(temporary_directory) / "file.txt"
-    path.write_text("Hello", encoding="utf-8")
+    content = "Hello 世界"
+    path.write_text(content, encoding="utf-8")
 
     spath = SecurePath(path)
     result = spath.read_text(file_size_limit_mb=1)
-    assert result == "Hello"
+    assert result == content
 
     _assert_count_matching_logs(
         save_logs, 1, "Reading file", "file.txt", " with encoding utf-8"
@@ -709,6 +705,8 @@ def test_open_with_default_encoding(temporary_directory, save_logs, monkeypatch)
         " in mode 'w' with encoding platform default",
     )
 
+    assert path.read_text(encoding="utf-8") == "Hello"
+
 
 def test_open_with_configured_encoding(temporary_directory, save_logs, monkeypatch):
     """Test open uses configured encoding from environment"""
@@ -748,3 +746,77 @@ def test_encoding_explicit_overrides_configured(
 
     # Verify it was written with UTF-8, not cp1252
     assert path.read_text(encoding="utf-8") == content
+
+
+def test_read_text_explicit_encoding_overrides_config(
+    temporary_directory, save_logs, monkeypatch
+):
+    """Test read_text with explicit encoding overrides configuration"""
+    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "cp1252")
+
+    path = Path(temporary_directory) / "file.txt"
+    content = "Hello 世界"
+
+    # Write with UTF-8
+    path.write_text(content, encoding="utf-8")
+
+    spath = SecurePath(path)
+    # Explicit UTF-8 should override cp1252 configuration
+    result = spath.read_text(file_size_limit_mb=1, encoding="utf-8")
+
+    assert result == content
+    _assert_count_matching_logs(
+        save_logs, 1, "Reading file", "file.txt", " with encoding utf-8"
+    )
+
+
+def test_write_text_explicit_encoding_overrides_config(
+    temporary_directory, save_logs, monkeypatch
+):
+    """Test write_text with explicit encoding overrides configuration"""
+    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "cp1252")
+
+    path = Path(temporary_directory) / "file.txt"
+    content = "Hello 世界"
+
+    spath = SecurePath(path)
+    # Explicit UTF-8 should override cp1252 configuration
+    spath.write_text(content, encoding="utf-8")
+
+    _assert_count_matching_logs(
+        save_logs, 1, "Writing to file", "file.txt", " with encoding utf-8"
+    )
+
+    # Verify it was written with UTF-8, not cp1252
+    result = path.read_text(encoding="utf-8")
+    assert result == content
+
+
+def test_open_binary_write_ignores_config(temporary_directory, save_logs, monkeypatch):
+    """Test open in binary write mode ignores encoding configuration"""
+    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "utf-8")
+
+    path = Path(temporary_directory) / "binary.dat"
+    data = bytes([i for i in range(256)])
+
+    spath = SecurePath(path)
+    with spath.open("wb") as fd:
+        fd.write(data)
+
+    # Verify binary data was written correctly
+    assert path.read_bytes() == data
+
+
+def test_open_binary_read_ignores_config(temporary_directory, save_logs, monkeypatch):
+    """Test open in binary read mode ignores encoding configuration"""
+    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "utf-8")
+
+    path = Path(temporary_directory) / "binary.dat"
+    data = bytes([i for i in range(256)])
+    path.write_bytes(data)
+
+    spath = SecurePath(path)
+    with spath.open("rb", read_file_limit_mb=1) as fd:
+        result = fd.read()
+
+    assert result == data

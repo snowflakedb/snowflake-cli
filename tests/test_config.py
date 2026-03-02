@@ -14,6 +14,7 @@
 
 import os
 import sys
+import warnings
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from unittest import mock
@@ -629,11 +630,6 @@ def test_get_env_variable_name(path, key, expected):
     assert get_env_variable_name(*path, key=key) == expected
 
 
-# ============================================================================
-# Encoding configuration tests
-# ============================================================================
-
-
 @pytest.mark.parametrize("configured_encoding", [None, "utf-8", "cp1252"])
 def test_file_io_encoding_from_env(configured_encoding, monkeypatch):
     """Test file I/O encoding respects environment variable configuration"""
@@ -747,13 +743,25 @@ strict = {str(strict_mode).lower()}
 @pytest.mark.skipif(sys.platform == "win32", reason="Unix only")
 def test_unix_utf8_locale_no_warning(config_file, monkeypatch):
     """Test that Unix users with UTF-8 locale see no encoding warnings"""
+
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "utf-8")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
     monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-8")
 
     config_content = ""
     with config_file(config_content) as cfg:
-        config_init(cfg)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            config_init(cfg)
+
+            # Verify no warnings were issued
+            encoding_warnings = [
+                warning for warning in w if "encoding" in str(warning.message).lower()
+            ]
+            assert (
+                len(encoding_warnings) == 0
+            ), f"Unexpected encoding warnings: {[str(warning.message) for warning in encoding_warnings]}"
+
         from snowflake.cli.api.config import get_file_io_encoding
 
         # No configuration set - platform default will be used
@@ -775,6 +783,7 @@ def test_detect_encoding_mismatch_warning(config_file, monkeypatch):
 
 def test_detect_encoding_no_warning_when_configured(config_file, monkeypatch):
     """Test no warning when both encodings are explicitly configured"""
+
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
     monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-16")
@@ -785,12 +794,22 @@ file_io = "utf-8"
 subprocess = "utf-8"
 """
     with config_file(config_content) as cfg:
-        # Should not warn when both are configured
-        config_init(cfg)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            config_init(cfg)
+
+            # Verify no encoding warnings were issued
+            encoding_warnings = [
+                warning for warning in w if "encoding" in str(warning.message).lower()
+            ]
+            assert (
+                len(encoding_warnings) == 0
+            ), f"Unexpected encoding warnings: {[str(warning.message) for warning in encoding_warnings]}"
 
 
 def test_detect_encoding_no_warning_when_warnings_disabled(config_file, monkeypatch):
     """Test no warning when show_warnings is disabled"""
+
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
     monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-16")
@@ -800,8 +819,17 @@ def test_detect_encoding_no_warning_when_warnings_disabled(config_file, monkeypa
 show_warnings = false
 """
     with config_file(config_content) as cfg:
-        # Should not warn when warnings are disabled
-        config_init(cfg)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            config_init(cfg)
+
+            # Verify no encoding warnings were issued
+            encoding_warnings = [
+                warning for warning in w if "encoding" in str(warning.message).lower()
+            ]
+            assert (
+                len(encoding_warnings) == 0
+            ), f"Unexpected encoding warnings: {[str(warning.message) for warning in encoding_warnings]}"
 
 
 def test_detect_encoding_non_utf8_warning(config_file, monkeypatch):
