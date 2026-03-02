@@ -213,8 +213,8 @@ def detect_encoding_environment():
         f"   [cli.encoding]\n"
         f'   file_io = "utf-8"\n'
         f'   subprocess = "utf-8"\n'
-        f"3. Set environment variables: SNOWFLAKE_CLI_ENCODING_FILE_IO=utf-8 "
-        f"and SNOWFLAKE_CLI_ENCODING_SUBPROCESS=utf-8"
+        f"3. Set environment variables: SNOWFLAKE_CLI_ENCODING_FILE_IO='utf-8' "
+        f"and SNOWFLAKE_CLI_ENCODING_SUBPROCESS='utf-8'"
     )
 
     # if both encoding options are configured we assume the user knows what they are doing
