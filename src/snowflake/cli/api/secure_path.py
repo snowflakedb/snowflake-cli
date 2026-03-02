@@ -241,7 +241,7 @@ class SecurePath:
         else:
             self.touch()  # makes sure permissions of freshly-created file are strict
 
-        if encoding is None:
+        if "b" not in mode and encoding is None:
             from snowflake.cli.api.config import get_file_io_encoding
 
             encoding = get_file_io_encoding()
