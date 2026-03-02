@@ -16,8 +16,6 @@ from __future__ import annotations
 
 from typing import Dict, List, Union, get_args
 
-from snowflake.cli._plugins.apps.snow_app_entity import SnowAppEntity
-from snowflake.cli._plugins.apps.snow_app_entity_model import SnowAppEntityModel
 from snowflake.cli._plugins.nativeapp.entities.application import (
     ApplicationEntity,
     ApplicationEntityModel,
@@ -65,7 +63,6 @@ Entity = Union[
     ImageRepositoryEntity,
     ServiceEntity,
     NotebookEntity,
-    SnowAppEntity,
 ]
 EntityModel = Union[
     ApplicationEntityModel,
@@ -77,7 +74,6 @@ EntityModel = Union[
     ImageRepositoryEntityModel,
     ServiceEntityModel,
     NotebookEntityModel,
-    SnowAppEntityModel,
 ]
 
 ALL_ENTITIES: List[Entity] = [*get_args(Entity)]
