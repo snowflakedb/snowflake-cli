@@ -24,7 +24,7 @@ If you are interested in contributing, you will need to instantiate dev virtual 
 We use [hatch](https://hatch.pypa.io/latest/) to manage and created development environments.
 Default environment will use the python version in your shell.
 ```bash
-pip install -U hatch
+pip install -U hatch==1.15.1 virtualenv==20.39.1
 hatch run pre-commit
 ```
 This will spawn new shell with environment and all required packages installed.

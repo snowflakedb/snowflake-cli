@@ -56,6 +56,64 @@ def test_create(mock_execute_query):
 
 
 @mock.patch(execute_queries)
+def test_analyze_project_basic(mock_execute_query):
+    mgr = DCMProjectManager()
+    mgr.raw_analyze(
+        project_identifier=TEST_PROJECT,
+        from_stage="@test_stage",
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') ANALYZE FROM @test_stage"
+    )
+
+
+@mock.patch(execute_queries)
+def test_analyze_project_with_configuration(mock_execute_query):
+    mgr = DCMProjectManager()
+    mgr.raw_analyze(
+        project_identifier=TEST_PROJECT,
+        from_stage="@test_stage",
+        configuration="some_configuration",
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') ANALYZE USING CONFIGURATION some_configuration FROM @test_stage"
+    )
+
+
+@mock.patch(execute_queries)
+def test_analyze_project_with_variables(mock_execute_query):
+    mgr = DCMProjectManager()
+    mgr.raw_analyze(
+        project_identifier=TEST_PROJECT,
+        from_stage="@test_stage",
+        variables=["key=value", "aaa=bbb"],
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') ANALYZE USING"
+        " (key=>value, aaa=>bbb) FROM @test_stage"
+    )
+
+
+@mock.patch(execute_queries)
+def test_analyze_project_with_configuration_and_variables(mock_execute_query):
+    mgr = DCMProjectManager()
+    mgr.raw_analyze(
+        project_identifier=TEST_PROJECT,
+        from_stage="@test_stage",
+        configuration="some_configuration",
+        variables=["key=value", "aaa=bbb"],
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') ANALYZE USING CONFIGURATION some_configuration"
+        " (key=>value, aaa=>bbb) FROM @test_stage"
+    )
+
+
+@mock.patch(execute_queries)
 def test_deploy_project(mock_execute_query):
     mgr = DCMProjectManager()
     mgr.deploy(

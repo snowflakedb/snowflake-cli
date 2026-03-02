@@ -13,7 +13,9 @@
 # limitations under the License.
 import datetime
 import os
+from contextlib import contextmanager
 from pathlib import Path
+from unittest import mock
 
 import pytest
 import yaml
@@ -141,6 +143,21 @@ def _cleanup_external_access_integration(runner, integration_name: str):
     # Don't assert on exit code as cleanup should be non-blocking
 
 
+@contextmanager
+def no_db_schema_connection_context(runner):
+    runner.use_config("connection_configs_no_db_schema.toml")
+
+    env = dict(os.environ)
+    env.pop("SNOWFLAKE_CONNECTIONS_INTEGRATION_DATABASE", None)
+    env.pop("SNOWFLAKE_CONNECTIONS_INTEGRATION_SCHEMA", None)
+
+    try:
+        with mock.patch.dict(os.environ, env, clear=True):
+            yield
+    finally:
+        runner.use_config("connection_configs.toml")
+
+
 @pytest.mark.integration
 def test_deploy_and_execute(
     runner,
@@ -233,39 +250,45 @@ def test_deploy_and_execute_with_full_fqn(
     snapshot,
 ):
     with project_directory("dbt_project") as root_dir:
-        # Given a local dbt project
         ts = int(datetime.datetime.now().timestamp())
+        # Create alternative schema that differs from connection default
+        alt_schema = f"{snowflake_session.schema}_FQN_TEST_{ts}"
+        snowflake_session.execute_string(f"CREATE SCHEMA {alt_schema}")
+
+        # Given a local dbt project
         name = f"dbt_project_{ts}"
-        fqn = FQN.from_string(
-            f"{snowflake_session.database}.{snowflake_session.schema}.{name}"
-        )
+        fqn = FQN.from_string(f"{snowflake_session.database}.{alt_schema}.{name}")
 
         _setup_dbt_profile(root_dir, snowflake_session)
-        result = runner.invoke_with_connection_json(["dbt", "deploy", str(fqn)])
-        assert result.exit_code == 0, result.output
 
-        # call `run` on dbt object
-        result = runner.invoke_passthrough_with_connection(
-            args=[
-                "dbt",
-                "execute",
-            ],
-            passthrough_args=[str(fqn), "run"],
-        )
+        # All operations should succeed when no db and schema context in the connection,
+        # relying solely on the FQN for database/schema resolution
+        with no_db_schema_connection_context(runner):
+            result = runner.invoke_with_connection_json(["dbt", "deploy", str(fqn)])
+            assert result.exit_code == 0, result.output
 
-        # a successful execution should produce data in my_second_dbt_model and
-        assert result.exit_code == 0, result.output
-        assert "Done. PASS=2 WARN=0 ERROR=0 SKIP=0 TOTAL=2" in result.output
+            # call `run` on dbt object
+            result = runner.invoke_passthrough_with_connection(
+                args=[
+                    "dbt",
+                    "execute",
+                ],
+                passthrough_args=[str(fqn), "run"],
+            )
 
-        result = runner.invoke_with_connection_json(
-            [
-                "sql",
-                "-q",
-                f"select count(*) as COUNT from {fqn.database}.{fqn.schema}.my_second_dbt_model;",
-            ]
-        )
-        assert len(result.json) == 1, result.json
-        assert result.json[0]["COUNT"] == 1, result.json[0]
+            # a successful execution should produce data in my_second_dbt_model and
+            assert result.exit_code == 0, result.output
+            assert "Done. PASS=2 WARN=0 ERROR=0 SKIP=0 TOTAL=2" in result.output
+
+            result = runner.invoke_with_connection_json(
+                [
+                    "sql",
+                    "-q",
+                    f"select count(*) as COUNT from {fqn.database}.{alt_schema}.my_second_dbt_model;",
+                ]
+            )
+            assert len(result.json) == 1, result.json
+            assert result.json[0]["COUNT"] == 1, result.json[0]
 
 
 @pytest.mark.integration

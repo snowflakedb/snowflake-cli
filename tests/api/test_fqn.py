@@ -226,26 +226,75 @@ class TestFromResource:
             == "test_db.test_schema.DBT_PROJECT_MY_PIPELINE_1234567890_STAGE"
         )
 
-    def test_with_quoted_identifier(self, mock_ctx, mock_time):
-        resource_fqn = FQN(name='"caseSenSITIVEnAME"', database=None, schema=None)
-
-        result = FQN.from_resource(ObjectType.DCM_PROJECT, resource_fqn, "TEMP_STAGE")
-
-        assert (
-            result.identifier
-            == "test_db.test_schema.DCM_caseSenSITIVEnAME_1234567890_TEMP_STAGE"
-        )
-
-    def test_with_fqn_resource(self, mock_ctx, mock_time):
-        mock_ctx().connection = MagicMock(
-            database="context_db", schema="context_schema"
-        )
+    @pytest.mark.parametrize(
+        "context_db, context_schema, resource_db, resource_schema, expected_db, expected_schema",
+        [
+            # Resource FQN has db and schema — takes priority over connection
+            (
+                "context_db",
+                "context_schema",
+                "resource_db",
+                "resource_schema",
+                "resource_db",
+                "resource_schema",
+            ),
+            # Resource FQN has no db/schema — falls back to connection
+            (
+                "context_db",
+                "context_schema",
+                None,
+                None,
+                "context_db",
+                "context_schema",
+            ),
+            # Resource FQN has schema only — schema from resource, db from connection
+            (
+                "context_db",
+                "context_schema",
+                None,
+                "resource_schema",
+                "context_db",
+                "resource_schema",
+            ),
+            # No db/schema from any source
+            (None, None, None, None, None, None),
+        ],
+    )
+    def test_db_and_schema_resolution(
+        self,
+        mock_ctx,
+        mock_time,
+        context_db,
+        context_schema,
+        resource_db,
+        resource_schema,
+        expected_db,
+        expected_schema,
+    ):
+        mock_ctx().connection = MagicMock(database=context_db, schema=context_schema)
         resource_fqn = FQN(
-            name="resource", database="resource_db", schema="resource_schema"
+            name="resource", database=resource_db, schema=resource_schema
         )
 
         result = FQN.from_resource(ObjectType.STAGE, resource_fqn, "TEST")
 
-        assert result.database == "context_db"
-        assert result.schema == "context_schema"
+        assert result.database == expected_db
+        assert result.schema == expected_schema
         assert result.name == "STAGE_RESOURCE_1234567890_TEST"
+
+    @pytest.mark.parametrize(
+        "name, expected_name",
+        [
+            ('"caseSenSITIVEnAME"', "DCM_caseSenSITIVEnAME_1234567890_TEMP_STAGE"),
+            ('"Six Flags DCM"', "DCM_SixFlagsDCM_1234567890_TEMP_STAGE"),
+            ('"project.v2.0"', "DCM_projectv20_1234567890_TEMP_STAGE"),
+            ('"my-project!@#name"', "DCM_myprojectname_1234567890_TEMP_STAGE"),
+            ('"say ""hello"" world"', "DCM_sayhelloworld_1234567890_TEMP_STAGE"),
+        ],
+    )
+    def test_with_special_characters(self, mock_ctx, mock_time, name, expected_name):
+        resource_fqn = FQN(name=name, database=None, schema=None)
+
+        result = FQN.from_resource(ObjectType.DCM_PROJECT, resource_fqn, "TEMP_STAGE")
+
+        assert result.identifier == f"test_db.test_schema.{expected_name}"

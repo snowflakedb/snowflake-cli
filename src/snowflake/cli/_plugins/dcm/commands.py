@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+import logging
 from typing import List, Optional
 
 import typer
@@ -22,7 +23,12 @@ from snowflake.cli._plugins.dcm.exceptions import (
 )
 from snowflake.cli._plugins.dcm.manager import DCMProjectManager
 from snowflake.cli._plugins.dcm.models import DCMManifest, TargetContext
-from snowflake.cli._plugins.dcm.reporters import RefreshReporter, TestReporter
+from snowflake.cli._plugins.dcm.reporters import (
+    AnalyzeReporter,
+    PlanReporter,
+    RefreshReporter,
+    TestReporter,
+)
 from snowflake.cli._plugins.dcm.utils import mock_dcm_response
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
@@ -52,6 +58,8 @@ from snowflake.cli.api.output.types import (
 )
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector.cursor import SnowflakeCursor
+
+log = logging.getLogger(__name__)
 
 app = SnowTyperFactory(
     name="dcm",
@@ -135,14 +143,26 @@ def _resolve_target_context(
     Raises:
         CliError: When manifest is invalid or misconfigured
     """
+    log.info(
+        "Resolving DCM target context (has_identifier=%s, target=%s, source_path=%s).",
+        bool(identifier),
+        target,
+        source_path,
+    )
     try:
         manifest = DCMManifest.load(source_path)
         effective_target = manifest.get_effective_target(target)
     except (InvalidManifestError, ManifestConfigurationError) as e:
+        log.info("Failed to resolve DCM manifest context: %s.", e)
         raise CliError(str(e))
 
     project_id = (
         identifier if identifier else FQN.from_string(effective_target.project_name)
+    )
+    log.info(
+        "Resolved DCM target context (project_identifier=%s, has_configuration=%s).",
+        project_id,
+        bool(effective_target.templating_config),
     )
     return TargetContext(
         project_identifier=project_id, configuration=effective_target.templating_config
@@ -177,9 +197,15 @@ def _resolve_context_with_optional_manifest(
     return context
 
 
-def _process_plan_result(cursor: SnowflakeCursor) -> CollectionResult:
+def _process_plan_result(
+    cursor: SnowflakeCursor,
+    command_name: str = "plan",
+) -> CollectionResult | EmptyResult:
     """
     Process plan result, detecting format and returning appropriate result type.
+
+    For new format (version 2), uses the appropriate plan reporter.
+    For old format, returns raw data as CollectionResult.
     """
     rows = list(cursor)
     if not rows:
@@ -192,11 +218,19 @@ def _process_plan_result(cursor: SnowflakeCursor) -> CollectionResult:
 
     data = json.loads(first_value)
 
-    # Handle new format
+    # Handle new format with reporter.
+    # Uses process_payload (not process) because we need to branch on
+    # old vs. new format and return CollectionResult for old format.
     if isinstance(data, dict) and data.get("version", 0) == 2:
-        return CollectionResult(data.get("changeset", list()))
+        log.info(
+            "Detected DCM plan result version 2 format.",
+        )
+        reporter = PlanReporter(command_name=command_name)
+        reporter.process_payload(data)
+        return EmptyResult()
 
     # Old format
+    log.info("Detected legacy DCM plan result format.")
     return CollectionResult(data)
 
 
@@ -254,10 +288,11 @@ def deploy(
             skip_plan=skip_plan,
         )
 
-    return _process_plan_result(result)
+    return _process_plan_result(result, command_name="deploy")
 
 
 @app.command(requires_connection=True)
+@mock_dcm_response("plan")
 def plan(
     identifier: Optional[FQN] = optional_dcm_identifier,
     from_location: SecurePath = from_option,
@@ -288,7 +323,39 @@ def plan(
             save_output=save_output,
         )
 
-    return _process_plan_result(result)
+    return _process_plan_result(result, command_name="plan")
+
+
+@app.command(requires_connection=True, hidden=True)
+def raw_analyze(
+    identifier: Optional[FQN] = optional_dcm_identifier,
+    from_location: SecurePath = from_option,
+    variables: Optional[List[str]] = variables_flag,
+    target: Optional[str] = target_option,
+    **options,
+):
+    """Analyzes a DCM Project."""
+    context = _resolve_context_with_required_manifest(from_location, identifier, target)
+    project_id = context.project_identifier
+
+    manager = DCMProjectManager()
+    effective_stage = manager.sync_local_files(
+        project_identifier=project_id,
+        source_directory=str(from_location.path),
+    )
+
+    with cli_console.spinner() as spinner:
+        spinner.add_task(description=f"Analyzing dcm project {project_id}", total=None)
+        result = manager.raw_analyze(
+            project_identifier=project_id,
+            configuration=context.configuration,
+            from_stage=effective_stage,
+            variables=variables,
+        )
+
+    reporter = AnalyzeReporter()
+    reporter.process(result)
+    return EmptyResult()
 
 
 @app.command(requires_connection=True)
@@ -310,6 +377,10 @@ def create(
     om = ObjectManager()
     if om.object_exists(object_type="dcm", fqn=project_id):
         message = f"DCM Project '{project_id}' already exists."
+        log.info(
+            "DCM project already exists during create (project_identifier=%s).",
+            project_id,
+        )
         if if_not_exists:
             return MessageResult(message)
         raise CliError(message)
@@ -335,9 +406,14 @@ def drop(
     context = _resolve_context_with_optional_manifest(from_location, identifier, target)
     project_id = context.project_identifier
 
-    return QueryResult(
+    result = QueryResult(
         ObjectManager().drop(object_type="dcm", fqn=project_id, if_exists=if_exists)
     )
+    log.info(
+        "DCM project %s is deleted (if_exists).",
+        project_id,
+    )
+    return result
 
 
 @app.command(requires_connection=True)
@@ -408,6 +484,11 @@ def drop_deployment(
         project_identifier=project_id,
         deployment_name=deployment,
         if_exists=if_exists,
+    )
+    log.info(
+        "Dropped %s deployment from project %s.",
+        deployment,
+        project_id,
     )
     return MessageResult(
         f"Deployment '{deployment}' dropped from DCM Project '{project_id}'."

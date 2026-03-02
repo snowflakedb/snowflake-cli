@@ -133,7 +133,7 @@ class TestDeploy:
             attrs=DBTDeployAttributes(),
         )
 
-        expected_query = f'CREATE DBT PROJECT "MockDaTaBaSe"."PuBlIc"."caseSenSITIVEnAME"\nFROM @TestDB.TestSchema.DBT_PROJECT_caseSenSITIVEnAME_{mock_time()}_STAGE'
+        expected_query = f'CREATE DBT PROJECT "MockDaTaBaSe"."PuBlIc"."caseSenSITIVEnAME"\nFROM @"MockDaTaBaSe"."PuBlIc".DBT_PROJECT_caseSenSITIVEnAME_{mock_time()}_STAGE'
         mock_execute_query.assert_called_once_with(expected_query)
 
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")

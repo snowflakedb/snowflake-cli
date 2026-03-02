@@ -6,6 +6,19 @@ from snowflake.cli._plugins.dcm.models import DCMManifest
 from snowflake.cli.api.identifiers import FQN
 
 
+def _analyze_response(files=None):
+    """Helper to create a JSON analyze response string."""
+    if files is None:
+        files = [
+            {
+                "sourcePath": "sources/definitions/ok.sql",
+                "definitions": [{"name": "OK", "errors": []}],
+                "errors": [],
+            }
+        ]
+    return json.dumps({"files": files})
+
+
 @pytest.fixture
 def mock_dcm_manager():
     with mock.patch(
@@ -556,6 +569,274 @@ class TestDCMPlan:
 
         call_args = mock_dcm_manager().plan.call_args
         assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
+
+
+class TestDCMRawAnalyze:
+    def test_raw_analyze_basic(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
+            rows=[(_analyze_response(),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "raw-analyze", "fooBar"])
+        assert result.exit_code == 0, result.output
+
+        mock_dcm_manager().raw_analyze.assert_called_once_with(
+            project_identifier=FQN.from_string("fooBar"),
+            configuration=None,
+            from_stage="TMP_STAGE",
+            variables=None,
+        )
+
+    def test_raw_analyze_with_errors_exits(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        error_response = _analyze_response(
+            files=[
+                {
+                    "sourcePath": "sources/definitions/bad.sql",
+                    "definitions": [],
+                    "errors": [{"message": "syntax error"}],
+                }
+            ]
+        )
+        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
+            rows=[(error_response,)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "raw-analyze", "fooBar"])
+        assert result.exit_code == 1, result.output
+        assert "1 error(s)" in result.output
+
+    def test_raw_analyze_with_variables(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
+            rows=[(_analyze_response(),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "raw-analyze", "fooBar", "-D", "key=value"])
+        assert result.exit_code == 0, result.output
+
+        mock_dcm_manager().raw_analyze.assert_called_once_with(
+            project_identifier=FQN.from_string("fooBar"),
+            configuration=None,
+            from_stage="TMP_STAGE",
+            variables=["key=value"],
+        )
+
+    def test_raw_analyze_with_target(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
+            rows=[(_analyze_response(),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = DCMManifest.from_dict(
+            {
+                "manifest_version": 2,
+                "type": "dcm_project",
+                "default_target": "dev",
+                "targets": {"dev": {"project_name": "my_project"}},
+            }
+        )
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "raw-analyze", "--target", "dev"])
+
+        assert result.exit_code == 0, result.output
+        mock_dcm_manager().raw_analyze.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            configuration=None,
+            from_stage="TMP_STAGE",
+            variables=None,
+        )
+
+    def test_raw_analyze_with_default_target(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
+            rows=[(_analyze_response(),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = DCMManifest.from_dict(
+            {
+                "manifest_version": 2,
+                "type": "dcm_project",
+                "default_target": "dev",
+                "targets": {"dev": {"project_name": "my_project"}},
+            }
+        )
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "raw-analyze"])
+
+        assert result.exit_code == 0, result.output
+        mock_dcm_manager().raw_analyze.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            configuration=None,
+            from_stage="TMP_STAGE",
+            variables=None,
+        )
+
+    def test_raw_analyze_explicit_identifier_with_target_config(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        """When explicit identifier is provided, it overrides target's project_name
+        but configuration from target should still be applied."""
+        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
+            rows=[(_analyze_response(),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = DCMManifest.from_dict(
+            {
+                "manifest_version": 2,
+                "type": "dcm_project",
+                "default_target": "dev",
+                "targets": {
+                    "dev": {
+                        "project_name": "target_project",
+                        "templating_config": "dev_config",
+                    }
+                },
+                "templating": {"configurations": {"dev_config": {}}},
+            }
+        )
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "raw-analyze", "explicit_project", "--target", "dev"]
+            )
+
+        assert result.exit_code == 0, result.output
+        mock_dcm_manager().raw_analyze.assert_called_once_with(
+            project_identifier=FQN.from_string("explicit_project"),
+            configuration="DEV_CONFIG",
+            from_stage="TMP_STAGE",
+            variables=None,
+        )
+
+    def test_raw_analyze_with_from_local_directory(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        tmp_path,
+    ):
+        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
+            rows=[(_analyze_response(),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = (
+            "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
+        )
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        source_dir = tmp_path / "source_project"
+        source_dir.mkdir()
+        manifest_file = source_dir / "manifest.yml"
+        manifest_file.write_text("type: dcm_project\n")
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "raw-analyze", "my_project", "--from", str(source_dir)]
+            )
+            assert result.exit_code == 0, result.output
+
+        mock_dcm_manager().sync_local_files.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            source_directory=str(source_dir),
+        )
+
+        call_args = mock_dcm_manager().raw_analyze.call_args
+        assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
+
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
+    def test_raw_analyze_with_sync(
+        self,
+        _mock_create,
+        mock_dcm_manager,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        """Test that files are synced to project stage when from_stage is not provided."""
+        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
+            rows=[(_analyze_response(),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = (
+            "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
+        )
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "raw-analyze", "my_project"])
+            assert result.exit_code == 0, result.output
+
+        call_args = mock_dcm_manager().raw_analyze.call_args
+        assert "DCM_FOOBAR_" in call_args.kwargs["from_stage"]
+        assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
+
+    def test_raw_analyze_from_stage_fails(
+        self, mock_dcm_manager, runner, project_directory
+    ):
+        result = runner.invoke(["dcm", "raw-analyze", "fooBar", "--from", "@my_stage"])
+        assert result.exit_code == 1, result.output
+        assert "Stage paths are not supported" in result.output
+
+    def test_raw_analyze_hidden_from_help(self, runner):
+        """Test that raw-analyze command is hidden from DCM help output."""
+        result = runner.invoke(["dcm", "--help"])
+        assert result.exit_code == 0
+        assert "raw-analyze" not in result.output
 
 
 class TestDCMList:

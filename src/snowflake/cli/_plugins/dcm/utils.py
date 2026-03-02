@@ -17,7 +17,11 @@ from functools import wraps
 from pathlib import Path
 from typing import Any
 
-from snowflake.cli._plugins.dcm.reporters import RefreshReporter, TestReporter
+from snowflake.cli._plugins.dcm.reporters import (
+    PlanReporter,
+    RefreshReporter,
+    TestReporter,
+)
 from snowflake.cli.api.output.types import EmptyResult
 
 
@@ -71,13 +75,20 @@ def mock_dcm_response(command_name: str):
                 return func(*args, **kwargs)
 
             actual_command = "plan" if command_name == "deploy" else command_name
-            data = _load_debug_data(actual_command, file_number)
+            try:
+                data = _load_debug_data(actual_command, file_number)
+            except Exception:
+                return func(*args, **kwargs)
 
             if data is None:
                 return func(*args, **kwargs)
 
             cursor = FakeCursor(data)
-            reporter_mapping = {"refresh": RefreshReporter, "test": TestReporter}
+            reporter_mapping = {
+                "refresh": RefreshReporter,
+                "test": TestReporter,
+                "plan": PlanReporter,
+            }
 
             reporter = reporter_mapping[command_name]()
             reporter.process(cursor)

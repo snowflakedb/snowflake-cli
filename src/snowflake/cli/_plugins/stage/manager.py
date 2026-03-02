@@ -563,8 +563,18 @@ class StageManager(SqlExecutionMixin):
         for file in self.list_files(stage_path.absolute_path()).fetchall():
             if stage_path.is_user_stage():
                 path = StagePath.get_user_stage() / file["name"]
-            else:
+            elif stage_path.is_git_repo():
                 path = self.build_path(file["name"])
+            else:
+                # Snowflake `ls` returns unqualified names; re-attach the original FQN.
+                file_name = file["name"]
+                parts = file_name.split("/", maxsplit=1)
+                relative_path = parts[1] if len(parts) > 1 else ""
+                path = (
+                    stage_path.root_path() / relative_path
+                    if relative_path
+                    else stage_path.root_path()
+                )
             yield path
 
     def execute(
