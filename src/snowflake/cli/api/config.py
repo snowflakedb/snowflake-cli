@@ -58,9 +58,6 @@ from tomlkit.items import Table
 
 log = logging.getLogger(__name__)
 
-# TODO: add validation and check if all of these are correct
-EncodingName = Literal["utf-8", "utf-16", "cp1252", "cp932", "cp936", "ascii"]
-
 
 def get_connections_file():
     """

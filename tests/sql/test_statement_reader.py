@@ -427,8 +427,9 @@ def test_parse_unknown_command():
     assert parsed_statement.error == "Unknown command: unknown_cmd"
 
 
-def test_files_reader_utf8_content(tmp_path_factory):
+def test_files_reader_utf8_content(tmp_path_factory, monkeypatch):
     """SQL files with non-ASCII UTF-8 content should be readable."""
+    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "utf-8")
     f1 = tmp_path_factory.mktemp("enc") / "japanese.sql"
     f1.write_text(
         "-- テスト用SQLファイル\nSELECT 1;\n-- データベース確認\nSELECT 2;\n",
@@ -444,10 +445,42 @@ def test_files_reader_utf8_content(tmp_path_factory):
     ]
 
 
-def test_from_file_utf8_content(tmp_path_factory):
-    """ParsedStatement.from_file with non-ASCII UTF-8 file should work."""
+def test_from_file_utf8_content(tmp_path_factory, monkeypatch):
+    """ParsedStatement.from_file with non-ASCII UTF-8 file requires proper encoding configuration.
+
+    This test simulates a Windows cp1252 environment and demonstrates that UTF-8
+    encoding must be explicitly configured to correctly read files with non-ASCII characters.
+    """
+    # Simulate Windows cp1252 environment where platform default would fail for UTF-8
+    monkeypatch.setattr("locale.getpreferredencoding", lambda: "cp1252")
+    monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
+    monkeypatch.setattr("sys.getdefaultencoding", lambda: "cp1252")
+
+    # Write UTF-8 file with Japanese characters that CANNOT be represented in cp1252
     f1 = tmp_path_factory.mktemp("enc") / "japanese.sql"
-    f1.write_text("-- 日本語コメント\nSELECT 1;\n", encoding="utf-8")
+    expected_content = "-- 日本語コメント\nSELECT 1;\n"
+    f1.write_text(expected_content, encoding="utf-8")
+
+    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "utf-8")
+
+    # Now reading should work because UTF-8 encoding is properly configured
     result = ParsedStatement.from_file(str(f1), f"!source {f1};")
-    assert result.error is None
+
+    # Verify no error occurred
+    assert result.error is None, f"Expected no error but got: {result.error}"
     assert result.statement_type == StatementType.FILE
+
+    # Verify the Japanese characters were actually read correctly
+    # This assertion proves that UTF-8 encoding configuration is working
+    actual_content = result.statement.read()
+    result.statement.seek(0)  # Reset for potential reuse
+
+    assert "日本語コメント" in actual_content, (
+        f"Japanese characters not found in content. "
+        f"This indicates the file was not read with UTF-8 encoding. "
+        f"Expected to find '日本語コメント' but got: {actual_content!r}"
+    )
+    assert actual_content == expected_content, (
+        f"Content mismatch. Expected:\n{expected_content!r}\n"
+        f"But got:\n{actual_content!r}"
+    )
