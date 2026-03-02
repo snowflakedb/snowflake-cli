@@ -228,6 +228,9 @@ class SnowAppManager(SqlExecutionMixin):
         # Get repository_url from the result
         repo_url = row["repository_url"]
 
+        # Prod:
+        # repo_url = "pm-nax-consumer.registry.snowflakecomputing.com/gbloom_test_db/snow_app_my_test_app_gbloom/snow_apps_default_image_repository"
+
         # Convert to local registry URL (replace .registry-dev. or .registry. with .registry-local.)
         local_url = repo_url.replace(".registry-dev.", ".registry-local.")
         local_url = local_url.replace(".registry.", ".registry-local.")
@@ -523,16 +526,19 @@ def create(**options) -> CommandResult:
 
 
 @app.command(requires_connection=True)
-def build(
+def deploy(
     entity_id: Optional[str] = typer.Option(
         None,
         "--entity-id",
-        help="ID of the snow-app entity to build. Required if multiple snow-app entities exist.",
+        help="ID of the snow-app entity to deploy. Required if multiple snow-app entities exist.",
     ),
     **options,
 ) -> CommandResult:
     """
-    Builds a Snowflake App.
+    Builds and deploys a Snowflake App.
+
+    Uploads source artifacts, builds a container image, creates (or updates)
+    a service, and waits for it to become ready.
 
     If --entity-id is not specified and the project contains exactly one snow-app
     entity, that entity will be used automatically.
@@ -541,7 +547,7 @@ def build(
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 
-    # Get entity configuration
+    # ── Extract entity configuration ──────────────────────────────────
     identifier = getattr(entity, "identifier", {})
     database = getattr(identifier, "database", None) or "<default_db>"
     # Note: schema_ is the field name (schema is a reserved Pydantic method)
@@ -560,10 +566,8 @@ def build(
         stage_name = f"{resolved_entity_id.upper()}_CODE_STAGE"
         encryption_type = "SNOWFLAKE_SSE"
 
-    # Get artifacts configuration
     artifacts = getattr(entity, "artifacts", [])
 
-    # Get build configuration
     build_compute_pool_config = getattr(entity, "build_compute_pool", None)
     build_compute_pool = (
         getattr(build_compute_pool_config, "name", None)
@@ -574,23 +578,52 @@ def build(
     build_eai_config = getattr(entity, "build_eai", None)
     build_eai = getattr(build_eai_config, "name", None) if build_eai_config else None
 
+    service_compute_pool_config = getattr(entity, "service_compute_pool", None)
+    service_compute_pool = (
+        getattr(service_compute_pool_config, "name", None)
+        if service_compute_pool_config
+        else None
+    )
+
+    query_warehouse = getattr(entity, "query_warehouse", None)
+
+    meta = getattr(entity, "meta", None)
+    app_title = getattr(meta, "title", None) if meta else None
+    app_description = getattr(meta, "description", None) if meta else None
+
     # TODO: Replace with artifact_repository from entity config once supported
     image_repository = DEFAULT_IMAGE_REPOSITORY
 
-    # Validate required configuration
+    # ── Validate required configuration ───────────────────────────────
     if not build_compute_pool:
         raise CliError(
-            "build_compute_pool is required for build. "
+            "build_compute_pool is required for deploy. "
             "Please configure it in snowflake.yml."
         )
 
-    # Build fully qualified names
+    if not service_compute_pool:
+        raise CliError(
+            "service_compute_pool is required for deploy. "
+            "Please configure it in snowflake.yml."
+        )
+
+    if not query_warehouse:
+        raise CliError(
+            "query_warehouse is required for deploy. "
+            "Please configure it in snowflake.yml."
+        )
+
+    # ── Derived names ─────────────────────────────────────────────────
     stage_fqn = f"{database}.{schema}.{stage_name}"
     build_job_service_name = f"{resolved_entity_id.upper()}_BUILD_JOB"
     build_job_name = f"{database}.{schema}.{build_job_service_name}"
+    service_name_short = f"{resolved_entity_id.upper()}_SERVICE"
+    service_fqn = f"{database}.{schema}.{service_name_short}"
 
     manager = SnowAppManager()
     stage_manager = StageManager()
+
+    # ── Build phase ───────────────────────────────────────────────────
 
     # Step 1: Create schema if it doesn't exist
     cli_console.step(f"Creating schema {schema} if it doesn't exist")
@@ -632,11 +665,11 @@ def build(
     cli_console.step(f"Getting image repository URL for {image_repository}")
     image_repo_url = manager.get_image_repo_url(image_repository)
 
-    # Step 5: Drop service if exists
+    # Step 5: Drop existing build job if present
     cli_console.step(f"Dropping service if exists: {build_job_name}")
     manager.drop_service_if_exists(build_job_name)
 
-    # Step 6: Execute job service
+    # Step 6: Execute build job service
     cli_console.step(f"Executing build job service: {build_job_name}")
     manager.execute_build_job(
         job_service_name=build_job_name,
@@ -647,88 +680,26 @@ def build(
         external_access_integration=build_eai,
     )
 
-    # Step 7: Poll for job status
+    # Step 7: Poll for build completion
     cli_console.step("Waiting for build to complete...")
     while True:
         time.sleep(5)
         status = manager.get_build_status(database, schema, build_job_service_name)
-        cli_console.step(f"Status: {status}")
+        cli_console.step(f"Build status: {status}")
 
         if status == "DONE":
             break
         elif status == "FAILED":
             raise CliError(f"Build failed. Check service logs: {build_job_name}")
         elif status == "IDLE":
-            # Service disappeared unexpectedly
-            raise CliError(f"Build job service not found. It may have failed to start.")
+            raise CliError("Build job service not found. It may have failed to start.")
         elif status not in ("PENDING", "RUNNING"):
-            # Unknown status - print and break
             cli_console.step(f"Unknown status: {status}")
             break
 
-    return MessageResult("Build complete.")
+    # ── Deploy phase ──────────────────────────────────────────────────
 
-
-@app.command(requires_connection=True)
-def deploy(
-    entity_id: Optional[str] = typer.Option(
-        None,
-        "--entity-id",
-        help="ID of the snow-app entity to deploy. Required if multiple snow-app entities exist.",
-    ),
-    **options,
-) -> CommandResult:
-    """
-    Deploys a Snowflake App.
-
-    If --entity-id is not specified and the project contains exactly one snow-app
-    entity, that entity will be used automatically.
-    """
-    _check_feature_enabled()
-    resolved_entity_id = _resolve_entity_id(entity_id)
-    entity = _get_entity(resolved_entity_id)
-
-    # Get entity configuration
-    identifier = getattr(entity, "identifier", {})
-    database = getattr(identifier, "database", None) or "<default_db>"
-    schema = (
-        getattr(identifier, "schema_", None) or f"SNOW_APP_{resolved_entity_id.upper()}"
-    )
-
-    service_compute_pool_config = getattr(entity, "service_compute_pool", None)
-    service_compute_pool = (
-        getattr(service_compute_pool_config, "name", None)
-        if service_compute_pool_config
-        else None
-    )
-
-    query_warehouse = getattr(entity, "query_warehouse", None)
-
-    meta = getattr(entity, "meta", None)
-    app_title = getattr(meta, "title", None) if meta else None
-    app_description = getattr(meta, "description", None) if meta else None
-
-    # Validate required configuration
-    if not service_compute_pool:
-        raise CliError(
-            "service_compute_pool is required for deploy. "
-            "Please configure it in snowflake.yml."
-        )
-
-    if not query_warehouse:
-        raise CliError(
-            "query_warehouse is required for deploy. "
-            "Please configure it in snowflake.yml."
-        )
-
-    # Build names
-    service_name_short = f"{resolved_entity_id.upper()}_SERVICE"
-    service_fqn = f"{database}.{schema}.{service_name_short}"
-
-    manager = SnowAppManager()
-
-    # Fetch the image repository URL and construct the image path
-    image_repo_url = manager.get_image_repo_url(DEFAULT_IMAGE_REPOSITORY)
+    # Construct the image path from the repo URL
     # image_repo_url is a full registry URL like "host/db/schema/repo_name"
     # Extract the path portion (everything after the host) for the service spec
     repo_path = "/" + "/".join(image_repo_url.split("/")[1:])
@@ -742,7 +713,7 @@ def deploy(
         comment_data["appDescription"] = app_description
     app_comment = json.dumps(comment_data)
 
-    # Step 1: Create service if it doesn't exist
+    # Step 8: Create service if it doesn't exist
     cli_console.step(f"Creating service {service_fqn} if it doesn't exist")
     manager.create_service(
         service_name=service_fqn,
@@ -751,23 +722,23 @@ def deploy(
         app_comment=app_comment,
     )
 
-    # Step 2: Alter service with built image
+    # Step 9: Alter service with built image
     cli_console.step(f"Updating service with image: {image_url}")
     manager.alter_service_spec(
         service_name=service_fqn,
         image_url=image_url,
     )
 
-    # Step 3: Resume service
+    # Step 10: Resume service
     cli_console.step("Resuming service")
     manager.resume_service(service_fqn)
 
-    # Step 4: Poll until service is RUNNING
+    # Step 11: Poll until service is RUNNING
     cli_console.step("Waiting for service to be ready...")
     while True:
         time.sleep(5)
         status = manager.get_service_status(database, schema, service_name_short)
-        cli_console.step(f"Status: {status}")
+        cli_console.step(f"Service status: {status}")
 
         if status == "RUNNING":
             break
@@ -779,7 +750,7 @@ def deploy(
             cli_console.step(f"Unknown status: {status}")
             break
 
-    # Step 5: Get endpoint URL
+    # Step 12: Get endpoint URL
     cli_console.step("Getting endpoint URL")
     endpoint_url = manager.get_service_endpoint_url(service_fqn)
 
