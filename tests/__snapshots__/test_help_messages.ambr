@@ -4596,7 +4596,10 @@
   |                                                    external access.          |
   | --dbt-version                                TEXT  dbt version to use for    |
   |                                                    the project, for example  |
-  |                                                    '1.9.4'.                  |
+  |                                                    '1.10.15'. Full list of   |
+  |                                                    supported versions can be |
+  |                                                    found at                  |
+  |                                                    https://docs.snowflake.c… |
   | --help                     -h                      Show this message and     |
   |                                                    exit.                     |
   +------------------------------------------------------------------------------+
