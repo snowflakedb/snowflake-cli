@@ -7,6 +7,7 @@ from snowflake.cli._plugins.sql.repl_commands import (
     QueriesCommand,
     ReplCommand,
     ResultCommand,
+    SpoolCommand,
     UnknownCommandError,
     compile_repl_command,
 )
@@ -286,6 +287,8 @@ def test_queries_execute_help(mock_print, mock_ctx):
         ("!abort", [_FAKE_QID], AbortCommand(_FAKE_QID)),
         ("!queries", ["amount=3", "user=jdoe"], QueriesCommand(amount=3, user="jdoe")),
         ("!QuERies", ["session"], QueriesCommand(from_current_session=True)),
+        ("!spool", ["output.txt"], SpoolCommand(target="output.txt")),
+        ("!SPOOL", ["off"], SpoolCommand(target="off")),
         (
             "!ResUlT",
             [],
@@ -295,6 +298,11 @@ def test_queries_execute_help(mock_print, mock_ctx):
             "!AbORT",
             ["incorrect_id"],
             "Invalid query ID passed to 'abort' command: incorrect_id",
+        ),
+        (
+            "!spool",
+            [],
+            "No arguments passed to 'spool' command. Usage: `!spool <filename>` or `!spool off`",
         ),
         ("!unknown", [], "Unknown command '!unknown'"),
     ],
