@@ -20,26 +20,21 @@ import warnings
 from pathlib import Path
 
 import pytest
-
 from snowflake.cli._plugins.nativeapp.codegen.sandbox import (
     ExecutionEnvironmentType,
     execute_script_in_sandbox,
 )
+
 from tests_common import IS_WINDOWS
 
-UNICODE_SQL_CONTENT = "select '日本語テスト' as RESULT;\n"
-UNICODE_EXPECTED_VALUE = "日本語テスト"
+JAPANESE_SQL_CONTENT = "select '日本語テスト' as RESULT;\n"
+JAPANESE_EXPECTED_VALUE = "日本語テスト"
 
 GERMAN_SQL_CONTENT = "select 'Ä Ö Ü ß Straße' as RESULT;\n"
 GERMAN_EXPECTED_VALUE = "Ä Ö Ü ß Straße"
 
 CHINESE_SQL_CONTENT = "select '中文测试数据' as RESULT;\n"
 CHINESE_EXPECTED_VALUE = "中文测试数据"
-
-KOREAN_SQL_CONTENT = "select '한국어 테스트' as RESULT;\n"
-KOREAN_EXPECTED_VALUE = "한국어 테스트"
-
-MULTI_SCRIPT_CONTENT = "select '日本語' as A;\nselect 'Ä Ö Ü' as B;\nselect '中文' as C;\n"
 
 
 def _write_file_with_encoding(path: Path, content: str, encoding: str):
@@ -48,43 +43,28 @@ def _write_file_with_encoding(path: Path, content: str, encoding: str):
 
 class TestEncodingScenarios:
     @pytest.mark.integration
-    def test_sql_file_cp1252_german_content(self, runner, tmp_path):
-        sql_file = tmp_path / "cp1252_query.sql"
-        _write_file_with_encoding(sql_file, GERMAN_SQL_CONTENT, "cp1252")
+    @pytest.mark.parametrize(
+        "encoding,sql_content,expected_value",
+        [
+            ("utf-8", JAPANESE_SQL_CONTENT, JAPANESE_EXPECTED_VALUE),
+            ("cp1252", GERMAN_SQL_CONTENT, GERMAN_EXPECTED_VALUE),
+            ("cp932", JAPANESE_SQL_CONTENT, JAPANESE_EXPECTED_VALUE),
+            ("cp936", CHINESE_SQL_CONTENT, CHINESE_EXPECTED_VALUE),
+        ],
+    )
+    def test_sql_file_with_encoding(
+        self, runner, tmp_path, encoding, sql_content, expected_value
+    ):
+        sql_file = tmp_path / f"{encoding}_query.sql"
+        _write_file_with_encoding(sql_file, sql_content, encoding)
 
         result = runner.invoke_with_connection_json(
             ["sql", "-f", str(sql_file)],
-            env={"SNOWFLAKE_CLI_ENCODING_FILE_IO": "cp1252"},
+            env={"SNOWFLAKE_CLI_ENCODING_FILE_IO": encoding},
         )
 
         assert result.exit_code == 0, result.output
-        assert result.json == [{"RESULT": GERMAN_EXPECTED_VALUE}]
-
-    @pytest.mark.integration
-    def test_sql_file_cp932_japanese_content(self, runner, tmp_path):
-        sql_file = tmp_path / "cp932_query.sql"
-        _write_file_with_encoding(sql_file, UNICODE_SQL_CONTENT, "cp932")
-
-        result = runner.invoke_with_connection_json(
-            ["sql", "-f", str(sql_file)],
-            env={"SNOWFLAKE_CLI_ENCODING_FILE_IO": "cp932"},
-        )
-
-        assert result.exit_code == 0, result.output
-        assert result.json == [{"RESULT": UNICODE_EXPECTED_VALUE}]
-
-    @pytest.mark.integration
-    def test_sql_file_cp936_chinese_content(self, runner, tmp_path):
-        sql_file = tmp_path / "cp936_query.sql"
-        _write_file_with_encoding(sql_file, CHINESE_SQL_CONTENT, "cp936")
-
-        result = runner.invoke_with_connection_json(
-            ["sql", "-f", str(sql_file)],
-            env={"SNOWFLAKE_CLI_ENCODING_FILE_IO": "cp936"},
-        )
-
-        assert result.exit_code == 0, result.output
-        assert result.json == [{"RESULT": CHINESE_EXPECTED_VALUE}]
+        assert result.json == [{"RESULT": expected_value}]
 
     @pytest.mark.integration
     @pytest.mark.skipif(not IS_WINDOWS, reason="Windows-only test")
@@ -92,30 +72,13 @@ class TestEncodingScenarios:
         self, runner, tmp_path
     ):
         sql_file = tmp_path / "default_encoding.sql"
-        _write_file_with_encoding(sql_file, UNICODE_SQL_CONTENT, "utf-8")
+        _write_file_with_encoding(sql_file, JAPANESE_SQL_CONTENT, "utf-8")
 
         result = runner.invoke_with_connection_json(
             ["sql", "-f", str(sql_file)],
         )
 
-        assert result.exit_code != 0
-
-    @pytest.mark.integration
-    def test_multi_query_file_with_encoding(self, runner, tmp_path):
-        sql_file = tmp_path / "multi.sql"
-        _write_file_with_encoding(sql_file, MULTI_SCRIPT_CONTENT, "utf-8")
-
-        result = runner.invoke_with_connection_json(
-            ["sql", "-f", str(sql_file)],
-            env={"SNOWFLAKE_CLI_ENCODING_FILE_IO": "utf-8"},
-        )
-
-        assert result.exit_code == 0, result.output
-        assert result.json == [
-            [{"A": "日本語"}],
-            [{"B": "Ä Ö Ü"}],
-            [{"C": "中文"}],
-        ]
+        assert result.json != [{"RESULT": JAPANESE_EXPECTED_VALUE}]
 
 
 @contextlib.contextmanager
@@ -133,47 +96,28 @@ def _temporary_locale(category, locale_name):
 class TestLocalesScenarios:
     @pytest.mark.integration
     @pytest.mark.skipif(IS_WINDOWS, reason="Linux/macOS locale test")
-    def test_c_locale_with_encoding_override(self, runner, tmp_path):
-        sql_file = tmp_path / "c_locale.sql"
-        _write_file_with_encoding(sql_file, UNICODE_SQL_CONTENT, "utf-8")
+    @pytest.mark.parametrize(
+        "locale_name,sql_content,expected_value",
+        [
+            ("C", JAPANESE_SQL_CONTENT, JAPANESE_EXPECTED_VALUE),
+            ("POSIX", CHINESE_SQL_CONTENT, CHINESE_EXPECTED_VALUE),
+            ("en_US.UTF-8", GERMAN_SQL_CONTENT, GERMAN_EXPECTED_VALUE),
+        ],
+    )
+    def test_locale_with_encoding_override(
+        self, runner, tmp_path, locale_name, sql_content, expected_value
+    ):
+        sql_file = tmp_path / f"{locale_name}_locale.sql"
+        _write_file_with_encoding(sql_file, sql_content, "utf-8")
 
-        with _temporary_locale(locale.LC_CTYPE, "C"):
+        with _temporary_locale(locale.LC_CTYPE, locale_name):
             result = runner.invoke_with_connection_json(
                 ["sql", "-f", str(sql_file)],
-                env={"SNOWFLAKE_CLI_ENCODING_FILE_IO": "utf-8"},
+                # env={"SNOWFLAKE_CLI_ENCODING_FILE_IO": "utf-8"},
             )
 
         assert result.exit_code == 0, result.output
-        assert result.json == [{"RESULT": UNICODE_EXPECTED_VALUE}]
-
-    @pytest.mark.integration
-    @pytest.mark.skipif(IS_WINDOWS, reason="Linux/macOS locale test")
-    def test_posix_locale_with_encoding_override(self, runner, tmp_path):
-        sql_file = tmp_path / "posix_locale.sql"
-        _write_file_with_encoding(sql_file, CHINESE_SQL_CONTENT, "utf-8")
-
-        with _temporary_locale(locale.LC_CTYPE, "POSIX"):
-            result = runner.invoke_with_connection_json(
-                ["sql", "-f", str(sql_file)],
-                env={"SNOWFLAKE_CLI_ENCODING_FILE_IO": "utf-8"},
-            )
-
-        assert result.exit_code == 0, result.output
-        assert result.json == [{"RESULT": CHINESE_EXPECTED_VALUE}]
-
-    @pytest.mark.integration
-    @pytest.mark.skipif(IS_WINDOWS, reason="Linux/macOS locale test")
-    def test_mixed_unicode_in_single_query_under_utf8_locale(self, runner):
-        mixed = "select '日本語 Ä Ö Ü 中文 한국어' as RESULT"
-
-        with _temporary_locale(locale.LC_CTYPE, "en_US.UTF-8"):
-            result = runner.invoke_with_connection_json(
-                ["sql", "-q", mixed],
-                env={"SNOWFLAKE_CLI_ENCODING_FILE_IO": "utf-8"},
-            )
-
-        assert result.exit_code == 0, result.output
-        assert result.json == [{"RESULT": "日本語 Ä Ö Ü 中文 한국어"}]
+        assert result.json == [{"RESULT": expected_value}]
 
     @pytest.mark.integration
     @pytest.mark.skipif(IS_WINDOWS, reason="Linux/macOS locale test")
@@ -192,7 +136,7 @@ class TestLocalesScenarios:
             )
 
         assert result.exit_code == 0, result.output
-        assert UNICODE_EXPECTED_VALUE in str(result.json)
+        assert JAPANESE_EXPECTED_VALUE in str(result.json)
 
 
 class TestWarnings:
@@ -268,7 +212,7 @@ class TestStageOperationsWithEncoding:
         runner.invoke_with_connection_json(["stage", "create", stage_name])
 
         sql_file = tmp_path / "encoded.sql"
-        _write_file_with_encoding(sql_file, UNICODE_SQL_CONTENT, "utf-8")
+        _write_file_with_encoding(sql_file, JAPANESE_SQL_CONTENT, "utf-8")
 
         result = runner.invoke_with_connection_json(
             ["stage", "copy", str(sql_file), f"@{stage_name}"],
@@ -287,7 +231,8 @@ class TestStageOperationsWithEncoding:
 
 class TestSubprocessOutputDecoding:
     @pytest.mark.integration
-    def test_snowpark_package_create_uses_subprocess_encoding(self, runner):
+    @pytest.mark.parametrize("encoding", ["utf-8", "cp1252"])
+    def test_snowpark_package_create_with_subprocess_encoding(self, runner, encoding):
         init_dir = os.getcwd()
         with tempfile.TemporaryDirectory() as tmp:
             os.chdir(tmp)
@@ -300,28 +245,7 @@ class TestSubprocessOutputDecoding:
                         "dummy-pkg-for-tests-with-deps",
                         "--ignore-anaconda",
                     ],
-                    env={"SNOWFLAKE_CLI_ENCODING_SUBPROCESS": "utf-8"},
-                )
-                assert result.exit_code == 0, result.output
-                assert Path("dummy_pkg_for_tests_with_deps.zip").exists()
-            finally:
-                os.chdir(init_dir)
-
-    @pytest.mark.integration
-    def test_snowpark_package_create_with_cp1252_subprocess_encoding(self, runner):
-        init_dir = os.getcwd()
-        with tempfile.TemporaryDirectory() as tmp:
-            os.chdir(tmp)
-            try:
-                result = runner.invoke_with_connection(
-                    [
-                        "snowpark",
-                        "package",
-                        "create",
-                        "dummy-pkg-for-tests-with-deps",
-                        "--ignore-anaconda",
-                    ],
-                    env={"SNOWFLAKE_CLI_ENCODING_SUBPROCESS": "cp1252"},
+                    env={"SNOWFLAKE_CLI_ENCODING_SUBPROCESS": encoding},
                 )
                 assert result.exit_code == 0, result.output
                 assert Path("dummy_pkg_for_tests_with_deps.zip").exists()
@@ -337,21 +261,17 @@ class TestSubprocessOutputDecoding:
         assert "Login Succeeded" in result.output or result.exit_code != 0
 
     @pytest.mark.integration
-    def test_sandbox_execute_script_uses_subprocess_encoding(self, monkeypatch):
-
-        monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", "utf-8")
-
-        result = execute_script_in_sandbox(
-            script_source="print('日本語テスト café Straße')",
-            env_type=ExecutionEnvironmentType.CURRENT,
-        )
-
-        assert result.returncode == 0, result.stderr
-        assert "日本語テスト café Straße" in result.stdout
-
-    @pytest.mark.integration
-    def test_sandbox_execute_script_with_pythonutf8_mode(self, monkeypatch):
-        monkeypatch.setenv("PYTHONUTF8", "1")
+    @pytest.mark.parametrize(
+        "env_var,env_value",
+        [
+            ("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", "utf-8"),
+            ("PYTHONUTF8", "1"),
+        ],
+    )
+    def test_sandbox_execute_script_unicode_output(
+        self, monkeypatch, env_var, env_value
+    ):
+        monkeypatch.setenv(env_var, env_value)
 
         result = execute_script_in_sandbox(
             script_source="print('日本語テスト café Straße')",

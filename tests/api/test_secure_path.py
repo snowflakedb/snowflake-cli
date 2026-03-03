@@ -562,261 +562,156 @@ def test_file_size_limit_calculation(temporary_directory):
         SecurePath(a_file).read_text(file_size_limit_mb=1)
 
 
-def test_read_text_with_explicit_encoding(temporary_directory, save_logs):
-    """Test read_text with explicit encoding parameter"""
+@pytest.mark.parametrize(
+    "env_encoding,explicit_encoding,content,expected_log_encoding",
+    [
+        (None, "utf-8", "Hello 世界", "utf-8"),
+        (None, None, "Hello", "platform default"),
+        ("utf-8", None, "Hello 世界", "utf-8"),
+        ("cp1252", "utf-8", "Hello 世界", "utf-8"),  # explicit overrides env
+    ],
+)
+def test_read_text_encoding(
+    temporary_directory,
+    save_logs,
+    monkeypatch,
+    env_encoding,
+    explicit_encoding,
+    content,
+    expected_log_encoding,
+):
+    if env_encoding:
+        monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", env_encoding)
+    else:
+        monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
+
     path = Path(temporary_directory) / "file.txt"
-    # Write UTF-8 content
-    content = "Hello 世界"
     path.write_text(content, encoding="utf-8")
 
     spath = SecurePath(path)
-    # Read with explicit UTF-8 encoding
-    result = spath.read_text(file_size_limit_mb=1, encoding="utf-8")
+    kwargs = {"file_size_limit_mb": 1}
+    if explicit_encoding:
+        kwargs["encoding"] = explicit_encoding
+    result = spath.read_text(**kwargs)
     assert result == content
 
     _assert_count_matching_logs(
-        save_logs, 1, "Reading file", "file.txt", " with encoding utf-8"
+        save_logs,
+        1,
+        "Reading file",
+        "file.txt",
+        f" with encoding {expected_log_encoding}",
     )
 
 
-def test_read_text_with_default_encoding(temporary_directory, save_logs, monkeypatch):
-    """Test read_text uses platform default when encoding=None and not configured"""
-    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
-
-    path = Path(temporary_directory) / "file.txt"
-    path.write_text("Hello")
-
-    spath = SecurePath(path)
-    result = spath.read_text(file_size_limit_mb=1)
-    assert result == "Hello"
-
-    _assert_count_matching_logs(
-        save_logs, 1, "Reading file", "file.txt", " with encoding platform default"
-    )
-
-
-def test_read_text_with_configured_encoding(
-    temporary_directory, save_logs, monkeypatch
+@pytest.mark.parametrize(
+    "env_encoding,explicit_encoding,content,expected_log_encoding",
+    [
+        (None, "utf-8", "Hello 世界", "utf-8"),
+        (None, None, "Hello", "platform default"),
+        ("utf-8", None, "Hello 世界", "utf-8"),
+        ("cp1252", "utf-8", "Hello 世界", "utf-8"),  # explicit overrides env
+    ],
+)
+def test_write_text_encoding(
+    temporary_directory,
+    save_logs,
+    monkeypatch,
+    env_encoding,
+    explicit_encoding,
+    content,
+    expected_log_encoding,
 ):
-    """Test read_text uses configured encoding from environment"""
-    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "utf-8")
+    if env_encoding:
+        monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", env_encoding)
+    else:
+        monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
 
     path = Path(temporary_directory) / "file.txt"
-    content = "Hello 世界"
-    path.write_text(content, encoding="utf-8")
-
     spath = SecurePath(path)
-    result = spath.read_text(file_size_limit_mb=1)
-    assert result == content
-
-    _assert_count_matching_logs(
-        save_logs, 1, "Reading file", "file.txt", " with encoding utf-8"
-    )
-
-
-def test_write_text_with_explicit_encoding(temporary_directory, save_logs):
-    """Test write_text with explicit encoding parameter"""
-    path = Path(temporary_directory) / "file.txt"
-    content = "Hello 世界"
-
-    spath = SecurePath(path)
-    spath.write_text(content, encoding="utf-8")
-
-    # Verify content was written correctly
-    assert path.read_text(encoding="utf-8") == content
-    _assert_count_matching_logs(
-        save_logs, 1, "Writing to file", "file.txt", " with encoding utf-8"
-    )
-
-
-def test_write_text_with_default_encoding(temporary_directory, save_logs, monkeypatch):
-    """Test write_text uses platform default when encoding=None and not configured"""
-    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
-
-    path = Path(temporary_directory) / "file.txt"
-    content = "Hello"
-
-    spath = SecurePath(path)
-    spath.write_text(content)
-
-    assert path.read_text() == content
-    _assert_count_matching_logs(
-        save_logs, 1, "Writing to file", "file.txt", " with encoding platform default"
-    )
-
-
-def test_write_text_with_configured_encoding(
-    temporary_directory, save_logs, monkeypatch
-):
-    """Test write_text uses configured encoding from environment"""
-    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "utf-8")
-
-    path = Path(temporary_directory) / "file.txt"
-    content = "Hello 世界"
-
-    spath = SecurePath(path)
-    spath.write_text(content)
+    if explicit_encoding:
+        spath.write_text(content, encoding=explicit_encoding)
+    else:
+        spath.write_text(content)
 
     assert path.read_text(encoding="utf-8") == content
     _assert_count_matching_logs(
-        save_logs, 1, "Writing to file", "file.txt", " with encoding utf-8"
+        save_logs,
+        1,
+        "Writing to file",
+        "file.txt",
+        f" with encoding {expected_log_encoding}",
     )
 
 
-def test_open_with_explicit_encoding(temporary_directory, save_logs):
-    """Test open with explicit encoding parameter"""
-    path = Path(temporary_directory) / "file.txt"
-    content = "Hello 世界"
+@pytest.mark.parametrize(
+    "env_encoding,explicit_encoding,content,expected_log_encoding",
+    [
+        (None, "utf-8", "Hello 世界", "utf-8"),
+        (None, None, "Hello", "platform default"),
+        ("utf-8", None, "Hello 世界", "utf-8"),
+        ("cp1252", "utf-8", "Hello 世界", "utf-8"),  # explicit overrides env
+    ],
+)
+def test_open_encoding(
+    temporary_directory,
+    save_logs,
+    monkeypatch,
+    env_encoding,
+    explicit_encoding,
+    content,
+    expected_log_encoding,
+):
+    if env_encoding:
+        monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", env_encoding)
+    else:
+        monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
 
+    path = Path(temporary_directory) / "file.txt"
     spath = SecurePath(path)
-    # Write with explicit encoding
-    with spath.open("w", encoding="utf-8") as fd:
+
+    open_kwargs = {}
+    if explicit_encoding:
+        open_kwargs["encoding"] = explicit_encoding
+
+    with spath.open("w", **open_kwargs) as fd:
         fd.write(content)
-
-    _assert_count_matching_logs(
-        save_logs, 1, "Opening file", "file.txt", " in mode 'w' with encoding utf-8"
-    )
-
-    # Read with explicit encoding
-    with spath.open("r", read_file_limit_mb=1, encoding="utf-8") as fd:
-        result = fd.read()
-
-    assert result == content
-    _assert_count_matching_logs(
-        save_logs, 1, "Opening file", "file.txt", " in mode 'r' with encoding utf-8"
-    )
-
-
-def test_open_with_default_encoding(temporary_directory, save_logs, monkeypatch):
-    """Test open uses platform default when encoding=None and not configured"""
-    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
-
-    path = Path(temporary_directory) / "file.txt"
-
-    spath = SecurePath(path)
-    with spath.open("w") as fd:
-        fd.write("Hello")
 
     _assert_count_matching_logs(
         save_logs,
         1,
         "Opening file",
         "file.txt",
-        " in mode 'w' with encoding platform default",
+        f" in mode 'w' with encoding {expected_log_encoding}",
     )
 
-    assert path.read_text(encoding="utf-8") == "Hello"
-
-
-def test_open_with_configured_encoding(temporary_directory, save_logs, monkeypatch):
-    """Test open uses configured encoding from environment"""
-    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "utf-8")
-
-    path = Path(temporary_directory) / "file.txt"
-    content = "Hello 世界"
-
-    spath = SecurePath(path)
-    with spath.open("w") as fd:
-        fd.write(content)
-
-    _assert_count_matching_logs(
-        save_logs, 1, "Opening file", "file.txt", " in mode 'w' with encoding utf-8"
-    )
-
-    # Verify content was written with correct encoding
-    assert path.read_text(encoding="utf-8") == content
-
-
-def test_encoding_explicit_overrides_configured(
-    temporary_directory, save_logs, monkeypatch
-):
-    """Test explicit encoding parameter overrides configured encoding"""
-    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "cp1252")
-
-    path = Path(temporary_directory) / "file.txt"
-    content = "Hello 世界"
-
-    spath = SecurePath(path)
-    # Explicit encoding should override configured value
-    spath.write_text(content, encoding="utf-8")
-
-    _assert_count_matching_logs(
-        save_logs, 1, "Writing to file", "file.txt", " with encoding utf-8"
-    )
-
-    # Verify it was written with UTF-8, not cp1252
-    assert path.read_text(encoding="utf-8") == content
-
-
-def test_read_text_explicit_encoding_overrides_config(
-    temporary_directory, save_logs, monkeypatch
-):
-    """Test read_text with explicit encoding overrides configuration"""
-    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "cp1252")
-
-    path = Path(temporary_directory) / "file.txt"
-    content = "Hello 世界"
-
-    # Write with UTF-8
-    path.write_text(content, encoding="utf-8")
-
-    spath = SecurePath(path)
-    # Explicit UTF-8 should override cp1252 configuration
-    result = spath.read_text(file_size_limit_mb=1, encoding="utf-8")
-
-    assert result == content
-    _assert_count_matching_logs(
-        save_logs, 1, "Reading file", "file.txt", " with encoding utf-8"
-    )
-
-
-def test_write_text_explicit_encoding_overrides_config(
-    temporary_directory, save_logs, monkeypatch
-):
-    """Test write_text with explicit encoding overrides configuration"""
-    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "cp1252")
-
-    path = Path(temporary_directory) / "file.txt"
-    content = "Hello 世界"
-
-    spath = SecurePath(path)
-    # Explicit UTF-8 should override cp1252 configuration
-    spath.write_text(content, encoding="utf-8")
-
-    _assert_count_matching_logs(
-        save_logs, 1, "Writing to file", "file.txt", " with encoding utf-8"
-    )
-
-    # Verify it was written with UTF-8, not cp1252
-    result = path.read_text(encoding="utf-8")
-    assert result == content
-
-
-def test_open_binary_write_ignores_config(temporary_directory, save_logs, monkeypatch):
-    """Test open in binary write mode ignores encoding configuration"""
-    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "utf-8")
-
-    path = Path(temporary_directory) / "binary.dat"
-    data = bytes([i for i in range(256)])
-
-    spath = SecurePath(path)
-    with spath.open("wb") as fd:
-        fd.write(data)
-
-    # Verify binary data was written correctly
-    assert path.read_bytes() == data
-
-
-def test_open_binary_read_ignores_config(temporary_directory, save_logs, monkeypatch):
-    """Test open in binary read mode ignores encoding configuration"""
-    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "utf-8")
-
-    path = Path(temporary_directory) / "binary.dat"
-    data = bytes([i for i in range(256)])
-    path.write_bytes(data)
-
-    spath = SecurePath(path)
-    with spath.open("rb", read_file_limit_mb=1) as fd:
+    with spath.open("r", read_file_limit_mb=1, **open_kwargs) as fd:
         result = fd.read()
 
-    assert result == data
+    assert result == content
+    _assert_count_matching_logs(
+        save_logs,
+        1,
+        "Opening file",
+        "file.txt",
+        f" in mode 'r' with encoding {expected_log_encoding}",
+    )
+
+
+@pytest.mark.parametrize("mode", ["wb", "rb"])
+def test_open_binary_ignores_config(temporary_directory, save_logs, monkeypatch, mode):
+    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "utf-8")
+
+    path = Path(temporary_directory) / "binary.dat"
+    data = bytes([i for i in range(256)])
+
+    spath = SecurePath(path)
+    if mode == "wb":
+        with spath.open(mode) as fd:
+            fd.write(data)
+        assert path.read_bytes() == data
+    else:
+        path.write_bytes(data)
+        with spath.open(mode, read_file_limit_mb=1) as fd:
+            result = fd.read()
+        assert result == data
