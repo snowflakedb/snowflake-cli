@@ -134,4 +134,4 @@ def test_sql_jinja_for_loop_with_semicolons(runner, snowflake_session):
     )
 
     assert result.exit_code == 0
-    assert result.json == [{"0": 0}, {"1": 1}, {"2": 2}]
+    assert result.json == [[{"0": 0}], [{"1": 1}], [{"2": 2}]]
