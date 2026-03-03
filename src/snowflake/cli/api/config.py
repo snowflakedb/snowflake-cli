@@ -402,11 +402,6 @@ def should_show_encoding_warnings() -> bool:
     )
 
 
-def is_strict_mode() -> bool:
-    """Whether to use strict error handling"""
-    return get_config_bool_value("cli", "encoding", key="strict", default=False)  # type: ignore
-
-
 def connection_exists(connection_name: str) -> bool:
     return config_section_exists(CONNECTIONS_SECTION, connection_name)
 

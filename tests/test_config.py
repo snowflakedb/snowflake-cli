@@ -720,26 +720,6 @@ show_warnings = {str(show_warnings).lower()}
         assert result == expected
 
 
-@pytest.mark.parametrize("strict_mode", [True, False, None])
-def test_is_strict_mode(config_file, strict_mode):
-    """Test is_strict_mode respects configuration"""
-    if strict_mode is None:
-        config_content = ""
-    else:
-        config_content = f"""
-[cli.encoding]
-strict = {str(strict_mode).lower()}
-"""
-    with config_file(config_content) as cfg:
-        config_init(cfg)
-        from snowflake.cli.api.config import is_strict_mode
-
-        result = is_strict_mode()
-        # Default is False when not configured
-        expected = False if strict_mode is None else strict_mode
-        assert result == expected
-
-
 @pytest.mark.skipif(sys.platform == "win32", reason="Unix only")
 def test_unix_utf8_locale_no_warning(config_file, monkeypatch):
     """Test that Unix users with UTF-8 locale see no encoding warnings"""
