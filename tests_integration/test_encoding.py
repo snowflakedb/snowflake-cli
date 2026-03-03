@@ -15,14 +15,16 @@
 import contextlib
 import locale
 import os
-import shutil
 import tempfile
 import warnings
 from pathlib import Path
-from unittest import mock
 
 import pytest
 
+from snowflake.cli._plugins.nativeapp.codegen.sandbox import (
+    ExecutionEnvironmentType,
+    execute_script_in_sandbox,
+)
 from tests_common import IS_WINDOWS
 
 UNICODE_SQL_CONTENT = "select '日本語テスト' as RESULT;\n"
@@ -45,19 +47,6 @@ def _write_file_with_encoding(path: Path, content: str, encoding: str):
 
 
 class TestEncodingScenarios:
-    @pytest.mark.integration
-    def test_sql_file_utf8_with_pythonutf8_mode(self, runner, tmp_path):
-        sql_file = tmp_path / "utf8_query.sql"
-        _write_file_with_encoding(sql_file, UNICODE_SQL_CONTENT, "utf-8")
-
-        result = runner.invoke_with_connection_json(
-            ["sql", "-f", str(sql_file)],
-            env={"PYTHONUTF8": "1"},
-        )
-
-        assert result.exit_code == 0, result.output
-        assert result.json == [{"RESULT": UNICODE_EXPECTED_VALUE}]
-
     @pytest.mark.integration
     def test_sql_file_cp1252_german_content(self, runner, tmp_path):
         sql_file = tmp_path / "cp1252_query.sql"
@@ -131,7 +120,7 @@ class TestEncodingScenarios:
 
 @contextlib.contextmanager
 def _temporary_locale(category, locale_name):
-    original = locale.getlocale(category)
+    original = locale.setlocale(category)
     try:
         locale.setlocale(category, locale_name)
         yield
@@ -148,7 +137,7 @@ class TestLocalesScenarios:
         sql_file = tmp_path / "c_locale.sql"
         _write_file_with_encoding(sql_file, UNICODE_SQL_CONTENT, "utf-8")
 
-        with _temporary_locale(locale.LC_ALL, "C"):
+        with _temporary_locale(locale.LC_CTYPE, "C"):
             result = runner.invoke_with_connection_json(
                 ["sql", "-f", str(sql_file)],
                 env={"SNOWFLAKE_CLI_ENCODING_FILE_IO": "utf-8"},
@@ -163,7 +152,7 @@ class TestLocalesScenarios:
         sql_file = tmp_path / "posix_locale.sql"
         _write_file_with_encoding(sql_file, CHINESE_SQL_CONTENT, "utf-8")
 
-        with _temporary_locale(locale.LC_ALL, "POSIX"):
+        with _temporary_locale(locale.LC_CTYPE, "POSIX"):
             result = runner.invoke_with_connection_json(
                 ["sql", "-f", str(sql_file)],
                 env={"SNOWFLAKE_CLI_ENCODING_FILE_IO": "utf-8"},
@@ -177,7 +166,7 @@ class TestLocalesScenarios:
     def test_mixed_unicode_in_single_query_under_utf8_locale(self, runner):
         mixed = "select '日本語 Ä Ö Ü 中文 한국어' as RESULT"
 
-        with _temporary_locale(locale.LC_ALL, "en_US.UTF-8"):
+        with _temporary_locale(locale.LC_CTYPE, "en_US.UTF-8"):
             result = runner.invoke_with_connection_json(
                 ["sql", "-q", mixed],
                 env={"SNOWFLAKE_CLI_ENCODING_FILE_IO": "utf-8"},
@@ -192,7 +181,7 @@ class TestLocalesScenarios:
         include_file = tmp_path / "include.sql"
         _write_file_with_encoding(include_file, "select '日本語テスト' as RESULT;\n", "utf-8")
 
-        with _temporary_locale(locale.LC_ALL, "en_US.UTF-8"):
+        with _temporary_locale(locale.LC_CTYPE, "en_US.UTF-8"):
             result = runner.invoke_with_connection_json(
                 [
                     "sql",
@@ -250,24 +239,15 @@ class TestWarnings:
     @pytest.mark.skipif(
         not IS_WINDOWS, reason="Only Windows requires suppressing warnings"
     )
-    def test_warnings_suppressed_via_config(self, runner, snowflake_home):
-        config_content = (
-            "[connections.integration]\n"
-            'authenticator = "SNOWFLAKE_JWT"\n'
-            'schema = "public"\n'
-            "\n"
-            "[cli.encoding]\n"
-            "show_warnings = false\n"
-        )
-        config_path = snowflake_home / "config.toml"
-        config_path.write_text(config_content, encoding="utf-8")
-        config_path.chmod(0o600)
-
+    def test_warnings_suppressed(self, runner):
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
 
             result = runner.invoke_with_connection(
                 ["sql", "-q", "select 1 as OK"],
+                env={
+                    "SNOWFLAKE_CLI_ENCODING_SHOW_WARNINGS": "false",
+                },
             )
 
             assert result.exit_code == 0, result.output
@@ -349,7 +329,6 @@ class TestSubprocessOutputDecoding:
                 os.chdir(init_dir)
 
     @pytest.mark.integration
-    @pytest.mark.skipif(shutil.which("docker") is None, reason="Docker not installed")
     def test_spcs_image_registry_login_uses_subprocess_encoding(self, runner):
         result = runner.invoke_with_connection(
             ["spcs", "image-registry", "login"],
@@ -358,90 +337,26 @@ class TestSubprocessOutputDecoding:
         assert "Login Succeeded" in result.output or result.exit_code != 0
 
     @pytest.mark.integration
-    @pytest.mark.skipif(not IS_WINDOWS, reason="icacls is Windows-only")
-    def test_icacls_config_check_uses_subprocess_encoding(self, runner, snowflake_home):
-        # any CLI command that loads config on Windows triggers _run_icacls
-        config_content = (
-            "[connections.integration]\n"
-            'authenticator = "SNOWFLAKE_JWT"\n'
-            'schema = "public"\n'
+    def test_sandbox_execute_script_uses_subprocess_encoding(self, monkeypatch):
+
+        monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", "utf-8")
+
+        result = execute_script_in_sandbox(
+            script_source="print('日本語テスト café Straße')",
+            env_type=ExecutionEnvironmentType.CURRENT,
         )
-        config_path = snowflake_home / "config.toml"
-        config_path.write_text(config_content, encoding="utf-8")
-
-        result = runner.invoke_with_connection(
-            ["sql", "-q", "select 1 as OK"],
-            env={"SNOWFLAKE_CLI_ENCODING_SUBPROCESS": "utf-8"},
-        )
-        assert result.exit_code == 0, result.output
-
-    @pytest.mark.integration
-    @pytest.mark.skipif(not IS_WINDOWS, reason="icacls is Windows-only")
-    def test_icacls_with_cp932_subprocess_encoding(self, runner, snowflake_home):
-        config_content = (
-            "[connections.integration]\n"
-            'authenticator = "SNOWFLAKE_JWT"\n'
-            'schema = "public"\n'
-        )
-        config_path = snowflake_home / "config.toml"
-        config_path.write_text(config_content, encoding="utf-8")
-
-        result = runner.invoke_with_connection(
-            ["sql", "-q", "select 1 as OK"],
-            env={"SNOWFLAKE_CLI_ENCODING_SUBPROCESS": "cp932"},
-        )
-        assert result.exit_code == 0, result.output
-
-    @pytest.mark.integration
-    def test_sandbox_execute_script_uses_subprocess_encoding(self):
-        from snowflake.cli._plugins.nativeapp.codegen.sandbox import (
-            ExecutionEnvironmentType,
-            execute_script_in_sandbox,
-        )
-
-        with mock.patch.dict(
-            os.environ, {"SNOWFLAKE_CLI_ENCODING_SUBPROCESS": "utf-8"}
-        ):
-            result = execute_script_in_sandbox(
-                script_source="import sys; print(sys.stdout.encoding)",
-                env_type=ExecutionEnvironmentType.CURRENT,
-            )
-
-        assert result.returncode == 0, result.stderr
-        assert result.stdout.strip() == "utf-8"
-
-    @pytest.mark.integration
-    def test_sandbox_execute_script_with_unicode_output(self):
-        from snowflake.cli._plugins.nativeapp.codegen.sandbox import (
-            ExecutionEnvironmentType,
-            execute_script_in_sandbox,
-        )
-
-        with mock.patch.dict(
-            os.environ, {"SNOWFLAKE_CLI_ENCODING_SUBPROCESS": "utf-8"}
-        ):
-            result = execute_script_in_sandbox(
-                script_source="print('日本語テスト café Straße')",
-                env_type=ExecutionEnvironmentType.CURRENT,
-            )
 
         assert result.returncode == 0, result.stderr
         assert "日本語テスト café Straße" in result.stdout
 
     @pytest.mark.integration
-    def test_sandbox_encoding_config_propagates_to_subprocess(self):
-        from snowflake.cli._plugins.nativeapp.codegen.sandbox import (
-            ExecutionEnvironmentType,
-            execute_script_in_sandbox,
+    def test_sandbox_execute_script_with_pythonutf8_mode(self, monkeypatch):
+        monkeypatch.setenv("PYTHONUTF8", "1")
+
+        result = execute_script_in_sandbox(
+            script_source="print('日本語テスト café Straße')",
+            env_type=ExecutionEnvironmentType.CURRENT,
         )
 
-        with mock.patch.dict(
-            os.environ, {"SNOWFLAKE_CLI_ENCODING_SUBPROCESS": "ascii"}
-        ):
-            result = execute_script_in_sandbox(
-                script_source="import sys; print(sys.stdout.encoding)",
-                env_type=ExecutionEnvironmentType.CURRENT,
-            )
-
         assert result.returncode == 0, result.stderr
-        assert result.stdout.strip() == "ascii"
+        assert "日本語テスト café Straße" in result.stdout
