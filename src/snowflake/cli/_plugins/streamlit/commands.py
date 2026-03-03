@@ -134,6 +134,13 @@ LegacyOption = typer.Option(
     is_flag=True,
 )
 
+SkipStageCreationOption = typer.Option(
+    False,
+    "--skip-stage-creation",
+    help="Skip automatic creation of stage. Stage must already exist.",
+    is_flag=True,
+)
+
 
 @app.command("deploy", requires_connection=True)
 @with_project_definition()
@@ -147,6 +154,7 @@ def streamlit_deploy(
     entity_id: str = entity_argument("streamlit"),
     open_: bool = OpenOption,
     legacy: bool = LegacyOption,
+    skip_stage_creation: bool = SkipStageCreationOption,
     **options,
 ) -> CommandResult:
     """
@@ -194,6 +202,7 @@ def streamlit_deploy(
         replace=replace,
         legacy=legacy,
         prune=prune,
+        skip_stage_creation=skip_stage_creation,
     )
 
     if open_:
