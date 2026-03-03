@@ -1,7 +1,8 @@
 import json
+from unittest import mock
 
-from snowflake.cli._plugins.dcm.manager import OUTPUT_FOLDER
 from snowflake.cli._plugins.dcm.utils import (
+    OUTPUT_FOLDER,
     clear_command_artifacts,
     save_command_response,
 )
@@ -80,3 +81,14 @@ class TestSaveCommandResponse:
 
             assert (tmp_path / OUTPUT_FOLDER).exists()
             assert (tmp_path / OUTPUT_FOLDER / "refresh.json").exists()
+
+    def test_handles_write_error_gracefully(self, tmp_path):
+        with change_directory(tmp_path):
+            with mock.patch(
+                "snowflake.cli._plugins.dcm.utils.SecurePath.write_text",
+                side_effect=OSError("disk full"),
+            ):
+                save_command_response("plan", {"version": 2})
+
+            json_file = tmp_path / OUTPUT_FOLDER / "plan.json"
+            assert not json_file.exists()

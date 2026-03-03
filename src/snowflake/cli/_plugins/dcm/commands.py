@@ -236,7 +236,7 @@ def _process_plan_result(
         log.info(
             "Detected DCM plan result version 2 format.",
         )
-        reporter = PlanReporter(command_name=command_name, save_output=save_output)
+        reporter = PlanReporter(save_output=save_output, command_name=command_name)
         reporter.process_payload(data)
         return EmptyResult()
 

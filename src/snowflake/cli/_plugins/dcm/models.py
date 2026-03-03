@@ -27,6 +27,7 @@ from snowflake.cli.api.secure_path import SecurePath
 
 MANIFEST_FILE_NAME = "manifest.yml"
 DCM_PROJECT_TYPE = "dcm_project"
+SOURCES_FOLDER = "sources"
 SUPPORTED_MANIFEST_VERSION = 2
 log = logging.getLogger(__name__)
 

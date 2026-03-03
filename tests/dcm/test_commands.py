@@ -1,9 +1,11 @@
 import json
+from pathlib import Path
+from typing import Any
 from unittest import mock
 
 import pytest
-from snowflake.cli._plugins.dcm.manager import OUTPUT_FOLDER
 from snowflake.cli._plugins.dcm.models import DCMManifest
+from snowflake.cli._plugins.dcm.utils import OUTPUT_FOLDER
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.utils.path_utils import change_directory
 
@@ -19,6 +21,12 @@ def _analyze_response(files=None):
             }
         ]
     return json.dumps({"files": files})
+
+
+def _assert_json_dumped(command: str, api_result: dict[str, Any], tmp_path: Path):
+    json_file = tmp_path / OUTPUT_FOLDER / f"{command}.json"
+    assert json_file.exists()
+    assert json.loads(json_file.read_text()) == api_result
 
 
 @pytest.fixture
@@ -440,9 +448,9 @@ class TestDCMDeploy:
         mock_connect,
         tmp_path,
     ):
-        plan_response = json.dumps({"version": 2, "changeset": []})
+        plan_response = {"version": 2, "changeset": []}
         mock_dcm_manager().deploy.return_value = mock_cursor(
-            rows=[(plan_response,)], columns=("operations",)
+            rows=[(json.dumps(plan_response),)], columns=("operations",)
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
@@ -451,10 +459,7 @@ class TestDCMDeploy:
             result = runner.invoke(["dcm", "deploy", "fooBar", "--save-output"])
 
             assert result.exit_code == 0, result.output
-
-            json_file = tmp_path / OUTPUT_FOLDER / "deploy.json"
-            assert json_file.exists()
-            assert json.loads(json_file.read_text()) == {"version": 2, "changeset": []}
+            _assert_json_dumped("deploy", plan_response, tmp_path)
 
 
 class TestDCMPlan:
@@ -606,9 +611,9 @@ class TestDCMPlan:
         mock_connect,
         tmp_path,
     ):
-        plan_response = json.dumps({"version": 2, "changeset": []})
+        plan_response = {"version": 2, "changeset": []}
         mock_dcm_manager().plan.return_value = mock_cursor(
-            rows=[(plan_response,)], columns=("operations",)
+            rows=[(json.dumps(plan_response),)], columns=("operations",)
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
@@ -621,6 +626,7 @@ class TestDCMPlan:
             json_file = tmp_path / OUTPUT_FOLDER / "plan.json"
             assert json_file.exists()
             assert json.loads(json_file.read_text()) == {"version": 2, "changeset": []}
+            _assert_json_dumped("plan", plan_response, tmp_path)
 
 
 class TestDCMRawAnalyze:
@@ -1415,8 +1421,7 @@ class TestDCMRefresh:
             result = runner.invoke(["dcm", "refresh", "my_project", "--save-output"])
 
             assert result.exit_code == 0, result.output
-            json_file = tmp_path / OUTPUT_FOLDER / "refresh.json"
-            assert json_file.exists()
+            _assert_json_dumped("refresh", refresh_result, tmp_path)
 
 
 class TestDCMTest:
@@ -1545,5 +1550,4 @@ class TestDCMTest:
             result = runner.invoke(["dcm", "test", "my_project", "--save-output"])
 
             assert result.exit_code == 0, result.output
-            json_file = tmp_path / OUTPUT_FOLDER / "test.json"
-            assert json_file.exists()
+            _assert_json_dumped("test", test_result, tmp_path)

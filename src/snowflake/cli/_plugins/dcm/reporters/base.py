@@ -68,7 +68,7 @@ class Reporter(ABC, Generic[T]):
 
     def _try_save_response(self, result_json: Dict[str, Any]) -> None:
         """Save raw JSON response if save_output is enabled and raw data is available."""
-        if self.save_output and isinstance(result_json, dict):
+        if self.save_output:
             save_command_response(self.command_name, result_json)
 
     def process_payload(self, result_json: Dict[str, Any]) -> None:
