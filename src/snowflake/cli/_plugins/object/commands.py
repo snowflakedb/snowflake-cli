@@ -27,7 +27,11 @@ from snowflake.cli.api.commands.flags import (
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.commands.utils import parse_key_value_variables
-from snowflake.cli.api.constants import SUPPORTED_OBJECTS, VALID_SCOPES
+from snowflake.cli.api.constants import (
+    INTEGRATION_OBJECTS,
+    SUPPORTED_OBJECTS,
+    VALID_SCOPES,
+)
 from snowflake.cli.api.exceptions import CliError, IncompatibleParametersError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import MessageResult, QueryResult
@@ -76,13 +80,17 @@ LikeOption = like_option(
 
 
 def _get_effective_scope(
-    scope: Tuple[str, str], in_account: bool
+    scope: Tuple[str, str], in_account: bool, object_type: str
 ) -> Tuple[Optional[str], Optional[str]]:
     """Resolve the effective scope from --in and --in-account flags."""
     scope_provided = scope[0] is not None
     if in_account and scope_provided:
         raise IncompatibleParametersError(["--in-account", "--in"])
     if in_account:
+        if object_type in INTEGRATION_OBJECTS:
+            # SHOW INTEGRATIONS does not support the IN ACCOUNT phrase but these are account level objects anyway
+            # so (None, None) is functionally the same
+            return (None, None)
         return ("account", None)
     return scope
 
@@ -167,7 +175,7 @@ def list_(
     limit: Optional[int] = limit_option_(),
     **options,
 ):
-    effective_scope = _get_effective_scope(scope, in_account)
+    effective_scope = _get_effective_scope(scope, in_account, object_type)
     _scope_validate(object_type, effective_scope)
     return QueryResult(
         ObjectManager().show(

@@ -14,14 +14,12 @@
 
 from __future__ import annotations
 
-import re
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Dict, List, Optional, TypedDict
 
-import click
 import yaml
 from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
 from snowflake.cli._plugins.object.manager import ObjectManager
@@ -34,27 +32,6 @@ from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
-
-SEMANTIC_VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+$")
-
-
-class SemanticVersionType(click.ParamType):
-    """Custom Click type that validates semantic version format (major.minor.patch)."""
-
-    name = "VERSION"
-
-    def convert(self, value, param, ctx):
-        if value is None:
-            return None
-        if not isinstance(value, str):
-            self.fail(f"Expected string, got {type(value).__name__}.", param, ctx)
-        if not SEMANTIC_VERSION_PATTERN.match(value):
-            self.fail(
-                f"Invalid version format '{value}'. Expected format: major.minor.patch (e.g., '1.9.4').",
-                param,
-                ctx,
-            )
-        return value
 
 
 class DBTObjectEditableAttributes(TypedDict):
@@ -191,10 +168,6 @@ class DBTManager(SqlExecutionMixin):
         dbt_object_attributes: DBTObjectEditableAttributes,
         attrs: DBTDeployAttributes,
     ) -> SnowflakeCursor:
-        query = f"ALTER DBT PROJECT {fqn} ADD VERSION"
-        query += f"\nFROM {stage_name}"
-        result = self.execute_query(query)
-
         set_properties = []
         unset_properties = []
 
@@ -232,6 +205,10 @@ class DBTManager(SqlExecutionMixin):
 
         if set_properties or unset_properties:
             self._execute_property_updates(fqn, set_properties, unset_properties)
+
+        query = f"ALTER DBT PROJECT {fqn} ADD VERSION"
+        query += f"\nFROM {stage_name}"
+        result = self.execute_query(query)
 
         return result
 

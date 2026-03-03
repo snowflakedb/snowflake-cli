@@ -24,3 +24,9 @@ INSERTED_STYLE = Style(color="green", italic=True)
 # Test
 PASS_STYLE = Style(color="green")
 FAIL_STYLE = Style(color="red")
+
+# Plan
+CREATE_STYLE = Style(color="green")
+ALTER_STYLE = Style(color="yellow")
+DROP_STYLE = Style(color="red")
+UNKNOWN_STYLE = Style(color="blue")

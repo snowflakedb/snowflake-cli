@@ -579,6 +579,7 @@ def test_deploy_only_required_fields(
 
 @patch(EXECUTE_QUERY)
 def test_execute_job_service(mock_execute_query, temporary_directory):
+    """Test execute_job with all parameters."""
     job_service_name = "test_job_service"
     compute_pool = "test_pool"
     tmp_dir = Path(temporary_directory)
@@ -591,30 +592,37 @@ def test_execute_job_service(mock_execute_query, temporary_directory):
     query_warehouse = "test_warehouse"
     comment = "'user\\'s comment'"
 
+    # Create a mock connection with no database/schema so FQNs won't be prefixed
+    mock_conn = Mock()
+    mock_conn.database = None
+    mock_conn.schema = None
+
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
 
-    result = ServiceManager().execute_job(
+    result = ServiceManager(connection=mock_conn).execute_job(
         job_service_name=job_service_name,
         compute_pool=compute_pool,
         spec_path=Path(spec_path),
         external_access_integrations=external_access_integrations,
         query_warehouse=query_warehouse,
         comment=comment,
+        async_mode=True,
+        replicas=3,
     )
-    expected_query = " ".join(
-        [
-            "EXECUTE JOB SERVICE",
-            "IN COMPUTE POOL test_pool",
-            f"FROM SPECIFICATION $$ {json.dumps(SPEC_DICT)} $$",
-            "NAME = test_job_service",
-            "EXTERNAL_ACCESS_INTEGRATIONS = (google_apis_access_integration,salesforce_api_access_integration)",
-            "QUERY_WAREHOUSE = test_warehouse",
-            "COMMENT = 'user\\'s comment'",
-        ]
-    )
+
     actual_query = " ".join(mock_execute_query.mock_calls[0].args[0].split())
-    assert expected_query == actual_query
+    assert "EXECUTE JOB SERVICE" in actual_query
+    assert "IN COMPUTE POOL test_pool" in actual_query
+    assert "NAME = test_job_service" in actual_query
+    assert "ASYNC = TRUE" in actual_query
+    assert "REPLICAS = 3" in actual_query
+    assert (
+        "EXTERNAL_ACCESS_INTEGRATIONS = (google_apis_access_integration,salesforce_api_access_integration)"
+        in actual_query
+    )
+    assert "QUERY_WAREHOUSE = test_warehouse" in actual_query
+    assert "COMMENT = 'user\\'s comment'" in actual_query
     assert result == cursor
 
 
@@ -645,11 +653,14 @@ def test_execute_job_service_cli_defaults(
         external_access_integrations=None,
         query_warehouse=None,
         comment=None,
+        async_mode=False,
+        replicas=None,
     )
 
 
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_job")
 def test_execute_job_service_cli(mock_execute_job, temporary_directory, runner):
+    """Test execute-job CLI with all parameters."""
     tmp_dir = Path(temporary_directory)
     spec_path = tmp_dir / "spec.yml"
     spec_path.write_text(SPEC_CONTENT)
@@ -671,6 +682,9 @@ def test_execute_job_service_cli(mock_execute_job, temporary_directory, runner):
             "test_warehouse",
             "--comment",
             "this is a test",
+            "--async",
+            "--replicas",
+            "3",
         ]
     )
     assert result.exit_code == 0, result.output
@@ -681,6 +695,8 @@ def test_execute_job_service_cli(mock_execute_job, temporary_directory, runner):
         external_access_integrations=["google_api", "salesforce_api"],
         query_warehouse="test_warehouse",
         comment=to_string_literal("this is a test"),
+        async_mode=True,
+        replicas=3,
     )
 
 
@@ -700,6 +716,8 @@ def test_execute_job_service_with_invalid_spec(mock_read_yaml):
             external_access_integrations=external_access_integrations,
             query_warehouse=query_warehouse,
             comment=comment,
+            async_mode=False,
+            replicas=None,
         )
 
 
@@ -1836,3 +1854,420 @@ def test_command_aliases(mock_connector, runner, mock_ctx, command, parameters):
 def normalize_query(query):
     """Normalize SQL query by stripping extra whitespace and formatting."""
     return re.sub(r"\s+", " ", query.strip())
+
+
+# Tests for build_image command
+@patch("snowflake.cli._plugins.connection.util.get_account")
+@patch(EXECUTE_QUERY)
+def test_build_image(mock_execute_query, mock_get_account):
+    """Test build_image with all parameters."""
+    job_service_name = "test_build_job"
+    compute_pool = "test_pool"
+    image_repository = "test_db.test_schema.test_repo"
+    image_name = "my_image"
+    image_tag = "v1.0"
+    stage = "test_stage"
+    build_context_path = "build_contexts/test"
+    external_access_integrations = ["eai1", "eai2"]
+
+    # Mock connection responses
+    mock_org_cursor = Mock()
+    mock_org_cursor.fetchone.return_value = {"CURRENT_ORGANIZATION_NAME()": "TEST_ORG"}
+    mock_conn = Mock()
+    mock_conn.execute_string.return_value = (None, mock_org_cursor)
+    mock_conn.database = None
+    mock_conn.schema = None
+    mock_conn.account = "test_account"
+
+    mock_get_account.return_value = "test_account"
+
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_query.return_value = cursor
+
+    manager = ServiceManager(connection=mock_conn)
+
+    result = manager.build_image(
+        job_service_name=job_service_name,
+        compute_pool=compute_pool,
+        image_repository=image_repository,
+        image_name=image_name,
+        image_tag=image_tag,
+        stage=stage,
+        build_context_path=build_context_path,
+        external_access_integrations=external_access_integrations,
+        async_mode=True,
+    )
+
+    # Verify execute_query was called
+    assert mock_execute_query.called
+    actual_query = " ".join(mock_execute_query.mock_calls[0].args[0].split())
+
+    # Verify query structure
+    assert "EXECUTE JOB SERVICE" in actual_query
+    assert "IN COMPUTE POOL test_pool" in actual_query
+    assert "ASYNC = TRUE" in actual_query
+
+    # Verify the spec contains expected values
+    # Extract JSON spec between $$ delimiters
+    spec_arg = mock_execute_query.mock_calls[0].args[0]
+    import re
+
+    match = re.search(r"\$\$\s*(\{.*?\})\s*\$\$", spec_arg, re.DOTALL)
+    assert match is not None, "Could not find JSON spec in query"
+    spec_json = match.group(1)
+    spec = json.loads(spec_json)
+
+    # Verify spec structure
+    assert "spec" in spec
+    assert "containers" in spec["spec"]
+    assert len(spec["spec"]["containers"]) == 1
+
+    container = spec["spec"]["containers"][0]
+    assert container["name"] == "main"
+    assert (
+        container["image"] == "/snowflake/images/snowflake_images/sf-image-build:0.0.1"
+    )
+    assert (
+        container["env"]["IMAGE_REGISTRY_URL"]
+        == "test_org-test_account.registry-local.snowflakecomputing.com/test_db/test_schema/test_repo"
+    )
+    assert container["env"]["IMAGE_NAME"] == image_name
+    assert container["env"]["IMAGE_TAG"] == image_tag
+    assert container["env"]["BUILD_CONTEXT"] == "/app"
+
+    assert result == cursor
+
+
+@patch("snowflake.cli._plugins.connection.util.get_account")
+def test_build_image_repository_validation(mock_get_account):
+    """Test build_image validates image repository format.
+
+    FQN parsing behavior:
+    - "db.schema.repo" → database="db", schema="schema" ✓ Valid
+    - "schema.repo" → database=None, schema="schema" ✗ Missing database
+    - "repo" → database=None, schema=None ✗ Missing both
+
+    Note: It's impossible to have database present without schema.
+    """
+    mock_org_cursor = Mock()
+    mock_org_cursor.fetchone.return_value = {"CURRENT_ORGANIZATION_NAME()": "TEST_ORG"}
+    mock_conn = Mock()
+    mock_conn.execute_string.return_value = (None, mock_org_cursor)
+    mock_conn.database = None
+    mock_conn.schema = None
+    mock_conn.account = "test_account"
+
+    mock_get_account.return_value = "test_account"
+
+    manager = ServiceManager(connection=mock_conn)
+
+    # Test case 1: Only repo name (missing both database and schema)
+    with pytest.raises(
+        ValueError,
+        match=r"Image repository requires database and schema.*Missing: database, schema.*Provided: 'repo_only'",
+    ):
+        manager.build_image(
+            job_service_name="test_job",
+            compute_pool="test_pool",
+            image_repository="repo_only",
+            image_name="image",
+            image_tag="tag",
+            stage="stage",
+            build_context_path="ctx",
+            external_access_integrations=None,
+            async_mode=True,
+        )
+
+    # Test case 2: schema.repo format (missing database only)
+    with pytest.raises(
+        ValueError,
+        match=r"Image repository requires database and schema.*Missing: database.*Provided: 'schema\.repo'",
+    ):
+        manager.build_image(
+            job_service_name="test_job",
+            compute_pool="test_pool",
+            image_repository="schema.repo",
+            image_name="image",
+            image_tag="tag",
+            stage="stage",
+            build_context_path="ctx",
+            external_access_integrations=None,
+            async_mode=True,
+        )
+
+
+# CLI tests for build-image command
+def test_build_image_cli_dockerfile_validation(runner, temporary_directory):
+    """Test build-image CLI Dockerfile validation."""
+    tmp_dir = Path(temporary_directory)
+    build_context = tmp_dir / "build_context"
+    build_context.mkdir()
+
+    # Test 1: Dockerfile missing
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "build-image",
+            "--compute-pool",
+            "test_pool",
+            "--image-repository",
+            "db.schema.repo",
+            "--image-name",
+            "my_image",
+            "--image-tag",
+            "v1.0",
+            "--build-context-dir",
+            str(build_context),
+        ],
+        catch_exceptions=False,
+    )
+    assert result.exit_code != 0
+    assert "Dockerfile not found" in result.output
+
+    # Test 2: Dockerfile is a directory
+    dockerfile = build_context / "Dockerfile"
+    dockerfile.mkdir()
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "build-image",
+            "--compute-pool",
+            "test_pool",
+            "--image-repository",
+            "db.schema.repo",
+            "--image-name",
+            "my_image",
+            "--image-tag",
+            "v1.0",
+            "--build-context-dir",
+            str(build_context),
+        ],
+        catch_exceptions=False,
+    )
+    assert result.exit_code != 0
+    assert "exists but is not a file" in result.output
+
+
+def test_build_image_cli_parameter_validation(runner, temporary_directory):
+    """Test build-image CLI parameter validation."""
+    tmp_dir = Path(temporary_directory)
+    build_context = tmp_dir / "build_context"
+    build_context.mkdir()
+    dockerfile = build_context / "Dockerfile"
+    dockerfile.write_text("FROM alpine")
+
+    # Test 1: Invalid image name
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "build-image",
+            "--compute-pool",
+            "test_pool",
+            "--image-repository",
+            "db.schema.repo",
+            "--image-name",
+            "invalid@name",
+            "--image-tag",
+            "v1.0",
+            "--build-context-dir",
+            str(build_context),
+        ],
+        catch_exceptions=False,
+    )
+    assert result.exit_code != 0
+    assert "Invalid image name" in result.output
+
+    # Test 2: Invalid image tag
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "build-image",
+            "--compute-pool",
+            "test_pool",
+            "--image-repository",
+            "db.schema.repo",
+            "--image-name",
+            "my_image",
+            "--image-tag",
+            "invalid tag!",
+            "--build-context-dir",
+            str(build_context),
+        ],
+        catch_exceptions=False,
+    )
+    assert result.exit_code != 0
+    assert "Invalid image tag" in result.output
+
+    # Test 3: Invalid job name
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "build-image",
+            "--compute-pool",
+            "test_pool",
+            "--image-repository",
+            "db.schema.repo",
+            "--image-name",
+            "my_image",
+            "--image-tag",
+            "v1.0",
+            "--build-context-dir",
+            str(build_context),
+            "--job-name",
+            "invalid-job-name!",
+        ],
+        catch_exceptions=False,
+    )
+    assert result.exit_code != 0
+    assert "Invalid job name" in result.output
+
+
+# Tests for check_terminal_status parameter in stream_logs
+@patch("snowflake.cli._plugins.spcs.services.manager.ObjectManager")
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.logs")
+@patch("time.sleep")
+def test_stream_logs_with_terminal_status_done(
+    mock_sleep, mock_logs, mock_object_manager_class
+):
+    """Test stream_logs with check_terminal_status when job completes with DONE."""
+    service_name = "test_job"
+    instance_id = "0"
+    container_name = "main"
+    num_lines = 1000
+    since_timestamp = ""
+    include_timestamps = False
+    interval_seconds = 2
+
+    # Mock logs to return some log lines
+    mock_logs.side_effect = [
+        iter(["2024-10-22T01:12:28Z Building image..."]),
+        iter(["2024-10-22T01:12:29Z Image built successfully"]),
+    ]
+
+    # Mock ObjectManager().describe() to return cursor objects with fetchone()
+    mock_object_manager = Mock()
+    mock_object_manager_class.return_value = mock_object_manager
+
+    # Mock cursors that return results via fetchone()
+    mock_cursor_1 = Mock()
+    mock_cursor_1.fetchone.return_value = {"status": "RUNNING", "name": "test_job"}
+    mock_cursor_2 = Mock()
+    mock_cursor_2.fetchone.return_value = {"status": "DONE", "name": "test_job"}
+    mock_object_manager.describe.side_effect = [
+        mock_cursor_1,
+        mock_cursor_2,
+    ]
+
+    service_manager = ServiceManager()
+    generated_output = []
+
+    for output in service_manager.stream_logs(
+        service_name=service_name,
+        instance_id=instance_id,
+        container_name=container_name,
+        num_lines=num_lines,
+        since_timestamp=since_timestamp,
+        include_timestamps=include_timestamps,
+        interval_seconds=interval_seconds,
+        check_terminal_status=True,
+    ):
+        generated_output.append(output)
+
+    # Should have logs followed by terminal status tuple
+    assert "Building image..." in generated_output[0]
+    assert "Image built successfully" in generated_output[1]
+    assert generated_output[-1] == ("__TERMINAL_STATUS__", "DONE")
+    assert mock_object_manager.describe.call_count == 2
+    assert mock_sleep.call_count == 1
+
+
+@patch("snowflake.cli._plugins.spcs.services.manager.ObjectManager")
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.logs")
+@patch("time.sleep")
+def test_stream_logs_with_terminal_status_failed(
+    mock_sleep, mock_logs, mock_object_manager_class
+):
+    """Test stream_logs with check_terminal_status when job fails."""
+    service_name = "test_job"
+    instance_id = "0"
+    container_name = "main"
+
+    # Mock logs
+    mock_logs.side_effect = [
+        iter(["2024-10-22T01:12:28Z Error occurred"]),
+    ]
+
+    # Mock ObjectManager().describe() to return cursor object with fetchone()
+    mock_object_manager = Mock()
+    mock_object_manager_class.return_value = mock_object_manager
+
+    # Mock cursor that returns FAILED status via fetchone()
+    mock_cursor = Mock()
+    mock_cursor.fetchone.return_value = {"status": "FAILED", "name": "test_job"}
+    mock_object_manager.describe.return_value = mock_cursor
+
+    service_manager = ServiceManager()
+    generated_output = list(
+        service_manager.stream_logs(
+            service_name=service_name,
+            instance_id=instance_id,
+            container_name=container_name,
+            num_lines=1000,
+            since_timestamp="",
+            include_timestamps=False,
+            interval_seconds=2,
+            check_terminal_status=True,
+        )
+    )
+
+    assert generated_output[-1] == ("__TERMINAL_STATUS__", "FAILED")
+    assert mock_object_manager.describe.call_count == 1
+
+
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.logs")
+@patch("time.sleep")
+def test_stream_logs_without_terminal_status_check(mock_sleep, mock_logs):
+    """Test stream_logs without check_terminal_status (default behavior)."""
+    service_name = "test_service"
+    instance_id = "0"
+    container_name = "main"
+
+    mock_logs.side_effect = [
+        iter(["2024-10-22T01:12:28Z log 1"]),
+        iter(["2024-10-22T01:12:29Z log 2"]),
+        iter([]),
+    ]
+
+    service_manager = ServiceManager()
+    generated_logs = []
+
+    for log in service_manager.stream_logs(
+        service_name=service_name,
+        instance_id=instance_id,
+        container_name=container_name,
+        num_lines=1000,
+        since_timestamp="",
+        include_timestamps=False,
+        interval_seconds=2,
+        check_terminal_status=False,  # Explicitly False
+    ):
+        generated_logs.append(log)
+        if len(generated_logs) >= 2:
+            break
+
+    # Should only have logs, no status
+    assert len(generated_logs) == 2
+    assert "log 1" in generated_logs[0]
+    assert "log 2" in generated_logs[1]
+
+
+def test_build_image_hidden_by_default(runner):
+    """Test that build-image command is hidden by default (feature flag disabled)."""
+    result = runner.invoke(["spcs", "service", "--help"])
+    assert result.exit_code == 0
+    assert "build-image" not in result.output

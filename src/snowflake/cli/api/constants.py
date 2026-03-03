@@ -96,6 +96,8 @@ SUPPORTED_OBJECTS = sorted(OBJECT_TO_NAMES.keys() - UNSUPPORTED_OBJECTS)
 # Scope names here must replace spaces with '-'. For example 'compute pool' is 'compute-pool'.
 VALID_SCOPES = ["database", "schema", "compute-pool"]
 
+INTEGRATION_OBJECTS = ["external-access-integration", "integration"]
+
 DEFAULT_SIZE_LIMIT_MB = 128
 
 SF_REST_API_URL_PREFIX = "/api/v2"

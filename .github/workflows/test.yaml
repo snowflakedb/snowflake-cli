@@ -38,7 +38,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install hatch
         run: |
-          pip install -U click==8.2.1 hatch
+          pip install -U click==8.2.1 hatch==1.15.1 virtualenv==20.39.1
           hatch env create default
       - name: Test with hatch
         run: hatch run test-cov
@@ -64,7 +64,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install hatch
         run: |
-          pip install -U click==8.2.1 hatch
+          pip install -U click==8.2.1 hatch==1.15.1 virtualenv==20.39.1
           hatch env create default
       - name: Test with hatch
         run: hatch run test-cov

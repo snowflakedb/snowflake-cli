@@ -902,6 +902,48 @@ def test_stage_copy_between_stages(runner, snowflake_session, test_database, tmp
 
 
 @pytest.mark.integration
+def test_stage_get_recursive_from_fqn_in_different_database(
+    runner, snowflake_session, test_database, test_root_path, tmp_path
+):
+    source_project_path = (
+        test_root_path / "test_data/projects/stage_get_directory_structure"
+    )
+    source_file_paths = sorted(
+        path.relative_to(source_project_path)
+        for path in source_project_path.rglob("*")
+        if path.is_file()
+    )
+    stage_name = "fqn_recursive_copy_stage"
+    secondary_database = f"FQN_RECURSIVE_COPY_DB_{time.time_ns()}"
+    stage_fqn = f"@{secondary_database}.PUBLIC.{stage_name}"
+
+    try:
+        snowflake_session.execute_string(f"create database {secondary_database}")
+
+        result = runner.invoke_with_connection_json(["stage", "create", stage_fqn])
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection_json(
+            ["stage", "copy", str(source_project_path), stage_fqn, "--recursive"]
+        )
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection_json(
+            ["stage", "copy", stage_fqn, str(tmp_path), "--recursive"]
+        )
+        assert result.exit_code == 0, result.output
+
+        downloaded_file_paths = sorted(
+            path.relative_to(tmp_path) for path in tmp_path.rglob("*") if path.is_file()
+        )
+        assert downloaded_file_paths == source_file_paths
+    finally:
+        snowflake_session.execute_string(
+            f"drop database if exists {secondary_database}"
+        )
+
+
+@pytest.mark.integration
 @pytest.mark.parametrize("encryption", ["SNOWFLAKE_FULL", "SNOWFLAKE_SSE"])
 def test_create_encryption(runner, test_database, encryption):
     result = runner.invoke_with_connection_json(

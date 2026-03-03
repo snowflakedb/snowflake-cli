@@ -15,16 +15,18 @@
 from __future__ import annotations
 
 import itertools
+import time
+import uuid
 from pathlib import Path
 from typing import Generator, Iterable, List, Optional, cast
 
 import typer
-from click import ClickException
 from snowflake.cli._plugins.object.command_aliases import (
     add_object_command_aliases,
     scope_option,
 )
 from snowflake.cli._plugins.object.common import CommentOption, Tag, TagOption
+from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.spcs.common import (
     validate_and_set_instances,
 )
@@ -33,6 +35,7 @@ from snowflake.cli._plugins.spcs.services.service_entity_model import ServiceEnt
 from snowflake.cli._plugins.spcs.services.service_project_paths import (
     ServiceProjectPaths,
 )
+from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
@@ -43,8 +46,10 @@ from snowflake.cli.api.commands.flags import (
     like_option,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import (
+    CliArgumentError,
     IncompatibleParametersError,
 )
 from snowflake.cli.api.feature_flags import FeatureFlag
@@ -62,6 +67,9 @@ from snowflake.cli.api.project.definition_helper import (
     get_entity_from_project_definition,
 )
 from snowflake.cli.api.project.util import is_valid_object_name
+from snowflake.cli.api.stage_path import StagePath
+from snowflake.connector.cursor import DictCursor
+from snowflake.connector.errors import ProgrammingError
 
 app = SnowTyperFactory(
     name="service",
@@ -104,7 +112,7 @@ show_all_columns_option = typer.Option(
 
 def _service_name_callback(name: FQN) -> FQN:
     if not is_valid_object_name(name.identifier, max_depth=2, allow_quoted=False):
-        raise ClickException(
+        raise CliArgumentError(
             f"'{name}' is not a valid service name. Note service names must be unquoted identifiers. The same constraint also applies to database and schema names where you create a service."
         )
     return name
@@ -277,6 +285,18 @@ def execute_job(
     ),
     query_warehouse: Optional[str] = QueryWarehouseOption(),
     comment: Optional[str] = CommentOption(help=_COMMENT_HELP),
+    async_mode: bool = typer.Option(
+        False,
+        "--async",
+        help="Execute the job asynchronously without waiting for completion.",
+        is_flag=True,
+    ),
+    replicas: Optional[int] = typer.Option(
+        None,
+        "--replicas",
+        help="Number of job replicas to run.",
+        min=1,
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -289,6 +309,8 @@ def execute_job(
         external_access_integrations=external_access_integrations,
         query_warehouse=query_warehouse,
         comment=comment,
+        async_mode=async_mode,
+        replicas=replicas,
     )
     return SingleQueryResult(cursor)
 
@@ -613,4 +635,306 @@ def unset_property(
         auto_suspend_secs=auto_suspend_secs,
         comment=comment,
     )
+    return SingleQueryResult(cursor)
+
+
+@app.command(
+    "build-image",
+    requires_connection=True,
+    hidden=not FeatureFlag.ENABLE_SPCS_BUILD_IMAGE.is_enabled(),
+)
+def build_image(
+    compute_pool: str = typer.Option(
+        ...,
+        "--compute-pool",
+        help="Compute pool to run the image build job on.",
+        show_default=False,
+    ),
+    image_repository: str = typer.Option(
+        ...,
+        "--image-repository",
+        help="Image repository in format [db.][schema.]repo_name (e.g., my_db.my_schema.my_repo or my_repo).",
+        show_default=False,
+    ),
+    image_name: str = typer.Option(
+        ...,
+        "--image-name",
+        help="Name for the built image.",
+        show_default=False,
+    ),
+    image_tag: str = typer.Option(
+        ...,
+        "--image-tag",
+        help="Tag for the built image.",
+        show_default=False,
+    ),
+    build_context_dir: Path = typer.Option(
+        ...,
+        "--build-context-dir",
+        help="Directory to use as build context. Must contain a Dockerfile.",
+        file_okay=False,
+        dir_okay=True,
+        exists=True,
+        show_default=False,
+    ),
+    stage: Optional[str] = typer.Option(
+        None,
+        "--stage",
+        help="Stage to store build context files. Format: [db.][schema.]stage_name. If not provided, a temporary stage will be created and dropped automatically. If provided, only the uploaded build context files will be removed after the build completes.",
+        show_default=False,
+    ),
+    job_name: str = typer.Option(
+        None,
+        "--job-name",
+        help="Name for the build job service. If not provided, a name will be auto-generated.",
+        show_default=False,
+    ),
+    external_access_integrations: Optional[List[str]] = typer.Option(
+        None,
+        "--eai-name",
+        help="Identifies external access integrations (EAI) that the build job can access. This option may be specified multiple times for multiple EAIs.",
+    ),
+    **options,
+) -> CommandResult:
+    """
+    [Experimental] Builds a container image using SPCS service.
+
+    **Note:** This command is experimental and subject to change.
+
+    This command is hidden by default. To make it visible in help output, enable the
+    feature flag in your config.toml:
+    [cli.feature_flags]
+    enable_spcs_build_image = true
+
+    Or set the environment variable:
+    export SNOWFLAKE_CLI_FEATURES_ENABLE_SPCS_BUILD_IMAGE=true
+
+    This command uploads the build context (Dockerfile and related files) to a stage,
+    then executes a job service that builds the container image and pushes it to the
+    specified image repository. The build logs are streamed to the terminal in real-time
+    until the build completes or fails.
+
+    If --stage is not provided, a stage will be automatically created using the
+    current session's database and schema context, and dropped after the build completes.
+    If your session doesn't have a database/schema set, you should provide --stage explicitly.
+    """
+    # Verify Dockerfile exists in build context directory
+    dockerfile_path = build_context_dir / "Dockerfile"
+    if not dockerfile_path.exists():
+        raise CliArgumentError(
+            f"Dockerfile not found in build context directory '{build_context_dir}'. "
+            f"Expected to find: {dockerfile_path}"
+        )
+
+    if not dockerfile_path.is_file():
+        raise CliArgumentError(f"'{dockerfile_path}' exists but is not a file.")
+
+    # Validate image_name and image_tag (basic alphanumeric validation)
+    if not image_name.replace("_", "").replace("-", "").replace(".", "").isalnum():
+        raise CliArgumentError(
+            f"Invalid image name '{image_name}'. Must contain only alphanumeric characters, hyphens, underscores, and dots."
+        )
+
+    if not image_tag.replace("_", "").replace("-", "").replace(".", "").isalnum():
+        raise CliArgumentError(
+            f"Invalid image tag '{image_tag}'. Must contain only alphanumeric characters, hyphens, underscores, and dots."
+        )
+
+    # Generate a unique identifier for this build operation
+    build_uuid = uuid.uuid4().hex[:8]
+
+    if job_name is None:
+        job_name = f"build_image_{build_uuid}"
+    else:
+        # Validate job_name format
+        if not is_valid_object_name(job_name, max_depth=0, allow_quoted=True):
+            raise CliArgumentError(
+                f"Invalid job name '{job_name}'. Must be a valid unquoted identifier."
+            )
+
+    stage_manager = StageManager()
+    use_temporary_stage = stage is None
+
+    if use_temporary_stage:
+        # Create a stage
+        stage = f"{job_name}_stage"
+        cli_console.step(f"Creating temporary stage: {stage}")
+        stage_fqn = FQN.from_string(stage).using_context()
+        stage_manager.create(fqn=stage_fqn)
+    else:
+        # Use the provided stage (ensure it exists)
+        stage_fqn = FQN.from_string(stage)
+        cli_console.step(f"Using existing stage: {stage_fqn.identifier}")
+
+    # Upload build context to stage
+    build_context_stage_path = f"build_contexts/{job_name}"
+    cli_console.step(
+        f"Uploading build context from {build_context_dir} to @{stage_fqn.identifier}/{build_context_stage_path}"
+    )
+
+    stage_path = StagePath.from_stage_str(
+        f"@{stage_fqn.identifier}/{build_context_stage_path}"
+    )
+    stage_manager.put(
+        local_path=build_context_dir,
+        stage_path=str(stage_path),
+        overwrite=True,
+    )
+
+    # Execute the build job asynchronously so we can stream logs
+    cli_console.step(f"Starting image build job: {job_name}")
+    service_manager = ServiceManager()
+    cursor = service_manager.build_image(
+        job_service_name=job_name,
+        compute_pool=compute_pool,
+        image_repository=image_repository,
+        image_name=image_name,
+        image_tag=image_tag,
+        stage=stage_fqn.identifier,
+        build_context_path=build_context_stage_path,
+        external_access_integrations=external_access_integrations,
+        async_mode=True,  # Always async so we can stream logs
+    )
+
+    cli_console.step(f"Waiting for job to start...")
+
+    # Wait for job to be ready (not PENDING) before streaming logs
+    max_wait_time = 300  # 5 minutes
+    poll_interval = 5  # seconds
+    elapsed_time = 0
+    current_status = None
+
+    cli_console.message(f"Checking job status every {poll_interval} seconds...")
+
+    while elapsed_time < max_wait_time:
+        try:
+            # Check service status using ObjectManager
+            object_manager = ObjectManager()
+            job_fqn = FQN.from_string(job_name)
+            describe_result = object_manager.describe(
+                object_type="service", fqn=job_fqn, cursor_class=DictCursor
+            )
+            # DESCRIBE SERVICE returns a single row with all properties as columns
+            result_row = describe_result.fetchone()
+            if result_row and "status" in result_row:
+                current_status = result_row["status"]
+
+            if current_status:
+                cli_console.message(f"Current job status: {current_status}")
+
+            # Only wait if status is PENDING, otherwise logs should be available
+            if current_status and current_status != "PENDING":
+                break
+
+        except Exception as e:
+            # Job might not be describable yet
+            cli_console.message(
+                f"Waiting for job to be available... ({elapsed_time}s elapsed)"
+            )
+
+        time.sleep(poll_interval)
+        elapsed_time += poll_interval
+
+    # Stream logs if job is no longer pending
+    if current_status and current_status != "PENDING":
+        cli_console.step(f"Job status: {current_status}. Streaming logs...")
+        cli_console.message("")  # Empty line before logs
+
+        # Stream logs with terminal status monitoring
+        final_status = None
+        try:
+            log_stream = service_manager.stream_logs(
+                service_name=job_name,
+                instance_id="0",
+                container_name="main",
+                num_lines=1000,
+                since_timestamp="",
+                include_timestamps=False,
+                interval_seconds=2,
+                check_terminal_status=True,
+            )
+
+            for log_entry in log_stream:
+                # Check if this is a terminal status signal (tuple) vs a log line (string)
+                if (
+                    isinstance(log_entry, tuple)
+                    and log_entry[0] == "__TERMINAL_STATUS__"
+                ):
+                    final_status = log_entry[1]
+                    break
+                # Otherwise it's a log line
+                cli_console.message(log_entry)
+
+        except KeyboardInterrupt:
+            cli_console.warning(
+                f"\nBuild job '{job_name}' is still running in the background."
+            )
+            cli_console.message(
+                f"Use 'snow spcs service logs {job_name} --container-name main --instance-id 0' to view logs."
+            )
+            cli_console.message(
+                f"Use 'snow spcs service status {job_name}' to check status."
+            )
+            if use_temporary_stage:
+                cli_console.warning(
+                    f"Remember to manually clean up stage: DROP STAGE {stage_fqn.sql_identifier};"
+                )
+            else:
+                cli_console.warning(
+                    f"Remember to manually clean up build context: REMOVE @{stage_fqn.identifier}/{build_context_stage_path};"
+                )
+            return SingleQueryResult(cursor)
+    else:
+        # Status is still PENDING or couldn't be determined
+        cli_console.warning(
+            f"Job did not start within {max_wait_time}s (status: {current_status or 'UNKNOWN'})"
+        )
+        cli_console.message(
+            f"Use 'snow spcs service status {job_name}' to check status."
+        )
+        if use_temporary_stage:
+            cli_console.warning(
+                f"Remember to manually clean up stage: DROP STAGE {stage_fqn.sql_identifier};"
+            )
+        else:
+            cli_console.warning(
+                f"Remember to manually clean up build context: REMOVE @{stage_fqn.identifier}/{build_context_stage_path};"
+            )
+        return SingleQueryResult(cursor)
+
+    # Use final_status if available, otherwise fall back to current_status
+    final_status = final_status or current_status
+
+    # Display final status message
+    cli_console.message("")  # Empty line after logs
+    if final_status == "DONE":
+        cli_console.message(f"✓ Image build job '{job_name}' completed successfully.")
+    elif final_status == "FAILED":
+        cli_console.warning(f"✗ Image build job '{job_name}' failed.")
+    elif final_status == "CANCELLED":
+        cli_console.warning(f"✗ Image build job '{job_name}' was cancelled.")
+
+    # Cleanup after build completes
+    if use_temporary_stage:
+        # Drop the stage
+        cli_console.step(f"Cleaning up stage: {stage}")
+        try:
+            object_manager = ObjectManager()
+            object_manager.drop(object_type="stage", fqn=stage_fqn, if_exists=True)
+            cli_console.message(f"✓ Dropped stage {stage}")
+        except ProgrammingError as e:
+            cli_console.warning(f"Failed to clean up stage: {e}")
+    else:
+        # Remove only the uploaded build context files from customer-provided stage
+        cli_console.step(f"Cleaning up build context files from stage: {stage}")
+        try:
+            stage_manager.remove(
+                stage_name=stage_fqn.identifier, path=build_context_stage_path
+            )
+            cli_console.message(
+                f"✓ Removed build context files from {stage}/{build_context_stage_path}"
+            )
+        except ProgrammingError as e:
+            cli_console.warning(f"Failed to clean up build context files: {e}")
+
     return SingleQueryResult(cursor)

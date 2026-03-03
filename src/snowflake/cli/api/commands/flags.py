@@ -35,10 +35,13 @@ from snowflake.cli.api.config import (
 )
 from snowflake.cli.api.connections import ConnectionContext
 from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.exceptions import CliArgumentError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.secret import SecretType
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.stage_path import StagePath
+from snowflake.cli.api.utils.path_utils import is_stage_path
 from snowflake.cli.api.utils.types import try_cast_to_int
 from snowflake.connector.auth.workload_identity import ApiFederatedAuthenticationType
 
@@ -708,6 +711,21 @@ class SecretTypeParser(click.ParamType):
         if not isinstance(value, SecretType):
             return SecretType(value)
         return value
+
+
+class LocalDirectoryType(click.ParamType):
+    """Click parameter type that converts a path string to SecurePath."""
+
+    name = "PATH"
+
+    def convert(
+        self, value: str, param: click.Parameter | None, ctx: click.Context | None
+    ) -> SecurePath:
+        if is_stage_path(value):
+            raise CliArgumentError(
+                "Stage paths are not supported. Please provide a local directory path."
+            )
+        return SecurePath(value).resolve()
 
 
 def identifier_argument(
