@@ -202,7 +202,7 @@ def before_callback(
         "--dbt-version",
         click_type=SemanticVersionType(),
         show_default=False,
-        help="dbt version to use for execution (ephemeral, does not change project configuration).",
+        help="dbt version to use for execution (ephemeral, does not change project configuration). Full list of supported versions can be found at https://docs.snowflake.com/en/user-guide/data-engineering/dbt-projects-on-snowflake-dbt-core-versions",
     ),
     **options,
 ):

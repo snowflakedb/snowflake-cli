@@ -5026,7 +5026,10 @@
   |                                            [default: no-run-async]           |
   | --dbt-version                        TEXT  dbt version to use for execution  |
   |                                            (ephemeral, does not change       |
-  |                                            project configuration).           |
+  |                                            project configuration). Full list |
+  |                                            of supported versions can be      |
+  |                                            found at                          |
+  |                                            https://docs.snowflake.com/en/us… |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -5198,7 +5201,10 @@
   |                                            [default: no-run-async]           |
   | --dbt-version                        TEXT  dbt version to use for execution  |
   |                                            (ephemeral, does not change       |
-  |                                            project configuration).           |
+  |                                            project configuration). Full list |
+  |                                            of supported versions can be      |
+  |                                            found at                          |
+  |                                            https://docs.snowflake.com/en/us… |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -5370,7 +5376,10 @@
   |                                            [default: no-run-async]           |
   | --dbt-version                        TEXT  dbt version to use for execution  |
   |                                            (ephemeral, does not change       |
-  |                                            project configuration).           |
+  |                                            project configuration). Full list |
+  |                                            of supported versions can be      |
+  |                                            found at                          |
+  |                                            https://docs.snowflake.com/en/us… |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -5542,7 +5551,10 @@
   |                                            [default: no-run-async]           |
   | --dbt-version                        TEXT  dbt version to use for execution  |
   |                                            (ephemeral, does not change       |
-  |                                            project configuration).           |
+  |                                            project configuration). Full list |
+  |                                            of supported versions can be      |
+  |                                            found at                          |
+  |                                            https://docs.snowflake.com/en/us… |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -5714,7 +5726,10 @@
   |                                            [default: no-run-async]           |
   | --dbt-version                        TEXT  dbt version to use for execution  |
   |                                            (ephemeral, does not change       |
-  |                                            project configuration).           |
+  |                                            project configuration). Full list |
+  |                                            of supported versions can be      |
+  |                                            found at                          |
+  |                                            https://docs.snowflake.com/en/us… |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -5886,7 +5901,10 @@
   |                                            [default: no-run-async]           |
   | --dbt-version                        TEXT  dbt version to use for execution  |
   |                                            (ephemeral, does not change       |
-  |                                            project configuration).           |
+  |                                            project configuration). Full list |
+  |                                            of supported versions can be      |
+  |                                            found at                          |
+  |                                            https://docs.snowflake.com/en/us… |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -6058,7 +6076,10 @@
   |                                            [default: no-run-async]           |
   | --dbt-version                        TEXT  dbt version to use for execution  |
   |                                            (ephemeral, does not change       |
-  |                                            project configuration).           |
+  |                                            project configuration). Full list |
+  |                                            of supported versions can be      |
+  |                                            found at                          |
+  |                                            https://docs.snowflake.com/en/us… |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -6230,7 +6251,10 @@
   |                                            [default: no-run-async]           |
   | --dbt-version                        TEXT  dbt version to use for execution  |
   |                                            (ephemeral, does not change       |
-  |                                            project configuration).           |
+  |                                            project configuration). Full list |
+  |                                            of supported versions can be      |
+  |                                            found at                          |
+  |                                            https://docs.snowflake.com/en/us… |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -6402,7 +6426,10 @@
   |                                            [default: no-run-async]           |
   | --dbt-version                        TEXT  dbt version to use for execution  |
   |                                            (ephemeral, does not change       |
-  |                                            project configuration).           |
+  |                                            project configuration). Full list |
+  |                                            of supported versions can be      |
+  |                                            found at                          |
+  |                                            https://docs.snowflake.com/en/us… |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -6574,7 +6601,10 @@
   |                                            [default: no-run-async]           |
   | --dbt-version                        TEXT  dbt version to use for execution  |
   |                                            (ephemeral, does not change       |
-  |                                            project configuration).           |
+  |                                            project configuration). Full list |
+  |                                            of supported versions can be      |
+  |                                            found at                          |
+  |                                            https://docs.snowflake.com/en/us… |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -6746,7 +6776,10 @@
   |                                            [default: no-run-async]           |
   | --dbt-version                        TEXT  dbt version to use for execution  |
   |                                            (ephemeral, does not change       |
-  |                                            project configuration).           |
+  |                                            project configuration). Full list |
+  |                                            of supported versions can be      |
+  |                                            found at                          |
+  |                                            https://docs.snowflake.com/en/us… |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -6918,7 +6951,10 @@
   |                                            [default: no-run-async]           |
   | --dbt-version                        TEXT  dbt version to use for execution  |
   |                                            (ephemeral, does not change       |
-  |                                            project configuration).           |
+  |                                            project configuration). Full list |
+  |                                            of supported versions can be      |
+  |                                            found at                          |
+  |                                            https://docs.snowflake.com/en/us… |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -7090,7 +7126,10 @@
   |                                            [default: no-run-async]           |
   | --dbt-version                        TEXT  dbt version to use for execution  |
   |                                            (ephemeral, does not change       |
-  |                                            project configuration).           |
+  |                                            project configuration). Full list |
+  |                                            of supported versions can be      |
+  |                                            found at                          |
+  |                                            https://docs.snowflake.com/en/us… |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -22758,7 +22797,10 @@
   |                                            [default: no-run-async]           |
   | --dbt-version                        TEXT  dbt version to use for execution  |
   |                                            (ephemeral, does not change       |
-  |                                            project configuration).           |
+  |                                            project configuration). Full list |
+  |                                            of supported versions can be      |
+  |                                            found at                          |
+  |                                            https://docs.snowflake.com/en/us… |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
