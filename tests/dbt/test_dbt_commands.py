@@ -23,10 +23,7 @@ from snowflake.cli._plugins.dbt.constants import (
     PROFILES_FILENAME,
     RESULT_COLUMN_NAME,
 )
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.secure_path import SecurePath
-
-from tests_common.feature_flag_utils import with_feature_flags
 
 
 class TestDBTList:
@@ -331,7 +328,6 @@ class TestDBTDeploy:
             in result.output
         )
 
-    @with_feature_flags({FeatureFlag.ENABLE_DBT_VERSION: True})
     def test_deploy_with_dbt_version_passes_to_manager(
         self, runner, dbt_project_path, mock_deploy
     ):
@@ -350,7 +346,6 @@ class TestDBTDeploy:
         call_kwargs = mock_deploy.call_args[1]
         assert call_kwargs["attrs"].dbt_version == "1.9.0"
 
-    @with_feature_flags({FeatureFlag.ENABLE_DBT_VERSION: True})
     def test_deploy_with_invalid_dbt_version_fails(
         self, runner, dbt_project_path, mock_deploy
     ):
@@ -368,7 +363,6 @@ class TestDBTDeploy:
         assert "Invalid version format '1.9'" in result.output
         mock_deploy.assert_not_called()
 
-    @with_feature_flags({FeatureFlag.ENABLE_DBT_VERSION: True})
     def test_deploy_with_patch_version_passes_to_manager(
         self, runner, dbt_project_path, mock_deploy
     ):
@@ -387,7 +381,6 @@ class TestDBTDeploy:
         call_kwargs = mock_deploy.call_args[1]
         assert call_kwargs["attrs"].dbt_version == "1.9.4"
 
-    @with_feature_flags({FeatureFlag.ENABLE_DBT_VERSION: True})
     def test_deploy_with_prerelease_version_passes_to_manager(
         self, runner, dbt_project_path, mock_deploy
     ):
@@ -644,7 +637,6 @@ class TestDBTExecute:
         assert result.exit_code == 1, result.output
         assert "No data returned from server" in result.output
 
-    @with_feature_flags({FeatureFlag.ENABLE_DBT_VERSION: True})
     def test_dbt_execute_with_dbt_version_when_flag_enabled(
         self, mock_connect, mock_cursor, runner
     ):
@@ -670,7 +662,6 @@ class TestDBTExecute:
             == "EXECUTE DBT PROJECT pipeline_name dbt_version='2.0.0' args='run'"
         )
 
-    @with_feature_flags({FeatureFlag.ENABLE_DBT_VERSION: True})
     def test_dbt_execute_with_invalid_dbt_version_fails(self, mock_connect, runner):
         result = runner.invoke(
             [
@@ -685,7 +676,6 @@ class TestDBTExecute:
         assert result.exit_code == 2, result.output
         assert "Invalid version format '1.2.3.beta'" in result.output
 
-    @with_feature_flags({FeatureFlag.ENABLE_DBT_VERSION: True})
     def test_dbt_execute_with_patch_version(self, mock_connect, mock_cursor, runner):
         cursor = mock_cursor(
             rows=[(True, "very detailed logs")],
@@ -709,7 +699,6 @@ class TestDBTExecute:
             == "EXECUTE DBT PROJECT pipeline_name dbt_version='1.9.4' args='run'"
         )
 
-    @with_feature_flags({FeatureFlag.ENABLE_DBT_VERSION: True})
     def test_dbt_execute_with_prerelease_version(
         self, mock_connect, mock_cursor, runner
     ):
