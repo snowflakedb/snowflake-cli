@@ -14,6 +14,7 @@
 import json
 import os
 from functools import wraps
+from pathlib import Path
 from typing import Any
 
 from snowflake.cli._plugins.dcm.reporters import (
@@ -22,7 +23,6 @@ from snowflake.cli._plugins.dcm.reporters import (
     TestReporter,
 )
 from snowflake.cli.api.output.types import EmptyResult
-from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 
 
 class FakeCursor:
@@ -48,14 +48,14 @@ def _get_debug_file_number():
 
 
 def _load_debug_data(command_name: str, file_number: int):
-    results_dir = SecurePath.cwd() / "results"
+    results_dir = Path.cwd() / "results"
 
     debug_file = results_dir / f"{command_name}{file_number}.json"
 
     if not debug_file.exists():
         raise FileNotFoundError(f"Debug file not found: {debug_file}")
 
-    with results_dir.open(debug_file, "r", read_file_limit_mb=UNLIMITED) as f:
+    with open(debug_file, "r") as f:
         data = json.load(f)
 
     if isinstance(data, list) and len(data) > 0:
