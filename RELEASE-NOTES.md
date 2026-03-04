@@ -24,7 +24,7 @@
 * Added **experimental** command `snow spcs service build-image` to build container images using SPCS service. The command uploads local build context to a stage, executes a build job, and streams logs in real-time until completion. This command is experimental and subject to change.
 * Added `--async` flag to `snow spcs service execute-job` command to execute job services asynchronously without waiting for completion.
 * Added `--replicas` parameter to `snow spcs service execute-job` command to specify the number of job replicas to run.
-* Added `--dbt-version` flag to `snow dbt deploy` and `snow dbt execute` commands. This flag allows to set dbt version on dbt project object (`deploy` command) or execute a dbt command on a specific dbt version, without altering the dbt object (`execute` commands).
+* Added `--dbt-version` flag to `snow dbt deploy` and `snow dbt execute` commands. This flag allows to set dbt Core version on dbt project object (`deploy` command) or execute a dbt command on a specific dbt Core version, without altering the dbt object (`execute` commands).
 
 ## Fixes and improvements
 * Fixed `snow stage copy --recursive` dropping database and schema qualifiers from fully-qualified stage names, causing the command to resolve stages against the connection's default database instead of the one specified in the FQN.

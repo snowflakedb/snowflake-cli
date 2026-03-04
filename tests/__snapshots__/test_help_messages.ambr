@@ -4594,11 +4594,11 @@
   |                                                    dependencies from project |
   |                                                    that don't require        |
   |                                                    external access.          |
-  | --dbt-version                                TEXT  dbt version to use for    |
-  |                                                    the project, for example  |
-  |                                                    '1.10.15'. Full list of   |
-  |                                                    supported versions can be |
-  |                                                    found at                  |
+  | --dbt-version                                TEXT  dbt Core version to use   |
+  |                                                    for the project, for      |
+  |                                                    example '1.10.15'. Full   |
+  |                                                    list of supported         |
+  |                                                    versions can be found at  |
   |                                                    https://docs.snowflake.c… |
   | --help                     -h                      Show this message and     |
   |                                                    exit.                     |
@@ -5024,11 +5024,11 @@
   | --run-async        --no-run-async          Run dbt command asynchronously    |
   |                                            and check it's result later.      |
   |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt version to use for execution  |
-  |                                            (ephemeral, does not change       |
-  |                                            project configuration). Full list |
-  |                                            of supported versions can be      |
-  |                                            found at                          |
+  | --dbt-version                        TEXT  dbt Core version to use for       |
+  |                                            execution (ephemeral, does not    |
+  |                                            change project configuration).    |
+  |                                            Full list of supported versions   |
+  |                                            can be found at                   |
   |                                            https://docs.snowflake.com/en/us… |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
@@ -5199,11 +5199,11 @@
   | --run-async        --no-run-async          Run dbt command asynchronously    |
   |                                            and check it's result later.      |
   |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt version to use for execution  |
-  |                                            (ephemeral, does not change       |
-  |                                            project configuration). Full list |
-  |                                            of supported versions can be      |
-  |                                            found at                          |
+  | --dbt-version                        TEXT  dbt Core version to use for       |
+  |                                            execution (ephemeral, does not    |
+  |                                            change project configuration).    |
+  |                                            Full list of supported versions   |
+  |                                            can be found at                   |
   |                                            https://docs.snowflake.com/en/us… |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
@@ -5374,11 +5374,11 @@
   | --run-async        --no-run-async          Run dbt command asynchronously    |
   |                                            and check it's result later.      |
   |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt version to use for execution  |
-  |                                            (ephemeral, does not change       |
-  |                                            project configuration). Full list |
-  |                                            of supported versions can be      |
-  |                                            found at                          |
+  | --dbt-version                        TEXT  dbt Core version to use for       |
+  |                                            execution (ephemeral, does not    |
+  |                                            change project configuration).    |
+  |                                            Full list of supported versions   |
+  |                                            can be found at                   |
   |                                            https://docs.snowflake.com/en/us… |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
@@ -5549,11 +5549,11 @@
   | --run-async        --no-run-async          Run dbt command asynchronously    |
   |                                            and check it's result later.      |
   |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt version to use for execution  |
-  |                                            (ephemeral, does not change       |
-  |                                            project configuration). Full list |
-  |                                            of supported versions can be      |
-  |                                            found at                          |
+  | --dbt-version                        TEXT  dbt Core version to use for       |
+  |                                            execution (ephemeral, does not    |
+  |                                            change project configuration).    |
+  |                                            Full list of supported versions   |
+  |                                            can be found at                   |
   |                                            https://docs.snowflake.com/en/us… |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
@@ -5724,11 +5724,11 @@
   | --run-async        --no-run-async          Run dbt command asynchronously    |
   |                                            and check it's result later.      |
   |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt version to use for execution  |
-  |                                            (ephemeral, does not change       |
-  |                                            project configuration). Full list |
-  |                                            of supported versions can be      |
-  |                                            found at                          |
+  | --dbt-version                        TEXT  dbt Core version to use for       |
+  |                                            execution (ephemeral, does not    |
+  |                                            change project configuration).    |
+  |                                            Full list of supported versions   |
+  |                                            can be found at                   |
   |                                            https://docs.snowflake.com/en/us… |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
@@ -5899,11 +5899,11 @@
   | --run-async        --no-run-async          Run dbt command asynchronously    |
   |                                            and check it's result later.      |
   |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt version to use for execution  |
-  |                                            (ephemeral, does not change       |
-  |                                            project configuration). Full list |
-  |                                            of supported versions can be      |
-  |                                            found at                          |
+  | --dbt-version                        TEXT  dbt Core version to use for       |
+  |                                            execution (ephemeral, does not    |
+  |                                            change project configuration).    |
+  |                                            Full list of supported versions   |
+  |                                            can be found at                   |
   |                                            https://docs.snowflake.com/en/us… |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
@@ -6074,11 +6074,11 @@
   | --run-async        --no-run-async          Run dbt command asynchronously    |
   |                                            and check it's result later.      |
   |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt version to use for execution  |
-  |                                            (ephemeral, does not change       |
-  |                                            project configuration). Full list |
-  |                                            of supported versions can be      |
-  |                                            found at                          |
+  | --dbt-version                        TEXT  dbt Core version to use for       |
+  |                                            execution (ephemeral, does not    |
+  |                                            change project configuration).    |
+  |                                            Full list of supported versions   |
+  |                                            can be found at                   |
   |                                            https://docs.snowflake.com/en/us… |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
@@ -6249,11 +6249,11 @@
   | --run-async        --no-run-async          Run dbt command asynchronously    |
   |                                            and check it's result later.      |
   |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt version to use for execution  |
-  |                                            (ephemeral, does not change       |
-  |                                            project configuration). Full list |
-  |                                            of supported versions can be      |
-  |                                            found at                          |
+  | --dbt-version                        TEXT  dbt Core version to use for       |
+  |                                            execution (ephemeral, does not    |
+  |                                            change project configuration).    |
+  |                                            Full list of supported versions   |
+  |                                            can be found at                   |
   |                                            https://docs.snowflake.com/en/us… |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
@@ -6424,11 +6424,11 @@
   | --run-async        --no-run-async          Run dbt command asynchronously    |
   |                                            and check it's result later.      |
   |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt version to use for execution  |
-  |                                            (ephemeral, does not change       |
-  |                                            project configuration). Full list |
-  |                                            of supported versions can be      |
-  |                                            found at                          |
+  | --dbt-version                        TEXT  dbt Core version to use for       |
+  |                                            execution (ephemeral, does not    |
+  |                                            change project configuration).    |
+  |                                            Full list of supported versions   |
+  |                                            can be found at                   |
   |                                            https://docs.snowflake.com/en/us… |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
@@ -6599,11 +6599,11 @@
   | --run-async        --no-run-async          Run dbt command asynchronously    |
   |                                            and check it's result later.      |
   |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt version to use for execution  |
-  |                                            (ephemeral, does not change       |
-  |                                            project configuration). Full list |
-  |                                            of supported versions can be      |
-  |                                            found at                          |
+  | --dbt-version                        TEXT  dbt Core version to use for       |
+  |                                            execution (ephemeral, does not    |
+  |                                            change project configuration).    |
+  |                                            Full list of supported versions   |
+  |                                            can be found at                   |
   |                                            https://docs.snowflake.com/en/us… |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
@@ -6774,11 +6774,11 @@
   | --run-async        --no-run-async          Run dbt command asynchronously    |
   |                                            and check it's result later.      |
   |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt version to use for execution  |
-  |                                            (ephemeral, does not change       |
-  |                                            project configuration). Full list |
-  |                                            of supported versions can be      |
-  |                                            found at                          |
+  | --dbt-version                        TEXT  dbt Core version to use for       |
+  |                                            execution (ephemeral, does not    |
+  |                                            change project configuration).    |
+  |                                            Full list of supported versions   |
+  |                                            can be found at                   |
   |                                            https://docs.snowflake.com/en/us… |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
@@ -6949,11 +6949,11 @@
   | --run-async        --no-run-async          Run dbt command asynchronously    |
   |                                            and check it's result later.      |
   |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt version to use for execution  |
-  |                                            (ephemeral, does not change       |
-  |                                            project configuration). Full list |
-  |                                            of supported versions can be      |
-  |                                            found at                          |
+  | --dbt-version                        TEXT  dbt Core version to use for       |
+  |                                            execution (ephemeral, does not    |
+  |                                            change project configuration).    |
+  |                                            Full list of supported versions   |
+  |                                            can be found at                   |
   |                                            https://docs.snowflake.com/en/us… |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
@@ -7124,11 +7124,11 @@
   | --run-async        --no-run-async          Run dbt command asynchronously    |
   |                                            and check it's result later.      |
   |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt version to use for execution  |
-  |                                            (ephemeral, does not change       |
-  |                                            project configuration). Full list |
-  |                                            of supported versions can be      |
-  |                                            found at                          |
+  | --dbt-version                        TEXT  dbt Core version to use for       |
+  |                                            execution (ephemeral, does not    |
+  |                                            change project configuration).    |
+  |                                            Full list of supported versions   |
+  |                                            can be found at                   |
   |                                            https://docs.snowflake.com/en/us… |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
@@ -22801,11 +22801,11 @@
   | --run-async        --no-run-async          Run dbt command asynchronously    |
   |                                            and check it's result later.      |
   |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt version to use for execution  |
-  |                                            (ephemeral, does not change       |
-  |                                            project configuration). Full list |
-  |                                            of supported versions can be      |
-  |                                            found at                          |
+  | --dbt-version                        TEXT  dbt Core version to use for       |
+  |                                            execution (ephemeral, does not    |
+  |                                            change project configuration).    |
+  |                                            Full list of supported versions   |
+  |                                            can be found at                   |
   |                                            https://docs.snowflake.com/en/us… |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
