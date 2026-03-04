@@ -20,6 +20,7 @@ from tempfile import NamedTemporaryFile, TemporaryDirectory
 from unittest import mock
 
 import pytest
+from click import ClickException
 from snowflake.cli.api.cli_global_context import fork_cli_context
 from snowflake.cli.api.config import (
     ConfigFileTooWidePermissionsError,
@@ -28,6 +29,8 @@ from snowflake.cli.api.config import (
     get_connection_dict,
     get_default_connection_dict,
     get_env_variable_name,
+    get_file_io_encoding,
+    get_subprocess_encoding,
     set_config_value,
 )
 from snowflake.cli.api.exceptions import MissingConfigurationError
@@ -638,8 +641,6 @@ def test_file_io_encoding_from_env(configured_encoding, monkeypatch):
     else:
         monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
 
-    from snowflake.cli.api.config import get_file_io_encoding
-
     encoding = get_file_io_encoding()
     assert encoding == configured_encoding
 
@@ -651,8 +652,6 @@ def test_subprocess_encoding_from_env(configured_encoding, monkeypatch):
         monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", configured_encoding)
     else:
         monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", raising=False)
-
-    from snowflake.cli.api.config import get_subprocess_encoding
 
     encoding = get_subprocess_encoding()
     assert encoding == configured_encoding
@@ -666,7 +665,6 @@ file_io = "cp1252"
 """
     with config_file(config_content) as cfg:
         config_init(cfg)
-        from snowflake.cli.api.config import get_file_io_encoding
 
         encoding = get_file_io_encoding()
         assert encoding == "cp1252"
@@ -680,7 +678,6 @@ subprocess = "utf-8"
 """
     with config_file(config_content) as cfg:
         config_init(cfg)
-        from snowflake.cli.api.config import get_subprocess_encoding
 
         encoding = get_subprocess_encoding()
         assert encoding == "utf-8"
@@ -691,10 +688,6 @@ def test_encoding_defaults_to_none(config_file):
     config_content = ""
     with config_file(config_content) as cfg:
         config_init(cfg)
-        from snowflake.cli.api.config import (
-            get_file_io_encoding,
-            get_subprocess_encoding,
-        )
 
         assert get_file_io_encoding() is None
         assert get_subprocess_encoding() is None
@@ -855,3 +848,41 @@ file_io = "{config_value}"
         from snowflake.cli.api.config import get_file_io_encoding
 
         assert get_file_io_encoding() == expected
+
+
+def test_invalid_encoding_from_env_raises_error(monkeypatch):
+    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "not-a-real-encoding")
+    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", "not-a-real-encoding")
+
+    with pytest.raises(ClickException, match="Invalid encoding 'not-a-real-encoding'"):
+        get_file_io_encoding()
+
+    with pytest.raises(ClickException, match="Invalid encoding 'not-a-real-encoding'"):
+        get_subprocess_encoding()
+
+
+def test_invalid_encoding_from_config_file_raises_error(
+    config_file,
+    monkeypatch,
+):
+    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
+    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", raising=False)
+
+    config_content = f"""
+[cli.encoding]
+file_io = "not-a-real-encoding"
+subprocess = "not-a-real-encoding"
+show_warnings = false
+"""
+    with config_file(config_content) as cfg:
+        config_init(cfg)
+
+        with pytest.raises(
+            ClickException, match="Invalid encoding 'not-a-real-encoding'"
+        ):
+            get_file_io_encoding()
+
+        with pytest.raises(
+            ClickException, match="Invalid encoding 'not-a-real-encoding'"
+        ):
+            get_subprocess_encoding()
