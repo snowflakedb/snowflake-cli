@@ -113,7 +113,7 @@ class TestLocalesScenarios:
         with _temporary_locale(locale.LC_CTYPE, locale_name):
             result = runner.invoke_with_connection_json(
                 ["sql", "-f", str(sql_file)],
-                # env={"SNOWFLAKE_CLI_ENCODING_FILE_IO": "utf-8"},
+                env={"SNOWFLAKE_CLI_ENCODING_FILE_IO": "utf-8"},
             )
 
         assert result.exit_code == 0, result.output
@@ -271,12 +271,20 @@ class TestSubprocessOutputDecoding:
     def test_sandbox_execute_script_unicode_output(
         self, monkeypatch, env_var, env_value
     ):
-        monkeypatch.setenv(env_var, env_value)
+        original_env = os.environ.get(env_var)
+        os.environ[env_var] = env_value
+        try:
 
-        result = execute_script_in_sandbox(
-            script_source="print('日本語テスト café Straße')",
-            env_type=ExecutionEnvironmentType.CURRENT,
-        )
+            result = execute_script_in_sandbox(
+                script_source="print('日本語テスト café Straße')",
+                env_type=ExecutionEnvironmentType.CURRENT,
+            )
 
-        assert result.returncode == 0, result.stderr
-        assert "日本語テスト café Straße" in result.stdout
+            assert result.returncode == 0, result.stderr
+            assert "日本語テスト café Straße" in result.stdout
+
+        finally:
+            if original_env is not None:
+                os.environ[env_var] = original_env
+            else:
+                os.environ.pop(env_var, None)
