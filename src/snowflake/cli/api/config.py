@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import codecs
 import locale
 import logging
 import os
@@ -419,6 +420,19 @@ def get_plugins_config() -> dict:
         return {}
 
 
+def _validate_encoding(encoding: Optional[str], setting_name: str) -> Optional[str]:
+    if encoding is None:
+        return None
+    try:
+        codecs.lookup(encoding)
+    except LookupError:
+        raise ClickException(
+            f"Invalid encoding '{encoding}' configured for {setting_name}. "
+            f"Please use a valid Python codec name (e.g. 'utf-8', 'cp1252')."
+        )
+    return encoding
+
+
 def get_file_io_encoding() -> Optional[str]:
     """
     Get configured file I/O encoding, or None for platform default.
@@ -426,14 +440,14 @@ def get_file_io_encoding() -> Optional[str]:
     Returns None when not configured - this ensures Unix users with proper
     locales experience NO behavior change (platform default is used).
     """
-    # default is None = use platform default (transparent for Unix users)
-    return get_config_value(*ENCODING_SECTION_PATH, key="file_io", default=None)
+    value = get_config_value(*ENCODING_SECTION_PATH, key="file_io", default=None)
+    return _validate_encoding(value, "cli.encoding.file_io")
 
 
 def get_subprocess_encoding() -> Optional[str]:
     """Get configured subprocess encoding, or None for platform default"""
-    # default is None = use platform default (transparent for Unix users)
-    return get_config_value(*ENCODING_SECTION_PATH, key="subprocess", default=None)
+    value = get_config_value(*ENCODING_SECTION_PATH, key="subprocess", default=None)
+    return _validate_encoding(value, "cli.encoding.subprocess")
 
 
 def should_show_encoding_warnings() -> bool:
