@@ -32,6 +32,7 @@ from snowflake.cli._app.constants import (
 )
 from snowflake.cli._app.telemetry import command_info
 from snowflake.cli._plugins.auth.oidc.manager import OidcManager
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.config import (
     get_connection_dict,
     get_env_value,
@@ -243,14 +244,18 @@ def connect_to_snowflake(
         # The output is redirected to silent stream for reuse
         # in cases like externalbrowser auth not to pollute output
         # in formats like JSON
+        connect_kwargs = {
+            "application": command_info(),
+            **connection_parameters,
+        }
+        if get_cli_context().config_file_override is not None:
+            connect_kwargs["unsafe_skip_file_permissions_check"] = True
+
         with (
             contextlib.redirect_stdout(silent_stdout),
             contextlib.redirect_stderr(silent_stderr),
         ):
-            return snowflake.connector.connect(
-                application=command_info(),
-                **connection_parameters,
-            )
+            return snowflake.connector.connect(**connect_kwargs)
     except ForbiddenError as err:
         raise SnowflakeConnectionError(err)
     except DatabaseError as err:
