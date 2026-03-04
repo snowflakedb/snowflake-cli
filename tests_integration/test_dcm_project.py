@@ -702,6 +702,57 @@ def test_dcm_end_to_end_workflow(
 
 @pytest.mark.qa_only
 @pytest.mark.integration
+def test_dcm_raw_analyze_with_save_output(
+    runner,
+    test_database,
+    project_directory,
+):
+    project_name = "project_descriptive_name"
+
+    with project_directory("dcm_project") as project_root:
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
+        assert result.exit_code == 0, result.output
+        assert f"DCM Project '{project_name}' successfully created." in result.output
+
+        result = runner.invoke_with_connection(
+            [
+                "dcm",
+                "raw-analyze",
+                project_name,
+                "--save-output",
+                "-D",
+                f"table_name='{test_database}.PUBLIC.OutputTestTable'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Analysis completed successfully." in result.output
+
+        output_path = project_root / "out"
+        assert output_path.exists(), f"Output directory out was not created."
+
+        # Verify raw JSON response was saved.
+        assert_json_response_saved("raw-analyze", project_root)
+
+        raw_analyze_artifacts = output_path / "raw-analyze"
+        assert (
+            raw_analyze_artifacts.exists()
+        ), "raw-analyze/ artifact directory was not created."
+
+        local_files = []
+        for root, dirs, files in os.walk(raw_analyze_artifacts):
+            for file in files:
+                relative_path = os.path.relpath(
+                    os.path.join(root, file), raw_analyze_artifacts
+                )
+                local_files.append(relative_path)
+
+        assert (
+            len(local_files) > 0
+        ), "No artifact files were downloaded to ./out/raw-analyze/"
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
 def test_dcm_raw_analyze_with_errors(
     runner,
     test_database,

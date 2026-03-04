@@ -114,6 +114,83 @@ def test_analyze_project_with_configuration_and_variables(mock_execute_query):
 
 
 @mock.patch(execute_queries)
+def test_analyze_project_default_no_download(mock_execute_query):
+    mgr = DCMProjectManager()
+
+    mgr.raw_analyze(
+        project_identifier=TEST_PROJECT,
+        from_stage="@test_stage",
+        configuration="some_configuration",
+    )
+
+    mock_execute_query.assert_called_once()
+    query = mock_execute_query.call_args.kwargs["query"]
+    assert "EXECUTE DCM PROJECT IDENTIFIER('my_project') ANALYZE" in query
+    assert "OUTPUT_PATH" not in query
+
+
+@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.get_recursive")
+@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
+@mock.patch(execute_queries)
+def test_analyze_project_with_save_output(
+    mock_execute_query,
+    mock_create,
+    mock_get_recursive,
+    mock_from_resource,
+    project_directory,
+):
+    mgr = DCMProjectManager()
+    mgr.raw_analyze(
+        project_identifier=TEST_PROJECT,
+        from_stage="@test_stage",
+        configuration="some_configuration",
+        save_output=True,
+    )
+
+    mock_execute_query.assert_called_once()
+    query = mock_execute_query.call_args.kwargs["query"]
+    assert "EXECUTE DCM PROJECT IDENTIFIER('my_project') ANALYZE" in query
+    assert "OUTPUT_PATH" in query
+    temp_stage_fqn = mock_from_resource()
+    mock_create.assert_called_once_with(temp_stage_fqn, temporary=True)
+    mock_get_recursive.assert_called_once_with(
+        stage_path=f"@{str(temp_stage_fqn)}/outputs",
+        dest_path=Path("out/raw-analyze"),
+    )
+
+
+@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.get_recursive")
+@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
+@mock.patch(execute_queries)
+def test_analyze_project_with_output_path__exception_handling(
+    mock_execute_query,
+    mock_create,
+    mock_get_recursive,
+    project_directory,
+    mock_from_resource,
+):
+    mock_execute_query.side_effect = Exception("Query execution failed")
+
+    mgr = DCMProjectManager()
+
+    with pytest.raises(Exception, match="Query execution failed"):
+        mgr.raw_analyze(
+            project_identifier=TEST_PROJECT,
+            from_stage="@test_stage",
+            configuration="some_configuration",
+            save_output=True,
+        )
+
+    temp_stage_fqn = mock_from_resource()
+    mock_execute_query.assert_called_once()
+    mock_create.assert_called_once_with(temp_stage_fqn, temporary=True)
+    mock_get_recursive.assert_called_once_with(
+        stage_path=f"@{str(temp_stage_fqn)}/outputs",
+        dest_path=Path("out/raw-analyze"),
+    )
+
+
+@mock.patch(execute_queries)
 def test_deploy_project(mock_execute_query):
     mgr = DCMProjectManager()
     mgr.deploy(

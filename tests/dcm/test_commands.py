@@ -5,7 +5,6 @@ from unittest import mock
 
 import pytest
 from snowflake.cli._plugins.dcm.models import DCMManifest
-from snowflake.cli._plugins.dcm.utils import OUTPUT_FOLDER
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.utils.path_utils import change_directory
 
@@ -24,7 +23,7 @@ def _analyze_response(files=None):
 
 
 def _assert_json_dumped(command: str, api_result: dict[str, Any], tmp_path: Path):
-    json_file = tmp_path / OUTPUT_FOLDER / f"{command}.json"
+    json_file = tmp_path / "out" / f"{command}.json"
     assert json_file.exists()
     assert json.loads(json_file.read_text()) == api_result
 
@@ -623,7 +622,7 @@ class TestDCMPlan:
 
             assert result.exit_code == 0, result.output
 
-            json_file = tmp_path / OUTPUT_FOLDER / "plan.json"
+            json_file = tmp_path / "out" / "plan.json"
             assert json_file.exists()
             assert json.loads(json_file.read_text()) == {"version": 2, "changeset": []}
             _assert_json_dumped("plan", plan_response, tmp_path)
@@ -654,6 +653,7 @@ class TestDCMRawAnalyze:
             configuration=None,
             from_stage="TMP_STAGE",
             variables=None,
+            save_output=False,
         )
 
     def test_raw_analyze_with_errors_exits(
@@ -709,6 +709,7 @@ class TestDCMRawAnalyze:
             configuration=None,
             from_stage="TMP_STAGE",
             variables=["key=value"],
+            save_output=False,
         )
 
     def test_raw_analyze_with_target(
@@ -742,6 +743,7 @@ class TestDCMRawAnalyze:
             configuration=None,
             from_stage="TMP_STAGE",
             variables=None,
+            save_output=False,
         )
 
     def test_raw_analyze_with_default_target(
@@ -775,6 +777,7 @@ class TestDCMRawAnalyze:
             configuration=None,
             from_stage="TMP_STAGE",
             variables=None,
+            save_output=False,
         )
 
     def test_raw_analyze_explicit_identifier_with_target_config(
@@ -818,6 +821,7 @@ class TestDCMRawAnalyze:
             configuration="DEV_CONFIG",
             from_stage="TMP_STAGE",
             variables=None,
+            save_output=False,
         )
 
     def test_raw_analyze_with_from_local_directory(
@@ -882,6 +886,70 @@ class TestDCMRawAnalyze:
         call_args = mock_dcm_manager().raw_analyze.call_args
         assert "DCM_FOOBAR_" in call_args.kwargs["from_stage"]
         assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
+
+    def test_raw_analyze_with_save_output(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
+            rows=[(_analyze_response(),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                [
+                    "dcm",
+                    "raw-analyze",
+                    "fooBar",
+                    "--save-output",
+                ]
+            )
+        assert result.exit_code == 0, result.output
+
+        mock_dcm_manager().raw_analyze.assert_called_once_with(
+            project_identifier=FQN.from_string("fooBar"),
+            configuration=None,
+            from_stage="TMP_STAGE",
+            variables=None,
+            save_output=True,
+        )
+
+    def test_raw_analyze_with_save_output_saves_response(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        mock_cursor,
+        mock_connect,
+        tmp_path,
+    ):
+        analyze_response = {
+            "files": [
+                {
+                    "sourcePath": "sources/definitions/ok.sql",
+                    "definitions": [{"name": "OK", "errors": []}],
+                    "errors": [],
+                }
+            ]
+        }
+        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
+            rows=[(json.dumps(analyze_response),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["dcm", "raw-analyze", "fooBar", "--save-output"])
+
+            assert result.exit_code == 0, result.output
+            _assert_json_dumped("raw-analyze", analyze_response, tmp_path)
 
     def test_raw_analyze_from_stage_fails(
         self, mock_dcm_manager, runner, project_directory

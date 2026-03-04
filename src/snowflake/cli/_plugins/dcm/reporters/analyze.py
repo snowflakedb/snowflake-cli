@@ -26,7 +26,7 @@ class AnalyzeReporter(Reporter[Dict[str, Any]]):
 
     def __init__(self, save_output: bool = False):
         super().__init__(save_output=save_output)
-        self.command_name = "analyze"
+        self.command_name = "raw-analyze"
         self._error_count = 0
 
     def extract_data(self, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
