@@ -261,7 +261,7 @@ class TestSubprocessOutputDecoding:
         assert "Login Succeeded" in result.output or result.exit_code != 0
 
     @pytest.mark.integration
-    def test_sandbox_execute_script_unicode_output(self, monkeypatch, env_vars):
+    def test_sandbox_execute_script_unicode_output(self, monkeypatch):
         monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", "utf-8")
         monkeypatch.setenv("PYTHONUTF8", "1")
 
