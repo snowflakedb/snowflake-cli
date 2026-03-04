@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-from contextlib import contextmanager
 from pathlib import Path
-from typing import Generator, List
+from typing import List
 
-from snowflake.cli._plugins.dcm.models import MANIFEST_FILE_NAME
+from snowflake.cli._plugins.dcm.models import MANIFEST_FILE_NAME, SOURCES_FOLDER
+from snowflake.cli._plugins.dcm.utils import collect_output
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.artifacts.upload import sync_artifacts_with_stage
 from snowflake.cli.api.commands.utils import parse_key_value_variables
@@ -32,54 +32,10 @@ from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
 
-SOURCES_FOLDER = "sources"
-OUTPUT_FOLDER = "out"
 log = logging.getLogger(__name__)
 
 
 class DCMProjectManager(SqlExecutionMixin):
-    @contextmanager
-    def _collect_output(self, project_identifier: FQN) -> Generator[str, None, None]:
-        """
-        Context manager for handling plan output - creates temporary stage,
-        downloads files to out/ folder after execution.
-
-        Args:
-            project_identifier: The DCM project identifier
-
-        Yields:
-            str: The effective output path to use in the DCM command
-        """
-        stage_manager = StageManager()
-        temp_stage_fqn = FQN.from_resource(
-            ObjectType.DCM_PROJECT, project_identifier, "OUTPUT_TMP_STAGE"
-        )
-        log.info(
-            "Creating temporary output stage for DCM plan output (project_identifier=%s, stage=%s).",
-            project_identifier,
-            temp_stage_fqn.identifier,
-        )
-        stage_manager.create(temp_stage_fqn, temporary=True)
-        effective_output_path = StagePath.from_stage_str(
-            temp_stage_fqn.identifier
-        ).joinpath("/outputs")
-        local_output_path = SecurePath(OUTPUT_FOLDER)
-
-        try:
-            yield effective_output_path.absolute_path()
-        finally:
-            log.info(
-                "Downloading DCM plan output from stage to local path (project_identifier=%s, stage_path=%s, local_path=%s).",
-                project_identifier,
-                effective_output_path.absolute_path(),
-                local_output_path.resolve(),
-            )
-            stage_manager.get_recursive(
-                stage_path=effective_output_path.absolute_path(),
-                dest_path=local_output_path.path,
-            )
-            cli_console.step(f"Plan output saved to: {local_output_path.resolve()}")
-
     def deploy(
         self,
         project_identifier: FQN,
@@ -143,7 +99,7 @@ class DCMProjectManager(SqlExecutionMixin):
         query += self._get_from_stage_query(from_stage)
 
         if save_output:
-            with self._collect_output(project_identifier) as output_stage:
+            with collect_output(project_identifier) as output_stage:
                 query += f" OUTPUT_PATH {output_stage}"
                 result = self.execute_query(query=query)
         else:

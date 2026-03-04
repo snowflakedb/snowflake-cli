@@ -12,17 +12,110 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+import logging
 import os
+from contextlib import contextmanager
 from functools import wraps
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, Generator
 
-from snowflake.cli._plugins.dcm.reporters import (
-    PlanReporter,
-    RefreshReporter,
-    TestReporter,
-)
+from snowflake.cli._plugins.stage.manager import StageManager
+from snowflake.cli.api.console.console import cli_console
+from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import EmptyResult
+from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.api.stage_path import StagePath
+
+log = logging.getLogger(__name__)
+
+OUTPUT_FOLDER = "out"
+
+
+def clear_command_artifacts(command_name: str) -> None:
+    """Clear previous artifacts for the given command from the out/ directory."""
+    output_dir = SecurePath(OUTPUT_FOLDER)
+    if not output_dir.exists():
+        return
+
+    json_file = output_dir / f"{command_name}.json"
+    if json_file.exists():
+        json_file.unlink()
+
+    artifacts_dir = output_dir / command_name
+    if artifacts_dir.exists():
+        artifacts_dir.rmdir(recursive=True)
+
+    log.info("Cleared previous artifacts for command '%s'.", command_name)
+
+
+def save_command_response(command_name: str, raw_data: Dict[str, Any] | str) -> None:
+    """Save raw JSON response to out/<command>.json."""
+    output_dir = SecurePath(OUTPUT_FOLDER)
+    output_dir.mkdir(exist_ok=True)
+    json_file = output_dir / f"{command_name}.json"
+    try:
+        if isinstance(raw_data, str):
+            json_file.write_text(raw_data)
+        else:
+            json_file.write_text(json.dumps(raw_data))
+    except Exception as e:
+        log.error("Failed to save command response: %s", e)
+        return
+    log.info(
+        "Saved raw JSON response for command '%s' in %s.",
+        command_name,
+        json_file.resolve(),
+    )
+    cli_console.step(f"Artifacts saved to: {output_dir.path.resolve()}")
+
+
+@contextmanager
+def collect_output(
+    project_identifier: FQN, command_name: str = "plan"
+) -> Generator[str, None, None]:
+    """
+    Context manager for handling command output artifacts - creates temporary stage,
+    downloads files to out/<command_name>/ folder after execution.
+
+    Args:
+        project_identifier: The DCM project identifier
+        command_name: Name of the command, used for the output subdirectory
+
+    Yields:
+        str: The effective output path to use in the DCM command
+    """
+    stage_manager = StageManager()
+    temp_stage_fqn = FQN.from_resource(
+        ObjectType.DCM_PROJECT, project_identifier, "OUTPUT_TMP_STAGE"
+    )
+    log.info(
+        "Creating temporary output stage for DCM %s artifacts (project_identifier=%s, stage=%s).",
+        command_name,
+        project_identifier,
+        temp_stage_fqn.identifier,
+    )
+    stage_manager.create(temp_stage_fqn, temporary=True)
+    effective_output_path = StagePath.from_stage_str(
+        temp_stage_fqn.identifier
+    ).joinpath("/outputs")
+    local_output_path = SecurePath(OUTPUT_FOLDER) / command_name
+
+    try:
+        yield effective_output_path.absolute_path()
+    finally:
+        log.info(
+            "Downloading DCM %s artifacts from stage to local path (project_identifier=%s, stage_path=%s, local_path=%s).",
+            command_name,
+            project_identifier,
+            effective_output_path.absolute_path(),
+            local_output_path.resolve(),
+        )
+        local_output_path.mkdir(parents=True, exist_ok=True)
+        stage_manager.get_recursive(
+            stage_path=effective_output_path.absolute_path(),
+            dest_path=local_output_path.path,
+        )
 
 
 class FakeCursor:
@@ -82,6 +175,13 @@ def mock_dcm_response(command_name: str):
 
             if data is None:
                 return func(*args, **kwargs)
+
+            # Lazy imports to avoid circular dependency with reporters.
+            from snowflake.cli._plugins.dcm.reporters import (
+                PlanReporter,
+                RefreshReporter,
+                TestReporter,
+            )
 
             cursor = FakeCursor(data)
             reporter_mapping = {

@@ -278,8 +278,8 @@ class RefreshReporter(Reporter[RefreshRow]):
         def total(self):
             return self.up_to_date + self.refreshed + self.unknown
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, save_output: bool = False):
+        super().__init__(save_output=save_output)
         self.command_name = "refresh"
         self._summary = self.Summary()
 

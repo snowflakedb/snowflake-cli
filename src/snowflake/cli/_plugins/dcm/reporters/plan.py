@@ -142,8 +142,8 @@ class PlanReporter(Reporter[PlanRow]):
         def total(self):
             return self.created + self.altered + self.dropped
 
-    def __init__(self, command_name: str = "plan"):
-        super().__init__()
+    def __init__(self, save_output: bool = False, command_name: str = "plan"):
+        super().__init__(save_output=save_output)
         self.command_name = command_name
         self._summary = self.Summary()
 

@@ -14,6 +14,8 @@
 
 import json
 import os
+from pathlib import Path
+
 import pytest
 
 from typing import Set, Optional, Tuple
@@ -49,6 +51,12 @@ def _extract_and_validate_raw_analyze_json(output: str):
 def assert_last_stdout_line_equals(expected, result: CommandResult):
     assert result.output is not None
     assert expected in result.output.strip().split("\n")[-1], result.output
+
+
+def assert_json_response_saved(command_name: str, project_root: Path):
+    output_path = project_root / "out"
+    json_file = output_path / f"{command_name}.json"
+    assert json_file.exists(), f"{command_name}.json was not created."
 
 
 @pytest.mark.qa_only
@@ -352,13 +360,21 @@ def test_dcm_plan_with_save_output(
         output_path = project_root / output_dir
         assert output_path.exists(), f"Output directory {output_dir} was not created."
 
+        # Verify raw JSON response was saved.
+        assert_json_response_saved("plan", project_root)
+
+        plan_artifacts = output_path / "plan"
+        assert plan_artifacts.exists(), "plan/ artifact directory was not created."
+
         local_files = []
-        for root, dirs, files in os.walk(output_path):
+        for root, dirs, files in os.walk(plan_artifacts):
             for file in files:
-                relative_path = os.path.relpath(os.path.join(root, file), output_path)
+                relative_path = os.path.relpath(
+                    os.path.join(root, file), plan_artifacts
+                )
                 local_files.append(relative_path)
 
-        assert len(local_files) > 0, "No output files were downloaded to ./out/"
+        assert len(local_files) > 0, "No artifact files were downloaded to ./out/plan/"
 
 
 @pytest.mark.qa_only
@@ -653,22 +669,32 @@ def test_dcm_end_to_end_workflow(
         assert "Analysis completed successfully." in result.output
 
         result = runner.invoke_with_connection_json(
-            ["dcm", "plan", "-D", f"db='{test_database}'"] + target_args
+            ["dcm", "plan", "-D", f"db='{test_database}'", "--save-output"]
+            + target_args
         )
         assert result.exit_code == 0, result.output
+        assert_json_response_saved("plan", project_root)
 
         result = runner.invoke_with_connection_json(
-            ["dcm", "deploy", "-D", f"db='{test_database}'"] + target_args
+            ["dcm", "deploy", "-D", f"db='{test_database}'", "--save-output"]
+            + target_args
         )
         assert result.exit_code == 0, result.output
+        assert_json_response_saved("deploy", project_root)
 
-        result = runner.invoke_with_connection(["dcm", "refresh"] + target_args)
+        result = runner.invoke_with_connection(
+            ["dcm", "refresh", "--save-output"] + target_args
+        )
         assert result.exit_code == 0, result.output
         assert "No dynamic tables found in the project." in result.output
+        assert_json_response_saved("refresh", project_root)
 
-        result = runner.invoke_with_connection(["dcm", "test"] + target_args)
+        result = runner.invoke_with_connection(
+            ["dcm", "test", "--save-output"] + target_args
+        )
         assert result.exit_code == 0, result.output
         assert "No expectations found in the project." in result.output
+        assert_json_response_saved("test", project_root)
 
         result = runner.invoke_with_connection(["dcm", "drop"] + target_args)
         assert result.exit_code == 0, result.output

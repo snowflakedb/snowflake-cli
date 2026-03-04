@@ -17,6 +17,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Generic, Iterator, List, TypeVar
 
 from rich.text import Text
+from snowflake.cli._plugins.dcm.utils import save_command_response
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.exceptions import CliError
 from snowflake.connector.cursor import SnowflakeCursor
@@ -27,9 +28,10 @@ T = TypeVar("T")
 
 
 class Reporter(ABC, Generic[T]):
-    def __init__(self) -> None:
+    def __init__(self, save_output: bool = False) -> None:
         self.result_raw_data = None
         self.command_name = ""
+        self.save_output = save_output
 
     @abstractmethod
     def extract_data(self, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -64,8 +66,15 @@ class Reporter(ABC, Generic[T]):
             cli_console.styled_message(renderable.plain, style=renderable.style)
         cli_console.styled_message("\n")
 
+    def _try_save_response(self, result_json: Dict[str, Any]) -> None:
+        """Save raw JSON response if save_output is enabled and raw data is available."""
+        if self.save_output:
+            save_command_response(self.command_name, result_json)
+
     def process_payload(self, result_json: Dict[str, Any]) -> None:
         """Process already decoded response payload and print results."""
+        self._try_save_response(result_json)
+
         raw_data = self.extract_data(result_json)
         parsed_data: Iterator[T] = self.parse_data(raw_data)
         self.print_renderables(parsed_data)

@@ -24,8 +24,8 @@ log = logging.getLogger(__name__)
 class AnalyzeReporter(Reporter[Dict[str, Any]]):
     _FILES_KEY = "files"
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, save_output: bool = False):
+        super().__init__(save_output=save_output)
         self.command_name = "analyze"
         self._error_count = 0
 

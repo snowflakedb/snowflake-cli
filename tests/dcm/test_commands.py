@@ -1,9 +1,13 @@
 import json
+from pathlib import Path
+from typing import Any
 from unittest import mock
 
 import pytest
 from snowflake.cli._plugins.dcm.models import DCMManifest
+from snowflake.cli._plugins.dcm.utils import OUTPUT_FOLDER
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.utils.path_utils import change_directory
 
 
 def _analyze_response(files=None):
@@ -17,6 +21,12 @@ def _analyze_response(files=None):
             }
         ]
     return json.dumps({"files": files})
+
+
+def _assert_json_dumped(command: str, api_result: dict[str, Any], tmp_path: Path):
+    json_file = tmp_path / OUTPUT_FOLDER / f"{command}.json"
+    assert json_file.exists()
+    assert json.loads(json_file.read_text()) == api_result
 
 
 @pytest.fixture
@@ -429,6 +439,28 @@ class TestDCMDeploy:
             skip_plan=False,
         )
 
+    def test_deploy_with_save_output(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        mock_cursor,
+        mock_connect,
+        tmp_path,
+    ):
+        plan_response = {"version": 2, "changeset": []}
+        mock_dcm_manager().deploy.return_value = mock_cursor(
+            rows=[(json.dumps(plan_response),)], columns=("operations",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["dcm", "deploy", "fooBar", "--save-output"])
+
+            assert result.exit_code == 0, result.output
+            _assert_json_dumped("deploy", plan_response, tmp_path)
+
 
 class TestDCMPlan:
     def test_plan_project(
@@ -569,6 +601,32 @@ class TestDCMPlan:
 
         call_args = mock_dcm_manager().plan.call_args
         assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
+
+    def test_plan_with_save_output_saves_response(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        mock_cursor,
+        mock_connect,
+        tmp_path,
+    ):
+        plan_response = {"version": 2, "changeset": []}
+        mock_dcm_manager().plan.return_value = mock_cursor(
+            rows=[(json.dumps(plan_response),)], columns=("operations",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["dcm", "plan", "fooBar", "--save-output"])
+
+            assert result.exit_code == 0, result.output
+
+            json_file = tmp_path / OUTPUT_FOLDER / "plan.json"
+            assert json_file.exists()
+            assert json.loads(json_file.read_text()) == {"version": 2, "changeset": []}
+            _assert_json_dumped("plan", plan_response, tmp_path)
 
 
 class TestDCMRawAnalyze:
@@ -1340,6 +1398,31 @@ class TestDCMRefresh:
             project_identifier=FQN.from_string("my_project")
         )
 
+    def test_refresh_with_save_output(
+        self,
+        mock_dcm_manager,
+        runner,
+        mock_cursor,
+        tmp_path,
+    ):
+        refresh_result = {
+            "refreshed_tables": [
+                {
+                    "dt_name": "DB.SCHEMA.DYNAMIC_TABLE",
+                    "statistics": "No new data",
+                }
+            ]
+        }
+        mock_dcm_manager().refresh.return_value = mock_cursor(
+            rows=[(json.dumps(refresh_result),)], columns=("result",)
+        )
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["dcm", "refresh", "my_project", "--save-output"])
+
+            assert result.exit_code == 0, result.output
+            _assert_json_dumped("refresh", refresh_result, tmp_path)
+
 
 class TestDCMTest:
     def test_test_all_passing(self, mock_dcm_manager, runner, mock_cursor, snapshot):
@@ -1442,3 +1525,29 @@ class TestDCMTest:
         mock_dcm_manager().test.assert_called_once_with(
             project_identifier=FQN.from_string("my_project")
         )
+
+    def test_test_with_save_output(
+        self,
+        mock_dcm_manager,
+        runner,
+        mock_cursor,
+        tmp_path,
+    ):
+        test_result = {
+            "expectations": [
+                {
+                    "table_name": "DB.SCHEMA.EMPLOYEES",
+                    "expectation_name": "ROW_COUNT_CHECK",
+                    "expectation_violated": False,
+                }
+            ]
+        }
+        mock_dcm_manager().test.return_value = mock_cursor(
+            rows=[(json.dumps(test_result),)], columns=("result",)
+        )
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["dcm", "test", "my_project", "--save-output"])
+
+            assert result.exit_code == 0, result.output
+            _assert_json_dumped("test", test_result, tmp_path)

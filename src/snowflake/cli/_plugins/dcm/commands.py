@@ -29,7 +29,11 @@ from snowflake.cli._plugins.dcm.reporters import (
     RefreshReporter,
     TestReporter,
 )
-from snowflake.cli._plugins.dcm.utils import mock_dcm_response
+from snowflake.cli._plugins.dcm.utils import (
+    clear_command_artifacts,
+    mock_dcm_response,
+    save_command_response,
+)
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.object.manager import ObjectManager
@@ -118,7 +122,7 @@ target_option = typer.Option(
 save_output_option = typer.Option(
     False,
     "--save-output",
-    help="Download plan output files to local 'out/' directory.",
+    help="Save command response and artifacts to local 'out/' directory.",
 )
 
 optional_dcm_identifier = typer.Argument(
@@ -200,6 +204,7 @@ def _resolve_context_with_optional_manifest(
 def _process_plan_result(
     cursor: SnowflakeCursor,
     command_name: str = "plan",
+    save_output: bool = False,
 ) -> CollectionResult | EmptyResult:
     """
     Process plan result, detecting format and returning appropriate result type.
@@ -209,11 +214,17 @@ def _process_plan_result(
     """
     rows = list(cursor)
     if not rows:
+        # TODO: when support for old plan api is removed, move this logic into Reporter class completely
+        if save_output:
+            save_command_response(command_name, {})
         return CollectionResult([])
 
     first_row = rows[0]
     first_value = list(first_row)[0] if first_row else None
     if not first_value:
+        # TODO: when support for old plan api is removed, move this logic into Reporter class completely
+        if save_output:
+            save_command_response(command_name, {})
         return CollectionResult([])
 
     data = json.loads(first_value)
@@ -225,12 +236,14 @@ def _process_plan_result(
         log.info(
             "Detected DCM plan result version 2 format.",
         )
-        reporter = PlanReporter(command_name=command_name)
+        reporter = PlanReporter(save_output=save_output, command_name=command_name)
         reporter.process_payload(data)
         return EmptyResult()
 
     # Old format
     log.info("Detected legacy DCM plan result format.")
+    if save_output:
+        save_command_response(command_name, first_value)
     return CollectionResult(data)
 
 
@@ -255,6 +268,7 @@ def deploy(
     variables: Optional[List[str]] = variables_flag,
     alias: Optional[str] = alias_option,
     target: Optional[str] = target_option,
+    save_output: bool = save_output_option,
     skip_plan: bool = typer.Option(
         False,
         "--skip-plan",
@@ -266,6 +280,8 @@ def deploy(
     """
     Applies changes defined in DCM Project to Snowflake.
     """
+    clear_command_artifacts("deploy")
+
     context = _resolve_context_with_required_manifest(from_location, identifier, target)
     project_id = context.project_identifier
 
@@ -288,7 +304,7 @@ def deploy(
             skip_plan=skip_plan,
         )
 
-    return _process_plan_result(result, command_name="deploy")
+    return _process_plan_result(result, command_name="deploy", save_output=save_output)
 
 
 @app.command(requires_connection=True)
@@ -304,6 +320,8 @@ def plan(
     """
     Plans a DCM Project deployment (validates without executing).
     """
+    clear_command_artifacts("plan")
+
     context = _resolve_context_with_required_manifest(from_location, identifier, target)
     project_id = context.project_identifier
 
@@ -323,7 +341,7 @@ def plan(
             save_output=save_output,
         )
 
-    return _process_plan_result(result, command_name="plan")
+    return _process_plan_result(result, command_name="plan", save_output=save_output)
 
 
 @app.command(requires_connection=True, hidden=True)
@@ -353,7 +371,7 @@ def raw_analyze(
             variables=variables,
         )
 
-    reporter = AnalyzeReporter()
+    reporter = AnalyzeReporter(save_output=False)
     reporter.process(result)
     return EmptyResult()
 
@@ -551,11 +569,14 @@ def refresh(
     identifier: Optional[FQN] = optional_dcm_identifier,
     from_location: SecurePath = from_option,
     target: Optional[str] = target_option,
+    save_output: bool = save_output_option,
     **options,
 ):
     """
     Refreshes dynamic tables defined in DCM project.
     """
+    clear_command_artifacts("refresh")
+
     context = _resolve_context_with_optional_manifest(from_location, identifier, target)
     project_id = context.project_identifier
 
@@ -563,7 +584,9 @@ def refresh(
         spinner.add_task(description=f"Refreshing dcm project {project_id}", total=None)
         result = DCMProjectManager().refresh(project_identifier=project_id)
 
-    RefreshReporter().process(result)
+    reporter = RefreshReporter(save_output=save_output)
+    reporter.process(result)
+
     return EmptyResult()
 
 
@@ -573,11 +596,14 @@ def test(
     identifier: Optional[FQN] = optional_dcm_identifier,
     from_location: SecurePath = from_option,
     target: Optional[str] = target_option,
+    save_output: bool = save_output_option,
     **options,
 ):
     """
     Tests all expectations defined in DCM project.
     """
+    clear_command_artifacts("test")
+
     context = _resolve_context_with_optional_manifest(from_location, identifier, target)
     project_id = context.project_identifier
 
@@ -585,6 +611,7 @@ def test(
         spinner.add_task(description=f"Testing dcm project {project_id}", total=None)
         result = DCMProjectManager().test(project_identifier=project_id)
 
-    reporter = TestReporter()
+    reporter = TestReporter(save_output=save_output)
     reporter.process(result)
+
     return EmptyResult()
