@@ -110,7 +110,9 @@ class DCMProjectManager(SqlExecutionMixin):
         query += self._get_from_stage_query(from_stage)
 
         if save_output:
-            with collect_output(project_identifier) as output_stage:
+            with collect_output(
+                project_identifier, command_name="plan"
+            ) as output_stage:
                 query += f" OUTPUT_PATH {output_stage}"
                 result = self.execute_query(query=query)
         else:

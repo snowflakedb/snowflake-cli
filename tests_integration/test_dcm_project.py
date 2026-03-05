@@ -59,6 +59,15 @@ def assert_json_response_saved(command_name: str, project_root: Path):
     assert json_file.exists(), f"{command_name}.json was not created."
 
 
+def assert_artifacts_downloaded(artifacts_dir: Path):
+    local_files = []
+    for root, dirs, files in os.walk(artifacts_dir):
+        for file in files:
+            relative_path = os.path.relpath(os.path.join(root, file), artifacts_dir)
+            local_files.append(relative_path)
+    assert len(local_files) > 0, f"No artifact files were downloaded to {artifacts_dir}"
+
+
 @pytest.mark.qa_only
 @pytest.mark.integration
 def test_dcm_deploy(
@@ -365,16 +374,7 @@ def test_dcm_plan_with_save_output(
 
         plan_artifacts = output_path / "plan"
         assert plan_artifacts.exists(), "plan/ artifact directory was not created."
-
-        local_files = []
-        for root, dirs, files in os.walk(plan_artifacts):
-            for file in files:
-                relative_path = os.path.relpath(
-                    os.path.join(root, file), plan_artifacts
-                )
-                local_files.append(relative_path)
-
-        assert len(local_files) > 0, "No artifact files were downloaded to ./out/plan/"
+        assert_artifacts_downloaded(plan_artifacts)
 
 
 @pytest.mark.qa_only
@@ -738,17 +738,7 @@ def test_dcm_raw_analyze_with_save_output(
             raw_analyze_artifacts.exists()
         ), "raw-analyze/ artifact directory was not created."
 
-        local_files = []
-        for root, dirs, files in os.walk(raw_analyze_artifacts):
-            for file in files:
-                relative_path = os.path.relpath(
-                    os.path.join(root, file), raw_analyze_artifacts
-                )
-                local_files.append(relative_path)
-
-        assert (
-            len(local_files) > 0
-        ), "No artifact files were downloaded to ./out/raw-analyze/"
+        assert_artifacts_downloaded(raw_analyze_artifacts)
 
 
 @pytest.mark.qa_only
