@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import io
 import logging
 import os
@@ -243,27 +244,31 @@ def connect_to_snowflake(
         # The output is redirected to silent stream for reuse
         # in cases like externalbrowser auth not to pollute output
         # in formats like JSON
-        connect_kwargs = {
-            "application": command_info(),
-            **connection_parameters,
-        }
-        if get_cli_context().config_file_override is not None:
-            connect_kwargs["unsafe_skip_file_permissions_check"] = True
-            from snowflake.connector.config_manager import (
-                CONFIG_MANAGER,
-                ConfigSlice,
-                ConfigSliceOptions,
-            )
-
-            CONFIG_MANAGER._slices = [  # noqa: SLF001
-                ConfigSlice(
-                    s.path, ConfigSliceOptions(check_permissions=False), s.section
+        with (
+            contextlib.redirect_stdout(silent_stdout),
+            contextlib.redirect_stderr(silent_stderr),
+        ):
+            connect_kwargs = {
+                "application": command_info(),
+                **connection_parameters,
+            }
+            if get_cli_context().config_file_override is not None:
+                connect_kwargs["unsafe_skip_file_permissions_check"] = True
+                from snowflake.connector.config_manager import (
+                    CONFIG_MANAGER,
+                    ConfigSlice,
+                    ConfigSliceOptions,
                 )
-                for s in CONFIG_MANAGER._slices  # noqa: SLF001
-            ]
 
-        result = snowflake.connector.connect(**connect_kwargs)
-        return result
+                CONFIG_MANAGER._slices = [  # noqa: SLF001
+                    ConfigSlice(
+                        s.path, ConfigSliceOptions(check_permissions=False), s.section
+                    )
+                    for s in CONFIG_MANAGER._slices  # noqa: SLF001
+                ]
+
+            result = snowflake.connector.connect(**connect_kwargs)
+            return result
     except ForbiddenError as err:
         raise SnowflakeConnectionError(err)
     except DatabaseError as err:
