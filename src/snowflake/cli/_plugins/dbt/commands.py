@@ -100,7 +100,7 @@ class SemanticVersionType(click.ParamType):
             self.fail(f"Expected string, got {type(value).__name__}.", param, ctx)
         if not SEMANTIC_VERSION_PATTERN.match(value):
             self.fail(
-                f"Invalid version format '{value}'. Expected format: major.minor.patch or major.minor.patch-string (e.g., '1.9.4' or '2.0.0-preview').",
+                f"Invalid version format '{value}'. Expected format: major.minor.patch or major.minor.patch-string (e.g., '1.9.4' or '1.10.15').",
                 param,
                 ctx,
             )
