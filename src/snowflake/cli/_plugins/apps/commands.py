@@ -621,7 +621,7 @@ def deploy(
     stage_fqn = f"{database}.{schema}.{stage_name}"
     build_job_service_name = f"{resolved_entity_id.upper()}_BUILD_JOB"
     build_job_name = f"{database}.{schema}.{build_job_service_name}"
-    service_name_short = f"{resolved_entity_id.upper()}_SERVICE"
+    service_name_short = resolved_entity_id.upper()
     service_fqn = f"{database}.{schema}.{service_name_short}"
 
     manager = SnowAppManager()
