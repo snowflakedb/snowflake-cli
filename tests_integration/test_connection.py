@@ -88,8 +88,10 @@ def test_custom_config_does_not_fail_on_wide_default_permissions(
     mock_connect, _, runner, snowflake_home, tmp_path
 ):
     default_config = snowflake_home / "config.toml"
-    default_connections = snowflake_home / "connections.toml"
     default_config.write_text("")
+    default_config.chmod(0o777)
+
+    default_connections = snowflake_home / "connections.toml"
     default_connections.write_text(
         dedent(
             """
@@ -100,7 +102,6 @@ def test_custom_config_does_not_fail_on_wide_default_permissions(
         """
         )
     )
-    default_config.chmod(0o777)
     default_connections.chmod(0o777)
 
     custom_config = tmp_path / "config600.toml"
@@ -118,8 +119,8 @@ def test_custom_config_does_not_fail_on_wide_default_permissions(
 
     mock_connect.return_value = mock.MagicMock(
         host="test.snowflakecomputing.com",
-        account="my_account",
-        user="my_user",
+        account="my_mocked_account",
+        user="my_mocked_user",
         role=None,
         database=None,
         schema=None,
