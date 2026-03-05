@@ -72,7 +72,7 @@ def save_command_response(command_name: str, raw_data: Dict[str, Any] | str) -> 
 
 @contextmanager
 def collect_output(
-    project_identifier: FQN, command_name: str = "plan"
+    project_identifier: FQN, command_name: str
 ) -> Generator[str, None, None]:
     """
     Context manager for handling command output artifacts - creates temporary stage,

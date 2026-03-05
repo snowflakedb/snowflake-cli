@@ -59,6 +59,15 @@ def assert_json_response_saved(command_name: str, project_root: Path):
     assert json_file.exists(), f"{command_name}.json was not created."
 
 
+def assert_artifacts_downloaded(artifacts_dir: Path):
+    local_files = []
+    for root, dirs, files in os.walk(artifacts_dir):
+        for file in files:
+            relative_path = os.path.relpath(os.path.join(root, file), artifacts_dir)
+            local_files.append(relative_path)
+    assert len(local_files) > 0, f"No artifact files were downloaded to {artifacts_dir}"
+
+
 @pytest.mark.qa_only
 @pytest.mark.integration
 def test_dcm_deploy(
@@ -365,16 +374,7 @@ def test_dcm_plan_with_save_output(
 
         plan_artifacts = output_path / "plan"
         assert plan_artifacts.exists(), "plan/ artifact directory was not created."
-
-        local_files = []
-        for root, dirs, files in os.walk(plan_artifacts):
-            for file in files:
-                relative_path = os.path.relpath(
-                    os.path.join(root, file), plan_artifacts
-                )
-                local_files.append(relative_path)
-
-        assert len(local_files) > 0, "No artifact files were downloaded to ./out/plan/"
+        assert_artifacts_downloaded(plan_artifacts)
 
 
 @pytest.mark.qa_only
@@ -698,6 +698,47 @@ def test_dcm_end_to_end_workflow(
 
         result = runner.invoke_with_connection(["dcm", "drop"] + target_args)
         assert result.exit_code == 0, result.output
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_dcm_raw_analyze_with_save_output(
+    runner,
+    test_database,
+    project_directory,
+):
+    project_name = "project_descriptive_name"
+
+    with project_directory("dcm_project") as project_root:
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
+        assert result.exit_code == 0, result.output
+        assert f"DCM Project '{project_name}' successfully created." in result.output
+
+        result = runner.invoke_with_connection(
+            [
+                "dcm",
+                "raw-analyze",
+                project_name,
+                "--save-output",
+                "-D",
+                f"table_name='{test_database}.PUBLIC.OutputTestTable'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Analysis completed successfully." in result.output
+
+        output_path = project_root / "out"
+        assert output_path.exists(), f"Output directory out was not created."
+
+        # Verify raw JSON response was saved.
+        assert_json_response_saved("raw-analyze", project_root)
+
+        raw_analyze_artifacts = output_path / "raw-analyze"
+        assert (
+            raw_analyze_artifacts.exists()
+        ), "raw-analyze/ artifact directory was not created."
+
+        assert_artifacts_downloaded(raw_analyze_artifacts)
 
 
 @pytest.mark.qa_only

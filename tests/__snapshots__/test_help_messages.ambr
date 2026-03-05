@@ -8803,13 +8803,15 @@
   |                                 manifest.                                    |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --from              PATH  Local directory path containing DCM project files. |
-  |                           Omit to use current directory.                     |
-  | --variable  -D      TEXT  Variables for the execution context; for example:  |
-  |                           -D "<key>=<value>".                                |
-  | --target            TEXT  Target profile from manifest.yml to use. Uses      |
-  |                           default_target if not specified.                   |
-  | --help      -h            Show this message and exit.                        |
+  | --from                 PATH  Local directory path containing DCM project     |
+  |                              files. Omit to use current directory.           |
+  | --variable     -D      TEXT  Variables for the execution context; for        |
+  |                              example: -D "<key>=<value>".                    |
+  | --target               TEXT  Target profile from manifest.yml to use. Uses   |
+  |                              default_target if not specified.                |
+  | --save-output                Save command response and artifacts to local    |
+  |                              'out/' directory.                               |
+  | --help         -h            Show this message and exit.                     |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |

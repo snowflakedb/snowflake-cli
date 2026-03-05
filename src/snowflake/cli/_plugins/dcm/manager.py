@@ -67,17 +67,28 @@ class DCMProjectManager(SqlExecutionMixin):
         from_stage: str,
         configuration: str | None = None,
         variables: List[str] | None = None,
+        save_output: bool = False,
     ):
         log.info(
-            "Running DCM raw-analyze manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d).",
+            "Running DCM raw-analyze manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d, save_output=%s).",
             project_identifier,
             bool(configuration),
             len(variables or []),
+            save_output,
         )
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} ANALYZE"
         query += self._get_configuration_and_variables_query(configuration, variables)
         query += self._get_from_stage_query(from_stage)
-        return self.execute_query(query=query)
+
+        if save_output:
+            with collect_output(
+                project_identifier, command_name="raw-analyze"
+            ) as output_stage:
+                query += f" OUTPUT_PATH {output_stage}"
+                result = self.execute_query(query=query)
+        else:
+            result = self.execute_query(query=query)
+        return result
 
     def plan(
         self,
@@ -99,7 +110,9 @@ class DCMProjectManager(SqlExecutionMixin):
         query += self._get_from_stage_query(from_stage)
 
         if save_output:
-            with collect_output(project_identifier) as output_stage:
+            with collect_output(
+                project_identifier, command_name="plan"
+            ) as output_stage:
                 query += f" OUTPUT_PATH {output_stage}"
                 result = self.execute_query(query=query)
         else:

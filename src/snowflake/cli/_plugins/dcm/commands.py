@@ -350,9 +350,12 @@ def raw_analyze(
     from_location: SecurePath = from_option,
     variables: Optional[List[str]] = variables_flag,
     target: Optional[str] = target_option,
+    save_output: bool = save_output_option,
     **options,
 ):
     """Analyzes a DCM Project."""
+    clear_command_artifacts("raw-analyze")
+
     context = _resolve_context_with_required_manifest(from_location, identifier, target)
     project_id = context.project_identifier
 
@@ -369,9 +372,10 @@ def raw_analyze(
             configuration=context.configuration,
             from_stage=effective_stage,
             variables=variables,
+            save_output=save_output,
         )
 
-    reporter = AnalyzeReporter(save_output=False)
+    reporter = AnalyzeReporter(save_output=save_output)
     reporter.process(result)
     return EmptyResult()
 
