@@ -15,6 +15,15 @@
  -->
 # Unreleased version
 ## Backward incompatibility
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+
+
+# v3.16.0
 * **Configuration System (NG)**: File-based configuration sources (`snowsql_config`, `cli_config_toml`, `connections_toml`) now use **connection-level replacement** instead of field-level merging. When a later file source defines a connection, it completely replaces the entire connection from earlier file sources - fields are NOT inherited. Environment variables and CLI arguments continue to overlay per-field on top of the file-derived connection. This provides more predictable configuration behavior where file-defined connections are atomic units.
 
 ## Deprecations
