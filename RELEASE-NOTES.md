@@ -20,6 +20,15 @@
 ## Deprecations
 
 ## New additions
+
+## Fixes and improvements
+
+
+# v3.16.0
+
+## Deprecations
+
+## New additions
 * Added `--in-account` flag to list commands (e.g., `snow object list`, `snow stage list`). This flag allows listing all objects of a given type in the account. Cannot be used together with the `--in` flag.
 * Added **experimental** command `snow spcs service build-image` to build container images using SPCS service. The command uploads local build context to a stage, executes a build job, and streams logs in real-time until completion. This command is experimental and subject to change.
 * Added `--async` flag to `snow spcs service execute-job` command to execute job services asynchronously without waiting for completion.
