@@ -21,6 +21,7 @@ from typing import Any, Dict, List, Optional
 import typer
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.stage.manager import StageManager
+from snowflake.cli.api.artifacts.utils import bundle_artifacts
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console import cli_console
@@ -28,7 +29,9 @@ from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import CommandResult, MessageResult
+from snowflake.cli.api.project.project_paths import ProjectPaths
 from snowflake.cli.api.project.util import get_env_username
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 
 app = SnowTyperFactory(
@@ -638,29 +641,33 @@ def deploy(
         cli_console.step(f"Creating stage @{stage_fqn}")
         manager.create_stage(stage_fqn, encryption_type)
 
-    # Step 3: Upload artifact files to stage
-    cli_console.step("Uploading source files to stage")
+    # Step 3: Bundle and upload artifact files to stage
+    #
+    # We reuse the bundle_artifacts helper (same logic as `snow app bundle`)
+    # to resolve glob patterns and src/dest mappings into a flat temporary
+    # directory, then upload that directory recursively so nested folders
+    # are preserved on the stage.
+    cli_console.step("Bundling source files")
 
     project_root = get_cli_context().project_root
-    for artifact in artifacts:
-        src = (
-            getattr(artifact, "src", None)
-            if hasattr(artifact, "src")
-            else artifact.get("src")
-            if isinstance(artifact, dict)
-            else None
-        )
-        if src:
-            # Handle glob patterns (e.g., "app/*")
-            src_path = project_root / src.rstrip("/*")
-            if src_path.exists():
-                cli_console.step(f"Uploading {src_path} to @{stage_fqn}")
-                stage_manager.put(
-                    local_path=src_path,
-                    stage_path=f"@{stage_fqn}",
-                    overwrite=True,
-                    auto_compress=False,
-                )
+    project_paths = ProjectPaths(project_root=project_root)
+    project_paths.remove_up_bundle_root()
+    SecurePath(project_paths.bundle_root).mkdir(parents=True, exist_ok=True)
+
+    try:
+        bundle_artifacts(project_paths, artifacts)
+
+        cli_console.step(f"Uploading bundled files to @{stage_fqn}")
+        for result in stage_manager.put_recursive(
+            local_path=project_paths.bundle_root,
+            stage_path=f"@{stage_fqn}",
+            overwrite=True,
+            auto_compress=False,
+            temp_directory=project_paths.bundle_root,
+        ):
+            cli_console.step(f"  Uploaded {result['source']} -> {result['target']}")
+    finally:
+        project_paths.clean_up_output()
 
     # Step 4: Get image repository URL
     cli_console.step(f"Getting image repository URL for {image_repository}")
