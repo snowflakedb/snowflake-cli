@@ -31,6 +31,7 @@ from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
+from snowflake.connector import DictCursor
 
 log = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ class DCMProjectManager(SqlExecutionMixin):
         variables: List[str] | None = None,
         alias: str | None = None,
         skip_plan: bool = False,
-    ):
+    ) -> DictCursor:
         log.info(
             "Running DCM deploy manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d, skip_plan=%s).",
             project_identifier,
@@ -59,7 +60,7 @@ class DCMProjectManager(SqlExecutionMixin):
         query += self._get_from_stage_query(from_stage)
         if skip_plan:
             query += f" SKIP PLAN"
-        return self.execute_query(query=query)
+        return self.execute_query(query=query, cursor_class=DictCursor)
 
     def raw_analyze(
         self,
@@ -97,7 +98,7 @@ class DCMProjectManager(SqlExecutionMixin):
         configuration: str | None = None,
         variables: List[str] | None = None,
         save_output: bool = False,
-    ):
+    ) -> DictCursor:
         log.info(
             "Running DCM plan manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d, save_output=%s).",
             project_identifier,
@@ -114,9 +115,9 @@ class DCMProjectManager(SqlExecutionMixin):
                 project_identifier, command_name="plan"
             ) as output_stage:
                 query += f" OUTPUT_PATH {output_stage}"
-                result = self.execute_query(query=query)
+                result = self.execute_query(query=query, cursor_class=DictCursor)
         else:
-            result = self.execute_query(query=query)
+            result = self.execute_query(query=query, cursor_class=DictCursor)
         return result
 
     def create(self, project_identifier: FQN) -> None:
