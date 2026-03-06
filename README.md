@@ -74,6 +74,7 @@ cd snowflake-cli
 hatch build && pip install .
 snow --version
 ```
+.
 
 You should now be able to run `snow` and get the CLI message.
 
