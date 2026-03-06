@@ -41,6 +41,10 @@ def _make_connection_resolver(key: str) -> Callable[[], Optional[str]]:
 
 
 class TemplateVariable(BaseModel):
+    @staticmethod
+    def _comma_separated_keys(resolvers: Dict[str, Any]) -> str:
+        return ", ".join(f"'{k}'" for k in resolvers)
+
     _COMPUTED_VALUE_RESOLVERS: ClassVar[Dict[str, Callable[[], Optional[str]]]] = {
         "connection.account": _make_connection_resolver("account"),
         "connection.role": _make_connection_resolver("role"),
@@ -52,7 +56,8 @@ class TemplateVariable(BaseModel):
     prompt: Optional[str] = Field(title="Prompt message for the variable", default=None)
     default: Optional[Any] = Field(title="Default value of the variable", default=None)
     default_computed: Optional[str] = Field(
-        title="Compute the default value dynamically. Supported: 'connection.account', 'connection.role'",
+        title="Compute the default value dynamically. Supported: "
+        + _comma_separated_keys(_COMPUTED_VALUE_RESOLVERS),
         default=None,
     )
 
@@ -99,7 +104,7 @@ class TemplateVariable(BaseModel):
         if resolver is None:
             raise InvalidTemplateError(
                 f"Unknown default_computed value: '{key}'. "
-                f"Supported values: {list(TemplateVariable._COMPUTED_VALUE_RESOLVERS.keys())}"
+                f"Supported values: {TemplateVariable._comma_separated_keys(TemplateVariable._COMPUTED_VALUE_RESOLVERS)}"
             )
         return resolver()
 

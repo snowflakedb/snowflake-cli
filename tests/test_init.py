@@ -18,6 +18,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
+from snowflake.cli.api.exceptions import MissingConfigurationError
 
 
 def assert_project_contents(origin: Path, created: Path):
@@ -544,7 +545,7 @@ def _computed_template_yml(var_name, prompt, computed_key):
         variables:
          - name: {var_name}
            prompt: {prompt}
-           default_computed: {computed_key}
+           default_computed: "{computed_key}"
     """
     )
 
@@ -779,6 +780,4 @@ def test_default_computed_connection_account_key_missing(
 
 
 def _raise_missing_configuration_exception():
-    from snowflake.cli.api.exceptions import MissingConfigurationError
-
     raise MissingConfigurationError("No connection configured")
