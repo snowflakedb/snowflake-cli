@@ -74,6 +74,8 @@ TEMPLATE_YML_COMPUTED = _computed_template_yml(
 _COMPUTED_RESOLVER_PARAMS = [
     ("connection.account", "account", "account_name", "test_account_xyz"),
     ("connection.role", "role", "role_name", "dev_role"),
+    ("connection.db", "database", "db_name", "my_database"),
+    ("connection.schema", "schema", "schema_name", "my_schema"),
 ]
 
 

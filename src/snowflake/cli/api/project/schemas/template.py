@@ -43,6 +43,8 @@ class ComputedValueResolvers:
     _resolvers: ClassVar[Dict[str, Callable[[], Optional[str]]]] = {
         "connection.account": _make_connection_resolver("account"),
         "connection.role": _make_connection_resolver("role"),
+        "connection.db": _make_connection_resolver("database"),
+        "connection.schema": _make_connection_resolver("schema"),
     }
 
     @classmethod
