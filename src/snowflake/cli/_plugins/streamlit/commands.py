@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Snowflake Inc.
+# Copyright (c) 2026 Snowflake Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,6 +24,10 @@ from snowflake.cli._plugins.object.command_aliases import (
     add_object_command_aliases,
     scope_option,
 )
+from snowflake.cli._plugins.streamlit.log_streaming import (
+    stream_logs,
+    validate_spcs_v2_runtime,
+)
 from snowflake.cli._plugins.streamlit.manager import StreamlitManager
 from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
@@ -33,6 +37,7 @@ from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
 from snowflake.cli.api.commands.flags import (
+    IdentifierType,
     PruneOption,
     ReplaceOption,
     entity_argument,
@@ -213,6 +218,84 @@ def get_url(
     if open_:
         typer.launch(url)
     return MessageResult(url)
+
+
+@app.command("logs", requires_connection=True)
+@with_project_definition(is_optional=True)
+def streamlit_logs(
+    entity_id: str = entity_argument("streamlit"),
+    name: FQN = typer.Option(
+        None,
+        "--name",
+        help="Fully qualified name of the Streamlit app (e.g. my_app, schema.my_app, or db.schema.my_app). "
+        "Overrides the project definition when provided.",
+        click_type=IdentifierType(),
+    ),
+    tail: int = typer.Option(
+        100,
+        "--tail",
+        "-n",
+        min=0,
+        max=1000,  # server-side buffer size limit (see logs_service.proto)
+        help="Number of historical log lines to fetch. Use 0 for live logs only.",
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Streams live logs from a deployed Streamlit app to your terminal.
+
+    Reads the Streamlit app name from the project definition file (snowflake.yml)
+    or from the --name option. Connects to the app's developer log service via
+    WebSocket and prints log entries in real time. Press Ctrl+C to stop streaming.
+
+    Log streaming requires SPCSv2 runtime.
+    """
+    cli_context = get_cli_context()
+    conn = cli_context.connection
+
+    if name is not None:
+        if entity_id is not None:
+            raise ClickException(
+                "Cannot specify both --name and an entity ID. "
+                "Use --name to identify the app directly, or use an "
+                "entity ID to reference a snowflake.yml definition."
+            )
+        # --name flag provided: resolve FQN and validate via server-side DESCRIBE
+        fqn = name.using_connection(conn)
+        validate_spcs_v2_runtime(conn, str(fqn))
+    else:
+        # No --name: require project definition
+        pd = cli_context.project_definition
+        if pd is None:
+            raise ClickException(
+                "No Streamlit app specified. Provide --name or run from a "
+                "directory with a snowflake.yml project definition."
+            )
+        if not pd.meets_version_requirement("2"):
+            if not pd.streamlit:
+                raise NoProjectDefinitionError(
+                    project_type="streamlit", project_root=cli_context.project_root
+                )
+            pd = convert_project_definition_to_v2(cli_context.project_root, pd)
+
+        entity_model = get_entity_for_operation(
+            cli_context=cli_context,
+            entity_id=entity_id,
+            project_definition=pd,
+            entity_type=ObjectType.STREAMLIT.value.cli_name,
+        )
+
+        fqn = entity_model.fqn.using_connection(conn)
+        # Validate SPCSv2 runtime via server-side DESCRIBE (same path as --name)
+        validate_spcs_v2_runtime(conn, str(fqn))
+
+    stream_logs(
+        conn=conn,
+        fqn=str(fqn),
+        tail_lines=tail,
+        json_output=cli_context.output_format.is_json,
+    )
+    return MessageResult("Log streaming ended.")
 
 
 def _get_current_workspace_context():
