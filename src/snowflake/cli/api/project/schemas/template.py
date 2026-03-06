@@ -20,6 +20,7 @@ from typing import Any, Callable, ClassVar, Dict, List, Literal, Optional, Union
 import typer
 from click import ClickException
 from pydantic import BaseModel, Field, model_validator
+from snowflake.cli.api.config import get_default_connection_dict
 from snowflake.cli.api.exceptions import InvalidTemplateError, MissingConfigurationError
 from snowflake.cli.api.secure_path import SecurePath
 
@@ -28,8 +29,6 @@ log = logging.getLogger(__name__)
 
 def _make_connection_resolver(key: str) -> Callable[[], Optional[str]]:
     def resolver() -> Optional[str]:
-        from snowflake.cli.api.config import get_default_connection_dict
-
         try:
             connection_dict = get_default_connection_dict()
             return connection_dict.get(key)

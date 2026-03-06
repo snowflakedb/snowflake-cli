@@ -586,7 +586,7 @@ def test_default_computed_no_interactive(
         )
         (template_root / "file.txt").write_text(f"val: <! {var_name} !>")
         monkeypatch.setattr(
-            "snowflake.cli.api.config.get_default_connection_dict",
+            "snowflake.cli.api.project.schemas.template.get_default_connection_dict",
             lambda: {conn_key: value},
         )
         project = "project"
@@ -618,7 +618,7 @@ def test_default_computed_interactive_print_and_accept_default(
         )
         (template_root / "file.txt").write_text(f"val: <! {var_name} !>")
         monkeypatch.setattr(
-            "snowflake.cli.api.config.get_default_connection_dict",
+            "snowflake.cli.api.project.schemas.template.get_default_connection_dict",
             lambda: {conn_key: value},
         )
         project = "project"
@@ -639,7 +639,7 @@ def test_default_computed_connection_account_interactive_override(
         (template_root / "template.yml").write_text(TEMPLATE_YML_COMPUTED)
         (template_root / "file.txt").write_text("account: <! account_name !>")
         monkeypatch.setattr(
-            "snowflake.cli.api.config.get_default_connection_dict",
+            "snowflake.cli.api.project.schemas.template.get_default_connection_dict",
             lambda: {"account": "from_config"},
         )
         project = "project"
@@ -659,7 +659,7 @@ def test_default_computed_connection_account_no_connection_interactive(
         (template_root / "template.yml").write_text(TEMPLATE_YML_COMPUTED)
         (template_root / "file.txt").write_text("account: <! account_name !>")
         monkeypatch.setattr(
-            "snowflake.cli.api.config.get_default_connection_dict",
+            "snowflake.cli.api.project.schemas.template.get_default_connection_dict",
             _raise_missing_configuration_exception,
         )
         project = "project"
@@ -679,7 +679,7 @@ def test_default_computed_connection_account_no_connection_no_interactive(
         (template_root / "template.yml").write_text(TEMPLATE_YML_COMPUTED)
         (template_root / "file.txt").write_text("account: <! account_name !>")
         monkeypatch.setattr(
-            "snowflake.cli.api.config.get_default_connection_dict",
+            "snowflake.cli.api.project.schemas.template.get_default_connection_dict",
             _raise_missing_configuration_exception,
         )
         project = "project"
@@ -719,7 +719,7 @@ def test_default_computed_overridden_by_flag(
         (template_root / "template.yml").write_text(TEMPLATE_YML_COMPUTED)
         (template_root / "file.txt").write_text("account: <! account_name !>")
         monkeypatch.setattr(
-            "snowflake.cli.api.config.get_default_connection_dict",
+            "snowflake.cli.api.project.schemas.template.get_default_connection_dict",
             lambda: {"account": "from_config"},
         )
         project = "project"
@@ -797,7 +797,7 @@ def test_default_computed_connection_account_key_missing(
         (template_root / "template.yml").write_text(TEMPLATE_YML_COMPUTED)
         (template_root / "file.txt").write_text("account: <! account_name !>")
         monkeypatch.setattr(
-            "snowflake.cli.api.config.get_default_connection_dict",
+            "snowflake.cli.api.project.schemas.template.get_default_connection_dict",
             lambda: {"host": "example.snowflakecomputing.com"},  # no "account" key
         )
         project = "project"
