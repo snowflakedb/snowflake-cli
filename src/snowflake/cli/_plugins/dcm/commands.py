@@ -37,6 +37,7 @@ from snowflake.cli._plugins.dcm.utils import (
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.object.manager import ObjectManager
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import (
     IdentifierType,
     IfExistsOption,
@@ -54,6 +55,7 @@ from snowflake.cli.api.constants import (
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CollectionResult,
     EmptyResult,
@@ -61,7 +63,7 @@ from snowflake.cli.api.output.types import (
     QueryResult,
 )
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.cursor import DictCursor
 
 log = logging.getLogger(__name__)
 
@@ -202,7 +204,7 @@ def _resolve_context_with_optional_manifest(
 
 
 def _process_plan_result(
-    cursor: SnowflakeCursor,
+    cursor: DictCursor,
     command_name: str = "plan",
     save_output: bool = False,
 ) -> CollectionResult | EmptyResult:
@@ -220,7 +222,11 @@ def _process_plan_result(
         return CollectionResult([])
 
     first_row = rows[0]
-    first_value = list(first_row)[0] if first_row else None
+    first_value = None
+    if "result" in first_row:
+        first_value = first_row["result"]
+    elif "operations" in first_row:
+        first_value = first_row["operations"]
     if not first_value:
         # TODO: when support for old plan api is removed, move this logic into Reporter class completely
         if save_output:
@@ -238,7 +244,9 @@ def _process_plan_result(
         )
         reporter = PlanReporter(save_output=save_output, command_name=command_name)
         reporter.process_payload(data)
-        return EmptyResult()
+        if get_cli_context().output_format == OutputFormat.TABLE:
+            return EmptyResult()
+        return CollectionResult(rows)
 
     # Old format
     log.info("Detected legacy DCM plan result format.")
