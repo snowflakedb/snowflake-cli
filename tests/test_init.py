@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import textwrap
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -533,3 +534,251 @@ def test_jinja_blocks(runner, temporary_directory, test_projects_path, value, ex
     )
     assert result.exit_code == 0, result.output
     assert (Path(project_name) / "blocks.txt").read_text() == expected
+
+
+def _computed_template_yml(var_name, prompt, computed_key):
+    return textwrap.dedent(
+        f"""\
+        files_to_render:
+         - file.txt
+        variables:
+         - name: {var_name}
+           prompt: {prompt}
+           default_computed: {computed_key}
+    """
+    )
+
+
+TEMPLATE_YML_COMPUTED = _computed_template_yml(
+    "account_name", "Snowflake account identifier", "connection.account"
+)
+
+_COMPUTED_RESOLVER_PARAMS = [
+    ("connection.account", "account", "account_name", "test_account_xyz"),
+    ("connection.role", "role", "role_name", "dev_role"),
+]
+
+
+@pytest.mark.parametrize(
+    "computed_key,conn_key,var_name,value",
+    _COMPUTED_RESOLVER_PARAMS,
+)
+def test_default_computed_no_interactive(
+    runner,
+    temporary_directory,
+    project_definition_copy,
+    monkeypatch,
+    computed_key,
+    conn_key,
+    var_name,
+    value,
+):
+    project_name = "project_templating"
+    with project_definition_copy(project_name) as template_root:
+        (template_root / "template.yml").write_text(
+            _computed_template_yml(var_name, var_name, computed_key)
+        )
+        (template_root / "file.txt").write_text(f"val: <! {var_name} !>")
+        monkeypatch.setattr(
+            "snowflake.cli.api.config.get_default_connection_dict",
+            lambda: {conn_key: value},
+        )
+        project = "project"
+        result = runner.invoke(
+            ["init", project, "--template-source", template_root, "--no-interactive"]
+        )
+        assert result.exit_code == 0, result.output
+        assert (Path(project) / "file.txt").read_text() == f"val: {value}"
+
+
+@pytest.mark.parametrize(
+    "computed_key,conn_key,var_name,value",
+    _COMPUTED_RESOLVER_PARAMS,
+)
+def test_default_computed_interactive_print_and_accept_default(
+    runner,
+    temporary_directory,
+    project_definition_copy,
+    monkeypatch,
+    computed_key,
+    conn_key,
+    var_name,
+    value,
+):
+    project_name = "project_templating"
+    with project_definition_copy(project_name) as template_root:
+        (template_root / "template.yml").write_text(
+            _computed_template_yml(var_name, var_name, computed_key)
+        )
+        (template_root / "file.txt").write_text(f"val: <! {var_name} !>")
+        monkeypatch.setattr(
+            "snowflake.cli.api.config.get_default_connection_dict",
+            lambda: {conn_key: value},
+        )
+        project = "project"
+        result = runner.invoke(
+            ["init", project, "--template-source", template_root],
+            input="\n",  # press Enter to accept default
+        )
+        assert result.exit_code == 0, result.output
+        assert f"[{value}]" in result.output
+        assert (Path(project) / "file.txt").read_text() == f"val: {value}"
+
+
+def test_default_computed_connection_account_interactive_override(
+    runner, temporary_directory, project_definition_copy, monkeypatch
+):
+    project_name = "project_templating"
+    with project_definition_copy(project_name) as template_root:
+        (template_root / "template.yml").write_text(TEMPLATE_YML_COMPUTED)
+        (template_root / "file.txt").write_text("account: <! account_name !>")
+        monkeypatch.setattr(
+            "snowflake.cli.api.config.get_default_connection_dict",
+            lambda: {"account": "from_config"},
+        )
+        project = "project"
+        result = runner.invoke(
+            ["init", project, "--template-source", template_root],
+            input="my_override\n",  # user types a custom value instead of accepting default
+        )
+        assert result.exit_code == 0, result.output
+        assert (Path(project) / "file.txt").read_text() == "account: my_override"
+
+
+def test_default_computed_connection_account_no_connection_interactive(
+    runner, temporary_directory, project_definition_copy, monkeypatch
+):
+    project_name = "project_templating"
+    with project_definition_copy(project_name) as template_root:
+        (template_root / "template.yml").write_text(TEMPLATE_YML_COMPUTED)
+        (template_root / "file.txt").write_text("account: <! account_name !>")
+        monkeypatch.setattr(
+            "snowflake.cli.api.config.get_default_connection_dict",
+            _raise_missing_configuration_exception,
+        )
+        project = "project"
+        result = runner.invoke(
+            ["init", project, "--template-source", template_root],
+            input="my_typed_account\n",
+        )
+        assert result.exit_code == 0, result.output
+        assert (Path(project) / "file.txt").read_text() == "account: my_typed_account"
+
+
+def test_default_computed_connection_account_no_connection_no_interactive(
+    runner, temporary_directory, project_definition_copy, monkeypatch
+):
+    project_name = "project_templating"
+    with project_definition_copy(project_name) as template_root:
+        (template_root / "template.yml").write_text(TEMPLATE_YML_COMPUTED)
+        (template_root / "file.txt").write_text("account: <! account_name !>")
+        monkeypatch.setattr(
+            "snowflake.cli.api.config.get_default_connection_dict",
+            _raise_missing_configuration_exception,
+        )
+        project = "project"
+        result = runner.invoke(
+            ["init", project, "--template-source", template_root, "--no-interactive"]
+        )
+        assert result.exit_code == 1
+        assert "Cannot determine value of variable account_name" in result.output
+
+
+@pytest.mark.parametrize(
+    "computed_key",
+    ["unknown_thing", ""],
+)
+def test_default_computed_unknown_value(
+    runner, temporary_directory, project_definition_copy, computed_key
+):
+    project_name = "project_templating"
+    with project_definition_copy(project_name) as template_root:
+        (template_root / "template.yml").write_text(
+            _computed_template_yml("some_var", "some_var", computed_key)
+        )
+        (template_root / "file.txt").write_text("<! some_var !>")
+        project = "project"
+        result = runner.invoke(
+            ["init", project, "--template-source", template_root, "--no-interactive"]
+        )
+        assert result.exit_code == 1
+        assert f"Unknown default_computed value: '{computed_key}'" in result.output
+
+
+def test_default_computed_overridden_by_flag(
+    runner, temporary_directory, project_definition_copy, monkeypatch
+):
+    project_name = "project_templating"
+    with project_definition_copy(project_name) as template_root:
+        (template_root / "template.yml").write_text(TEMPLATE_YML_COMPUTED)
+        (template_root / "file.txt").write_text("account: <! account_name !>")
+        monkeypatch.setattr(
+            "snowflake.cli.api.config.get_default_connection_dict",
+            lambda: {"account": "from_config"},
+        )
+        project = "project"
+        result = runner.invoke(
+            [
+                "init",
+                project,
+                "--template-source",
+                template_root,
+                "-D account_name=from_flag",
+                "--no-interactive",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert (Path(project) / "file.txt").read_text() == "account: from_flag"
+
+
+def test_default_and_default_computed_mutually_exclusive(
+    runner, temporary_directory, project_definition_copy
+):
+    project_name = "project_templating"
+    with project_definition_copy(project_name) as template_root:
+        (template_root / "template.yml").write_text(
+            textwrap.dedent(
+                """\
+            files_to_render:
+             - file.txt
+            variables:
+             - name: account_name
+               default: "static_value"
+               default_computed: connection.account
+        """
+            )
+        )
+        (template_root / "file.txt").write_text("<! account_name !>")
+        project = "project"
+        result = runner.invoke(
+            ["init", project, "--template-source", template_root, "--no-interactive"]
+        )
+        assert result.exit_code == 1
+        assert "mutually exclusive" in result.output
+
+
+def test_default_computed_connection_account_key_missing(
+    runner, temporary_directory, project_definition_copy, monkeypatch
+):
+    """Connection exists but has no 'account' key — treated as no default."""
+    project_name = "project_templating"
+    with project_definition_copy(project_name) as template_root:
+        (template_root / "template.yml").write_text(TEMPLATE_YML_COMPUTED)
+        (template_root / "file.txt").write_text("account: <! account_name !>")
+        monkeypatch.setattr(
+            "snowflake.cli.api.config.get_default_connection_dict",
+            lambda: {"host": "example.snowflakecomputing.com"},  # no "account" key
+        )
+        project = "project"
+        # no-interactive: should fail because resolved value is None
+        result = runner.invoke(
+            ["init", project, "--template-source", template_root, "--no-interactive"]
+        )
+        assert result.exit_code == 1
+        assert "Cannot determine value of variable account_name" in result.output
+
+
+def _raise_missing_configuration_exception():
+    from snowflake.cli.api.exceptions import MissingConfigurationError
+
+    raise MissingConfigurationError("No connection configured")
