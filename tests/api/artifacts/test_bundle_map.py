@@ -481,6 +481,18 @@ def test_bundle_map_deduplicates_directory_and_glob_overlap(bundle_map):
     )
 
 
+def test_bundle_map_deduplicates_glob_and_directory_overlap(bundle_map):
+    bundle_map.add(PathMapping(src="src/snowpark/main.py", dest="snowpark/main.py"))
+    bundle_map.add(PathMapping(src="src/snowpark", dest="./snowpark"))
+
+    verify_mappings(
+        bundle_map,
+        expected_mappings={
+            "src/snowpark/main.py": "snowpark/main.py",
+        },
+    )
+
+
 def test_bundle_map_disallows_different_source_collision_with_directory_child(
     bundle_map,
 ):
