@@ -143,7 +143,7 @@ class TestDCMDeploy:
         mock_connect,
     ):
         mock_dcm_manager().deploy.return_value = mock_cursor(
-            rows=[("[]",)], columns=("operations")
+            rows=[{"operations": "[]"}], columns=("operations",)
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
@@ -172,7 +172,7 @@ class TestDCMDeploy:
         mock_connect,
     ):
         mock_dcm_manager().deploy.return_value = mock_cursor(
-            rows=[("[]",)], columns=("operations")
+            rows=[{"operations": "[]"}], columns=("operations",)
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
@@ -200,7 +200,7 @@ class TestDCMDeploy:
         mock_connect,
     ):
         mock_dcm_manager().deploy.return_value = mock_cursor(
-            rows=[("[]",)], columns=("operations")
+            rows=[{"operations": "[]"}], columns=("operations",)
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
@@ -230,7 +230,7 @@ class TestDCMDeploy:
     ):
         """Test that files are synced to project stage when from_stage is not provided."""
         mock_dcm_manager().deploy.return_value = mock_cursor(
-            rows=[("[]",)], columns=("operations")
+            rows=[{"operations": "[]"}], columns=("operations",)
         )
         mock_dcm_manager().sync_local_files.return_value = (
             "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
@@ -255,7 +255,7 @@ class TestDCMDeploy:
         tmp_path,
     ):
         mock_dcm_manager().deploy.return_value = mock_cursor(
-            rows=[("[]",)], columns=("operations")
+            rows=[{"operations": "[]"}], columns=("operations",)
         )
         mock_dcm_manager().sync_local_files.return_value = (
             "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
@@ -292,7 +292,7 @@ class TestDCMDeploy:
         mock_connect,
     ):
         mock_dcm_manager().deploy.return_value = mock_cursor(
-            rows=[("[]",)], columns=("operations",)
+            rows=[{"operations": "[]"}], columns=("operations",)
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
@@ -327,7 +327,7 @@ class TestDCMDeploy:
         mock_connect,
     ):
         mock_dcm_manager().deploy.return_value = mock_cursor(
-            rows=[("[]",)], columns=("operations",)
+            rows=[{"operations": "[]"}], columns=("operations",)
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
@@ -364,7 +364,7 @@ class TestDCMDeploy:
         """When explicit identifier is provided, it overrides target's project_name
         but configuration from target should still be applied."""
         mock_dcm_manager().deploy.return_value = mock_cursor(
-            rows=[("[]",)], columns=("operations",)
+            rows=[{"operations": "[]"}], columns=("operations",)
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
@@ -407,7 +407,7 @@ class TestDCMDeploy:
         mock_connect,
     ):
         mock_dcm_manager().deploy.return_value = mock_cursor(
-            rows=[("[]",)], columns=("operations",)
+            rows=[{"operations": "[]"}], columns=("operations",)
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
@@ -449,7 +449,7 @@ class TestDCMDeploy:
     ):
         plan_response = {"version": 2, "changeset": []}
         mock_dcm_manager().deploy.return_value = mock_cursor(
-            rows=[(json.dumps(plan_response),)], columns=("operations",)
+            rows=[{"operations": json.dumps(plan_response)}], columns=("operations",)
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
@@ -459,6 +459,29 @@ class TestDCMDeploy:
 
             assert result.exit_code == 0, result.output
             _assert_json_dumped("deploy", plan_response, tmp_path)
+
+    def test_deploy_with_json_format_returns_raw_response(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        mock_cursor,
+        mock_connect,
+        project_directory,
+    ):
+        plan_response = {"version": 2, "changeset": []}
+        mock_dcm_manager().deploy.return_value = mock_cursor(
+            rows=[{"result": json.dumps(plan_response)}], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "deploy", "fooBar", "--format", "json"])
+
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.output)
+        assert payload == [{"result": json.dumps(plan_response)}]
 
 
 class TestDCMPlan:
@@ -472,7 +495,7 @@ class TestDCMPlan:
         mock_connect,
     ):
         mock_dcm_manager().plan.return_value = mock_cursor(
-            rows=[("[]",)], columns=("operations")
+            rows=[{"operations": "[]"}], columns=("operations",)
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
@@ -507,7 +530,7 @@ class TestDCMPlan:
         mock_connect,
     ):
         mock_dcm_manager().plan.return_value = mock_cursor(
-            rows=[("[]",)], columns=("operations")
+            rows=[{"operations": "[]"}], columns=("operations",)
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
@@ -550,7 +573,7 @@ class TestDCMPlan:
     ):
         """Test that files are synced to project stage when from_stage is not provided."""
         mock_dcm_manager().plan.return_value = mock_cursor(
-            rows=[("[]",)], columns=("operations")
+            rows=[{"operations": "[]"}], columns=("operations",)
         )
         mock_dcm_manager().sync_local_files.return_value = (
             "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
@@ -575,7 +598,7 @@ class TestDCMPlan:
         tmp_path,
     ):
         mock_dcm_manager().plan.return_value = mock_cursor(
-            rows=[("[]",)], columns=("operations")
+            rows=[{"operations": "[]"}], columns=("operations",)
         )
         mock_dcm_manager().sync_local_files.return_value = (
             "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
@@ -612,7 +635,7 @@ class TestDCMPlan:
     ):
         plan_response = {"version": 2, "changeset": []}
         mock_dcm_manager().plan.return_value = mock_cursor(
-            rows=[(json.dumps(plan_response),)], columns=("operations",)
+            rows=[{"operations": json.dumps(plan_response)}], columns=("operations",)
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
@@ -626,6 +649,29 @@ class TestDCMPlan:
             assert json_file.exists()
             assert json.loads(json_file.read_text()) == {"version": 2, "changeset": []}
             _assert_json_dumped("plan", plan_response, tmp_path)
+
+    def test_plan_with_json_format_returns_raw_response(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        mock_cursor,
+        mock_connect,
+        project_directory,
+    ):
+        plan_response = {"version": 2, "changeset": []}
+        mock_dcm_manager().plan.return_value = mock_cursor(
+            rows=[{"result": json.dumps(plan_response)}], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "plan", "fooBar", "--format", "json"])
+
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.output)
+        assert payload == [{"result": json.dumps(plan_response)}]
 
 
 class TestDCMRawAnalyze:
