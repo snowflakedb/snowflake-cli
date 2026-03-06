@@ -560,3 +560,24 @@ def test_file_size_limit_calculation(temporary_directory):
     a_file.write_bytes(b"x" * 1024 * 1200)  # ~1.2 MB
     with pytest.raises(FileTooLargeError):
         SecurePath(a_file).read_text(file_size_limit_mb=1)
+
+
+def test_read_text_with_encoding(temporary_directory):
+    """SecurePath.read_text should accept and pass through encoding kwarg."""
+    path = Path(temporary_directory) / "utf8.txt"
+    path.write_text("café résumé naïve", encoding="utf-8")
+    spath = SecurePath(path)
+    content = spath.read_text(
+        file_size_limit_mb=secure_path.UNLIMITED, encoding="utf-8"
+    )
+    assert "café" in content
+
+
+def test_open_with_encoding(temporary_directory):
+    """SecurePath.open should accept and pass through encoding kwarg."""
+    path = Path(temporary_directory) / "utf8.txt"
+    path.write_text("日本語テスト", encoding="utf-8")
+    with SecurePath(path).open(
+        "r", read_file_limit_mb=secure_path.UNLIMITED, encoding="utf-8"
+    ) as f:
+        assert "日本語" in f.read()

@@ -12,6 +12,7 @@ from snowflake.cli._plugins.sql.repl_commands import (
     UnknownCommandError,
     compile_repl_command,
 )
+from snowflake.cli.api.encoding import get_file_io_encoding
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.connector.util_text import split_statements
 
@@ -116,7 +117,9 @@ class ParsedStatement:
         path = SecurePath(stripped_comments_path_part)
 
         if path.is_file():
-            payload = path.read_text(file_size_limit_mb=UNLIMITED)
+            payload = path.read_text(
+                file_size_limit_mb=UNLIMITED, encoding=get_file_io_encoding()
+            )
             return cls(payload, StatementType.FILE, path.as_posix())
 
         error_msg = f"Could not read: {path_part}"
@@ -229,7 +232,9 @@ def files_reader(
 
     Returns a generator with statements."""
     for path in paths:
-        with path.open(read_file_limit_mb=UNLIMITED) as f:
+        with path.open(
+            read_file_limit_mb=UNLIMITED, encoding=get_file_io_encoding()
+        ) as f:
             stmts = split_statements(io.StringIO(f.read()), remove_comments)
             yield from recursive_statement_reader(
                 stmts,
