@@ -53,6 +53,33 @@ def project_definition_copy(test_projects_path):
     yield copy_project_definition
 
 
+def _computed_template_yml(var_name, prompt, computed_key):
+    return textwrap.dedent(
+        f"""\
+        files_to_render:
+         - file.txt
+        variables:
+         - name: {var_name}
+           prompt: {prompt}
+           default_computed: "{computed_key}"
+    """
+    )
+
+
+TEMPLATE_YML_COMPUTED = _computed_template_yml(
+    "account_name", "Snowflake account identifier", "connection.account"
+)
+
+_COMPUTED_RESOLVER_PARAMS = [
+    ("connection.account", "account", "account_name", "test_account_xyz"),
+    ("connection.role", "role", "role_name", "dev_role"),
+]
+
+
+def _raise_missing_configuration_exception():
+    raise MissingConfigurationError("No connection configured")
+
+
 def test_error_missing_template_yml(runner, test_projects_path, temporary_directory):
     # no template.yml
     project_name = "example_streamlit_no_defaults"
@@ -537,29 +564,6 @@ def test_jinja_blocks(runner, temporary_directory, test_projects_path, value, ex
     assert (Path(project_name) / "blocks.txt").read_text() == expected
 
 
-def _computed_template_yml(var_name, prompt, computed_key):
-    return textwrap.dedent(
-        f"""\
-        files_to_render:
-         - file.txt
-        variables:
-         - name: {var_name}
-           prompt: {prompt}
-           default_computed: "{computed_key}"
-    """
-    )
-
-
-TEMPLATE_YML_COMPUTED = _computed_template_yml(
-    "account_name", "Snowflake account identifier", "connection.account"
-)
-
-_COMPUTED_RESOLVER_PARAMS = [
-    ("connection.account", "account", "account_name", "test_account_xyz"),
-    ("connection.role", "role", "role_name", "dev_role"),
-]
-
-
 @pytest.mark.parametrize(
     "computed_key,conn_key,var_name,value",
     _COMPUTED_RESOLVER_PARAMS,
@@ -777,7 +781,3 @@ def test_default_computed_connection_account_key_missing(
         )
         assert result.exit_code == 1
         assert "Cannot determine value of variable account_name" in result.output
-
-
-def _raise_missing_configuration_exception():
-    raise MissingConfigurationError("No connection configured")
