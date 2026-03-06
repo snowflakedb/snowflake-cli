@@ -19,6 +19,7 @@ from pathlib import Path
 
 import pytest
 from snowflake.cli.api.exceptions import MissingConfigurationError
+from snowflake.cli.api.project.schemas.template import ComputedValueResolvers
 
 
 def assert_project_contents(origin: Path, created: Path):
@@ -760,6 +761,31 @@ def test_default_and_default_computed_mutually_exclusive(
         )
         assert result.exit_code == 1
         assert "mutually exclusive" in result.output
+
+
+def test_default_computed_resolver_unexpected_error_interactive(
+    runner, temporary_directory, project_definition_copy, monkeypatch
+):
+    project_name = "project_templating"
+    with project_definition_copy(project_name) as template_root:
+        (template_root / "template.yml").write_text(TEMPLATE_YML_COMPUTED)
+        (template_root / "file.txt").write_text("account: <! account_name !>")
+
+        def _exploding_resolver():
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(
+            ComputedValueResolvers,
+            "get_resolver_by_name",
+            classmethod(lambda cls, name: _exploding_resolver),
+        )
+        project = "project"
+        result = runner.invoke(
+            ["init", project, "--template-source", template_root],
+            input="my_typed_account\n",
+        )
+        assert result.exit_code == 0, result.output
+        assert (Path(project) / "file.txt").read_text() == "account: my_typed_account"
 
 
 def test_default_computed_connection_account_key_missing(

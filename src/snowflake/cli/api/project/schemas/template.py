@@ -34,21 +34,34 @@ def _make_connection_resolver(key: str) -> Callable[[], Optional[str]]:
             connection_dict = get_default_connection_dict()
             return connection_dict.get(key)
         except MissingConfigurationError as exc:
-            log.warning("Could not resolve connection key '%s': %s", key, exc)
+            log.debug("Could not resolve connection key '%s': %s", key, exc)
             return None
 
     return resolver
 
 
-class TemplateVariable(BaseModel):
-    @staticmethod
-    def _comma_separated_keys(resolvers: Dict[str, Any]) -> str:
-        return ", ".join(f"'{k}'" for k in resolvers)
-
-    _COMPUTED_VALUE_RESOLVERS: ClassVar[Dict[str, Callable[[], Optional[str]]]] = {
+class ComputedValueResolvers:
+    _resolvers: ClassVar[Dict[str, Callable[[], Optional[str]]]] = {
         "connection.account": _make_connection_resolver("account"),
         "connection.role": _make_connection_resolver("role"),
     }
+
+    @classmethod
+    def supported_resolvers_string(cls) -> str:
+        return ", ".join(f"'{k}'" for k in cls._resolvers)
+
+    @classmethod
+    def get_resolver_by_name(cls, name: str) -> Callable[[], Optional[str]]:
+        resolver = cls._resolvers.get(name)
+        if resolver is None:
+            raise InvalidTemplateError(
+                f"Unknown default_computed value: '{name}'. "
+                f"Supported values: {cls.supported_resolvers_string()}"
+            )
+        return resolver
+
+
+class TemplateVariable(BaseModel):
     name: str = Field(..., title="Variable identifier")
     type: Optional[Literal["string", "float", "int"]] = Field(  # noqa: A003
         title="Type of the variable", default=None
@@ -57,7 +70,7 @@ class TemplateVariable(BaseModel):
     default: Optional[Any] = Field(title="Default value of the variable", default=None)
     default_computed: Optional[str] = Field(
         title="Compute the default value dynamically. Supported: "
-        + _comma_separated_keys(_COMPUTED_VALUE_RESOLVERS),
+        + ComputedValueResolvers.supported_resolvers_string(),
         default=None,
     )
 
@@ -100,13 +113,12 @@ class TemplateVariable(BaseModel):
 
     @staticmethod
     def _resolve_computed_value(key: str) -> Optional[str]:
-        resolver = TemplateVariable._COMPUTED_VALUE_RESOLVERS.get(key)
-        if resolver is None:
-            raise InvalidTemplateError(
-                f"Unknown default_computed value: '{key}'. "
-                f"Supported values: {TemplateVariable._comma_separated_keys(TemplateVariable._COMPUTED_VALUE_RESOLVERS)}"
-            )
-        return resolver()
+        resolver = ComputedValueResolvers.get_resolver_by_name(key)
+        try:
+            return resolver()
+        except Exception as exc:
+            log.warning("Resolver for '%s' failed: %s", key, exc)
+            return None
 
 
 class Template(BaseModel):
