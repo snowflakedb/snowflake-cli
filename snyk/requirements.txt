@@ -34,7 +34,7 @@ pip==25.3
 platformdirs==4.3.8
 pluggy==1.6.0
 prompt-toolkit==3.0.51
-protobuf==5.29.5
+protobuf==5.29.6
 pycparser==2.22 ; platform_python_implementation != 'PyPy'
 pydantic==2.12.5
 pydantic-core==2.41.5
