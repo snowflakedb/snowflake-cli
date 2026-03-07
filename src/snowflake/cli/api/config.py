@@ -14,8 +14,11 @@
 
 from __future__ import annotations
 
+import codecs
+import locale
 import logging
 import os
+import sys
 import warnings
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
@@ -38,7 +41,7 @@ from snowflake.cli.api.exceptions import (
     UnsupportedConfigSectionTypeError,
 )
 from snowflake.cli.api.sanitizers import sanitize_source_error
-from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.cli.api.secure_utils import (
     file_permissions_are_strict,
     windows_get_not_whitelisted_users_with_access,
@@ -85,10 +88,12 @@ CONNECTIONS_SECTION = "connections"
 CLI_SECTION = "cli"
 LOGS_SECTION = "logs"
 PLUGINS_SECTION = "plugins"
+ENCODING_SECTION = "encoding"
 IGNORE_NEW_VERSION_WARNING_KEY = "ignore_new_version_warning"
 
 LOGS_SECTION_PATH = [CLI_SECTION, LOGS_SECTION]
 PLUGINS_SECTION_PATH = [CLI_SECTION, PLUGINS_SECTION]
+ENCODING_SECTION_PATH = [CLI_SECTION, ENCODING_SECTION]
 PLUGIN_ENABLED_KEY = "enabled"
 FEATURE_FLAGS_SECTION_PATH = [CLI_SECTION, "features"]
 
@@ -185,6 +190,48 @@ def config_init(config_file: Optional[Path]):
         _initialise_config(config_manager.file_path)
     _read_config_file()
     create_initial_loggers()
+    if should_show_encoding_warnings():
+        detect_encoding_environment()
+
+
+def detect_encoding_environment():
+    """Detect encoding configuration and warn about mismatches"""
+    fs_encoding = sys.getfilesystemencoding().lower().replace("_", "-")
+    default_encoding = sys.getdefaultencoding().lower().replace("_", "-")
+    locale_encoding = locale.getpreferredencoding().lower().replace("_", "-")
+
+    # Warn on mismatches
+    encodings = {fs_encoding, default_encoding, locale_encoding}
+
+    actionable_warning_section = (
+        f"This may cause file corruption when sharing projects across platforms.\n"
+        f"Recommended actions:\n"
+        f"1. Set environment variable: PYTHONUTF8=1\n"
+        f"2. Configure encoding in config.toml:\n"
+        f"   [cli.encoding]\n"
+        f'   file_io = "utf-8"\n'
+        f'   subprocess = "utf-8"\n'
+        f"3. Set environment variables: SNOWFLAKE_CLI_ENCODING_FILE_IO='utf-8' "
+        f"and SNOWFLAKE_CLI_ENCODING_SUBPROCESS='utf-8'"
+    )
+
+    # if both encoding options are configured we assume the user knows what they are doing
+    if get_file_io_encoding() is None or get_subprocess_encoding() is None:
+        if len(encodings) > 1:
+            warnings.warn(
+                f"Encoding mismatch detected:\n"
+                f"  Filesystem: {fs_encoding}\n"
+                f"  Default: {default_encoding}\n"
+                f"  Locale: {locale_encoding}\n"
+                f"{actionable_warning_section}"
+            )
+
+        # Warn if not UTF-8
+        elif "utf-8" != locale_encoding:
+            warnings.warn(
+                f"Platform encoding is {locale_encoding}, not utf-8. "
+                f"{actionable_warning_section}"
+            )
 
 
 def add_connection_to_proper_file(name: str, connection_config: ConnectionConfig):
@@ -371,6 +418,43 @@ def get_plugins_config() -> dict:
         return get_config_section(*PLUGINS_SECTION_PATH)
     else:
         return {}
+
+
+def _validate_encoding(encoding: Optional[str], setting_name: str) -> Optional[str]:
+    if encoding is None:
+        return None
+    try:
+        codecs.lookup(encoding)
+    except LookupError:
+        raise ClickException(
+            f"Invalid encoding '{encoding}' configured for {setting_name}. "
+            f"Please use a valid Python codec name (e.g. 'utf-8', 'cp1252')."
+        )
+    return encoding
+
+
+def get_file_io_encoding() -> Optional[str]:
+    """
+    Get configured file I/O encoding, or None for platform default.
+
+    Returns None when not configured - this ensures Unix users with proper
+    locales experience NO behavior change (platform default is used).
+    """
+    value = get_config_value(*ENCODING_SECTION_PATH, key="file_io", default=None)
+    return _validate_encoding(value, "cli.encoding.file_io")
+
+
+def get_subprocess_encoding() -> Optional[str]:
+    """Get configured subprocess encoding, or None for platform default"""
+    value = get_config_value(*ENCODING_SECTION_PATH, key="subprocess", default=None)
+    return _validate_encoding(value, "cli.encoding.subprocess")
+
+
+def should_show_encoding_warnings() -> bool:
+    """Whether to show encoding warnings"""
+    return get_config_bool_value(  # type: ignore
+        *ENCODING_SECTION_PATH, key="show_warnings", default=True
+    )
 
 
 def connection_exists(connection_name: str) -> bool:
@@ -571,13 +655,19 @@ def get_feature_flags_section() -> Dict[str, bool | Literal["UNKNOWN"]]:
 
 
 def _read_config_file_toml() -> dict:
-    return tomlkit.loads(get_config_manager().file_path.read_text()).unwrap()
+    return tomlkit.loads(
+        SecurePath(get_config_manager().file_path).read_text(
+            file_size_limit_mb=UNLIMITED
+        )
+    ).unwrap()
 
 
 def _read_connections_toml() -> dict:
-    return tomlkit.loads(get_connections_file().read_text()).unwrap()
+    return tomlkit.loads(
+        SecurePath(get_connections_file()).read_text(file_size_limit_mb=UNLIMITED)
+    ).unwrap()
 
 
 def _update_connections_toml(connections: dict):
-    with open(get_connections_file(), "w") as f:
+    with SecurePath(get_connections_file()).open("w") as f:
         f.write(tomlkit.dumps(connections))

@@ -856,7 +856,7 @@ def test_given_no_existing_pkg_when_create_app_pkg_then_success_and_respect_rele
     workspace_context,
     feature_flag,
 ):
-    mock_get_config_value.return_value = feature_flag
+    mock_get_config_value.side_effect = [None, feature_flag]
 
     current_working_directory = os.getcwd()
     create_named_file(
@@ -878,7 +878,8 @@ def test_given_no_existing_pkg_when_create_app_pkg_then_success_and_respect_rele
         enable_release_channels=feature_flag,
         role="package_role",
     )
-    mock_get_config_value.assert_called_once_with(
+    assert mock_get_config_value.call_count == 2
+    mock_get_config_value.assert_any_call(
         "cli", "features", key="enable_release_channels", default=None
     )
 
@@ -901,7 +902,7 @@ def test_given_existing_app_package_with_feature_flag_set_when_create_pkg_then_s
     workspace_context,
     feature_flag,
 ):
-    mock_get_config_value.return_value = feature_flag
+    mock_get_config_value.side_effect = [None, feature_flag]
     mock_is_distribution_same.return_value = True
     mock_get_distribution.return_value = "internal"
     mock_get_existing_app_pkg_info.return_value = {
@@ -929,7 +930,8 @@ def test_given_existing_app_package_with_feature_flag_set_when_create_pkg_then_s
         enable_release_channels=feature_flag,
         role="package_role",
     )
-    mock_get_config_value.assert_called_once_with(
+    assert mock_get_config_value.call_count == 2
+    mock_get_config_value.assert_any_call(
         "cli", "features", key="enable_release_channels", default=None
     )
 
