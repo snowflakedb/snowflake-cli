@@ -94,6 +94,18 @@ class Reporter(ABC, Generic[T]):
             )
             raise CliError(message)
 
+    @staticmethod
+    def format_aware_result(
+        cursor: SnowflakeCursor, result_data: Any
+    ) -> CollectionResult | EmptyResult:
+        """Return EmptyResult for TABLE format (already printed), or CollectionResult for JSON/CSV."""
+        if get_cli_context().output_format == OutputFormat.TABLE:
+            return EmptyResult()
+        return CollectionResult(
+            [{cursor.description[0].name: result_data}],
+            RespectingColumnTypesRowMapper(cursor.description),
+        )
+
     def process(self, cursor: SnowflakeCursor) -> CommandResult:
         """Process cursor data and print results."""
         row = cursor.fetchone()
@@ -116,9 +128,4 @@ class Reporter(ABC, Generic[T]):
 
         self.process_payload(result_json)
 
-        if get_cli_context().output_format == OutputFormat.TABLE:
-            return EmptyResult()
-        return CollectionResult(
-            [{cursor.description[0].name: result_data}],
-            RespectingColumnTypesRowMapper(cursor.description),
-        )
+        return self.format_aware_result(cursor, result_data)

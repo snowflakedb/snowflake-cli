@@ -27,6 +27,7 @@ from snowflake.cli._plugins.dcm.reporters import (
     AnalyzeReporter,
     PlanReporter,
     RefreshReporter,
+    Reporter,
     TestReporter,
 )
 from snowflake.cli._plugins.dcm.utils import (
@@ -37,7 +38,6 @@ from snowflake.cli._plugins.dcm.utils import (
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.object.manager import ObjectManager
-from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import (
     IdentifierType,
     IfExistsOption,
@@ -55,13 +55,11 @@ from snowflake.cli.api.constants import (
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CollectionResult,
     EmptyResult,
     MessageResult,
     QueryResult,
-    RespectingColumnTypesRowMapper,
 )
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector.cursor import SnowflakeCursor
@@ -241,12 +239,7 @@ def _process_plan_result(
         )
         reporter = PlanReporter(save_output=save_output, command_name=command_name)
         reporter.process_payload(data)
-        if get_cli_context().output_format == OutputFormat.TABLE:
-            return EmptyResult()
-        return CollectionResult(
-            [{cursor.description[0].name: first_value}],
-            RespectingColumnTypesRowMapper(cursor.description),
-        )
+        return Reporter.format_aware_result(cursor, first_value)
 
     # Old format
     log.info("Detected legacy DCM plan result format.")
