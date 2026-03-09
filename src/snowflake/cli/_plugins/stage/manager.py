@@ -366,11 +366,12 @@ class StageManager(SqlExecutionMixin):
         and switch back to the original role for the next commands to run.
         """
         if "*" not in str(local_path):
-            local_path = (
-                os.path.join(local_path, "*")
-                if Path(local_path).is_dir()
-                else str(local_path)
-            )
+            local_path_obj = Path(local_path)
+            if local_path_obj.is_dir():
+                escaped_local_path = glob.escape(str(local_path_obj))
+                local_path = os.path.join(escaped_local_path, "*")
+            else:
+                local_path = str(local_path)
         with self.use_role(role) if role else nullcontext():
             spath = self.build_path(stage_path)
             local_resolved_path = path_resolver(str(local_path))
@@ -404,7 +405,8 @@ class StageManager(SqlExecutionMixin):
 
         if local_path.is_dir():
             root = local_path
-            glob_pattern = str(local_path / "**/*")
+            escaped_local_path = glob.escape(str(local_path))
+            glob_pattern = os.path.join(escaped_local_path, "**", "*")
         else:
             root = Path([p for p in local_path.parents if p.is_dir()][0])
             glob_pattern = str(local_path)
