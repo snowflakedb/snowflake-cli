@@ -64,7 +64,7 @@ from snowflake.cli.api.output.types import (
     RespectingColumnTypesRowMapper,
 )
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.connector.cursor import DictCursor
+from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__name__)
 
@@ -205,7 +205,7 @@ def _resolve_context_with_optional_manifest(
 
 
 def _process_plan_result(
-    cursor: DictCursor,
+    cursor: SnowflakeCursor,
     command_name: str = "plan",
     save_output: bool = False,
 ) -> CollectionResult | EmptyResult:
@@ -223,11 +223,7 @@ def _process_plan_result(
         return CollectionResult([])
 
     first_row = rows[0]
-    first_value = None
-    if "result" in first_row:
-        first_value = first_row["result"]
-    elif "operations" in first_row:
-        first_value = first_row["operations"]
+    first_value = list(first_row)[0] if first_row else None
     if not first_value:
         # TODO: when support for old plan api is removed, move this logic into Reporter class completely
         if save_output:
@@ -248,7 +244,8 @@ def _process_plan_result(
         if get_cli_context().output_format == OutputFormat.TABLE:
             return EmptyResult()
         return CollectionResult(
-            rows, RespectingColumnTypesRowMapper(cursor.description)
+            [{cursor.description[0].name: first_value}],
+            RespectingColumnTypesRowMapper(cursor.description),
         )
 
     # Old format
