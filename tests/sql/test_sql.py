@@ -19,6 +19,7 @@ from unittest import mock
 import pytest
 from snowflake.cli._plugins.sql.manager import SqlManager
 from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_templates
+from snowflake.cli._plugins.sql.statement_reader import CompiledStatement
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import (
     ShowSpecificObjectMultipleRowsError,
@@ -682,3 +683,30 @@ def test_sql_with_old_template_and_invalid_snowflake_yml(
     result = runner.invoke(["sql", "-q", "select <% foo %>"])
     assert result.exit_code == 1, result.output
     assert result.output == snapshot
+
+
+def test_async_query_uses_execute_async():
+    """Verifies that async statements use cursor.execute_async() instead of
+    cursor.execute(_no_results=True), so the query ID is tracked by the
+    connector and connection.close() won't cancel in-flight async queries."""
+    mock_cursor = mock.MagicMock()
+    mock_cursor.sfqid = "test-query-id-123"
+
+    mock_conn = mock.MagicMock()
+    mock_conn.cursor.return_value = mock_cursor
+
+    manager = SqlManager(connection=mock_conn)
+    stmts = [
+        CompiledStatement(statement="INSERT INTO t VALUES ('v')", execute_async=True),
+    ]
+
+    # _execute_compiled_statements is a generator; consume it
+    list(
+        manager._execute_compiled_statements(  # noqa: SLF001
+            stmts, cursor_class=VerboseCursor
+        )
+    )
+
+    mock_conn.cursor.assert_called_once_with(cursor_class=VerboseCursor)
+    mock_cursor.execute_async.assert_called_once_with("INSERT INTO t VALUES ('v')")
+    mock_cursor.execute.assert_not_called()

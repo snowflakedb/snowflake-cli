@@ -366,8 +366,9 @@ class StageManager(SqlExecutionMixin):
         and switch back to the original role for the next commands to run.
         """
         if "*" not in str(local_path):
-            if Path(local_path).is_dir():
-                escaped_local_path = glob.escape(str(Path(local_path)))
+            local_path_obj = Path(local_path)
+            if local_path_obj.is_dir():
+                escaped_local_path = glob.escape(str(local_path_obj))
                 local_path = os.path.join(escaped_local_path, "*")
             else:
                 local_path = str(local_path)
