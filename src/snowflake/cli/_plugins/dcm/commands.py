@@ -600,9 +600,7 @@ def refresh(
         result = DCMProjectManager().refresh(project_identifier=project_id)
 
     reporter = RefreshReporter(save_output=save_output)
-    reporter.process(result)
-
-    return EmptyResult()
+    return reporter.process(result)
 
 
 @app.command(requires_connection=True)
@@ -627,6 +625,4 @@ def test(
         result = DCMProjectManager().test(project_identifier=project_id)
 
     reporter = TestReporter(save_output=save_output)
-    reporter.process(result)
-
-    return EmptyResult()
+    return reporter.process(result)
