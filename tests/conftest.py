@@ -470,7 +470,7 @@ class MockCursor(SnowflakeCursor):
 
     @property
     def description(self):
-        yield from self._columns
+        return self._columns
 
     @classmethod
     def from_input(cls, rows, columns):
