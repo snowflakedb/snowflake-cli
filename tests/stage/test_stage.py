@@ -1636,49 +1636,6 @@ def test_stage_put_recursive_with_square_brackets(
     assert len(tester.calls) >= 2
 
 
-def test_stage_put_preserves_user_glob_patterns_with_brackets():
-    """
-    Test that user-provided glob patterns with square brackets are preserved.
-
-    When a user provides a pattern like 'src/[abc]' intending to match
-    directories 'src/a', 'src/b', 'src/c', the pattern should be preserved
-    and not escaped because no literal [abc] directory exists.
-
-    This ensures our fix doesn't break intentional glob patterns.
-    """
-    with TemporaryDirectory() as tmp_dir:
-        tmp_path = Path(tmp_dir)
-
-        # Create directories that would match the glob pattern [abc]
-        (tmp_path / "a").mkdir()
-        (tmp_path / "b").mkdir()
-        (tmp_path / "c").mkdir()
-        (tmp_path / "a" / "file1.txt").write_text("content1")
-        (tmp_path / "b" / "file2.txt").write_text("content2")
-        (tmp_path / "c" / "file3.txt").write_text("content3")
-
-        # Note: No literal [abc] directory exists!
-        pattern_path = tmp_path / "[abc]"
-
-        # Verify the pattern doesn't exist as a literal directory
-        assert not pattern_path.is_dir()
-
-        # Simulate what copy_to_tmp_dir does
-        if pattern_path.is_dir():
-            # Would escape if it was a real directory
-            glob_pattern = glob.escape(str(pattern_path)) + "/**/*"
-        else:
-            # Preserves pattern for globbing
-            glob_pattern = str(pattern_path)
-
-        # The pattern should match a, b, c directories
-        matches = sorted(glob.glob(glob_pattern))
-        assert len(matches) == 3
-        assert str(tmp_path / "a") in matches
-        assert str(tmp_path / "b") in matches
-        assert str(tmp_path / "c") in matches
-
-
 @mock.patch(f"{STAGE_MANAGER}.execute_query")
 def test_stage_put_preserves_user_glob_patterns_with_wildcard(
     mock_execute, mock_cursor
@@ -1710,3 +1667,49 @@ def test_stage_put_preserves_user_glob_patterns_with_wildcard(
         call_args = mock_execute.call_args[0][0]
         assert "*.py" in call_args, f"Expected *.py in call, got: {call_args}"
         assert "file://" in call_args
+
+
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_stage_put_with_square_brackets_and_trailing_slash(mock_execute, mock_cursor):
+    """
+    Test that a directory with both square brackets and a trailing slash is handled correctly.
+
+    e.g. put('/tmp/campaigns/[id]/', ...) should produce '.../campaigns/[[]id]/*'
+    not '.../campaigns/[id]//*' or '.../campaigns/[id]/*' (unescaped).
+    """
+    mock_execute.return_value = mock_cursor([("old_role",)], [])
+    with TemporaryDirectory() as tmp_dir:
+        bracket_dir = Path(tmp_dir) / "campaigns" / "[id]"
+        bracket_dir.mkdir(parents=True)
+        (bracket_dir / "test.txt").write_text("content")
+
+        sm = StageManager()
+        sm.put(str(bracket_dir) + "/", "stageName")
+
+        expected_path = glob.escape(str(bracket_dir.resolve())) + "/*"
+        call_args = mock_execute.call_args[0][0]
+        assert "//*" not in call_args, f"Double slash found in: {call_args}"
+        assert call_args == (
+            f"put file://{expected_path} @stageName auto_compress=false parallel=4 overwrite=False"
+        )
+
+
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_stage_put_with_trailing_slash(mock_execute, mock_cursor):
+    """
+    Test that a trailing slash (or multiple trailing slashes) in a directory path
+    does not produce a double slash in the resulting glob pattern.
+
+    e.g. put('/tmp/path/', ...) should produce '.../tmp/path/*'
+    not '.../tmp/path//*'.
+    """
+    mock_execute.return_value = mock_cursor([("old_role",)], [])
+    with TemporaryDirectory() as tmp_dir:
+        (Path(tmp_dir) / "file.txt").write_text("content")
+
+        sm = StageManager()
+        sm.put(tmp_dir + "/", "stageName")
+
+        call_args = mock_execute.call_args[0][0]
+        assert "//*" not in call_args, f"Double slash found in: {call_args}"
+        assert call_args.endswith(f"{tmp_dir}/* @stageName auto_compress=false parallel=4 overwrite=False")

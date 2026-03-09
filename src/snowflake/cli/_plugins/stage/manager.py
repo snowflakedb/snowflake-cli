@@ -367,7 +367,7 @@ class StageManager(SqlExecutionMixin):
         """
         if "*" not in str(local_path):
             if Path(local_path).is_dir():
-                local_path = glob.escape(str(local_path)) + "/*"
+                local_path = glob.escape(str(local_path).rstrip("/")) + "/*"
             else:
                 local_path = str(local_path)
         with self.use_role(role) if role else nullcontext():
