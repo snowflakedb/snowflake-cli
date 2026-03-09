@@ -61,6 +61,7 @@ from snowflake.cli.api.output.types import (
     EmptyResult,
     MessageResult,
     QueryResult,
+    RespectingColumnTypesRowMapper,
 )
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector.cursor import DictCursor
@@ -246,7 +247,9 @@ def _process_plan_result(
         reporter.process_payload(data)
         if get_cli_context().output_format == OutputFormat.TABLE:
             return EmptyResult()
-        return CollectionResult(rows)
+        return CollectionResult(
+            rows, RespectingColumnTypesRowMapper(cursor.description)
+        )
 
     # Old format
     log.info("Detected legacy DCM plan result format.")
