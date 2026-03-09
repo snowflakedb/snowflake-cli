@@ -1537,6 +1537,30 @@ class TestDCMRefresh:
             assert result.exit_code == 0, result.output
             _assert_json_dumped("refresh", refresh_result, tmp_path)
 
+    def test_refresh_with_json_format_returns_raw_response(
+        self,
+        mock_dcm_manager,
+        runner,
+        mock_cursor,
+    ):
+        refresh_result = {
+            "refreshed_tables": [
+                {
+                    "dt_name": "DB.SCHEMA.DYNAMIC_TABLE",
+                    "statistics": "No new data",
+                }
+            ]
+        }
+        mock_dcm_manager().refresh.return_value = mock_cursor(
+            rows=[(json.dumps(refresh_result),)], columns=("result",)
+        )
+
+        result = runner.invoke(["dcm", "refresh", "my_project", "--format", "json"])
+
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.output)
+        assert payload == [{"result": json.dumps(refresh_result)}]
+
 
 class TestDCMTest:
     def test_test_all_passing(self, mock_dcm_manager, runner, mock_cursor, snapshot):
@@ -1665,3 +1689,28 @@ class TestDCMTest:
 
             assert result.exit_code == 0, result.output
             _assert_json_dumped("test", test_result, tmp_path)
+
+    def test_test_with_json_format_returns_raw_response(
+        self,
+        mock_dcm_manager,
+        runner,
+        mock_cursor,
+    ):
+        test_result = {
+            "expectations": [
+                {
+                    "table_name": "DB.SCHEMA.EMPLOYEES",
+                    "expectation_name": "ROW_COUNT_CHECK",
+                    "expectation_violated": False,
+                }
+            ]
+        }
+        mock_dcm_manager().test.return_value = mock_cursor(
+            rows=[(json.dumps(test_result),)], columns=("result",)
+        )
+
+        result = runner.invoke(["dcm", "test", "my_project", "--format", "json"])
+
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.output)
+        assert payload == [{"result": json.dumps(test_result)}]
