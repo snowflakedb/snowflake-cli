@@ -14,13 +14,52 @@
 
 from __future__ import annotations
 
-from typing import Any, List, Literal, Optional, Union
+import logging
+from typing import Any, Callable, ClassVar, Dict, List, Literal, Optional, Union
 
 import typer
 from click import ClickException
-from pydantic import BaseModel, Field
-from snowflake.cli.api.exceptions import InvalidTemplateError
+from pydantic import BaseModel, Field, model_validator
+from snowflake.cli.api.config import get_default_connection_dict
+from snowflake.cli.api.exceptions import InvalidTemplateError, MissingConfigurationError
 from snowflake.cli.api.secure_path import SecurePath
+
+log = logging.getLogger(__name__)
+
+
+def _make_connection_resolver(key: str) -> Callable[[], Optional[str]]:
+    def resolver() -> Optional[str]:
+        try:
+            connection_dict = get_default_connection_dict()
+            return connection_dict.get(key)
+        except MissingConfigurationError as exc:
+            log.debug("Could not resolve connection key '%s': %s", key, exc)
+            return None
+
+    return resolver
+
+
+class ComputedValueResolvers:
+    _resolvers: ClassVar[Dict[str, Callable[[], Optional[str]]]] = {
+        "connection.account": _make_connection_resolver("account"),
+        "connection.role": _make_connection_resolver("role"),
+        "connection.db": _make_connection_resolver("database"),
+        "connection.schema": _make_connection_resolver("schema"),
+    }
+
+    @classmethod
+    def supported_resolvers_string(cls) -> str:
+        return ", ".join(f"'{k}'" for k in cls._resolvers)
+
+    @classmethod
+    def get_resolver_by_name(cls, name: str) -> Callable[[], Optional[str]]:
+        resolver = cls._resolvers.get(name)
+        if resolver is None:
+            raise InvalidTemplateError(
+                f"Unknown default_computed value: '{name}'. "
+                f"Supported values: {cls.supported_resolvers_string()}"
+            )
+        return resolver
 
 
 class TemplateVariable(BaseModel):
@@ -30,6 +69,20 @@ class TemplateVariable(BaseModel):
     )
     prompt: Optional[str] = Field(title="Prompt message for the variable", default=None)
     default: Optional[Any] = Field(title="Default value of the variable", default=None)
+    default_computed: Optional[str] = Field(
+        title="Compute the default value dynamically. Supported: "
+        + ComputedValueResolvers.supported_resolvers_string(),
+        default=None,
+    )
+
+    @model_validator(mode="after")
+    def _validate_defaults_mutual_exclusion(self):
+        if self.default is not None and self.default_computed is not None:
+            raise InvalidTemplateError(
+                f"Variable '{self.name}' has both 'default' and 'default_computed' set. "
+                "These are mutually exclusive."
+            )
+        return self
 
     @property
     def python_type(self):
@@ -41,14 +94,32 @@ class TemplateVariable(BaseModel):
             None: str,
         }[self.type]
 
-    def prompt_user_for_value(self, no_interactive: bool) -> Union[str, float, int]:
-        if no_interactive:
-            if not self.default:
-                raise ClickException(f"Cannot determine value of variable {self.name}")
+    def resolve_default(self) -> Optional[Any]:
+        """Return effective default: static 'default' or computed 'default_computed'."""
+        if self.default is not None:
             return self.default
+        if self.default_computed is None:
+            return None
+        return self._resolve_computed_value(self.default_computed)
+
+    def prompt_user_for_value(self, no_interactive: bool) -> Union[str, float, int]:
+        effective_default = self.resolve_default()
+        if no_interactive:
+            if effective_default is None:
+                raise ClickException(f"Cannot determine value of variable {self.name}")
+            return effective_default
 
         prompt = self.prompt if self.prompt else self.name
-        return typer.prompt(prompt, default=self.default, type=self.python_type)
+        return typer.prompt(prompt, default=effective_default, type=self.python_type)
+
+    @staticmethod
+    def _resolve_computed_value(key: str) -> Optional[str]:
+        resolver = ComputedValueResolvers.get_resolver_by_name(key)
+        try:
+            return resolver()
+        except Exception as exc:
+            log.warning("Resolver for '%s' failed: %s", key, exc)
+            return None
 
 
 class Template(BaseModel):
