@@ -460,7 +460,14 @@ class TestDCMDeploy:
             assert result.exit_code == 0, result.output
             _assert_json_dumped("deploy", plan_response, tmp_path)
 
-    def test_deploy_with_json_format_returns_raw_response(
+    @pytest.mark.parametrize(
+        "format_name, columns, expect_parsed",
+        [
+            ("json", ("result",), False),
+            ("json_ext", [{"name": "result", "type_code": 5}], True),
+        ],
+    )
+    def test_deploy_with_json_formats_returns_response(
         self,
         mock_dcm_manager,
         mock_manifest_load,
@@ -468,20 +475,24 @@ class TestDCMDeploy:
         mock_cursor,
         mock_connect,
         project_directory,
+        format_name,
+        columns,
+        expect_parsed,
     ):
         plan_response = {"version": 2, "changeset": []}
         mock_dcm_manager().deploy.return_value = mock_cursor(
-            rows=[(json.dumps(plan_response),)], columns=("result",)
+            rows=[(json.dumps(plan_response),)], columns=columns
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
-            result = runner.invoke(["dcm", "deploy", "fooBar", "--format", "json"])
+            result = runner.invoke(["dcm", "deploy", "fooBar", "--format", format_name])
 
         assert result.exit_code == 0, result.output
         payload = json.loads(result.output)
-        assert payload == [{"result": json.dumps(plan_response)}]
+        expected_value = plan_response if expect_parsed else json.dumps(plan_response)
+        assert payload == [{"result": expected_value}]
 
 
 class TestDCMPlan:
@@ -650,7 +661,14 @@ class TestDCMPlan:
             assert json.loads(json_file.read_text()) == {"version": 2, "changeset": []}
             _assert_json_dumped("plan", plan_response, tmp_path)
 
-    def test_plan_with_json_format_returns_raw_response(
+    @pytest.mark.parametrize(
+        "format_name, columns, expect_parsed",
+        [
+            ("json", ("result",), False),
+            ("json_ext", [{"name": "result", "type_code": 5}], True),
+        ],
+    )
+    def test_plan_with_json_formats_returns_response(
         self,
         mock_dcm_manager,
         mock_manifest_load,
@@ -658,20 +676,24 @@ class TestDCMPlan:
         mock_cursor,
         mock_connect,
         project_directory,
+        format_name,
+        columns,
+        expect_parsed,
     ):
         plan_response = {"version": 2, "changeset": []}
         mock_dcm_manager().plan.return_value = mock_cursor(
-            rows=[(json.dumps(plan_response),)], columns=("result",)
+            rows=[(json.dumps(plan_response),)], columns=columns
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
-            result = runner.invoke(["dcm", "plan", "fooBar", "--format", "json"])
+            result = runner.invoke(["dcm", "plan", "fooBar", "--format", format_name])
 
         assert result.exit_code == 0, result.output
         payload = json.loads(result.output)
-        assert payload == [{"result": json.dumps(plan_response)}]
+        expected_value = plan_response if expect_parsed else json.dumps(plan_response)
+        assert payload == [{"result": expected_value}]
 
 
 class TestDCMRawAnalyze:
@@ -1537,11 +1559,21 @@ class TestDCMRefresh:
             assert result.exit_code == 0, result.output
             _assert_json_dumped("refresh", refresh_result, tmp_path)
 
-    def test_refresh_with_json_format_returns_raw_response(
+    @pytest.mark.parametrize(
+        "format_name, columns, expect_parsed",
+        [
+            ("json", ("result",), False),
+            ("json_ext", [{"name": "result", "type_code": 5}], True),
+        ],
+    )
+    def test_refresh_with_json_formats_returns_response(
         self,
         mock_dcm_manager,
         runner,
         mock_cursor,
+        format_name,
+        columns,
+        expect_parsed,
     ):
         refresh_result = {
             "refreshed_tables": [
@@ -1552,14 +1584,17 @@ class TestDCMRefresh:
             ]
         }
         mock_dcm_manager().refresh.return_value = mock_cursor(
-            rows=[(json.dumps(refresh_result),)], columns=("result",)
+            rows=[(json.dumps(refresh_result),)], columns=columns
         )
 
-        result = runner.invoke(["dcm", "refresh", "my_project", "--format", "json"])
+        result = runner.invoke(
+            ["dcm", "refresh", "my_project", "--format", format_name]
+        )
 
         assert result.exit_code == 0, result.output
         payload = json.loads(result.output)
-        assert payload == [{"result": json.dumps(refresh_result)}]
+        expected_value = refresh_result if expect_parsed else json.dumps(refresh_result)
+        assert payload == [{"result": expected_value}]
 
 
 class TestDCMTest:
@@ -1690,11 +1725,21 @@ class TestDCMTest:
             assert result.exit_code == 0, result.output
             _assert_json_dumped("test", test_result, tmp_path)
 
-    def test_test_with_json_format_returns_raw_response(
+    @pytest.mark.parametrize(
+        "format_name, columns, expect_parsed",
+        [
+            ("json", ("result",), False),
+            ("json_ext", [{"name": "result", "type_code": 5}], True),
+        ],
+    )
+    def test_test_with_json_formats_returns_response(
         self,
         mock_dcm_manager,
         runner,
         mock_cursor,
+        format_name,
+        columns,
+        expect_parsed,
     ):
         test_result = {
             "expectations": [
@@ -1706,11 +1751,12 @@ class TestDCMTest:
             ]
         }
         mock_dcm_manager().test.return_value = mock_cursor(
-            rows=[(json.dumps(test_result),)], columns=("result",)
+            rows=[(json.dumps(test_result),)], columns=columns
         )
 
-        result = runner.invoke(["dcm", "test", "my_project", "--format", "json"])
+        result = runner.invoke(["dcm", "test", "my_project", "--format", format_name])
 
         assert result.exit_code == 0, result.output
         payload = json.loads(result.output)
-        assert payload == [{"result": json.dumps(test_result)}]
+        expected_value = test_result if expect_parsed else json.dumps(test_result)
+        assert payload == [{"result": expected_value}]
