@@ -22,6 +22,7 @@
 ## New additions
 
 ## Fixes and improvements
+* Fixed `snow stage copy` and `snow stage put` failing when a local directory path contains glob special characters (e.g. square brackets in `[id]` or `[slug]`). The path is now escaped before glob expansion so literal directory names are matched correctly.
 
 # v3.16.0
 
