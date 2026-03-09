@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import glob
 from pathlib import Path
 from typing import Optional
 from unittest import mock
@@ -1514,9 +1515,10 @@ def test_recursive_unbalanced_tree(temporary_directory):
 
 
 def test_recursive_upload_with_provided_temp_directory():
-    with TemporaryDirectory("src") as source_directory, TemporaryDirectory(
-        "temp"
-    ) as temp_directory:
+    with (
+        TemporaryDirectory("src") as source_directory,
+        TemporaryDirectory("temp") as temp_directory,
+    ):
         temp_directory_path = Path(temp_directory)
         tester = RecursiveUploadTester(
             source_directory, temp_directory=temp_directory_path
@@ -1555,3 +1557,159 @@ def test_stage_create_with_encryption_and_directory_options(
     mock_execute.assert_called_once_with(
         "create stage if not exists IDENTIFIER('stageName') encryption = (type = 'SNOWFLAKE_SSE') directory = (enable = true)"
     )
+
+
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_stage_put_with_square_brackets_in_directory_name(mock_execute, mock_cursor):
+    """
+    Test that directories with square brackets in their names are handled correctly.
+
+    This reproduces the issue where paths like 'campaigns/[id]/' fail because
+    square brackets are interpreted as glob character classes instead of literal characters.
+
+    Expected behavior: The brackets should be escaped so glob treats them literally.
+    """
+    mock_execute.return_value = mock_cursor([("old_role",)], [])
+    with TemporaryDirectory() as tmp_dir:
+        # Create a directory with square brackets in the name
+        bracket_dir = Path(tmp_dir) / "campaigns" / "[id]"
+        bracket_dir.mkdir(parents=True)
+
+        # Create a test file inside
+        test_file = bracket_dir / "test.txt"
+        test_file.write_text("test content")
+
+        sm = StageManager()
+        # Test uploading the directory with square brackets
+        sm.put(bracket_dir, "stageName")
+
+        # The path should be escaped to handle square brackets correctly
+        # Without escaping: file://.../campaigns/[id]/* would match nothing
+        # With escaping: file://.../campaigns/[[]id]/* matches the directory
+        expected_path = glob.escape(str(bracket_dir.resolve())) + "/*"
+
+        mock_execute.assert_called_with(
+            f"put file://{expected_path} @stageName auto_compress=false parallel=4 overwrite=False",
+            cursor_class=SnowflakeCursor,
+        )
+
+
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_stage_put_recursive_with_square_brackets(
+    mock_execute, mock_cursor, temporary_directory
+):
+    """
+    Test that recursive put operations handle directories with square brackets correctly.
+
+    This tests the full recursive upload flow with a directory structure containing
+    square brackets like: app/campaigns/[id]/file.txt
+    """
+    # Create a structure with square brackets
+    structure = {
+        "app": {
+            "campaigns": {
+                "[id]": {
+                    "template.html": "content1",
+                    "config.json": "content2",
+                },
+                "[slug]": {
+                    "data.txt": "content3",
+                },
+            }
+        }
+    }
+
+    tester = RecursiveUploadTester(temporary_directory)
+    tester.prepare(structure=structure)
+    tmp_created_by_copy = tester.execute(local_path=temporary_directory)
+
+    # Verify that directories with square brackets are included in the upload
+    actual_paths = [call["local_path"] for call in tester.calls]
+
+    # The key test: directories with square brackets should be processed correctly
+    # Without the fix, these would fail to upload because [id] would be interpreted
+    # as a glob pattern matching 'i' or 'd' characters
+    assert tmp_created_by_copy / "app/campaigns/[id]" in actual_paths
+    assert tmp_created_by_copy / "app/campaigns/[slug]" in actual_paths
+
+    # Verify at least some calls were made (not an empty list)
+    assert len(tester.calls) >= 2
+
+
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_stage_put_preserves_user_glob_patterns_with_wildcard(
+    mock_execute, mock_cursor
+):
+    """
+    Test that user-provided glob patterns with wildcards are preserved.
+
+    When a user provides a pattern like 'src/*.py', it should be passed
+    through unchanged to the glob matching logic.
+    """
+    mock_execute.return_value = mock_cursor([("old_role",)], [])
+    with TemporaryDirectory() as tmp_dir:
+        # Create some .py and .txt files
+        tmp_path = Path(tmp_dir)
+        (tmp_path / "file1.py").write_text("test")
+        (tmp_path / "file2.py").write_text("test")
+        (tmp_path / "file3.txt").write_text("test")
+
+        sm = StageManager()
+
+        # User provides a glob pattern with wildcard
+        glob_pattern = str(tmp_path) + "/*.py"
+
+        # This should pass through the check without modification
+        # because "*" is in the path
+        sm.put(glob_pattern, "stageName")
+
+        # Verify the pattern was NOT escaped (still contains the original *.py)
+        call_args = mock_execute.call_args[0][0]
+        assert "*.py" in call_args, f"Expected *.py in call, got: {call_args}"
+        assert "file://" in call_args
+
+
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_stage_put_with_square_brackets_and_trailing_slash(mock_execute, mock_cursor):
+    """
+    Test that a directory with both square brackets and a trailing slash is handled correctly.
+
+    e.g. put('/tmp/campaigns/[id]/', ...) should produce '.../campaigns/[[]id]/*'
+    not '.../campaigns/[id]//*' or '.../campaigns/[id]/*' (unescaped).
+    """
+    mock_execute.return_value = mock_cursor([("old_role",)], [])
+    with TemporaryDirectory() as tmp_dir:
+        bracket_dir = Path(tmp_dir) / "campaigns" / "[id]"
+        bracket_dir.mkdir(parents=True)
+        (bracket_dir / "test.txt").write_text("content")
+
+        sm = StageManager()
+        sm.put(str(bracket_dir) + "/", "stageName")
+
+        expected_path = glob.escape(str(bracket_dir.resolve())) + "/*"
+        call_args = mock_execute.call_args[0][0]
+        assert "//*" not in call_args, f"Double slash found in: {call_args}"
+        assert call_args == (
+            f"put file://{expected_path} @stageName auto_compress=false parallel=4 overwrite=False"
+        )
+
+
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_stage_put_with_trailing_slash(mock_execute, mock_cursor):
+    """
+    Test that a trailing slash (or multiple trailing slashes) in a directory path
+    does not produce a double slash in the resulting glob pattern.
+
+    e.g. put('/tmp/path/', ...) should produce '.../tmp/path/*'
+    not '.../tmp/path//*'.
+    """
+    mock_execute.return_value = mock_cursor([("old_role",)], [])
+    with TemporaryDirectory() as tmp_dir:
+        (Path(tmp_dir) / "file.txt").write_text("content")
+
+        sm = StageManager()
+        sm.put(tmp_dir + "/", "stageName")
+
+        call_args = mock_execute.call_args[0][0]
+        assert "//*" not in call_args, f"Double slash found in: {call_args}"
+        assert call_args.endswith(f"{tmp_dir}/* @stageName auto_compress=false parallel=4 overwrite=False")
