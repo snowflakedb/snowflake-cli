@@ -41,7 +41,7 @@ app = SnowTyperFactory(
 )
 
 DEFINITION_FILENAME = "snowflake.yml"
-SNOW_APP_ENTITY_TYPE = "snow-app"
+SNOWFLAKE_APP_ENTITY_TYPE = "snowflake-app"
 
 # Feature flags
 IS_PERSONAL_DB_SUPPORTED = False  # Will be enabled in the future
@@ -115,22 +115,22 @@ def _get_external_access(app_id: str) -> Optional[str]:
     return None
 
 
-def _get_snow_app_entities() -> Dict[str, Any]:
-    """Get all snow-app entities from the project definition."""
+def _get_snowflake_app_entities() -> Dict[str, Any]:
+    """Get all snowflake-app entities from the project definition."""
     ctx = get_cli_context()
     project_def = ctx.project_definition
 
     if project_def is None:
         raise CliError(f"No {DEFINITION_FILENAME} found. Run 'snow apps init' first.")
 
-    # Get entities with type "snow-app"
-    snow_apps = {}
+    # Get entities with type "snowflake-app"
+    snowflake_apps = {}
     if hasattr(project_def, "entities"):
         for entity_id, entity in project_def.entities.items():
-            if getattr(entity, "type", None) == SNOW_APP_ENTITY_TYPE:
-                snow_apps[entity_id] = entity
+            if getattr(entity, "type", None) == SNOWFLAKE_APP_ENTITY_TYPE:
+                snowflake_apps[entity_id] = entity
 
-    return snow_apps
+    return snowflake_apps
 
 
 def _resolve_entity_id(entity_id: Optional[str]) -> str:
@@ -138,38 +138,38 @@ def _resolve_entity_id(entity_id: Optional[str]) -> str:
     Resolve the entity_id from the argument or project definition.
 
     If entity_id is provided, use it. Otherwise, if there's exactly one
-    snow-app entity in the project, use that. Otherwise, raise an error.
+    snowflake-app entity in the project, use that. Otherwise, raise an error.
     """
     if entity_id:
         return entity_id
 
-    snow_apps = _get_snow_app_entities()
+    snowflake_apps = _get_snowflake_app_entities()
 
-    if len(snow_apps) == 0:
+    if len(snowflake_apps) == 0:
         raise CliError(
-            f"No snow-app entities found in {DEFINITION_FILENAME}. "
-            "Add a snow-app entity or run 'snow apps init' first."
+            f"No snowflake-app entities found in {DEFINITION_FILENAME}. "
+            "Add a snowflake-app entity or run 'snow apps init' first."
         )
-    elif len(snow_apps) == 1:
-        return list(snow_apps.keys())[0]
+    elif len(snowflake_apps) == 1:
+        return list(snowflake_apps.keys())[0]
     else:
-        entity_ids = ", ".join(snow_apps.keys())
+        entity_ids = ", ".join(snowflake_apps.keys())
         raise CliError(
-            f"Multiple snow-app entities found: {entity_ids}. "
+            f"Multiple snowflake-app entities found: {entity_ids}. "
             "Please specify --entity-id to select one."
         )
 
 
 def _get_entity(entity_id: str) -> Any:
-    """Get the snow-app entity by ID."""
-    snow_apps = _get_snow_app_entities()
-    if entity_id not in snow_apps:
+    """Get the snowflake-app entity by ID."""
+    snowflake_apps = _get_snowflake_app_entities()
+    if entity_id not in snowflake_apps:
         raise CliError(f"Entity '{entity_id}' not found in {DEFINITION_FILENAME}.")
-    return snow_apps[entity_id]
+    return snowflake_apps[entity_id]
 
 
-class SnowAppManager(SqlExecutionMixin):
-    """Manager for Snow App operations."""
+class SnowflakeAppManager(SqlExecutionMixin):
+    """Manager for Snowflake App operations."""
 
     def create_schema_if_not_exists(self, database: str, schema: str) -> None:
         """Create schema if it doesn't exist."""
@@ -434,8 +434,8 @@ def _generate_snowflake_yml(
     # Schema: SNOW_APP_<APP_ID>_<USERNAME>
     schema = f"SNOW_APP_{app_id.upper()}_{username}"
 
-    # Stage: <APP_ID>_CODE_STAGE
-    code_stage = f"{app_id.upper()}_CODE_STAGE"
+    # Stage: <APP_ID>_CODE
+    code_stage = f"{app_id.upper()}_CODE"
 
     # Compute pool: check for existing pools
     compute_pool = _get_compute_pool()
@@ -467,7 +467,7 @@ def _generate_snowflake_yml(
 
         entities:
           {app_id}:
-            type: snow-app
+            type: snowflake-app
             identifier:
               name: {app_id.upper()}
               database: {database}
@@ -537,7 +537,7 @@ def deploy(
     entity_id: Optional[str] = typer.Option(
         None,
         "--entity-id",
-        help="ID of the snow-app entity to deploy. Required if multiple snow-app entities exist.",
+        help="ID of the snowflake-app entity to deploy. Required if multiple snowflake-app entities exist.",
     ),
     **options,
 ) -> CommandResult:
@@ -547,7 +547,7 @@ def deploy(
     Uploads source artifacts, builds a container image, creates (or updates)
     a service, and waits for it to become ready.
 
-    If --entity-id is not specified and the project contains exactly one snow-app
+    If --entity-id is not specified and the project contains exactly one snowflake-app
     entity, that entity will be used automatically.
     """
     _check_feature_enabled()
@@ -628,7 +628,7 @@ def deploy(
     service_name_short = resolved_entity_id.upper()
     service_fqn = f"{database}.{schema}.{service_name_short}"
 
-    manager = SnowAppManager()
+    manager = SnowflakeAppManager()
     stage_manager = StageManager()
 
     # ── Build phase ───────────────────────────────────────────────────

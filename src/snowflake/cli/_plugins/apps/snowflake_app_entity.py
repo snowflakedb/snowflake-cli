@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from snowflake.cli._plugins.apps.snow_app_entity_model import SnowAppEntityModel
+from snowflake.cli._plugins.apps.snowflake_app_entity_model import (
+    SnowflakeAppEntityModel,
+)
 from snowflake.cli.api.entities.common import EntityBase
 
 
-class SnowAppEntity(EntityBase[SnowAppEntityModel]):
-    """Entity class for Snow App (snow-app) type."""
+class SnowflakeAppEntity(EntityBase[SnowflakeAppEntityModel]):
+    """Entity class for Snowflake App (snowflake-app) type."""
 
     pass

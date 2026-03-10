@@ -54,22 +54,22 @@ class CodeStageReference(UpdatableModel):
     )
 
 
-class SnowAppMetaField(MetaField):
-    """Extended meta field for Snow Apps with title, description, icon."""
+class SnowflakeAppMetaField(MetaField):
+    """Extended meta field for Snowflake Apps with title, description, icon."""
 
-    title: Optional[str] = Field(title="Title of the Snow App", default=None)
+    title: Optional[str] = Field(title="Title of the Snowflake App", default=None)
     description: Optional[str] = Field(
-        title="Description of the Snow App", default=None
+        title="Description of the Snowflake App", default=None
     )
-    icon: Optional[str] = Field(title="Icon for the Snow App", default=None)
+    icon: Optional[str] = Field(title="Icon for the Snowflake App", default=None)
 
 
-class SnowAppEntityModel(EntityModelBaseWithArtifacts):
-    """Entity model for Snow App (snow-app) type."""
+class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
+    """Entity model for Snowflake App (snowflake-app) type."""
 
-    type: Literal["snow-app"] = DiscriminatorField()  # noqa: A003
+    type: Literal["snowflake-app"] = DiscriminatorField()  # noqa: A003
 
-    meta: Optional[SnowAppMetaField] = Field(title="Meta fields", default=None)
+    meta: Optional[SnowflakeAppMetaField] = Field(title="Meta fields", default=None)
 
     query_warehouse: Optional[str] = Field(
         title="Warehouse to use for queries", default=None
