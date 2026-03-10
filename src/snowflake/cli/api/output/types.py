@@ -16,12 +16,19 @@ from __future__ import annotations
 
 import json
 import typing as t
+from abc import ABC, abstractmethod
 from enum import IntEnum
 
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.connector import DictCursor
-from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.cursor import ResultMetadata, SnowflakeCursor
+
+
+class RowMapper(ABC):
+    @abstractmethod
+    def map_row(self, row: dict) -> dict:
+        ...
 
 
 class SnowflakeColumnType(IntEnum):
@@ -30,6 +37,38 @@ class SnowflakeColumnType(IntEnum):
     VARIANT = 5
     OBJECT = 9
     ARRAY = 10
+
+
+class RespectingColumnTypesRowMapper(RowMapper):
+    def __init__(self, cursor_description: list[ResultMetadata]):
+        self._cursor_description = cursor_description
+
+    def map_row(self, row: dict) -> dict:
+        """Parse VARIANT/OBJECT/ARRAY string values into JSON when output format is JSON_EXT."""
+        if get_cli_context().output_format != OutputFormat.JSON_EXT:
+            return row
+
+        column_types = [col.type_code for col in self._cursor_description]
+        processed_row = {}
+        for i, (column_name, value) in enumerate(row.items()):
+            if i < len(column_types) and column_types[i] in (
+                SnowflakeColumnType.VARIANT,
+                SnowflakeColumnType.OBJECT,
+                SnowflakeColumnType.ARRAY,
+            ):
+                if column_types[i] in (
+                    SnowflakeColumnType.OBJECT,
+                    SnowflakeColumnType.ARRAY,
+                ) or isinstance(value, str):
+                    try:
+                        processed_row[column_name] = json.loads(value)
+                    except (json.JSONDecodeError, TypeError):
+                        processed_row[column_name] = value
+                else:
+                    processed_row[column_name] = value
+            else:
+                processed_row[column_name] = value
+        return processed_row
 
 
 class CommandResult:
@@ -48,12 +87,20 @@ class ObjectResult(CommandResult):
 
 
 class CollectionResult(CommandResult):
-    def __init__(self, elements: t.Iterable[t.Dict] | t.Generator[t.Dict, None, None]):
+    def __init__(
+        self,
+        elements: t.Iterable[t.Dict] | t.Generator[t.Dict, None, None],
+        row_mapper: RowMapper | None = None,
+    ):
         self._elements = elements
+        self._row_mapper = row_mapper
 
     @property
     def result(self):
-        yield from self._elements
+        if self._row_mapper:
+            yield from (self._row_mapper.map_row(e) for e in self._elements)
+        else:
+            yield from self._elements
 
 
 class MultipleResults(CommandResult):
@@ -80,48 +127,16 @@ class StreamResult(CommandResult):
 class QueryResult(CollectionResult):
     def __init__(self, cursor: SnowflakeCursor | DictCursor):
         self.column_names = [col.name for col in cursor.description]
-        # Store column type information to identify VARIANT columns (JSON data)
-        self.column_types = [col.type_code for col in cursor.description]
-        super().__init__(elements=self._prepare_payload(cursor))
+        super().__init__(
+            elements=self._prepare_payload(cursor),
+            row_mapper=RespectingColumnTypesRowMapper(cursor.description),
+        )
         self._query = cursor.query
 
     def _prepare_payload(self, cursor: SnowflakeCursor | DictCursor):
         if isinstance(cursor, DictCursor):
-            return (self._process_columns(k) for k in cursor)
-        return (
-            self._process_columns({k: v for k, v in zip(self.column_names, row)})
-            for row in cursor
-        )
-
-    def _process_columns(self, row_dict):
-        if get_cli_context().output_format != OutputFormat.JSON_EXT:
-            return row_dict
-
-        processed_row = {}
-        for i, (column_name, value) in enumerate(row_dict.items()):
-            # Check if this column can contain JSON data
-            if i < len(self.column_types) and self.column_types[i] in (
-                SnowflakeColumnType.VARIANT,
-                SnowflakeColumnType.OBJECT,
-                SnowflakeColumnType.ARRAY,
-            ):
-                # For ARRAY and OBJECT types, the values are always JSON strings that need parsing
-                # For VARIANT types, only parse if the value is a string
-                if self.column_types[i] in (
-                    SnowflakeColumnType.OBJECT,
-                    SnowflakeColumnType.ARRAY,
-                ) or isinstance(value, str):
-                    try:
-                        # Try to parse as JSON
-                        processed_row[column_name] = json.loads(value)
-                    except (json.JSONDecodeError, TypeError):
-                        # If parsing fails, keep the original value
-                        processed_row[column_name] = value
-                else:
-                    processed_row[column_name] = value
-            else:
-                processed_row[column_name] = value
-        return processed_row
+            return (k for k in cursor)
+        return ({k: v for k, v in zip(self.column_names, row)} for row in cursor)
 
     @property
     def query(self):

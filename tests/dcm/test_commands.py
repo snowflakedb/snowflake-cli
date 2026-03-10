@@ -28,6 +28,26 @@ def _assert_json_dumped(command: str, api_result: dict[str, Any], tmp_path: Path
     assert json.loads(json_file.read_text()) == api_result
 
 
+def _mock_cursor_for_format(mock_cursor, data: dict, format_name: str):
+    columns: list[str] | list[dict[str, object]]
+    if format_name == "json":
+        columns = ["result"]
+    elif format_name == "json_ext":
+        columns = [{"name": "result", "type_code": 5}]
+    else:
+        raise ValueError(f"Unsupported format: {format_name}")
+    return mock_cursor(rows=[(json.dumps(data),)], columns=columns)
+
+
+def _assert_format_result(payload, expected_data, format_name: str):
+    if format_name == "json":
+        assert payload == [{"result": json.dumps(expected_data)}]
+    elif format_name == "json_ext":
+        assert payload == [{"result": expected_data}]
+    else:
+        raise ValueError(f"Unsupported format: {format_name}")
+
+
 @pytest.fixture
 def mock_dcm_manager():
     with mock.patch(
@@ -143,7 +163,7 @@ class TestDCMDeploy:
         mock_connect,
     ):
         mock_dcm_manager().deploy.return_value = mock_cursor(
-            rows=[("[]",)], columns=("operations")
+            rows=[("[]",)], columns=("operations",)
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
@@ -172,7 +192,7 @@ class TestDCMDeploy:
         mock_connect,
     ):
         mock_dcm_manager().deploy.return_value = mock_cursor(
-            rows=[("[]",)], columns=("operations")
+            rows=[("[]",)], columns=("operations",)
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
@@ -200,7 +220,7 @@ class TestDCMDeploy:
         mock_connect,
     ):
         mock_dcm_manager().deploy.return_value = mock_cursor(
-            rows=[("[]",)], columns=("operations")
+            rows=[("[]",)], columns=("operations",)
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
@@ -230,7 +250,7 @@ class TestDCMDeploy:
     ):
         """Test that files are synced to project stage when from_stage is not provided."""
         mock_dcm_manager().deploy.return_value = mock_cursor(
-            rows=[("[]",)], columns=("operations")
+            rows=[("[]",)], columns=("operations",)
         )
         mock_dcm_manager().sync_local_files.return_value = (
             "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
@@ -255,7 +275,7 @@ class TestDCMDeploy:
         tmp_path,
     ):
         mock_dcm_manager().deploy.return_value = mock_cursor(
-            rows=[("[]",)], columns=("operations")
+            rows=[("[]",)], columns=("operations",)
         )
         mock_dcm_manager().sync_local_files.return_value = (
             "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
@@ -460,6 +480,31 @@ class TestDCMDeploy:
             assert result.exit_code == 0, result.output
             _assert_json_dumped("deploy", plan_response, tmp_path)
 
+    @pytest.mark.parametrize("format_name", ["json", "json_ext"])
+    def test_deploy_with_json_formats_returns_response(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        mock_cursor,
+        mock_connect,
+        project_directory,
+        format_name,
+    ):
+        plan_response = {"version": 2, "changeset": []}
+        mock_dcm_manager().deploy.return_value = _mock_cursor_for_format(
+            mock_cursor, plan_response, format_name
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "deploy", "fooBar", "--format", format_name])
+
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.output)
+        _assert_format_result(payload, plan_response, format_name)
+
 
 class TestDCMPlan:
     def test_plan_project(
@@ -472,7 +517,7 @@ class TestDCMPlan:
         mock_connect,
     ):
         mock_dcm_manager().plan.return_value = mock_cursor(
-            rows=[("[]",)], columns=("operations")
+            rows=[("[]",)], columns=("operations",)
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
@@ -507,7 +552,7 @@ class TestDCMPlan:
         mock_connect,
     ):
         mock_dcm_manager().plan.return_value = mock_cursor(
-            rows=[("[]",)], columns=("operations")
+            rows=[("[]",)], columns=("operations",)
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
@@ -550,7 +595,7 @@ class TestDCMPlan:
     ):
         """Test that files are synced to project stage when from_stage is not provided."""
         mock_dcm_manager().plan.return_value = mock_cursor(
-            rows=[("[]",)], columns=("operations")
+            rows=[("[]",)], columns=("operations",)
         )
         mock_dcm_manager().sync_local_files.return_value = (
             "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
@@ -575,7 +620,7 @@ class TestDCMPlan:
         tmp_path,
     ):
         mock_dcm_manager().plan.return_value = mock_cursor(
-            rows=[("[]",)], columns=("operations")
+            rows=[("[]",)], columns=("operations",)
         )
         mock_dcm_manager().sync_local_files.return_value = (
             "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
@@ -626,6 +671,31 @@ class TestDCMPlan:
             assert json_file.exists()
             assert json.loads(json_file.read_text()) == {"version": 2, "changeset": []}
             _assert_json_dumped("plan", plan_response, tmp_path)
+
+    @pytest.mark.parametrize("format_name", ["json", "json_ext"])
+    def test_plan_with_json_formats_returns_response(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        mock_cursor,
+        mock_connect,
+        project_directory,
+        format_name,
+    ):
+        plan_response = {"version": 2, "changeset": []}
+        mock_dcm_manager().plan.return_value = _mock_cursor_for_format(
+            mock_cursor, plan_response, format_name
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "plan", "fooBar", "--format", format_name])
+
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.output)
+        _assert_format_result(payload, plan_response, format_name)
 
 
 class TestDCMRawAnalyze:
@@ -963,6 +1033,33 @@ class TestDCMRawAnalyze:
         result = runner.invoke(["dcm", "--help"])
         assert result.exit_code == 0
         assert "raw-analyze" not in result.output
+
+    @pytest.mark.parametrize("format_name", ["json", "json_ext"])
+    def test_raw_analyze_with_json_formats_returns_response(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        mock_cursor,
+        mock_connect,
+        project_directory,
+        format_name,
+    ):
+        analyze_response = _analyze_response()
+        mock_dcm_manager().raw_analyze.return_value = _mock_cursor_for_format(
+            mock_cursor, json.loads(analyze_response), format_name
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "raw-analyze", "fooBar", "--format", format_name]
+            )
+
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.output)
+        _assert_format_result(payload, json.loads(analyze_response), format_name)
 
 
 class TestDCMList:
@@ -1491,6 +1588,34 @@ class TestDCMRefresh:
             assert result.exit_code == 0, result.output
             _assert_json_dumped("refresh", refresh_result, tmp_path)
 
+    @pytest.mark.parametrize("format_name", ["json", "json_ext"])
+    def test_refresh_with_json_formats_returns_response(
+        self,
+        mock_dcm_manager,
+        runner,
+        mock_cursor,
+        format_name,
+    ):
+        refresh_result = {
+            "refreshed_tables": [
+                {
+                    "dt_name": "DB.SCHEMA.DYNAMIC_TABLE",
+                    "statistics": "No new data",
+                }
+            ]
+        }
+        mock_dcm_manager().refresh.return_value = _mock_cursor_for_format(
+            mock_cursor, refresh_result, format_name
+        )
+
+        result = runner.invoke(
+            ["dcm", "refresh", "my_project", "--format", format_name]
+        )
+
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.output)
+        _assert_format_result(payload, refresh_result, format_name)
+
 
 class TestDCMTest:
     def test_test_all_passing(self, mock_dcm_manager, runner, mock_cursor, snapshot):
@@ -1619,3 +1744,30 @@ class TestDCMTest:
 
             assert result.exit_code == 0, result.output
             _assert_json_dumped("test", test_result, tmp_path)
+
+    @pytest.mark.parametrize("format_name", ["json", "json_ext"])
+    def test_test_with_json_formats_returns_response(
+        self,
+        mock_dcm_manager,
+        runner,
+        mock_cursor,
+        format_name,
+    ):
+        test_result = {
+            "expectations": [
+                {
+                    "table_name": "DB.SCHEMA.EMPLOYEES",
+                    "expectation_name": "ROW_COUNT_CHECK",
+                    "expectation_violated": False,
+                }
+            ]
+        }
+        mock_dcm_manager().test.return_value = _mock_cursor_for_format(
+            mock_cursor, test_result, format_name
+        )
+
+        result = runner.invoke(["dcm", "test", "my_project", "--format", format_name])
+
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.output)
+        _assert_format_result(payload, test_result, format_name)

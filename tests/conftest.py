@@ -450,10 +450,13 @@ class MockResultMetadata(NamedTuple):
 
 
 class MockCursor(SnowflakeCursor):
-    def __init__(self, rows: List[Union[tuple, dict]], columns: List[str]):
+    def __init__(self, rows: List[Union[tuple, dict]], columns: List[Union[str, dict]]):
         super().__init__(mock.Mock())
         self._rows = rows
-        self._columns = [MockResultMetadata(c) for c in columns]
+        self._columns = [
+            MockResultMetadata(**c) if isinstance(c, dict) else MockResultMetadata(c)
+            for c in columns
+        ]
         self.query = "SELECT A MOCK QUERY"
 
     def fetchone(self):
@@ -470,7 +473,7 @@ class MockCursor(SnowflakeCursor):
 
     @property
     def description(self):
-        yield from self._columns
+        return self._columns
 
     @classmethod
     def from_input(cls, rows, columns):
