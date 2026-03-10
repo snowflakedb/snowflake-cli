@@ -1,0 +1,229 @@
+# Grype configuration for CPU custom images
+# Contains ignore list for known vulnerabilities that are blocked by upstream dependencies
+
+ignore:
+  # ---------------------------------------------------------------------------
+  # Python packages — blocked by upstream dependency caps
+  # ---------------------------------------------------------------------------
+
+  # pillow: fix requires 12.1.1, blocked by streamlit==1.39.1 (caps pillow<11)
+  - vulnerability: "GHSA-cfh3-3jmp-rvhc"
+    package:
+      name: "pillow"
+      type: "python"
+  - vulnerability: "GHSA-j7hp-h8jx-5ppr"
+    package:
+      name: "pillow"
+      type: "python"
+  - vulnerability: "GHSA-8ghj-p4vj-mr35"
+    package:
+      name: "pillow"
+      type: "python"
+  - vulnerability: "GHSA-56pw-mpj4-fxww"
+    package:
+      name: "pillow"
+      type: "python"
+  - vulnerability: "GHSA-3f63-hfp8-52jq"
+    package:
+      name: "pillow"
+      type: "python"
+
+  # cryptography: fix requires 46.0.5, which needs cffi>=2.0.0.
+  # Blocked by snowflake-connector-python's cffi<2.0.0 cap (needs connector 4.x)
+  # AND snowflake-ml-python capping connector<4.
+  - vulnerability: "GHSA-r6ph-v2qm-q3c2"
+    package:
+      name: "cryptography"
+      type: "python"
+
+  # aiohttp: Ray vendors a stale 3.13.2 in its thirdparty_files.
+  # System-level aiohttp is already 3.13.3. Upstream fix needed in Ray's setup.py.
+  - package:
+      name: "aiohttp"
+      type: "python"
+      location: "**/ray/_private/runtime_env/agent/thirdparty_files/**"
+
+  # lightgbm
+  - vulnerability: "GHSA-2586-f3p4-hq84"
+    package:
+      name: "lightgbm"
+      type: "python"
+
+  # ray: blocked on Ray upgrade
+  - vulnerability: "GHSA-6wgj-66m2-xxp2"
+    package:
+      name: "ray"
+      type: "python"
+  - vulnerability: "GHSA-q279-jhrf-cc6v"
+    package:
+      name: "ray"
+      type: "python"
+  - vulnerability: "GHSA-gx77-xgc2-4888"
+    package:
+      name: "ray"
+      type: "python"
+
+  # nbconvert
+  - vulnerability: "GHSA-xm59-rqc7-hhvf"
+    package:
+      name: "nbconvert"
+      type: "python"
+
+  # protobuf
+  - vulnerability: "GHSA-7gcm-g887-7qv7"
+    package:
+      name: "protobuf"
+      type: "python"
+
+  # the impacted versions: <= 3.9.2. There is no fixed version.
+  - vulnerability: "GHSA-7p94-766c-hgjp"
+    package:
+      name: "nltk"
+      type: "python"
+
+  # ---------------------------------------------------------------------------
+  # Java archives — bundled inside snowpark-connect-deps wheels
+  # Fix requires new snowpark-connect release with Netty >= 4.1.124.
+  # ---------------------------------------------------------------------------
+
+  - vulnerability: "GHSA-4g8c-wm8x-jfhw"
+    package:
+      name: "netty-handler"
+      type: "java-archive"
+  - vulnerability: "GHSA-prj3-ccx8-p6x4"
+    package:
+      name: "netty-codec-http2"
+      type: "java-archive"
+  - vulnerability: "GHSA-xpw8-rcwv-8f8p"
+    package:
+      name: "netty-codec-http2"
+      type: "java-archive"
+  - vulnerability: "GHSA-5jpm-x58v-624v"
+    package:
+      name: "netty-codec-http"
+      type: "java-archive"
+  - vulnerability: "GHSA-84h7-rjj3-6jx4"
+    package:
+      name: "netty-codec-http"
+      type: "java-archive"
+  - vulnerability: "GHSA-fghv-69vj-qj49"
+    package:
+      name: "netty-codec-http"
+      type: "java-archive"
+  - vulnerability: "GHSA-xq3w-v528-46rv"
+    package:
+      name: "netty-common"
+      type: "java-archive"
+  - vulnerability: "GHSA-389x-839f-4rhx"
+    package:
+      name: "netty-common"
+      type: "java-archive"
+  - vulnerability: "GHSA-3p8m-j85q-pgmj"
+    package:
+      name: "netty-codec"
+      type: "java-archive"
+
+  - vulnerability: "GHSA-72hv-8253-57qq"
+    package:
+      name: "jackson-core"
+      type: "java-archive"
+
+  # ---------------------------------------------------------------------------
+  # Binary packages — system-level dependencies
+  # ---------------------------------------------------------------------------
+
+  # openssl
+  - vulnerability: "CVE-2024-5535"
+    package:
+      name: "openssl"
+      type: "binary"
+
+  # python
+  - vulnerability: "CVE-2024-4030"
+    package:
+      name: "python"
+      type: "binary"
+  - vulnerability: "CVE-2023-36632"
+    package:
+      name: "python"
+      type: "binary"
+  - vulnerability: "CVE-2025-8194"
+    package:
+      name: "python"
+      type: "binary"
+  - vulnerability: "CVE-2025-13836"
+    package:
+      name: "python"
+      type: "binary"
+
+  # gzip
+  - vulnerability: "CVE-2022-1271"
+    package:
+      name: "gzip"
+      type: "binary"
+
+  # ffmpeg: brought in by torchvision
+  - vulnerability: "CVE-2023-49502"
+    package:
+      name: "ffmpeg"
+      type: "binary"
+  - vulnerability: "CVE-2025-9951"
+    package:
+      name: "ffmpeg"
+      type: "binary"
+  - vulnerability: "CVE-2025-1594"
+    package:
+      name: "ffmpeg"
+      type: "binary"
+  - vulnerability: "CVE-2023-6605"
+    package:
+      name: "ffmpeg"
+      type: "binary"
+  - vulnerability: "CVE-2024-31582"
+    package:
+      name: "ffmpeg"
+      type: "binary"
+  - vulnerability: "CVE-2023-50008"
+    package:
+      name: "ffmpeg"
+      type: "binary"
+  - vulnerability: "CVE-2023-50010"
+    package:
+      name: "ffmpeg"
+      type: "binary"
+
+  # ---------------------------------------------------------------------------
+  # Go stdlib — Prometheus / Grafana binaries
+  # ---------------------------------------------------------------------------
+
+  - vulnerability: "CVE-2025-68121"
+    package:
+      name: "stdlib"
+      type: "go-module"
+  - vulnerability: "CVE-2025-61732"
+    package:
+      name: "stdlib"
+      type: "go-module"
+  - vulnerability: "CVE-2025-61726"
+    package:
+      name: "stdlib"
+      type: "go-module"
+  - vulnerability: "CVE-2025-68119"
+    package:
+      name: "stdlib"
+      type: "go-module"
+  - vulnerability: "CVE-2025-61731"
+    package:
+      name: "stdlib"
+      type: "go-module"
+
+  # ---------------------------------------------------------------------------
+  # Go modules — Grafana binary
+  # ---------------------------------------------------------------------------
+
+  - vulnerability: "GHSA-9h8m-3fm2-qjrq"
+    package:
+      name: "go.opentelemetry.io/otel/sdk"
+      type: "go-module"
+
+fail-on-severity: "high"
