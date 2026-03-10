@@ -23,13 +23,17 @@ def make_docker_inspect_response(
     env_vars: list[str] | None = None,
 ) -> str:
     """Helper to create a mock docker inspect JSON response."""
-    return json.dumps([{
-        "Config": {
-            "Entrypoint": entrypoint,
-            "Env": env_vars or [],
-            "Labels": {},
-        }
-    }])
+    return json.dumps(
+        [
+            {
+                "Config": {
+                    "Entrypoint": entrypoint,
+                    "Env": env_vars or [],
+                    "Labels": {},
+                }
+            }
+        ]
+    )
 
 
 def make_pip_list_response(packages: list[dict]) -> str:
@@ -38,7 +42,7 @@ def make_pip_list_response(packages: list[dict]) -> str:
 
 
 class TestValidateCustomImageCommand:
-    """Tests for the validate-custom-image CLI command."""
+    """Tests for the custom-image validate CLI command."""
 
     @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
     def test_validate_custom_image_success(self, mock_run, runner):
@@ -47,21 +51,29 @@ class TestValidateCustomImageCommand:
             entrypoint=["/usr/local/bin/entrypoint.sh"],
             env_vars=["DASHBOARD_PORT=12003"],
         )
-        pip_list_response = make_pip_list_response([
-            {"name": "snowflake-ml-python", "version": "1.0"},
-            {"name": "ray", "version": "2.0"},
-            {"name": "ipykernel", "version": "6.0"},
-            {"name": "sqlparse", "version": "0.5"},
-            {"name": "jinja2", "version": "3.0"},
-            {"name": "notebook", "version": "7.0"},
-            {"name": "ipython", "version": "8.0"},
-            {"name": "psutil", "version": "5.0"},
-            {"name": "snowflake-snowpark-python", "version": "1.0"},
-            {"name": "jupyter-server", "version": "2.0"},
-        ])
+        pip_list_response = make_pip_list_response(
+            [
+                {"name": "snowflake-ml-python", "version": "1.0"},
+                {"name": "ray", "version": "2.0"},
+                {"name": "ipykernel", "version": "6.0"},
+                {"name": "sqlparse", "version": "0.5"},
+                {"name": "jinja2", "version": "3.0"},
+                {"name": "notebook", "version": "7.0"},
+                {"name": "ipython", "version": "8.0"},
+                {"name": "psutil", "version": "5.0"},
+                {"name": "snowflake-snowpark-python", "version": "1.0"},
+                {"name": "jupyter-server", "version": "2.0"},
+                {"name": "lightgbm-ray", "version": "0.1"},
+                {"name": "xgboost-ray", "version": "0.1"},
+                {"name": "snowflake", "version": "1.0"},
+                {"name": "snowflake.core", "version": "1.0"},
+                {"name": "snowflake-connector-python", "version": "3.0"},
+            ]
+        )
 
         def side_effect(*args, **kwargs):
             cmd = args[0]
+            cmd_str = " ".join(cmd)
             if cmd[0] == "docker":
                 if "inspect" in cmd:
                     if "--format" in cmd:
@@ -72,17 +84,25 @@ class TestValidateCustomImageCommand:
                         )
                     return mock.Mock(returncode=0, stdout=inspect_response, stderr="")
                 elif "run" in cmd:
-                    if "pip" in cmd and "list" in cmd:
-                        return mock.Mock(returncode=0, stdout=pip_list_response, stderr="")
-                    elif "pip" in cmd and "check" in cmd:
-                        return mock.Mock(returncode=0, stdout="No broken requirements found.", stderr="")
+                    if "pip list" in cmd_str:
+                        return mock.Mock(
+                            returncode=0, stdout=pip_list_response, stderr=""
+                        )
+                    elif "pip check" in cmd_str:
+                        return mock.Mock(
+                            returncode=0,
+                            stdout="No broken requirements found.",
+                            stderr="",
+                        )
             elif cmd[0] == "grype":
-                return mock.Mock(returncode=0, stdout="No vulnerabilities found", stderr="")
+                return mock.Mock(
+                    returncode=0, stdout="No vulnerabilities found", stderr=""
+                )
             return mock.Mock(returncode=0, stdout="", stderr="")
 
         mock_run.side_effect = side_effect
 
-        result = runner.invoke(["validate-custom-image", "test-image:latest"])
+        result = runner.invoke(["custom-image", "validate", "test-image:latest"])
 
         assert result.exit_code == 0, result.output
         assert "ALL CHECKS PASSED" in result.output
@@ -94,12 +114,15 @@ class TestValidateCustomImageCommand:
             entrypoint=["/usr/local/bin/entrypoint.sh"],
             env_vars=["DASHBOARD_PORT=12003"],
         )
-        pip_list_response = make_pip_list_response([
-            {"name": "snowflake-ml-python", "version": "1.0"},
-        ])
+        pip_list_response = make_pip_list_response(
+            [
+                {"name": "snowflake-ml-python", "version": "1.0"},
+            ]
+        )
 
         def side_effect(*args, **kwargs):
             cmd = args[0]
+            cmd_str = " ".join(cmd)
             if cmd[0] == "docker":
                 if "inspect" in cmd:
                     if "--format" in cmd:
@@ -110,9 +133,11 @@ class TestValidateCustomImageCommand:
                         )
                     return mock.Mock(returncode=0, stdout=inspect_response, stderr="")
                 elif "run" in cmd:
-                    if "pip" in cmd and "list" in cmd:
-                        return mock.Mock(returncode=0, stdout=pip_list_response, stderr="")
-                    elif "pip" in cmd and "check" in cmd:
+                    if "pip list" in cmd_str:
+                        return mock.Mock(
+                            returncode=0, stdout=pip_list_response, stderr=""
+                        )
+                    elif "pip check" in cmd_str:
                         return mock.Mock(returncode=0, stdout="", stderr="")
             elif cmd[0] == "grype":
                 return mock.Mock(returncode=0, stdout="", stderr="")
@@ -120,7 +145,7 @@ class TestValidateCustomImageCommand:
 
         mock_run.side_effect = side_effect
 
-        result = runner.invoke(["validate-custom-image", "test-image:latest"])
+        result = runner.invoke(["custom-image", "validate", "test-image:latest"])
 
         assert result.exit_code == 1
         assert "VALIDATION FAILED" in result.output
@@ -134,7 +159,7 @@ class TestValidateCustomImageCommand:
             stderr="No such image: nonexistent:latest",
         )
 
-        result = runner.invoke(["validate-custom-image", "nonexistent:latest"])
+        result = runner.invoke(["custom-image", "validate", "nonexistent:latest"])
 
         assert result.exit_code == 1
         assert "not found" in result.output.lower()
@@ -144,7 +169,7 @@ class TestValidateCustomImageCommand:
         """Test error when Docker is not installed."""
         mock_run.side_effect = FileNotFoundError()
 
-        result = runner.invoke(["validate-custom-image", "test-image:latest"])
+        result = runner.invoke(["custom-image", "validate", "test-image:latest"])
 
         assert result.exit_code == 1
         assert "Docker is not installed" in result.output
@@ -170,14 +195,14 @@ class TestValidateCustomImageCommand:
 
         mock_run.side_effect = side_effect
 
-        result = runner.invoke(["validate-custom-image", "test-image:latest"])
+        result = runner.invoke(["custom-image", "validate", "test-image:latest"])
 
         assert result.exit_code == 1
         assert "Invalid base image" in result.output
 
     def test_validate_custom_image_missing_argument(self, runner):
-        """Test error when image_hash argument is missing."""
-        result = runner.invoke(["validate-custom-image"])
+        """Test error when image argument is missing."""
+        result = runner.invoke(["custom-image", "validate"])
 
         assert result.exit_code == 2
         assert "Missing argument" in result.output
@@ -189,21 +214,29 @@ class TestValidateCustomImageCommand:
             entrypoint=["/wrong/entrypoint.sh"],
             env_vars=["DASHBOARD_PORT=12003"],
         )
-        pip_list_response = make_pip_list_response([
-            {"name": "snowflake-ml-python", "version": "1.0"},
-            {"name": "ray", "version": "2.0"},
-            {"name": "ipykernel", "version": "6.0"},
-            {"name": "sqlparse", "version": "0.5"},
-            {"name": "jinja2", "version": "3.0"},
-            {"name": "notebook", "version": "7.0"},
-            {"name": "ipython", "version": "8.0"},
-            {"name": "psutil", "version": "5.0"},
-            {"name": "snowflake-snowpark-python", "version": "1.0"},
-            {"name": "jupyter-server", "version": "2.0"},
-        ])
+        pip_list_response = make_pip_list_response(
+            [
+                {"name": "snowflake-ml-python", "version": "1.0"},
+                {"name": "ray", "version": "2.0"},
+                {"name": "ipykernel", "version": "6.0"},
+                {"name": "sqlparse", "version": "0.5"},
+                {"name": "jinja2", "version": "3.0"},
+                {"name": "notebook", "version": "7.0"},
+                {"name": "ipython", "version": "8.0"},
+                {"name": "psutil", "version": "5.0"},
+                {"name": "snowflake-snowpark-python", "version": "1.0"},
+                {"name": "jupyter-server", "version": "2.0"},
+                {"name": "lightgbm-ray", "version": "0.1"},
+                {"name": "xgboost-ray", "version": "0.1"},
+                {"name": "snowflake", "version": "1.0"},
+                {"name": "snowflake.core", "version": "1.0"},
+                {"name": "snowflake-connector-python", "version": "3.0"},
+            ]
+        )
 
         def side_effect(*args, **kwargs):
             cmd = args[0]
+            cmd_str = " ".join(cmd)
             if cmd[0] == "docker":
                 if "inspect" in cmd:
                     if "--format" in cmd:
@@ -214,9 +247,11 @@ class TestValidateCustomImageCommand:
                         )
                     return mock.Mock(returncode=0, stdout=inspect_response, stderr="")
                 elif "run" in cmd:
-                    if "pip" in cmd and "list" in cmd:
-                        return mock.Mock(returncode=0, stdout=pip_list_response, stderr="")
-                    elif "pip" in cmd and "check" in cmd:
+                    if "pip list" in cmd_str:
+                        return mock.Mock(
+                            returncode=0, stdout=pip_list_response, stderr=""
+                        )
+                    elif "pip check" in cmd_str:
                         return mock.Mock(returncode=0, stdout="", stderr="")
             elif cmd[0] == "grype":
                 return mock.Mock(returncode=0, stdout="", stderr="")
@@ -224,7 +259,7 @@ class TestValidateCustomImageCommand:
 
         mock_run.side_effect = side_effect
 
-        result = runner.invoke(["validate-custom-image", "test-image:latest"])
+        result = runner.invoke(["custom-image", "validate", "test-image:latest"])
 
         assert result.exit_code == 1
         assert "[FAIL] entrypoint" in result.output
@@ -232,15 +267,15 @@ class TestValidateCustomImageCommand:
 
     def test_help_text(self, runner):
         """Test that help text is displayed correctly."""
-        result = runner.invoke(["validate-custom-image", "--help"])
+        result = runner.invoke(["custom-image", "validate", "--help"])
 
         assert result.exit_code == 0
-        assert "Validates a local Docker image" in result.output
-        assert "image_hash" in result.output.lower()
+        assert "Validates a Docker image" in result.output
+        assert "image" in result.output.lower()
 
     def test_command_registered(self, runner):
         """Test that the command is properly registered."""
         result = runner.invoke(["--help"])
 
         assert result.exit_code == 0
-        assert "validate-custom-image" in result.output
+        assert "custom-image" in result.output

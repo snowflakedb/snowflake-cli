@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Integration tests for validate-custom-image command. Requires Docker."""
+"""Integration tests for custom-image validate command. Requires Docker."""
 
 import subprocess
 from pathlib import Path
@@ -24,14 +24,24 @@ DOCKER_TEST_DIR = Path(__file__).parent / "docker"
 
 def _docker_available():
     try:
-        return subprocess.run(["docker", "info"], capture_output=True, timeout=10).returncode == 0
+        return (
+            subprocess.run(
+                ["docker", "info"], capture_output=True, timeout=10
+            ).returncode
+            == 0
+        )
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return False
 
 
 def _grype_available():
     try:
-        return subprocess.run(["grype", "version"], capture_output=True, timeout=10).returncode == 0
+        return (
+            subprocess.run(
+                ["grype", "version"], capture_output=True, timeout=10
+            ).returncode
+            == 0
+        )
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return False
 
@@ -68,13 +78,15 @@ def valid_image():
 
 @pytest.fixture(scope="module")
 def invalid_image():
-    tag = _build_image(DOCKER_TEST_DIR / "test_invalid_image", "snowflake-cli-test:invalid")
+    tag = _build_image(
+        DOCKER_TEST_DIR / "test_invalid_image", "snowflake-cli-test:invalid"
+    )
     yield tag
     _remove_image(tag)
 
 
 def test_valid_image(runner, valid_image):
-    result = runner.invoke(["validate-custom-image", valid_image])
+    result = runner.invoke(["custom-image", "validate", valid_image])
 
     assert "[PASS] image_exists" in result.output
     assert "[PASS] base_image" in result.output
@@ -83,7 +95,7 @@ def test_valid_image(runner, valid_image):
 
 
 def test_invalid_image(runner, invalid_image):
-    result = runner.invoke(["validate-custom-image", invalid_image])
+    result = runner.invoke(["custom-image", "validate", invalid_image])
 
     assert result.exit_code == 1
     assert "[FAIL] entrypoint" in result.output
@@ -91,7 +103,7 @@ def test_invalid_image(runner, invalid_image):
 
 
 def test_nonexistent_image(runner):
-    result = runner.invoke(["validate-custom-image", "nonexistent:image"])
+    result = runner.invoke(["custom-image", "validate", "nonexistent:image"])
 
     assert result.exit_code == 1
     assert "[FAIL] image_exists" in result.output
@@ -99,6 +111,9 @@ def test_nonexistent_image(runner):
 
 @pytest.mark.skipif(not _grype_available(), reason="Grype not available")
 def test_vulnerability_scan(runner, valid_image):
-    result = runner.invoke(["validate-custom-image", valid_image])
+    result = runner.invoke(["custom-image", "validate", valid_image])
 
-    assert "[PASS] vulnerability_scan" in result.output or "[FAIL] vulnerability_scan" in result.output
+    assert (
+        "[PASS] vulnerability_scan" in result.output
+        or "[FAIL] vulnerability_scan" in result.output
+    )

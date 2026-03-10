@@ -16,16 +16,10 @@ import json
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import yaml
 from click import ClickException
-
-from snowflake.cli._plugins.custom_images.constants import (
-    CPU_BASE_IMAGE_PATH,
-    GPU_BASE_IMAGE_PATH,
-)
-
 
 CONFIG_DIR = Path(__file__).parent / "config"
 GRYPE_CPU_CONFIG_PATH = CONFIG_DIR / "grype_cpu.yaml"
@@ -35,7 +29,8 @@ GRYPE_GPU_CONFIG_PATH = CONFIG_DIR / "grype_gpu.yaml"
 @dataclass
 class ValidationContext:
     """Context passed to all check handlers."""
-    image_hash: str
+
+    image: str
     image_info: dict
     is_gpu: bool
 
@@ -74,8 +69,7 @@ class CustomImageManager:
     def __init__(self, config_path: Path):
         self.config_path = config_path
         self.config = self._load_config(self.config_path)
-        self._check_handlers = {
-            "entrypoint": self._check_entrypoint,
+        self._check_handlers: dict[str, Any] = {
             "environment_variables": self._check_environment_variables,
             "python_packages": self._check_python_packages,
             "dependency_health": self._check_dependency_health,
@@ -86,10 +80,14 @@ class CustomImageManager:
         with open(config_path) as f:
             return yaml.safe_load(f)
 
-    def _run_docker_command(self, cmd: list[str], timeout: int = 120) -> tuple[int, str, str]:
+    def _run_docker_command(
+        self, cmd: list[str], timeout: int = 120
+    ) -> tuple[int, str, str]:
         """Run a docker command and return (returncode, stdout, stderr)."""
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=timeout
+            )
             return result.returncode, result.stdout.strip(), result.stderr.strip()
         except FileNotFoundError:
             raise ClickException("Docker is not installed.")
@@ -107,7 +105,10 @@ class CustomImageManager:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
             return result.returncode, result.stdout.strip(), result.stderr.strip()
         except FileNotFoundError:
-            raise ClickException("Grype is not installed.")
+            raise ClickException(
+                "Grype is required for vulnerability scanning. "
+                "Please install it from https://github.com/anchore/grype"
+            )
         except subprocess.TimeoutExpired:
             raise ClickException("Grype scan timed out.")
 
@@ -127,38 +128,27 @@ class CustomImageManager:
             pass
         return None
 
-    def _get_base_image(self, image_name: str) -> Optional[str]:
-        """Try to get the base image from docker labels or history."""
-        returncode, stdout, _ = self._run_docker_command(
-            ["docker", "inspect", "--format",
-             "{{index .Config.Labels \"org.opencontainers.image.base.name\"}}", image_name]
-        )
-        if returncode == 0 and stdout and stdout != "<no value>":
-            return stdout
+    def validate(
+        self, image: str, is_gpu: bool = False
+    ) -> tuple[ValidationReport, str]:
+        """Validate a Docker image against the configured rules.
 
-        returncode, stdout, _ = self._run_docker_command(
-            ["docker", "history", "--no-trunc", "--format", "{{.CreatedBy}}", image_name]
-        )
-        if returncode == 0 and stdout:
-            lines = stdout.strip().split("\n")
-            for line in reversed(lines):
-                if "FROM" in line.upper():
-                    return line
-        return None
-
-    def validate(self, image_hash: str) -> tuple[ValidationReport, str]:
-        """Validate a Docker image against the configured rules."""
-        report = ValidationReport(image_name=image_hash)
+        Args:
+            image: Docker image to validate. Accepts image name (e.g., 'myimage:latest')
+                   or image ID/hash.
+            is_gpu: Whether to validate as a GPU image. Defaults to False (CPU).
+        """
+        report = ValidationReport(image_name=image)
         checks = self.config.get("checks", {})
 
         # Check if image exists
-        image_info = self._get_image_info(image_hash)
+        image_info = self._get_image_info(image)
         if image_info is None:
             report.add_result(
                 ValidationResult(
                     check_name="image_exists",
                     passed=False,
-                    message=f"Image '{image_hash}' not found. Please ensure the image exists locally.",
+                    message=f"Image '{image}' not found. Please ensure the image exists locally.",
                 )
             )
             return report, format_report(report)
@@ -167,53 +157,37 @@ class CustomImageManager:
             ValidationResult(
                 check_name="image_exists",
                 passed=True,
-                message=f"Image '{image_hash}' found",
+                message=f"Image '{image}' found",
             )
         )
-
-        # Get base image info - validation stops if not found
-        base_image = self._get_base_image(image_hash)
-        if not base_image:
-            report.add_result(
-                ValidationResult(
-                    check_name="base_image",
-                    passed=False,
-                    message="Could not determine base image. Base image information not found in image metadata.",
-                )
-            )
-            return report, format_report(report)
-
-        # Validate base image path matches expected CPU or GPU path
-        is_gpu = GPU_BASE_IMAGE_PATH in base_image
-        is_cpu = CPU_BASE_IMAGE_PATH in base_image and not is_gpu
-
-        if not is_gpu and not is_cpu:
-            report.add_result(
-                ValidationResult(
-                    check_name="base_image",
-                    passed=False,
-                    message=f"Invalid base image path: {base_image}. Expected CPU path: {CPU_BASE_IMAGE_PATH} or GPU path: {GPU_BASE_IMAGE_PATH}",
-                )
-            )
-            return report, format_report(report)
 
         image_type = "GPU" if is_gpu else "CPU"
         report.add_result(
             ValidationResult(
-                check_name="base_image",
+                check_name="image_type",
                 passed=True,
-                message=f"Base image ({image_type}): {base_image}",
+                message=f"Validating as {image_type} image",
             )
         )
 
         # Create context for check handlers
         context = ValidationContext(
-            image_hash=image_hash,
+            image=image,
             image_info=image_info,
             is_gpu=is_gpu,
         )
 
-        # Run all configured checks
+        # Run entrypoint check FIRST (critical - stop early if fails)
+        entrypoint_config = checks.get("entrypoint")
+        if entrypoint_config:
+            entrypoint_result = self._check_entrypoint(context, entrypoint_config)
+            report.add_result(entrypoint_result)
+
+            # Stop early if entrypoint check fails (file missing or mismatch)
+            # Entrypoint is fundamental - other checks are irrelevant if it's wrong
+            if not entrypoint_result.passed:
+                return report, format_report(report)
+
         for check_name, handler in self._check_handlers.items():
             check_config = checks.get(check_name)
             if check_config is None or check_config is False:
@@ -230,30 +204,47 @@ class CustomImageManager:
     def _check_entrypoint(
         self, context: ValidationContext, expected: str
     ) -> ValidationResult:
-        """Check if the image entrypoint matches the expected value."""
+        """Check if the image entrypoint matches the expected value and file exists."""
+        # Get the actual configured entrypoint
         entrypoint = context.image_info.get("Config", {}).get("Entrypoint")
+        actual = entrypoint[0] if isinstance(entrypoint, list) else entrypoint
 
-        if entrypoint is None:
+        # Check if entrypoint matches expected
+        if actual != expected:
             return ValidationResult(
                 check_name="entrypoint",
                 passed=False,
-                message=f"No entrypoint defined. Expected: {expected}",
+                message=f"Entrypoint mismatch. Expected: {expected}, Actual: {actual}",
             )
 
-        actual_entrypoint = entrypoint[0] if isinstance(entrypoint, list) else entrypoint
-
-        if actual_entrypoint == expected:
-            return ValidationResult(
-                check_name="entrypoint",
-                passed=True,
-                message=f"Entrypoint is correctly set to '{expected}'",
-            )
-        else:
+        # Check if the entrypoint file exists (use --entrypoint "" to bypass)
+        returncode, _, _ = self._run_docker_command(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "--platform",
+                "linux/amd64",
+                "--entrypoint",
+                "",
+                context.image,
+                "test",
+                "-f",
+                expected,
+            ]
+        )
+        if returncode != 0:
             return ValidationResult(
                 check_name="entrypoint",
                 passed=False,
-                message=f"Entrypoint mismatch. Expected: {expected}, Actual: {actual_entrypoint}",
+                message=f"Entrypoint file '{expected}' does not exist in the image",
             )
+
+        return ValidationResult(
+            check_name="entrypoint",
+            passed=True,
+            message=f"Entrypoint is correctly set to '{expected}'",
+        )
 
     def _check_environment_variables(
         self, context: ValidationContext, env_vars: list[dict]
@@ -310,7 +301,17 @@ class CustomImageManager:
         results = []
 
         returncode, stdout, stderr = self._run_docker_command(
-            ["docker", "run", "--rm", "--entrypoint", "pip", context.image_hash, "list", "--format", "json"]
+            [
+                "docker",
+                "run",
+                "--rm",
+                "--platform",
+                "linux/amd64",
+                context.image,
+                "bash",
+                "-c",
+                "pip list --format json",
+            ]
         )
 
         if returncode != 0:
@@ -364,11 +365,33 @@ class CustomImageManager:
         return results
 
     def _check_dependency_health(
-        self, context: ValidationContext, _config: bool
+        self, context: ValidationContext, config: bool | dict
     ) -> ValidationResult:
         """Run 'pip check' to verify no broken dependencies."""
+        # Handle both old format (bool) and new format (dict with ignore_patterns)
+        if isinstance(config, dict):
+            if not config.get("enabled", True):
+                return ValidationResult(
+                    check_name="dependency_health",
+                    passed=True,
+                    message="Dependency health check skipped (disabled)",
+                )
+            ignore_patterns = config.get("ignore_patterns", [])
+        else:
+            ignore_patterns = []
+
         returncode, stdout, stderr = self._run_docker_command(
-            ["docker", "run", "--rm", "--entrypoint", "pip", context.image_hash, "check"]
+            [
+                "docker",
+                "run",
+                "--rm",
+                "--platform",
+                "linux/amd64",
+                context.image,
+                "bash",
+                "-c",
+                "pip check",
+            ]
         )
 
         if returncode == 0:
@@ -377,20 +400,42 @@ class CustomImageManager:
                 passed=True,
                 message="No broken dependencies found",
             )
-        else:
-            output = stdout or stderr
-            return ValidationResult(
-                check_name="dependency_health",
-                passed=False,
-                message=f"Broken dependencies detected:\n{output}",
-            )
+
+        output = stdout or stderr
+
+        # Filter out ignored patterns
+        if ignore_patterns:
+            lines = output.split("\n")
+            filtered_lines = []
+            for line in lines:
+                should_ignore = any(
+                    pattern.lower() in line.lower() for pattern in ignore_patterns
+                )
+                if not should_ignore:
+                    filtered_lines.append(line)
+
+            # If all issues are ignored, consider it passed
+            remaining_issues = [l for l in filtered_lines if l.strip()]
+            if not remaining_issues:
+                return ValidationResult(
+                    check_name="dependency_health",
+                    passed=True,
+                    message="No broken dependencies found (some known issues ignored)",
+                )
+            output = "\n".join(filtered_lines)
+
+        return ValidationResult(
+            check_name="dependency_health",
+            passed=False,
+            message=f"Broken dependencies detected:\n{output}",
+        )
 
     def _check_vulnerabilities(
         self, context: ValidationContext, _config: bool
     ) -> ValidationResult:
         """Run Grype vulnerability scan on the image."""
         returncode, stdout, stderr = self._run_grype_command(
-            context.image_hash, context.is_gpu
+            context.image, context.is_gpu
         )
 
         if returncode == 0:

@@ -25,6 +25,6 @@ from snowflake.cli.api.plugins.command import (
 def command_spec():
     return CommandSpec(
         parent_command_path=SNOWCLI_ROOT_COMMAND_PATH,
-        command_type=CommandType.SINGLE_COMMAND,
+        command_type=CommandType.COMMAND_GROUP,
         typer_instance=commands.app.create_instance(),
     )
