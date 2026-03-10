@@ -16,7 +16,7 @@ import json
 import time
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import typer
 from snowflake.cli._plugins.object.manager import ObjectManager
@@ -46,8 +46,7 @@ SNOWFLAKE_APP_ENTITY_TYPE = "snowflake-app"
 # Feature flags
 IS_PERSONAL_DB_SUPPORTED = False  # Will be enabled in the future
 
-# Default resource names for Snow Apps
-SYSTEM_COMPUTE_POOL = "SYSTEM_COMPUTE_POOL_CPU"
+# Default resource names for Snowflake Apps
 SNOW_APPS_COMPUTE_POOL = "SNOW_APPS_DEFAULT_COMPUTE_POOL"
 DEFAULT_EXTERNAL_ACCESS = "SNOW_APPS_DEFAULT_EXTERNAL_ACCESS"
 DEFAULT_ARTIFACT_REPOSITORY = "SNOW_APPS_DEFAULT_ARTIFACT_REPOSITORY"
@@ -58,13 +57,6 @@ DEFAULT_IMAGE_REPOSITORY = "SNOW_APPS_DEFAULT_IMAGE_REPOSITORY"
 def _check_feature_enabled():
     if FeatureFlag.ENABLE_SNOWFLAKE_APPS.is_disabled():
         raise CliError("This feature is not available yet.")
-
-
-def _print_messages_with_delay(messages: List[str], delay_seconds: float = 0.75):
-    """Print messages with a delay between each one."""
-    for message in messages:
-        cli_console.step(message)
-        time.sleep(delay_seconds)
 
 
 def _object_exists(object_type: str, name: str) -> bool:
@@ -79,17 +71,10 @@ def _object_exists(object_type: str, name: str) -> bool:
 
 def _get_compute_pool() -> Optional[str]:
     """
-    Get the compute pool to use for Snow Apps.
+    Get the compute pool to use for Snowflake Apps.
 
-    Checks in order:
-    1. SYSTEM_COMPUTE_POOL_CPU
-    2. SNOW_APPS_COMPUTE_POOL
-
-    Returns None if neither exists.
+    Returns SNOW_APPS_DEFAULT_COMPUTE_POOL if it exists, otherwise None.
     """
-    # TODO: Enable when SYSTEM_COMPUTE_POOL is supported for SPCS
-    if False and _object_exists("compute-pool", SYSTEM_COMPUTE_POOL):
-        return SYSTEM_COMPUTE_POOL
     if _object_exists("compute-pool", SNOW_APPS_COMPUTE_POOL):
         return SNOW_APPS_COMPUTE_POOL
     return None
@@ -684,8 +669,9 @@ def deploy(
     )
 
     # Step 7: Poll for build completion
+    max_attempts = 240  # 240 * 5s = 20 minutes
     cli_console.step("Waiting for build to complete...")
-    while True:
+    for _attempt in range(max_attempts):
         time.sleep(5)
         status = manager.get_build_status(database, schema, build_job_service_name)
         cli_console.step(f"Build status: {status}")
@@ -699,6 +685,11 @@ def deploy(
         elif status not in ("PENDING", "RUNNING"):
             cli_console.step(f"Unknown status: {status}")
             break
+    else:
+        raise CliError(
+            f"Build timed out after {max_attempts * 5 // 60} minutes. "
+            f"Check service logs: {build_job_name}"
+        )
 
     # ── Deploy phase ──────────────────────────────────────────────────
 
@@ -739,8 +730,9 @@ def deploy(
     manager.resume_service(service_fqn)
 
     # Step 11: Poll until service is RUNNING
+    max_attempts = 240  # 240 * 5s = 20 minutes
     cli_console.step("Waiting for service to be ready...")
-    while True:
+    for _attempt in range(max_attempts):
         time.sleep(5)
         status = manager.get_service_status(database, schema, service_name_short)
         cli_console.step(f"Service status: {status}")
@@ -754,10 +746,16 @@ def deploy(
         elif status not in ("PENDING", "SUSPENDING", "SUSPENDED"):
             cli_console.step(f"Unknown status: {status}")
             break
+    else:
+        raise CliError(
+            f"Service timed out after {max_attempts * 5 // 60} minutes. "
+            f"Check service status: {service_fqn}"
+        )
 
     # Step 12: Get endpoint URL (poll until provisioning completes)
+    max_attempts = 240  # 240 * 5s = 20 minutes
     cli_console.step("Getting endpoint URL")
-    while True:
+    for _attempt in range(max_attempts):
         endpoint_url = manager.get_service_endpoint_url(service_fqn)
 
         if endpoint_url and "provisioning in progress" not in endpoint_url.lower():
@@ -769,3 +767,8 @@ def deploy(
             cli_console.step("Endpoint URL not yet available")
 
         time.sleep(5)
+
+    raise CliError(
+        f"Endpoint provisioning timed out after {max_attempts * 5 // 60} minutes. "
+        f'Check with: snow sql -q "SHOW ENDPOINTS IN SERVICE {service_fqn}"'
+    )

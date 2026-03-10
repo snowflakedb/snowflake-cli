@@ -21,6 +21,7 @@ from snowflake.cli.api.project.schemas.entities.common import (
 )
 from snowflake.cli.api.project.schemas.updatable_model import (
     DiscriminatorField,
+    IdentifierField,
     UpdatableModel,
 )
 
@@ -28,25 +29,29 @@ from snowflake.cli.api.project.schemas.updatable_model import (
 class ComputePoolReference(UpdatableModel):
     """Reference to a compute pool."""
 
-    name: Optional[str] = Field(title="Name of the compute pool", default=None)
-    schema_: Optional[str] = Field(
+    name: Optional[str] = IdentifierField(
+        title="Name of the compute pool", default=None
+    )
+    schema_: Optional[str] = IdentifierField(
         title="Schema of the compute pool", alias="schema", default=None
     )
-    database: Optional[str] = Field(title="Database of the compute pool", default=None)
+    database: Optional[str] = IdentifierField(
+        title="Database of the compute pool", default=None
+    )
 
 
 class ExternalAccessReference(UpdatableModel):
     """Reference to an external access integration."""
 
-    name: Optional[str] = Field(
+    name: Optional[str] = IdentifierField(
         title="Name of the external access integration", default=None
     )
-    schema_: Optional[str] = Field(
+    schema_: Optional[str] = IdentifierField(
         title="Schema of the external access integration",
         alias="schema",
         default=None,
     )
-    database: Optional[str] = Field(
+    database: Optional[str] = IdentifierField(
         title="Database of the external access integration", default=None
     )
 
@@ -54,11 +59,11 @@ class ExternalAccessReference(UpdatableModel):
 class ArtifactRepositoryReference(UpdatableModel):
     """Reference to an artifact repository."""
 
-    name: str = Field(title="Name of the artifact repository")
-    schema_: Optional[str] = Field(
+    name: str = IdentifierField(title="Name of the artifact repository")
+    schema_: Optional[str] = IdentifierField(
         title="Schema of the artifact repository", alias="schema", default=None
     )
-    database: Optional[str] = Field(
+    database: Optional[str] = IdentifierField(
         title="Database of the artifact repository", default=None
     )
 
@@ -66,7 +71,7 @@ class ArtifactRepositoryReference(UpdatableModel):
 class CodeStageReference(UpdatableModel):
     """Reference to a code stage."""
 
-    name: str = Field(title="Name of the code stage")
+    name: str = IdentifierField(title="Name of the code stage")
     encryption_type: Optional[str] = Field(
         title="Encryption type for the stage", default="SNOWFLAKE_SSE"
     )
@@ -89,7 +94,7 @@ class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
 
     meta: Optional[SnowflakeAppMetaField] = Field(title="Meta fields", default=None)
 
-    query_warehouse: Optional[str] = Field(
+    query_warehouse: Optional[str] = IdentifierField(
         title="Warehouse to use for queries", default=None
     )
 
