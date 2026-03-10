@@ -68,6 +68,44 @@ def assert_artifacts_downloaded(artifacts_dir: Path):
     assert len(local_files) > 0, f"No artifact files were downloaded to {artifacts_dir}"
 
 
+def invoke_for_format(runner, format_name: str, args: list):
+    if format_name == "JSON_EXT":
+        return runner.invoke_with_connection_json_ext(args)
+    elif format_name == "JSON":
+        return runner.invoke_with_connection_json(args)
+    else:
+        raise ValueError(f"Unsupported format: {format_name}")
+
+
+def assert_format_result(result: CommandResult, format_name: str):
+    assert isinstance(
+        result.json, list
+    ), f"Expected list result for --format {format_name}"
+    assert (
+        len(result.json) == 1
+    ), f"Expected single-element list for --format {format_name}"
+
+    row = result.json[0]
+    assert (
+        len(row) == 1
+    ), f"Expected single column in result row for --format {format_name}"
+    column_name = list(row.keys())[0]
+    data = row[column_name]
+
+    if format_name == "JSON_EXT":
+        assert isinstance(
+            data, dict
+        ), f"JSON_EXT should parse the response into a dict, got {type(data)}"
+    elif format_name == "JSON":
+        assert isinstance(
+            data, str
+        ), f"JSON should return the response as a string, got {type(data)}"
+        parsed = json.loads(data)
+        assert isinstance(parsed, dict)
+    else:
+        raise ValueError(f"Unsupported format: {format_name}")
+
+
 @pytest.mark.qa_only
 @pytest.mark.integration
 def test_dcm_deploy(
@@ -375,6 +413,39 @@ def test_dcm_plan_with_save_output(
         plan_artifacts = output_path / "plan"
         assert plan_artifacts.exists(), "plan/ artifact directory was not created."
         assert_artifacts_downloaded(plan_artifacts)
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+@pytest.mark.parametrize("format_name", ["JSON", "JSON_EXT"])
+@pytest.mark.parametrize("command", ["plan", "raw-analyze"])
+def test_dcm_command_respects_format_option(
+    runner,
+    test_database,
+    project_directory,
+    object_name_provider,
+    format_name,
+    command,
+):
+    project_name = object_name_provider.create_and_get_next_object_name()
+
+    with project_directory("dcm_project"):
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
+        assert result.exit_code == 0, result.output
+
+        result = invoke_for_format(
+            runner,
+            format_name,
+            [
+                "dcm",
+                command,
+                project_name,
+                "-D",
+                f"table_name='{test_database}.PUBLIC.FormatTestTable'",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert_format_result(result, format_name)
 
 
 @pytest.mark.qa_only
