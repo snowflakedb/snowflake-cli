@@ -377,8 +377,7 @@ def raw_analyze(
         )
 
     reporter = AnalyzeReporter(save_output=save_output)
-    reporter.process(result)
-    return EmptyResult()
+    return reporter.process(result)
 
 
 @app.command(requires_connection=True)
