@@ -760,14 +760,17 @@ def deploy(
             cli_console.step(f"Unknown status: {status}")
             break
 
-    # Step 12: Get endpoint URL
+    # Step 12: Get endpoint URL (poll until provisioning completes)
     cli_console.step("Getting endpoint URL")
-    endpoint_url = manager.get_service_endpoint_url(service_fqn)
+    while True:
+        endpoint_url = manager.get_service_endpoint_url(service_fqn)
 
-    if endpoint_url:
-        return MessageResult(f"App ready at https://{endpoint_url}")
-    else:
-        return MessageResult(
-            f"App deployed but endpoint URL not yet available. "
-            f'Check with: snow sql -q "SHOW ENDPOINTS IN SERVICE {service_fqn}"'
-        )
+        if endpoint_url and "provisioning in progress" not in endpoint_url.lower():
+            return MessageResult(f"App ready at https://{endpoint_url}")
+
+        if endpoint_url:
+            cli_console.step(f"Endpoint status: {endpoint_url}")
+        else:
+            cli_console.step("Endpoint URL not yet available")
+
+        time.sleep(5)
