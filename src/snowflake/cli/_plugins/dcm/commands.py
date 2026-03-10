@@ -27,6 +27,7 @@ from snowflake.cli._plugins.dcm.reporters import (
     AnalyzeReporter,
     PlanReporter,
     RefreshReporter,
+    Reporter,
     TestReporter,
 )
 from snowflake.cli._plugins.dcm.utils import (
@@ -238,7 +239,7 @@ def _process_plan_result(
         )
         reporter = PlanReporter(save_output=save_output, command_name=command_name)
         reporter.process_payload(data)
-        return EmptyResult()
+        return Reporter.format_aware_result(cursor, first_value)
 
     # Old format
     log.info("Detected legacy DCM plan result format.")
@@ -376,8 +377,7 @@ def raw_analyze(
         )
 
     reporter = AnalyzeReporter(save_output=save_output)
-    reporter.process(result)
-    return EmptyResult()
+    return reporter.process(result)
 
 
 @app.command(requires_connection=True)
@@ -589,9 +589,7 @@ def refresh(
         result = DCMProjectManager().refresh(project_identifier=project_id)
 
     reporter = RefreshReporter(save_output=save_output)
-    reporter.process(result)
-
-    return EmptyResult()
+    return reporter.process(result)
 
 
 @app.command(requires_connection=True)
@@ -616,6 +614,4 @@ def test(
         result = DCMProjectManager().test(project_identifier=project_id)
 
     reporter = TestReporter(save_output=save_output)
-    reporter.process(result)
-
-    return EmptyResult()
+    return reporter.process(result)
