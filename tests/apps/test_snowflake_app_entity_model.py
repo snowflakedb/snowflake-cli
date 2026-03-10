@@ -50,21 +50,51 @@ class TestSnowflakeAppEntityModel:
             identifier="my_app",
             artifacts=[{"src": "app/*", "dest": "./"}],
             query_warehouse="TEST_WH",
-            build_compute_pool={"name": "BUILD_POOL"},
-            service_compute_pool={"name": "SERVICE_POOL"},
-            build_eai={"name": "BUILD_EAI"},
-            service_eai={"name": "SERVICE_EAI"},
-            artifact_repository={"name": "ARTIFACT_REPO"},
+            build_compute_pool={
+                "name": "BUILD_POOL",
+                "schema": "MY_SCHEMA",
+                "database": "MY_DB",
+            },
+            service_compute_pool={
+                "name": "SERVICE_POOL",
+                "schema": "MY_SCHEMA",
+                "database": "MY_DB",
+            },
+            build_eai={
+                "name": "BUILD_EAI",
+                "schema": "MY_SCHEMA",
+                "database": "MY_DB",
+            },
+            service_eai={
+                "name": "SERVICE_EAI",
+                "schema": "MY_SCHEMA",
+                "database": "MY_DB",
+            },
+            artifact_repository={
+                "name": "ARTIFACT_REPO",
+                "schema": "MY_SCHEMA",
+                "database": "MY_DB",
+            },
             code_stage={"name": "MY_STAGE", "encryption_type": "SNOWFLAKE_SSE"},
             meta={"title": "My App", "description": "A test app", "icon": "icon.png"},
             dev_roles=["DEV_ROLE_1", "DEV_ROLE_2"],
         )
         assert model.query_warehouse == "TEST_WH"
         assert model.build_compute_pool.name == "BUILD_POOL"
+        assert model.build_compute_pool.schema_ == "MY_SCHEMA"
+        assert model.build_compute_pool.database == "MY_DB"
         assert model.service_compute_pool.name == "SERVICE_POOL"
+        assert model.service_compute_pool.schema_ == "MY_SCHEMA"
+        assert model.service_compute_pool.database == "MY_DB"
         assert model.build_eai.name == "BUILD_EAI"
+        assert model.build_eai.schema_ == "MY_SCHEMA"
+        assert model.build_eai.database == "MY_DB"
         assert model.service_eai.name == "SERVICE_EAI"
+        assert model.service_eai.schema_ == "MY_SCHEMA"
+        assert model.service_eai.database == "MY_DB"
         assert model.artifact_repository.name == "ARTIFACT_REPO"
+        assert model.artifact_repository.schema_ == "MY_SCHEMA"
+        assert model.artifact_repository.database == "MY_DB"
         assert model.code_stage.name == "MY_STAGE"
         assert model.code_stage.encryption_type == "SNOWFLAKE_SSE"
         assert model.meta.title == "My App"
@@ -205,6 +235,62 @@ class TestSnowflakeAppInProjectDefinition:
         assert entity.build_compute_pool is None
         assert entity.service_compute_pool is None
 
+    def test_snowflake_app_with_database_schema_on_references(self):
+        """snowflake-app handles database/schema on reference fields."""
+        definition_input = {
+            "definition_version": "2",
+            "entities": {
+                "my_app": {
+                    "type": "snowflake-app",
+                    "identifier": "MY_APP",
+                    "artifacts": ["app/*"],
+                    "build_compute_pool": {
+                        "name": "BUILD_POOL",
+                        "schema": "POOL_SCHEMA",
+                        "database": "POOL_DB",
+                    },
+                    "service_compute_pool": {
+                        "name": "SERVICE_POOL",
+                        "schema": "SVC_SCHEMA",
+                        "database": "SVC_DB",
+                    },
+                    "build_eai": {
+                        "name": "BUILD_EAI",
+                        "schema": "EAI_SCHEMA",
+                        "database": "EAI_DB",
+                    },
+                    "service_eai": {
+                        "name": "SERVICE_EAI",
+                        "schema": "EAI_SCHEMA",
+                        "database": "EAI_DB",
+                    },
+                    "artifact_repository": {
+                        "name": "ARTIFACT_REPO",
+                        "schema": "REPO_SCHEMA",
+                        "database": "REPO_DB",
+                    },
+                }
+            },
+        }
+        result = render_definition_template(definition_input, {})
+        project = result.project_definition
+        entity = project.entities["my_app"]
+        assert entity.build_compute_pool.name == "BUILD_POOL"
+        assert entity.build_compute_pool.schema_ == "POOL_SCHEMA"
+        assert entity.build_compute_pool.database == "POOL_DB"
+        assert entity.service_compute_pool.name == "SERVICE_POOL"
+        assert entity.service_compute_pool.schema_ == "SVC_SCHEMA"
+        assert entity.service_compute_pool.database == "SVC_DB"
+        assert entity.build_eai.name == "BUILD_EAI"
+        assert entity.build_eai.schema_ == "EAI_SCHEMA"
+        assert entity.build_eai.database == "EAI_DB"
+        assert entity.service_eai.name == "SERVICE_EAI"
+        assert entity.service_eai.schema_ == "EAI_SCHEMA"
+        assert entity.service_eai.database == "EAI_DB"
+        assert entity.artifact_repository.name == "ARTIFACT_REPO"
+        assert entity.artifact_repository.schema_ == "REPO_SCHEMA"
+        assert entity.artifact_repository.database == "REPO_DB"
+
     def test_snowflake_app_with_meta(self):
         """snowflake-app handles meta fields including title, description, icon."""
         definition_input = {
@@ -234,18 +320,48 @@ class TestSubModels:
     def test_compute_pool_reference(self):
         ref = ComputePoolReference(name="MY_POOL")
         assert ref.name == "MY_POOL"
+        assert ref.schema_ is None
+        assert ref.database is None
+
+    def test_compute_pool_reference_with_database_schema(self):
+        ref = ComputePoolReference(name="MY_POOL", schema="MY_SCHEMA", database="MY_DB")
+        assert ref.name == "MY_POOL"
+        assert ref.schema_ == "MY_SCHEMA"
+        assert ref.database == "MY_DB"
 
     def test_compute_pool_reference_optional_name(self):
         ref = ComputePoolReference()
         assert ref.name is None
+        assert ref.schema_ is None
+        assert ref.database is None
 
     def test_external_access_reference(self):
         ref = ExternalAccessReference(name="MY_EAI")
         assert ref.name == "MY_EAI"
+        assert ref.schema_ is None
+        assert ref.database is None
+
+    def test_external_access_reference_with_database_schema(self):
+        ref = ExternalAccessReference(
+            name="MY_EAI", schema="MY_SCHEMA", database="MY_DB"
+        )
+        assert ref.name == "MY_EAI"
+        assert ref.schema_ == "MY_SCHEMA"
+        assert ref.database == "MY_DB"
 
     def test_artifact_repository_reference(self):
         ref = ArtifactRepositoryReference(name="MY_REPO")
         assert ref.name == "MY_REPO"
+        assert ref.schema_ is None
+        assert ref.database is None
+
+    def test_artifact_repository_reference_with_database_schema(self):
+        ref = ArtifactRepositoryReference(
+            name="MY_REPO", schema="MY_SCHEMA", database="MY_DB"
+        )
+        assert ref.name == "MY_REPO"
+        assert ref.schema_ == "MY_SCHEMA"
+        assert ref.database == "MY_DB"
 
     def test_code_stage_reference(self):
         ref = CodeStageReference(name="MY_STAGE")

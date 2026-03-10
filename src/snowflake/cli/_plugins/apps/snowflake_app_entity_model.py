@@ -29,6 +29,10 @@ class ComputePoolReference(UpdatableModel):
     """Reference to a compute pool."""
 
     name: Optional[str] = Field(title="Name of the compute pool", default=None)
+    schema_: Optional[str] = Field(
+        title="Schema of the compute pool", alias="schema", default=None
+    )
+    database: Optional[str] = Field(title="Database of the compute pool", default=None)
 
 
 class ExternalAccessReference(UpdatableModel):
@@ -37,12 +41,26 @@ class ExternalAccessReference(UpdatableModel):
     name: Optional[str] = Field(
         title="Name of the external access integration", default=None
     )
+    schema_: Optional[str] = Field(
+        title="Schema of the external access integration",
+        alias="schema",
+        default=None,
+    )
+    database: Optional[str] = Field(
+        title="Database of the external access integration", default=None
+    )
 
 
 class ArtifactRepositoryReference(UpdatableModel):
     """Reference to an artifact repository."""
 
     name: str = Field(title="Name of the artifact repository")
+    schema_: Optional[str] = Field(
+        title="Schema of the artifact repository", alias="schema", default=None
+    )
+    database: Optional[str] = Field(
+        title="Database of the artifact repository", default=None
+    )
 
 
 class CodeStageReference(UpdatableModel):
