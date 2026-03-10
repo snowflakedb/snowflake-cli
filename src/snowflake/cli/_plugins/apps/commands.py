@@ -524,15 +524,6 @@ def init(
 
 
 @app.command(requires_connection=True)
-def create(**options) -> CommandResult:
-    """
-    Creates a Snowflake App.
-    """
-    _check_feature_enabled()
-    return MessageResult("snow apps create")
-
-
-@app.command(requires_connection=True)
 def deploy(
     entity_id: Optional[str] = typer.Option(
         None,
