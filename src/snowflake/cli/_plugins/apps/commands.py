@@ -419,6 +419,7 @@ serviceRoles:
 def _generate_snowflake_yml(
     app_id: str,
     warehouse: Optional[str],
+    database: Optional[str] = None,
 ) -> str:
     """Generate snowflake.yml content for a Snow App project."""
 
@@ -428,7 +429,7 @@ def _generate_snowflake_yml(
     if IS_PERSONAL_DB_SUPPORTED:
         database = f"USER${username}"
     else:
-        database = "<% ctx.connection.database %>"
+        database = database or "<% ctx.connection.database %>"
 
     # Schema: SNOW_APP_<APP_ID>_<USERNAME>
     schema = f"SNOW_APP_{app_id.upper()}_{username}"
@@ -513,9 +514,12 @@ def init(
 
     # Get connection context for username and warehouse
     ctx = get_cli_context()
+    ctx.connection_context.validate_and_complete()
+    ctx.connection_context.update_from_config()
     warehouse = ctx.connection_context.warehouse
+    database = ctx.connection_context.database
 
-    project_file.write_text(_generate_snowflake_yml(app_name, warehouse))
+    project_file.write_text(_generate_snowflake_yml(app_name, warehouse, database))
     return MessageResult(f"Initialized Snowflake App project in {DEFINITION_FILENAME}.")
 
 
