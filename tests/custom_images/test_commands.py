@@ -1,0 +1,246 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import json
+from unittest import mock
+
+from snowflake.cli._plugins.custom_images.constants import CPU_BASE_IMAGE_PATH
+
+
+def make_docker_inspect_response(
+    entrypoint: list[str] | None = None,
+    env_vars: list[str] | None = None,
+) -> str:
+    """Helper to create a mock docker inspect JSON response."""
+    return json.dumps([{
+        "Config": {
+            "Entrypoint": entrypoint,
+            "Env": env_vars or [],
+            "Labels": {},
+        }
+    }])
+
+
+def make_pip_list_response(packages: list[dict]) -> str:
+    """Helper to create a mock pip list JSON response."""
+    return json.dumps(packages)
+
+
+class TestValidateCustomImageCommand:
+    """Tests for the validate-custom-image CLI command."""
+
+    @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
+    def test_validate_custom_image_success(self, mock_run, runner):
+        """Test successful validation with all checks passing."""
+        inspect_response = make_docker_inspect_response(
+            entrypoint=["/usr/local/bin/entrypoint.sh"],
+            env_vars=["DASHBOARD_PORT=12003"],
+        )
+        pip_list_response = make_pip_list_response([
+            {"name": "snowflake-ml-python", "version": "1.0"},
+            {"name": "ray", "version": "2.0"},
+            {"name": "ipykernel", "version": "6.0"},
+            {"name": "sqlparse", "version": "0.5"},
+            {"name": "jinja2", "version": "3.0"},
+            {"name": "notebook", "version": "7.0"},
+            {"name": "ipython", "version": "8.0"},
+            {"name": "psutil", "version": "5.0"},
+            {"name": "snowflake-snowpark-python", "version": "1.0"},
+            {"name": "jupyter-server", "version": "2.0"},
+        ])
+
+        def side_effect(*args, **kwargs):
+            cmd = args[0]
+            if cmd[0] == "docker":
+                if "inspect" in cmd:
+                    if "--format" in cmd:
+                        return mock.Mock(
+                            returncode=0,
+                            stdout=f"FROM {CPU_BASE_IMAGE_PATH}",
+                            stderr="",
+                        )
+                    return mock.Mock(returncode=0, stdout=inspect_response, stderr="")
+                elif "run" in cmd:
+                    if "pip" in cmd and "list" in cmd:
+                        return mock.Mock(returncode=0, stdout=pip_list_response, stderr="")
+                    elif "pip" in cmd and "check" in cmd:
+                        return mock.Mock(returncode=0, stdout="No broken requirements found.", stderr="")
+            elif cmd[0] == "grype":
+                return mock.Mock(returncode=0, stdout="No vulnerabilities found", stderr="")
+            return mock.Mock(returncode=0, stdout="", stderr="")
+
+        mock_run.side_effect = side_effect
+
+        result = runner.invoke(["validate-custom-image", "test-image:latest"])
+
+        assert result.exit_code == 0, result.output
+        assert "ALL CHECKS PASSED" in result.output
+
+    @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
+    def test_validate_custom_image_failure(self, mock_run, runner):
+        """Test validation failure with missing packages."""
+        inspect_response = make_docker_inspect_response(
+            entrypoint=["/usr/local/bin/entrypoint.sh"],
+            env_vars=["DASHBOARD_PORT=12003"],
+        )
+        pip_list_response = make_pip_list_response([
+            {"name": "snowflake-ml-python", "version": "1.0"},
+        ])
+
+        def side_effect(*args, **kwargs):
+            cmd = args[0]
+            if cmd[0] == "docker":
+                if "inspect" in cmd:
+                    if "--format" in cmd:
+                        return mock.Mock(
+                            returncode=0,
+                            stdout=f"FROM {CPU_BASE_IMAGE_PATH}",
+                            stderr="",
+                        )
+                    return mock.Mock(returncode=0, stdout=inspect_response, stderr="")
+                elif "run" in cmd:
+                    if "pip" in cmd and "list" in cmd:
+                        return mock.Mock(returncode=0, stdout=pip_list_response, stderr="")
+                    elif "pip" in cmd and "check" in cmd:
+                        return mock.Mock(returncode=0, stdout="", stderr="")
+            elif cmd[0] == "grype":
+                return mock.Mock(returncode=0, stdout="", stderr="")
+            return mock.Mock(returncode=0, stdout="", stderr="")
+
+        mock_run.side_effect = side_effect
+
+        result = runner.invoke(["validate-custom-image", "test-image:latest"])
+
+        assert result.exit_code == 1
+        assert "VALIDATION FAILED" in result.output
+
+    @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
+    def test_validate_custom_image_not_found(self, mock_run, runner):
+        """Test error when image is not found."""
+        mock_run.return_value = mock.Mock(
+            returncode=1,
+            stdout="",
+            stderr="No such image: nonexistent:latest",
+        )
+
+        result = runner.invoke(["validate-custom-image", "nonexistent:latest"])
+
+        assert result.exit_code == 1
+        assert "not found" in result.output.lower()
+
+    @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
+    def test_validate_custom_image_docker_not_installed(self, mock_run, runner):
+        """Test error when Docker is not installed."""
+        mock_run.side_effect = FileNotFoundError()
+
+        result = runner.invoke(["validate-custom-image", "test-image:latest"])
+
+        assert result.exit_code == 1
+        assert "Docker is not installed" in result.output
+
+    @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
+    def test_validate_custom_image_invalid_base_image(self, mock_run, runner):
+        """Test error when base image is invalid."""
+        inspect_response = make_docker_inspect_response(
+            entrypoint=["/usr/local/bin/entrypoint.sh"],
+        )
+
+        def side_effect(*args, **kwargs):
+            cmd = args[0]
+            if "inspect" in cmd:
+                if "--format" in cmd:
+                    return mock.Mock(
+                        returncode=0,
+                        stdout="python:3.10-slim",
+                        stderr="",
+                    )
+                return mock.Mock(returncode=0, stdout=inspect_response, stderr="")
+            return mock.Mock(returncode=0, stdout="", stderr="")
+
+        mock_run.side_effect = side_effect
+
+        result = runner.invoke(["validate-custom-image", "test-image:latest"])
+
+        assert result.exit_code == 1
+        assert "Invalid base image" in result.output
+
+    def test_validate_custom_image_missing_argument(self, runner):
+        """Test error when image_hash argument is missing."""
+        result = runner.invoke(["validate-custom-image"])
+
+        assert result.exit_code == 2
+        assert "Missing argument" in result.output
+
+    @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
+    def test_validate_custom_image_entrypoint_mismatch(self, mock_run, runner):
+        """Test detection of wrong entrypoint."""
+        inspect_response = make_docker_inspect_response(
+            entrypoint=["/wrong/entrypoint.sh"],
+            env_vars=["DASHBOARD_PORT=12003"],
+        )
+        pip_list_response = make_pip_list_response([
+            {"name": "snowflake-ml-python", "version": "1.0"},
+            {"name": "ray", "version": "2.0"},
+            {"name": "ipykernel", "version": "6.0"},
+            {"name": "sqlparse", "version": "0.5"},
+            {"name": "jinja2", "version": "3.0"},
+            {"name": "notebook", "version": "7.0"},
+            {"name": "ipython", "version": "8.0"},
+            {"name": "psutil", "version": "5.0"},
+            {"name": "snowflake-snowpark-python", "version": "1.0"},
+            {"name": "jupyter-server", "version": "2.0"},
+        ])
+
+        def side_effect(*args, **kwargs):
+            cmd = args[0]
+            if cmd[0] == "docker":
+                if "inspect" in cmd:
+                    if "--format" in cmd:
+                        return mock.Mock(
+                            returncode=0,
+                            stdout=f"FROM {CPU_BASE_IMAGE_PATH}",
+                            stderr="",
+                        )
+                    return mock.Mock(returncode=0, stdout=inspect_response, stderr="")
+                elif "run" in cmd:
+                    if "pip" in cmd and "list" in cmd:
+                        return mock.Mock(returncode=0, stdout=pip_list_response, stderr="")
+                    elif "pip" in cmd and "check" in cmd:
+                        return mock.Mock(returncode=0, stdout="", stderr="")
+            elif cmd[0] == "grype":
+                return mock.Mock(returncode=0, stdout="", stderr="")
+            return mock.Mock(returncode=0, stdout="", stderr="")
+
+        mock_run.side_effect = side_effect
+
+        result = runner.invoke(["validate-custom-image", "test-image:latest"])
+
+        assert result.exit_code == 1
+        assert "[FAIL] entrypoint" in result.output
+        assert "mismatch" in result.output.lower()
+
+    def test_help_text(self, runner):
+        """Test that help text is displayed correctly."""
+        result = runner.invoke(["validate-custom-image", "--help"])
+
+        assert result.exit_code == 0
+        assert "Validates a local Docker image" in result.output
+        assert "image_hash" in result.output.lower()
+
+    def test_command_registered(self, runner):
+        """Test that the command is properly registered."""
+        result = runner.invoke(["--help"])
+
+        assert result.exit_code == 0
+        assert "validate-custom-image" in result.output

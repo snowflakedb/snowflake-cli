@@ -1,0 +1,30 @@
+# Custom Image Validation Configuration
+
+version: "1.0"
+
+checks:
+  entrypoint: "/usr/local/bin/entrypoint.sh"
+
+  environment_variables:
+    - name: DASHBOARD_PORT
+      value: "12003"
+
+  python_packages:
+    # Core packages
+    - ipykernel
+    - sqlparse
+    - jinja2
+    - notebook
+    - ipython
+    - psutil
+    - snowflake-snowpark-python
+    - jupyter-server
+    # Ray based packages
+    - ray
+    - lightgbm-ray
+    - xgboost-ray
+    # Snowflake packages
+    - snowflake
+    - snowflake-core
+    - snowflake-connector-python
+    - snowflake-ml-python
