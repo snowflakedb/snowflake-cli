@@ -31,6 +31,7 @@ from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
+from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ class DCMProjectManager(SqlExecutionMixin):
         variables: List[str] | None = None,
         alias: str | None = None,
         skip_plan: bool = False,
-    ):
+    ) -> SnowflakeCursor:
         log.info(
             "Running DCM deploy manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d, skip_plan=%s).",
             project_identifier,
@@ -97,7 +98,7 @@ class DCMProjectManager(SqlExecutionMixin):
         configuration: str | None = None,
         variables: List[str] | None = None,
         save_output: bool = False,
-    ):
+    ) -> SnowflakeCursor:
         log.info(
             "Running DCM plan manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d, save_output=%s).",
             project_identifier,
@@ -127,7 +128,7 @@ class DCMProjectManager(SqlExecutionMixin):
         query = f"CREATE DCM PROJECT {project_identifier.sql_identifier}"
         self.execute_query(query)
 
-    def list_deployments(self, project_identifier: FQN):
+    def list_deployments(self, project_identifier: FQN) -> SnowflakeCursor:
         log.info(
             "Running DCM list-deployments manager operation (project_identifier=%s).",
             project_identifier,
@@ -140,7 +141,7 @@ class DCMProjectManager(SqlExecutionMixin):
         project_identifier: FQN,
         deployment_name: str,
         if_exists: bool = False,
-    ):
+    ) -> None:
         """
         Drops a deployment from the DCM Project.
         """
@@ -153,7 +154,7 @@ class DCMProjectManager(SqlExecutionMixin):
         if if_exists:
             query += " IF EXISTS"
         query += f' "{deployment_name}"'
-        return self.execute_query(query=query)
+        self.execute_query(query=query)
 
     def preview(
         self,
@@ -163,7 +164,7 @@ class DCMProjectManager(SqlExecutionMixin):
         configuration: str | None = None,
         variables: List[str] | None = None,
         limit: int | None = None,
-    ):
+    ) -> SnowflakeCursor:
         log.info(
             "Running DCM preview manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d).",
             project_identifier,
@@ -177,7 +178,7 @@ class DCMProjectManager(SqlExecutionMixin):
             query += f" LIMIT {limit}"
         return self.execute_query(query=query)
 
-    def refresh(self, project_identifier: FQN):
+    def refresh(self, project_identifier: FQN) -> SnowflakeCursor:
         log.info(
             "Running DCM refresh manager operation (project_identifier=%s).",
             project_identifier,
@@ -185,7 +186,7 @@ class DCMProjectManager(SqlExecutionMixin):
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} REFRESH ALL"
         return self.execute_query(query=query)
 
-    def test(self, project_identifier: FQN):
+    def test(self, project_identifier: FQN) -> SnowflakeCursor:
         log.info(
             "Running DCM test manager operation (project_identifier=%s).",
             project_identifier,

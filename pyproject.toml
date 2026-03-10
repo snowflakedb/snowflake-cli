@@ -35,12 +35,13 @@ dependencies = [
   "pip==25.3",
   "pluggy==1.6.0",
   "prompt-toolkit==3.0.51",
+  "protobuf>=5.29.6,<6",
   "pydantic==2.12.5",
   "requests==2.32.4",
   "requirements-parser==0.13.0",
   "rich==14.0.0",
   "setuptools==80.8.0",
-  "snowflake-connector-python[secure-local-storage]==4.3.0",
+  "snowflake-connector-python[secure-local-storage]==3.18.0",
   'snowflake-snowpark-python==1.41.0',
   "snowflake.core==1.10.0",
   "tomlkit==0.13.3",
@@ -74,7 +75,7 @@ development = [
   "pytest-randomly==3.16.0",
   "pytest==8.4.1",
   "syrupy==4.9.1",
-  "uv>0.8.0",
+  "uv==0.10.9",
 ]
 packaging = []
 

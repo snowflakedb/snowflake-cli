@@ -18,8 +18,16 @@ from typing import Any, Dict, Generic, Iterator, List, TypeVar
 
 from rich.text import Text
 from snowflake.cli._plugins.dcm.utils import save_command_response
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.output.formats import OutputFormat
+from snowflake.cli.api.output.types import (
+    CollectionResult,
+    CommandResult,
+    EmptyResult,
+    RespectingColumnTypesRowMapper,
+)
 from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__name__)
@@ -86,7 +94,19 @@ class Reporter(ABC, Generic[T]):
             )
             raise CliError(message)
 
-    def process(self, cursor: SnowflakeCursor) -> None:
+    @staticmethod
+    def format_aware_result(
+        cursor: SnowflakeCursor, result_data: Any
+    ) -> CollectionResult | EmptyResult:
+        """Return EmptyResult for TABLE format (already printed), or CollectionResult for JSON/CSV."""
+        if get_cli_context().output_format == OutputFormat.TABLE:
+            return EmptyResult()
+        return CollectionResult(
+            [{cursor.description[0].name: result_data}],
+            RespectingColumnTypesRowMapper(cursor.description),
+        )
+
+    def process(self, cursor: SnowflakeCursor) -> CommandResult:
         """Process cursor data and print results."""
         row = cursor.fetchone()
         if not row:
@@ -107,3 +127,5 @@ class Reporter(ABC, Generic[T]):
             raise CliError("Could not process response.")
 
         self.process_payload(result_json)
+
+        return self.format_aware_result(cursor, result_data)
