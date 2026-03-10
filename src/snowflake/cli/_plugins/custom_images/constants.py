@@ -15,5 +15,7 @@
 """Constants for custom image validation."""
 
 # Base image paths
-CPU_BASE_IMAGE_PATH = "snowflake/images/snowflake_images/st_plat/runtime/x86/runtime_image/snowbooks"
+CPU_BASE_IMAGE_PATH = (
+    "snowflake/images/snowflake_images/st_plat/runtime/x86/runtime_image/snowbooks"
+)
 GPU_BASE_IMAGE_PATH = "snowflake/images/snowflake_images/st_plat/runtime/x86/generic_gpu/runtime_image/snowbooks"

@@ -16,43 +16,45 @@ from pathlib import Path
 
 import typer
 from click import ClickException
-
 from snowflake.cli._plugins.custom_images.manager import CustomImageManager
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import CommandResult, MessageResult
-
 
 CONFIG_DIR = Path(__file__).parent / "config"
 DEFAULT_CONFIG_PATH = CONFIG_DIR / "image_validation.yaml"
 
 
 app = SnowTyperFactory(
-    name="validate-custom-image",
-    help="Validates a custom Docker image for Snowflake services.",
+    name="custom-image",
+    help="Manages custom images for Snowpark Container Services.",
 )
 
 
-@app.command(requires_connection=False, name="validate-custom-image")
-def validate_custom_image(
-    image_hash: str = typer.Argument(
+@app.command(requires_connection=False)
+def validate(
+    image: str = typer.Argument(
         ...,
-        help="Local Docker image identifier (image ID / hash).",
+        help="Local Docker image to validate. Accepts image name (e.g., 'myimage:latest') or image ID/hash.",
+    ),
+    image_type: str = typer.Option(
+        "cpu",
+        "--image-type",
+        help="Base image type: 'cpu' or 'gpu'. Defaults to 'cpu'.",
     ),
     **options,
 ) -> CommandResult:
     """
-    Validates a local Docker image to ensure it is Snowflake-ready.
-
-    Checks:
-      - Base image validation
-      - Entrypoint configuration
-      - Required environment variables
-      - Required Python packages
-      - Dependency health (pip check)
-      - Vulnerability scan (grype)
+    Validates a Docker image against Snowflake custom image requirements.
     """
+    image_type_lower = image_type.lower()
+    if image_type_lower not in ("cpu", "gpu"):
+        raise ClickException(
+            f"Invalid image type: {image_type}. Must be 'cpu' or 'gpu'."
+        )
+
+    is_gpu = image_type_lower == "gpu"
     manager = CustomImageManager(config_path=DEFAULT_CONFIG_PATH)
-    report, output = manager.validate(image_hash=image_hash)
+    report, output = manager.validate(image=image, is_gpu=is_gpu)
 
     if not report.all_passed:
         raise ClickException(

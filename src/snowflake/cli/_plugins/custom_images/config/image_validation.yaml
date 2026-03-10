@@ -25,6 +25,15 @@ checks:
     - xgboost-ray
     # Snowflake packages
     - snowflake
-    - snowflake-core
+    - snowflake.core
     - snowflake-connector-python
     - snowflake-ml-python
+
+  # Run pip check to verify no broken dependencies
+  # ignore_patterns: list of package names to ignore in pip check output
+  dependency_health:
+    enabled: true
+    ignore_patterns:
+      - jupyter-lsp  # Intentionally uninstalled from official images
+
+  vulnerability_scan: true

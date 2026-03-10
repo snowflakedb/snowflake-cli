@@ -18,7 +18,6 @@ from unittest import mock
 
 import pytest
 from click import ClickException
-
 from snowflake.cli._plugins.custom_images.constants import (
     CPU_BASE_IMAGE_PATH,
     GPU_BASE_IMAGE_PATH,
@@ -31,13 +30,17 @@ def make_docker_inspect_response(
     env_vars: list[str] | None = None,
 ) -> str:
     """Helper to create a mock docker inspect JSON response."""
-    return json.dumps([{
-        "Config": {
-            "Entrypoint": entrypoint,
-            "Env": env_vars or [],
-            "Labels": {},
-        }
-    }])
+    return json.dumps(
+        [
+            {
+                "Config": {
+                    "Entrypoint": entrypoint,
+                    "Env": env_vars or [],
+                    "Labels": {},
+                }
+            }
+        ]
+    )
 
 
 def make_pip_list_response(packages: list[dict]) -> str:
@@ -47,11 +50,11 @@ def make_pip_list_response(packages: list[dict]) -> str:
 
 def create_mock_side_effect(
     base_image_path: str = CPU_BASE_IMAGE_PATH,
-    inspect_response: str = None,
-    pip_list_response: str = None,
+    inspect_response: str | None = None,
+    pip_list_response: str | None = None,
     pip_check_result: tuple[int, str] = (0, ""),
     grype_result: tuple[int, str] = (0, ""),
-    grype_error: Exception = None,
+    grype_error: Exception | None = None,
 ):
     """Helper to create a mock side_effect function for subprocess.run."""
     if inspect_response is None:
@@ -61,20 +64,29 @@ def create_mock_side_effect(
 
     def side_effect(*args, **kwargs):
         cmd = args[0]
+        cmd_str = " ".join(cmd)
         if cmd[0] == "docker":
             if "inspect" in cmd:
                 if "--format" in cmd:
-                    return mock.Mock(returncode=0, stdout=f"FROM {base_image_path}", stderr="")
+                    return mock.Mock(
+                        returncode=0, stdout=f"FROM {base_image_path}", stderr=""
+                    )
                 return mock.Mock(returncode=0, stdout=inspect_response, stderr="")
             elif "run" in cmd:
-                if "pip" in cmd and "list" in cmd:
+                if "pip list" in cmd_str:
                     return mock.Mock(returncode=0, stdout=pip_list_response, stderr="")
-                elif "pip" in cmd and "check" in cmd:
-                    return mock.Mock(returncode=pip_check_result[0], stdout=pip_check_result[1], stderr="")
+                elif "pip check" in cmd_str:
+                    return mock.Mock(
+                        returncode=pip_check_result[0],
+                        stdout=pip_check_result[1],
+                        stderr="",
+                    )
         elif cmd[0] == "grype":
             if grype_error:
                 raise grype_error
-            return mock.Mock(returncode=grype_result[0], stdout=grype_result[1], stderr="")
+            return mock.Mock(
+                returncode=grype_result[0], stdout=grype_result[1], stderr=""
+            )
         return mock.Mock(returncode=0, stdout="", stderr="")
 
     return side_effect
@@ -118,29 +130,40 @@ checks:
     @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
     def test_image_not_found(self, mock_run, config_path):
         """Test when image does not exist."""
-        mock_run.return_value = mock.Mock(returncode=1, stdout="", stderr="No such image")
+        mock_run.return_value = mock.Mock(
+            returncode=1, stdout="", stderr="No such image"
+        )
         manager = CustomImageManager(config_path=config_path)
 
         report, _ = manager.validate("nonexistent:latest")
 
         assert not report.all_passed
-        assert any(r.check_name == "image_exists" and not r.passed for r in report.results)
+        assert any(
+            r.check_name == "image_exists" and not r.passed for r in report.results
+        )
 
     @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
-    @pytest.mark.parametrize("base_path,expected_type", [
-        (CPU_BASE_IMAGE_PATH, "CPU"),
-        (GPU_BASE_IMAGE_PATH, "GPU"),
-    ])
-    def test_base_image_detection(self, mock_run, config_path, base_path, expected_type):
+    @pytest.mark.parametrize(
+        "base_path,expected_type",
+        [
+            (CPU_BASE_IMAGE_PATH, "CPU"),
+            (GPU_BASE_IMAGE_PATH, "GPU"),
+        ],
+    )
+    def test_base_image_detection(
+        self, mock_run, config_path, base_path, expected_type
+    ):
         """Test CPU and GPU base image detection."""
         inspect_response = make_docker_inspect_response(
             entrypoint=["/usr/local/bin/entrypoint.sh"],
             env_vars=["DASHBOARD_PORT=12003"],
         )
-        pip_list = make_pip_list_response([
-            {"name": "snowflake-ml-python", "version": "1.0"},
-            {"name": "ray", "version": "2.0"},
-        ])
+        pip_list = make_pip_list_response(
+            [
+                {"name": "snowflake-ml-python", "version": "1.0"},
+                {"name": "ray", "version": "2.0"},
+            ]
+        )
         mock_run.side_effect = create_mock_side_effect(
             base_image_path=base_path,
             inspect_response=inspect_response,
@@ -157,7 +180,9 @@ checks:
     @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
     def test_invalid_base_image(self, mock_run, config_path):
         """Test when base image is not a valid Snowflake base image."""
-        mock_run.side_effect = create_mock_side_effect(base_image_path="python:3.10-slim")
+        mock_run.side_effect = create_mock_side_effect(
+            base_image_path="python:3.10-slim"
+        )
         manager = CustomImageManager(config_path=config_path)
 
         report, _ = manager.validate("test-image:latest")
@@ -168,26 +193,115 @@ checks:
         assert "Invalid base image" in base_result.message
 
     @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
-    @pytest.mark.parametrize("entrypoint,env_vars,packages,expected_pass", [
-        # All correct - should pass
-        (["/usr/local/bin/entrypoint.sh"], ["DASHBOARD_PORT=12003"],
-         [{"name": "snowflake-ml-python", "version": "1.0"}, {"name": "ray", "version": "2.0"}], True),
-        # Package name with underscore (normalization) - should pass
-        (["/usr/local/bin/entrypoint.sh"], ["DASHBOARD_PORT=12003"],
-         [{"name": "snowflake_ml_python", "version": "1.0"}, {"name": "ray", "version": "2.0"}], True),
-        # Wrong entrypoint - should fail
-        (["/wrong/entrypoint.sh"], ["DASHBOARD_PORT=12003"],
-         [{"name": "snowflake-ml-python", "version": "1.0"}, {"name": "ray", "version": "2.0"}], False),
-        # Missing env var - should fail
-        (["/usr/local/bin/entrypoint.sh"], [],
-         [{"name": "snowflake-ml-python", "version": "1.0"}, {"name": "ray", "version": "2.0"}], False),
-        # Missing package - should fail
-        (["/usr/local/bin/entrypoint.sh"], ["DASHBOARD_PORT=12003"],
-         [{"name": "snowflake-ml-python", "version": "1.0"}], False),
-    ])
-    def test_validation_scenarios(self, mock_run, config_path, entrypoint, env_vars, packages, expected_pass):
+    def test_base_image_not_detected_assumes_cpu(self, mock_run, config_path):
+        """Test that when base image is not detected, we assume CPU and continue."""
+        inspect_response = make_docker_inspect_response(
+            entrypoint=["/usr/local/bin/entrypoint.sh"],
+            env_vars=["DASHBOARD_PORT=12003"],
+        )
+        pip_list = make_pip_list_response(
+            [
+                {"name": "snowflake-ml-python", "version": "1.0"},
+                {"name": "ray", "version": "2.0"},
+            ]
+        )
+
+        def side_effect(*args, **kwargs):
+            cmd = args[0]
+            cmd_str = " ".join(cmd)
+            if cmd[0] == "docker":
+                if "inspect" in cmd:
+                    if "--format" in cmd:
+                        # Return empty/no base image info
+                        return mock.Mock(returncode=0, stdout="", stderr="")
+                    return mock.Mock(returncode=0, stdout=inspect_response, stderr="")
+                elif "history" in cmd:
+                    # Return no FROM line
+                    return mock.Mock(
+                        returncode=0, stdout="RUN apt-get update", stderr=""
+                    )
+                elif "run" in cmd:
+                    if "pip list" in cmd_str:
+                        return mock.Mock(returncode=0, stdout=pip_list, stderr="")
+                    elif "pip check" in cmd_str:
+                        return mock.Mock(returncode=0, stdout="", stderr="")
+            elif cmd[0] == "grype":
+                return mock.Mock(returncode=0, stdout="", stderr="")
+            return mock.Mock(returncode=0, stdout="", stderr="")
+
+        mock_run.side_effect = side_effect
+        manager = CustomImageManager(config_path=config_path)
+
+        report, _ = manager.validate("test-image:latest")
+
+        # Validation should continue (not stop at base image)
+        base_result = next(r for r in report.results if r.check_name == "base_image")
+        assert base_result.passed
+        assert "assuming CPU" in base_result.message
+
+        # Entrypoint and other checks should have run
+        assert any(r.check_name == "entrypoint" for r in report.results)
+
+    @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
+    @pytest.mark.parametrize(
+        "entrypoint,env_vars,packages,expected_pass",
+        [
+            # All correct - should pass
+            (
+                ["/usr/local/bin/entrypoint.sh"],
+                ["DASHBOARD_PORT=12003"],
+                [
+                    {"name": "snowflake-ml-python", "version": "1.0"},
+                    {"name": "ray", "version": "2.0"},
+                ],
+                True,
+            ),
+            # Package name with underscore (normalization) - should pass
+            (
+                ["/usr/local/bin/entrypoint.sh"],
+                ["DASHBOARD_PORT=12003"],
+                [
+                    {"name": "snowflake_ml_python", "version": "1.0"},
+                    {"name": "ray", "version": "2.0"},
+                ],
+                True,
+            ),
+            # Wrong entrypoint - should fail
+            (
+                ["/wrong/entrypoint.sh"],
+                ["DASHBOARD_PORT=12003"],
+                [
+                    {"name": "snowflake-ml-python", "version": "1.0"},
+                    {"name": "ray", "version": "2.0"},
+                ],
+                False,
+            ),
+            # Missing env var - should fail
+            (
+                ["/usr/local/bin/entrypoint.sh"],
+                [],
+                [
+                    {"name": "snowflake-ml-python", "version": "1.0"},
+                    {"name": "ray", "version": "2.0"},
+                ],
+                False,
+            ),
+            # Missing package - should fail
+            (
+                ["/usr/local/bin/entrypoint.sh"],
+                ["DASHBOARD_PORT=12003"],
+                [{"name": "snowflake-ml-python", "version": "1.0"}],
+                False,
+            ),
+        ],
+    )
+    def test_validation_scenarios(
+        self, mock_run, config_path, entrypoint, env_vars, packages, expected_pass
+    ):
         """Test various validation scenarios including package name normalization."""
-        inspect_response = make_docker_inspect_response(entrypoint=entrypoint, env_vars=env_vars)
+        inspect_response = make_docker_inspect_response(
+            entrypoint=entrypoint, env_vars=env_vars
+        )
         pip_list = make_pip_list_response(packages)
         mock_run.side_effect = create_mock_side_effect(
             inspect_response=inspect_response,
@@ -206,10 +320,12 @@ checks:
             entrypoint=["/usr/local/bin/entrypoint.sh"],
             env_vars=["DASHBOARD_PORT=12003"],
         )
-        pip_list = make_pip_list_response([
-            {"name": "snowflake-ml-python", "version": "1.0"},
-            {"name": "ray", "version": "2.0"},
-        ])
+        pip_list = make_pip_list_response(
+            [
+                {"name": "snowflake-ml-python", "version": "1.0"},
+                {"name": "ray", "version": "2.0"},
+            ]
+        )
         mock_run.side_effect = create_mock_side_effect(
             inspect_response=inspect_response,
             pip_list_response=pip_list,
@@ -220,7 +336,7 @@ checks:
         with pytest.raises(ClickException) as exc_info:
             manager.validate("test-image:latest")
 
-        assert "Grype is not installed" in str(exc_info.value)
+        assert "Grype is required for vulnerability scanning" in str(exc_info.value)
 
     @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
     def test_checks_skipped_when_not_configured(self, mock_run, tmp_path):
@@ -234,8 +350,12 @@ checks:
         config_file = tmp_path / "minimal_config.yaml"
         config_file.write_text(config_content)
 
-        inspect_response = make_docker_inspect_response(entrypoint=["/usr/local/bin/entrypoint.sh"])
-        mock_run.side_effect = create_mock_side_effect(inspect_response=inspect_response)
+        inspect_response = make_docker_inspect_response(
+            entrypoint=["/usr/local/bin/entrypoint.sh"]
+        )
+        mock_run.side_effect = create_mock_side_effect(
+            inspect_response=inspect_response
+        )
         manager = CustomImageManager(config_path=config_file)
 
         report, _ = manager.validate("test-image:latest")
