@@ -5341,28 +5341,19 @@
 # name: test_help_messages[custom-image.validate]
   '''
                                                                                   
-   Usage: root custom-image validate [OPTIONS] IMAGE_NAME                         
+   Usage: root custom-image validate [OPTIONS] IMAGE                              
                                                                                   
    Validates a Docker image against Snowflake custom image requirements.          
                                                                                   
-   Checks include:                                                                
-                                                                                  
-    • Entrypoint configuration                                                    
-    • Required environment variables                                              
-    • Python package dependencies                                                 
-                                                                                  
-   The validation rules are defined in a YAML configuration file.                 
-                                                                                  
   +- Arguments ------------------------------------------------------------------+
-  | *    image_name      TEXT  Docker image name to validate (e.g.,              |
-  |                            'my-image:latest').                               |
-  |                            [required]                                        |
+  | *    image      TEXT  Local Docker image to validate. Accepts image name     |
+  |                       (e.g., 'myimage:latest') or image ID/hash.             |
+  |                       [required]                                             |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --config    -c      FILE  Path to custom validation config YAML file. Uses   |
-  |                           default config if not specified.                   |
-  | --show-all                Show details for all checks, not just failures.    |
-  | --help      -h            Show this message and exit.                        |
+  | --image-type      TEXT  Base image type: 'cpu' or 'gpu'. Defaults to 'cpu'.  |
+  |                         [default: cpu]                                       |
+  | --help        -h        Show this message and exit.                          |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |

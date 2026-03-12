@@ -16,7 +16,9 @@ from snowflake.cli._plugins.apps import plugin_spec as apps_plugin_spec
 from snowflake.cli._plugins.auth import plugin_spec as auth_plugin_spec
 from snowflake.cli._plugins.connection import plugin_spec as connection_plugin_spec
 from snowflake.cli._plugins.cortex import plugin_spec as cortex_plugin_spec
-from snowflake.cli._plugins.custom_images import plugin_spec as custom_images_plugin_spec
+from snowflake.cli._plugins.custom_images import (
+    plugin_spec as custom_images_plugin_spec,
+)
 from snowflake.cli._plugins.dbt import plugin_spec as dbt_plugin_spec
 from snowflake.cli._plugins.dcm import plugin_spec as dcm_project_plugin_spec
 from snowflake.cli._plugins.git import plugin_spec as git_plugin_spec

@@ -33,6 +33,7 @@
   | auth                 Manages authentication methods.                         |
   | connection           Manages connections to Snowflake.                       |
   | cortex               Provides access to Snowflake Cortex.                    |
+  | custom-image         Manages custom images for Snowpark Container Services.  |
   | dbt                  Manages dbt on Snowflake projects.                      |
   | git                  Manages git repositories in Snowflake.                  |
   | helpers              Helper commands.                                        |
@@ -93,23 +94,24 @@
   |                                     installation.                            |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | app          Manages a Snowflake Native App                                  |
-  | auth         Manages authentication methods.                                 |
-  | connection   Manages connections to Snowflake.                               |
-  | cortex       Provides access to Snowflake Cortex.                            |
-  | dbt          Manages dbt on Snowflake projects.                              |
-  | git          Manages git repositories in Snowflake.                          |
-  | helpers      Helper commands.                                                |
-  | init         Creates project directory from template.                        |
-  | logs         Retrieves logs for a given object.                              |
-  | notebook     Manages notebooks in Snowflake.                                 |
-  | object       Manages Snowflake objects like warehouses and stages            |
-  | snowpark     Manages procedures and functions.                               |
-  | spcs         Manages Snowpark Container Services compute pools, services,    |
-  |              image registries, and image repositories.                       |
-  | sql          Executes Snowflake query.                                       |
-  | stage        Manages stages.                                                 |
-  | streamlit    Manages a Streamlit app in Snowflake.                           |
+  | app            Manages a Snowflake Native App                                |
+  | auth           Manages authentication methods.                               |
+  | connection     Manages connections to Snowflake.                             |
+  | cortex         Provides access to Snowflake Cortex.                          |
+  | custom-image   Manages custom images for Snowpark Container Services.        |
+  | dbt            Manages dbt on Snowflake projects.                            |
+  | git            Manages git repositories in Snowflake.                        |
+  | helpers        Helper commands.                                              |
+  | init           Creates project directory from template.                      |
+  | logs           Retrieves logs for a given object.                            |
+  | notebook       Manages notebooks in Snowflake.                               |
+  | object         Manages Snowflake objects like warehouses and stages          |
+  | snowpark       Manages procedures and functions.                             |
+  | spcs           Manages Snowpark Container Services compute pools, services,  |
+  |                image registries, and image repositories.                     |
+  | sql            Executes Snowflake query.                                     |
+  | stage          Manages stages.                                               |
+  | streamlit      Manages a Streamlit app in Snowflake.                         |
   +------------------------------------------------------------------------------+
   
   '''
@@ -142,6 +144,7 @@
   | auth                 Manages authentication methods.                         |
   | connection           Manages connections to Snowflake.                       |
   | cortex               Provides access to Snowflake Cortex.                    |
+  | custom-image         Manages custom images for Snowpark Container Services.  |
   | dbt                  Manages dbt on Snowflake projects.                      |
   | git                  Manages git repositories in Snowflake.                  |
   | helpers              Helper commands.                                        |
@@ -222,23 +225,24 @@
   |                                     installation.                            |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | app          Manages a Snowflake Native App                                  |
-  | auth         Manages authentication methods.                                 |
-  | connection   Manages connections to Snowflake.                               |
-  | cortex       Provides access to Snowflake Cortex.                            |
-  | dbt          Manages dbt on Snowflake projects.                              |
-  | git          Manages git repositories in Snowflake.                          |
-  | helpers      Helper commands.                                                |
-  | init         Creates project directory from template.                        |
-  | logs         Retrieves logs for a given object.                              |
-  | notebook     Manages notebooks in Snowflake.                                 |
-  | object       Manages Snowflake objects like warehouses and stages            |
-  | snowpark     Manages procedures and functions.                               |
-  | spcs         Manages Snowpark Container Services compute pools, services,    |
-  |              image registries, and image repositories.                       |
-  | sql          Executes Snowflake query.                                       |
-  | stage        Manages stages.                                                 |
-  | streamlit    Manages a Streamlit app in Snowflake.                           |
+  | app            Manages a Snowflake Native App                                |
+  | auth           Manages authentication methods.                               |
+  | connection     Manages connections to Snowflake.                             |
+  | cortex         Provides access to Snowflake Cortex.                          |
+  | custom-image   Manages custom images for Snowpark Container Services.        |
+  | dbt            Manages dbt on Snowflake projects.                            |
+  | git            Manages git repositories in Snowflake.                        |
+  | helpers        Helper commands.                                              |
+  | init           Creates project directory from template.                      |
+  | logs           Retrieves logs for a given object.                            |
+  | notebook       Manages notebooks in Snowflake.                               |
+  | object         Manages Snowflake objects like warehouses and stages          |
+  | snowpark       Manages procedures and functions.                             |
+  | spcs           Manages Snowpark Container Services compute pools, services,  |
+  |                image registries, and image repositories.                     |
+  | sql            Executes Snowflake query.                                     |
+  | stage          Manages stages.                                               |
+  | streamlit      Manages a Streamlit app in Snowflake.                         |
   +------------------------------------------------------------------------------+
   
   '''

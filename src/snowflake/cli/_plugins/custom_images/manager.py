@@ -207,7 +207,13 @@ class CustomImageManager:
         """Check if the image entrypoint matches the expected value and file exists."""
         # Get the actual configured entrypoint
         entrypoint = context.image_info.get("Config", {}).get("Entrypoint")
-        actual = entrypoint[0] if isinstance(entrypoint, list) else entrypoint
+        actual = (
+            entrypoint[0]
+            if isinstance(entrypoint, list) and entrypoint
+            else entrypoint
+            if not isinstance(entrypoint, list)
+            else None
+        )
 
         # Check if entrypoint matches expected
         if actual != expected:
