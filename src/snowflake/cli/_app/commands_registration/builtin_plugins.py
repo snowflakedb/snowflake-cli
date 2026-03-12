@@ -37,6 +37,7 @@ from snowflake.cli._plugins.workspace import plugin_spec as workspace_plugin_spe
 # plugin name to plugin spec
 def get_builtin_plugin_name_to_plugin_spec():
     plugin_specs = {
+        # TODO: This plugin will be merged into _plugins/nativeapp (under `snow app`) in a later PR.
         "apps": apps_plugin_spec,
         "auth": auth_plugin_spec,
         "connection": connection_plugin_spec,

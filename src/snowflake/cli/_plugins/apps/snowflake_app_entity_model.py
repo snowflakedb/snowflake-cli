@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Snowflake Inc.
+# Copyright (c) 2026 Snowflake Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,9 @@
 # limitations under the License.
 
 from typing import List, Literal, Optional, Union
+
+# Default port exposed by Snowflake App services
+DEFAULT_APP_PORT = 3000
 
 from pydantic import Field, field_validator
 from snowflake.cli.api.project.schemas.entities.common import (
@@ -137,6 +140,8 @@ class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
     code_stage: Optional[CodeStageReference] = Field(
         title="Stage for storing code artifacts", default=None
     )
+
+    app_port: int = Field(title="Port the app listens on", default=DEFAULT_APP_PORT)
 
     dev_roles: Optional[List[str]] = Field(
         title="Development roles for the app", default=None

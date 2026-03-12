@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Snowflake Inc.
+# Copyright (c) 2026 Snowflake Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,9 +16,10 @@ import json
 import time
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Set
 
 import typer
+from snowflake.cli._plugins.apps.snowflake_app_entity_model import DEFAULT_APP_PORT
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.artifacts.utils import bundle_artifacts
@@ -57,6 +58,40 @@ DEFAULT_IMAGE_REPOSITORY = "SNOW_APPS_DEFAULT_IMAGE_REPOSITORY"
 def _check_feature_enabled():
     if FeatureFlag.ENABLE_SNOWFLAKE_APPS.is_disabled():
         raise CliError("This feature is not available yet.")
+
+
+def _poll_until(
+    poll_fn: Callable[[], str],
+    *,
+    done_states: Set[str],
+    error_states: Set[str],
+    known_pending_states: Set[str],
+    max_attempts: int = 240,
+    interval_seconds: int = 5,
+    timeout_message: str = "Operation timed out.",
+) -> str:
+    """Poll *poll_fn* until the returned status is in *done_states*.
+
+    Raises ``CliError`` for statuses in *error_states* or on timeout.
+    Returns the final status on success.
+    """
+    for _attempt in range(max_attempts):
+        time.sleep(interval_seconds)
+        status = poll_fn()
+        cli_console.step(f"Status: {status}")
+
+        if status in done_states:
+            return status
+        if status in error_states:
+            raise CliError(f"{timeout_message} (status={status})")
+        if status not in known_pending_states:
+            cli_console.step(f"Unknown status: {status}")
+            return status
+
+    raise CliError(
+        f"{timeout_message} "
+        f"(timed out after {max_attempts * interval_seconds // 60} minutes)"
+    )
 
 
 def _object_exists(object_type: str, name: str) -> bool:
@@ -158,7 +193,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
 
     def create_schema_if_not_exists(self, database: str, schema: str) -> None:
         """Create schema if it doesn't exist."""
-        fqn = f"{database}.{schema}"
+        fqn = f'"{database}"."{schema}"'
         self.execute_query(f"CREATE SCHEMA IF NOT EXISTS {fqn}")
 
     def stage_exists(self, stage_fqn: str) -> bool:
@@ -298,10 +333,11 @@ class SnowflakeAppManager(SqlExecutionMixin):
         service_name: str,
         compute_pool: str,
         query_warehouse: str,
+        app_port: int = DEFAULT_APP_PORT,
         app_comment: Optional[str] = None,
     ) -> None:
         """Create a service with a placeholder spec (suspended by default)."""
-        spec = """spec:
+        spec = f"""spec:
   containers:
     - name: main
       image: "/snowflake/images/snowflake_images/sf-image-build:0.0.1"
@@ -310,7 +346,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         - infinity
   endpoints:
     - name: app-endpoint
-      port: 3000
+      port: {app_port}
       public: true
 serviceRoles:
   - name: viewer
@@ -338,6 +374,7 @@ serviceRoles:
         self,
         service_name: str,
         image_url: str,
+        app_port: int = DEFAULT_APP_PORT,
     ) -> None:
         """Alter a service with the built image spec."""
         spec = f"""spec:
@@ -346,7 +383,7 @@ serviceRoles:
       image: "{image_url}"
   endpoints:
     - name: app-endpoint
-      port: 3000
+      port: {app_port}
       public: true
 serviceRoles:
   - name: viewer
@@ -669,27 +706,16 @@ def deploy(
     )
 
     # Step 7: Poll for build completion
-    max_attempts = 240  # 240 * 5s = 20 minutes
     cli_console.step("Waiting for build to complete...")
-    for _attempt in range(max_attempts):
-        time.sleep(5)
-        status = manager.get_build_status(database, schema, build_job_service_name)
-        cli_console.step(f"Build status: {status}")
-
-        if status == "DONE":
-            break
-        elif status == "FAILED":
-            raise CliError(f"Build failed. Check service logs: {build_job_name}")
-        elif status == "IDLE":
-            raise CliError("Build job service not found. It may have failed to start.")
-        elif status not in ("PENDING", "RUNNING"):
-            cli_console.step(f"Unknown status: {status}")
-            break
-    else:
-        raise CliError(
-            f"Build timed out after {max_attempts * 5 // 60} minutes. "
-            f"Check service logs: {build_job_name}"
-        )
+    _poll_until(
+        poll_fn=lambda: manager.get_build_status(
+            database, schema, build_job_service_name
+        ),
+        done_states={"DONE"},
+        error_states={"FAILED", "IDLE"},
+        known_pending_states={"PENDING", "RUNNING"},
+        timeout_message=f"Build timed out. Check service logs: {build_job_name}",
+    )
 
     # ── Deploy phase ──────────────────────────────────────────────────
 
@@ -730,36 +756,25 @@ def deploy(
     manager.resume_service(service_fqn)
 
     # Step 11: Poll until service is RUNNING
-    max_attempts = 240  # 240 * 5s = 20 minutes
     cli_console.step("Waiting for service to be ready...")
-    for _attempt in range(max_attempts):
-        time.sleep(5)
-        status = manager.get_service_status(database, schema, service_name_short)
-        cli_console.step(f"Service status: {status}")
-
-        if status == "RUNNING":
-            break
-        elif status == "FAILED":
-            raise CliError(f"Service failed. Check service logs: {service_fqn}")
-        elif status == "IDLE":
-            raise CliError(f"Service not found: {service_fqn}")
-        elif status not in ("PENDING", "SUSPENDING", "SUSPENDED"):
-            cli_console.step(f"Unknown status: {status}")
-            break
-    else:
-        raise CliError(
-            f"Service timed out after {max_attempts * 5 // 60} minutes. "
-            f"Check service status: {service_fqn}"
-        )
+    _poll_until(
+        poll_fn=lambda: manager.get_service_status(
+            database, schema, service_name_short
+        ),
+        done_states={"RUNNING"},
+        error_states={"FAILED", "IDLE"},
+        known_pending_states={"PENDING", "SUSPENDING", "SUSPENDED"},
+        timeout_message=f"Service timed out. Check service status: {service_fqn}",
+    )
 
     # Step 12: Get endpoint URL (poll until provisioning completes)
-    max_attempts = 240  # 240 * 5s = 20 minutes
     cli_console.step("Getting endpoint URL")
+    max_attempts = 240  # 240 * 5s = 20 minutes
     for _attempt in range(max_attempts):
         endpoint_url = manager.get_service_endpoint_url(service_fqn)
 
         if endpoint_url and "provisioning in progress" not in endpoint_url.lower():
-            return MessageResult(f"App ready at https://{endpoint_url}")
+            return MessageResult(f"App ready at {endpoint_url}")
 
         if endpoint_url:
             cli_console.step(f"Endpoint status: {endpoint_url}")

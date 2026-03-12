@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Snowflake Inc.
+# Copyright (c) 2026 Snowflake Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -242,7 +242,7 @@ class TestSnowflakeAppManager:
     def test_create_schema_if_not_exists(self, mock_execute):
         SnowflakeAppManager().create_schema_if_not_exists("TEST_DB", "TEST_SCHEMA")
         mock_execute.assert_called_once_with(
-            "CREATE SCHEMA IF NOT EXISTS TEST_DB.TEST_SCHEMA"
+            'CREATE SCHEMA IF NOT EXISTS "TEST_DB"."TEST_SCHEMA"'
         )
 
     @patch(EXECUTE_QUERY)
