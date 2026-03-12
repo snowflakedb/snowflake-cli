@@ -18,10 +18,6 @@ from unittest import mock
 
 import pytest
 from click import ClickException
-from snowflake.cli._plugins.custom_images.constants import (
-    CPU_BASE_IMAGE_PATH,
-    GPU_BASE_IMAGE_PATH,
-)
 from snowflake.cli._plugins.custom_images.manager import CustomImageManager
 
 
@@ -49,7 +45,6 @@ def make_pip_list_response(packages: list[dict]) -> str:
 
 
 def create_mock_side_effect(
-    base_image_path: str = CPU_BASE_IMAGE_PATH,
     inspect_response: str | None = None,
     pip_list_response: str | None = None,
     pip_check_result: tuple[int, str] = (0, ""),
@@ -67,10 +62,6 @@ def create_mock_side_effect(
         cmd_str = " ".join(cmd)
         if cmd[0] == "docker":
             if "inspect" in cmd:
-                if "--format" in cmd:
-                    return mock.Mock(
-                        returncode=0, stdout=f"FROM {base_image_path}", stderr=""
-                    )
                 return mock.Mock(returncode=0, stdout=inspect_response, stderr="")
             elif "run" in cmd:
                 if "pip list" in cmd_str:
@@ -141,106 +132,6 @@ checks:
         assert any(
             r.check_name == "image_exists" and not r.passed for r in report.results
         )
-
-    @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
-    @pytest.mark.parametrize(
-        "base_path,expected_type",
-        [
-            (CPU_BASE_IMAGE_PATH, "CPU"),
-            (GPU_BASE_IMAGE_PATH, "GPU"),
-        ],
-    )
-    def test_base_image_detection(
-        self, mock_run, config_path, base_path, expected_type
-    ):
-        """Test CPU and GPU base image detection."""
-        inspect_response = make_docker_inspect_response(
-            entrypoint=["/usr/local/bin/entrypoint.sh"],
-            env_vars=["DASHBOARD_PORT=12003"],
-        )
-        pip_list = make_pip_list_response(
-            [
-                {"name": "snowflake-ml-python", "version": "1.0"},
-                {"name": "ray", "version": "2.0"},
-            ]
-        )
-        mock_run.side_effect = create_mock_side_effect(
-            base_image_path=base_path,
-            inspect_response=inspect_response,
-            pip_list_response=pip_list,
-        )
-        manager = CustomImageManager(config_path=config_path)
-
-        report, _ = manager.validate("test-image:latest")
-
-        base_result = next(r for r in report.results if r.check_name == "base_image")
-        assert base_result.passed
-        assert expected_type in base_result.message
-
-    @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
-    def test_invalid_base_image(self, mock_run, config_path):
-        """Test when base image is not a valid Snowflake base image."""
-        mock_run.side_effect = create_mock_side_effect(
-            base_image_path="python:3.10-slim"
-        )
-        manager = CustomImageManager(config_path=config_path)
-
-        report, _ = manager.validate("test-image:latest")
-
-        assert not report.all_passed
-        base_result = next(r for r in report.results if r.check_name == "base_image")
-        assert not base_result.passed
-        assert "Invalid base image" in base_result.message
-
-    @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
-    def test_base_image_not_detected_assumes_cpu(self, mock_run, config_path):
-        """Test that when base image is not detected, we assume CPU and continue."""
-        inspect_response = make_docker_inspect_response(
-            entrypoint=["/usr/local/bin/entrypoint.sh"],
-            env_vars=["DASHBOARD_PORT=12003"],
-        )
-        pip_list = make_pip_list_response(
-            [
-                {"name": "snowflake-ml-python", "version": "1.0"},
-                {"name": "ray", "version": "2.0"},
-            ]
-        )
-
-        def side_effect(*args, **kwargs):
-            cmd = args[0]
-            cmd_str = " ".join(cmd)
-            if cmd[0] == "docker":
-                if "inspect" in cmd:
-                    if "--format" in cmd:
-                        # Return empty/no base image info
-                        return mock.Mock(returncode=0, stdout="", stderr="")
-                    return mock.Mock(returncode=0, stdout=inspect_response, stderr="")
-                elif "history" in cmd:
-                    # Return no FROM line
-                    return mock.Mock(
-                        returncode=0, stdout="RUN apt-get update", stderr=""
-                    )
-                elif "run" in cmd:
-                    if "pip list" in cmd_str:
-                        return mock.Mock(returncode=0, stdout=pip_list, stderr="")
-                    elif "pip check" in cmd_str:
-                        return mock.Mock(returncode=0, stdout="", stderr="")
-            elif cmd[0] == "grype":
-                return mock.Mock(returncode=0, stdout="", stderr="")
-            return mock.Mock(returncode=0, stdout="", stderr="")
-
-        mock_run.side_effect = side_effect
-        manager = CustomImageManager(config_path=config_path)
-
-        report, _ = manager.validate("test-image:latest")
-
-        # Validation should continue (not stop at base image)
-        base_result = next(r for r in report.results if r.check_name == "base_image")
-        assert base_result.passed
-        assert "assuming CPU" in base_result.message
-
-        # Entrypoint and other checks should have run
-        assert any(r.check_name == "entrypoint" for r in report.results)
 
     @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
     @pytest.mark.parametrize(
@@ -315,7 +206,7 @@ checks:
 
     @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
     def test_grype_not_installed(self, mock_run, config_path):
-        """Test error when Grype is not installed."""
+        """Test error when Grype is not installed and vulnerability scan is requested."""
         inspect_response = make_docker_inspect_response(
             entrypoint=["/usr/local/bin/entrypoint.sh"],
             env_vars=["DASHBOARD_PORT=12003"],
@@ -334,7 +225,7 @@ checks:
         manager = CustomImageManager(config_path=config_path)
 
         with pytest.raises(ClickException) as exc_info:
-            manager.validate("test-image:latest")
+            manager.validate("test-image:latest", scan_vulnerabilities=True)
 
         assert "Grype is required for vulnerability scanning" in str(exc_info.value)
 

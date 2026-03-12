@@ -15,8 +15,6 @@
 import json
 from unittest import mock
 
-from snowflake.cli._plugins.custom_images.constants import CPU_BASE_IMAGE_PATH
-
 
 def make_docker_inspect_response(
     entrypoint: list[str] | None = None,
@@ -76,12 +74,6 @@ class TestValidateCustomImageCommand:
             cmd_str = " ".join(cmd)
             if cmd[0] == "docker":
                 if "inspect" in cmd:
-                    if "--format" in cmd:
-                        return mock.Mock(
-                            returncode=0,
-                            stdout=f"FROM {CPU_BASE_IMAGE_PATH}",
-                            stderr="",
-                        )
                     return mock.Mock(returncode=0, stdout=inspect_response, stderr="")
                 elif "run" in cmd:
                     if "pip list" in cmd_str:
@@ -94,10 +86,6 @@ class TestValidateCustomImageCommand:
                             stdout="No broken requirements found.",
                             stderr="",
                         )
-            elif cmd[0] == "grype":
-                return mock.Mock(
-                    returncode=0, stdout="No vulnerabilities found", stderr=""
-                )
             return mock.Mock(returncode=0, stdout="", stderr="")
 
         mock_run.side_effect = side_effect
@@ -125,12 +113,6 @@ class TestValidateCustomImageCommand:
             cmd_str = " ".join(cmd)
             if cmd[0] == "docker":
                 if "inspect" in cmd:
-                    if "--format" in cmd:
-                        return mock.Mock(
-                            returncode=0,
-                            stdout=f"FROM {CPU_BASE_IMAGE_PATH}",
-                            stderr="",
-                        )
                     return mock.Mock(returncode=0, stdout=inspect_response, stderr="")
                 elif "run" in cmd:
                     if "pip list" in cmd_str:
@@ -139,8 +121,6 @@ class TestValidateCustomImageCommand:
                         )
                     elif "pip check" in cmd_str:
                         return mock.Mock(returncode=0, stdout="", stderr="")
-            elif cmd[0] == "grype":
-                return mock.Mock(returncode=0, stdout="", stderr="")
             return mock.Mock(returncode=0, stdout="", stderr="")
 
         mock_run.side_effect = side_effect
@@ -173,32 +153,6 @@ class TestValidateCustomImageCommand:
 
         assert result.exit_code == 1
         assert "Docker is not installed" in result.output
-
-    @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
-    def test_validate_custom_image_invalid_base_image(self, mock_run, runner):
-        """Test error when base image is invalid."""
-        inspect_response = make_docker_inspect_response(
-            entrypoint=["/usr/local/bin/entrypoint.sh"],
-        )
-
-        def side_effect(*args, **kwargs):
-            cmd = args[0]
-            if "inspect" in cmd:
-                if "--format" in cmd:
-                    return mock.Mock(
-                        returncode=0,
-                        stdout="python:3.10-slim",
-                        stderr="",
-                    )
-                return mock.Mock(returncode=0, stdout=inspect_response, stderr="")
-            return mock.Mock(returncode=0, stdout="", stderr="")
-
-        mock_run.side_effect = side_effect
-
-        result = runner.invoke(["custom-image", "validate", "test-image:latest"])
-
-        assert result.exit_code == 1
-        assert "Invalid base image" in result.output
 
     def test_validate_custom_image_missing_argument(self, runner):
         """Test error when image argument is missing."""
@@ -239,12 +193,6 @@ class TestValidateCustomImageCommand:
             cmd_str = " ".join(cmd)
             if cmd[0] == "docker":
                 if "inspect" in cmd:
-                    if "--format" in cmd:
-                        return mock.Mock(
-                            returncode=0,
-                            stdout=f"FROM {CPU_BASE_IMAGE_PATH}",
-                            stderr="",
-                        )
                     return mock.Mock(returncode=0, stdout=inspect_response, stderr="")
                 elif "run" in cmd:
                     if "pip list" in cmd_str:
@@ -253,8 +201,6 @@ class TestValidateCustomImageCommand:
                         )
                     elif "pip check" in cmd_str:
                         return mock.Mock(returncode=0, stdout="", stderr="")
-            elif cmd[0] == "grype":
-                return mock.Mock(returncode=0, stdout="", stderr="")
             return mock.Mock(returncode=0, stdout="", stderr="")
 
         mock_run.side_effect = side_effect

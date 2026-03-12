@@ -69,11 +69,11 @@ class CustomImageManager:
     def __init__(self, config_path: Path):
         self.config_path = config_path
         self.config = self._load_config(self.config_path)
+        # Config-driven checks (controlled by image_validation.yaml)
         self._check_handlers: dict[str, Any] = {
             "environment_variables": self._check_environment_variables,
             "python_packages": self._check_python_packages,
             "dependency_health": self._check_dependency_health,
-            "vulnerability_scan": self._check_vulnerabilities,
         }
 
     def _load_config(self, config_path: Path) -> dict:
@@ -129,7 +129,7 @@ class CustomImageManager:
         return None
 
     def validate(
-        self, image: str, is_gpu: bool = False
+        self, image: str, is_gpu: bool = False, scan_vulnerabilities: bool = False
     ) -> tuple[ValidationReport, str]:
         """Validate a Docker image against the configured rules.
 
@@ -137,6 +137,7 @@ class CustomImageManager:
             image: Docker image to validate. Accepts image name (e.g., 'myimage:latest')
                    or image ID/hash.
             is_gpu: Whether to validate as a GPU image. Defaults to False (CPU).
+            scan_vulnerabilities: Whether to run vulnerability scan. Defaults to False.
         """
         report = ValidationReport(image_name=image)
         checks = self.config.get("checks", {})
@@ -198,6 +199,11 @@ class CustomImageManager:
                     report.add_result(result)
             else:
                 report.add_result(results)
+
+        # User-requested checks (controlled by CLI flags)
+        if scan_vulnerabilities:
+            result = self._check_vulnerabilities(context)
+            report.add_result(result)
 
         return report, format_report(report)
 
@@ -436,9 +442,7 @@ class CustomImageManager:
             message=f"Broken dependencies detected:\n{output}",
         )
 
-    def _check_vulnerabilities(
-        self, context: ValidationContext, _config: bool
-    ) -> ValidationResult:
+    def _check_vulnerabilities(self, context: ValidationContext) -> ValidationResult:
         """Run Grype vulnerability scan on the image."""
         returncode, stdout, stderr = self._run_grype_command(
             context.image, context.is_gpu
