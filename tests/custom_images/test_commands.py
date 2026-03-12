@@ -144,12 +144,23 @@ class TestValidateCustomImageCommand:
         assert result.exit_code == 1
         assert "not found" in result.output.lower()
 
-    @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
-    def test_validate_custom_image_docker_not_installed(self, mock_run, runner):
+    def test_validate_custom_image_docker_not_installed(self, runner):
         """Test error when Docker is not installed."""
-        mock_run.side_effect = FileNotFoundError()
+        import subprocess
 
-        result = runner.invoke(["custom-image", "validate", "test-image:latest"])
+        original_run = subprocess.run
+
+        def docker_not_found(*args, **kwargs):
+            cmd = args[0] if args else kwargs.get("args", [])
+            if cmd and cmd[0] == "docker":
+                raise FileNotFoundError()
+            return original_run(*args, **kwargs)
+
+        with mock.patch(
+            "snowflake.cli._plugins.custom_images.manager.subprocess.run",
+            side_effect=docker_not_found,
+        ):
+            result = runner.invoke(["custom-image", "validate", "test-image:latest"])
 
         assert result.exit_code == 1
         assert "Docker is not installed" in result.output

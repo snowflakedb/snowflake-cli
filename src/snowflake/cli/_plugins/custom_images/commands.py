@@ -29,6 +29,9 @@ app = SnowTyperFactory(
     help="Manages custom images for Snowpark Container Services.",
 )
 
+# Required to prevent Typer from collapsing the single-subcommand group into a flat command.
+app.callback()(lambda: None)
+
 
 @app.command(requires_connection=False)
 def validate(
