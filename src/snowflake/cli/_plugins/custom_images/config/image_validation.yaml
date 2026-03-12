@@ -35,5 +35,3 @@ checks:
     enabled: true
     ignore_patterns:
       - jupyter-lsp  # Intentionally uninstalled from official images
-
-  vulnerability_scan: true

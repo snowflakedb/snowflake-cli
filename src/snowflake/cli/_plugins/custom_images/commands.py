@@ -41,6 +41,11 @@ def validate(
         "--image-type",
         help="Base image type: 'cpu' or 'gpu'. Defaults to 'cpu'.",
     ),
+    scan_vulnerabilities: bool = typer.Option(
+        False,
+        "--scan-vulnerabilities",
+        help="Run vulnerability scan using Grype. Requires Grype to be installed.",
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -54,7 +59,9 @@ def validate(
 
     is_gpu = image_type_lower == "gpu"
     manager = CustomImageManager(config_path=DEFAULT_CONFIG_PATH)
-    report, output = manager.validate(image=image, is_gpu=is_gpu)
+    report, output = manager.validate(
+        image=image, is_gpu=is_gpu, scan_vulnerabilities=scan_vulnerabilities
+    )
 
     if not report.all_passed:
         raise ClickException(
