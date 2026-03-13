@@ -448,5 +448,8 @@ serviceRoles:
         row = result.fetchone()
 
         if row:
-            return row[0]
+            url = row[0]
+            if url and not url.startswith(("http://", "https://")):
+                url = f"https://{url}"
+            return url
         return None

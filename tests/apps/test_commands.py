@@ -683,6 +683,16 @@ class TestSnowflakeAppManager:
         assert mock_execute.call_count == 2
 
     @patch(EXECUTE_QUERY)
+    def test_get_service_endpoint_url_adds_https_prefix(self, mock_execute):
+        result_cursor = Mock()
+        result_cursor.fetchone.return_value = ("my-endpoint.snowflakecomputing.app",)
+        mock_execute.return_value = result_cursor
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
+        url = SnowflakeAppManager().get_service_endpoint_url(fqn)
+        assert url == "https://my-endpoint.snowflakecomputing.app"
+
+    @patch(EXECUTE_QUERY)
     def test_get_service_endpoint_url_not_found(self, mock_execute):
         result_cursor = Mock()
         result_cursor.fetchone.return_value = None
