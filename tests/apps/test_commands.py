@@ -233,6 +233,28 @@ class TestGenerateSnowflakeYml:
         result = _generate_snowflake_yml("my_app", None, "TEST_DB")
         assert "query_warehouse: <% ctx.connection.warehouse %>" in result
 
+    @patch(OBJECT_EXISTS, return_value=False)
+    @patch(GET_ENV_USERNAME, return_value="testuser")
+    def test_generated_yml_is_valid_project_definition(self, mock_user, mock_exists):
+        """Generated YAML is parsable and produces a valid project definition."""
+        import yaml
+        from snowflake.cli.api.utils.definition_rendering import (
+            render_definition_template,
+        )
+
+        # Use concrete values (no template placeholders) so parsing succeeds
+        raw_yml = _generate_snowflake_yml("my_app", "TEST_WH", "TEST_DB")
+        definition_input = yaml.safe_load(raw_yml)
+
+        result = render_definition_template(definition_input, {})
+        project = result.project_definition
+        entity = project.entities["my_app"]
+
+        assert entity.type == "snowflake-app"
+        assert entity.query_warehouse == "TEST_WH"
+        assert entity.code_stage.name == "MY_APP_CODE"
+        assert entity.artifacts is not None
+
 
 # ── SnowflakeAppManager tests ─────────────────────────────────────────
 
