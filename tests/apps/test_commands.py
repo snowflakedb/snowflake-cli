@@ -15,11 +15,11 @@
 from unittest.mock import Mock, patch
 
 import pytest
-from snowflake.cli._plugins.apps.commands import (
+from snowflake.cli._plugins.apps.generate import _generate_snowflake_yml
+from snowflake.cli._plugins.apps.manager import (
     SNOWFLAKE_APP_ENTITY_TYPE,
     SnowflakeAppManager,
     _check_feature_enabled,
-    _generate_snowflake_yml,
     _get_compute_pool,
     _get_entity,
     _get_external_access,
@@ -32,10 +32,10 @@ from snowflake.cli.api.feature_flags import FeatureFlag
 
 from tests_common.feature_flag_utils import with_feature_flags
 
-EXECUTE_QUERY = "snowflake.cli._plugins.apps.commands.SnowflakeAppManager.execute_query"
-OBJECT_EXISTS = "snowflake.cli._plugins.apps.commands._object_exists"
-GET_CLI_CONTEXT = "snowflake.cli._plugins.apps.commands.get_cli_context"
-GET_ENV_USERNAME = "snowflake.cli._plugins.apps.commands.get_env_username"
+EXECUTE_QUERY = "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.execute_query"
+OBJECT_EXISTS = "snowflake.cli._plugins.apps.manager._object_exists"
+GET_CLI_CONTEXT = "snowflake.cli._plugins.apps.manager.get_cli_context"
+GET_ENV_USERNAME = "snowflake.cli._plugins.apps.generate.get_env_username"
 
 
 # ── Feature flag tests ────────────────────────────────────────────────
@@ -63,17 +63,17 @@ class TestFeatureFlag:
 
 
 class TestObjectExists:
-    @patch("snowflake.cli._plugins.apps.commands.ObjectManager")
+    @patch("snowflake.cli._plugins.apps.manager.ObjectManager")
     def test_returns_true_when_exists(self, mock_object_manager):
         mock_object_manager().object_exists.return_value = True
         assert _object_exists("compute-pool", "MY_POOL") is True
 
-    @patch("snowflake.cli._plugins.apps.commands.ObjectManager")
+    @patch("snowflake.cli._plugins.apps.manager.ObjectManager")
     def test_returns_false_when_not_exists(self, mock_object_manager):
         mock_object_manager().object_exists.return_value = False
         assert _object_exists("compute-pool", "MY_POOL") is False
 
-    @patch("snowflake.cli._plugins.apps.commands.ObjectManager")
+    @patch("snowflake.cli._plugins.apps.manager.ObjectManager")
     def test_returns_false_on_exception(self, mock_object_manager):
         mock_object_manager().object_exists.side_effect = Exception("error")
         assert _object_exists("compute-pool", "MY_POOL") is False
@@ -154,7 +154,7 @@ class TestResolveEntityId:
         assert result == "my_app"
 
     @patch(
-        "snowflake.cli._plugins.apps.commands._get_snowflake_app_entities",
+        "snowflake.cli._plugins.apps.manager._get_snowflake_app_entities",
         return_value={},
     )
     def test_raises_when_no_entities(self, _):
@@ -162,7 +162,7 @@ class TestResolveEntityId:
             _resolve_entity_id(None)
 
     @patch(
-        "snowflake.cli._plugins.apps.commands._get_snowflake_app_entities",
+        "snowflake.cli._plugins.apps.manager._get_snowflake_app_entities",
         return_value={"my_app": Mock()},
     )
     def test_auto_resolves_single_entity(self, _):
@@ -170,7 +170,7 @@ class TestResolveEntityId:
         assert result == "my_app"
 
     @patch(
-        "snowflake.cli._plugins.apps.commands._get_snowflake_app_entities",
+        "snowflake.cli._plugins.apps.manager._get_snowflake_app_entities",
         return_value={"app_1": Mock(), "app_2": Mock()},
     )
     def test_raises_when_multiple_entities(self, _):
@@ -180,7 +180,7 @@ class TestResolveEntityId:
 
 class TestGetEntity:
     @patch(
-        "snowflake.cli._plugins.apps.commands._get_snowflake_app_entities",
+        "snowflake.cli._plugins.apps.manager._get_snowflake_app_entities",
     )
     def test_returns_entity(self, mock_get):
         entity = Mock()
@@ -189,7 +189,7 @@ class TestGetEntity:
         assert result is entity
 
     @patch(
-        "snowflake.cli._plugins.apps.commands._get_snowflake_app_entities",
+        "snowflake.cli._plugins.apps.manager._get_snowflake_app_entities",
         return_value={},
     )
     def test_raises_when_not_found(self, _):
