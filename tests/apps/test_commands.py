@@ -556,9 +556,7 @@ class TestDeployCommand:
         self, mock_resolve, mock_get_entity, runner, tmp_path
     ):
         entity = Mock()
-        entity.identifier = Mock()
-        entity.identifier.database = "TEST_DB"
-        entity.identifier.schema_ = "TEST_SCHEMA"
+        entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA")
         entity.code_stage = None
         entity.artifacts = []
         entity.build_compute_pool = None
@@ -588,9 +586,7 @@ class TestDeployCommand:
         self, mock_resolve, mock_get_entity, runner, tmp_path
     ):
         entity = Mock()
-        entity.identifier = Mock()
-        entity.identifier.database = "TEST_DB"
-        entity.identifier.schema_ = "TEST_SCHEMA"
+        entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA")
         entity.code_stage = None
         entity.artifacts = []
         entity.build_compute_pool = Mock()
@@ -620,9 +616,7 @@ class TestDeployCommand:
         self, mock_resolve, mock_get_entity, runner, tmp_path
     ):
         entity = Mock()
-        entity.identifier = Mock()
-        entity.identifier.database = "TEST_DB"
-        entity.identifier.schema_ = "TEST_SCHEMA"
+        entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA")
         entity.code_stage = None
         entity.artifacts = []
         entity.build_compute_pool = Mock()

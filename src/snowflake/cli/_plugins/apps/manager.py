@@ -12,10 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import time
-from typing import Any, Callable, Dict, Optional, Set
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Set
 
 from snowflake.cli._plugins.apps.snowflake_app_entity_model import DEFAULT_APP_PORT
+
+if TYPE_CHECKING:
+    from snowflake.cli._plugins.apps.snowflake_app_entity_model import (
+        SnowflakeAppEntityModel,
+    )
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console
@@ -159,12 +166,18 @@ def _resolve_entity_id(entity_id: Optional[str]) -> str:
         )
 
 
-def _get_entity(entity_id: str) -> Any:
+def _get_entity(entity_id: str) -> SnowflakeAppEntityModel:
     """Get the snowflake-app entity by ID."""
+    from snowflake.cli._plugins.apps.snowflake_app_entity_model import (
+        SnowflakeAppEntityModel,
+    )
+
     snowflake_apps = _get_snowflake_app_entities()
     if entity_id not in snowflake_apps:
         raise CliError(f"Entity '{entity_id}' not found in {DEFINITION_FILENAME}.")
-    return snowflake_apps[entity_id]
+    entity = snowflake_apps[entity_id]
+    assert isinstance(entity, SnowflakeAppEntityModel)
+    return entity
 
 
 class SnowflakeAppManager(SqlExecutionMixin):

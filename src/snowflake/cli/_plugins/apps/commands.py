@@ -100,49 +100,32 @@ def deploy(
     entity = _get_entity(resolved_entity_id)
 
     # ── Extract entity configuration ──────────────────────────────────
-    identifier = getattr(entity, "identifier", {})
-    database = getattr(identifier, "database", None) or "<default_db>"
-    # Note: schema_ is the field name (schema is a reserved Pydantic method)
-    schema = (
-        getattr(identifier, "schema_", None) or f"SNOW_APP_{resolved_entity_id.upper()}"
-    )
+    # Use the model's .fqn property which handles both string and Identifier forms.
+    fqn = entity.fqn
+    database = fqn.database or "<default_db>"
+    schema = fqn.schema or f"SNOW_APP_{resolved_entity_id.upper()}"
 
-    code_stage_config = getattr(entity, "code_stage", None)
-    if code_stage_config:
-        stage_name = (
-            getattr(code_stage_config, "name", None)
-            or f"{resolved_entity_id.upper()}_CODE_STAGE"
-        )
-        encryption_type = getattr(code_stage_config, "encryption_type", "SNOWFLAKE_SSE")
+    if entity.code_stage:
+        stage_name = entity.code_stage.name
+        encryption_type = entity.code_stage.encryption_type or "SNOWFLAKE_SSE"
     else:
         stage_name = f"{resolved_entity_id.upper()}_CODE_STAGE"
         encryption_type = "SNOWFLAKE_SSE"
 
-    artifacts = getattr(entity, "artifacts", [])
+    artifacts = entity.artifacts
 
-    build_compute_pool_config = getattr(entity, "build_compute_pool", None)
     build_compute_pool = (
-        getattr(build_compute_pool_config, "name", None)
-        if build_compute_pool_config
-        else None
+        entity.build_compute_pool.name if entity.build_compute_pool else None
     )
-
-    build_eai_config = getattr(entity, "build_eai", None)
-    build_eai = getattr(build_eai_config, "name", None) if build_eai_config else None
-
-    service_compute_pool_config = getattr(entity, "service_compute_pool", None)
+    build_eai = entity.build_eai.name if entity.build_eai else None
     service_compute_pool = (
-        getattr(service_compute_pool_config, "name", None)
-        if service_compute_pool_config
-        else None
+        entity.service_compute_pool.name if entity.service_compute_pool else None
     )
+    query_warehouse = entity.query_warehouse
 
-    query_warehouse = getattr(entity, "query_warehouse", None)
-
-    meta = getattr(entity, "meta", None)
-    app_title = getattr(meta, "title", None) if meta else None
-    app_description = getattr(meta, "description", None) if meta else None
-    app_icon = getattr(meta, "icon", None) if meta else None
+    app_title = entity.meta.title if entity.meta else None
+    app_description = entity.meta.description if entity.meta else None
+    app_icon = entity.meta.icon if entity.meta else None
 
     # TODO: Replace with artifact_repository from entity config once supported
     image_repository = DEFAULT_IMAGE_REPOSITORY
