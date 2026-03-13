@@ -29,6 +29,7 @@ from snowflake.cli.api.commands.flags import (
 )
 from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.config import get_config_value
 from snowflake.cli.api.exceptions import CliArgumentError
 from snowflake.cli.api.output.types import (
     CommandResult,
@@ -122,6 +123,13 @@ def execute_sql(
         help="Syntax used to resolve variables before passing queries to Snowflake.",
         case_sensitive=False,
     ),
+    no_prompt_exit_repl: Optional[bool] = typer.Option(
+        None,
+        "--no-prompt-exit-repl",
+        help="Do not prompt before exiting the REPL.",
+        envvar="SNOWFLAKE_NO_PROMPT_EXIT_REPL",
+        show_default=False,
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -145,6 +153,9 @@ def execute_sql(
     single_transaction = bool(single_transaction)
     std_in = bool(std_in)
 
+    if no_prompt_exit_repl is None:
+        no_prompt_exit_repl = get_config_value("cli", key="no_prompt_exit_repl", default=False)
+
     no_source_provided = not any([query, files, std_in])
     if no_source_provided and not sys.stdin.isatty():
         maybe_pipe = sys.stdin.read().strip()
@@ -162,6 +173,7 @@ def execute_sql(
             data=data,
             retain_comments=retain_comments,
             template_syntax_config=template_syntax_config,
+            no_prompt_exit_repl=no_prompt_exit_repl,
         ).run()
         sys.exit(0)
 
