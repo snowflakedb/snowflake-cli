@@ -185,7 +185,11 @@ class TestGetEntity:
         "snowflake.cli._plugins.apps.manager._get_snowflake_app_entities",
     )
     def test_returns_entity(self, mock_get):
-        entity = Mock()
+        from snowflake.cli._plugins.apps.snowflake_app_entity_model import (
+            SnowflakeAppEntityModel,
+        )
+
+        entity = Mock(spec=SnowflakeAppEntityModel)
         mock_get.return_value = {"my_app": entity}
         result = _get_entity("my_app")
         assert result is entity
