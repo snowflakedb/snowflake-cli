@@ -71,6 +71,7 @@ class CustomImageManager:
         self.config = self._load_config(self.config_path)
         # Config-driven checks (controlled by image_validation.yaml)
         self._check_handlers: dict[str, Any] = {
+            "required_scripts": self._check_required_scripts,
             "environment_variables": self._check_environment_variables,
             "python_packages": self._check_python_packages,
             "dependency_health": self._check_dependency_health,
@@ -257,6 +258,45 @@ class CustomImageManager:
             passed=True,
             message=f"Entrypoint is correctly set to '{expected}'",
         )
+
+    def _check_required_scripts(
+        self, context: ValidationContext, scripts: list[str]
+    ) -> list[ValidationResult]:
+        """Check that scripts exist and are executable in the image working directory."""
+        results = []
+        for script in scripts:
+            returncode, _, _ = self._run_docker_command(
+                [
+                    "docker",
+                    "run",
+                    "--rm",
+                    "--platform",
+                    "linux/amd64",
+                    "--entrypoint",
+                    "",
+                    context.image,
+                    "test",
+                    "-x",
+                    script,
+                ]
+            )
+            if returncode != 0:
+                results.append(
+                    ValidationResult(
+                        check_name=f"script_{script}",
+                        passed=False,
+                        message=f"Script '{script}' is missing or not executable",
+                    )
+                )
+            else:
+                results.append(
+                    ValidationResult(
+                        check_name=f"script_{script}",
+                        passed=True,
+                        message=f"Script '{script}' exists and is executable",
+                    )
+                )
+        return results
 
     def _check_environment_variables(
         self, context: ValidationContext, env_vars: list[dict]
