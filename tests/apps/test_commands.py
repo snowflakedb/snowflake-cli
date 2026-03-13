@@ -30,6 +30,7 @@ from snowflake.cli._plugins.apps.manager import (
 )
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
+from snowflake.cli.api.identifiers import FQN
 
 from tests_common.feature_flag_utils import with_feature_flags
 
@@ -400,41 +401,51 @@ class TestSnowflakeAppManager:
     def test_create_schema_if_not_exists(self, mock_execute):
         SnowflakeAppManager().create_schema_if_not_exists("TEST_DB", "TEST_SCHEMA")
         mock_execute.assert_called_once_with(
-            'CREATE SCHEMA IF NOT EXISTS "TEST_DB"."TEST_SCHEMA"'
+            "CREATE SCHEMA IF NOT EXISTS IDENTIFIER('TEST_DB.TEST_SCHEMA')"
         )
 
     @patch(EXECUTE_QUERY)
     def test_stage_exists_returns_true(self, mock_execute):
-        assert SnowflakeAppManager().stage_exists("DB.SCHEMA.STAGE") is True
-        mock_execute.assert_called_once_with("DESCRIBE STAGE DB.SCHEMA.STAGE")
+        fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
+        assert SnowflakeAppManager().stage_exists(fqn) is True
+        mock_execute.assert_called_once_with(
+            "DESCRIBE STAGE IDENTIFIER('DB.SCHEMA.STAGE')"
+        )
 
     @patch(EXECUTE_QUERY, side_effect=Exception("not found"))
     def test_stage_exists_returns_false(self, mock_execute):
-        assert SnowflakeAppManager().stage_exists("DB.SCHEMA.STAGE") is False
+        fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
+        assert SnowflakeAppManager().stage_exists(fqn) is False
 
     @patch(EXECUTE_QUERY)
     def test_clear_stage(self, mock_execute):
-        SnowflakeAppManager().clear_stage("DB.SCHEMA.STAGE")
+        fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
+        SnowflakeAppManager().clear_stage(fqn)
         mock_execute.assert_called_once_with("REMOVE @DB.SCHEMA.STAGE")
 
     @patch(EXECUTE_QUERY)
     def test_create_stage(self, mock_execute):
-        SnowflakeAppManager().create_stage("DB.SCHEMA.STAGE")
+        fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
+        SnowflakeAppManager().create_stage(fqn)
         mock_execute.assert_called_once_with(
-            "CREATE STAGE IF NOT EXISTS DB.SCHEMA.STAGE ENCRYPTION = (TYPE = 'SNOWFLAKE_SSE')"
+            "CREATE STAGE IF NOT EXISTS IDENTIFIER('DB.SCHEMA.STAGE') ENCRYPTION = (TYPE = 'SNOWFLAKE_SSE')"
         )
 
     @patch(EXECUTE_QUERY)
     def test_create_stage_custom_encryption(self, mock_execute):
-        SnowflakeAppManager().create_stage("DB.SCHEMA.STAGE", "SNOWFLAKE_FULL")
+        fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
+        SnowflakeAppManager().create_stage(fqn, "SNOWFLAKE_FULL")
         mock_execute.assert_called_once_with(
-            "CREATE STAGE IF NOT EXISTS DB.SCHEMA.STAGE ENCRYPTION = (TYPE = 'SNOWFLAKE_FULL')"
+            "CREATE STAGE IF NOT EXISTS IDENTIFIER('DB.SCHEMA.STAGE') ENCRYPTION = (TYPE = 'SNOWFLAKE_FULL')"
         )
 
     @patch(EXECUTE_QUERY)
     def test_drop_service_if_exists(self, mock_execute):
-        SnowflakeAppManager().drop_service_if_exists("DB.SCHEMA.SVC")
-        mock_execute.assert_called_once_with("DROP SERVICE IF EXISTS DB.SCHEMA.SVC")
+        fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
+        SnowflakeAppManager().drop_service_if_exists(fqn)
+        mock_execute.assert_called_once_with(
+            "DROP SERVICE IF EXISTS IDENTIFIER('DB.SCHEMA.SVC')"
+        )
 
     @patch(EXECUTE_QUERY)
     def test_get_image_repo_url(self, mock_execute):
@@ -501,28 +512,33 @@ class TestSnowflakeAppManager:
 
     @patch(EXECUTE_QUERY)
     def test_execute_build_job_without_eai(self, mock_execute):
+        job_fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        stage_fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
         SnowflakeAppManager().execute_build_job(
-            job_service_name="BUILD_JOB",
+            job_service_name=job_fqn,
             compute_pool="BUILD_POOL",
-            code_stage="DB.SCHEMA.STAGE",
+            code_stage=stage_fqn,
             image_repo_url="host/db/schema/repo",
             app_id="my_app",
         )
         mock_execute.assert_called_once()
         query = mock_execute.call_args[0][0]
         assert "EXECUTE JOB SERVICE IN COMPUTE POOL BUILD_POOL" in query
-        assert "NAME = BUILD_JOB" in query
+        assert "NAME = IDENTIFIER('DB.SCHEMA.BUILD_JOB')" in query
         assert "ASYNC = TRUE" in query
         assert 'IMAGE_REGISTRY_URL: "host/db/schema/repo"' in query
         assert 'IMAGE_NAME: "my_app"' in query
+        assert "@DB.SCHEMA.STAGE" in query
         assert "EXTERNAL_ACCESS_INTEGRATIONS" not in query
 
     @patch(EXECUTE_QUERY)
     def test_execute_build_job_with_eai(self, mock_execute):
+        job_fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        stage_fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
         SnowflakeAppManager().execute_build_job(
-            job_service_name="BUILD_JOB",
+            job_service_name=job_fqn,
             compute_pool="BUILD_POOL",
-            code_stage="DB.SCHEMA.STAGE",
+            code_stage=stage_fqn,
             image_repo_url="host/db/schema/repo",
             app_id="my_app",
             external_access_integration="MY_EAI",
@@ -537,7 +553,8 @@ class TestSnowflakeAppManager:
         result_cursor.fetchone.return_value = (1, "DONE")
         mock_execute.return_value = result_cursor
 
-        status = SnowflakeAppManager().get_build_status("DB", "SCHEMA", "BUILD_JOB")
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        status = SnowflakeAppManager().get_build_status(fqn)
         assert status == "DONE"
         assert mock_execute.call_count == 2  # SHOW SERVICES + SELECT
 
@@ -547,7 +564,8 @@ class TestSnowflakeAppManager:
         result_cursor.fetchone.return_value = (0, None)
         mock_execute.return_value = result_cursor
 
-        status = SnowflakeAppManager().get_build_status("DB", "SCHEMA", "BUILD_JOB")
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        status = SnowflakeAppManager().get_build_status(fqn)
         assert status == "IDLE"
 
     @patch(EXECUTE_QUERY)
@@ -556,29 +574,34 @@ class TestSnowflakeAppManager:
         result_cursor.fetchone.return_value = None
         mock_execute.return_value = result_cursor
 
-        status = SnowflakeAppManager().get_build_status("DB", "SCHEMA", "BUILD_JOB")
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        status = SnowflakeAppManager().get_build_status(fqn)
         assert status == "IDLE"
 
     @patch(EXECUTE_QUERY)
     def test_create_service_basic(self, mock_execute):
+        fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
         SnowflakeAppManager().create_service(
-            service_name="DB.SCHEMA.SVC",
+            service_name=fqn,
             compute_pool="SVC_POOL",
             query_warehouse="WH",
         )
         # Should call: CREATE SERVICE, ALTER SERVICE SUSPEND (no comment)
         assert mock_execute.call_count == 2
         create_query = mock_execute.call_args_list[0][0][0]
-        assert "CREATE SERVICE IF NOT EXISTS DB.SCHEMA.SVC" in create_query
+        assert (
+            "CREATE SERVICE IF NOT EXISTS IDENTIFIER('DB.SCHEMA.SVC')" in create_query
+        )
         assert "IN COMPUTE POOL SVC_POOL" in create_query
         assert "QUERY_WAREHOUSE = WH" in create_query
         suspend_query = mock_execute.call_args_list[1][0][0]
-        assert "ALTER SERVICE DB.SCHEMA.SVC SUSPEND" in suspend_query
+        assert "ALTER SERVICE IDENTIFIER('DB.SCHEMA.SVC') SUSPEND" in suspend_query
 
     @patch(EXECUTE_QUERY)
     def test_create_service_with_comment(self, mock_execute):
+        fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
         SnowflakeAppManager().create_service(
-            service_name="DB.SCHEMA.SVC",
+            service_name=fqn,
             compute_pool="SVC_POOL",
             query_warehouse="WH",
             app_comment='{"appId": "MY_APP"}',
@@ -586,13 +609,14 @@ class TestSnowflakeAppManager:
         # Should call: CREATE SERVICE, ALTER SET COMMENT, ALTER SUSPEND
         assert mock_execute.call_count == 3
         comment_query = mock_execute.call_args_list[1][0][0]
-        assert "ALTER SERVICE DB.SCHEMA.SVC SET COMMENT" in comment_query
+        assert "ALTER SERVICE IDENTIFIER('DB.SCHEMA.SVC') SET COMMENT" in comment_query
         assert '{"appId": "MY_APP"}' in comment_query
 
     @patch(EXECUTE_QUERY)
     def test_create_service_escapes_comment_quotes(self, mock_execute):
+        fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
         SnowflakeAppManager().create_service(
-            service_name="DB.SCHEMA.SVC",
+            service_name=fqn,
             compute_pool="SVC_POOL",
             query_warehouse="WH",
             app_comment="it's a test",
@@ -602,19 +626,23 @@ class TestSnowflakeAppManager:
 
     @patch(EXECUTE_QUERY)
     def test_alter_service_spec(self, mock_execute):
+        fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
         SnowflakeAppManager().alter_service_spec(
-            service_name="DB.SCHEMA.SVC",
+            service_name=fqn,
             image_url="/db/schema/repo/my_app:latest",
         )
         mock_execute.assert_called_once()
         query = mock_execute.call_args[0][0]
-        assert "ALTER SERVICE DB.SCHEMA.SVC" in query
+        assert "ALTER SERVICE IDENTIFIER('DB.SCHEMA.SVC')" in query
         assert "/db/schema/repo/my_app:latest" in query
 
     @patch(EXECUTE_QUERY)
     def test_resume_service(self, mock_execute):
-        SnowflakeAppManager().resume_service("DB.SCHEMA.SVC")
-        mock_execute.assert_called_once_with("ALTER SERVICE DB.SCHEMA.SVC RESUME")
+        fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
+        SnowflakeAppManager().resume_service(fqn)
+        mock_execute.assert_called_once_with(
+            "ALTER SERVICE IDENTIFIER('DB.SCHEMA.SVC') RESUME"
+        )
 
     @patch(EXECUTE_QUERY)
     def test_get_service_status_running(self, mock_execute):
@@ -622,7 +650,8 @@ class TestSnowflakeAppManager:
         result_cursor.fetchone.return_value = (1, "RUNNING")
         mock_execute.return_value = result_cursor
 
-        status = SnowflakeAppManager().get_service_status("DB", "SCHEMA", "SVC")
+        fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
+        status = SnowflakeAppManager().get_service_status(fqn)
         assert status == "RUNNING"
 
     @patch(EXECUTE_QUERY)
@@ -631,7 +660,8 @@ class TestSnowflakeAppManager:
         result_cursor.fetchone.return_value = (0, None)
         mock_execute.return_value = result_cursor
 
-        status = SnowflakeAppManager().get_service_status("DB", "SCHEMA", "SVC")
+        fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
+        status = SnowflakeAppManager().get_service_status(fqn)
         assert status == "IDLE"
 
     @patch(EXECUTE_QUERY)
@@ -642,7 +672,8 @@ class TestSnowflakeAppManager:
         )
         mock_execute.return_value = result_cursor
 
-        url = SnowflakeAppManager().get_service_endpoint_url("DB.SCHEMA.SVC")
+        fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
+        url = SnowflakeAppManager().get_service_endpoint_url(fqn)
         assert url == "https://my-endpoint.snowflakecomputing.app"
         # Should call SHOW ENDPOINTS then SELECT
         assert mock_execute.call_count == 2
@@ -653,7 +684,8 @@ class TestSnowflakeAppManager:
         result_cursor.fetchone.return_value = None
         mock_execute.return_value = result_cursor
 
-        url = SnowflakeAppManager().get_service_endpoint_url("DB.SCHEMA.SVC")
+        fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
+        url = SnowflakeAppManager().get_service_endpoint_url(fqn)
         assert url is None
 
 

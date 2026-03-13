@@ -34,6 +34,7 @@ from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import CommandResult, MessageResult
 from snowflake.cli.api.project.project_paths import ProjectPaths
 from snowflake.cli.api.secure_path import SecurePath
@@ -149,11 +150,11 @@ def deploy(
         )
 
     # ── Derived names ─────────────────────────────────────────────────
-    stage_fqn = f"{database}.{schema}.{stage_name}"
+    stage_fqn = FQN(database=database, schema=schema, name=stage_name)
     build_job_service_name = f"{resolved_entity_id.upper()}_BUILD_JOB"
-    build_job_name = f"{database}.{schema}.{build_job_service_name}"
+    build_job_fqn = FQN(database=database, schema=schema, name=build_job_service_name)
     service_name_short = resolved_entity_id.upper()
-    service_fqn = f"{database}.{schema}.{service_name_short}"
+    service_fqn = FQN(database=database, schema=schema, name=service_name_short)
 
     manager = SnowflakeAppManager()
     stage_manager = StageManager()
@@ -205,13 +206,13 @@ def deploy(
     image_repo_url = manager.get_image_repo_url(image_repository)
 
     # Step 5: Drop existing build job if present
-    cli_console.step(f"Dropping service if exists: {build_job_name}")
-    manager.drop_service_if_exists(build_job_name)
+    cli_console.step(f"Dropping service if exists: {build_job_fqn}")
+    manager.drop_service_if_exists(build_job_fqn)
 
     # Step 6: Execute build job service
-    cli_console.step(f"Executing build job service: {build_job_name}")
+    cli_console.step(f"Executing build job service: {build_job_fqn}")
     manager.execute_build_job(
-        job_service_name=build_job_name,
+        job_service_name=build_job_fqn,
         compute_pool=build_compute_pool,
         code_stage=stage_fqn,
         image_repo_url=image_repo_url,
@@ -222,13 +223,11 @@ def deploy(
     # Step 7: Poll for build completion
     cli_console.step("Waiting for build to complete...")
     _poll_until(
-        poll_fn=lambda: manager.get_build_status(
-            database, schema, build_job_service_name
-        ),
+        poll_fn=lambda: manager.get_build_status(build_job_fqn),
         done_states={"DONE"},
         error_states={"FAILED", "IDLE"},
         known_pending_states={"PENDING", "RUNNING"},
-        timeout_message=f"Build timed out. Check service logs: {build_job_name}",
+        timeout_message=f"Build timed out. Check service logs: {build_job_fqn}",
     )
 
     # ── Deploy phase ──────────────────────────────────────────────────
@@ -272,9 +271,7 @@ def deploy(
     # Step 11: Poll until service is RUNNING
     cli_console.step("Waiting for service to be ready...")
     _poll_until(
-        poll_fn=lambda: manager.get_service_status(
-            database, schema, service_name_short
-        ),
+        poll_fn=lambda: manager.get_service_status(service_fqn),
         done_states={"RUNNING"},
         error_states={"FAILED", "IDLE"},
         known_pending_states={"PENDING", "SUSPENDING", "SUSPENDED"},

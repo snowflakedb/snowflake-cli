@@ -209,32 +209,32 @@ class SnowflakeAppManager(SqlExecutionMixin):
 
     def create_schema_if_not_exists(self, database: str, schema: str) -> None:
         """Create schema if it doesn't exist."""
-        fqn = f'"{database}"."{schema}"'
-        self.execute_query(f"CREATE SCHEMA IF NOT EXISTS {fqn}")
+        schema_fqn = FQN(database=None, schema=database, name=schema)
+        self.execute_query(f"CREATE SCHEMA IF NOT EXISTS {schema_fqn.sql_identifier}")
 
-    def stage_exists(self, stage_fqn: str) -> bool:
+    def stage_exists(self, stage_fqn: FQN) -> bool:
         """Check if a stage exists."""
         try:
-            self.execute_query(f"DESCRIBE STAGE {stage_fqn}")
+            self.execute_query(f"DESCRIBE STAGE {stage_fqn.sql_identifier}")
             return True
         except Exception:
             return False
 
-    def clear_stage(self, stage_fqn: str) -> None:
+    def clear_stage(self, stage_fqn: FQN) -> None:
         """Clear all files from a stage."""
-        self.execute_query(f"REMOVE @{stage_fqn}")
+        self.execute_query(f"REMOVE @{stage_fqn.identifier}")
 
     def create_stage(
-        self, stage_fqn: str, encryption_type: str = "SNOWFLAKE_SSE"
+        self, stage_fqn: FQN, encryption_type: str = "SNOWFLAKE_SSE"
     ) -> None:
         """Create a stage if it doesn't exist."""
         self.execute_query(
-            f"CREATE STAGE IF NOT EXISTS {stage_fqn} ENCRYPTION = (TYPE = '{encryption_type}')"
+            f"CREATE STAGE IF NOT EXISTS {stage_fqn.sql_identifier} ENCRYPTION = (TYPE = '{encryption_type}')"
         )
 
-    def drop_service_if_exists(self, service_fqn: str) -> None:
+    def drop_service_if_exists(self, service_fqn: FQN) -> None:
         """Drop a service if it exists."""
-        self.execute_query(f"DROP SERVICE IF EXISTS {service_fqn}")
+        self.execute_query(f"DROP SERVICE IF EXISTS {service_fqn.sql_identifier}")
 
     def get_image_repo_url(self, repo_name: str) -> str:
         """Get the image repository URL and convert to local registry."""
@@ -277,9 +277,9 @@ class SnowflakeAppManager(SqlExecutionMixin):
 
     def execute_build_job(
         self,
-        job_service_name: str,
+        job_service_name: FQN,
         compute_pool: str,
-        code_stage: str,
+        code_stage: FQN,
         image_repo_url: str,
         app_id: str,
         external_access_integration: Optional[str] = None,
@@ -299,12 +299,12 @@ class SnowflakeAppManager(SqlExecutionMixin):
         mountPath: /app
   volumes:
   - name: code-volume
-    source: "@{code_stage}"
+    source: "@{code_stage.identifier}"
     uid: 65532"""
 
         query_lines = [
             f"EXECUTE JOB SERVICE IN COMPUTE POOL {compute_pool}",
-            f"NAME = {job_service_name}",
+            f"NAME = {job_service_name.sql_identifier}",
             "ASYNC = TRUE",
             f"FROM SPECIFICATION $${spec}$$",
         ]
@@ -317,7 +317,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         query = "\n".join(query_lines)
         self.execute_query(query)
 
-    def get_build_status(self, database: str, schema: str, job_name: str) -> str:
+    def get_build_status(self, job_fqn: FQN) -> str:
         """
         Get the status of the build job service.
 
@@ -325,14 +325,13 @@ class SnowflakeAppManager(SqlExecutionMixin):
             - "IDLE" if the job service doesn't exist
             - The actual status from SHOW SERVICES (e.g., "PENDING", "RUNNING", "DONE", "FAILED")
         """
-        schema_fqn = f"{database}.{schema}"
-        self.execute_query(f"SHOW SERVICES IN SCHEMA {schema_fqn}")
+        self.execute_query(f"SHOW SERVICES IN SCHEMA {job_fqn.prefix}")
 
         # Query the result to find the job status
         result = self.execute_query(
             f'SELECT COUNT(*), MAX("status") '
             f"FROM TABLE(RESULT_SCAN(LAST_QUERY_ID())) "
-            f"WHERE \"name\" = '{job_name}'"
+            f"WHERE \"name\" = '{job_fqn.name}'"
         )
         row = result.fetchone()
 
@@ -343,7 +342,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
 
     def create_service(
         self,
-        service_name: str,
+        service_name: FQN,
         compute_pool: str,
         query_warehouse: str,
         app_port: int = DEFAULT_APP_PORT,
@@ -367,7 +366,7 @@ serviceRoles:
       - app-endpoint"""
 
         query = (
-            f"CREATE SERVICE IF NOT EXISTS {service_name}\n"
+            f"CREATE SERVICE IF NOT EXISTS {service_name.sql_identifier}\n"
             f"IN COMPUTE POOL {compute_pool}\n"
             f"FROM SPECIFICATION $${spec}$$\n"
             f"QUERY_WAREHOUSE = {query_warehouse}"
@@ -377,15 +376,15 @@ serviceRoles:
         if app_comment:
             escaped_comment = app_comment.replace("'", "''")
             self.execute_query(
-                f"ALTER SERVICE {service_name} SET COMMENT = '{escaped_comment}'"
+                f"ALTER SERVICE {service_name.sql_identifier} SET COMMENT = '{escaped_comment}'"
             )
 
         # Suspend the service after creation (deploy will resume it)
-        self.execute_query(f"ALTER SERVICE {service_name} SUSPEND")
+        self.execute_query(f"ALTER SERVICE {service_name.sql_identifier} SUSPEND")
 
     def alter_service_spec(
         self,
-        service_name: str,
+        service_name: FQN,
         image_url: str,
         app_port: int = DEFAULT_APP_PORT,
     ) -> None:
@@ -403,14 +402,17 @@ serviceRoles:
     endpoints:
       - app-endpoint"""
 
-        query = f"ALTER SERVICE {service_name}\n" f"FROM SPECIFICATION $${spec}$$"
+        query = (
+            f"ALTER SERVICE {service_name.sql_identifier}\n"
+            f"FROM SPECIFICATION $${spec}$$"
+        )
         self.execute_query(query)
 
-    def resume_service(self, service_name: str) -> None:
+    def resume_service(self, service_name: FQN) -> None:
         """Resume a suspended service."""
-        self.execute_query(f"ALTER SERVICE {service_name} RESUME")
+        self.execute_query(f"ALTER SERVICE {service_name.sql_identifier} RESUME")
 
-    def get_service_status(self, database: str, schema: str, service_name: str) -> str:
+    def get_service_status(self, service_fqn: FQN) -> str:
         """
         Get the status of a service.
 
@@ -418,13 +420,12 @@ serviceRoles:
             - "IDLE" if the service doesn't exist
             - The actual status from SHOW SERVICES (e.g., "PENDING", "READY", "SUSPENDED", "FAILED")
         """
-        schema_fqn = f"{database}.{schema}"
-        self.execute_query(f"SHOW SERVICES IN SCHEMA {schema_fqn}")
+        self.execute_query(f"SHOW SERVICES IN SCHEMA {service_fqn.prefix}")
 
         result = self.execute_query(
             f'SELECT COUNT(*), MAX("status") '
             f"FROM TABLE(RESULT_SCAN(LAST_QUERY_ID())) "
-            f"WHERE \"name\" = '{service_name}'"
+            f"WHERE \"name\" = '{service_fqn.name}'"
         )
         row = result.fetchone()
 
@@ -434,10 +435,10 @@ serviceRoles:
         return row[1]
 
     def get_service_endpoint_url(
-        self, service_fqn: str, endpoint_name: str = "app-endpoint"
+        self, service_fqn: FQN, endpoint_name: str = "app-endpoint"
     ) -> Optional[str]:
         """Get the ingress URL for a service endpoint."""
-        self.execute_query(f"SHOW ENDPOINTS IN SERVICE {service_fqn}")
+        self.execute_query(f"SHOW ENDPOINTS IN SERVICE {service_fqn.identifier}")
 
         result = self.execute_query(
             f'SELECT "ingress_url" '
