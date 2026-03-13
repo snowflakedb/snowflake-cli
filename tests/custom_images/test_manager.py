@@ -39,6 +39,8 @@ version: "1.0"
 
 checks:
   entrypoint: "/usr/local/bin/entrypoint.sh"
+  required_scripts:
+    - start_nbctl.sh
   environment_variables:
     - name: DASHBOARD_PORT
       value: "12003"
@@ -222,6 +224,61 @@ checks:
         assert "entrypoint" in check_names
         assert "dependency_health" not in check_names
         assert "vulnerability_scan" not in check_names
+
+    @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
+    def test_required_scripts_pass(self, mock_run, config_path):
+        """Test that required_scripts check passes when script exists and is executable."""
+        inspect_response = make_docker_inspect_response(
+            entrypoint=["/usr/local/bin/entrypoint.sh"],
+            env_vars=["DASHBOARD_PORT=12003"],
+        )
+        pip_list = make_pip_list_response(
+            [
+                {"name": "snowflake-ml-python", "version": "1.0"},
+                {"name": "ray", "version": "2.0"},
+            ]
+        )
+        mock_run.side_effect = create_mock_side_effect(
+            inspect_response=inspect_response,
+            pip_list_response=pip_list,
+        )
+        manager = CustomImageManager(config_path=config_path)
+
+        report, _ = manager.validate("test-image:latest")
+
+        script_result = next(
+            r for r in report.results if r.check_name == "script_start_nbctl.sh"
+        )
+        assert script_result.passed
+        assert "executable" in script_result.message
+
+    @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
+    def test_required_scripts_missing(self, mock_run, config_path):
+        """Test that required_scripts check fails when script is missing or not executable."""
+        inspect_response = make_docker_inspect_response(
+            entrypoint=["/usr/local/bin/entrypoint.sh"],
+            env_vars=["DASHBOARD_PORT=12003"],
+        )
+        pip_list = make_pip_list_response(
+            [
+                {"name": "snowflake-ml-python", "version": "1.0"},
+                {"name": "ray", "version": "2.0"},
+            ]
+        )
+        mock_run.side_effect = create_mock_side_effect(
+            inspect_response=inspect_response,
+            pip_list_response=pip_list,
+            missing_scripts={"start_nbctl.sh"},
+        )
+        manager = CustomImageManager(config_path=config_path)
+
+        report, _ = manager.validate("test-image:latest")
+
+        script_result = next(
+            r for r in report.results if r.check_name == "script_start_nbctl.sh"
+        )
+        assert not script_result.passed
+        assert "missing or not executable" in script_result.message
 
 
 @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")

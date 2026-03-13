@@ -5,6 +5,11 @@ version: "1.0"
 checks:
   entrypoint: "/usr/local/bin/entrypoint.sh"
 
+  # Scripts that must exist and be executable in the image working directory.
+  # PEP injects "./start_nbctl.sh /shared/nbctl" as container args for vNext notebooks.
+  required_scripts:
+    - start_nbctl.sh
+
   environment_variables:
     - name: DASHBOARD_PORT
       value: "12003"
