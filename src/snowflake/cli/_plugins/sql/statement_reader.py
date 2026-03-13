@@ -224,13 +224,17 @@ def files_reader(
     paths: Sequence[SecurePath],
     operators: OperatorFunctions,
     remove_comments: bool = False,
+    pre_render: SqlTransformFunc | None = None,
 ) -> RecursiveStatementReader:
     """Entry point for reading statements from files.
 
     Returns a generator with statements."""
     for path in paths:
         with path.open(read_file_limit_mb=UNLIMITED) as f:
-            stmts = split_statements(io.StringIO(f.read()), remove_comments)
+            content = f.read()
+            if pre_render:
+                content = pre_render(content)
+            stmts = split_statements(io.StringIO(content), remove_comments)
             yield from recursive_statement_reader(
                 stmts,
                 [path.as_posix()],
@@ -243,6 +247,7 @@ def query_reader(
     source: str,
     operators: OperatorFunctions,
     remove_comments: bool = False,
+    pre_render: SqlTransformFunc | None = None,
 ) -> RecursiveStatementReader:
     """Entry point for reading statements from query.
 
@@ -251,7 +256,10 @@ def query_reader(
     # when the line starts with a command:
     # '!queries amount=3; select 3;'
     # it is treated as a single statement
-    stmts = split_statements(io.StringIO(source), remove_comments)
+    content = source
+    if pre_render:
+        content = pre_render(content)
+    stmts = split_statements(io.StringIO(content), remove_comments)
     yield from recursive_statement_reader(stmts, [], operators, remove_comments)
 
 
