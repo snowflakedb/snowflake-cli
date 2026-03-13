@@ -20,23 +20,24 @@
   |                                     installation.                            |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | app          Manages a Snowflake Native App                                  |
-  | auth         Manages authentication methods.                                 |
-  | connection   Manages connections to Snowflake.                               |
-  | cortex       Provides access to Snowflake Cortex.                            |
-  | dbt          Manages dbt on Snowflake projects.                              |
-  | git          Manages git repositories in Snowflake.                          |
-  | helpers      Helper commands.                                                |
-  | init         Creates project directory from template.                        |
-  | logs         Retrieves logs for a given object.                              |
-  | notebook     Manages notebooks in Snowflake.                                 |
-  | object       Manages Snowflake objects like warehouses and stages            |
-  | snowpark     Manages procedures and functions.                               |
-  | spcs         Manages Snowpark Container Services compute pools, services,    |
-  |              image registries, and image repositories.                       |
-  | sql          Executes Snowflake query.                                       |
-  | stage        Manages stages.                                                 |
-  | streamlit    Manages a Streamlit app in Snowflake.                           |
+  | app            Manages a Snowflake Native App                                |
+  | auth           Manages authentication methods.                               |
+  | connection     Manages connections to Snowflake.                             |
+  | cortex         Provides access to Snowflake Cortex.                          |
+  | custom-image   Manages custom images for Snowpark Container Services.        |
+  | dbt            Manages dbt on Snowflake projects.                            |
+  | git            Manages git repositories in Snowflake.                        |
+  | helpers        Helper commands.                                              |
+  | init           Creates project directory from template.                      |
+  | logs           Retrieves logs for a given object.                            |
+  | notebook       Manages notebooks in Snowflake.                               |
+  | object         Manages Snowflake objects like warehouses and stages          |
+  | snowpark       Manages procedures and functions.                             |
+  | spcs           Manages Snowpark Container Services compute pools, services,  |
+  |                image registries, and image repositories.                     |
+  | sql            Executes Snowflake query.                                     |
+  | stage          Manages stages.                                               |
+  | streamlit      Manages a Streamlit app in Snowflake.                         |
   +------------------------------------------------------------------------------+
   
   
@@ -4544,6 +4545,75 @@
   | remove         Removes a connection from configuration file.                 |
   | set-default    Changes default connection to provided value.                 |
   | test           Tests the connection to Snowflake.                            |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[custom-image.validate]
+  '''
+                                                                                  
+   Usage: root custom-image validate [OPTIONS] IMAGE                              
+                                                                                  
+   Validates a Docker image against Snowflake custom image requirements.          
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  | *    image      TEXT  Local Docker image to validate. Accepts image name     |
+  |                       (e.g., 'myimage:latest') or image ID/hash.             |
+  |                       [required]                                             |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | --image-type                    TEXT  Base image type: 'cpu' or 'gpu'.       |
+  |                                       Defaults to 'cpu'.                     |
+  |                                       [default: cpu]                         |
+  | --scan-vulnerabilities                Run vulnerability scan using Grype.    |
+  |                                       Requires Grype to be installed.        |
+  | --help                  -h            Show this message and exit.            |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
+  |                                CSV]                   format.                |
+  |                                                       [default: TABLE]       |
+  | --verbose              -v                             Displays log entries   |
+  |                                                       for log levels info    |
+  |                                                       and higher.            |
+  | --debug                                               Displays log entries   |
+  |                                                       for log levels debug   |
+  |                                                       and higher; debug logs |
+  |                                                       contain additional     |
+  |                                                       information.           |
+  | --silent                                              Turns off intermediate |
+  |                                                       output to console.     |
+  | --enhanced-exit-codes                                 Differentiate exit     |
+  |                                                       error codes based on   |
+  |                                                       failure type.          |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified. [env var:   |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[custom-image]
+  '''
+                                                                                  
+   Usage: root custom-image [OPTIONS] COMMAND [ARGS]...                           
+                                                                                  
+   Manages custom images for Snowpark Container Services.                         
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | --help  -h        Show this message and exit.                                |
+  +------------------------------------------------------------------------------+
+  +- Commands -------------------------------------------------------------------+
+  | validate   Validates a Docker image against Snowflake custom image           |
+  |            requirements.                                                     |
   +------------------------------------------------------------------------------+
   
   
@@ -22597,23 +22667,24 @@
   |                                     installation.                            |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | app          Manages a Snowflake Native App                                  |
-  | auth         Manages authentication methods.                                 |
-  | connection   Manages connections to Snowflake.                               |
-  | cortex       Provides access to Snowflake Cortex.                            |
-  | dbt          Manages dbt on Snowflake projects.                              |
-  | git          Manages git repositories in Snowflake.                          |
-  | helpers      Helper commands.                                                |
-  | init         Creates project directory from template.                        |
-  | logs         Retrieves logs for a given object.                              |
-  | notebook     Manages notebooks in Snowflake.                                 |
-  | object       Manages Snowflake objects like warehouses and stages            |
-  | snowpark     Manages procedures and functions.                               |
-  | spcs         Manages Snowpark Container Services compute pools, services,    |
-  |              image registries, and image repositories.                       |
-  | sql          Executes Snowflake query.                                       |
-  | stage        Manages stages.                                                 |
-  | streamlit    Manages a Streamlit app in Snowflake.                           |
+  | app            Manages a Snowflake Native App                                |
+  | auth           Manages authentication methods.                               |
+  | connection     Manages connections to Snowflake.                             |
+  | cortex         Provides access to Snowflake Cortex.                          |
+  | custom-image   Manages custom images for Snowpark Container Services.        |
+  | dbt            Manages dbt on Snowflake projects.                            |
+  | git            Manages git repositories in Snowflake.                        |
+  | helpers        Helper commands.                                              |
+  | init           Creates project directory from template.                      |
+  | logs           Retrieves logs for a given object.                            |
+  | notebook       Manages notebooks in Snowflake.                               |
+  | object         Manages Snowflake objects like warehouses and stages          |
+  | snowpark       Manages procedures and functions.                             |
+  | spcs           Manages Snowpark Container Services compute pools, services,  |
+  |                image registries, and image repositories.                     |
+  | sql            Executes Snowflake query.                                     |
+  | stage          Manages stages.                                               |
+  | streamlit      Manages a Streamlit app in Snowflake.                         |
   +------------------------------------------------------------------------------+
   
   
@@ -22782,6 +22853,24 @@
   | remove         Removes a connection from configuration file.                 |
   | set-default    Changes default connection to provided value.                 |
   | test           Tests the connection to Snowflake.                            |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages_no_help_flag[custom-image]
+  '''
+                                                                                  
+   Usage: root custom-image [OPTIONS] COMMAND [ARGS]...                           
+                                                                                  
+   Manages custom images for Snowpark Container Services.                         
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | --help  -h        Show this message and exit.                                |
+  +------------------------------------------------------------------------------+
+  +- Commands -------------------------------------------------------------------+
+  | validate   Validates a Docker image against Snowflake custom image           |
+  |            requirements.                                                     |
   +------------------------------------------------------------------------------+
   
   
