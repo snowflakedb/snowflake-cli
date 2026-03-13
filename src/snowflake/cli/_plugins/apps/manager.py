@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Set
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Set, TypeVar
 
 from snowflake.cli._plugins.apps.snowflake_app_entity_model import DEFAULT_APP_PORT
 
@@ -46,33 +46,57 @@ def _check_feature_enabled():
         raise CliError("This feature is not available yet.")
 
 
+T = TypeVar("T")
+
+
 def _poll_until(
-    poll_fn: Callable[[], str],
+    poll_fn: Callable[[], T],
     *,
-    done_states: Set[str],
-    error_states: Set[str],
-    known_pending_states: Set[str],
+    done_states: Optional[Set[str]] = None,
+    error_states: Optional[Set[str]] = None,
+    known_pending_states: Optional[Set[str]] = None,
+    is_done: Optional[Callable[[T], bool]] = None,
+    is_error: Optional[Callable[[T], bool]] = None,
+    format_status: Callable[[T], str] = str,
     max_attempts: int = 240,
     interval_seconds: int = 5,
     timeout_message: str = "Operation timed out.",
-) -> str:
-    """Poll *poll_fn* until the returned status is in *done_states*.
+) -> T:
+    """Poll *poll_fn* until the result satisfies a done condition.
 
-    Raises ``CliError`` for statuses in *error_states* or on timeout.
-    Returns the final status on success.
+    Two modes are supported:
+
+    **State-set mode** (default when *done_states* is provided):
+        Compare the returned string against *done_states*, *error_states*,
+        and *known_pending_states* sets.
+
+    **Predicate mode** (when *is_done* is provided):
+        Call *is_done(result)* each iteration.  Optionally supply *is_error*
+        to detect error values.
+
+    Raises ``CliError`` on error or timeout.  Returns the final value on
+    success.
     """
     for _attempt in range(max_attempts):
         time.sleep(interval_seconds)
-        status = poll_fn()
-        cli_console.step(f"Status: {status}")
+        result = poll_fn()
+        cli_console.step(f"Status: {format_status(result)}")
 
-        if status in done_states:
-            return status
-        if status in error_states:
-            raise CliError(f"{timeout_message} (status={status})")
-        if status not in known_pending_states:
-            cli_console.step(f"Unknown status: {status}")
-            return status
+        if is_done is not None:
+            # ── Predicate mode ────────────────────────────────────
+            if is_done(result):
+                return result
+            if is_error is not None and is_error(result):
+                raise CliError(f"{timeout_message} (status={format_status(result)})")
+        else:
+            # ── State-set mode (original behaviour) ───────────────
+            if done_states and result in done_states:
+                return result
+            if error_states and result in error_states:
+                raise CliError(f"{timeout_message} (status={result})")
+            if known_pending_states is not None and result not in known_pending_states:
+                cli_console.step(f"Unknown status: {result}")
+                return result
 
     raise CliError(
         f"{timeout_message} "

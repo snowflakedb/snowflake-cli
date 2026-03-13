@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import json
-import time
 from pathlib import Path
 from typing import Optional
 
@@ -284,21 +283,14 @@ def deploy(
 
     # Step 12: Get endpoint URL (poll until provisioning completes)
     cli_console.step("Getting endpoint URL")
-    max_attempts = 240  # 240 * 5s = 20 minutes
-    for _attempt in range(max_attempts):
-        endpoint_url = manager.get_service_endpoint_url(service_fqn)
-
-        if endpoint_url and "provisioning in progress" not in endpoint_url.lower():
-            return MessageResult(f"App ready at {endpoint_url}")
-
-        if endpoint_url:
-            cli_console.step(f"Endpoint status: {endpoint_url}")
-        else:
-            cli_console.step("Endpoint URL not yet available")
-
-        time.sleep(5)
-
-    raise CliError(
-        f"Endpoint provisioning timed out after {max_attempts * 5 // 60} minutes. "
-        f'Check with: snow sql -q "SHOW ENDPOINTS IN SERVICE {service_fqn}"'
+    endpoint_url = _poll_until(
+        poll_fn=lambda: manager.get_service_endpoint_url(service_fqn),
+        is_done=lambda url: url is not None
+        and "provisioning in progress" not in url.lower(),
+        format_status=lambda url: url or "Endpoint URL not yet available",
+        timeout_message=(
+            f"Endpoint provisioning timed out. "
+            f'Check with: snow sql -q "SHOW ENDPOINTS IN SERVICE {service_fqn}"'
+        ),
     )
+    return MessageResult(f"App ready at {endpoint_url}")

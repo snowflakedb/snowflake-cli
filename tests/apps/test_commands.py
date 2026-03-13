@@ -25,6 +25,7 @@ from snowflake.cli._plugins.apps.manager import (
     _get_external_access,
     _get_snowflake_app_entities,
     _object_exists,
+    _poll_until,
     _resolve_entity_id,
 )
 from snowflake.cli.api.exceptions import CliError
@@ -195,6 +196,141 @@ class TestGetEntity:
     def test_raises_when_not_found(self, _):
         with pytest.raises(CliError, match="Entity 'my_app' not found"):
             _get_entity("my_app")
+
+
+# ── _poll_until tests ─────────────────────────────────────────────────
+
+
+class TestPollUntilPredicateMode:
+    """Tests for the predicate-based (is_done / is_error) mode of _poll_until."""
+
+    @patch("snowflake.cli._plugins.apps.manager.time.sleep")
+    def test_is_done_predicate_returns_value(self, mock_sleep):
+        result = _poll_until(
+            poll_fn=lambda: "https://my-app.snowflakecomputing.app",
+            is_done=lambda url: url is not None
+            and "provisioning in progress" not in url.lower(),
+            timeout_message="timed out",
+        )
+        assert result == "https://my-app.snowflakecomputing.app"
+
+    @patch("snowflake.cli._plugins.apps.manager.time.sleep")
+    def test_is_done_with_none_then_provisioning_then_ready(self, mock_sleep):
+        values = iter(
+            [
+                None,
+                "Provisioning in progress",
+                "https://my-app.snowflakecomputing.app",
+            ]
+        )
+        result = _poll_until(
+            poll_fn=lambda: next(values),
+            is_done=lambda url: url is not None
+            and "provisioning in progress" not in url.lower(),
+            format_status=lambda url: url or "not yet available",
+            timeout_message="timed out",
+        )
+        assert result == "https://my-app.snowflakecomputing.app"
+        assert mock_sleep.call_count == 3
+
+    @patch("snowflake.cli._plugins.apps.manager.time.sleep")
+    def test_is_error_predicate_raises_cli_error(self, mock_sleep):
+        with pytest.raises(CliError, match="something failed"):
+            _poll_until(
+                poll_fn=lambda: "ERROR_STATE",
+                is_done=lambda v: v == "READY",
+                is_error=lambda v: v.startswith("ERROR"),
+                timeout_message="something failed",
+            )
+
+    @patch("snowflake.cli._plugins.apps.manager.time.sleep")
+    def test_predicate_mode_timeout(self, mock_sleep):
+        with pytest.raises(CliError, match="timed out"):
+            _poll_until(
+                poll_fn=lambda: None,
+                is_done=lambda v: v is not None,
+                max_attempts=3,
+                interval_seconds=1,
+                timeout_message="timed out",
+            )
+        assert mock_sleep.call_count == 3
+
+    @patch("snowflake.cli._plugins.apps.manager.time.sleep")
+    def test_format_status_used_in_predicate_mode(self, mock_sleep, capsys):
+        values = iter([None, "https://ready.app"])
+        _poll_until(
+            poll_fn=lambda: next(values),
+            is_done=lambda url: url is not None and url.startswith("https://"),
+            format_status=lambda url: url or "waiting...",
+            max_attempts=5,
+            timeout_message="timed out",
+        )
+        # Just verify it completes without error; the format_status lambda
+        # is exercised by the cli_console.step call inside _poll_until.
+        assert mock_sleep.call_count == 2
+
+
+class TestPollUntilStateSetMode:
+    """Verify the original state-set mode still works after refactoring."""
+
+    @patch("snowflake.cli._plugins.apps.manager.time.sleep")
+    def test_done_state_returns(self, mock_sleep):
+        result = _poll_until(
+            poll_fn=lambda: "DONE",
+            done_states={"DONE"},
+            error_states={"FAILED"},
+            known_pending_states={"PENDING"},
+            timeout_message="timed out",
+        )
+        assert result == "DONE"
+
+    @patch("snowflake.cli._plugins.apps.manager.time.sleep")
+    def test_error_state_raises(self, mock_sleep):
+        with pytest.raises(CliError, match="timed out"):
+            _poll_until(
+                poll_fn=lambda: "FAILED",
+                done_states={"DONE"},
+                error_states={"FAILED"},
+                known_pending_states={"PENDING"},
+                timeout_message="timed out",
+            )
+
+    @patch("snowflake.cli._plugins.apps.manager.time.sleep")
+    def test_unknown_state_returns_early(self, mock_sleep):
+        result = _poll_until(
+            poll_fn=lambda: "UNKNOWN",
+            done_states={"DONE"},
+            error_states={"FAILED"},
+            known_pending_states={"PENDING"},
+            timeout_message="timed out",
+        )
+        assert result == "UNKNOWN"
+
+    @patch("snowflake.cli._plugins.apps.manager.time.sleep")
+    def test_pending_then_done(self, mock_sleep):
+        values = iter(["PENDING", "PENDING", "DONE"])
+        result = _poll_until(
+            poll_fn=lambda: next(values),
+            done_states={"DONE"},
+            error_states={"FAILED"},
+            known_pending_states={"PENDING"},
+            timeout_message="timed out",
+        )
+        assert result == "DONE"
+        assert mock_sleep.call_count == 3
+
+    @patch("snowflake.cli._plugins.apps.manager.time.sleep")
+    def test_state_set_timeout(self, mock_sleep):
+        with pytest.raises(CliError, match="timed out"):
+            _poll_until(
+                poll_fn=lambda: "PENDING",
+                done_states={"DONE"},
+                error_states={"FAILED"},
+                known_pending_states={"PENDING"},
+                max_attempts=2,
+                timeout_message="timed out",
+            )
+        assert mock_sleep.call_count == 2
 
 
 # ── _generate_snowflake_yml tests ─────────────────────────────────────
