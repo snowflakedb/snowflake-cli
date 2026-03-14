@@ -20,6 +20,7 @@
 ## Deprecations
 
 ## New additions
+* Added support for LOG_LEVEL, METRIC_LEVEL and TRACE_LEVEL
 
 ## Fixes and improvements
 * Fixed `snow stage copy` and `snow stage put` failing when a local directory path contains glob special characters (e.g. square brackets in `[id]` or `[slug]`). The path is now escaped before glob expansion so literal directory names are matched correctly.
