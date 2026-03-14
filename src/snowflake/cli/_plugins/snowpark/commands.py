@@ -84,6 +84,7 @@ from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import (
     DEFAULT_SIZE_LIMIT_MB,
 )
+from snowflake.cli.api.encoding import get_file_io_encoding
 from snowflake.cli.api.exceptions import (
     SecretsWithoutExternalAccessIntegrationError,
 )
@@ -324,7 +325,10 @@ def _check_if_all_defined_integrations_exists(
 def _read_snowflake_requirements_file(file_path: SecurePath):
     if not file_path.exists():
         return []
-    return file_path.read_text(file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB).splitlines()
+    return file_path.read_text(
+        file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB,
+        encoding=get_file_io_encoding(),
+    ).splitlines()
 
 
 @app.command("build", requires_connection=True)

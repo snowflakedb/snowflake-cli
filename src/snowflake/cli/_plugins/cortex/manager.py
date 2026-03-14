@@ -28,6 +28,7 @@ from snowflake.cli._plugins.cortex.types import (
 )
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
+from snowflake.cli.api.encoding import get_file_io_encoding
 from snowflake.cli.api.exceptions import CliError, SnowflakeSQLExecutionError
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
@@ -194,7 +195,10 @@ class CortexManager(SqlExecutionMixin):
         self,
         text_file: SecurePath,
     ) -> str:
-        file_content = text_file.read_text(file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB)
+        file_content = text_file.read_text(
+            file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB,
+            encoding=get_file_io_encoding(),
+        )
         return self.summarize_text(
             text=Text(file_content),
         )

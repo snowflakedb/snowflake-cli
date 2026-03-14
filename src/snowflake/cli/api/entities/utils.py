@@ -27,6 +27,7 @@ from snowflake.cli._plugins.stage.utils import print_diff_to_console
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.cli_global_context import get_cli_context, span
 from snowflake.cli.api.console.abc import AbstractConsole
+from snowflake.cli.api.encoding import get_file_io_encoding
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
@@ -304,7 +305,9 @@ def render_script_template(
 ) -> str:
     script_full_path = SecurePath(project_root) / script
     try:
-        template_content = script_full_path.read_text(file_size_limit_mb=UNLIMITED)
+        template_content = script_full_path.read_text(
+            file_size_limit_mb=UNLIMITED, encoding=get_file_io_encoding()
+        )
         env = override_env or choose_sql_jinja_env_based_on_template_syntax(
             template_content, reference_name=script
         )
