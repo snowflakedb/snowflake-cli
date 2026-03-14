@@ -34,6 +34,7 @@ def test_oauth_from_parameters(mock_connect, runner):
 
     mock_connect.assert_called_once_with(
         application="SNOWCLI.SQL",
+        unsafe_skip_file_permissions_check=True,
         application_name="snowcli",
         authenticator="OAUTH_AUTHORIZATION_CODE",
         oauth_client_id="client_id",
@@ -76,6 +77,7 @@ def test_oauth_from_config(mock_connect, runner, config_file):
 
     mock_connect.assert_called_once_with(
         application="SNOWCLI.SQL",
+        unsafe_skip_file_permissions_check=True,
         application_name="snowcli",
         authenticator="OAUTH_AUTHORIZATION_CODE",
         oauth_client_id="client_id",
@@ -125,6 +127,7 @@ def test_oauth_from_env_variables(mock_connect, runner, config_file):
 
     mock_connect.assert_called_once_with(
         application="SNOWCLI.SQL",
+        unsafe_skip_file_permissions_check=True,
         application_name="snowcli",
         authenticator="OAUTH_AUTHORIZATION_CODE",
         oauth_client_id="client_id",
@@ -164,6 +167,7 @@ def test_oauth_from_env_variables_and_temporary_connection(mock_connect, runner)
 
     mock_connect.assert_called_once_with(
         application="SNOWCLI.SQL",
+        unsafe_skip_file_permissions_check=True,
         application_name="snowcli",
         authenticator="OAUTH_AUTHORIZATION_CODE",
         oauth_client_id="client_id",

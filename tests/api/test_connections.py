@@ -91,6 +91,7 @@ def test_connection_cache_caches(
 
     mock_connect.assert_called_once_with(
         application=mock_command_info.return_value,
+        unsafe_skip_file_permissions_check=True,
         database="db_for_test",
         schema="test_public",
         role="test_role",

@@ -22,6 +22,7 @@ def test_workload_identity_provider_parameter(mock_connect, runner):
 
     mock_connect.assert_called_once_with(
         application="SNOWCLI.SQL",
+        unsafe_skip_file_permissions_check=True,
         application_name="snowcli",
         account="test_account",
         user="test_user",
@@ -61,6 +62,7 @@ def test_workload_identity_provider_from_config(mock_connect, runner, config_fil
 
     mock_connect.assert_called_once_with(
         application="SNOWCLI.SQL",
+        unsafe_skip_file_permissions_check=True,
         application_name="snowcli",
         account="test_account",
         user="test_user",

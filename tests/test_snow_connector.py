@@ -93,6 +93,7 @@ def test_command_context_is_passed_to_snowflake_connection(
 
     mock_connect.assert_called_once_with(
         application=expected,
+        unsafe_skip_file_permissions_check=True,
         database="db_for_test",
         schema="test_public",
         role="test_role",
@@ -177,6 +178,7 @@ def test_private_key_loading_and_aliases(
         )
         mock_connect.assert_called_once_with(
             application=mock_command_info.return_value,
+            unsafe_skip_file_permissions_check=True,
             authenticator="SNOWFLAKE_JWT",
             application_name="snowcli",
             using_session_keep_alive=True,
@@ -269,6 +271,7 @@ def test_internal_application_data_is_sent_if_feature_flag_is_set(
 ):
     expected_kwargs = {
         "application": "SNOWCLI.SQL",
+        "unsafe_skip_file_permissions_check": True,
         "database": "db_for_test",
         "schema": "test_public",
         "role": "test_role",
@@ -641,3 +644,31 @@ def test_externalbrowser_authenticator_is_case_insensitive(
 
     # For externalbrowser, stdout should mirror to stderr
     assert stdout_stream._mirror is not None  # noqa: SLF001
+
+
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+@mock.patch("snowflake.connector.connect")
+def test_config_file_override_disables_connector_slice_permission_checks(
+    mock_connect, mock_command_info, test_snowcli_config
+):
+    """Test that when config_file_override is set, connector's config slices have permission checks disabled."""
+    from snowflake.cli._app.snow_connector import connect_to_snowflake
+    from snowflake.cli.api.config import config_init
+    from snowflake.connector.config_manager import CONFIG_MANAGER
+
+    config_init(test_snowcli_config)
+    mock_command_info.return_value = "SNOWCLI.TEST"
+
+    # The autouse fixture already sets config_file_override to test_snowcli_config
+    # so this test verifies that when config_file_override is set, slices are modified
+    connect_to_snowflake(connection_name="default")
+
+    # Verify that all slices have check_permissions=False
+    for slice_entry in CONFIG_MANAGER._slices:  # noqa: SLF001
+        assert (
+            slice_entry.options.check_permissions is False
+        ), f"Slice {slice_entry.path} should have check_permissions=False"
+
+    # Verify unsafe_skip_file_permissions_check is passed to connector
+    call_kwargs = mock_connect.call_args[1]
+    assert call_kwargs["unsafe_skip_file_permissions_check"] is True
