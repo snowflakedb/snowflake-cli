@@ -112,6 +112,7 @@ class ConnectionContext:
         return self
 
     def update_from_config(self) -> ConnectionContext:
+        self.validate_and_complete()
         connection_config = get_connection_dict(connection_name=self.connection_name)
         if "private_key_path" in connection_config:
             connection_config["private_key_file"] = connection_config[
