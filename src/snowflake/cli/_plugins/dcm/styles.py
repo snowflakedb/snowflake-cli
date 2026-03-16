@@ -13,11 +13,13 @@
 # limitations under the License.
 from rich.style import Style
 
+_COLOR_BLUE = "#a0a8fe"
+
 DOMAIN_STYLE = Style(color="cyan")
 BOLD_STYLE = Style(bold=True)
 
 # Refresh
-STATUS_STYLE = Style(color="blue")
+STATUS_STYLE = Style(color=_COLOR_BLUE)
 REMOVED_STYLE = Style(color="red", italic=True)
 INSERTED_STYLE = Style(color="green", italic=True)
 
@@ -29,4 +31,4 @@ FAIL_STYLE = Style(color="red")
 CREATE_STYLE = Style(color="green")
 ALTER_STYLE = Style(color="yellow")
 DROP_STYLE = Style(color="red")
-UNKNOWN_STYLE = Style(color="blue")
+UNKNOWN_STYLE = Style(color=_COLOR_BLUE)
