@@ -116,7 +116,7 @@ limit_option = typer.Option(
 target_option = typer.Option(
     None,
     "--target",
-    help="Target profile from manifest.yml to use. Uses default_target if not specified.",
+    help="Target profile from `manifest.yml` to use. Uses `default_target` if not specified.",
     show_default=False,
 )
 
@@ -126,9 +126,15 @@ save_output_option = typer.Option(
     help="Save command response and artifacts to local 'out/' directory.",
 )
 
+
 optional_dcm_identifier = typer.Argument(
     None,
-    help="Identifier of DCM Project. Example: MY_PROJECT. Can be omitted if --target is specified or default_target is defined in manifest.",
+    help="""
+        Identifier of DCM Project. Example: MY_DB.MY_SCHEMA.MY_PROJECT.
+        Supports fully qualified (recommended) or simple names.
+        If unqualified, it defaults to the connection's database and schema.
+        Optional if `--target` or `default_target` is defined in the manifest.
+    """,
     show_default=False,
     click_type=IdentifierType(),
 )
@@ -279,7 +285,7 @@ def deploy(
     **options,
 ):
     """
-    Applies changes defined in DCM Project to Snowflake.
+    Syncs local project changes to Snowflake by creating, altering, or dropping objects to match your definition files.
     """
     clear_command_artifacts("deploy")
 
@@ -319,7 +325,7 @@ def plan(
     **options,
 ):
     """
-    Plans a DCM Project deployment (validates without executing).
+    Previews the objects that would be created, altered, or dropped to sync your project to Snowflake, without applying the changes. Provides a safe preview of the `deploy` command.
     """
     clear_command_artifacts("plan")
 
@@ -423,7 +429,7 @@ def drop(
     **options,
 ):
     """
-    Drops a DCM Project with the given name.
+    Drops a DCM Project.
     """
     context = _resolve_context_with_optional_manifest(from_location, identifier, target)
     project_id = context.project_identifier
@@ -478,7 +484,7 @@ def drop_deployment(
     deployment: str = typer.Option(
         ...,
         "--deployment",
-        help="Name or alias of the deployment to drop. For names containing '$', use single quotes to prevent shell expansion (e.g., 'DEPLOYMENT$1').",
+        help="Name or alias of the deployment to drop. For names containing '$', use single quotes to prevent shell expansion (e.g., 'DEPLOYMENT$1'). If both the deployment name and the alias match two different deployments, the deployment name match has higher precedence.",
         show_default=False,
     ),
     if_exists: bool = IfExistsOption(
@@ -539,7 +545,7 @@ def preview(
     **options,
 ):
     """
-    Returns rows from any table, view, dynamic table.
+    Returns rows from any table, view, dynamic table defined in DCM project.
     """
     context = _resolve_context_with_required_manifest(from_location, identifier, target)
     project_id = context.project_identifier
@@ -577,7 +583,7 @@ def refresh(
     **options,
 ):
     """
-    Refreshes dynamic tables defined in DCM project.
+    Refreshes dynamic tables defined in DCM project. It applies only to deployed objects.
     """
     clear_command_artifacts("refresh")
 
@@ -602,7 +608,7 @@ def test(
     **options,
 ):
     """
-    Tests all expectations defined in DCM project.
+    Tests all expectations defined in DCM project. It applies only to deployed objects.
     """
     clear_command_artifacts("test")
 
