@@ -178,6 +178,9 @@ features = ["development"]
 [tool.hatch.envs.ud.scripts]
 install = [
   'pip uninstall --yes snowflake-connector-python',
+  # Clean up orphaned files from the namespace package directory
+  'echo "$(python -c "import site; print(site.getsitepackages()[0])")/snowflake/connector"',
+  'rm -rf "$(python -c "import site; print(site.getsitepackages()[0])")/snowflake/connector"',
   'pip install "git+https://github.com/snowflakedb/universal-driver@{env:UD_BRANCH:main}#subdirectory=python"',
 ]
 
