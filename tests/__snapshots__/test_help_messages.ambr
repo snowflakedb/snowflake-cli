@@ -7762,9 +7762,11 @@
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
-  |                                 MY_PROJECT. Can be omitted if --target is    |
-  |                                 specified or default_target is defined in    |
-  |                                 manifest.                                    |
+  |                                 MY_DB.MY_SCHEMA.MY_PROJECT. Supports fully   |
+  |                                 qualified (recommended) or simple names. If  |
+  |                                 unqualified, it defaults to the connection's |
+  |                                 database and schema. Optional if --target or |
+  |                                 default_target is defined in the manifest.   |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --if-not-exists                Do nothing if the project already exists.     |
@@ -7904,13 +7906,16 @@
                                                                                   
    Usage: root dcm deploy [OPTIONS] [IDENTIFIER]                                  
                                                                                   
-   Applies changes defined in DCM Project to Snowflake.                           
+   Deploys local project changes to Snowflake by creating, altering, or dropping  
+   objects to match your definition files.                                        
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
-  |                                 MY_PROJECT. Can be omitted if --target is    |
-  |                                 specified or default_target is defined in    |
-  |                                 manifest.                                    |
+  |                                 MY_DB.MY_SCHEMA.MY_PROJECT. Supports fully   |
+  |                                 qualified (recommended) or simple names. If  |
+  |                                 unqualified, it defaults to the connection's |
+  |                                 database and schema. Optional if --target or |
+  |                                 default_target is defined in the manifest.   |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --from                 PATH  Local directory path containing DCM project     |
@@ -8058,9 +8063,11 @@
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
-  |                                 MY_PROJECT. Can be omitted if --target is    |
-  |                                 specified or default_target is defined in    |
-  |                                 manifest.                                    |
+  |                                 MY_DB.MY_SCHEMA.MY_PROJECT. Supports fully   |
+  |                                 qualified (recommended) or simple names. If  |
+  |                                 unqualified, it defaults to the connection's |
+  |                                 database and schema. Optional if --target or |
+  |                                 default_target is defined in the manifest.   |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --from            PATH  Local directory path containing DCM project files.   |
@@ -8203,15 +8210,20 @@
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
-  |                                 MY_PROJECT. Can be omitted if --target is    |
-  |                                 specified or default_target is defined in    |
-  |                                 manifest.                                    |
+  |                                 MY_DB.MY_SCHEMA.MY_PROJECT. Supports fully   |
+  |                                 qualified (recommended) or simple names. If  |
+  |                                 unqualified, it defaults to the connection's |
+  |                                 database and schema. Optional if --target or |
+  |                                 default_target is defined in the manifest.   |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | *  --deployment          TEXT  Name or alias of the deployment to drop. For  |
   |                                names containing '$', use single quotes to    |
   |                                prevent shell expansion (e.g.,                |
-  |                                'DEPLOYMENT$1').                              |
+  |                                'DEPLOYMENT$1'). If both the deployment name  |
+  |                                and the alias match two different             |
+  |                                deployments, the deployment name match has    |
+  |                                higher precedence.                            |
   |                                [required]                                    |
   |    --if-exists                 Do nothing if the deployment does not exist.  |
   |    --from                PATH  Local directory path containing DCM project   |
@@ -8350,13 +8362,15 @@
                                                                                   
    Usage: root dcm drop [OPTIONS] [IDENTIFIER]                                    
                                                                                   
-   Drops a DCM Project with the given name.                                       
+   Drops a DCM Project.                                                           
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
-  |                                 MY_PROJECT. Can be omitted if --target is    |
-  |                                 specified or default_target is defined in    |
-  |                                 manifest.                                    |
+  |                                 MY_DB.MY_SCHEMA.MY_PROJECT. Supports fully   |
+  |                                 qualified (recommended) or simple names. If  |
+  |                                 unqualified, it defaults to the connection's |
+  |                                 database and schema. Optional if --target or |
+  |                                 default_target is defined in the manifest.   |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --if-exists                Do nothing if the project does not exist.         |
@@ -8500,9 +8514,11 @@
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
-  |                                 MY_PROJECT. Can be omitted if --target is    |
-  |                                 specified or default_target is defined in    |
-  |                                 manifest.                                    |
+  |                                 MY_DB.MY_SCHEMA.MY_PROJECT. Supports fully   |
+  |                                 qualified (recommended) or simple names. If  |
+  |                                 unqualified, it defaults to the connection's |
+  |                                 database and schema. Optional if --target or |
+  |                                 default_target is defined in the manifest.   |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --from            PATH  Local directory path containing DCM project files.   |
@@ -8793,13 +8809,16 @@
                                                                                   
    Usage: root dcm plan [OPTIONS] [IDENTIFIER]                                    
                                                                                   
-   Plans a DCM Project deployment (validates without executing).                  
+   Shows what objects would be created, altered, or dropped by the deploy         
+   command, without applying any changes.                                         
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
-  |                                 MY_PROJECT. Can be omitted if --target is    |
-  |                                 specified or default_target is defined in    |
-  |                                 manifest.                                    |
+  |                                 MY_DB.MY_SCHEMA.MY_PROJECT. Supports fully   |
+  |                                 qualified (recommended) or simple names. If  |
+  |                                 unqualified, it defaults to the connection's |
+  |                                 database and schema. Optional if --target or |
+  |                                 default_target is defined in the manifest.   |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --from                 PATH  Local directory path containing DCM project     |
@@ -8946,9 +8965,11 @@
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
-  |                                 MY_PROJECT. Can be omitted if --target is    |
-  |                                 specified or default_target is defined in    |
-  |                                 manifest.                                    |
+  |                                 MY_DB.MY_SCHEMA.MY_PROJECT. Supports fully   |
+  |                                 qualified (recommended) or simple names. If  |
+  |                                 unqualified, it defaults to the connection's |
+  |                                 database and schema. Optional if --target or |
+  |                                 default_target is defined in the manifest.   |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | *  --object            TEXT     FQN of table/view/dynamic table to be        |
@@ -9097,9 +9118,11 @@
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
-  |                                 MY_PROJECT. Can be omitted if --target is    |
-  |                                 specified or default_target is defined in    |
-  |                                 manifest.                                    |
+  |                                 MY_DB.MY_SCHEMA.MY_PROJECT. Supports fully   |
+  |                                 qualified (recommended) or simple names. If  |
+  |                                 unqualified, it defaults to the connection's |
+  |                                 database and schema. Optional if --target or |
+  |                                 default_target is defined in the manifest.   |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --from                 PATH  Local directory path containing DCM project     |
@@ -9242,13 +9265,16 @@
                                                                                   
    Usage: root dcm refresh [OPTIONS] [IDENTIFIER]                                 
                                                                                   
-   Refreshes dynamic tables defined in DCM project.                               
+   Refreshes dynamic tables defined in DCM project. It applies only to deployed   
+   objects.                                                                       
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
-  |                                 MY_PROJECT. Can be omitted if --target is    |
-  |                                 specified or default_target is defined in    |
-  |                                 manifest.                                    |
+  |                                 MY_DB.MY_SCHEMA.MY_PROJECT. Supports fully   |
+  |                                 qualified (recommended) or simple names. If  |
+  |                                 unqualified, it defaults to the connection's |
+  |                                 database and schema. Optional if --target or |
+  |                                 default_target is defined in the manifest.   |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --from                 PATH  Local directory path containing DCM project     |
@@ -9389,13 +9415,16 @@
                                                                                   
    Usage: root dcm test [OPTIONS] [IDENTIFIER]                                    
                                                                                   
-   Tests all expectations defined in DCM project.                                 
+   Tests all expectations defined in DCM project. It applies only to deployed     
+   objects.                                                                       
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
-  |                                 MY_PROJECT. Can be omitted if --target is    |
-  |                                 specified or default_target is defined in    |
-  |                                 manifest.                                    |
+  |                                 MY_DB.MY_SCHEMA.MY_PROJECT. Supports fully   |
+  |                                 qualified (recommended) or simple names. If  |
+  |                                 unqualified, it defaults to the connection's |
+  |                                 database and schema. Optional if --target or |
+  |                                 default_target is defined in the manifest.   |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --from                 PATH  Local directory path containing DCM project     |
@@ -9543,17 +9572,21 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | create             Creates a DCM Project in Snowflake.                       |
-  | deploy             Applies changes defined in DCM Project to Snowflake.      |
+  | deploy             Deploys local project changes to Snowflake by creating,   |
+  |                    altering, or dropping objects to match your definition    |
+  |                    files.                                                    |
   | describe           Provides description of a DCM Project.                    |
-  | drop               Drops a DCM Project with the given name.                  |
+  | drop               Drops a DCM Project.                                      |
   | drop-deployment    Drops a deployment from the DCM Project.                  |
   | list               Lists all available DCM Projects.                         |
   | list-deployments   Lists deployments of given DCM Project.                   |
-  | plan               Plans a DCM Project deployment (validates without         |
-  |                    executing).                                               |
+  | plan               Shows what objects would be created, altered, or dropped  |
+  |                    by the deploy command, without applying any changes.      |
   | preview            Returns rows from any table, view, dynamic table.         |
-  | refresh            Refreshes dynamic tables defined in DCM project.          |
-  | test               Tests all expectations defined in DCM project.            |
+  | refresh            Refreshes dynamic tables defined in DCM project. It       |
+  |                    applies only to deployed objects.                         |
+  | test               Tests all expectations defined in DCM project. It applies |
+  |                    only to deployed objects.                                 |
   +------------------------------------------------------------------------------+
   
   
@@ -23314,17 +23347,21 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | create             Creates a DCM Project in Snowflake.                       |
-  | deploy             Applies changes defined in DCM Project to Snowflake.      |
+  | deploy             Deploys local project changes to Snowflake by creating,   |
+  |                    altering, or dropping objects to match your definition    |
+  |                    files.                                                    |
   | describe           Provides description of a DCM Project.                    |
-  | drop               Drops a DCM Project with the given name.                  |
+  | drop               Drops a DCM Project.                                      |
   | drop-deployment    Drops a deployment from the DCM Project.                  |
   | list               Lists all available DCM Projects.                         |
   | list-deployments   Lists deployments of given DCM Project.                   |
-  | plan               Plans a DCM Project deployment (validates without         |
-  |                    executing).                                               |
+  | plan               Shows what objects would be created, altered, or dropped  |
+  |                    by the deploy command, without applying any changes.      |
   | preview            Returns rows from any table, view, dynamic table.         |
-  | refresh            Refreshes dynamic tables defined in DCM project.          |
-  | test               Tests all expectations defined in DCM project.            |
+  | refresh            Refreshes dynamic tables defined in DCM project. It       |
+  |                    applies only to deployed objects.                         |
+  | test               Tests all expectations defined in DCM project. It applies |
+  |                    only to deployed objects.                                 |
   +------------------------------------------------------------------------------+
   
   
