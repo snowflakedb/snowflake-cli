@@ -285,7 +285,7 @@ def deploy(
     **options,
 ):
     """
-    Syncs local project changes to Snowflake by creating, altering, or dropping objects to match your definition files.
+    Deploys local project changes to Snowflake by creating, altering, or dropping objects to match your definition files.
     """
     clear_command_artifacts("deploy")
 
@@ -325,7 +325,7 @@ def plan(
     **options,
 ):
     """
-    Previews the objects that would be created, altered, or dropped to sync your project to Snowflake, without applying the changes. Provides a safe preview of the `deploy` command.
+    Shows what objects would be created, altered, or dropped by the `deploy` command, without applying any changes.
     """
     clear_command_artifacts("plan")
 
@@ -545,7 +545,7 @@ def preview(
     **options,
 ):
     """
-    Returns rows from any table, view, dynamic table defined in DCM project.
+    Returns rows from any table, view, dynamic table.
     """
     context = _resolve_context_with_required_manifest(from_location, identifier, target)
     project_id = context.project_identifier
