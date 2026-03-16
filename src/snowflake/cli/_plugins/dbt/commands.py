@@ -225,6 +225,14 @@ for cmd in DBT_COMMANDS:
     ) -> CommandResult:
         dbt_cli_args = ctx.args
         dbt_command = ctx.command.name
+
+        if dbt_command == "docs":
+            if not dbt_cli_args or dbt_cli_args[0] != "generate":
+                raise CliError(
+                    "Only `docs generate` is supported via `snow dbt execute`; "
+                    "`docs serve` is not available for dbt projects on Snowflake."
+                )
+
         name = FQN.from_string(ctx.parent.params["name"])
         run_async = ctx.parent.params["run_async"]
         dbt_version = ctx.parent.params.get("dbt_version")

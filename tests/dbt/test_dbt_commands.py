@@ -542,6 +542,17 @@ class TestDBTExecute:
                 "EXECUTE DBT PROJECT pipeline_name args='run --vars \\'start_date: 2016-06-01\\' --select my_model'",
                 id="vars-with-other-flags",
             ),
+            pytest.param(
+                [
+                    "dbt",
+                    "execute",
+                    "pipeline_name",
+                    "docs",
+                    "generate"
+                ],
+                "EXECUTE DBT PROJECT pipeline_name args='docs generate'",
+                id="docs-generate",
+            ),
         ],
     )
     def test_dbt_execute(self, mock_connect, mock_cursor, runner, args, expected_query):

@@ -20,6 +20,7 @@ DBT_COMMANDS = [
     "build",
     "compile",
     "deps",
+    "docs",
     "list",
     "parse",
     "retry",
@@ -35,7 +36,6 @@ UNSUPPORTED_COMMANDS = [
     "clean",
     "clone",
     "debug",
-    "docs",
     "init",
     "source",
 ]
