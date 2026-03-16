@@ -25,6 +25,7 @@
 
 ## Fixes and improvements
 * Fixed `snow streamlit deploy` failing with a collision error when `pages/*.py` glob in `additional_source_files` overlaps with the automatically-included `pages/` directory. Overlapping glob patterns are now deduplicated during v1-to-v2 definition conversion.
+* Updated `snowflake-connector-python` to version 4.4.0.
 
 # v3.16.0
 
