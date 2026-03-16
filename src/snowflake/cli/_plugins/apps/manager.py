@@ -24,11 +24,14 @@ if TYPE_CHECKING:
         SnowflakeAppEntityModel,
     )
 from snowflake.cli._plugins.object.manager import ObjectManager
+from snowflake.cli.api.artifacts.utils import bundle_artifacts
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.project_paths import ProjectPaths
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 
 DEFINITION_FILENAME = "snowflake.yml"
@@ -202,6 +205,36 @@ def _get_entity(entity_id: str) -> SnowflakeAppEntityModel:
     entity = snowflake_apps[entity_id]
     assert isinstance(entity, SnowflakeAppEntityModel)
     return entity
+
+
+def perform_bundle(
+    resolved_entity_id: str,
+    entity: "SnowflakeAppEntityModel",
+) -> ProjectPaths:
+    """Bundle source artifacts for a snowflake-app entity.
+
+    Resolves glob patterns and src/dest mappings defined in the entity's
+    ``artifacts`` list and copies (or symlinks) the matched files into a
+    temporary *bundle root* directory under ``<project_root>/output/bundle``.
+
+    This function is the shared implementation behind both
+    ``snow apps bundle`` and the bundling step of ``snow apps deploy``.
+
+    Returns the :class:`ProjectPaths` instance so callers can inspect or
+    upload the bundle root, and are responsible for cleanup via
+    ``project_paths.clean_up_output()`` when finished.
+    """
+    artifacts = entity.artifacts
+
+    project_root = get_cli_context().project_root
+    project_paths = ProjectPaths(project_root=project_root)
+    project_paths.remove_up_bundle_root()
+    SecurePath(project_paths.bundle_root).mkdir(parents=True, exist_ok=True)
+
+    cli_console.step("Bundling source files")
+    bundle_artifacts(project_paths, artifacts)
+
+    return project_paths
 
 
 class SnowflakeAppManager(SqlExecutionMixin):

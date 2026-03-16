@@ -26,9 +26,9 @@ from snowflake.cli._plugins.apps.manager import (
     _get_entity,
     _poll_until,
     _resolve_entity_id,
+    perform_bundle,
 )
 from snowflake.cli._plugins.stage.manager import StageManager
-from snowflake.cli.api.artifacts.utils import bundle_artifacts
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console import cli_console
@@ -36,8 +36,6 @@ from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import CommandResult, MessageResult
-from snowflake.cli.api.project.project_paths import ProjectPaths
-from snowflake.cli.api.secure_path import SecurePath
 
 app = SnowTyperFactory(
     name="apps",
@@ -77,6 +75,29 @@ def init(
     return MessageResult(f"Initialized Snowflake App project in {DEFINITION_FILENAME}.")
 
 
+@app.command()
+def bundle(
+    entity_id: Optional[str] = typer.Option(
+        None,
+        "--entity-id",
+        help="ID of the snowflake-app entity to bundle. Required if multiple snowflake-app entities exist.",
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Bundles a Snowflake App by resolving artifacts defined in snowflake.yml.
+
+    Copies (or symlinks) the matched source files into a local output directory
+    (output/bundle) so you can inspect exactly what would be uploaded during deploy.
+    """
+    _check_feature_enabled()
+    resolved_entity_id = _resolve_entity_id(entity_id)
+    entity = _get_entity(resolved_entity_id)
+
+    project_paths = perform_bundle(resolved_entity_id, entity)
+    return MessageResult(f"Bundle generated at {project_paths.bundle_root}")
+
+
 @app.command(requires_connection=True)
 def deploy(
     entity_id: Optional[str] = typer.Option(
@@ -111,8 +132,6 @@ def deploy(
     else:
         stage_name = f"{resolved_entity_id.upper()}_CODE_STAGE"
         encryption_type = "SNOWFLAKE_SSE"
-
-    artifacts = entity.artifacts
 
     build_compute_pool = (
         entity.build_compute_pool.name if entity.build_compute_pool else None
@@ -175,20 +194,13 @@ def deploy(
 
     # Step 3: Bundle and upload artifact files to stage
     #
-    # We reuse the bundle_artifacts helper (same logic as `snow app bundle`)
-    # to resolve glob patterns and src/dest mappings into a flat temporary
-    # directory, then upload that directory recursively so nested folders
-    # are preserved on the stage.
-    cli_console.step("Bundling source files")
-
-    project_root = get_cli_context().project_root
-    project_paths = ProjectPaths(project_root=project_root)
-    project_paths.remove_up_bundle_root()
-    SecurePath(project_paths.bundle_root).mkdir(parents=True, exist_ok=True)
+    # We reuse perform_bundle (same logic as `snow apps bundle`) to resolve
+    # glob patterns and src/dest mappings into a flat temporary directory,
+    # then upload that directory recursively so nested folders are preserved
+    # on the stage.
+    project_paths = perform_bundle(resolved_entity_id, entity)
 
     try:
-        bundle_artifacts(project_paths, artifacts)
-
         cli_console.step(f"Uploading bundled files to @{stage_fqn}")
         for result in stage_manager.put_recursive(
             local_path=project_paths.bundle_root,

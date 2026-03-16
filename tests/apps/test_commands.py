@@ -27,6 +27,7 @@ from snowflake.cli._plugins.apps.manager import (
     _object_exists,
     _poll_until,
     _resolve_entity_id,
+    perform_bundle,
 )
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
@@ -738,6 +739,130 @@ class TestInitCommand:
             result = runner.invoke(["apps", "init", "--app-name", "my_app"])
             assert result.exit_code == 1
             assert "not available" in result.output
+
+
+# ── perform_bundle tests ──────────────────────────────────────────────
+
+
+class TestPerformBundle:
+    @patch("snowflake.cli._plugins.apps.manager.get_cli_context")
+    @patch("snowflake.cli._plugins.apps.manager.bundle_artifacts")
+    def test_creates_bundle_root_and_calls_bundle_artifacts(
+        self, mock_bundle, mock_ctx, tmp_path
+    ):
+        mock_ctx().project_root = tmp_path
+
+        entity = Mock()
+        entity.artifacts = [Mock(), Mock()]
+
+        result = perform_bundle("my_app", entity)
+
+        assert result.project_root == tmp_path
+        assert result.bundle_root.exists()
+        mock_bundle.assert_called_once_with(result, entity.artifacts)
+
+    @patch("snowflake.cli._plugins.apps.manager.get_cli_context")
+    @patch("snowflake.cli._plugins.apps.manager.bundle_artifacts")
+    def test_removes_existing_bundle_root(self, mock_bundle, mock_ctx, tmp_path):
+        mock_ctx().project_root = tmp_path
+
+        # Pre-create a stale bundle root with a file in it
+        stale_bundle = tmp_path / "output" / "bundle"
+        stale_bundle.mkdir(parents=True)
+        (stale_bundle / "old_file.txt").write_text("stale")
+
+        entity = Mock()
+        entity.artifacts = []
+
+        result = perform_bundle("my_app", entity)
+
+        assert result.bundle_root.exists()
+        assert not (result.bundle_root / "old_file.txt").exists()
+
+    @patch("snowflake.cli._plugins.apps.manager.get_cli_context")
+    @patch("snowflake.cli._plugins.apps.manager.bundle_artifacts")
+    def test_returns_project_paths(self, mock_bundle, mock_ctx, tmp_path):
+        mock_ctx().project_root = tmp_path
+
+        entity = Mock()
+        entity.artifacts = []
+
+        result = perform_bundle("my_app", entity)
+
+        assert result.project_root == tmp_path
+        assert result.bundle_root == tmp_path / "output" / "bundle"
+
+
+# ── Bundle CLI command tests ──────────────────────────────────────────
+
+
+class TestBundleCommand:
+    def test_bundle_fails_when_feature_disabled(self, runner, tmp_path):
+        from tests_common import change_directory
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["apps", "bundle"])
+            assert result.exit_code == 1
+            assert "not available" in result.output
+
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._get_entity",
+    )
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_bundle_succeeds(
+        self, mock_resolve, mock_get_entity, mock_perform_bundle, runner, tmp_path
+    ):
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        mock_get_entity.return_value = entity
+
+        project_paths = ProjectPaths(project_root=tmp_path)
+        mock_perform_bundle.return_value = project_paths
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["apps", "bundle"])
+                assert result.exit_code == 0, result.output
+                assert "Bundle generated at" in result.output
+                assert "output" in result.output
+                mock_perform_bundle.assert_called_once_with("my_app", entity)
+
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._get_entity",
+    )
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_bundle_with_entity_id(
+        self, mock_resolve, mock_get_entity, mock_perform_bundle, runner, tmp_path
+    ):
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        mock_get_entity.return_value = entity
+
+        project_paths = ProjectPaths(project_root=tmp_path)
+        mock_perform_bundle.return_value = project_paths
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["apps", "bundle", "--entity-id", "custom_app"])
+                assert result.exit_code == 0, result.output
+                mock_resolve.assert_called_once_with("custom_app")
+
+
+# ── Deploy CLI command tests ──────────────────────────────────────────
 
 
 class TestDeployCommand:
