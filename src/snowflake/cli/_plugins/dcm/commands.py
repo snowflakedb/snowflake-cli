@@ -429,7 +429,7 @@ def drop(
     **options,
 ):
     """
-    Drops a DCM Project.
+    Drops a DCM Project. All the objects deployed and managed by this project won't be dropped.
     """
     context = _resolve_context_with_optional_manifest(from_location, identifier, target)
     project_id = context.project_identifier

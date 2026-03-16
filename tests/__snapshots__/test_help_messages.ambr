@@ -8362,7 +8362,8 @@
                                                                                   
    Usage: root dcm drop [OPTIONS] [IDENTIFIER]                                    
                                                                                   
-   Drops a DCM Project.                                                           
+   Drops a DCM Project. All the objects deployed and managed by this project      
+   won't be dropped.                                                              
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
@@ -9576,7 +9577,8 @@
   |                    altering, or dropping objects to match your definition    |
   |                    files.                                                    |
   | describe           Provides description of a DCM Project.                    |
-  | drop               Drops a DCM Project.                                      |
+  | drop               Drops a DCM Project. All the objects deployed and managed |
+  |                    by this project won't be dropped.                         |
   | drop-deployment    Drops a deployment from the DCM Project.                  |
   | list               Lists all available DCM Projects.                         |
   | list-deployments   Lists deployments of given DCM Project.                   |
@@ -23351,7 +23353,8 @@
   |                    altering, or dropping objects to match your definition    |
   |                    files.                                                    |
   | describe           Provides description of a DCM Project.                    |
-  | drop               Drops a DCM Project.                                      |
+  | drop               Drops a DCM Project. All the objects deployed and managed |
+  |                    by this project won't be dropped.                         |
   | drop-deployment    Drops a deployment from the DCM Project.                  |
   | list               Lists all available DCM Projects.                         |
   | list-deployments   Lists deployments of given DCM Project.                   |
