@@ -1,7 +1,6 @@
-# Grype configuration for GPU custom images
-# Contains ignore list for known vulnerabilities that are blocked by upstream dependencies
-
+---
 ignore:
+
   # ---------------------------------------------------------------------------
   # Python packages — blocked by upstream dependency caps
   # ---------------------------------------------------------------------------
@@ -43,7 +42,7 @@ ignore:
       type: "python"
       location: "**/ray/_private/runtime_env/agent/thirdparty_files/**"
 
-  # lightgbm
+  # lightgbm: https://snowflakecomputing.atlassian.net/browse/SNOW-1981981
   - vulnerability: "GHSA-2586-f3p4-hq84"
     package:
       name: "lightgbm"
@@ -76,6 +75,7 @@ ignore:
       type: "python"
 
   # vllm: endpoints not exposed in SPCS; containers are single-tenant
+  # https://github.com/advisories/GHSA-hj4w-hm2g-p6w5 only affects Mooncake integration
   - vulnerability: "GHSA-hj4w-hm2g-p6w5"
     package:
       name: "vllm"
@@ -84,6 +84,7 @@ ignore:
     package:
       name: "vllm"
       type: "python"
+  # SPCS blocks all ports by default
   - vulnerability: "GHSA-9f8f-2vmf-885j"
     package:
       name: "vllm"
@@ -92,14 +93,17 @@ ignore:
     package:
       name: "vllm"
       type: "python"
+  # DoS via oversized headers not exploitable
   - vulnerability: "GHSA-rxc4-3w6r-4v47"
     package:
       name: "vllm"
       type: "python"
+  # vLLM API endpoints not exposed in SPCS
   - vulnerability: "GHSA-wr9h-g72x-mwhm"
     package:
       name: "vllm"
       type: "python"
+  # vLLM worker endpoints isolated within SPCS boundary
   - vulnerability: "GHSA-3f6c-7fw2-ppm4"
     package:
       name: "vllm"
@@ -108,12 +112,14 @@ ignore:
     package:
       name: "vllm"
       type: "python"
+  # blocked by ray 2.52 upgrade
   - vulnerability: "GHSA-8fr4-5q9j-m8gm"
     package:
       name: "vllm"
       type: "python"
 
-  # xgrammar: transitive dep of vLLM
+  # xgrammar: transitive dep of vLLM, containers are single-tenant (self-DoS only),
+  # upgrading blocked by torch==2.6 constraint
   - vulnerability: "GHSA-5cmr-4px5-23pc"
     package:
       name: "xgrammar"
@@ -126,7 +132,7 @@ ignore:
       type: "python"
 
   # ---------------------------------------------------------------------------
-  # Java archives — bundled inside snowpark-connect-deps wheels
+  # Java archives — bundled inside snowpark-connect-deps wheels (v3.56.3)
   # Fix requires new snowpark-connect release with Netty >= 4.1.124.
   # ---------------------------------------------------------------------------
 
@@ -167,6 +173,9 @@ ignore:
       name: "netty-codec"
       type: "java-archive"
 
+  # ---------------------------------------------------------------------------
+  # Java archives - TODO SNOW-3013317
+  # ---------------------------------------------------------------------------
   - vulnerability: "GHSA-72hv-8253-57qq"
     package:
       name: "jackson-core"
@@ -200,13 +209,13 @@ ignore:
       name: "python"
       type: "binary"
 
-  # gzip
+  # gzip: https://github.com/anchore/grype/issues/2527
   - vulnerability: "CVE-2022-1271"
     package:
       name: "gzip"
       type: "binary"
 
-  # ffmpeg: brought in by torchvision
+  # ffmpeg: brought in by torchvision, upgrading blocked by transformer version constraint
   - vulnerability: "CVE-2023-49502"
     package:
       name: "ffmpeg"
@@ -237,7 +246,11 @@ ignore:
       type: "binary"
 
   # ---------------------------------------------------------------------------
-  # Go stdlib — Prometheus / Grafana binaries
+  # Go stdlib — Prometheus 3.5.1 LTS (go1.24.12)
+  # Grafana 12.4.1 ships Go 1.25.8, so only Prometheus triggers these.
+  # No Prometheus release yet built with Go >= 1.25.8.
+  # Only used for Ray dashboard metrics, not externally exposed.
+  # Tracking: https://github.com/prometheus/prometheus/issues/18076
   # ---------------------------------------------------------------------------
 
   - vulnerability: "CVE-2025-68121"
@@ -260,11 +273,74 @@ ignore:
     package:
       name: "stdlib"
       type: "go-module"
+  - vulnerability: "CVE-2026-25679"
+    package:
+      name: "stdlib"
+      type: "go-module"
+  - vulnerability: "CVE-2026-27142"
+    package:
+      name: "stdlib"
+      type: "go-module"
+  # Additional Go stdlib findings from go1.22.3 surfaced after upgrading GPU base image
+  # to: artifactory.ci1.us-west-2.aws-dev.app.snowflake.com/development-docker-virtual/nvidia/cuda:12.8.0-devel-ubuntu24.04
+  # Keep suppressed until upstream base/bundled binaries are rebuilt with patched Go.
+  - vulnerability: "CVE-2024-24791"
+    package:
+      name: "stdlib"
+      type: "go-module"
+  - vulnerability: "CVE-2024-34156"
+    package:
+      name: "stdlib"
+      type: "go-module"
+  - vulnerability: "CVE-2025-22871"
+    package:
+      name: "stdlib"
+      type: "go-module"
+  - vulnerability: "CVE-2024-34158"
+    package:
+      name: "stdlib"
+      type: "go-module"
+  - vulnerability: "CVE-2024-24790"
+    package:
+      name: "stdlib"
+      type: "go-module"
+  - vulnerability: "CVE-2025-61723"
+    package:
+      name: "stdlib"
+      type: "go-module"
+  - vulnerability: "CVE-2025-61725"
+    package:
+      name: "stdlib"
+      type: "go-module"
+  - vulnerability: "CVE-2025-58188"
+    package:
+      name: "stdlib"
+      type: "go-module"
+  - vulnerability: "CVE-2025-58187"
+    package:
+      name: "stdlib"
+      type: "go-module"
+  - vulnerability: "CVE-2025-61729"
+    package:
+      name: "stdlib"
+      type: "go-module"
+  - vulnerability: "CVE-2025-47907"
+    package:
+      name: "stdlib"
+      type: "go-module"
+  - vulnerability: "CVE-2025-4674"
+    package:
+      name: "stdlib"
+      type: "go-module"
 
   # ---------------------------------------------------------------------------
-  # Go modules — Grafana binary
+  # Go modules — Grafana 12.4.1 binary
   # ---------------------------------------------------------------------------
 
+  # go.opentelemetry.io/otel/sdk: Grafana 12.4.1 bundles v1.39.0.
+  # CVE-2026-24051 is a PATH hijacking via ioreg that only affects macOS/Darwin;
+  # Linux containers are not exploitable. Fix requires a Grafana release with
+  # otel/sdk >= 1.40.0.
   - vulnerability: "GHSA-9h8m-3fm2-qjrq"
     package:
       name: "go.opentelemetry.io/otel/sdk"

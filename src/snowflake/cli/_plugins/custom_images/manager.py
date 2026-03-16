@@ -25,6 +25,18 @@ CONFIG_DIR = Path(__file__).parent / "config"
 GRYPE_CPU_CONFIG_PATH = CONFIG_DIR / "grype_cpu.yaml"
 GRYPE_GPU_CONFIG_PATH = CONFIG_DIR / "grype_gpu.yaml"
 
+# Grype severity order (low to high). Used to derive severities at or above threshold.
+_SEVERITY_ORDER = ("Negligible", "Low", "Medium", "High", "Critical")
+
+
+def _get_severity_from_match(match: dict) -> Optional[str]:
+    """Extract and normalize severity from a Grype JSON match (handles different key casings)."""
+    vuln = match.get("vulnerability") or match.get("Vulnerability") or {}
+    raw = vuln.get("severity") or vuln.get("Severity")
+    if not raw:
+        return None
+    return str(raw).strip().capitalize()
+
 
 @dataclass
 class ValidationContext:
@@ -95,9 +107,9 @@ class CustomImageManager:
             raise ClickException("Docker command timed out.")
 
     def _run_grype_command(self, image_name: str, is_gpu: bool) -> tuple[int, str, str]:
-        """Run grype vulnerability scan with appropriate config."""
+        """Run grype vulnerability scan with appropriate config. Uses JSON output for parsing."""
         grype_config = GRYPE_GPU_CONFIG_PATH if is_gpu else GRYPE_CPU_CONFIG_PATH
-        cmd = ["grype", image_name]
+        cmd = ["grype", image_name, "-o", "json"]
         if grype_config.exists():
             cmd.extend(["--config", str(grype_config)])
 
@@ -111,6 +123,22 @@ class CustomImageManager:
             )
         except subprocess.TimeoutExpired:
             raise ClickException("Grype scan timed out.")
+
+    def _severities_from_fail_on(self, is_gpu: bool) -> tuple[str, ...]:
+        """Return severities at or above the fail-on threshold from the Grype config."""
+        path = GRYPE_GPU_CONFIG_PATH if is_gpu else GRYPE_CPU_CONFIG_PATH
+        if not path.exists():
+            return ("High", "Critical")
+        with open(path) as f:
+            config = yaml.safe_load(f) or {}
+        raw = config.get("fail-on") or config.get("fail-on-severity")
+        if not raw:
+            return ("High", "Critical")
+        threshold = str(raw).strip().capitalize()
+        if threshold not in _SEVERITY_ORDER:
+            return ("High", "Critical")
+        idx = _SEVERITY_ORDER.index(threshold)
+        return _SEVERITY_ORDER[idx:]
 
     def _get_image_info(self, image_name: str) -> Optional[dict]:
         """Get Docker image inspection info."""
@@ -432,7 +460,7 @@ class CustomImageManager:
                 return ValidationResult(
                     check_name="dependency_health",
                     passed=True,
-                    message="No broken dependencies found (some known issues ignored)",
+                    message="No broken dependencies found",
                 )
             output = "\n".join(filtered_lines)
 
@@ -444,23 +472,51 @@ class CustomImageManager:
 
     def _check_vulnerabilities(self, context: ValidationContext) -> ValidationResult:
         """Run Grype vulnerability scan on the image."""
+        severities_to_show = self._severities_from_fail_on(context.is_gpu)
         returncode, stdout, stderr = self._run_grype_command(
             context.image, context.is_gpu
         )
 
         if returncode == 0:
+            severity_label = "/".join(severities_to_show).lower()
             return ValidationResult(
                 check_name="vulnerability_scan",
                 passed=True,
-                message="No high/critical vulnerabilities found",
+                message=f"No {severity_label} vulnerabilities found",
             )
-        else:
-            output = stdout or stderr
-            return ValidationResult(
-                check_name="vulnerability_scan",
-                passed=False,
-                message=f"High/critical vulnerabilities detected:\n{output}",
-            )
+
+        output = stdout or stderr
+        try:
+            data = json.loads(output)
+            matches = data.get("matches") or []
+            filtered = [
+                m
+                for m in matches
+                if _get_severity_from_match(m) in severities_to_show
+            ]
+            if filtered:
+                severity_label = "/".join(severities_to_show).lower()
+                lines = [f"{severity_label} vulnerabilities detected:"]
+                for m in filtered:
+                    vuln = m.get("vulnerability") or m.get("Vulnerability") or {}
+                    art = m.get("artifact") or m.get("Artifact") or {}
+                    pkg = f"{art.get('name', '?')} {art.get('version', '?')}"
+                    vid = vuln.get("id") or vuln.get("Id") or "?"
+                    sev = _get_severity_from_match(m) or "?"
+                    lines.append(f"  {pkg} -> {vid} ({sev})")
+                output = "\n".join(lines)
+            else:
+                severity_label = "/".join(severities_to_show).lower()
+                output = f"{severity_label} vulnerabilities detected (see grype for details)."
+        except (json.JSONDecodeError, KeyError, TypeError):
+            severity_label = "/".join(severities_to_show).lower()
+            output = f"{severity_label} vulnerabilities detected:\n{output}"
+
+        return ValidationResult(
+            check_name="vulnerability_scan",
+            passed=False,
+            message=output,
+        )
 
 
 def format_report(report: ValidationReport) -> str:

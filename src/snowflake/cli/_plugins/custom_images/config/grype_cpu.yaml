@@ -1,7 +1,6 @@
-# Grype configuration for CPU custom images
-# Contains ignore list for known vulnerabilities that are blocked by upstream dependencies
-
+---
 ignore:
+
   # ---------------------------------------------------------------------------
   # Python packages — blocked by upstream dependency caps
   # ---------------------------------------------------------------------------
@@ -43,7 +42,7 @@ ignore:
       type: "python"
       location: "**/ray/_private/runtime_env/agent/thirdparty_files/**"
 
-  # lightgbm
+  # lightgbm: https://snowflakecomputing.atlassian.net/browse/SNOW-1981981
   - vulnerability: "GHSA-2586-f3p4-hq84"
     package:
       name: "lightgbm"
@@ -79,10 +78,10 @@ ignore:
   - vulnerability: "GHSA-7p94-766c-hgjp"
     package:
       name: "nltk"
-      type: "python"
+      type: "python"    
 
   # ---------------------------------------------------------------------------
-  # Java archives — bundled inside snowpark-connect-deps wheels
+  # Java archives — bundled inside snowpark-connect-deps wheels (v3.56.3)
   # Fix requires new snowpark-connect release with Netty >= 4.1.124.
   # ---------------------------------------------------------------------------
 
@@ -123,6 +122,9 @@ ignore:
       name: "netty-codec"
       type: "java-archive"
 
+  # ---------------------------------------------------------------------------
+  # Java archives - TODO SNOW-3013317
+  # ---------------------------------------------------------------------------
   - vulnerability: "GHSA-72hv-8253-57qq"
     package:
       name: "jackson-core"
@@ -156,13 +158,13 @@ ignore:
       name: "python"
       type: "binary"
 
-  # gzip
+  # gzip: https://github.com/anchore/grype/issues/2527
   - vulnerability: "CVE-2022-1271"
     package:
       name: "gzip"
       type: "binary"
 
-  # ffmpeg: brought in by torchvision
+  # ffmpeg: brought in by torchvision, upgrading blocked by transformer version constraint
   - vulnerability: "CVE-2023-49502"
     package:
       name: "ffmpeg"
@@ -193,7 +195,11 @@ ignore:
       type: "binary"
 
   # ---------------------------------------------------------------------------
-  # Go stdlib — Prometheus / Grafana binaries
+  # Go stdlib — Prometheus 3.5.1 LTS (go1.24.12)
+  # Grafana 12.4.1 ships Go 1.25.8, so only Prometheus triggers these.
+  # No Prometheus release yet built with Go >= 1.25.8.
+  # Only used for Ray dashboard metrics, not externally exposed.
+  # Tracking: https://github.com/prometheus/prometheus/issues/18076
   # ---------------------------------------------------------------------------
 
   - vulnerability: "CVE-2025-68121"
@@ -216,11 +222,23 @@ ignore:
     package:
       name: "stdlib"
       type: "go-module"
+  - vulnerability: "CVE-2026-25679"
+    package:
+      name: "stdlib"
+      type: "go-module"
+  - vulnerability: "CVE-2026-27142"
+    package:
+      name: "stdlib"
+      type: "go-module"
 
   # ---------------------------------------------------------------------------
-  # Go modules — Grafana binary
+  # Go modules — Grafana 12.4.1 binary
   # ---------------------------------------------------------------------------
 
+  # go.opentelemetry.io/otel/sdk: Grafana 12.4.1 bundles v1.39.0.
+  # CVE-2026-24051 is a PATH hijacking via ioreg that only affects macOS/Darwin;
+  # Linux containers are not exploitable. Fix requires a Grafana release with
+  # otel/sdk >= 1.40.0.
   - vulnerability: "GHSA-9h8m-3fm2-qjrq"
     package:
       name: "go.opentelemetry.io/otel/sdk"
