@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Set, TypeVar
@@ -226,7 +227,7 @@ def perform_bundle(
     project_paths.remove_up_bundle_root()
     SecurePath(project_paths.bundle_root).mkdir(parents=True, exist_ok=True)
 
-    cli_console.step("Bundling source files")
+    cli_console.step(f"Bundling source files for '{resolved_entity_id}'")
     bundle_artifacts(project_paths, artifacts)
 
     return project_paths
@@ -237,13 +238,12 @@ def _find_dockerfile_expose_port(bundle_root: Path) -> Optional[int]:
 
     Returns ``None`` when no ``Dockerfile`` exists or it contains no EXPOSE
     directive.  Only simple ``EXPOSE <number>`` lines are recognised (the
-    ``/tcp`` and ``/udp`` suffixes are stripped).
+    ``/tcp`` and ``/udp`` suffixes are stripped).  Multi-port (``EXPOSE 3000
+    8080``) and range (``EXPOSE 3000-3005``) syntax is not supported.
     """
     dockerfile = bundle_root / "Dockerfile"
     if not dockerfile.exists():
         return None
-
-    import re
 
     expose_re = re.compile(r"^\s*EXPOSE\s+(\d+)(?:/(?:tcp|udp))?\s*$", re.IGNORECASE)
     for line in dockerfile.read_text().splitlines():
@@ -261,7 +261,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         from snowflake.connector.cursor import DictCursor
 
         cursor = self.execute_query(
-            f"SHOW GRANTS TO ROLE {role}", cursor_class=DictCursor
+            f"SHOW GRANTS TO ROLE IDENTIFIER('{role}')", cursor_class=DictCursor
         )
         for row in cursor:
             if (

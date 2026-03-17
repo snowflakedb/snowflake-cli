@@ -117,12 +117,10 @@ def validate(
 
     warnings: list[str] = []
 
-    # Step 1: Bundle into a temporary directory
-    cli_console.step("Bundling project artifacts")
     project_paths = perform_bundle(resolved_entity_id, entity)
 
     try:
-        # Step 2: Validate Dockerfile has an EXPOSE directive
+        # Validate Dockerfile has an EXPOSE directive
         bundle_root = project_paths.bundle_root
         dockerfile = bundle_root / "Dockerfile"
         if not dockerfile.exists():
@@ -145,10 +143,10 @@ def validate(
                 f"These should match for the service endpoint to work correctly."
             )
     finally:
-        # Step 4: Clean up the temporary bundle
+        # Clean up the temporary bundle
         project_paths.clean_up_output()
 
-    # Step 3: Check BIND SERVICE ENDPOINT privilege
+    # Check BIND SERVICE ENDPOINT privilege
     manager = SnowflakeAppManager()
     role = manager.current_role()
     if role and role.upper() != "ACCOUNTADMIN":
@@ -161,6 +159,8 @@ def validate(
     for warning in warnings:
         cli_console.warning(warning)
 
+    if warnings:
+        return MessageResult(f"Validation passed with {len(warnings)} warning(s).")
     return MessageResult("Valid Snowflake App project.")
 
 

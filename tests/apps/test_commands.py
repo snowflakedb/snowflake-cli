@@ -1036,7 +1036,7 @@ class TestValidateCommand:
             with change_directory(tmp_path):
                 result = runner.invoke(["__app", "validate"])
                 assert result.exit_code == 0, result.output
-                assert "Valid Snowflake App project" in result.output
+                assert "Validation passed with 1 warning(s)" in result.output
                 assert "8080" in result.output
                 assert "3000" in result.output
 
@@ -1079,7 +1079,7 @@ class TestValidateCommand:
             with change_directory(tmp_path):
                 result = runner.invoke(["__app", "validate"])
                 assert result.exit_code == 0, result.output
-                assert "Valid Snowflake App project" in result.output
+                assert "Validation passed with 1 warning(s)" in result.output
                 assert "BIND SERVICE ENDPOINT" in result.output
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
