@@ -490,9 +490,7 @@ class CustomImageManager:
             data = json.loads(output)
             matches = data.get("matches") or []
             filtered = [
-                m
-                for m in matches
-                if _get_severity_from_match(m) in severities_to_show
+                m for m in matches if _get_severity_from_match(m) in severities_to_show
             ]
             if filtered:
                 severity_label = "/".join(severities_to_show).lower()

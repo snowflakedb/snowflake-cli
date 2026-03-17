@@ -78,7 +78,7 @@ ignore:
   - vulnerability: "GHSA-7p94-766c-hgjp"
     package:
       name: "nltk"
-      type: "python"    
+      type: "python"
 
   # ---------------------------------------------------------------------------
   # Java archives — bundled inside snowpark-connect-deps wheels (v3.56.3)
