@@ -42,6 +42,498 @@
   
   '''
 # ---
+# name: test_help_messages[__app.bundle]
+  '''
+                                                                                  
+   Usage: root __app bundle [OPTIONS]                                             
+                                                                                  
+   Bundles a Snowflake App by resolving artifacts defined in snowflake.yml.       
+                                                                                  
+   Copies (or symlinks) the matched source files into a local output directory    
+   (output/bundle) so you can inspect exactly what would be uploaded during       
+   deploy.                                                                        
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | --entity-id          TEXT  ID of the snowflake-app entity to bundle.         |
+  |                            Required if multiple snowflake-app entities       |
+  |                            exist.                                            |
+  | --help       -h            Show this message and exit.                       |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
+  |                                CSV]                   format.                |
+  |                                                       [default: TABLE]       |
+  | --verbose              -v                             Displays log entries   |
+  |                                                       for log levels info    |
+  |                                                       and higher.            |
+  | --debug                                               Displays log entries   |
+  |                                                       for log levels debug   |
+  |                                                       and higher; debug logs |
+  |                                                       contain additional     |
+  |                                                       information.           |
+  | --silent                                              Turns off intermediate |
+  |                                                       output to console.     |
+  | --enhanced-exit-codes                                 Differentiate exit     |
+  |                                                       error codes based on   |
+  |                                                       failure type.          |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified. [env var:   |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[__app.deploy]
+  '''
+                                                                                  
+   Usage: root __app deploy [OPTIONS]                                             
+                                                                                  
+   Builds and deploys a Snowflake App.                                            
+                                                                                  
+   Uploads source artifacts, builds a container image, creates (or updates) a     
+   service, and waits for it to become ready.                                     
+                                                                                  
+   If --entity-id is not specified and the project contains exactly one           
+   snowflake-app entity, that entity will be used automatically.                  
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | --entity-id          TEXT  ID of the snowflake-app entity to deploy.         |
+  |                            Required if multiple snowflake-app entities       |
+  |                            exist.                                            |
+  | --help       -h            Show this message and exit.                       |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment    -c      TEXT     Name of the connection, as    |
+  |                                                defined in your config.toml   |
+  |                                                file. Default: default.       |
+  | --host                                TEXT     Host address for the          |
+  |                                                connection. Overrides the     |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --port                                INTEGER  Port for the connection.      |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --account,--accountname               TEXT     Name assigned to your         |
+  |                                                Snowflake account. Overrides  |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --user,--username                     TEXT     Username to connect to        |
+  |                                                Snowflake. Overrides the      |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --password                            TEXT     Snowflake password. Overrides |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --authenticator                       TEXT     Snowflake authenticator.      |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --workload-identity-provider          TEXT     Workload identity provider    |
+  |                                                (AWS, AZURE, GCP, OIDC).      |
+  |                                                Overrides the value specified |
+  |                                                for the connection            |
+  | --private-key-file,--privat…          TEXT     Snowflake private key file    |
+  |                                                path. Overrides the value     |
+  |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
+  | --token-file-path                     TEXT     Path to file with an OAuth    |
+  |                                                token to use when connecting  |
+  |                                                to Snowflake.                 |
+  | --database,--dbname                   TEXT     Database to use. Overrides    |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --schema,--schemaname                 TEXT     Database schema to use.       |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --role,--rolename                     TEXT     Role to use. Overrides the    |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --warehouse                           TEXT     Warehouse to use. Overrides   |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --temporary-connection        -x               Uses a connection defined     |
+  |                                                with command-line parameters, |
+  |                                                instead of one defined in     |
+  |                                                config                        |
+  | --mfa-passcode                        TEXT     Token to use for multi-factor |
+  |                                                authentication (MFA)          |
+  | --enable-diag                                  Whether to generate a         |
+  |                                                connection diagnostic report. |
+  | --diag-log-path                       TEXT     Path for the generated        |
+  |                                                report. Defaults to system    |
+  |                                                temporary directory.          |
+  | --diag-allowlist-path                 TEXT     Path to a JSON file that      |
+  |                                                contains allowlist            |
+  |                                                parameters.                   |
+  | --oauth-client-id                     TEXT     Value of client id provided   |
+  |                                                by the Identity Provider for  |
+  |                                                Snowflake integration.        |
+  | --oauth-client-secret                 TEXT     Value of the client secret    |
+  |                                                provided by the Identity      |
+  |                                                Provider for Snowflake        |
+  |                                                integration.                  |
+  | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
+  |                                                supplying the authorization   |
+  |                                                code to the driver.           |
+  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
+  |                                                supplying the access tokens   |
+  |                                                to the driver.                |
+  | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
+  |                                                code redirection.             |
+  | --oauth-scope                         TEXT     Scope requested in the        |
+  |                                                Identity Provider             |
+  |                                                authorization request.        |
+  | --oauth-disable-pkce                           Disables Proof Key for Code   |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
+  | --oauth-enable-refresh-toke…                   Enables a silent              |
+  |                                                re-authentication when the    |
+  |                                                actual access token becomes   |
+  |                                                outdated. Default: False.     |
+  | --oauth-enable-single-use-r…                   Whether to opt-in to          |
+  |                                                single-use refresh token      |
+  |                                                semantics. Default: False.    |
+  | --client-store-temporary-cr…                   Store the temporary           |
+  |                                                credential.                   |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
+  |                                CSV]                   format.                |
+  |                                                       [default: TABLE]       |
+  | --verbose              -v                             Displays log entries   |
+  |                                                       for log levels info    |
+  |                                                       and higher.            |
+  | --debug                                               Displays log entries   |
+  |                                                       for log levels debug   |
+  |                                                       and higher; debug logs |
+  |                                                       contain additional     |
+  |                                                       information.           |
+  | --silent                                              Turns off intermediate |
+  |                                                       output to console.     |
+  | --enhanced-exit-codes                                 Differentiate exit     |
+  |                                                       error codes based on   |
+  |                                                       failure type.          |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified. [env var:   |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[__app.init]
+  '''
+                                                                                  
+   Usage: root __app init [OPTIONS]                                               
+                                                                                  
+   Initializes a snowflake.yml file for a Snowflake App project.                  
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | *  --app-name          TEXT  Name of the Snowflake App to initialize.        |
+  |                              [required]                                      |
+  |    --help      -h            Show this message and exit.                     |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment    -c      TEXT     Name of the connection, as    |
+  |                                                defined in your config.toml   |
+  |                                                file. Default: default.       |
+  | --host                                TEXT     Host address for the          |
+  |                                                connection. Overrides the     |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --port                                INTEGER  Port for the connection.      |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --account,--accountname               TEXT     Name assigned to your         |
+  |                                                Snowflake account. Overrides  |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --user,--username                     TEXT     Username to connect to        |
+  |                                                Snowflake. Overrides the      |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --password                            TEXT     Snowflake password. Overrides |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --authenticator                       TEXT     Snowflake authenticator.      |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --workload-identity-provider          TEXT     Workload identity provider    |
+  |                                                (AWS, AZURE, GCP, OIDC).      |
+  |                                                Overrides the value specified |
+  |                                                for the connection            |
+  | --private-key-file,--privat…          TEXT     Snowflake private key file    |
+  |                                                path. Overrides the value     |
+  |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
+  | --token-file-path                     TEXT     Path to file with an OAuth    |
+  |                                                token to use when connecting  |
+  |                                                to Snowflake.                 |
+  | --database,--dbname                   TEXT     Database to use. Overrides    |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --schema,--schemaname                 TEXT     Database schema to use.       |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --role,--rolename                     TEXT     Role to use. Overrides the    |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --warehouse                           TEXT     Warehouse to use. Overrides   |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --temporary-connection        -x               Uses a connection defined     |
+  |                                                with command-line parameters, |
+  |                                                instead of one defined in     |
+  |                                                config                        |
+  | --mfa-passcode                        TEXT     Token to use for multi-factor |
+  |                                                authentication (MFA)          |
+  | --enable-diag                                  Whether to generate a         |
+  |                                                connection diagnostic report. |
+  | --diag-log-path                       TEXT     Path for the generated        |
+  |                                                report. Defaults to system    |
+  |                                                temporary directory.          |
+  | --diag-allowlist-path                 TEXT     Path to a JSON file that      |
+  |                                                contains allowlist            |
+  |                                                parameters.                   |
+  | --oauth-client-id                     TEXT     Value of client id provided   |
+  |                                                by the Identity Provider for  |
+  |                                                Snowflake integration.        |
+  | --oauth-client-secret                 TEXT     Value of the client secret    |
+  |                                                provided by the Identity      |
+  |                                                Provider for Snowflake        |
+  |                                                integration.                  |
+  | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
+  |                                                supplying the authorization   |
+  |                                                code to the driver.           |
+  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
+  |                                                supplying the access tokens   |
+  |                                                to the driver.                |
+  | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
+  |                                                code redirection.             |
+  | --oauth-scope                         TEXT     Scope requested in the        |
+  |                                                Identity Provider             |
+  |                                                authorization request.        |
+  | --oauth-disable-pkce                           Disables Proof Key for Code   |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
+  | --oauth-enable-refresh-toke…                   Enables a silent              |
+  |                                                re-authentication when the    |
+  |                                                actual access token becomes   |
+  |                                                outdated. Default: False.     |
+  | --oauth-enable-single-use-r…                   Whether to opt-in to          |
+  |                                                single-use refresh token      |
+  |                                                semantics. Default: False.    |
+  | --client-store-temporary-cr…                   Store the temporary           |
+  |                                                credential.                   |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
+  |                                CSV]                   format.                |
+  |                                                       [default: TABLE]       |
+  | --verbose              -v                             Displays log entries   |
+  |                                                       for log levels info    |
+  |                                                       and higher.            |
+  | --debug                                               Displays log entries   |
+  |                                                       for log levels debug   |
+  |                                                       and higher; debug logs |
+  |                                                       contain additional     |
+  |                                                       information.           |
+  | --silent                                              Turns off intermediate |
+  |                                                       output to console.     |
+  | --enhanced-exit-codes                                 Differentiate exit     |
+  |                                                       error codes based on   |
+  |                                                       failure type.          |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified. [env var:   |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[__app.validate]
+  '''
+                                                                                  
+   Usage: root __app validate [OPTIONS]                                           
+                                                                                  
+   Validates a local Snowflake App project.                                       
+                                                                                  
+   Bundles the project, checks that a Dockerfile with an EXPOSE directive exists, 
+   and verifies that the current role has the BIND SERVICE ENDPOINT privilege     
+   required for deployment.                                                       
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | --entity-id          TEXT  ID of the snowflake-app entity to validate.       |
+  |                            Required if multiple snowflake-app entities       |
+  |                            exist.                                            |
+  | --help       -h            Show this message and exit.                       |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment    -c      TEXT     Name of the connection, as    |
+  |                                                defined in your config.toml   |
+  |                                                file. Default: default.       |
+  | --host                                TEXT     Host address for the          |
+  |                                                connection. Overrides the     |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --port                                INTEGER  Port for the connection.      |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --account,--accountname               TEXT     Name assigned to your         |
+  |                                                Snowflake account. Overrides  |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --user,--username                     TEXT     Username to connect to        |
+  |                                                Snowflake. Overrides the      |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --password                            TEXT     Snowflake password. Overrides |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --authenticator                       TEXT     Snowflake authenticator.      |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --workload-identity-provider          TEXT     Workload identity provider    |
+  |                                                (AWS, AZURE, GCP, OIDC).      |
+  |                                                Overrides the value specified |
+  |                                                for the connection            |
+  | --private-key-file,--privat…          TEXT     Snowflake private key file    |
+  |                                                path. Overrides the value     |
+  |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
+  | --token-file-path                     TEXT     Path to file with an OAuth    |
+  |                                                token to use when connecting  |
+  |                                                to Snowflake.                 |
+  | --database,--dbname                   TEXT     Database to use. Overrides    |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --schema,--schemaname                 TEXT     Database schema to use.       |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --role,--rolename                     TEXT     Role to use. Overrides the    |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --warehouse                           TEXT     Warehouse to use. Overrides   |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --temporary-connection        -x               Uses a connection defined     |
+  |                                                with command-line parameters, |
+  |                                                instead of one defined in     |
+  |                                                config                        |
+  | --mfa-passcode                        TEXT     Token to use for multi-factor |
+  |                                                authentication (MFA)          |
+  | --enable-diag                                  Whether to generate a         |
+  |                                                connection diagnostic report. |
+  | --diag-log-path                       TEXT     Path for the generated        |
+  |                                                report. Defaults to system    |
+  |                                                temporary directory.          |
+  | --diag-allowlist-path                 TEXT     Path to a JSON file that      |
+  |                                                contains allowlist            |
+  |                                                parameters.                   |
+  | --oauth-client-id                     TEXT     Value of client id provided   |
+  |                                                by the Identity Provider for  |
+  |                                                Snowflake integration.        |
+  | --oauth-client-secret                 TEXT     Value of the client secret    |
+  |                                                provided by the Identity      |
+  |                                                Provider for Snowflake        |
+  |                                                integration.                  |
+  | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
+  |                                                supplying the authorization   |
+  |                                                code to the driver.           |
+  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
+  |                                                supplying the access tokens   |
+  |                                                to the driver.                |
+  | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
+  |                                                code redirection.             |
+  | --oauth-scope                         TEXT     Scope requested in the        |
+  |                                                Identity Provider             |
+  |                                                authorization request.        |
+  | --oauth-disable-pkce                           Disables Proof Key for Code   |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
+  | --oauth-enable-refresh-toke…                   Enables a silent              |
+  |                                                re-authentication when the    |
+  |                                                actual access token becomes   |
+  |                                                outdated. Default: False.     |
+  | --oauth-enable-single-use-r…                   Whether to opt-in to          |
+  |                                                single-use refresh token      |
+  |                                                semantics. Default: False.    |
+  | --client-store-temporary-cr…                   Store the temporary           |
+  |                                                credential.                   |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
+  |                                CSV]                   format.                |
+  |                                                       [default: TABLE]       |
+  | --verbose              -v                             Displays log entries   |
+  |                                                       for log levels info    |
+  |                                                       and higher.            |
+  | --debug                                               Displays log entries   |
+  |                                                       for log levels debug   |
+  |                                                       and higher; debug logs |
+  |                                                       contain additional     |
+  |                                                       information.           |
+  | --silent                                              Turns off intermediate |
+  |                                                       output to console.     |
+  | --enhanced-exit-codes                                 Differentiate exit     |
+  |                                                       error codes based on   |
+  |                                                       failure type.          |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified. [env var:   |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[__app]
+  '''
+                                                                                  
+   Usage: root __app [OPTIONS] COMMAND [ARGS]...                                  
+                                                                                  
+   Manages Snowflake Apps.                                                        
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | --help  -h        Show this message and exit.                                |
+  +------------------------------------------------------------------------------+
+  +- Commands -------------------------------------------------------------------+
+  | bundle     Bundles a Snowflake App by resolving artifacts defined in         |
+  |            snowflake.yml.                                                    |
+  | deploy     Builds and deploys a Snowflake App.                               |
+  | init       Initializes a snowflake.yml file for a Snowflake App project.     |
+  | validate   Validates a local Snowflake App project.                          |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
 # name: test_help_messages[app.bundle]
   '''
                                                                                   
@@ -3963,305 +4455,6 @@
   | validate            Validates a deployed Snowflake Native App's setup        |
   |                     script.                                                  |
   | version             Manages versions defined in an application package       |
-  +------------------------------------------------------------------------------+
-  
-  
-  '''
-# ---
-# name: test_help_messages[__app.deploy]
-  '''
-                                                                                  
-   Usage: root __app deploy [OPTIONS]                                             
-                                                                                  
-   Builds and deploys a Snowflake App.                                            
-                                                                                  
-   Uploads source artifacts, builds a container image, creates (or updates) a     
-   service, and waits for it to become ready.                                     
-                                                                                  
-   If --entity-id is not specified and the project contains exactly one           
-   snowflake-app entity, that entity will be used automatically.                  
-                                                                                  
-  +- Options --------------------------------------------------------------------+
-  | --entity-id          TEXT  ID of the snowflake-app entity to deploy.         |
-  |                            Required if multiple snowflake-app entities       |
-  |                            exist.                                            |
-  | --help       -h            Show this message and exit.                       |
-  +------------------------------------------------------------------------------+
-  +- Connection configuration ---------------------------------------------------+
-  | --connection,--environment    -c      TEXT     Name of the connection, as    |
-  |                                                defined in your config.toml   |
-  |                                                file. Default: default.       |
-  | --host                                TEXT     Host address for the          |
-  |                                                connection. Overrides the     |
-  |                                                value specified for the       |
-  |                                                connection.                   |
-  | --port                                INTEGER  Port for the connection.      |
-  |                                                Overrides the value specified |
-  |                                                for the connection.           |
-  | --account,--accountname               TEXT     Name assigned to your         |
-  |                                                Snowflake account. Overrides  |
-  |                                                the value specified for the   |
-  |                                                connection.                   |
-  | --user,--username                     TEXT     Username to connect to        |
-  |                                                Snowflake. Overrides the      |
-  |                                                value specified for the       |
-  |                                                connection.                   |
-  | --password                            TEXT     Snowflake password. Overrides |
-  |                                                the value specified for the   |
-  |                                                connection.                   |
-  | --authenticator                       TEXT     Snowflake authenticator.      |
-  |                                                Overrides the value specified |
-  |                                                for the connection.           |
-  | --workload-identity-provider          TEXT     Workload identity provider    |
-  |                                                (AWS, AZURE, GCP, OIDC).      |
-  |                                                Overrides the value specified |
-  |                                                for the connection            |
-  | --private-key-file,--privat…          TEXT     Snowflake private key file    |
-  |                                                path. Overrides the value     |
-  |                                                specified for the connection. |
-  | --token                               TEXT     OAuth token to use when       |
-  |                                                connecting to Snowflake.      |
-  | --token-file-path                     TEXT     Path to file with an OAuth    |
-  |                                                token to use when connecting  |
-  |                                                to Snowflake.                 |
-  | --database,--dbname                   TEXT     Database to use. Overrides    |
-  |                                                the value specified for the   |
-  |                                                connection.                   |
-  | --schema,--schemaname                 TEXT     Database schema to use.       |
-  |                                                Overrides the value specified |
-  |                                                for the connection.           |
-  | --role,--rolename                     TEXT     Role to use. Overrides the    |
-  |                                                value specified for the       |
-  |                                                connection.                   |
-  | --warehouse                           TEXT     Warehouse to use. Overrides   |
-  |                                                the value specified for the   |
-  |                                                connection.                   |
-  | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command-line parameters, |
-  |                                                instead of one defined in     |
-  |                                                config                        |
-  | --mfa-passcode                        TEXT     Token to use for multi-factor |
-  |                                                authentication (MFA)          |
-  | --enable-diag                                  Whether to generate a         |
-  |                                                connection diagnostic report. |
-  | --diag-log-path                       TEXT     Path for the generated        |
-  |                                                report. Defaults to system    |
-  |                                                temporary directory.          |
-  | --diag-allowlist-path                 TEXT     Path to a JSON file that      |
-  |                                                contains allowlist            |
-  |                                                parameters.                   |
-  | --oauth-client-id                     TEXT     Value of client id provided   |
-  |                                                by the Identity Provider for  |
-  |                                                Snowflake integration.        |
-  | --oauth-client-secret                 TEXT     Value of the client secret    |
-  |                                                provided by the Identity      |
-  |                                                Provider for Snowflake        |
-  |                                                integration.                  |
-  | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the authorization   |
-  |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
-  | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
-  |                                                code redirection.             |
-  | --oauth-scope                         TEXT     Scope requested in the        |
-  |                                                Identity Provider             |
-  |                                                authorization request.        |
-  | --oauth-disable-pkce                           Disables Proof Key for Code   |
-  |                                                Exchange (PKCE). Default:     |
-  |                                                False.                        |
-  | --oauth-enable-refresh-toke…                   Enables a silent              |
-  |                                                re-authentication when the    |
-  |                                                actual access token becomes   |
-  |                                                outdated. Default: False.     |
-  | --oauth-enable-single-use-r…                   Whether to opt-in to          |
-  |                                                single-use refresh token      |
-  |                                                semantics. Default: False.    |
-  | --client-store-temporary-cr…                   Store the temporary           |
-  |                                                credential.                   |
-  +------------------------------------------------------------------------------+
-  +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
-  |                                                       [default: TABLE]       |
-  | --verbose              -v                             Displays log entries   |
-  |                                                       for log levels info    |
-  |                                                       and higher.            |
-  | --debug                                               Displays log entries   |
-  |                                                       for log levels debug   |
-  |                                                       and higher; debug logs |
-  |                                                       contain additional     |
-  |                                                       information.           |
-  | --silent                                              Turns off intermediate |
-  |                                                       output to console.     |
-  | --enhanced-exit-codes                                 Differentiate exit     |
-  |                                                       error codes based on   |
-  |                                                       failure type.          |
-  |                                                       [env var:              |
-  |                                                       SNOWFLAKE_ENHANCED_EX… |
-  | --decimal-precision            INTEGER                Number of decimal      |
-  |                                                       places to display for  |
-  |                                                       decimal values. Uses   |
-  |                                                       Python's default       |
-  |                                                       precision if not       |
-  |                                                       specified. [env var:   |
-  |                                                       SNOWFLAKE_DECIMAL_PRE… |
-  +------------------------------------------------------------------------------+
-  
-  
-  '''
-# ---
-# name: test_help_messages[__app.init]
-  '''
-                                                                                  
-   Usage: root __app init [OPTIONS]                                               
-                                                                                  
-   Initializes a snowflake.yml file for a Snowflake App project.                  
-                                                                                  
-  +- Options --------------------------------------------------------------------+
-  | *  --app-name          TEXT  Name of the Snowflake App to initialize.        |
-  |                              [required]                                      |
-  |    --help      -h            Show this message and exit.                     |
-  +------------------------------------------------------------------------------+
-  +- Connection configuration ---------------------------------------------------+
-  | --connection,--environment    -c      TEXT     Name of the connection, as    |
-  |                                                defined in your config.toml   |
-  |                                                file. Default: default.       |
-  | --host                                TEXT     Host address for the          |
-  |                                                connection. Overrides the     |
-  |                                                value specified for the       |
-  |                                                connection.                   |
-  | --port                                INTEGER  Port for the connection.      |
-  |                                                Overrides the value specified |
-  |                                                for the connection.           |
-  | --account,--accountname               TEXT     Name assigned to your         |
-  |                                                Snowflake account. Overrides  |
-  |                                                the value specified for the   |
-  |                                                connection.                   |
-  | --user,--username                     TEXT     Username to connect to        |
-  |                                                Snowflake. Overrides the      |
-  |                                                value specified for the       |
-  |                                                connection.                   |
-  | --password                            TEXT     Snowflake password. Overrides |
-  |                                                the value specified for the   |
-  |                                                connection.                   |
-  | --authenticator                       TEXT     Snowflake authenticator.      |
-  |                                                Overrides the value specified |
-  |                                                for the connection.           |
-  | --workload-identity-provider          TEXT     Workload identity provider    |
-  |                                                (AWS, AZURE, GCP, OIDC).      |
-  |                                                Overrides the value specified |
-  |                                                for the connection            |
-  | --private-key-file,--privat…          TEXT     Snowflake private key file    |
-  |                                                path. Overrides the value     |
-  |                                                specified for the connection. |
-  | --token                               TEXT     OAuth token to use when       |
-  |                                                connecting to Snowflake.      |
-  | --token-file-path                     TEXT     Path to file with an OAuth    |
-  |                                                token to use when connecting  |
-  |                                                to Snowflake.                 |
-  | --database,--dbname                   TEXT     Database to use. Overrides    |
-  |                                                the value specified for the   |
-  |                                                connection.                   |
-  | --schema,--schemaname                 TEXT     Database schema to use.       |
-  |                                                Overrides the value specified |
-  |                                                for the connection.           |
-  | --role,--rolename                     TEXT     Role to use. Overrides the    |
-  |                                                value specified for the       |
-  |                                                connection.                   |
-  | --warehouse                           TEXT     Warehouse to use. Overrides   |
-  |                                                the value specified for the   |
-  |                                                connection.                   |
-  | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command-line parameters, |
-  |                                                instead of one defined in     |
-  |                                                config                        |
-  | --mfa-passcode                        TEXT     Token to use for multi-factor |
-  |                                                authentication (MFA)          |
-  | --enable-diag                                  Whether to generate a         |
-  |                                                connection diagnostic report. |
-  | --diag-log-path                       TEXT     Path for the generated        |
-  |                                                report. Defaults to system    |
-  |                                                temporary directory.          |
-  | --diag-allowlist-path                 TEXT     Path to a JSON file that      |
-  |                                                contains allowlist            |
-  |                                                parameters.                   |
-  | --oauth-client-id                     TEXT     Value of client id provided   |
-  |                                                by the Identity Provider for  |
-  |                                                Snowflake integration.        |
-  | --oauth-client-secret                 TEXT     Value of the client secret    |
-  |                                                provided by the Identity      |
-  |                                                Provider for Snowflake        |
-  |                                                integration.                  |
-  | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the authorization   |
-  |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
-  | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
-  |                                                code redirection.             |
-  | --oauth-scope                         TEXT     Scope requested in the        |
-  |                                                Identity Provider             |
-  |                                                authorization request.        |
-  | --oauth-disable-pkce                           Disables Proof Key for Code   |
-  |                                                Exchange (PKCE). Default:     |
-  |                                                False.                        |
-  | --oauth-enable-refresh-toke…                   Enables a silent              |
-  |                                                re-authentication when the    |
-  |                                                actual access token becomes   |
-  |                                                outdated. Default: False.     |
-  | --oauth-enable-single-use-r…                   Whether to opt-in to          |
-  |                                                single-use refresh token      |
-  |                                                semantics. Default: False.    |
-  | --client-store-temporary-cr…                   Store the temporary           |
-  |                                                credential.                   |
-  +------------------------------------------------------------------------------+
-  +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
-  |                                                       [default: TABLE]       |
-  | --verbose              -v                             Displays log entries   |
-  |                                                       for log levels info    |
-  |                                                       and higher.            |
-  | --debug                                               Displays log entries   |
-  |                                                       for log levels debug   |
-  |                                                       and higher; debug logs |
-  |                                                       contain additional     |
-  |                                                       information.           |
-  | --silent                                              Turns off intermediate |
-  |                                                       output to console.     |
-  | --enhanced-exit-codes                                 Differentiate exit     |
-  |                                                       error codes based on   |
-  |                                                       failure type.          |
-  |                                                       [env var:              |
-  |                                                       SNOWFLAKE_ENHANCED_EX… |
-  | --decimal-precision            INTEGER                Number of decimal      |
-  |                                                       places to display for  |
-  |                                                       decimal values. Uses   |
-  |                                                       Python's default       |
-  |                                                       precision if not       |
-  |                                                       specified. [env var:   |
-  |                                                       SNOWFLAKE_DECIMAL_PRE… |
-  +------------------------------------------------------------------------------+
-  
-  
-  '''
-# ---
-# name: test_help_messages[__app]
-  '''
-                                                                                  
-   Usage: root __app [OPTIONS] COMMAND [ARGS]...                                  
-                                                                                  
-   Manages Snowflake Apps.                                                        
-                                                                                  
-  +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
-  +------------------------------------------------------------------------------+
-  +- Commands -------------------------------------------------------------------+
-  | deploy   Builds and deploys a Snowflake App.                                 |
-  | init     Initializes a snowflake.yml file for a Snowflake App project.       |
   +------------------------------------------------------------------------------+
   
   
@@ -22953,6 +23146,27 @@
   
   '''
 # ---
+# name: test_help_messages_no_help_flag[__app]
+  '''
+                                                                                  
+   Usage: root __app [OPTIONS] COMMAND [ARGS]...                                  
+                                                                                  
+   Manages Snowflake Apps.                                                        
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | --help  -h        Show this message and exit.                                |
+  +------------------------------------------------------------------------------+
+  +- Commands -------------------------------------------------------------------+
+  | bundle     Bundles a Snowflake App by resolving artifacts defined in         |
+  |            snowflake.yml.                                                    |
+  | deploy     Builds and deploys a Snowflake App.                               |
+  | init       Initializes a snowflake.yml file for a Snowflake App project.     |
+  | validate   Validates a local Snowflake App project.                          |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
 # name: test_help_messages_no_help_flag[app.release-channel]
   '''
                                                                                   
@@ -23058,24 +23272,6 @@
   | validate            Validates a deployed Snowflake Native App's setup        |
   |                     script.                                                  |
   | version             Manages versions defined in an application package       |
-  +------------------------------------------------------------------------------+
-  
-  
-  '''
-# ---
-# name: test_help_messages_no_help_flag[__app]
-  '''
-                                                                                  
-   Usage: root __app [OPTIONS] COMMAND [ARGS]...                                  
-                                                                                  
-   Manages Snowflake Apps.                                                        
-                                                                                  
-  +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
-  +------------------------------------------------------------------------------+
-  +- Commands -------------------------------------------------------------------+
-  | deploy   Builds and deploys a Snowflake App.                                 |
-  | init     Initializes a snowflake.yml file for a Snowflake App project.       |
   +------------------------------------------------------------------------------+
   
   

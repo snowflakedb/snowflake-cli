@@ -22,6 +22,7 @@ from snowflake.cli._plugins.apps.manager import (
     DEFAULT_IMAGE_REPOSITORY,
     DEFINITION_FILENAME,
     SnowflakeAppManager,
+    _find_dockerfile_expose_port,
     _get_entity,
     _poll_until,
     _resolve_entity_id,
@@ -93,6 +94,74 @@ def bundle(
 
     project_paths = perform_bundle(resolved_entity_id, entity)
     return MessageResult(f"Bundle generated at {project_paths.bundle_root}")
+
+
+@app.command(requires_connection=True)
+def validate(
+    entity_id: Optional[str] = typer.Option(
+        None,
+        "--entity-id",
+        help="ID of the snowflake-app entity to validate. Required if multiple snowflake-app entities exist.",
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Validates a local Snowflake App project.
+
+    Bundles the project, checks that a Dockerfile with an EXPOSE directive
+    exists, and verifies that the current role has the BIND SERVICE ENDPOINT
+    privilege required for deployment.
+    """
+    resolved_entity_id = _resolve_entity_id(entity_id)
+    entity = _get_entity(resolved_entity_id)
+
+    warnings: list[str] = []
+
+    # Step 1: Bundle into a temporary directory
+    cli_console.step("Bundling project artifacts")
+    project_paths = perform_bundle(resolved_entity_id, entity)
+
+    try:
+        # Step 2: Validate Dockerfile has an EXPOSE directive
+        bundle_root = project_paths.bundle_root
+        dockerfile = bundle_root / "Dockerfile"
+        if not dockerfile.exists():
+            raise CliError(
+                f"No Dockerfile found in bundled artifacts. "
+                f"A Dockerfile is required for Snowflake App projects."
+            )
+
+        exposed_port = _find_dockerfile_expose_port(bundle_root)
+        if exposed_port is None:
+            raise CliError(
+                "Dockerfile does not contain an EXPOSE directive. "
+                "The Dockerfile must expose a port for the app service."
+            )
+
+        if exposed_port != entity.app_port:
+            warnings.append(
+                f"Dockerfile exposes port {exposed_port}, but the entity "
+                f"'app_port' is configured as {entity.app_port}. "
+                f"These should match for the service endpoint to work correctly."
+            )
+    finally:
+        # Step 4: Clean up the temporary bundle
+        project_paths.clean_up_output()
+
+    # Step 3: Check BIND SERVICE ENDPOINT privilege
+    manager = SnowflakeAppManager()
+    role = manager.current_role()
+    if role and role.upper() != "ACCOUNTADMIN":
+        if not manager.role_has_bind_service_endpoint(role):
+            warnings.append(
+                f"Role '{role}' does not have the BIND SERVICE ENDPOINT "
+                f"privilege. This privilege is required to deploy a Snowflake App."
+            )
+
+    for warning in warnings:
+        cli_console.warning(warning)
+
+    return MessageResult("Valid Snowflake App project.")
 
 
 @app.command(requires_connection=True)

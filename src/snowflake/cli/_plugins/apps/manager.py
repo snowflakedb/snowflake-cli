@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Set, TypeVar
 
 from snowflake.cli._plugins.apps.snowflake_app_entity_model import DEFAULT_APP_PORT
@@ -231,8 +232,44 @@ def perform_bundle(
     return project_paths
 
 
+def _find_dockerfile_expose_port(bundle_root: Path) -> Optional[int]:
+    """Parse the Dockerfile in *bundle_root* and return the first EXPOSEd port.
+
+    Returns ``None`` when no ``Dockerfile`` exists or it contains no EXPOSE
+    directive.  Only simple ``EXPOSE <number>`` lines are recognised (the
+    ``/tcp`` and ``/udp`` suffixes are stripped).
+    """
+    dockerfile = bundle_root / "Dockerfile"
+    if not dockerfile.exists():
+        return None
+
+    import re
+
+    expose_re = re.compile(r"^\s*EXPOSE\s+(\d+)(?:/(?:tcp|udp))?\s*$", re.IGNORECASE)
+    for line in dockerfile.read_text().splitlines():
+        m = expose_re.match(line)
+        if m:
+            return int(m.group(1))
+    return None
+
+
 class SnowflakeAppManager(SqlExecutionMixin):
     """Manager for Snowflake App operations."""
+
+    def role_has_bind_service_endpoint(self, role: str) -> bool:
+        """Return True if *role* has the account-level BIND SERVICE ENDPOINT privilege."""
+        from snowflake.connector.cursor import DictCursor
+
+        cursor = self.execute_query(
+            f"SHOW GRANTS TO ROLE {role}", cursor_class=DictCursor
+        )
+        for row in cursor:
+            if (
+                row.get("privilege") == "BIND SERVICE ENDPOINT"
+                and row.get("granted_on") == "ACCOUNT"
+            ):
+                return True
+        return False
 
     def create_schema_if_not_exists(self, database: str, schema: str) -> None:
         """Create schema if it doesn't exist."""
