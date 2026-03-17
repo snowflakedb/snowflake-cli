@@ -71,7 +71,7 @@ jobs:
 
       - name: Run UD tests
         run: |
-          hatch run ud:test
+          hatch --no-dep-sync run ud:test
         env:
           GH_TOKEN: ${{ secrets.SNOWFLAKE_GITHUB_TOKEN }}
           PYTHON_VERSION: ${{ inputs.python-version }}
