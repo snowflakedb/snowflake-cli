@@ -28,7 +28,6 @@ from snowflake.cli.api.artifacts.utils import bundle_artifacts
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliError
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import ProjectPaths
 from snowflake.cli.api.secure_path import SecurePath
@@ -42,11 +41,6 @@ SNOW_APPS_COMPUTE_POOL = "SNOW_APPS_DEFAULT_COMPUTE_POOL"
 DEFAULT_EXTERNAL_ACCESS = "SNOW_APPS_DEFAULT_EXTERNAL_ACCESS"
 # TODO: Replace with artifact_repository from entity config once supported
 DEFAULT_IMAGE_REPOSITORY = "SNOW_APPS_DEFAULT_IMAGE_REPOSITORY"
-
-
-def _check_feature_enabled():
-    if FeatureFlag.ENABLE_SNOWFLAKE_APPS.is_disabled():
-        raise CliError("This feature is not available yet.")
 
 
 T = TypeVar("T")
@@ -154,7 +148,7 @@ def _get_snowflake_app_entities() -> Dict[str, Any]:
     project_def = ctx.project_definition
 
     if project_def is None:
-        raise CliError(f"No {DEFINITION_FILENAME} found. Run 'snow apps init' first.")
+        raise CliError(f"No {DEFINITION_FILENAME} found. Run 'snow __app init' first.")
 
     # Get entities with type "snowflake-app"
     snowflake_apps = {}
@@ -181,7 +175,7 @@ def _resolve_entity_id(entity_id: Optional[str]) -> str:
     if len(snowflake_apps) == 0:
         raise CliError(
             f"No snowflake-app entities found in {DEFINITION_FILENAME}. "
-            "Add a snowflake-app entity or run 'snow apps init' first."
+            "Add a snowflake-app entity or run 'snow __app init' first."
         )
     elif len(snowflake_apps) == 1:
         return list(snowflake_apps.keys())[0]
@@ -218,7 +212,7 @@ def perform_bundle(
     temporary *bundle root* directory under ``<project_root>/output/bundle``.
 
     This function is the shared implementation behind both
-    ``snow apps bundle`` and the bundling step of ``snow apps deploy``.
+    ``snow __app bundle`` and the bundling step of ``snow __app deploy``.
 
     Returns the :class:`ProjectPaths` instance so callers can inspect or
     upload the bundle root, and are responsible for cleanup via

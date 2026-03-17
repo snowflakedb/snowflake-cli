@@ -3968,10 +3968,10 @@
   
   '''
 # ---
-# name: test_help_messages[apps.deploy]
+# name: test_help_messages[__app.deploy]
   '''
                                                                                   
-   Usage: root apps deploy [OPTIONS]                                              
+   Usage: root __app deploy [OPTIONS]                                             
                                                                                   
    Builds and deploys a Snowflake App.                                            
                                                                                   
@@ -4112,10 +4112,10 @@
   
   '''
 # ---
-# name: test_help_messages[apps.init]
+# name: test_help_messages[__app.init]
   '''
                                                                                   
-   Usage: root apps init [OPTIONS]                                                
+   Usage: root __app init [OPTIONS]                                               
                                                                                   
    Initializes a snowflake.yml file for a Snowflake App project.                  
                                                                                   
@@ -4249,10 +4249,10 @@
   
   '''
 # ---
-# name: test_help_messages[apps]
+# name: test_help_messages[__app]
   '''
                                                                                   
-   Usage: root apps [OPTIONS] COMMAND [ARGS]...                                   
+   Usage: root __app [OPTIONS] COMMAND [ARGS]...                                  
                                                                                   
    Manages Snowflake Apps.                                                        
                                                                                   
@@ -23028,10 +23028,10 @@
   
   '''
 # ---
-# name: test_help_messages_no_help_flag[apps]
+# name: test_help_messages_no_help_flag[__app]
   '''
                                                                                   
-   Usage: root apps [OPTIONS] COMMAND [ARGS]...                                   
+   Usage: root __app [OPTIONS] COMMAND [ARGS]...                                  
                                                                                   
    Manages Snowflake Apps.                                                        
                                                                                   

@@ -22,7 +22,6 @@ from snowflake.cli._plugins.apps.manager import (
     DEFAULT_IMAGE_REPOSITORY,
     DEFINITION_FILENAME,
     SnowflakeAppManager,
-    _check_feature_enabled,
     _get_entity,
     _poll_until,
     _resolve_entity_id,
@@ -38,7 +37,7 @@ from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import CommandResult, MessageResult
 
 app = SnowTyperFactory(
-    name="apps",
+    name="__app",
     help="Manages Snowflake Apps.",
     is_hidden=FeatureFlag.ENABLE_SNOWFLAKE_APPS.is_disabled,
 )
@@ -56,7 +55,6 @@ def init(
     """
     Initializes a snowflake.yml file for a Snowflake App project.
     """
-    _check_feature_enabled()
 
     project_file = Path.cwd() / DEFINITION_FILENAME
     if project_file.exists():
@@ -90,7 +88,6 @@ def bundle(
     Copies (or symlinks) the matched source files into a local output directory
     (output/bundle) so you can inspect exactly what would be uploaded during deploy.
     """
-    _check_feature_enabled()
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 
@@ -116,7 +113,6 @@ def deploy(
     If --entity-id is not specified and the project contains exactly one snowflake-app
     entity, that entity will be used automatically.
     """
-    _check_feature_enabled()
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 
@@ -194,7 +190,7 @@ def deploy(
 
     # Step 3: Bundle and upload artifact files to stage
     #
-    # We reuse perform_bundle (same logic as `snow apps bundle`) to resolve
+    # We reuse perform_bundle (same logic as `snow __app bundle`) to resolve
     # glob patterns and src/dest mappings into a flat temporary directory,
     # then upload that directory recursively so nested folders are preserved
     # on the stage.

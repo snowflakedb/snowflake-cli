@@ -19,7 +19,6 @@ from snowflake.cli._plugins.apps.generate import _generate_snowflake_yml
 from snowflake.cli._plugins.apps.manager import (
     SNOWFLAKE_APP_ENTITY_TYPE,
     SnowflakeAppManager,
-    _check_feature_enabled,
     _get_compute_pool,
     _get_entity,
     _get_external_access,
@@ -48,18 +47,10 @@ class TestFeatureFlag:
     def test_feature_flag_disabled_by_default(self):
         assert FeatureFlag.ENABLE_SNOWFLAKE_APPS.is_disabled()
 
-    def test_check_feature_enabled_raises_when_disabled(self):
-        with pytest.raises(CliError, match="This feature is not available yet."):
-            _check_feature_enabled()
-
-    def test_check_feature_enabled_succeeds_when_enabled(self):
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            _check_feature_enabled()  # Should not raise
-
     def test_apps_command_hidden_by_default(self, runner):
         result = runner.invoke(["--help"])
         assert result.exit_code == 0
-        assert "apps" not in result.output
+        assert "__app" not in result.output
 
 
 # ── Helper function tests ─────────────────────────────────────────────
@@ -717,7 +708,7 @@ class TestInitCommand:
             from tests_common import change_directory
 
             with change_directory(tmp_path):
-                result = runner.invoke(["apps", "init", "--app-name", "my_app"])
+                result = runner.invoke(["__app", "init", "--app-name", "my_app"])
                 assert result.exit_code == 0, result.output
                 assert "Initialized Snowflake App project" in result.output
                 assert (tmp_path / "snowflake.yml").exists()
@@ -728,17 +719,9 @@ class TestInitCommand:
 
             (tmp_path / "snowflake.yml").write_text("existing content")
             with change_directory(tmp_path):
-                result = runner.invoke(["apps", "init", "--app-name", "my_app"])
+                result = runner.invoke(["__app", "init", "--app-name", "my_app"])
                 assert result.exit_code == 0, result.output
                 assert "already exists" in result.output
-
-    def test_init_fails_when_feature_disabled(self, runner, tmp_path):
-        from tests_common import change_directory
-
-        with change_directory(tmp_path):
-            result = runner.invoke(["apps", "init", "--app-name", "my_app"])
-            assert result.exit_code == 1
-            assert "not available" in result.output
 
 
 # ── perform_bundle tests ──────────────────────────────────────────────
@@ -797,14 +780,6 @@ class TestPerformBundle:
 
 
 class TestBundleCommand:
-    def test_bundle_fails_when_feature_disabled(self, runner, tmp_path):
-        from tests_common import change_directory
-
-        with change_directory(tmp_path):
-            result = runner.invoke(["apps", "bundle"])
-            assert result.exit_code == 1
-            assert "not available" in result.output
-
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
     @patch(
         "snowflake.cli._plugins.apps.commands._get_entity",
@@ -828,7 +803,7 @@ class TestBundleCommand:
             from tests_common import change_directory
 
             with change_directory(tmp_path):
-                result = runner.invoke(["apps", "bundle"])
+                result = runner.invoke(["__app", "bundle"])
                 assert result.exit_code == 0, result.output
                 assert "Bundle generated at" in result.output
                 assert "output" in result.output
@@ -857,7 +832,7 @@ class TestBundleCommand:
             from tests_common import change_directory
 
             with change_directory(tmp_path):
-                result = runner.invoke(["apps", "bundle", "--entity-id", "custom_app"])
+                result = runner.invoke(["__app", "bundle", "--entity-id", "custom_app"])
                 assert result.exit_code == 0, result.output
                 mock_resolve.assert_called_once_with("custom_app")
 
@@ -866,14 +841,6 @@ class TestBundleCommand:
 
 
 class TestDeployCommand:
-    def test_deploy_fails_when_feature_disabled(self, runner, tmp_path):
-        from tests_common import change_directory
-
-        with change_directory(tmp_path):
-            result = runner.invoke(["apps", "deploy"])
-            assert result.exit_code == 1
-            assert "not available" in result.output
-
     @patch(
         "snowflake.cli._plugins.apps.commands._get_entity",
     )
@@ -900,7 +867,7 @@ class TestDeployCommand:
             from tests_common import change_directory
 
             with change_directory(tmp_path):
-                result = runner.invoke(["apps", "deploy"])
+                result = runner.invoke(["__app", "deploy"])
                 assert result.exit_code == 1
                 assert "build_compute_pool is required" in result.output
 
@@ -930,7 +897,7 @@ class TestDeployCommand:
             from tests_common import change_directory
 
             with change_directory(tmp_path):
-                result = runner.invoke(["apps", "deploy"])
+                result = runner.invoke(["__app", "deploy"])
                 assert result.exit_code == 1
                 assert "service_compute_pool is required" in result.output
 
@@ -961,6 +928,6 @@ class TestDeployCommand:
             from tests_common import change_directory
 
             with change_directory(tmp_path):
-                result = runner.invoke(["apps", "deploy"])
+                result = runner.invoke(["__app", "deploy"])
                 assert result.exit_code == 1
                 assert "query_warehouse is required" in result.output
