@@ -1201,6 +1201,110 @@ class TestRoleHasBindServiceEndpoint:
         assert SnowflakeAppManager().role_has_bind_service_endpoint("DEV_ROLE") is False
 
 
+# ── Open CLI command tests ────────────────────────────────────────────
+
+
+class TestOpenCommand:
+    @patch("snowflake.cli._plugins.apps.commands.typer.launch")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_open_launches_browser(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        mock_launch,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        entity.fqn = Mock(database="DB", schema="SCHEMA")
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.get_service_endpoint_url.return_value = (
+            "https://my-app.snowflakecomputing.app"
+        )
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "open"])
+                assert result.exit_code == 0, result.output
+                assert "https://my-app.snowflakecomputing.app" in result.output
+                mock_launch.assert_called_once_with(
+                    "https://my-app.snowflakecomputing.app"
+                )
+
+    @patch("snowflake.cli._plugins.apps.commands.typer.launch")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_open_print_only(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        mock_launch,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        entity.fqn = Mock(database="DB", schema="SCHEMA")
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.get_service_endpoint_url.return_value = (
+            "https://my-app.snowflakecomputing.app"
+        )
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "open", "--print-only"])
+                assert result.exit_code == 0, result.output
+                assert "https://my-app.snowflakecomputing.app" in result.output
+                mock_launch.assert_not_called()
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_open_fails_when_no_endpoint(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        entity.fqn = Mock(database="DB", schema="SCHEMA")
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.get_service_endpoint_url.return_value = None
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "open"])
+                assert result.exit_code == 1
+                assert "No endpoint URL found" in result.output
+
+
 # ── Deploy CLI command tests ──────────────────────────────────────────
 
 

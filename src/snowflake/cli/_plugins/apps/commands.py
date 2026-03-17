@@ -164,6 +164,49 @@ def validate(
     return MessageResult("Valid Snowflake App project.")
 
 
+@app.command("open", requires_connection=True)
+def open_app(
+    entity_id: Optional[str] = typer.Option(
+        None,
+        "--entity-id",
+        help="ID of the snowflake-app entity to open. Required if multiple snowflake-app entities exist.",
+    ),
+    print_only: bool = typer.Option(
+        False,
+        "--print-only",
+        help="Print the app URL without opening it in the browser.",
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Opens a deployed Snowflake App in the browser.
+
+    Looks up the service endpoint URL for the app and opens it.  Use
+    --print-only to print the URL without launching a browser.
+    """
+    resolved_entity_id = _resolve_entity_id(entity_id)
+    entity = _get_entity(resolved_entity_id)
+
+    fqn = entity.fqn
+    database = fqn.database or "<default_db>"
+    schema = fqn.schema or f"SNOW_APP_{resolved_entity_id.upper()}"
+    service_name_short = resolved_entity_id.upper()
+    service_fqn = FQN(database=database, schema=schema, name=service_name_short)
+
+    manager = SnowflakeAppManager()
+    endpoint_url = manager.get_service_endpoint_url(service_fqn)
+
+    if not endpoint_url:
+        raise CliError(
+            f"No endpoint URL found for service {service_fqn}. "
+            f"Is the app deployed? Run 'snow __app deploy' first."
+        )
+
+    if not print_only:
+        typer.launch(endpoint_url)
+    return MessageResult(endpoint_url)
+
+
 @app.command(requires_connection=True)
 def deploy(
     entity_id: Optional[str] = typer.Option(
