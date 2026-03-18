@@ -22,7 +22,6 @@
 ## New additions
 
 ## Fixes and improvements
-* Fixed `snow stage copy` and `snow stage put` failing when a local directory path contains glob special characters (e.g. square brackets in `[id]` or `[slug]`). The path is now escaped before glob expansion so literal directory names are matched correctly.
 
 # v3.16.0
 
@@ -42,6 +41,7 @@
 * Fixed `snow streamlit deploy --prune` failing with incorrect stage path format for streamlit entities using versioned deployment. The `snow://` prefix is now correctly preserved through all stage path operations.
 * Fixed a bug with `snow dbt deploy` where dbt project would have files uploaded first and project properties updated afterwards. This could lead to failed deploys if for example project lacked external access integrations and dependencies were specified.
 * Changed how the fully qualified name for temporary stages is established for `snow dbt deploy`. The database and schema from the DBT Project object's fully qualified name take precedence over those from the session.
+* Fixed `snow stage copy` and `snow stage put` failing when a local directory path contains glob special characters (e.g. square brackets in `[id]` or `[slug]`). The path is now escaped before glob expansion so literal directory names are matched correctly.
 
 # v3.15.0
 
