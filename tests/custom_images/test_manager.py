@@ -255,3 +255,74 @@ checks:
         assert "entrypoint" in check_names
         assert "dependency_health" not in check_names
         assert "vulnerability_scan" not in check_names
+
+
+@mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
+def test_vulnerability_scan_failure_shows_table(mock_run, tmp_path):
+    """On Grype failure, message is a readable table, not raw JSON."""
+    config_file = tmp_path / "cfg.yaml"
+    config_file.write_text(
+        """
+version: "1.0"
+checks:
+  entrypoint: "/usr/local/bin/entrypoint.sh"
+  vulnerability_scan: true
+"""
+    )
+    grype_out = json.dumps(
+        {
+            "matches": [
+                {
+                    "vulnerability": {"id": "CVE-2025-TEST", "severity": "High"},
+                    "artifact": {
+                        "name": "badlib",
+                        "version": "1.2.3",
+                        "type": "python",
+                    },
+                },
+                {
+                    "vulnerability": {"id": "CVE-2025-REL", "severity": "Medium"},
+                    "relatedVulnerabilities": [
+                        {"id": "CVE-2025-REL", "severity": "Critical"},
+                    ],
+                    "artifact": {
+                        "name": "curl",
+                        "version": "8.0.0",
+                        "type": "deb",
+                    },
+                },
+                {
+                    "vulnerability": {"id": "CVE-LOW", "severity": "Low"},
+                    "artifact": {"name": "skip-me", "version": "1", "type": "rpm"},
+                },
+            ]
+        }
+    )
+
+    def side_effect(*args, **kwargs):
+        cmd = args[0]
+        if cmd[0] == "docker" and "inspect" in cmd:
+            return mock.Mock(
+                returncode=0,
+                stdout=make_docker_inspect_response(
+                    entrypoint=["/usr/local/bin/entrypoint.sh"]
+                ),
+                stderr="",
+            )
+        if cmd[0] == "grype":
+            return mock.Mock(returncode=1, stdout=grype_out, stderr="")
+        return mock.Mock(returncode=0, stdout="", stderr="")
+
+    mock_run.side_effect = side_effect
+    manager = CustomImageManager(config_path=config_file)
+    report, _ = manager.validate("img:latest", scan_vulnerabilities=True)
+    vuln = next(r for r in report.results if r.check_name == "vulnerability_scan")
+    assert not vuln.passed
+    assert "badlib" in vuln.message
+    assert "1.2.3" in vuln.message
+    assert "python" in vuln.message
+    assert "CVE-2025-TEST" in vuln.message
+    assert "High" in vuln.message
+    assert "curl" in vuln.message and "Critical" in vuln.message
+    assert "skip-me" not in vuln.message
+    assert '"matches"' not in vuln.message

@@ -23,6 +23,63 @@ from click import ClickException
 
 CONFIG_DIR = Path(__file__).parent / "config"
 
+_FAIL_SEVERITIES = {"high", "critical"}
+
+
+def _grype_fail_table(stdout: str) -> str | None:
+    """Extract High/Critical CVEs from Grype JSON as a readable table."""
+    try:
+        matches = json.loads(stdout).get("matches")
+    except (json.JSONDecodeError, AttributeError, TypeError):
+        return None
+    if not isinstance(matches, list):
+        return None
+
+    rows = []
+    for m in matches:
+        a = m.get("artifact") or {}
+        v = m.get("vulnerability") or {}
+        severities = {
+            str(s).strip().lower()
+            for s in [
+                v.get("severity"),
+                *[
+                    rv.get("severity")
+                    for rv in (m.get("relatedVulnerabilities") or [])
+                    if isinstance(rv, dict)
+                ],
+            ]
+            if s
+        }
+        hit = severities & _FAIL_SEVERITIES
+        if not hit:
+            continue
+        sev = "Critical" if "critical" in hit else "High"
+        rows.append(
+            (
+                a.get("name", "?"),
+                a.get("version", "?"),
+                a.get("type", "?"),
+                v.get("id", "?"),
+                sev,
+            )
+        )
+
+    if not rows:
+        return None
+
+    lines = [
+        "High/Critical vulnerabilities (--fail-on high):",
+        "",
+        "package | version | type | cve | severity",
+    ]
+    for pkg, ver, typ, cve, sev in rows:
+        lines.append(f"{pkg} | {ver} | {typ} | {cve} | {sev}")
+    lines.append(
+        f"\n{len(rows)} finding(s). Run `grype <image> -o json` for full details."
+    )
+    return "\n".join(lines)
+
 
 @dataclass
 class ValidationContext:
@@ -423,21 +480,21 @@ class CustomImageManager:
         )
 
     def _check_vulnerabilities(self, context: ValidationContext) -> ValidationResult:
-        """Run Grype with --fail-on high; pass/fail by return code, show original output on failure."""
-        returncode, stdout, stderr = self._run_grype_command(context.image)
-        raw_output = (stdout or stderr).strip()
-
-        if returncode == 0:
+        """Run Grype with --fail-on high; on failure, show a concise CVE table."""
+        code, out, err = self._run_grype_command(context.image)
+        if code == 0:
             return ValidationResult(
                 check_name="vulnerability_scan",
                 passed=True,
                 message="No high/critical vulnerabilities found",
             )
 
+        table = _grype_fail_table(out or "")
+        msg = table or f"Grype scan failed.\n{(err or out or '')[:1500]}"
         return ValidationResult(
             check_name="vulnerability_scan",
             passed=False,
-            message=raw_output,
+            message=msg,
         )
 
 
