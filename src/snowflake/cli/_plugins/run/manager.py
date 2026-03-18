@@ -18,10 +18,10 @@ import logging
 import os
 import re
 import shlex
-import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from subprocess import run as _subprocess_run
 from typing import Dict, List, Optional, Tuple
 
 import yaml
@@ -58,7 +58,7 @@ class ScriptManager:
 
     def _load_scripts(self) -> None:
         """Load scripts from snowflake.yml or manifest.yml.
-        
+
         Scripts can be defined in either file but not both.
         Raises ClickException if scripts are found in both files.
         """
@@ -81,15 +81,23 @@ class ScriptManager:
             self._scripts = manifest_scripts
             self._scripts_source = manifest_source
 
-    def _load_snowflake_scripts(self) -> Tuple[Optional[Dict[str, ScriptModel]], Optional[str]]:
+    def _load_snowflake_scripts(
+        self,
+    ) -> Tuple[Optional[Dict[str, ScriptModel]], Optional[str]]:
         """Load scripts from snowflake.yml via project definition."""
         ctx = get_cli_context()
         project_def = ctx.project_definition
-        if project_def and isinstance(project_def, DefinitionV20) and project_def.scripts:
+        if (
+            project_def
+            and isinstance(project_def, DefinitionV20)
+            and project_def.scripts
+        ):
             return project_def.scripts, "snowflake.yml"
         return None, None
 
-    def _load_manifest_scripts(self) -> Tuple[Optional[Dict[str, ScriptModel]], Optional[str]]:
+    def _load_manifest_scripts(
+        self,
+    ) -> Tuple[Optional[Dict[str, ScriptModel]], Optional[str]]:
         """Load scripts from manifest.yml if present."""
         manifest_path = SecurePath(self.project_root / MANIFEST_FILE_NAME)
         if not manifest_path.exists():
@@ -99,7 +107,7 @@ class ScriptManager:
             with manifest_path.open("r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as f:
                 manifest_data = yaml.safe_load(f.read())
         except Exception as e:
-            log.debug(f"Could not read manifest.yml: {e}")
+            log.debug("Could not read manifest.yml: %s", e)
             return None, None
 
         if not manifest_data or "scripts" not in manifest_data:
@@ -216,7 +224,13 @@ class ScriptManager:
 
         if script.run:
             return self._execute_composite(
-                name, script, extra_args, var_overrides, dry_run, verbose, continue_on_error
+                name,
+                script,
+                extra_args,
+                var_overrides,
+                dry_run,
+                verbose,
+                continue_on_error,
             )
 
         return self._execute_command(
@@ -260,14 +274,14 @@ class ScriptManager:
                 )
 
             if sys.platform == "win32":
-                result = subprocess.run(
+                result = _subprocess_run(
                     cmd,
                     shell=True,
                     cwd=cwd,
                     env=env,
                 )
             else:
-                result = subprocess.run(
+                result = _subprocess_run(
                     cmd,
                     shell=True,
                     cwd=cwd,
@@ -276,7 +290,7 @@ class ScriptManager:
                 )
         else:
             args = shlex.split(cmd)
-            result = subprocess.run(
+            result = _subprocess_run(
                 args,
                 cwd=cwd,
                 env=env,

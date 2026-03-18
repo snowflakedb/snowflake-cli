@@ -12,22 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-from pathlib import Path
 from unittest import mock
 
-import pytest
-
-SUBPROCESS_RUN = "snowflake.cli._plugins.run.manager.subprocess.run"
+SUBPROCESS_RUN = "snowflake.cli._plugins.run.manager._subprocess_run"
 
 
 class TestRunIntegration:
     """Integration tests for snow run command."""
 
     @mock.patch(SUBPROCESS_RUN)
-    def test_run_echo_script_in_real_project(
-        self, mock_run, runner, project_directory
-    ):
+    def test_run_echo_script_in_real_project(self, mock_run, runner, project_directory):
         """Test running a simple echo script."""
         mock_run.return_value = mock.Mock(returncode=0)
         with project_directory("run_scripts"):
@@ -38,9 +32,7 @@ class TestRunIntegration:
             mock_run.assert_called_once()
 
     @mock.patch(SUBPROCESS_RUN)
-    def test_composite_script_runs_all_steps(
-        self, mock_run, runner, project_directory
-    ):
+    def test_composite_script_runs_all_steps(self, mock_run, runner, project_directory):
         """Test composite script executes all child scripts."""
         mock_run.return_value = mock.Mock(returncode=0)
         with project_directory("run_scripts"):
@@ -63,9 +55,7 @@ class TestRunIntegration:
             assert "TEMP.DEV_PLATFORM" in cmd
 
     @mock.patch(SUBPROCESS_RUN)
-    def test_override_variable_from_cli(
-        self, mock_run, runner, project_directory
-    ):
+    def test_override_variable_from_cli(self, mock_run, runner, project_directory):
         """Test that -D flag properly overrides variables."""
         mock_run.return_value = mock.Mock(returncode=0)
         with project_directory("run_scripts"):
@@ -75,9 +65,7 @@ class TestRunIntegration:
             assert "PRODUCTION" in cmd
 
     @mock.patch(SUBPROCESS_RUN)
-    def test_shell_mode_for_pipes(
-        self, mock_run, runner, project_directory
-    ):
+    def test_shell_mode_for_pipes(self, mock_run, runner, project_directory):
         """Test that shell=true scripts use shell execution."""
         mock_run.return_value = mock.Mock(returncode=0)
         with project_directory("run_scripts"):

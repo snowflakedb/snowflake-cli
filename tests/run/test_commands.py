@@ -14,9 +14,7 @@
 
 from unittest import mock
 
-import pytest
-
-SUBPROCESS_RUN = "snowflake.cli._plugins.run.manager.subprocess.run"
+SUBPROCESS_RUN = "snowflake.cli._plugins.run.manager._subprocess_run"
 
 
 class TestRunList:
@@ -96,7 +94,9 @@ class TestRunExecute:
             assert "2 scripts executed" in result.output
 
     @mock.patch(SUBPROCESS_RUN)
-    def test_run_composite_script_stops_on_error(self, mock_run, runner, project_directory):
+    def test_run_composite_script_stops_on_error(
+        self, mock_run, runner, project_directory
+    ):
         mock_run.return_value = mock.Mock(returncode=1)
         with project_directory("run_scripts"):
             result = runner.invoke(["run", "deploy-all"])
@@ -104,7 +104,9 @@ class TestRunExecute:
             assert mock_run.call_count == 1
 
     @mock.patch(SUBPROCESS_RUN)
-    def test_run_composite_script_continue_on_error(self, mock_run, runner, project_directory):
+    def test_run_composite_script_continue_on_error(
+        self, mock_run, runner, project_directory
+    ):
         mock_run.return_value = mock.Mock(returncode=1)
         with project_directory("run_scripts"):
             result = runner.invoke(["run", "deploy-all", "--continue-on-error"])
@@ -168,7 +170,9 @@ class TestRunManifestScripts:
             assert "echo" in mock_run.call_args[0][0][0]
 
     @mock.patch(SUBPROCESS_RUN)
-    def test_run_composite_script_from_manifest(self, mock_run, runner, project_directory):
+    def test_run_composite_script_from_manifest(
+        self, mock_run, runner, project_directory
+    ):
         mock_run.return_value = mock.Mock(returncode=0)
         with project_directory("run_manifest_scripts"):
             result = runner.invoke(["run", "all"])

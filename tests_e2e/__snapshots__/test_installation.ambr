@@ -40,6 +40,8 @@
   | logs                 Retrieves logs for a given object.                      |
   | notebook             Manages notebooks in Snowflake.                         |
   | object               Manages Snowflake objects like warehouses and stages    |
+  | run                  Execute project scripts defined in snowflake.yml or     |
+  |                      manifest.yml.                                           |
   | snowpark             Manages procedures and functions.                       |
   | spcs                 Manages Snowpark Container Services compute pools,      |
   |                      services, image registries, and image repositories.     |
@@ -104,6 +106,8 @@
   | logs         Retrieves logs for a given object.                              |
   | notebook     Manages notebooks in Snowflake.                                 |
   | object       Manages Snowflake objects like warehouses and stages            |
+  | run          Execute project scripts defined in snowflake.yml or             |
+  |              manifest.yml.                                                   |
   | snowpark     Manages procedures and functions.                               |
   | spcs         Manages Snowpark Container Services compute pools, services,    |
   |              image registries, and image repositories.                       |
@@ -149,6 +153,8 @@
   | logs                 Retrieves logs for a given object.                      |
   | notebook             Manages notebooks in Snowflake.                         |
   | object               Manages Snowflake objects like warehouses and stages    |
+  | run                  Execute project scripts defined in snowflake.yml or     |
+  |                      manifest.yml.                                           |
   | snowpark             Manages procedures and functions.                       |
   | spcs                 Manages Snowpark Container Services compute pools,      |
   |                      services, image registries, and image repositories.     |
@@ -233,6 +239,8 @@
   | logs         Retrieves logs for a given object.                              |
   | notebook     Manages notebooks in Snowflake.                                 |
   | object       Manages Snowflake objects like warehouses and stages            |
+  | run          Execute project scripts defined in snowflake.yml or             |
+  |              manifest.yml.                                                   |
   | snowpark     Manages procedures and functions.                               |
   | spcs         Manages Snowpark Container Services compute pools, services,    |
   |              image registries, and image repositories.                       |

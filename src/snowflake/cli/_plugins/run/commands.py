@@ -116,7 +116,9 @@ def run_script(
             for name in scripts:
                 cc.message(f"  {name}")
             return MessageResult("\nSpecify a script name to run, or use --list")
-        return MessageResult("No scripts defined. Add a 'scripts' section to snowflake.yml or manifest.yml")
+        return MessageResult(
+            "No scripts defined. Add a 'scripts' section to snowflake.yml or manifest.yml"
+        )
 
     vars_dict = {}
     if var_overrides:

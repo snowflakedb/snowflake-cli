@@ -31,6 +31,8 @@
   | logs         Retrieves logs for a given object.                              |
   | notebook     Manages notebooks in Snowflake.                                 |
   | object       Manages Snowflake objects like warehouses and stages            |
+  | run          Execute project scripts defined in snowflake.yml or             |
+  |              manifest.yml.                                                   |
   | snowpark     Manages procedures and functions.                               |
   | spcs         Manages Snowpark Container Services compute pools, services,    |
   |              image registries, and image repositories.                       |
@@ -13167,6 +13169,89 @@
   
   '''
 # ---
+# name: test_help_messages[run]
+  '''
+                                                                                  
+   Usage: root run [OPTIONS] [SCRIPT_NAME] [EXTRA_ARGS]...                        
+                                                                                  
+   Execute project scripts defined in snowflake.yml or manifest.yml.              
+                                                                                  
+   Scripts are defined in the 'scripts' section of your snowflake.yml or          
+   manifest.yml file. Use --list to see available scripts. Pass additional        
+   arguments after --.                                                            
+                                                                                  
+   Example usage:                                                                 
+                                                                                  
+                                                                                  
+    snow run deploy                                                               
+                                                                                  
+    snow run dev -- --server.port 8502                                            
+                                                                                  
+    snow run dcm-plan --var database=PROD                                         
+                                                                                  
+                                                                                  
+   Variable interpolation supports:                                               
+                                                                                  
+                                                                                  
+    ${database}, ${schema}, ${connection} - from defaults section                 
+                                                                                  
+    ${env.VAR_NAME} - from env section or environment variables                   
+                                                                                  
+    ${entity.<name>.<prop>} - from entity definitions                             
+                                                                                  
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  |   script_name      [SCRIPT_NAME]    Name of the script to run.               |
+  |   extra_args       [EXTRA_ARGS]...  Additional arguments to pass to the      |
+  |                                     script (use -- before args).             |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | --list               -l            List available scripts.                   |
+  | --dry-run                          Show what would be executed without       |
+  |                                    running.                                  |
+  | --continue-on-error                Continue executing composite scripts even |
+  |                                    if a step fails.                          |
+  | --variable           -D      TEXT  Override script variables in key=value    |
+  |                                    format.                                   |
+  | --project            -p      TEXT  Path where the Snowflake project is       |
+  |                                    stored. Defaults to the current working   |
+  |                                    directory.                                |
+  | --env                        TEXT  String in the format key=value. Overrides |
+  |                                    variables from the env section used for   |
+  |                                    templates.                                |
+  | --help               -h            Show this message and exit.               |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
+  |                                CSV]                   format.                |
+  |                                                       [default: TABLE]       |
+  | --verbose              -v                             Displays log entries   |
+  |                                                       for log levels info    |
+  |                                                       and higher.            |
+  | --debug                                               Displays log entries   |
+  |                                                       for log levels debug   |
+  |                                                       and higher; debug logs |
+  |                                                       contain additional     |
+  |                                                       information.           |
+  | --silent                                              Turns off intermediate |
+  |                                                       output to console.     |
+  | --enhanced-exit-codes                                 Differentiate exit     |
+  |                                                       error codes based on   |
+  |                                                       failure type.          |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified. [env var:   |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
 # name: test_help_messages[snowpark.build]
   '''
                                                                                   
@@ -23284,6 +23369,8 @@
   | logs         Retrieves logs for a given object.                              |
   | notebook     Manages notebooks in Snowflake.                                 |
   | object       Manages Snowflake objects like warehouses and stages            |
+  | run          Execute project scripts defined in snowflake.yml or             |
+  |              manifest.yml.                                                   |
   | snowpark     Manages procedures and functions.                               |
   | spcs         Manages Snowpark Container Services compute pools, services,    |
   |              image registries, and image repositories.                       |
