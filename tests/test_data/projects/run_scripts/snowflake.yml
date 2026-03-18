@@ -32,3 +32,8 @@ scripts:
   with-env:
     cmd: echo "User is ${env.USER}"
     description: Test env variable interpolation
+
+  shell-with-vars:
+    cmd: echo "${env.database}" | cat
+    shell: true
+    description: Shell script with variable interpolation

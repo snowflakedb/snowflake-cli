@@ -146,6 +146,39 @@ class TestRunExecute:
             assert result.exit_code == 0
             assert mock_run.call_args[1]["shell"] is True
 
+    @mock.patch(SUBPROCESS_RUN)
+    def test_run_shell_mode_escapes_interpolated_variables(
+        self, mock_run, runner, project_directory
+    ):
+        mock_run.return_value = mock.Mock(returncode=0)
+        with project_directory("run_scripts"):
+            result = runner.invoke(
+                ["run", "shell-with-vars", "-D", "env.database=TEST; rm -rf /"]
+            )
+            assert result.exit_code == 0
+            cmd_str = mock_run.call_args[0][0]
+            assert "rm -rf" not in cmd_str or "'" in cmd_str
+
+    @mock.patch(SUBPROCESS_RUN)
+    def test_run_extra_args_with_spaces_are_quoted(
+        self, mock_run, runner, project_directory
+    ):
+        mock_run.return_value = mock.Mock(returncode=0)
+        with project_directory("run_scripts"):
+            result = runner.invoke(["run", "dev", "--", "--flag=value with spaces"])
+            assert result.exit_code == 0
+            cmd_str = " ".join(mock_run.call_args[0][0])
+            assert "value with spaces" in cmd_str
+
+    @mock.patch(SUBPROCESS_RUN)
+    def test_run_composite_preserves_first_failure_exit_code(
+        self, mock_run, runner, project_directory
+    ):
+        mock_run.return_value = mock.Mock(returncode=42)
+        with project_directory("run_scripts"):
+            result = runner.invoke(["run", "deploy-all", "--continue-on-error"])
+            assert result.exit_code == 42
+
 
 class TestRunHelp:
     def test_run_help_shows_usage(self, runner):
