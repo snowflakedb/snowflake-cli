@@ -22,20 +22,6 @@ import yaml
 from click import ClickException
 
 CONFIG_DIR = Path(__file__).parent / "config"
-GRYPE_CPU_CONFIG_PATH = CONFIG_DIR / "grype_cpu.yaml"
-GRYPE_GPU_CONFIG_PATH = CONFIG_DIR / "grype_gpu.yaml"
-
-# Grype severity order (low to high). Used to derive severities at or above threshold.
-_SEVERITY_ORDER = ("Negligible", "Low", "Medium", "High", "Critical")
-
-
-def _get_severity_from_match(match: dict) -> Optional[str]:
-    """Extract and normalize severity from a Grype JSON match (handles different key casings)."""
-    vuln = match.get("vulnerability") or match.get("Vulnerability") or {}
-    raw = vuln.get("severity") or vuln.get("Severity")
-    if not raw:
-        return None
-    return str(raw).strip().capitalize()
 
 
 @dataclass
@@ -44,7 +30,6 @@ class ValidationContext:
 
     image: str
     image_info: dict
-    is_gpu: bool
 
 
 @dataclass
@@ -106,12 +91,9 @@ class CustomImageManager:
         except subprocess.TimeoutExpired:
             raise ClickException("Docker command timed out.")
 
-    def _run_grype_command(self, image_name: str, is_gpu: bool) -> tuple[int, str, str]:
-        """Run grype vulnerability scan with appropriate config. Uses JSON output for parsing."""
-        grype_config = GRYPE_GPU_CONFIG_PATH if is_gpu else GRYPE_CPU_CONFIG_PATH
-        cmd = ["grype", image_name, "-o", "json"]
-        if grype_config.exists():
-            cmd.extend(["--config", str(grype_config)])
+    def _run_grype_command(self, image_name: str) -> tuple[int, str, str]:
+        """Run grype vulnerability scan. --fail-on high: exit non-zero only for High/Critical CVEs."""
+        cmd = ["grype", image_name, "-o", "json", "--fail-on", "high"]
 
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
@@ -123,22 +105,6 @@ class CustomImageManager:
             )
         except subprocess.TimeoutExpired:
             raise ClickException("Grype scan timed out.")
-
-    def _severities_from_fail_on(self, is_gpu: bool) -> tuple[str, ...]:
-        """Return severities at or above the fail-on threshold from the Grype config."""
-        path = GRYPE_GPU_CONFIG_PATH if is_gpu else GRYPE_CPU_CONFIG_PATH
-        if not path.exists():
-            return ("High", "Critical")
-        with open(path) as f:
-            config = yaml.safe_load(f) or {}
-        raw = config.get("fail-on") or config.get("fail-on-severity")
-        if not raw:
-            return ("High", "Critical")
-        threshold = str(raw).strip().capitalize()
-        if threshold not in _SEVERITY_ORDER:
-            return ("High", "Critical")
-        idx = _SEVERITY_ORDER.index(threshold)
-        return _SEVERITY_ORDER[idx:]
 
     def _get_image_info(self, image_name: str) -> Optional[dict]:
         """Get Docker image inspection info."""
@@ -157,14 +123,13 @@ class CustomImageManager:
         return None
 
     def validate(
-        self, image: str, is_gpu: bool = False, scan_vulnerabilities: bool = False
+        self, image: str, scan_vulnerabilities: bool = False
     ) -> tuple[ValidationReport, str]:
         """Validate a Docker image against the configured rules.
 
         Args:
             image: Docker image to validate. Accepts image name (e.g., 'myimage:latest')
                    or image ID/hash.
-            is_gpu: Whether to validate as a GPU image. Defaults to False (CPU).
             scan_vulnerabilities: Whether to run vulnerability scan. Defaults to False.
         """
         report = ValidationReport(image_name=image)
@@ -190,21 +155,8 @@ class CustomImageManager:
             )
         )
 
-        image_type = "GPU" if is_gpu else "CPU"
-        report.add_result(
-            ValidationResult(
-                check_name="image_type",
-                passed=True,
-                message=f"Validating as {image_type} image",
-            )
-        )
-
         # Create context for check handlers
-        context = ValidationContext(
-            image=image,
-            image_info=image_info,
-            is_gpu=is_gpu,
-        )
+        context = ValidationContext(image=image, image_info=image_info)
 
         # Run entrypoint check FIRST (critical - stop early if fails)
         entrypoint_config = checks.get("entrypoint")
@@ -471,49 +423,21 @@ class CustomImageManager:
         )
 
     def _check_vulnerabilities(self, context: ValidationContext) -> ValidationResult:
-        """Run Grype vulnerability scan on the image."""
-        severities_to_show = self._severities_from_fail_on(context.is_gpu)
-        returncode, stdout, stderr = self._run_grype_command(
-            context.image, context.is_gpu
-        )
+        """Run Grype with --fail-on high; pass/fail by return code, show original output on failure."""
+        returncode, stdout, stderr = self._run_grype_command(context.image)
+        raw_output = (stdout or stderr).strip()
 
         if returncode == 0:
-            severity_label = "/".join(severities_to_show).lower()
             return ValidationResult(
                 check_name="vulnerability_scan",
                 passed=True,
-                message=f"No {severity_label} vulnerabilities found",
+                message="No high/critical vulnerabilities found",
             )
-
-        output = stdout or stderr
-        try:
-            data = json.loads(output)
-            matches = data.get("matches") or []
-            filtered = [
-                m for m in matches if _get_severity_from_match(m) in severities_to_show
-            ]
-            if filtered:
-                severity_label = "/".join(severities_to_show).lower()
-                lines = [f"{severity_label} vulnerabilities detected:"]
-                for m in filtered:
-                    vuln = m.get("vulnerability") or m.get("Vulnerability") or {}
-                    art = m.get("artifact") or m.get("Artifact") or {}
-                    pkg = f"{art.get('name', '?')} {art.get('version', '?')}"
-                    vid = vuln.get("id") or vuln.get("Id") or "?"
-                    sev = _get_severity_from_match(m) or "?"
-                    lines.append(f"  {pkg} -> {vid} ({sev})")
-                output = "\n".join(lines)
-            else:
-                severity_label = "/".join(severities_to_show).lower()
-                output = f"{severity_label} vulnerabilities detected (see grype for details)."
-        except (json.JSONDecodeError, KeyError, TypeError):
-            severity_label = "/".join(severities_to_show).lower()
-            output = f"{severity_label} vulnerabilities detected:\n{output}"
 
         return ValidationResult(
             check_name="vulnerability_scan",
             passed=False,
-            message=output,
+            message=raw_output,
         )
 
 

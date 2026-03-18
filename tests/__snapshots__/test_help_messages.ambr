@@ -5204,12 +5204,9 @@
   |                       [required]                                             |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --image-type                    TEXT  Base image type: 'cpu' or 'gpu'.       |
-  |                                       Defaults to 'cpu'.                     |
-  |                                       [default: cpu]                         |
-  | --scan-vulnerabilities                Run vulnerability scan using Grype.    |
-  |                                       Requires Grype to be installed.        |
-  | --help                  -h            Show this message and exit.            |
+  | --scan-vulnerabilities            Run vulnerability scan using Grype.        |
+  |                                   Requires Grype to be installed.            |
+  | --help                  -h        Show this message and exit.                |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |

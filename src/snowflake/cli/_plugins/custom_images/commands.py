@@ -39,11 +39,6 @@ def validate(
         ...,
         help="Local Docker image to validate. Accepts image name (e.g., 'myimage:latest') or image ID/hash.",
     ),
-    image_type: str = typer.Option(
-        "cpu",
-        "--image-type",
-        help="Base image type: 'cpu' or 'gpu'. Defaults to 'cpu'.",
-    ),
     scan_vulnerabilities: bool = typer.Option(
         False,
         "--scan-vulnerabilities",
@@ -54,16 +49,9 @@ def validate(
     """
     Validates a Docker image against Snowflake custom image requirements.
     """
-    image_type_lower = image_type.lower()
-    if image_type_lower not in ("cpu", "gpu"):
-        raise ClickException(
-            f"Invalid image type: {image_type}. Must be 'cpu' or 'gpu'."
-        )
-
-    is_gpu = image_type_lower == "gpu"
     manager = CustomImageManager(config_path=DEFAULT_CONFIG_PATH)
     report, output = manager.validate(
-        image=image, is_gpu=is_gpu, scan_vulnerabilities=scan_vulnerabilities
+        image=image, scan_vulnerabilities=scan_vulnerabilities
     )
 
     if not report.all_passed:
