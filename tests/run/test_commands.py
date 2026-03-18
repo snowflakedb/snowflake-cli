@@ -75,6 +75,12 @@ class TestRunExecute:
             assert result.exit_code != 0
             assert "not found" in result.output
 
+    def test_run_circular_dependency_detected(self, runner, project_directory):
+        with project_directory("run_scripts_cycle"):
+            result = runner.invoke(["run", "alpha"])
+            assert result.exit_code != 0
+            assert "Circular dependency detected" in result.output
+
     @mock.patch(SUBPROCESS_RUN)
     def test_run_with_dry_run(self, mock_run, runner, project_directory):
         with project_directory("run_scripts"):

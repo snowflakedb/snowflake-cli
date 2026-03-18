@@ -1,0 +1,12 @@
+definition_version: 2
+
+scripts:
+  alpha:
+    run:
+      - beta
+    description: Calls beta
+
+  beta:
+    run:
+      - alpha
+    description: Calls alpha

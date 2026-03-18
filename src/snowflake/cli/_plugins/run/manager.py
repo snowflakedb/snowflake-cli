@@ -216,8 +216,17 @@ class ScriptManager:
         dry_run: bool = False,
         verbose: bool = False,
         continue_on_error: bool = False,
+        _call_stack: Optional[List[str]] = None,
     ) -> ScriptExecutionResult:
         """Execute a script by name."""
+        if _call_stack is None:
+            _call_stack = []
+
+        if name in _call_stack:
+            raise ClickException(
+                f"Circular dependency detected: {' -> '.join(_call_stack)} -> {name}"
+            )
+
         script = self.get_script(name)
         if not script:
             raise ValueError(f"Script '{name}' not found")
@@ -231,6 +240,7 @@ class ScriptManager:
                 dry_run,
                 verbose,
                 continue_on_error,
+                _call_stack=_call_stack + [name],
             )
 
         return self._execute_command(
@@ -307,8 +317,12 @@ class ScriptManager:
         dry_run: bool,
         verbose: bool,
         continue_on_error: bool,
+        _call_stack: Optional[List[str]] = None,
     ) -> ScriptExecutionResult:
         """Execute a composite script (list of scripts)."""
+        if _call_stack is None:
+            _call_stack = []
+
         cc.message(f"Running script: {name}")
 
         total = len(script.run)
@@ -331,6 +345,7 @@ class ScriptManager:
                 dry_run=dry_run,
                 verbose=verbose,
                 continue_on_error=continue_on_error,
+                _call_stack=_call_stack,
             )
 
             if not result.success:
