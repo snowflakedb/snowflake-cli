@@ -1222,7 +1222,7 @@ class TestOpenCommand:
         tmp_path,
     ):
         entity = Mock()
-        entity.fqn = Mock(database="DB", schema="SCHEMA")
+        entity.fqn = Mock(database="DB", schema="SCHEMA", name="MY_APP")
         mock_get_entity.return_value = entity
 
         mock_mgr = mock_manager_cls.return_value
@@ -1258,7 +1258,7 @@ class TestOpenCommand:
         tmp_path,
     ):
         entity = Mock()
-        entity.fqn = Mock(database="DB", schema="SCHEMA")
+        entity.fqn = Mock(database="DB", schema="SCHEMA", name="MY_APP")
         mock_get_entity.return_value = entity
 
         mock_mgr = mock_manager_cls.return_value
@@ -1290,7 +1290,7 @@ class TestOpenCommand:
         tmp_path,
     ):
         entity = Mock()
-        entity.fqn = Mock(database="DB", schema="SCHEMA")
+        entity.fqn = Mock(database="DB", schema="SCHEMA", name="MY_APP")
         mock_get_entity.return_value = entity
 
         mock_mgr = mock_manager_cls.return_value
@@ -1320,7 +1320,7 @@ class TestDeployCommand:
         self, mock_resolve, mock_get_entity, runner, tmp_path
     ):
         entity = Mock()
-        entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA")
+        entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP")
         entity.code_stage = None
         entity.artifacts = []
         entity.build_compute_pool = None
@@ -1350,7 +1350,7 @@ class TestDeployCommand:
         self, mock_resolve, mock_get_entity, runner, tmp_path
     ):
         entity = Mock()
-        entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA")
+        entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP")
         entity.code_stage = None
         entity.artifacts = []
         entity.build_compute_pool = Mock()
@@ -1380,7 +1380,7 @@ class TestDeployCommand:
         self, mock_resolve, mock_get_entity, runner, tmp_path
     ):
         entity = Mock()
-        entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA")
+        entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP")
         entity.code_stage = None
         entity.artifacts = []
         entity.build_compute_pool = Mock()

@@ -188,10 +188,7 @@ def open_app(
     entity = _get_entity(resolved_entity_id)
 
     fqn = entity.fqn
-    database = fqn.database or "<default_db>"
-    schema = fqn.schema or f"SNOW_APP_{resolved_entity_id.upper()}"
-    service_name_short = resolved_entity_id.upper()
-    service_fqn = FQN(database=database, schema=schema, name=service_name_short)
+    service_fqn = FQN(database=fqn.database, schema=fqn.schema, name=fqn.name)
 
     manager = SnowflakeAppManager()
     endpoint_url = manager.get_service_endpoint_url(service_fqn)
@@ -229,16 +226,16 @@ def deploy(
     entity = _get_entity(resolved_entity_id)
 
     # ── Extract entity configuration ──────────────────────────────────
-    # Use the model's .fqn property which handles both string and Identifier forms.
     fqn = entity.fqn
-    database = fqn.database or "<default_db>"
-    schema = fqn.schema or f"SNOW_APP_{resolved_entity_id.upper()}"
+    app_name = fqn.name
+    database = fqn.database
+    schema = fqn.schema
 
     if entity.code_stage:
         stage_name = entity.code_stage.name
         encryption_type = entity.code_stage.encryption_type or "SNOWFLAKE_SSE"
     else:
-        stage_name = f"{resolved_entity_id.upper()}_CODE_STAGE"
+        stage_name = f"{app_name}_CODE_STAGE"
         encryption_type = "SNOWFLAKE_SSE"
 
     build_compute_pool = (
@@ -278,10 +275,9 @@ def deploy(
 
     # ── Derived names ─────────────────────────────────────────────────
     stage_fqn = FQN(database=database, schema=schema, name=stage_name)
-    build_job_service_name = f"{resolved_entity_id.upper()}_BUILD_JOB"
+    build_job_service_name = f"{app_name}_BUILD_JOB"
     build_job_fqn = FQN(database=database, schema=schema, name=build_job_service_name)
-    service_name_short = resolved_entity_id.upper()
-    service_fqn = FQN(database=database, schema=schema, name=service_name_short)
+    service_fqn = FQN(database=database, schema=schema, name=app_name)
 
     manager = SnowflakeAppManager()
     stage_manager = StageManager()
@@ -336,7 +332,7 @@ def deploy(
         compute_pool=build_compute_pool,
         code_stage=stage_fqn,
         image_repo_url=image_repo_url,
-        app_id=resolved_entity_id,
+        app_id=app_name,
         external_access_integration=build_eai,
     )
 
@@ -356,10 +352,10 @@ def deploy(
     # image_repo_url is a full registry URL like "host/db/schema/repo_name"
     # Extract the path portion (everything after the host) for the service spec
     repo_path = "/" + "/".join(image_repo_url.split("/")[1:])
-    image_url = f"{repo_path}/{resolved_entity_id.lower()}:latest"
+    image_url = f"{repo_path}/{app_name.lower()}:latest"
 
     # Build app comment with metadata
-    comment_data = {"appId": resolved_entity_id.upper()}
+    comment_data = {"appId": app_name}
     if app_title:
         comment_data["appName"] = app_title
     if app_description:
