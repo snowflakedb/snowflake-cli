@@ -55,9 +55,11 @@ def setup_test_database(snowflake_session, database_name: str):
     snowflake_session.execute_string(
         f"create database {database_name}; use database {database_name}; use schema public;"
     )
-    with mock_single_env_var(DATABASE_ENV_PARAMETER, value=database_name):
-        yield
-    snowflake_session.execute_string(f"drop database {database_name}")
+    try:
+        with mock_single_env_var(DATABASE_ENV_PARAMETER, value=database_name):
+            yield
+    finally:
+        snowflake_session.execute_string(f"drop database if exists {database_name}")
 
 
 @contextmanager
@@ -66,9 +68,11 @@ def setup_test_schema(snowflake_session, schema_name: str):
     snowflake_session.execute_string(
         f"create schema {schema_name}; use schema {schema_name};"
     )
-    with mock_single_env_var(SCHEMA_ENV_PARAMETER, value=schema_name):
-        yield
-    snowflake_session.execute_string(f"drop schema {schema_name}")
+    try:
+        with mock_single_env_var(SCHEMA_ENV_PARAMETER, value=schema_name):
+            yield
+    finally:
+        snowflake_session.execute_string(f"drop schema if exists {schema_name}")
 
 
 @pytest.fixture(scope="function")
@@ -84,8 +88,10 @@ def test_role(snowflake_session):
     snowflake_session.execute_string(
         f"create role {role_name}; grant role {role_name} to user {snowflake_session.user};"
     )
-    yield role_name
-    snowflake_session.execute_string(f"drop role {role_name}")
+    try:
+        yield role_name
+    finally:
+        snowflake_session.execute_string(f"drop role if exists {role_name}")
 
 
 @pytest.fixture(scope="session")
