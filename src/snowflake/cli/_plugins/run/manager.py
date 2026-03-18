@@ -268,7 +268,7 @@ class ScriptManager:
         )
 
         if extra_args:
-            cmd = f"{cmd} {' '.join(extra_args)}"
+            cmd = f"{cmd} {' '.join(shlex.quote(arg) for arg in extra_args)}"
 
         cc.message(f"Running script: {name}")
         cc.message(f"> {cmd}")
