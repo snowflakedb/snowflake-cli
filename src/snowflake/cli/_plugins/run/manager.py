@@ -194,7 +194,10 @@ class ScriptManager:
                 variables[full_key] = str(value)
 
     def interpolate_variables(
-        self, cmd: str, var_overrides: Optional[Dict[str, str]] = None
+        self,
+        cmd: str,
+        var_overrides: Optional[Dict[str, str]] = None,
+        shell_mode: bool = False,
     ) -> str:
         """Interpolate variables in command string."""
         variables = self._build_variable_context(var_overrides)
@@ -202,7 +205,10 @@ class ScriptManager:
         def replace_var(match: re.Match) -> str:
             var_name = match.group(1)
             if var_name in variables:
-                return variables[var_name]
+                value = variables[var_name]
+                if shell_mode:
+                    return shlex.quote(value)
+                return value
             log.warning("Variable '${%s}' not found, leaving as-is", var_name)
             return match.group(0)
 
@@ -257,7 +263,9 @@ class ScriptManager:
         verbose: bool,
     ) -> ScriptExecutionResult:
         """Execute a single command script."""
-        cmd = self.interpolate_variables(script.cmd, var_overrides)
+        cmd = self.interpolate_variables(
+            script.cmd, var_overrides, shell_mode=bool(script.shell)
+        )
 
         if extra_args:
             cmd = f"{cmd} {' '.join(extra_args)}"
@@ -277,12 +285,6 @@ class ScriptManager:
             env.update(script.env)
 
         if script.shell:
-            if VARIABLE_PATTERN.search(script.cmd):
-                log.warning(
-                    "Using shell=true with variable interpolation. "
-                    "Ensure interpolated values are safe."
-                )
-
             if sys.platform == "win32":
                 result = _subprocess_run(
                     cmd,
@@ -327,6 +329,7 @@ class ScriptManager:
 
         total = len(script.run)
         failed_scripts = []
+        first_failure_exit_code = 1
 
         for idx, sub_name in enumerate(script.run, 1):
             cc.message(f"\n[{idx}/{total}] {sub_name}")
@@ -349,13 +352,15 @@ class ScriptManager:
             )
 
             if not result.success:
+                if not failed_scripts:
+                    first_failure_exit_code = result.exit_code
                 if not continue_on_error:
                     return result
                 failed_scripts.append(sub_name)
 
         if failed_scripts:
             cc.warning(f"\nCompleted with errors in: {', '.join(failed_scripts)}")
-            return ScriptExecutionResult(name, 1, False)
+            return ScriptExecutionResult(name, first_failure_exit_code, False)
 
         cc.message(f"\nDone! ({total} scripts executed)")
         return ScriptExecutionResult(name, 0, True)
