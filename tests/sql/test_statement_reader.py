@@ -427,8 +427,9 @@ def test_parse_unknown_command():
     assert parsed_statement.error == "Unknown command: unknown_cmd"
 
 
-def test_files_reader_utf8_content(tmp_path_factory):
-    """SQL files with non-ASCII UTF-8 content should be readable."""
+def test_files_reader_utf8_content(tmp_path_factory, monkeypatch):
+    """SQL files with non-ASCII UTF-8 content should be readable when UTF-8 is configured."""
+    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "utf-8")
     f1 = tmp_path_factory.mktemp("enc") / "japanese.sql"
     f1.write_text(
         "-- テスト用SQLファイル\nSELECT 1;\n-- データベース確認\nSELECT 2;\n",
@@ -444,8 +445,9 @@ def test_files_reader_utf8_content(tmp_path_factory):
     ]
 
 
-def test_from_file_utf8_content(tmp_path_factory):
-    """ParsedStatement.from_file with non-ASCII UTF-8 file should work."""
+def test_from_file_utf8_content(tmp_path_factory, monkeypatch):
+    """ParsedStatement.from_file with non-ASCII UTF-8 file should work when UTF-8 is configured."""
+    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "utf-8")
     f1 = tmp_path_factory.mktemp("enc") / "japanese.sql"
     f1.write_text("-- 日本語コメント\nSELECT 1;\n", encoding="utf-8")
     result = ParsedStatement.from_file(str(f1), f"!source {f1};")
