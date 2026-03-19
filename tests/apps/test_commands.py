@@ -884,6 +884,24 @@ class TestFindDockerfileExposePort:
         (tmp_path / "Dockerfile").write_text("FROM python:3.11\nexpose 9090\n")
         assert _find_dockerfile_expose_port(tmp_path) == 9090
 
+    def test_returns_unsupported_for_multi_port(self, tmp_path):
+        from snowflake.cli._plugins.apps.manager import (
+            EXPOSE_UNSUPPORTED_SYNTAX,
+            _find_dockerfile_expose_port,
+        )
+
+        (tmp_path / "Dockerfile").write_text("FROM python:3.11\nEXPOSE 3000 8080\n")
+        assert _find_dockerfile_expose_port(tmp_path) == EXPOSE_UNSUPPORTED_SYNTAX
+
+    def test_returns_unsupported_for_port_range(self, tmp_path):
+        from snowflake.cli._plugins.apps.manager import (
+            EXPOSE_UNSUPPORTED_SYNTAX,
+            _find_dockerfile_expose_port,
+        )
+
+        (tmp_path / "Dockerfile").write_text("FROM python:3.11\nEXPOSE 3000-3005\n")
+        assert _find_dockerfile_expose_port(tmp_path) == EXPOSE_UNSUPPORTED_SYNTAX
+
 
 # ── Validate CLI command tests ────────────────────────────────────────
 
@@ -963,17 +981,19 @@ class TestValidateCommand:
                 assert result.exit_code == 1
                 assert "No Dockerfile found" in result.output
 
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
     @patch(
         "snowflake.cli._plugins.apps.commands._resolve_entity_id",
         return_value="my_app",
     )
-    def test_validate_fails_no_expose(
+    def test_validate_warns_no_expose(
         self,
         mock_resolve,
         mock_get_entity,
         mock_perform_bundle,
+        mock_manager_cls,
         runner,
         tmp_path,
     ):
@@ -982,6 +1002,9 @@ class TestValidateCommand:
         entity = Mock()
         entity.app_port = 3000
         mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.current_role.return_value = "ACCOUNTADMIN"
 
         bundle_dir = tmp_path / "output" / "bundle"
         bundle_dir.mkdir(parents=True)
@@ -995,8 +1018,50 @@ class TestValidateCommand:
 
             with change_directory(tmp_path):
                 result = runner.invoke(["__app", "validate"])
-                assert result.exit_code == 1
+                assert result.exit_code == 0, result.output
                 assert "EXPOSE" in result.output
+                assert "warning" in result.output.lower()
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_validate_warns_unsupported_expose_syntax(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_perform_bundle,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        entity.app_port = 3000
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.current_role.return_value = "ACCOUNTADMIN"
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        (bundle_dir / "Dockerfile").write_text("FROM python:3.11\nEXPOSE 3000 8080\n")
+
+        project_paths = ProjectPaths(project_root=tmp_path)
+        mock_perform_bundle.return_value = project_paths
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "validate"])
+                assert result.exit_code == 0, result.output
+                assert "multi-port" in result.output.lower()
+                assert "warning" in result.output.lower()
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
@@ -1156,6 +1221,37 @@ class TestValidateCommand:
                 assert result.exit_code == 1
                 assert not bundle_dir.exists()
 
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_validate_handles_perform_bundle_exception(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_perform_bundle,
+        runner,
+        tmp_path,
+    ):
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        entity.app_port = 3000
+        mock_get_entity.return_value = entity
+
+        project_paths = ProjectPaths(project_root=tmp_path)
+        mock_perform_bundle.side_effect = CliError("bundle failed")
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "validate"])
+                assert result.exit_code == 1
+                assert "bundle failed" in result.output
+
 
 # ── role_has_bind_service_endpoint tests ──────────────────────────────
 
@@ -1199,6 +1295,16 @@ class TestRoleHasBindServiceEndpoint:
         cursor.__iter__ = Mock(return_value=iter([]))
         mock_execute.return_value = cursor
         assert SnowflakeAppManager().role_has_bind_service_endpoint("DEV_ROLE") is False
+
+    @patch(EXECUTE_QUERY)
+    def test_escapes_role_with_single_quote(self, mock_execute):
+        cursor = Mock()
+        cursor.__iter__ = Mock(return_value=iter([]))
+        mock_execute.return_value = cursor
+        SnowflakeAppManager().role_has_bind_service_endpoint("BAD'ROLE")
+        query = mock_execute.call_args[0][0]
+        assert "BAD\\'ROLE" in query
+        assert "BAD'ROLE" not in query
 
 
 # ── Open CLI command tests ────────────────────────────────────────────

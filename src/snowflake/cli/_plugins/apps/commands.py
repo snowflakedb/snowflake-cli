@@ -19,8 +19,10 @@ from typing import Optional
 import typer
 from snowflake.cli._plugins.apps.generate import _generate_snowflake_yml
 from snowflake.cli._plugins.apps.manager import (
+    _APP_COMMAND_NAME,
     DEFAULT_IMAGE_REPOSITORY,
     DEFINITION_FILENAME,
+    EXPOSE_UNSUPPORTED_SYNTAX,
     SnowflakeAppManager,
     _find_dockerfile_expose_port,
     _get_entity,
@@ -38,7 +40,7 @@ from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import CommandResult, MessageResult
 
 app = SnowTyperFactory(
-    name="__app",
+    name=_APP_COMMAND_NAME,
     help="Manages Snowflake Apps.",
     is_hidden=FeatureFlag.ENABLE_SNOWFLAKE_APPS.is_disabled,
 )
@@ -117,9 +119,10 @@ def validate(
 
     warnings: list[str] = []
 
-    project_paths = perform_bundle(resolved_entity_id, entity)
-
+    project_paths = None
     try:
+        project_paths = perform_bundle(resolved_entity_id, entity)
+
         # Validate Dockerfile has an EXPOSE directive
         bundle_root = project_paths.bundle_root
         dockerfile = bundle_root / "Dockerfile"
@@ -131,20 +134,25 @@ def validate(
 
         exposed_port = _find_dockerfile_expose_port(bundle_root)
         if exposed_port is None:
-            raise CliError(
-                "Dockerfile does not contain an EXPOSE directive. "
+            warnings.append(
+                "Dockerfile does not contain a recognized EXPOSE directive. "
                 "The Dockerfile must expose a port for the app service."
             )
-
-        if exposed_port != entity.app_port:
+        elif exposed_port == EXPOSE_UNSUPPORTED_SYNTAX:
+            warnings.append(
+                "Could not determine the exposed port from the Dockerfile. "
+                "Only simple 'EXPOSE <port>' is supported "
+                "(multi-port and range syntax are not)."
+            )
+        elif exposed_port != entity.app_port:
             warnings.append(
                 f"Dockerfile exposes port {exposed_port}, but the entity "
                 f"'app_port' is configured as {entity.app_port}. "
                 f"These should match for the service endpoint to work correctly."
             )
     finally:
-        # Clean up the temporary bundle
-        project_paths.clean_up_output()
+        if project_paths is not None:
+            project_paths.clean_up_output()
 
     # Check BIND SERVICE ENDPOINT privilege
     manager = SnowflakeAppManager()
@@ -196,7 +204,7 @@ def open_app(
     if not endpoint_url:
         raise CliError(
             f"No endpoint URL found for service {service_fqn}. "
-            f"Is the app deployed? Run 'snow __app deploy' first."
+            f"Is the app deployed? Run 'snow {_APP_COMMAND_NAME} deploy' first."
         )
 
     if not print_only:

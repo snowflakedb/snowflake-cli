@@ -37,6 +37,8 @@ from snowflake.cli.api.sql_execution import SqlExecutionMixin
 
 DEFINITION_FILENAME = "snowflake.yml"
 SNOWFLAKE_APP_ENTITY_TYPE = "snowflake-app"
+# TODO: Update to "app" after migration from __app
+_APP_COMMAND_NAME = "__app"
 
 # Default resource names for Snowflake Apps
 SNOW_APPS_COMPUTE_POOL = "SNOW_APPS_DEFAULT_COMPUTE_POOL"
@@ -150,7 +152,10 @@ def _get_snowflake_app_entities() -> Dict[str, Any]:
     project_def = ctx.project_definition
 
     if project_def is None:
-        raise CliError(f"No {DEFINITION_FILENAME} found. Run 'snow __app init' first.")
+        raise CliError(
+            f"No {DEFINITION_FILENAME} found. "
+            f"Run 'snow {_APP_COMMAND_NAME} init' first."
+        )
 
     # Get entities with type "snowflake-app"
     snowflake_apps = {}
@@ -177,7 +182,7 @@ def _resolve_entity_id(entity_id: Optional[str]) -> str:
     if len(snowflake_apps) == 0:
         raise CliError(
             f"No snowflake-app entities found in {DEFINITION_FILENAME}. "
-            "Add a snowflake-app entity or run 'snow __app init' first."
+            f"Add a snowflake-app entity or run 'snow {_APP_COMMAND_NAME} init' first."
         )
     elif len(snowflake_apps) == 1:
         return list(snowflake_apps.keys())[0]
@@ -214,7 +219,7 @@ def perform_bundle(
     temporary *bundle root* directory under ``<project_root>/output/bundle``.
 
     This function is the shared implementation behind both
-    ``snow __app bundle`` and the bundling step of ``snow __app deploy``.
+    ``snow <__app> bundle`` and the bundling step of ``snow <__app> deploy``.
 
     Returns the :class:`ProjectPaths` instance so callers can inspect or
     upload the bundle root, and are responsible for cleanup via
@@ -233,23 +238,42 @@ def perform_bundle(
     return project_paths
 
 
+_EXPOSE_SIMPLE_RE = re.compile(
+    r"^\s*EXPOSE\s+(\d+)(?:/(?:tcp|udp))?\s*$", re.IGNORECASE
+)
+_EXPOSE_ANY_RE = re.compile(r"^\s*EXPOSE\s+", re.IGNORECASE)
+
+# Sentinel returned when a Dockerfile contains an EXPOSE directive that uses
+# unsupported syntax (multi-port or range).  Callers should check for this
+# value explicitly rather than treating it as a valid port number.
+EXPOSE_UNSUPPORTED_SYNTAX: int = 0
+
+
 def _find_dockerfile_expose_port(bundle_root: Path) -> Optional[int]:
     """Parse the Dockerfile in *bundle_root* and return the first EXPOSEd port.
 
     Returns ``None`` when no ``Dockerfile`` exists or it contains no EXPOSE
-    directive.  Only simple ``EXPOSE <number>`` lines are recognised (the
-    ``/tcp`` and ``/udp`` suffixes are stripped).  Multi-port (``EXPOSE 3000
-    8080``) and range (``EXPOSE 3000-3005``) syntax is not supported.
+    directive.  Returns :data:`EXPOSE_UNSUPPORTED_SYNTAX` (``0``) when an
+    EXPOSE line is present but uses multi-port (``EXPOSE 3000 8080``) or
+    range (``EXPOSE 3000-3005``) syntax which is not supported.
+
+    Only simple ``EXPOSE <number>`` lines are recognised (the ``/tcp`` and
+    ``/udp`` suffixes are stripped).
     """
     dockerfile = bundle_root / "Dockerfile"
     if not dockerfile.exists():
         return None
 
-    expose_re = re.compile(r"^\s*EXPOSE\s+(\d+)(?:/(?:tcp|udp))?\s*$", re.IGNORECASE)
-    for line in dockerfile.read_text().splitlines():
-        m = expose_re.match(line)
+    lines = dockerfile.read_text().splitlines()
+    for line in lines:
+        m = _EXPOSE_SIMPLE_RE.match(line)
         if m:
             return int(m.group(1))
+
+    for line in lines:
+        if _EXPOSE_ANY_RE.match(line):
+            return EXPOSE_UNSUPPORTED_SYNTAX
+
     return None
 
 
@@ -258,10 +282,12 @@ class SnowflakeAppManager(SqlExecutionMixin):
 
     def role_has_bind_service_endpoint(self, role: str) -> bool:
         """Return True if *role* has the account-level BIND SERVICE ENDPOINT privilege."""
+        from snowflake.cli.api.project.util import to_string_literal
         from snowflake.connector.cursor import DictCursor
 
+        safe_role = to_string_literal(role)
         cursor = self.execute_query(
-            f"SHOW GRANTS TO ROLE IDENTIFIER('{role}')", cursor_class=DictCursor
+            f"SHOW GRANTS TO ROLE IDENTIFIER({safe_role})", cursor_class=DictCursor
         )
         for row in cursor:
             if (
