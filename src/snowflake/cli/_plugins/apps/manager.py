@@ -14,7 +14,9 @@
 
 from __future__ import annotations
 
+import re
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Set, TypeVar
 
 from snowflake.cli._plugins.apps.snowflake_app_entity_model import DEFAULT_APP_PORT
@@ -24,26 +26,25 @@ if TYPE_CHECKING:
         SnowflakeAppEntityModel,
     )
 from snowflake.cli._plugins.object.manager import ObjectManager
+from snowflake.cli.api.artifacts.utils import bundle_artifacts
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliError
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.project_paths import ProjectPaths
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 
 DEFINITION_FILENAME = "snowflake.yml"
 SNOWFLAKE_APP_ENTITY_TYPE = "snowflake-app"
+# TODO: Update to "app" after migration from __app
+_APP_COMMAND_NAME = "__app"
 
 # Default resource names for Snowflake Apps
 SNOW_APPS_COMPUTE_POOL = "SNOW_APPS_DEFAULT_COMPUTE_POOL"
 DEFAULT_EXTERNAL_ACCESS = "SNOW_APPS_DEFAULT_EXTERNAL_ACCESS"
 # TODO: Replace with artifact_repository from entity config once supported
 DEFAULT_IMAGE_REPOSITORY = "SNOW_APPS_DEFAULT_IMAGE_REPOSITORY"
-
-
-def _check_feature_enabled():
-    if FeatureFlag.ENABLE_SNOWFLAKE_APPS.is_disabled():
-        raise CliError("This feature is not available yet.")
 
 
 T = TypeVar("T")
@@ -151,7 +152,10 @@ def _get_snowflake_app_entities() -> Dict[str, Any]:
     project_def = ctx.project_definition
 
     if project_def is None:
-        raise CliError(f"No {DEFINITION_FILENAME} found. Run 'snow apps init' first.")
+        raise CliError(
+            f"No {DEFINITION_FILENAME} found. "
+            f"Run 'snow {_APP_COMMAND_NAME} init' first."
+        )
 
     # Get entities with type "snowflake-app"
     snowflake_apps = {}
@@ -178,7 +182,7 @@ def _resolve_entity_id(entity_id: Optional[str]) -> str:
     if len(snowflake_apps) == 0:
         raise CliError(
             f"No snowflake-app entities found in {DEFINITION_FILENAME}. "
-            "Add a snowflake-app entity or run 'snow apps init' first."
+            f"Add a snowflake-app entity or run 'snow {_APP_COMMAND_NAME} init' first."
         )
     elif len(snowflake_apps) == 1:
         return list(snowflake_apps.keys())[0]
@@ -204,8 +208,94 @@ def _get_entity(entity_id: str) -> SnowflakeAppEntityModel:
     return entity
 
 
+def perform_bundle(
+    resolved_entity_id: str,
+    entity: "SnowflakeAppEntityModel",
+) -> ProjectPaths:
+    """Bundle source artifacts for a snowflake-app entity.
+
+    Resolves glob patterns and src/dest mappings defined in the entity's
+    ``artifacts`` list and copies (or symlinks) the matched files into a
+    temporary *bundle root* directory under ``<project_root>/output/bundle``.
+
+    This function is the shared implementation behind both
+    ``snow <__app> bundle`` and the bundling step of ``snow <__app> deploy``.
+
+    Returns the :class:`ProjectPaths` instance so callers can inspect or
+    upload the bundle root, and are responsible for cleanup via
+    ``project_paths.clean_up_output()`` when finished.
+    """
+    artifacts = entity.artifacts
+
+    project_root = get_cli_context().project_root
+    project_paths = ProjectPaths(project_root=project_root)
+    project_paths.remove_up_bundle_root()
+    SecurePath(project_paths.bundle_root).mkdir(parents=True, exist_ok=True)
+
+    cli_console.step(f"Bundling source files for '{resolved_entity_id}'")
+    bundle_artifacts(project_paths, artifacts)
+
+    return project_paths
+
+
+_EXPOSE_SIMPLE_RE = re.compile(
+    r"^\s*EXPOSE\s+(\d+)(?:/(?:tcp|udp))?\s*$", re.IGNORECASE
+)
+_EXPOSE_ANY_RE = re.compile(r"^\s*EXPOSE\s+", re.IGNORECASE)
+
+# Sentinel returned when a Dockerfile contains an EXPOSE directive that uses
+# unsupported syntax (multi-port or range).  Callers should check for this
+# value explicitly rather than treating it as a valid port number.
+EXPOSE_UNSUPPORTED_SYNTAX: int = 0
+
+
+def _find_dockerfile_expose_port(bundle_root: Path) -> Optional[int]:
+    """Parse the Dockerfile in *bundle_root* and return the first EXPOSEd port.
+
+    Returns ``None`` when no ``Dockerfile`` exists or it contains no EXPOSE
+    directive.  Returns :data:`EXPOSE_UNSUPPORTED_SYNTAX` (``0``) when an
+    EXPOSE line is present but uses multi-port (``EXPOSE 3000 8080``) or
+    range (``EXPOSE 3000-3005``) syntax which is not supported.
+
+    Only simple ``EXPOSE <number>`` lines are recognised (the ``/tcp`` and
+    ``/udp`` suffixes are stripped).
+    """
+    dockerfile = bundle_root / "Dockerfile"
+    if not dockerfile.exists():
+        return None
+
+    lines = dockerfile.read_text().splitlines()
+    for line in lines:
+        m = _EXPOSE_SIMPLE_RE.match(line)
+        if m:
+            return int(m.group(1))
+
+    for line in lines:
+        if _EXPOSE_ANY_RE.match(line):
+            return EXPOSE_UNSUPPORTED_SYNTAX
+
+    return None
+
+
 class SnowflakeAppManager(SqlExecutionMixin):
     """Manager for Snowflake App operations."""
+
+    def role_has_bind_service_endpoint(self, role: str) -> bool:
+        """Return True if *role* has the account-level BIND SERVICE ENDPOINT privilege."""
+        from snowflake.cli.api.project.util import to_string_literal
+        from snowflake.connector.cursor import DictCursor
+
+        safe_role = to_string_literal(role)
+        cursor = self.execute_query(
+            f"SHOW GRANTS TO ROLE IDENTIFIER({safe_role})", cursor_class=DictCursor
+        )
+        for row in cursor:
+            if (
+                row.get("privilege") == "BIND SERVICE ENDPOINT"
+                and row.get("granted_on") == "ACCOUNT"
+            ):
+                return True
+        return False
 
     def create_schema_if_not_exists(self, database: str, schema: str) -> None:
         """Create schema if it doesn't exist."""

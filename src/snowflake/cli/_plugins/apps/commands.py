@@ -19,16 +19,18 @@ from typing import Optional
 import typer
 from snowflake.cli._plugins.apps.generate import _generate_snowflake_yml
 from snowflake.cli._plugins.apps.manager import (
+    _APP_COMMAND_NAME,
     DEFAULT_IMAGE_REPOSITORY,
     DEFINITION_FILENAME,
+    EXPOSE_UNSUPPORTED_SYNTAX,
     SnowflakeAppManager,
-    _check_feature_enabled,
+    _find_dockerfile_expose_port,
     _get_entity,
     _poll_until,
     _resolve_entity_id,
+    perform_bundle,
 )
 from snowflake.cli._plugins.stage.manager import StageManager
-from snowflake.cli.api.artifacts.utils import bundle_artifacts
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console import cli_console
@@ -36,11 +38,9 @@ from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import CommandResult, MessageResult
-from snowflake.cli.api.project.project_paths import ProjectPaths
-from snowflake.cli.api.secure_path import SecurePath
 
 app = SnowTyperFactory(
-    name="apps",
+    name=_APP_COMMAND_NAME,
     help="Manages Snowflake Apps.",
     is_hidden=FeatureFlag.ENABLE_SNOWFLAKE_APPS.is_disabled,
 )
@@ -58,7 +58,6 @@ def init(
     """
     Initializes a snowflake.yml file for a Snowflake App project.
     """
-    _check_feature_enabled()
 
     project_file = Path.cwd() / DEFINITION_FILENAME
     if project_file.exists():
@@ -75,6 +74,142 @@ def init(
 
     project_file.write_text(_generate_snowflake_yml(app_name, warehouse, database))
     return MessageResult(f"Initialized Snowflake App project in {DEFINITION_FILENAME}.")
+
+
+@app.command()
+def bundle(
+    entity_id: Optional[str] = typer.Option(
+        None,
+        "--entity-id",
+        help="ID of the snowflake-app entity to bundle. Required if multiple snowflake-app entities exist.",
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Bundles a Snowflake App by resolving artifacts defined in snowflake.yml.
+
+    Copies (or symlinks) the matched source files into a local output directory
+    (output/bundle) so you can inspect exactly what would be uploaded during deploy.
+    """
+    resolved_entity_id = _resolve_entity_id(entity_id)
+    entity = _get_entity(resolved_entity_id)
+
+    project_paths = perform_bundle(resolved_entity_id, entity)
+    return MessageResult(f"Bundle generated at {project_paths.bundle_root}")
+
+
+@app.command(requires_connection=True)
+def validate(
+    entity_id: Optional[str] = typer.Option(
+        None,
+        "--entity-id",
+        help="ID of the snowflake-app entity to validate. Required if multiple snowflake-app entities exist.",
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Validates a local Snowflake App project.
+
+    Bundles the project, checks that a Dockerfile with an EXPOSE directive
+    exists, and verifies that the current role has the BIND SERVICE ENDPOINT
+    privilege required for deployment.
+    """
+    resolved_entity_id = _resolve_entity_id(entity_id)
+    entity = _get_entity(resolved_entity_id)
+
+    warnings: list[str] = []
+
+    project_paths = None
+    try:
+        project_paths = perform_bundle(resolved_entity_id, entity)
+
+        # Validate Dockerfile has an EXPOSE directive
+        bundle_root = project_paths.bundle_root
+        dockerfile = bundle_root / "Dockerfile"
+        if not dockerfile.exists():
+            raise CliError(
+                f"No Dockerfile found in bundled artifacts. "
+                f"A Dockerfile is required for Snowflake App projects."
+            )
+
+        exposed_port = _find_dockerfile_expose_port(bundle_root)
+        if exposed_port is None:
+            warnings.append(
+                "Dockerfile does not contain a recognized EXPOSE directive. "
+                "The Dockerfile must expose a port for the app service."
+            )
+        elif exposed_port == EXPOSE_UNSUPPORTED_SYNTAX:
+            warnings.append(
+                "Could not determine the exposed port from the Dockerfile. "
+                "Only simple 'EXPOSE <port>' is supported "
+                "(multi-port and range syntax are not)."
+            )
+        elif exposed_port != entity.app_port:
+            warnings.append(
+                f"Dockerfile exposes port {exposed_port}, but the entity "
+                f"'app_port' is configured as {entity.app_port}. "
+                f"These should match for the service endpoint to work correctly."
+            )
+    finally:
+        if project_paths is not None:
+            project_paths.clean_up_output()
+
+    # Check BIND SERVICE ENDPOINT privilege
+    manager = SnowflakeAppManager()
+    role = manager.current_role()
+    if role and role.upper() != "ACCOUNTADMIN":
+        if not manager.role_has_bind_service_endpoint(role):
+            warnings.append(
+                f"Role '{role}' does not have the BIND SERVICE ENDPOINT "
+                f"privilege. This privilege is required to deploy a Snowflake App."
+            )
+
+    for warning in warnings:
+        cli_console.warning(warning)
+
+    if warnings:
+        return MessageResult(f"Validation passed with {len(warnings)} warning(s).")
+    return MessageResult("Valid Snowflake App project.")
+
+
+@app.command("open", requires_connection=True)
+def open_app(
+    entity_id: Optional[str] = typer.Option(
+        None,
+        "--entity-id",
+        help="ID of the snowflake-app entity to open. Required if multiple snowflake-app entities exist.",
+    ),
+    print_only: bool = typer.Option(
+        False,
+        "--print-only",
+        help="Print the app URL without opening it in the browser.",
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Opens a deployed Snowflake App in the browser.
+
+    Looks up the service endpoint URL for the app and opens it.  Use
+    --print-only to print the URL without launching a browser.
+    """
+    resolved_entity_id = _resolve_entity_id(entity_id)
+    entity = _get_entity(resolved_entity_id)
+
+    fqn = entity.fqn
+    service_fqn = FQN(database=fqn.database, schema=fqn.schema, name=fqn.name)
+
+    manager = SnowflakeAppManager()
+    endpoint_url = manager.get_service_endpoint_url(service_fqn)
+
+    if not endpoint_url:
+        raise CliError(
+            f"No endpoint URL found for service {service_fqn}. "
+            f"Is the app deployed? Run 'snow {_APP_COMMAND_NAME} deploy' first."
+        )
+
+    if not print_only:
+        typer.launch(endpoint_url)
+    return MessageResult(endpoint_url)
 
 
 @app.command(requires_connection=True)
@@ -95,24 +230,21 @@ def deploy(
     If --entity-id is not specified and the project contains exactly one snowflake-app
     entity, that entity will be used automatically.
     """
-    _check_feature_enabled()
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 
     # ── Extract entity configuration ──────────────────────────────────
-    # Use the model's .fqn property which handles both string and Identifier forms.
     fqn = entity.fqn
-    database = fqn.database or "<default_db>"
-    schema = fqn.schema or f"SNOW_APP_{resolved_entity_id.upper()}"
+    app_name = fqn.name
+    database = fqn.database
+    schema = fqn.schema
 
     if entity.code_stage:
         stage_name = entity.code_stage.name
         encryption_type = entity.code_stage.encryption_type or "SNOWFLAKE_SSE"
     else:
-        stage_name = f"{resolved_entity_id.upper()}_CODE_STAGE"
+        stage_name = f"{app_name}_CODE_STAGE"
         encryption_type = "SNOWFLAKE_SSE"
-
-    artifacts = entity.artifacts
 
     build_compute_pool = (
         entity.build_compute_pool.name if entity.build_compute_pool else None
@@ -151,10 +283,9 @@ def deploy(
 
     # ── Derived names ─────────────────────────────────────────────────
     stage_fqn = FQN(database=database, schema=schema, name=stage_name)
-    build_job_service_name = f"{resolved_entity_id.upper()}_BUILD_JOB"
+    build_job_service_name = f"{app_name}_BUILD_JOB"
     build_job_fqn = FQN(database=database, schema=schema, name=build_job_service_name)
-    service_name_short = resolved_entity_id.upper()
-    service_fqn = FQN(database=database, schema=schema, name=service_name_short)
+    service_fqn = FQN(database=database, schema=schema, name=app_name)
 
     manager = SnowflakeAppManager()
     stage_manager = StageManager()
@@ -175,20 +306,13 @@ def deploy(
 
     # Step 3: Bundle and upload artifact files to stage
     #
-    # We reuse the bundle_artifacts helper (same logic as `snow app bundle`)
-    # to resolve glob patterns and src/dest mappings into a flat temporary
-    # directory, then upload that directory recursively so nested folders
-    # are preserved on the stage.
-    cli_console.step("Bundling source files")
-
-    project_root = get_cli_context().project_root
-    project_paths = ProjectPaths(project_root=project_root)
-    project_paths.remove_up_bundle_root()
-    SecurePath(project_paths.bundle_root).mkdir(parents=True, exist_ok=True)
+    # We reuse perform_bundle (same logic as `snow __app bundle`) to resolve
+    # glob patterns and src/dest mappings into a flat temporary directory,
+    # then upload that directory recursively so nested folders are preserved
+    # on the stage.
+    project_paths = perform_bundle(resolved_entity_id, entity)
 
     try:
-        bundle_artifacts(project_paths, artifacts)
-
         cli_console.step(f"Uploading bundled files to @{stage_fqn}")
         for result in stage_manager.put_recursive(
             local_path=project_paths.bundle_root,
@@ -216,7 +340,7 @@ def deploy(
         compute_pool=build_compute_pool,
         code_stage=stage_fqn,
         image_repo_url=image_repo_url,
-        app_id=resolved_entity_id,
+        app_id=app_name,
         external_access_integration=build_eai,
     )
 
@@ -236,10 +360,10 @@ def deploy(
     # image_repo_url is a full registry URL like "host/db/schema/repo_name"
     # Extract the path portion (everything after the host) for the service spec
     repo_path = "/" + "/".join(image_repo_url.split("/")[1:])
-    image_url = f"{repo_path}/{resolved_entity_id.lower()}:latest"
+    image_url = f"{repo_path}/{app_name.lower()}:latest"
 
     # Build app comment with metadata
-    comment_data = {"appId": resolved_entity_id.upper()}
+    comment_data = {"appId": app_name}
     if app_title:
         comment_data["appName"] = app_title
     if app_description:
