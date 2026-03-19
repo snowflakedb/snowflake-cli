@@ -471,20 +471,16 @@ class _ArtifactPathMap:
             # Check that dest is currently unmapped
             current_is_dir = self._dest_is_dir.get(dest, False)
             if current_is_dir:
-                # Directory destination already exists (likely from recursive parent marking
-                # when individual files were added via glob). Walk the new directory source
-                # to verify all children are consistent with existing mappings.
-                for root, _, files in os.walk(absolute_src, followlinks=True):
-                    canonical_subdir = Path(root).relative_to(absolute_src)
-                    canonical_dest_subdir = dest / canonical_subdir
-                    for f in files:
-                        child_dest = canonical_dest_subdir / f
-                        child_src = src / canonical_subdir / f
-                        existing_source = self.__dest_to_src.get(child_dest)
-                        if existing_source is not None and existing_source != child_src:
-                            # Different source mapping to same destination - this is an error
-                            raise TooManyFilesError(child_dest)
-                # All children are consistent - this is a duplicate directory mapping, skip it
+                # Directory destination already exists. Verify that every file already
+                # mapped under dest is consistent with what the new directory source would
+                # produce (i.e. it came from src/relative_path). Files that arrived from
+                # a different source indicate a clobbering conflict.
+                for child_dest, existing_source in self.__dest_to_src.items():
+                    if child_dest == dest or not child_dest.is_relative_to(dest):
+                        continue
+                    if existing_source != src / child_dest.relative_to(dest):
+                        raise TooManyFilesError(child_dest)
+                # All existing children are consistent - duplicate directory mapping, skip it
                 return
         else:
             # file -> file
