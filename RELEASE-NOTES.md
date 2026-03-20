@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Added `--no-prompt-exit-repl` option and configuration setting to skip the exit confirmation prompt in the SQL REPL.
 
 ## Fixes and improvements
 * Upgraded `pip` from 26.1.1 to 26.1.2.
