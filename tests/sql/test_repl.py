@@ -564,14 +564,14 @@ class TestReplPasteHandling:
         # test command arg
         (["--no-prompt-exit-repl"], {}, False, False),
         # test env var
-        ([], {"SNOWFLAKE_NO_PROMPT_EXIT_REPL": "true"}, False, False),
+        ([], {"SNOWFLAKE_CLI_NO_PROMPT_EXIT_REPL": "true"}, False, False),
         # test config value
         ([], {}, True, False),
         # test default
         ([], {}, False, True),
     ],
 )
-@mock.patch("snowflake.cli._plugins.sql.commands.get_config_value")
+@mock.patch("snowflake.cli._plugins.sql.commands.get_config_bool_value")
 @mock.patch("snowflake.cli._plugins.sql.repl.Repl.ask_yn")
 @mock.patch("snowflake.cli._plugins.sql.repl.Repl.repl_prompt")
 @mock.patch("snowflake.cli._plugins.sql.repl.Repl._initialize_connection")
@@ -579,7 +579,7 @@ def test_no_prompt_exit_repl(
     mock__initialize_connection,
     mock_repl_prompt,
     mock_ask_yn,
-    mock_get_config_value,
+    mock_get_config_bool_value,
     runner,
     command_args,
     env_var,
@@ -588,7 +588,7 @@ def test_no_prompt_exit_repl(
 ):
     mock_ask_yn.return_value = True
     mock_repl_prompt.side_effect = EOFError
-    mock_get_config_value.return_value = config_value
+    mock_get_config_bool_value.return_value = config_value
 
     with mock.patch.dict(os.environ, env_var):
         runner.invoke(["sql", *command_args])
