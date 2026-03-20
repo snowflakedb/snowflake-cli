@@ -537,18 +537,16 @@ serviceRoles:
         self, service_fqn: FQN, endpoint_name: str = "app-endpoint"
     ) -> Optional[str]:
         """Get the ingress URL for a service endpoint."""
-        self.execute_query(f"SHOW ENDPOINTS IN SERVICE {service_fqn.identifier}")
+        from snowflake.connector.cursor import DictCursor
 
-        result = self.execute_query(
-            f'SELECT "ingress_url" '
-            f"FROM TABLE(RESULT_SCAN(LAST_QUERY_ID())) "
-            f"WHERE \"name\" = '{endpoint_name}'"
+        cursor = self.execute_query(
+            f"SHOW ENDPOINTS IN SERVICE {service_fqn.identifier}",
+            cursor_class=DictCursor,
         )
-        row = result.fetchone()
-
-        if row:
-            url = row[0]
-            if url and not url.startswith(("http://", "https://")):
-                url = f"https://{url}"
-            return url
+        for row in cursor:
+            if row["name"] == endpoint_name:
+                url = row["ingress_url"]
+                if url and not url.startswith(("http://", "https://")):
+                    url = f"https://{url}"
+                return url
         return None

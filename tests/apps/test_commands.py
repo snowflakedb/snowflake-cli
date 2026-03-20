@@ -678,23 +678,38 @@ class TestSnowflakeAppManager:
 
     @patch(EXECUTE_QUERY)
     def test_get_service_endpoint_url(self, mock_execute):
-        result_cursor = Mock()
-        result_cursor.fetchone.return_value = (
-            "https://my-endpoint.snowflakecomputing.app",
+        cursor = Mock()
+        cursor.__iter__ = Mock(
+            return_value=iter(
+                [
+                    {
+                        "name": "app-endpoint",
+                        "ingress_url": "https://my-endpoint.snowflakecomputing.app",
+                    }
+                ]
+            )
         )
-        mock_execute.return_value = result_cursor
+        mock_execute.return_value = cursor
 
         fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
         url = SnowflakeAppManager().get_service_endpoint_url(fqn)
         assert url == "https://my-endpoint.snowflakecomputing.app"
-        # Should call SHOW ENDPOINTS then SELECT
-        assert mock_execute.call_count == 2
+        mock_execute.assert_called_once()
 
     @patch(EXECUTE_QUERY)
     def test_get_service_endpoint_url_adds_https_prefix(self, mock_execute):
-        result_cursor = Mock()
-        result_cursor.fetchone.return_value = ("my-endpoint.snowflakecomputing.app",)
-        mock_execute.return_value = result_cursor
+        cursor = Mock()
+        cursor.__iter__ = Mock(
+            return_value=iter(
+                [
+                    {
+                        "name": "app-endpoint",
+                        "ingress_url": "my-endpoint.snowflakecomputing.app",
+                    }
+                ]
+            )
+        )
+        mock_execute.return_value = cursor
 
         fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
         url = SnowflakeAppManager().get_service_endpoint_url(fqn)
@@ -702,9 +717,9 @@ class TestSnowflakeAppManager:
 
     @patch(EXECUTE_QUERY)
     def test_get_service_endpoint_url_not_found(self, mock_execute):
-        result_cursor = Mock()
-        result_cursor.fetchone.return_value = None
-        mock_execute.return_value = result_cursor
+        cursor = Mock()
+        cursor.__iter__ = Mock(return_value=iter([]))
+        mock_execute.return_value = cursor
 
         fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
         url = SnowflakeAppManager().get_service_endpoint_url(fqn)
