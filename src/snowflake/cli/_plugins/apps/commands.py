@@ -20,7 +20,6 @@ import typer
 from snowflake.cli._plugins.apps.generate import _generate_snowflake_yml
 from snowflake.cli._plugins.apps.manager import (
     _APP_COMMAND_NAME,
-    DEFAULT_IMAGE_REPOSITORY,
     DEFINITION_FILENAME,
     EXPOSE_UNSUPPORTED_SYNTAX,
     SnowflakeAppManager,
@@ -259,8 +258,13 @@ def deploy(
     app_description = entity.meta.description if entity.meta else None
     app_icon = entity.meta.icon if entity.meta else None
 
-    # TODO: Replace with artifact_repository from entity config once supported
-    image_repository = DEFAULT_IMAGE_REPOSITORY
+    image_repository = entity.image_repository.name if entity.image_repository else None
+    image_repo_database = (
+        entity.image_repository.database if entity.image_repository else None
+    ) or database
+    image_repo_schema = (
+        entity.image_repository.schema_ if entity.image_repository else None
+    ) or schema
 
     # ── Validate required configuration ───────────────────────────────
     if not build_compute_pool:
@@ -278,6 +282,12 @@ def deploy(
     if not query_warehouse:
         raise CliError(
             "query_warehouse is required for deploy. "
+            "Please configure it in snowflake.yml."
+        )
+
+    if not image_repository:
+        raise CliError(
+            "image_repository is required for deploy. "
             "Please configure it in snowflake.yml."
         )
 
@@ -327,7 +337,9 @@ def deploy(
 
     # Step 4: Get image repository URL
     cli_console.step(f"Getting image repository URL for {image_repository}")
-    image_repo_url = manager.get_image_repo_url(image_repository)
+    image_repo_url = manager.get_image_repo_url(
+        image_repository, database=image_repo_database, schema=image_repo_schema
+    )
 
     # Step 5: Drop existing build job if present
     cli_console.step(f"Dropping service if exists: {build_job_fqn}")

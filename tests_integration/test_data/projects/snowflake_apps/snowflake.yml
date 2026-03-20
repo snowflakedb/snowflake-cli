@@ -19,5 +19,7 @@ entities:
     service_eai: null
     artifact_repository:
       name: SNOW_APPS_DEFAULT_ARTIFACT_REPOSITORY
+    image_repository:
+      name: SNOW_APPS_DEFAULT_IMAGE_REPOSITORY
     code_stage:
       name: TEST_APP_CODE

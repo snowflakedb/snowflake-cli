@@ -25,6 +25,7 @@ from snowflake.cli.api.project.util import get_env_username
 IS_PERSONAL_DB_SUPPORTED = False  # Will be enabled in the future
 
 DEFAULT_ARTIFACT_REPOSITORY = "SNOW_APPS_DEFAULT_ARTIFACT_REPOSITORY"
+DEFAULT_IMAGE_REPOSITORY = "SNOW_APPS_DEFAULT_IMAGE_REPOSITORY"
 
 
 def _generate_snowflake_yml(
@@ -97,6 +98,8 @@ def _generate_snowflake_yml(
             service_eai: null
             artifact_repository:
               name: {artifact_repository}
+            image_repository:
+              name: {DEFAULT_IMAGE_REPOSITORY}
             code_stage:
               name: {code_stage}
         """
