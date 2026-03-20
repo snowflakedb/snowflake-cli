@@ -20,6 +20,7 @@
 ## Deprecations
 
 ## New additions
+* Added `--no-prompt-exit-repl` option and configuration setting to skip the exit confirmation prompt in the SQL REPL.
 
 ## Fixes and improvements
 
