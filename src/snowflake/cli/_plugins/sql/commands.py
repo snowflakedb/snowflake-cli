@@ -29,7 +29,7 @@ from snowflake.cli.api.commands.flags import (
 )
 from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
-from snowflake.cli.api.config import get_config_value
+from snowflake.cli.api.config import get_config_bool_value
 from snowflake.cli.api.exceptions import CliArgumentError
 from snowflake.cli.api.output.types import (
     CommandResult,
@@ -140,7 +140,6 @@ def execute_sql(
         None,
         "--no-prompt-exit-repl",
         help="Do not prompt before exiting the REPL.",
-        envvar="SNOWFLAKE_NO_PROMPT_EXIT_REPL",
         show_default=False,
     ),
     **options,
@@ -168,7 +167,7 @@ def execute_sql(
     local_only = bool(local_only)
 
     if no_prompt_exit_repl is None:
-        no_prompt_exit_repl = get_config_value(
+        no_prompt_exit_repl = get_config_bool_value(
             "cli", key="no_prompt_exit_repl", default=False
         )
 
