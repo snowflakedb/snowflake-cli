@@ -20,6 +20,7 @@
 ## Deprecations
 
 ## New additions
+* Added `snow custom-image validate` command to validate custom Docker images against configured rules (entrypoint, environment variables, Python packages, dependency health). Supports an optional `--scan-vulnerabilities` flag to run Grype vulnerability scanning; on failure the output shows a concise table of High/Critical CVEs (package, version, type, CVE, severity) instead of raw JSON.
 
 ## Fixes and improvements
 
