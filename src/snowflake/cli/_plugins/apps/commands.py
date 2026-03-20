@@ -218,6 +218,12 @@ def deploy(
         "--entity-id",
         help="ID of the snowflake-app entity to deploy. Required if multiple snowflake-app entities exist.",
     ),
+    skip_build: bool = typer.Option(
+        False,
+        "--skip-build",
+        help="Skip the build phase and go straight to deploying the service. "
+        "Assumes the container image has already been built.",
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -228,6 +234,9 @@ def deploy(
 
     If --entity-id is not specified and the project contains exactly one snowflake-app
     entity, that entity will be used automatically.
+
+    Use --skip-build to skip the build phase and redeploy using the existing
+    container image (e.g. after a configuration-only change).
     """
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
@@ -267,7 +276,7 @@ def deploy(
     ) or schema
 
     # ── Validate required configuration ───────────────────────────────
-    if not build_compute_pool:
+    if not skip_build and not build_compute_pool:
         raise CliError(
             "build_compute_pool is required for deploy. "
             "Please configure it in snowflake.yml."
@@ -300,71 +309,74 @@ def deploy(
     manager = SnowflakeAppManager()
     stage_manager = StageManager()
 
-    # ── Build phase ───────────────────────────────────────────────────
-
-    # Step 1: Create schema if it doesn't exist
-    cli_console.step(f"Creating schema {schema} if it doesn't exist")
-    manager.create_schema_if_not_exists(database, schema)
-
-    # Step 2: Clear or create stage
-    if manager.stage_exists(stage_fqn):
-        cli_console.step(f"Clearing existing stage @{stage_fqn}")
-        manager.clear_stage(stage_fqn)
-    else:
-        cli_console.step(f"Creating stage @{stage_fqn}")
-        manager.create_stage(stage_fqn, encryption_type)
-
-    # Step 3: Bundle and upload artifact files to stage
-    #
-    # We reuse perform_bundle (same logic as `snow __app bundle`) to resolve
-    # glob patterns and src/dest mappings into a flat temporary directory,
-    # then upload that directory recursively so nested folders are preserved
-    # on the stage.
-    project_paths = perform_bundle(resolved_entity_id, entity)
-
-    try:
-        cli_console.step(f"Uploading bundled files to @{stage_fqn}")
-        for result in stage_manager.put_recursive(
-            local_path=project_paths.bundle_root,
-            stage_path=f"@{stage_fqn}",
-            overwrite=True,
-            auto_compress=False,
-            temp_directory=project_paths.bundle_root,
-        ):
-            cli_console.step(f"  Uploaded {result['source']} -> {result['target']}")
-    finally:
-        project_paths.clean_up_output()
-
-    # Step 4: Get image repository URL
+    # ── Resolve image repository URL (needed by both build and deploy) ─
     cli_console.step(f"Getting image repository URL for {image_repository}")
     image_repo_url = manager.get_image_repo_url(
         image_repository, database=image_repo_database, schema=image_repo_schema
     )
 
-    # Step 5: Drop existing build job if present
-    cli_console.step(f"Dropping service if exists: {build_job_fqn}")
-    manager.drop_service_if_exists(build_job_fqn)
+    # ── Build phase ───────────────────────────────────────────────────
 
-    # Step 6: Execute build job service
-    cli_console.step(f"Executing build job service: {build_job_fqn}")
-    manager.execute_build_job(
-        job_service_name=build_job_fqn,
-        compute_pool=build_compute_pool,
-        code_stage=stage_fqn,
-        image_repo_url=image_repo_url,
-        app_id=app_name,
-        external_access_integration=build_eai,
-    )
+    if skip_build:
+        cli_console.step("Skipping build phase (--skip-build)")
+    else:
+        # Step 1: Create schema if it doesn't exist
+        cli_console.step(f"Creating schema {schema} if it doesn't exist")
+        manager.create_schema_if_not_exists(database, schema)
 
-    # Step 7: Poll for build completion
-    cli_console.step("Waiting for build to complete...")
-    _poll_until(
-        poll_fn=lambda: manager.get_build_status(build_job_fqn),
-        done_states={"DONE"},
-        error_states={"FAILED", "IDLE"},
-        known_pending_states={"PENDING", "RUNNING"},
-        timeout_message=f"Build timed out. Check service logs: {build_job_fqn}",
-    )
+        # Step 2: Clear or create stage
+        if manager.stage_exists(stage_fqn):
+            cli_console.step(f"Clearing existing stage @{stage_fqn}")
+            manager.clear_stage(stage_fqn)
+        else:
+            cli_console.step(f"Creating stage @{stage_fqn}")
+            manager.create_stage(stage_fqn, encryption_type)
+
+        # Step 3: Bundle and upload artifact files to stage
+        #
+        # We reuse perform_bundle (same logic as `snow __app bundle`) to resolve
+        # glob patterns and src/dest mappings into a flat temporary directory,
+        # then upload that directory recursively so nested folders are preserved
+        # on the stage.
+        project_paths = perform_bundle(resolved_entity_id, entity)
+
+        try:
+            cli_console.step(f"Uploading bundled files to @{stage_fqn}")
+            for result in stage_manager.put_recursive(
+                local_path=project_paths.bundle_root,
+                stage_path=f"@{stage_fqn}",
+                overwrite=True,
+                auto_compress=False,
+                temp_directory=project_paths.bundle_root,
+            ):
+                cli_console.step(f"  Uploaded {result['source']} -> {result['target']}")
+        finally:
+            project_paths.clean_up_output()
+
+        # Step 4: Drop existing build job if present
+        cli_console.step(f"Dropping service if exists: {build_job_fqn}")
+        manager.drop_service_if_exists(build_job_fqn)
+
+        # Step 5: Execute build job service
+        cli_console.step(f"Executing build job service: {build_job_fqn}")
+        manager.execute_build_job(
+            job_service_name=build_job_fqn,
+            compute_pool=build_compute_pool,
+            code_stage=stage_fqn,
+            image_repo_url=image_repo_url,
+            app_id=app_name,
+            external_access_integration=build_eai,
+        )
+
+        # Step 6: Poll for build completion
+        cli_console.step("Waiting for build to complete...")
+        _poll_until(
+            poll_fn=lambda: manager.get_build_status(build_job_fqn),
+            done_states={"DONE"},
+            error_states={"FAILED", "IDLE"},
+            known_pending_states={"PENDING", "RUNNING"},
+            timeout_message=f"Build timed out. Check service logs: {build_job_fqn}",
+        )
 
     # ── Deploy phase ──────────────────────────────────────────────────
 

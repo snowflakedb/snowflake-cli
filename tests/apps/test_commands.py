@@ -550,34 +550,43 @@ class TestSnowflakeAppManager:
 
     @patch(EXECUTE_QUERY)
     def test_get_build_status_done(self, mock_execute):
-        result_cursor = Mock()
-        result_cursor.fetchone.return_value = (1, "DONE")
-        mock_execute.return_value = result_cursor
+        cursor = Mock()
+        cursor.__iter__ = Mock(
+            return_value=iter([{"name": "BUILD_JOB", "status": "DONE"}])
+        )
+        mock_execute.return_value = cursor
 
         fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
         status = SnowflakeAppManager().get_build_status(fqn)
         assert status == "DONE"
-        assert mock_execute.call_count == 2  # SHOW SERVICES + SELECT
+        mock_execute.assert_called_once()
 
     @patch(EXECUTE_QUERY)
     def test_get_build_status_idle(self, mock_execute):
-        result_cursor = Mock()
-        result_cursor.fetchone.return_value = (0, None)
-        mock_execute.return_value = result_cursor
+        cursor = Mock()
+        cursor.__iter__ = Mock(return_value=iter([]))
+        mock_execute.return_value = cursor
 
         fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
         status = SnowflakeAppManager().get_build_status(fqn)
         assert status == "IDLE"
 
     @patch(EXECUTE_QUERY)
-    def test_get_build_status_no_row(self, mock_execute):
-        result_cursor = Mock()
-        result_cursor.fetchone.return_value = None
-        mock_execute.return_value = result_cursor
+    def test_get_build_status_filters_by_name(self, mock_execute):
+        cursor = Mock()
+        cursor.__iter__ = Mock(
+            return_value=iter(
+                [
+                    {"name": "OTHER_SERVICE", "status": "RUNNING"},
+                    {"name": "BUILD_JOB", "status": "DONE"},
+                ]
+            )
+        )
+        mock_execute.return_value = cursor
 
         fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
         status = SnowflakeAppManager().get_build_status(fqn)
-        assert status == "IDLE"
+        assert status == "DONE"
 
     @patch(EXECUTE_QUERY)
     def test_create_service_basic(self, mock_execute):
@@ -647,9 +656,11 @@ class TestSnowflakeAppManager:
 
     @patch(EXECUTE_QUERY)
     def test_get_service_status_running(self, mock_execute):
-        result_cursor = Mock()
-        result_cursor.fetchone.return_value = (1, "RUNNING")
-        mock_execute.return_value = result_cursor
+        cursor = Mock()
+        cursor.__iter__ = Mock(
+            return_value=iter([{"name": "SVC", "status": "RUNNING"}])
+        )
+        mock_execute.return_value = cursor
 
         fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
         status = SnowflakeAppManager().get_service_status(fqn)
@@ -657,9 +668,9 @@ class TestSnowflakeAppManager:
 
     @patch(EXECUTE_QUERY)
     def test_get_service_status_idle(self, mock_execute):
-        result_cursor = Mock()
-        result_cursor.fetchone.return_value = (0, None)
-        mock_execute.return_value = result_cursor
+        cursor = Mock()
+        cursor.__iter__ = Mock(return_value=iter([]))
+        mock_execute.return_value = cursor
 
         fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
         status = SnowflakeAppManager().get_service_status(fqn)
@@ -1451,6 +1462,94 @@ class TestDeployCommand:
                 result = runner.invoke(["__app", "deploy"])
                 assert result.exit_code == 1
                 assert "build_compute_pool is required" in result.output
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_skip_build_skips_build_phase(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.artifacts = []
+        entity.build_compute_pool = None
+        entity.service_compute_pool = Mock()
+        entity.service_compute_pool.name = "SVC_POOL"
+        entity.query_warehouse = "WH"
+        entity.build_eai = None
+        entity.meta = None
+        entity.image_repository = Mock()
+        entity.image_repository.name = "MY_REPO"
+        entity.image_repository.database = None
+        entity.image_repository.schema_ = None
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.get_image_repo_url.return_value = (
+            "host.registry-local.snowflakecomputing.com/TEST_DB/TEST_SCHEMA/MY_REPO"
+        )
+        mock_poll.return_value = "https://my-app.snowflakecomputing.app"
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "deploy", "--skip-build"])
+                assert result.exit_code == 0, result.output
+                assert "Skipping build phase" in result.output
+                mock_mgr.create_schema_if_not_exists.assert_not_called()
+                mock_mgr.execute_build_job.assert_not_called()
+                mock_mgr.create_service.assert_called_once()
+                mock_mgr.alter_service_spec.assert_called_once()
+                mock_mgr.resume_service.assert_called_once()
+
+    @patch(
+        "snowflake.cli._plugins.apps.commands._get_entity",
+    )
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_skip_build_allows_missing_build_compute_pool(
+        self, mock_resolve, mock_get_entity, runner, tmp_path
+    ):
+        """--skip-build should not require build_compute_pool."""
+        entity = Mock()
+        entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP")
+        entity.code_stage = None
+        entity.artifacts = []
+        entity.build_compute_pool = None
+        entity.service_compute_pool = Mock()
+        entity.service_compute_pool.name = "SVC_POOL"
+        entity.query_warehouse = "WH"
+        entity.build_eai = None
+        entity.meta = None
+        entity.image_repository = None
+        mock_get_entity.return_value = entity
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "deploy", "--skip-build"])
+                assert result.exit_code == 1
+                assert "build_compute_pool is required" not in result.output
+                assert "image_repository is required" in result.output
 
     @patch(
         "snowflake.cli._plugins.apps.commands._get_entity",

@@ -423,20 +423,17 @@ class SnowflakeAppManager(SqlExecutionMixin):
             - "IDLE" if the job service doesn't exist
             - The actual status from SHOW SERVICES (e.g., "PENDING", "RUNNING", "DONE", "FAILED")
         """
-        self.execute_query(f"SHOW SERVICES IN SCHEMA {job_fqn.prefix}")
+        from snowflake.connector.cursor import DictCursor
 
-        # Query the result to find the job status
-        result = self.execute_query(
-            f'SELECT COUNT(*), MAX("status") '
-            f"FROM TABLE(RESULT_SCAN(LAST_QUERY_ID())) "
-            f"WHERE \"name\" = '{job_fqn.name}'"
+        cursor = self.execute_query(
+            f"SHOW SERVICES IN SCHEMA {job_fqn.prefix}",
+            cursor_class=DictCursor,
         )
-        row = result.fetchone()
+        for row in cursor:
+            if row["name"].upper() == job_fqn.name.upper():
+                return row["status"]
 
-        if not row or row[0] == 0:
-            return "IDLE"
-
-        return row[1]
+        return "IDLE"
 
     def create_service(
         self,
@@ -524,19 +521,17 @@ serviceRoles:
             - "IDLE" if the service doesn't exist
             - The actual status from SHOW SERVICES (e.g., "PENDING", "READY", "SUSPENDED", "FAILED")
         """
-        self.execute_query(f"SHOW SERVICES IN SCHEMA {service_fqn.prefix}")
+        from snowflake.connector.cursor import DictCursor
 
-        result = self.execute_query(
-            f'SELECT COUNT(*), MAX("status") '
-            f"FROM TABLE(RESULT_SCAN(LAST_QUERY_ID())) "
-            f"WHERE \"name\" = '{service_fqn.name}'"
+        cursor = self.execute_query(
+            f"SHOW SERVICES IN SCHEMA {service_fqn.prefix}",
+            cursor_class=DictCursor,
         )
-        row = result.fetchone()
+        for row in cursor:
+            if row["name"].upper() == service_fqn.name.upper():
+                return row["status"]
 
-        if not row or row[0] == 0:
-            return "IDLE"
-
-        return row[1]
+        return "IDLE"
 
     def get_service_endpoint_url(
         self, service_fqn: FQN, endpoint_name: str = "app-endpoint"
