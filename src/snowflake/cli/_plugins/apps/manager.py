@@ -43,6 +43,9 @@ _APP_COMMAND_NAME = "__app"
 # Default resource names for Snowflake Apps
 SNOW_APPS_COMPUTE_POOL = "SNOW_APPS_DEFAULT_COMPUTE_POOL"
 DEFAULT_EXTERNAL_ACCESS = "SNOW_APPS_DEFAULT_EXTERNAL_ACCESS"
+DEFAULT_IMAGE_REPOSITORY = "SNOW_APPS_DEFAULT_IMAGE_REPOSITORY"
+
+_BUILD_IMAGE = "/snowflake/images/snowflake_images/sf-image-build:0.0.1"
 
 
 T = TypeVar("T")
@@ -275,6 +278,58 @@ def _find_dockerfile_expose_port(bundle_root: Path) -> Optional[int]:
     return None
 
 
+def _build_job_spec(
+    image_repo_url: str,
+    app_id: str,
+    code_stage: FQN,
+) -> str:
+    """Return the SPCS YAML spec for the image-build job service."""
+    return f"""spec:
+  containers:
+  - name: main
+    image: "{_BUILD_IMAGE}"
+    env:
+      IMAGE_REGISTRY_URL: "{image_repo_url}"
+      IMAGE_NAME: "{app_id.lower()}"
+      IMAGE_TAG: "latest"
+      BUILD_CONTEXT: "/app"
+    volumeMounts:
+      - name: code-volume
+        mountPath: /app
+  volumes:
+  - name: code-volume
+    source: "@{code_stage.identifier}"
+    uid: 65532"""
+
+
+def _service_spec(
+    image_url: str,
+    app_port: int = DEFAULT_APP_PORT,
+    command: Optional[list] = None,
+) -> str:
+    """Return the SPCS YAML spec for the application service."""
+    command_block = ""
+    if command:
+        items = "\n".join(f"        - {c}" for c in command)
+        command_block = f"\n      command:\n{items}"
+
+    return f"""spec:
+  containers:
+    - name: main
+      image: "{image_url}"{command_block}
+  endpoints:
+    - name: app-endpoint
+      port: {app_port}
+      public: true
+capabilities:
+  securityContext:
+    executeAsCaller: true
+serviceRoles:
+  - name: viewer
+    endpoints:
+      - app-endpoint"""
+
+
 class SnowflakeAppManager(SqlExecutionMixin):
     """Manager for Snowflake App operations."""
 
@@ -383,22 +438,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         external_access_integration: Optional[str] = None,
     ) -> None:
         """Execute a build job service."""
-        spec = f"""spec:
-  containers:
-  - name: main
-    image: "/snowflake/images/snowflake_images/sf-image-build:0.0.1"
-    env:
-      IMAGE_REGISTRY_URL: "{image_repo_url}"
-      IMAGE_NAME: "{app_id.lower()}"
-      IMAGE_TAG: "latest"
-      BUILD_CONTEXT: "/app"
-    volumeMounts:
-      - name: code-volume
-        mountPath: /app
-  volumes:
-  - name: code-volume
-    source: "@{code_stage.identifier}"
-    uid: 65532"""
+        spec = _build_job_spec(image_repo_url, app_id, code_stage)
 
         query_lines = [
             f"EXECUTE JOB SERVICE IN COMPUTE POOL {compute_pool}",
@@ -444,24 +484,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         app_comment: Optional[str] = None,
     ) -> None:
         """Create a service with a placeholder spec (suspended by default)."""
-        spec = f"""spec:
-  containers:
-    - name: main
-      image: "/snowflake/images/snowflake_images/sf-image-build:0.0.1"
-      command:
-        - sleep
-        - infinity
-  endpoints:
-    - name: app-endpoint
-      port: {app_port}
-      public: true
-capabilities:
-  securityContext:
-    executeAsCaller: true
-serviceRoles:
-  - name: viewer
-    endpoints:
-      - app-endpoint"""
+        spec = _service_spec(_BUILD_IMAGE, app_port, command=["sleep", "infinity"])
 
         query = (
             f"CREATE SERVICE IF NOT EXISTS {service_name.sql_identifier}\n"
@@ -487,21 +510,7 @@ serviceRoles:
         app_port: int = DEFAULT_APP_PORT,
     ) -> None:
         """Alter a service with the built image spec."""
-        spec = f"""spec:
-  containers:
-    - name: main
-      image: "{image_url}"
-  endpoints:
-    - name: app-endpoint
-      port: {app_port}
-      public: true
-capabilities:
-  securityContext:
-    executeAsCaller: true
-serviceRoles:
-  - name: viewer
-    endpoints:
-      - app-endpoint"""
+        spec = _service_spec(image_url, app_port)
 
         query = (
             f"ALTER SERVICE {service_name.sql_identifier}\n"

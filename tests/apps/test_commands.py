@@ -1549,8 +1549,7 @@ class TestDeployCommand:
         entity.code_stage = None
         entity.artifacts = []
         entity.build_compute_pool = None
-        entity.service_compute_pool = Mock()
-        entity.service_compute_pool.name = "SVC_POOL"
+        entity.service_compute_pool = None
         entity.query_warehouse = "WH"
         entity.build_eai = None
         entity.meta = None
@@ -1564,7 +1563,7 @@ class TestDeployCommand:
                 result = runner.invoke(["__app", "deploy", "--skip-build"])
                 assert result.exit_code == 1
                 assert "build_compute_pool is required" not in result.output
-                assert "image_repository is required" in result.output
+                assert "service_compute_pool is required" in result.output
 
     @patch(
         "snowflake.cli._plugins.apps.commands._get_entity",
@@ -1597,38 +1596,6 @@ class TestDeployCommand:
                 result = runner.invoke(["__app", "deploy"])
                 assert result.exit_code == 1
                 assert "service_compute_pool is required" in result.output
-
-    @patch(
-        "snowflake.cli._plugins.apps.commands._get_entity",
-    )
-    @patch(
-        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
-        return_value="my_app",
-    )
-    def test_deploy_fails_missing_image_repository(
-        self, mock_resolve, mock_get_entity, runner, tmp_path
-    ):
-        entity = Mock()
-        entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP")
-        entity.code_stage = None
-        entity.artifacts = []
-        entity.build_compute_pool = Mock()
-        entity.build_compute_pool.name = "BUILD_POOL"
-        entity.service_compute_pool = Mock()
-        entity.service_compute_pool.name = "SVC_POOL"
-        entity.query_warehouse = "WH"
-        entity.build_eai = None
-        entity.meta = None
-        entity.image_repository = None
-        mock_get_entity.return_value = entity
-
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "deploy"])
-                assert result.exit_code == 1
-                assert "image_repository is required" in result.output
 
     @patch(
         "snowflake.cli._plugins.apps.commands._get_entity",

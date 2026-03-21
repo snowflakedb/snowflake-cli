@@ -20,6 +20,7 @@ import typer
 from snowflake.cli._plugins.apps.generate import _generate_snowflake_yml
 from snowflake.cli._plugins.apps.manager import (
     _APP_COMMAND_NAME,
+    DEFAULT_IMAGE_REPOSITORY,
     DEFINITION_FILENAME,
     EXPOSE_UNSUPPORTED_SYNTAX,
     SnowflakeAppManager,
@@ -267,13 +268,14 @@ def deploy(
     app_description = entity.meta.description if entity.meta else None
     app_icon = entity.meta.icon if entity.meta else None
 
-    image_repository = entity.image_repository.name if entity.image_repository else None
-    image_repo_database = (
-        entity.image_repository.database if entity.image_repository else None
-    ) or database
-    image_repo_schema = (
-        entity.image_repository.schema_ if entity.image_repository else None
-    ) or schema
+    if entity.image_repository:
+        image_repository = entity.image_repository.name
+        image_repo_database = entity.image_repository.database or database
+        image_repo_schema = entity.image_repository.schema_ or schema
+    else:
+        image_repository = DEFAULT_IMAGE_REPOSITORY
+        image_repo_database = None
+        image_repo_schema = None
 
     # ── Validate required configuration ───────────────────────────────
     if not skip_build and not build_compute_pool:
@@ -291,12 +293,6 @@ def deploy(
     if not query_warehouse:
         raise CliError(
             "query_warehouse is required for deploy. "
-            "Please configure it in snowflake.yml."
-        )
-
-    if not image_repository:
-        raise CliError(
-            "image_repository is required for deploy. "
             "Please configure it in snowflake.yml."
         )
 

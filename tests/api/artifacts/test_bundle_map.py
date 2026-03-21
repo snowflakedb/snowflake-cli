@@ -1021,3 +1021,136 @@ class TestRegexIntegration:
         # Pattern that won't match any files should raise SourceNotFoundError
         with pytest.raises(SourceNotFoundError):
             regex_bundle_map.add(PathMapping(src=r"nonexistent/.*\.txt$"))
+
+
+# ── Ignore pattern tests ──────────────────────────────────────────────
+
+
+class TestIgnorePatterns:
+    def test_ignore_excludes_directory(self, tmp_path):
+        project_root = tmp_path / "project"
+        deploy_root = tmp_path / "deploy"
+        for f in [
+            "app/main.py",
+            "app/utils.py",
+            "app/node_modules/pkg/index.js",
+            "app/node_modules/pkg/lib.js",
+        ]:
+            touch(str(project_root / f))
+
+        bm = BundleMap(project_root=project_root, deploy_root=deploy_root)
+        bm.add(PathMapping(src="app", dest="./", ignore=["node_modules"]))
+
+        srcs = [
+            str(s.relative_to(project_root))
+            for s, _ in bm.all_mappings(absolute=True, expand_directories=True)
+            if s.is_file()
+        ]
+        assert "app/main.py" in srcs
+        assert "app/utils.py" in srcs
+        assert not any("node_modules" in s for s in srcs)
+
+    def test_ignore_excludes_file_by_name(self, tmp_path):
+        project_root = tmp_path / "project"
+        deploy_root = tmp_path / "deploy"
+        for f in ["app/main.py", "app/.env", "app/config.yml"]:
+            touch(str(project_root / f))
+
+        bm = BundleMap(project_root=project_root, deploy_root=deploy_root)
+        bm.add(PathMapping(src="app", dest="./", ignore=[".env"]))
+
+        srcs = [
+            str(s.relative_to(project_root))
+            for s, _ in bm.all_mappings(absolute=True, expand_directories=True)
+            if s.is_file()
+        ]
+        assert "app/main.py" in srcs
+        assert "app/config.yml" in srcs
+        assert "app/.env" not in srcs
+
+    def test_ignore_glob_pattern(self, tmp_path):
+        project_root = tmp_path / "project"
+        deploy_root = tmp_path / "deploy"
+        for f in ["app/main.py", "app/cache.pyc", "app/lib/util.pyc"]:
+            touch(str(project_root / f))
+
+        bm = BundleMap(project_root=project_root, deploy_root=deploy_root)
+        bm.add(PathMapping(src="app", dest="./", ignore=["*.pyc"]))
+
+        srcs = [
+            str(s.relative_to(project_root))
+            for s, _ in bm.all_mappings(absolute=True, expand_directories=True)
+            if s.is_file()
+        ]
+        assert "app/main.py" in srcs
+        assert "app/cache.pyc" not in srcs
+        assert "app/lib/util.pyc" not in srcs
+
+    def test_ignore_multiple_patterns(self, tmp_path):
+        project_root = tmp_path / "project"
+        deploy_root = tmp_path / "deploy"
+        for f in [
+            "app/main.py",
+            "app/.env",
+            "app/node_modules/pkg/index.js",
+            "app/__pycache__/main.cpython.pyc",
+        ]:
+            touch(str(project_root / f))
+
+        bm = BundleMap(project_root=project_root, deploy_root=deploy_root)
+        bm.add(
+            PathMapping(
+                src="app",
+                dest="./",
+                ignore=["node_modules", ".env", "__pycache__"],
+            )
+        )
+
+        srcs = [
+            str(s.relative_to(project_root))
+            for s, _ in bm.all_mappings(absolute=True, expand_directories=True)
+            if s.is_file()
+        ]
+        assert "app/main.py" in srcs
+        assert not any("node_modules" in s for s in srcs)
+        assert not any("__pycache__" in s for s in srcs)
+        assert "app/.env" not in srcs
+
+    def test_ignore_filters_top_level_glob_matches(self, tmp_path):
+        """When src is a glob like 'app/*', ignored names should be excluded
+        from the top-level glob results too."""
+        project_root = tmp_path / "project"
+        deploy_root = tmp_path / "deploy"
+        for f in [
+            "app/main.py",
+            "app/node_modules/pkg/index.js",
+        ]:
+            touch(str(project_root / f))
+
+        bm = BundleMap(project_root=project_root, deploy_root=deploy_root)
+        bm.add(PathMapping(src="app/*", dest="./", ignore=["node_modules"]))
+
+        srcs = [
+            str(s.relative_to(project_root))
+            for s, _ in bm.all_mappings(absolute=True, expand_directories=True)
+        ]
+        assert any("main.py" in s for s in srcs)
+        assert not any("node_modules" in s for s in srcs)
+
+    def test_no_ignore_includes_everything(self, tmp_path):
+        """Without ignore patterns, all files should be included."""
+        project_root = tmp_path / "project"
+        deploy_root = tmp_path / "deploy"
+        for f in ["app/main.py", "app/node_modules/pkg/index.js"]:
+            touch(str(project_root / f))
+
+        bm = BundleMap(project_root=project_root, deploy_root=deploy_root)
+        bm.add(PathMapping(src="app", dest="./"))
+
+        srcs = [
+            str(s.relative_to(project_root))
+            for s, _ in bm.all_mappings(absolute=True, expand_directories=True)
+            if s.is_file()
+        ]
+        assert "app/main.py" in srcs
+        assert "app/node_modules/pkg/index.js" in srcs
