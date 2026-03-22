@@ -155,7 +155,7 @@ def _get_snowflake_app_entities() -> Dict[str, Any]:
     if project_def is None:
         raise CliError(
             f"No {DEFINITION_FILENAME} found. "
-            f"Run 'snow {_APP_COMMAND_NAME} init' first."
+            f"Run 'snow {_APP_COMMAND_NAME} setup' first."
         )
 
     # Get entities with type "snowflake-app"
@@ -183,7 +183,7 @@ def _resolve_entity_id(entity_id: Optional[str]) -> str:
     if len(snowflake_apps) == 0:
         raise CliError(
             f"No snowflake-app entities found in {DEFINITION_FILENAME}. "
-            f"Add a snowflake-app entity or run 'snow {_APP_COMMAND_NAME} init' first."
+            f"Add a snowflake-app entity or run 'snow {_APP_COMMAND_NAME} setup' first."
         )
     elif len(snowflake_apps) == 1:
         return list(snowflake_apps.keys())[0]

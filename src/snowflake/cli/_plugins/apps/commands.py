@@ -46,8 +46,8 @@ app = SnowTyperFactory(
 )
 
 
-@app.command(requires_connection=True)
-def init(
+@app.command("setup", requires_connection=True)
+def setup(
     app_name: str = typer.Option(
         ...,
         "--app-name",

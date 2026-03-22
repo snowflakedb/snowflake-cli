@@ -729,7 +729,7 @@ class TestSnowflakeAppManager:
 # ── CLI command tests ─────────────────────────────────────────────────
 
 
-class TestInitCommand:
+class TestSetupCommand:
     @patch(
         "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
         return_value="definition_version: '2'\n",
@@ -739,7 +739,7 @@ class TestInitCommand:
             from tests_common import change_directory
 
             with change_directory(tmp_path):
-                result = runner.invoke(["__app", "init", "--app-name", "my_app"])
+                result = runner.invoke(["__app", "setup", "--app-name", "my_app"])
                 assert result.exit_code == 0, result.output
                 assert "Initialized Snowflake App project" in result.output
                 assert (tmp_path / "snowflake.yml").exists()
@@ -750,7 +750,7 @@ class TestInitCommand:
 
             (tmp_path / "snowflake.yml").write_text("existing content")
             with change_directory(tmp_path):
-                result = runner.invoke(["__app", "init", "--app-name", "my_app"])
+                result = runner.invoke(["__app", "setup", "--app-name", "my_app"])
                 assert result.exit_code == 0, result.output
                 assert "already exists" in result.output
 
