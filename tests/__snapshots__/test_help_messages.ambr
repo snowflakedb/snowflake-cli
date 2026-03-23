@@ -234,17 +234,22 @@
   
   '''
 # ---
-# name: test_help_messages[__app.init]
+# name: test_help_messages[__app.open]
   '''
                                                                                   
-   Usage: root __app init [OPTIONS]                                               
+   Usage: root __app open [OPTIONS]                                               
                                                                                   
-   Initializes a snowflake.yml file for a Snowflake App project.                  
+   Opens a deployed Snowflake App in the browser.                                 
+                                                                                  
+   Looks up the service endpoint URL for the app and opens it.  Use --print-only  
+   to print the URL without launching a browser.                                  
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | *  --app-name          TEXT  Name of the Snowflake App to initialize.        |
-  |                              [required]                                      |
-  |    --help      -h            Show this message and exit.                     |
+  | --entity-id           TEXT  ID of the snowflake-app entity to open. Required |
+  |                             if multiple snowflake-app entities exist.        |
+  | --print-only                Print the app URL without opening it in the      |
+  |                             browser.                                         |
+  | --help        -h            Show this message and exit.                      |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -371,22 +376,17 @@
   
   '''
 # ---
-# name: test_help_messages[__app.open]
+# name: test_help_messages[__app.setup]
   '''
                                                                                   
-   Usage: root __app open [OPTIONS]                                               
+   Usage: root __app setup [OPTIONS]                                              
                                                                                   
-   Opens a deployed Snowflake App in the browser.                                 
-                                                                                  
-   Looks up the service endpoint URL for the app and opens it.  Use --print-only  
-   to print the URL without launching a browser.                                  
+   Initializes a snowflake.yml file for a Snowflake App project.                  
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --entity-id           TEXT  ID of the snowflake-app entity to open. Required |
-  |                             if multiple snowflake-app entities exist.        |
-  | --print-only                Print the app URL without opening it in the      |
-  |                             browser.                                         |
-  | --help        -h            Show this message and exit.                      |
+  | *  --app-name          TEXT  Name of the Snowflake App to initialize.        |
+  |                              [required]                                      |
+  |    --help      -h            Show this message and exit.                     |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -669,8 +669,8 @@
   | bundle     Bundles a Snowflake App by resolving artifacts defined in         |
   |            snowflake.yml.                                                    |
   | deploy     Builds and deploys a Snowflake App.                               |
-  | init       Initializes a snowflake.yml file for a Snowflake App project.     |
   | open       Opens a deployed Snowflake App in the browser.                    |
+  | setup      Initializes a snowflake.yml file for a Snowflake App project.     |
   | validate   Validates a local Snowflake App project.                          |
   +------------------------------------------------------------------------------+
   
@@ -23303,8 +23303,8 @@
   | bundle     Bundles a Snowflake App by resolving artifacts defined in         |
   |            snowflake.yml.                                                    |
   | deploy     Builds and deploys a Snowflake App.                               |
-  | init       Initializes a snowflake.yml file for a Snowflake App project.     |
   | open       Opens a deployed Snowflake App in the browser.                    |
+  | setup      Initializes a snowflake.yml file for a Snowflake App project.     |
   | validate   Validates a local Snowflake App project.                          |
   +------------------------------------------------------------------------------+
   

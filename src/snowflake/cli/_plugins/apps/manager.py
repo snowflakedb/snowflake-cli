@@ -34,6 +34,7 @@ from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import ProjectPaths
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.connector.cursor import DictCursor
 
 DEFINITION_FILENAME = "snowflake.yml"
 SNOWFLAKE_APP_ENTITY_TYPE = "snowflake-app"
@@ -43,8 +44,9 @@ _APP_COMMAND_NAME = "__app"
 # Default resource names for Snowflake Apps
 SNOW_APPS_COMPUTE_POOL = "SNOW_APPS_DEFAULT_COMPUTE_POOL"
 DEFAULT_EXTERNAL_ACCESS = "SNOW_APPS_DEFAULT_EXTERNAL_ACCESS"
-# TODO: Replace with artifact_repository from entity config once supported
 DEFAULT_IMAGE_REPOSITORY = "SNOW_APPS_DEFAULT_IMAGE_REPOSITORY"
+
+_BUILD_IMAGE = "/snowflake/images/snowflake_images/sf-image-build:0.0.1"
 
 
 T = TypeVar("T")
@@ -154,7 +156,7 @@ def _get_snowflake_app_entities() -> Dict[str, Any]:
     if project_def is None:
         raise CliError(
             f"No {DEFINITION_FILENAME} found. "
-            f"Run 'snow {_APP_COMMAND_NAME} init' first."
+            f"Run 'snow {_APP_COMMAND_NAME} setup' first."
         )
 
     # Get entities with type "snowflake-app"
@@ -182,7 +184,7 @@ def _resolve_entity_id(entity_id: Optional[str]) -> str:
     if len(snowflake_apps) == 0:
         raise CliError(
             f"No snowflake-app entities found in {DEFINITION_FILENAME}. "
-            f"Add a snowflake-app entity or run 'snow {_APP_COMMAND_NAME} init' first."
+            f"Add a snowflake-app entity or run 'snow {_APP_COMMAND_NAME} setup' first."
         )
     elif len(snowflake_apps) == 1:
         return list(snowflake_apps.keys())[0]
@@ -277,13 +279,64 @@ def _find_dockerfile_expose_port(bundle_root: Path) -> Optional[int]:
     return None
 
 
+def _build_job_spec(
+    image_repo_url: str,
+    app_id: str,
+    code_stage: FQN,
+) -> str:
+    """Return the SPCS YAML spec for the image-build job service."""
+    return f"""spec:
+  containers:
+  - name: main
+    image: "{_BUILD_IMAGE}"
+    env:
+      IMAGE_REGISTRY_URL: "{image_repo_url}"
+      IMAGE_NAME: "{app_id.lower()}"
+      IMAGE_TAG: "latest"
+      BUILD_CONTEXT: "/app"
+    volumeMounts:
+      - name: code-volume
+        mountPath: /app
+  volumes:
+  - name: code-volume
+    source: "@{code_stage.identifier}"
+    uid: 65532"""
+
+
+def _service_spec(
+    image_url: str,
+    app_port: int = DEFAULT_APP_PORT,
+    command: Optional[list] = None,
+) -> str:
+    """Return the SPCS YAML spec for the application service."""
+    command_block = ""
+    if command:
+        items = "\n".join(f"        - {c}" for c in command)
+        command_block = f"\n      command:\n{items}"
+
+    return f"""spec:
+  containers:
+    - name: main
+      image: "{image_url}"{command_block}
+  endpoints:
+    - name: app-endpoint
+      port: {app_port}
+      public: true
+capabilities:
+  securityContext:
+    executeAsCaller: true
+serviceRoles:
+  - name: viewer
+    endpoints:
+      - app-endpoint"""
+
+
 class SnowflakeAppManager(SqlExecutionMixin):
     """Manager for Snowflake App operations."""
 
     def role_has_bind_service_endpoint(self, role: str) -> bool:
         """Return True if *role* has the account-level BIND SERVICE ENDPOINT privilege."""
         from snowflake.cli.api.project.util import to_string_literal
-        from snowflake.connector.cursor import DictCursor
 
         safe_role = to_string_literal(role)
         cursor = self.execute_query(
@@ -332,7 +385,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
             identifier_to_show_like_pattern,
             unquote_identifier,
         )
-        from snowflake.connector.cursor import DictCursor
 
         show_obj_query = (
             f"show image repositories like {identifier_to_show_like_pattern(repo_name)}"
@@ -375,22 +427,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         external_access_integration: Optional[str] = None,
     ) -> None:
         """Execute a build job service."""
-        spec = f"""spec:
-  containers:
-  - name: main
-    image: "/snowflake/images/snowflake_images/sf-image-build:0.0.1"
-    env:
-      IMAGE_REGISTRY_URL: "{image_repo_url}"
-      IMAGE_NAME: "{app_id.lower()}"
-      IMAGE_TAG: "latest"
-      BUILD_CONTEXT: "/app"
-    volumeMounts:
-      - name: code-volume
-        mountPath: /app
-  volumes:
-  - name: code-volume
-    source: "@{code_stage.identifier}"
-    uid: 65532"""
+        spec = _build_job_spec(image_repo_url, app_id, code_stage)
 
         query_lines = [
             f"EXECUTE JOB SERVICE IN COMPUTE POOL {compute_pool}",
@@ -415,20 +452,15 @@ class SnowflakeAppManager(SqlExecutionMixin):
             - "IDLE" if the job service doesn't exist
             - The actual status from SHOW SERVICES (e.g., "PENDING", "RUNNING", "DONE", "FAILED")
         """
-        self.execute_query(f"SHOW SERVICES IN SCHEMA {job_fqn.prefix}")
-
-        # Query the result to find the job status
-        result = self.execute_query(
-            f'SELECT COUNT(*), MAX("status") '
-            f"FROM TABLE(RESULT_SCAN(LAST_QUERY_ID())) "
-            f"WHERE \"name\" = '{job_fqn.name}'"
+        cursor = self.execute_query(
+            f"SHOW SERVICES IN SCHEMA {job_fqn.prefix}",
+            cursor_class=DictCursor,
         )
-        row = result.fetchone()
+        for row in cursor:
+            if row["name"].upper() == job_fqn.name.upper():
+                return row["status"]
 
-        if not row or row[0] == 0:
-            return "IDLE"
-
-        return row[1]
+        return "IDLE"
 
     def create_service(
         self,
@@ -439,21 +471,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         app_comment: Optional[str] = None,
     ) -> None:
         """Create a service with a placeholder spec (suspended by default)."""
-        spec = f"""spec:
-  containers:
-    - name: main
-      image: "/snowflake/images/snowflake_images/sf-image-build:0.0.1"
-      command:
-        - sleep
-        - infinity
-  endpoints:
-    - name: app-endpoint
-      port: {app_port}
-      public: true
-serviceRoles:
-  - name: viewer
-    endpoints:
-      - app-endpoint"""
+        spec = _service_spec(_BUILD_IMAGE, app_port, command=["sleep", "infinity"])
 
         query = (
             f"CREATE SERVICE IF NOT EXISTS {service_name.sql_identifier}\n"
@@ -479,18 +497,7 @@ serviceRoles:
         app_port: int = DEFAULT_APP_PORT,
     ) -> None:
         """Alter a service with the built image spec."""
-        spec = f"""spec:
-  containers:
-    - name: main
-      image: "{image_url}"
-  endpoints:
-    - name: app-endpoint
-      port: {app_port}
-      public: true
-serviceRoles:
-  - name: viewer
-    endpoints:
-      - app-endpoint"""
+        spec = _service_spec(image_url, app_port)
 
         query = (
             f"ALTER SERVICE {service_name.sql_identifier}\n"
@@ -510,36 +517,28 @@ serviceRoles:
             - "IDLE" if the service doesn't exist
             - The actual status from SHOW SERVICES (e.g., "PENDING", "READY", "SUSPENDED", "FAILED")
         """
-        self.execute_query(f"SHOW SERVICES IN SCHEMA {service_fqn.prefix}")
-
-        result = self.execute_query(
-            f'SELECT COUNT(*), MAX("status") '
-            f"FROM TABLE(RESULT_SCAN(LAST_QUERY_ID())) "
-            f"WHERE \"name\" = '{service_fqn.name}'"
+        cursor = self.execute_query(
+            f"SHOW SERVICES IN SCHEMA {service_fqn.prefix}",
+            cursor_class=DictCursor,
         )
-        row = result.fetchone()
+        for row in cursor:
+            if row["name"].upper() == service_fqn.name.upper():
+                return row["status"]
 
-        if not row or row[0] == 0:
-            return "IDLE"
-
-        return row[1]
+        return "IDLE"
 
     def get_service_endpoint_url(
         self, service_fqn: FQN, endpoint_name: str = "app-endpoint"
     ) -> Optional[str]:
         """Get the ingress URL for a service endpoint."""
-        self.execute_query(f"SHOW ENDPOINTS IN SERVICE {service_fqn.identifier}")
-
-        result = self.execute_query(
-            f'SELECT "ingress_url" '
-            f"FROM TABLE(RESULT_SCAN(LAST_QUERY_ID())) "
-            f"WHERE \"name\" = '{endpoint_name}'"
+        cursor = self.execute_query(
+            f"SHOW ENDPOINTS IN SERVICE {service_fqn.identifier}",
+            cursor_class=DictCursor,
         )
-        row = result.fetchone()
-
-        if row:
-            url = row[0]
-            if url and not url.startswith(("http://", "https://")):
-                url = f"https://{url}"
-            return url
+        for row in cursor:
+            if row["name"] == endpoint_name:
+                url = row["ingress_url"]
+                if url and not url.startswith(("http://", "https://")):
+                    url = f"https://{url}"
+                return url
         return None

@@ -545,34 +545,43 @@ class TestSnowflakeAppManager:
 
     @patch(EXECUTE_QUERY)
     def test_get_build_status_done(self, mock_execute):
-        result_cursor = Mock()
-        result_cursor.fetchone.return_value = (1, "DONE")
-        mock_execute.return_value = result_cursor
+        cursor = Mock()
+        cursor.__iter__ = Mock(
+            return_value=iter([{"name": "BUILD_JOB", "status": "DONE"}])
+        )
+        mock_execute.return_value = cursor
 
         fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
         status = SnowflakeAppManager().get_build_status(fqn)
         assert status == "DONE"
-        assert mock_execute.call_count == 2  # SHOW SERVICES + SELECT
+        mock_execute.assert_called_once()
 
     @patch(EXECUTE_QUERY)
     def test_get_build_status_idle(self, mock_execute):
-        result_cursor = Mock()
-        result_cursor.fetchone.return_value = (0, None)
-        mock_execute.return_value = result_cursor
+        cursor = Mock()
+        cursor.__iter__ = Mock(return_value=iter([]))
+        mock_execute.return_value = cursor
 
         fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
         status = SnowflakeAppManager().get_build_status(fqn)
         assert status == "IDLE"
 
     @patch(EXECUTE_QUERY)
-    def test_get_build_status_no_row(self, mock_execute):
-        result_cursor = Mock()
-        result_cursor.fetchone.return_value = None
-        mock_execute.return_value = result_cursor
+    def test_get_build_status_filters_by_name(self, mock_execute):
+        cursor = Mock()
+        cursor.__iter__ = Mock(
+            return_value=iter(
+                [
+                    {"name": "OTHER_SERVICE", "status": "RUNNING"},
+                    {"name": "BUILD_JOB", "status": "DONE"},
+                ]
+            )
+        )
+        mock_execute.return_value = cursor
 
         fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
         status = SnowflakeAppManager().get_build_status(fqn)
-        assert status == "IDLE"
+        assert status == "DONE"
 
     @patch(EXECUTE_QUERY)
     def test_create_service_basic(self, mock_execute):
@@ -642,9 +651,11 @@ class TestSnowflakeAppManager:
 
     @patch(EXECUTE_QUERY)
     def test_get_service_status_running(self, mock_execute):
-        result_cursor = Mock()
-        result_cursor.fetchone.return_value = (1, "RUNNING")
-        mock_execute.return_value = result_cursor
+        cursor = Mock()
+        cursor.__iter__ = Mock(
+            return_value=iter([{"name": "SVC", "status": "RUNNING"}])
+        )
+        mock_execute.return_value = cursor
 
         fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
         status = SnowflakeAppManager().get_service_status(fqn)
@@ -652,9 +663,9 @@ class TestSnowflakeAppManager:
 
     @patch(EXECUTE_QUERY)
     def test_get_service_status_idle(self, mock_execute):
-        result_cursor = Mock()
-        result_cursor.fetchone.return_value = (0, None)
-        mock_execute.return_value = result_cursor
+        cursor = Mock()
+        cursor.__iter__ = Mock(return_value=iter([]))
+        mock_execute.return_value = cursor
 
         fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
         status = SnowflakeAppManager().get_service_status(fqn)
@@ -662,23 +673,38 @@ class TestSnowflakeAppManager:
 
     @patch(EXECUTE_QUERY)
     def test_get_service_endpoint_url(self, mock_execute):
-        result_cursor = Mock()
-        result_cursor.fetchone.return_value = (
-            "https://my-endpoint.snowflakecomputing.app",
+        cursor = Mock()
+        cursor.__iter__ = Mock(
+            return_value=iter(
+                [
+                    {
+                        "name": "app-endpoint",
+                        "ingress_url": "https://my-endpoint.snowflakecomputing.app",
+                    }
+                ]
+            )
         )
-        mock_execute.return_value = result_cursor
+        mock_execute.return_value = cursor
 
         fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
         url = SnowflakeAppManager().get_service_endpoint_url(fqn)
         assert url == "https://my-endpoint.snowflakecomputing.app"
-        # Should call SHOW ENDPOINTS then SELECT
-        assert mock_execute.call_count == 2
+        mock_execute.assert_called_once()
 
     @patch(EXECUTE_QUERY)
     def test_get_service_endpoint_url_adds_https_prefix(self, mock_execute):
-        result_cursor = Mock()
-        result_cursor.fetchone.return_value = ("my-endpoint.snowflakecomputing.app",)
-        mock_execute.return_value = result_cursor
+        cursor = Mock()
+        cursor.__iter__ = Mock(
+            return_value=iter(
+                [
+                    {
+                        "name": "app-endpoint",
+                        "ingress_url": "my-endpoint.snowflakecomputing.app",
+                    }
+                ]
+            )
+        )
+        mock_execute.return_value = cursor
 
         fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
         url = SnowflakeAppManager().get_service_endpoint_url(fqn)
@@ -686,9 +712,9 @@ class TestSnowflakeAppManager:
 
     @patch(EXECUTE_QUERY)
     def test_get_service_endpoint_url_not_found(self, mock_execute):
-        result_cursor = Mock()
-        result_cursor.fetchone.return_value = None
-        mock_execute.return_value = result_cursor
+        cursor = Mock()
+        cursor.__iter__ = Mock(return_value=iter([]))
+        mock_execute.return_value = cursor
 
         fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
         url = SnowflakeAppManager().get_service_endpoint_url(fqn)
@@ -698,7 +724,7 @@ class TestSnowflakeAppManager:
 # ── CLI command tests ─────────────────────────────────────────────────
 
 
-class TestInitCommand:
+class TestSetupCommand:
     @patch(
         "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
         return_value="definition_version: '2'\n",
@@ -708,7 +734,7 @@ class TestInitCommand:
             from tests_common import change_directory
 
             with change_directory(tmp_path):
-                result = runner.invoke(["__app", "init", "--app-name", "my_app"])
+                result = runner.invoke(["__app", "setup", "--app-name", "my_app"])
                 assert result.exit_code == 0, result.output
                 assert "Initialized Snowflake App project" in result.output
                 assert (tmp_path / "snowflake.yml").exists()
@@ -719,7 +745,7 @@ class TestInitCommand:
 
             (tmp_path / "snowflake.yml").write_text("existing content")
             with change_directory(tmp_path):
-                result = runner.invoke(["__app", "init", "--app-name", "my_app"])
+                result = runner.invoke(["__app", "setup", "--app-name", "my_app"])
                 assert result.exit_code == 0, result.output
                 assert "already exists" in result.output
 
