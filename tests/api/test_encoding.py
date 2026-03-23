@@ -12,14 +12,44 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import codecs
+import locale
 import logging
+import sys
+from typing import Dict
 
 import pytest
 from snowflake.cli.api.encoding import (
-    detect_encoding_environment,
     get_file_io_encoding,
     get_subprocess_encoding,
 )
+
+
+def detect_encoding_environment() -> Dict[str, str]:
+    """Detect and log encoding environment information (test helper only)."""
+    log = logging.getLogger(__name__)
+
+    env_info = {
+        "filesystem": sys.getfilesystemencoding(),
+        "default": sys.getdefaultencoding(),
+        "locale": locale.getpreferredencoding(),
+    }
+
+    canonical = {codecs.lookup(v).name for v in env_info.values()}
+    if len(canonical) > 1:
+        log.warning(
+            "Encoding mismatch detected: filesystem=%s, default=%s, locale=%s. "
+            "Set SNOWFLAKE_CLI_ENCODING_FILE_IO=utf-8 for consistency.",
+            env_info["filesystem"],
+            env_info["default"],
+            env_info["locale"],
+        )
+
+    configured = get_file_io_encoding()
+    if configured:
+        env_info["configured"] = configured
+
+    return env_info
 
 
 class TestGetFileIoEncoding:

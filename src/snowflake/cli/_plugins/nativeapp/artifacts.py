@@ -25,6 +25,7 @@ from snowflake.cli.api.artifacts.common import ArtifactError, DeployRootError
 from snowflake.cli.api.artifacts.utils import symlink_or_copy
 from snowflake.cli.api.cli_global_context import span
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
+from snowflake.cli.api.encoding import get_file_io_encoding
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.cli.api.project.util import to_identifier
 from snowflake.cli.api.secure_path import SecurePath
@@ -109,7 +110,7 @@ def find_and_read_manifest_file(deploy_root: Path) -> Dict[str, Any]:
     """
     manifest_file = find_manifest_file(deploy_root=deploy_root)
     with SecurePath(manifest_file).open(
-        "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
+        "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB, encoding=get_file_io_encoding()
     ) as file:
         manifest_content = safe_load(file.read())
     return manifest_content or {}

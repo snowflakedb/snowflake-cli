@@ -14,13 +14,39 @@
 
 from __future__ import annotations
 
-import locale
+import codecs
 import logging
 import os
-import sys
-from typing import Dict, Optional
+from typing import Optional
+
+from snowflake.cli.api.config import ENCODING_SECTION_PATH, get_config_value
+from snowflake.cli.api.exceptions import CliError
+from snowflake.connector.errors import ConfigSourceError, MissingConfigOptionError
+from tomlkit.exceptions import NonExistentKey
 
 log = logging.getLogger(__name__)
+
+_MISSING_ENCODING_EXCEPTIONS = (
+    KeyError,
+    NonExistentKey,
+    MissingConfigOptionError,
+    ConfigSourceError,
+)
+
+
+def _validate_encoding(encoding: str, source: str) -> None:
+    """Raise CliError if *encoding* is not a known codec name.
+
+    *source* is included in the error message to help the user locate the
+    bad value (e.g. the env var name or the config key path).
+    """
+    try:
+        codecs.lookup(encoding)
+    except LookupError:
+        raise CliError(
+            f"Unknown encoding '{encoding}'. "
+            f"Check {source} or [cli.encoding] file_io / subprocess in config.toml."
+        )
 
 
 def get_file_io_encoding() -> Optional[str]:
@@ -33,14 +59,18 @@ def get_file_io_encoding() -> Optional[str]:
     """
     env_encoding = os.environ.get("SNOWFLAKE_CLI_ENCODING_FILE_IO")
     if env_encoding:
+        _validate_encoding(env_encoding, "SNOWFLAKE_CLI_ENCODING_FILE_IO")
         return env_encoding
 
     try:
-        from snowflake.cli.api.config import get_config_value
-
-        return get_config_value("cli", "encoding", key="file_io")
-    except Exception:
+        value = get_config_value(*ENCODING_SECTION_PATH, key="file_io")
+    except _MISSING_ENCODING_EXCEPTIONS:
+        log.debug("No file_io encoding in config.toml; using platform default.")
         return None
+
+    if value is not None:
+        _validate_encoding(value, "[cli.encoding] file_io")
+    return value
 
 
 def get_subprocess_encoding() -> Optional[str]:
@@ -53,40 +83,15 @@ def get_subprocess_encoding() -> Optional[str]:
     """
     env_encoding = os.environ.get("SNOWFLAKE_CLI_ENCODING_SUBPROCESS")
     if env_encoding:
+        _validate_encoding(env_encoding, "SNOWFLAKE_CLI_ENCODING_SUBPROCESS")
         return env_encoding
 
     try:
-        from snowflake.cli.api.config import get_config_value
-
-        return get_config_value("cli", "encoding", key="subprocess")
-    except Exception:
+        value = get_config_value(*ENCODING_SECTION_PATH, key="subprocess")
+    except _MISSING_ENCODING_EXCEPTIONS:
+        log.debug("No subprocess encoding in config.toml; using platform default.")
         return None
 
-
-def detect_encoding_environment() -> Dict[str, str]:
-    """Detect and log encoding environment information.
-
-    Returns dict with filesystem, default, and locale encoding values.
-    Logs a warning if encodings are inconsistent.
-    """
-    env_info = {
-        "filesystem": sys.getfilesystemencoding(),
-        "default": sys.getdefaultencoding(),
-        "locale": locale.getpreferredencoding(),
-    }
-
-    encodings = {v.lower().replace("-", "") for v in env_info.values()}
-    if len(encodings) > 1:
-        log.warning(
-            "Encoding mismatch detected: filesystem=%s, default=%s, locale=%s. "
-            "Set SNOWFLAKE_CLI_ENCODING_FILE_IO=utf-8 for consistency.",
-            env_info["filesystem"],
-            env_info["default"],
-            env_info["locale"],
-        )
-
-    configured = get_file_io_encoding()
-    if configured:
-        env_info["configured"] = configured
-
-    return env_info
+    if value is not None:
+        _validate_encoding(value, "[cli.encoding] subprocess")
+    return value

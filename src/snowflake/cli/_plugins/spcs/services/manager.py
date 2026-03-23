@@ -44,6 +44,7 @@ from snowflake.cli._plugins.spcs.services.service_project_paths import (
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.artifacts.utils import bundle_artifacts
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
+from snowflake.cli.api.encoding import get_file_io_encoding
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.entities.common import Artifacts
 from snowflake.cli.api.secure_path import SecurePath
@@ -412,7 +413,11 @@ class ServiceManager(SqlExecutionMixin):
 
     def _read_yaml(self, path: Path) -> str:
         # TODO(aivanou): Add validation towards schema
-        with SecurePath(path).open("r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fh:
+        with SecurePath(path).open(
+            "r",
+            read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB,
+            encoding=get_file_io_encoding(),
+        ) as fh:
             data = yaml.safe_load(fh)
         return json.dumps(data)
 
