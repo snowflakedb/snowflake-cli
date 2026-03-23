@@ -506,6 +506,178 @@ class TestDCMDeploy:
         _assert_format_result(payload, plan_response, format_name)
 
 
+class TestDCMPurge:
+    @mock.patch(
+        "snowflake.cli._plugins.dcm.commands.typer.prompt", return_value="PURGE"
+    )
+    def test_purge_project(
+        self,
+        mock_prompt,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_dcm_manager().purge.return_value = mock_cursor(
+            rows=[("[]",)], columns=("operations",)
+        )
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "purge", "fooBar"])
+
+        assert result.exit_code == 0, result.output
+
+        mock_dcm_manager().purge.assert_called_once_with(
+            project_identifier=FQN.from_string("fooBar"),
+            alias=None,
+            skip_plan=False,
+        )
+
+    @mock.patch(
+        "snowflake.cli._plugins.dcm.commands.typer.prompt", return_value="PURGE"
+    )
+    def test_purge_project_with_alias(
+        self,
+        mock_prompt,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_dcm_manager().purge.return_value = mock_cursor(
+            rows=[("[]",)], columns=("operations",)
+        )
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "purge", "fooBar", "--alias", "my_alias"])
+
+        assert result.exit_code == 0, result.output
+
+        mock_dcm_manager().purge.assert_called_once_with(
+            project_identifier=FQN.from_string("fooBar"),
+            alias="my_alias",
+            skip_plan=False,
+        )
+
+    @mock.patch(
+        "snowflake.cli._plugins.dcm.commands.typer.prompt", return_value="CANCEL"
+    )
+    def test_purge_cancel(
+        self,
+        mock_prompt,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "purge", "fooBar"])
+
+        assert result.exit_code != 0
+        mock_dcm_manager().purge.assert_not_called()
+
+    @mock.patch(
+        "snowflake.cli._plugins.dcm.commands.typer.prompt",
+        side_effect=["invalid", "also wrong", "PURGE"],
+    )
+    def test_purge_retries_on_invalid_input(
+        self,
+        mock_prompt,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_dcm_manager().purge.return_value = mock_cursor(
+            rows=[("[]",)], columns=("operations",)
+        )
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "purge", "fooBar"])
+
+        assert result.exit_code == 0, result.output
+        assert mock_prompt.call_count == 3
+        mock_dcm_manager().purge.assert_called_once()
+
+    @mock.patch(
+        "snowflake.cli._plugins.dcm.commands.typer.prompt", return_value="PURGE"
+    )
+    def test_purge_with_target_flag(
+        self,
+        mock_prompt,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_dcm_manager().purge.return_value = mock_cursor(
+            rows=[("[]",)], columns=("operations",)
+        )
+        mock_manifest_load.return_value = DCMManifest.from_dict(
+            {
+                "manifest_version": 2,
+                "type": "dcm_project",
+                "default_target": "dev",
+                "targets": {"dev": {"project_name": "my_project"}},
+            }
+        )
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "purge", "--target", "dev"])
+
+        assert result.exit_code == 0, result.output
+        mock_dcm_manager().purge.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            alias=None,
+            skip_plan=False,
+        )
+
+    def test_purge_hidden_from_help(self, runner):
+        result = runner.invoke(["dcm", "--help"])
+        assert result.exit_code == 0
+        assert "purge" not in result.output
+
+    @mock.patch(
+        "snowflake.cli._plugins.dcm.commands.typer.prompt", return_value="PURGE"
+    )
+    def test_purge_with_save_output(
+        self,
+        mock_prompt,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        mock_cursor,
+        mock_connect,
+        tmp_path,
+    ):
+        plan_response = {"version": 2, "changeset": []}
+        mock_dcm_manager().purge.return_value = mock_cursor(
+            rows=[(json.dumps(plan_response),)], columns=("operations",)
+        )
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["dcm", "purge", "fooBar", "--save-output"])
+
+            assert result.exit_code == 0, result.output
+            _assert_json_dumped("purge", plan_response, tmp_path)
+
+
 class TestDCMPlan:
     def test_plan_project(
         self,

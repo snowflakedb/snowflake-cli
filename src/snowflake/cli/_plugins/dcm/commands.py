@@ -314,6 +314,60 @@ def deploy(
     return _process_plan_result(result, command_name="deploy", save_output=save_output)
 
 
+def _confirm_purge(project_id: FQN) -> None:
+    cli_console.warning(
+        f"This operation will drop ALL objects managed by DCM Project '{project_id}'."
+    )
+    while True:
+        user_input = typer.prompt(
+            "Type PURGE to confirm or CANCEL to abort",
+            show_default=False,
+        )
+        normalized = user_input.strip().upper()
+        if normalized == "PURGE":
+            return
+        if normalized == "CANCEL":
+            raise typer.Abort()
+
+
+@app.command(requires_connection=True, hidden=True)
+def purge(
+    identifier: Optional[FQN] = optional_dcm_identifier,
+    alias: Optional[str] = alias_option,
+    from_location: SecurePath = from_option,
+    target: Optional[str] = target_option,
+    save_output: bool = save_output_option,
+    skip_plan: bool = typer.Option(
+        False,
+        "--skip-plan",
+        help="Skips planning step.",
+        hidden=True,
+    ),
+    **options,
+):
+    """
+    Drops all the objects managed by the DCM Project, but does not drop the project itself.
+    """
+    clear_command_artifacts("purge")
+
+    context = _resolve_context_with_optional_manifest(from_location, identifier, target)
+    project_id = context.project_identifier
+
+    _confirm_purge(project_id)
+
+    with cli_console.spinner() as spinner:
+        spinner.add_task(description=f"Purging dcm project {project_id}", total=None)
+        if skip_plan:
+            cli_console.warning("Skipping planning step")
+        result = DCMProjectManager().purge(
+            project_identifier=project_id,
+            alias=alias,
+            skip_plan=skip_plan,
+        )
+
+    return _process_plan_result(result, command_name="purge", save_output=save_output)
+
+
 @app.command(requires_connection=True)
 @mock_dcm_response("plan")
 def plan(
