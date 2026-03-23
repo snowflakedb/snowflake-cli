@@ -1027,6 +1027,15 @@ class TestRegexIntegration:
 
 
 class TestIgnorePatterns:
+    @staticmethod
+    def _posix_srcs(bm, project_root, files_only=True):
+        """Collect expanded source paths as POSIX strings (forward slashes)."""
+        return [
+            s.relative_to(project_root).as_posix()
+            for s, _ in bm.all_mappings(absolute=True, expand_directories=True)
+            if not files_only or s.is_file()
+        ]
+
     def test_ignore_excludes_directory(self, tmp_path):
         project_root = tmp_path / "project"
         deploy_root = tmp_path / "deploy"
@@ -1041,11 +1050,7 @@ class TestIgnorePatterns:
         bm = BundleMap(project_root=project_root, deploy_root=deploy_root)
         bm.add(PathMapping(src="app", dest="./", ignore=["node_modules"]))
 
-        srcs = [
-            str(s.relative_to(project_root))
-            for s, _ in bm.all_mappings(absolute=True, expand_directories=True)
-            if s.is_file()
-        ]
+        srcs = self._posix_srcs(bm, project_root)
         assert "app/main.py" in srcs
         assert "app/utils.py" in srcs
         assert not any("node_modules" in s for s in srcs)
@@ -1059,11 +1064,7 @@ class TestIgnorePatterns:
         bm = BundleMap(project_root=project_root, deploy_root=deploy_root)
         bm.add(PathMapping(src="app", dest="./", ignore=[".env"]))
 
-        srcs = [
-            str(s.relative_to(project_root))
-            for s, _ in bm.all_mappings(absolute=True, expand_directories=True)
-            if s.is_file()
-        ]
+        srcs = self._posix_srcs(bm, project_root)
         assert "app/main.py" in srcs
         assert "app/config.yml" in srcs
         assert "app/.env" not in srcs
@@ -1077,11 +1078,7 @@ class TestIgnorePatterns:
         bm = BundleMap(project_root=project_root, deploy_root=deploy_root)
         bm.add(PathMapping(src="app", dest="./", ignore=["*.pyc"]))
 
-        srcs = [
-            str(s.relative_to(project_root))
-            for s, _ in bm.all_mappings(absolute=True, expand_directories=True)
-            if s.is_file()
-        ]
+        srcs = self._posix_srcs(bm, project_root)
         assert "app/main.py" in srcs
         assert "app/cache.pyc" not in srcs
         assert "app/lib/util.pyc" not in srcs
@@ -1106,11 +1103,7 @@ class TestIgnorePatterns:
             )
         )
 
-        srcs = [
-            str(s.relative_to(project_root))
-            for s, _ in bm.all_mappings(absolute=True, expand_directories=True)
-            if s.is_file()
-        ]
+        srcs = self._posix_srcs(bm, project_root)
         assert "app/main.py" in srcs
         assert not any("node_modules" in s for s in srcs)
         assert not any("__pycache__" in s for s in srcs)
@@ -1130,10 +1123,7 @@ class TestIgnorePatterns:
         bm = BundleMap(project_root=project_root, deploy_root=deploy_root)
         bm.add(PathMapping(src="app/*", dest="./", ignore=["node_modules"]))
 
-        srcs = [
-            str(s.relative_to(project_root))
-            for s, _ in bm.all_mappings(absolute=True, expand_directories=True)
-        ]
+        srcs = self._posix_srcs(bm, project_root, files_only=False)
         assert any("main.py" in s for s in srcs)
         assert not any("node_modules" in s for s in srcs)
 
@@ -1147,10 +1137,6 @@ class TestIgnorePatterns:
         bm = BundleMap(project_root=project_root, deploy_root=deploy_root)
         bm.add(PathMapping(src="app", dest="./"))
 
-        srcs = [
-            str(s.relative_to(project_root))
-            for s, _ in bm.all_mappings(absolute=True, expand_directories=True)
-            if s.is_file()
-        ]
+        srcs = self._posix_srcs(bm, project_root)
         assert "app/main.py" in srcs
         assert "app/node_modules/pkg/index.js" in srcs
