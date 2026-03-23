@@ -90,6 +90,13 @@ def _generate_snowflake_yml(
             artifacts:
               - src: app/*
                 dest: ./
+                ignore:
+                  - node_modules
+                  - .env
+                  - __pycache__
+                  - "*.pyc"
+                  - .next
+                  - .git
 
             query_warehouse: {warehouse or "<% ctx.connection.warehouse %>"}
             {compute_pool_yaml}

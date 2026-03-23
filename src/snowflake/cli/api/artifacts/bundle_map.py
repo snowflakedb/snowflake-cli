@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fnmatch
 import itertools
 import os
 from pathlib import Path
@@ -18,6 +19,11 @@ from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.cli.api.utils.path_utils import resolve_without_follow
 
 ArtifactPredicate = Callable[[Path, Path], bool]
+
+
+def _matches_ignore(name: str, patterns: List[str]) -> bool:
+    """Return True if *name* (a single path component) matches any ignore pattern."""
+    return any(fnmatch.fnmatch(name, p) for p in patterns)
 
 
 def _specifies_directory(s: str) -> bool:
@@ -64,6 +70,7 @@ class BundleMap:
         self._deploy_root: Path = resolve_without_follow(deploy_root)
         self._pattern_type: PatternMatchingType = pattern_type
         self._artifact_map = _ArtifactPathMap(project_root=self._project_root)
+        self._ignore_patterns: Dict[Path, List[str]] = {}
 
     def is_empty(self) -> bool:
         return self._artifact_map.is_empty()
@@ -111,7 +118,12 @@ class BundleMap:
             src=canonical_src, dest=canonical_dest, dest_is_dir=dest_is_dir
         )
 
-    def _add_mapping(self, src: str, dest: Optional[str] = None):
+    def _add_mapping(
+        self,
+        src: str,
+        dest: Optional[str] = None,
+        ignore: Optional[List[str]] = None,
+    ):
         """
         Adds the specified artifact rule to this instance. The source should be relative to the project directory. It
         is interpreted as a file, directory or glob pattern. If the destination path is not specified, each source match
@@ -131,7 +143,14 @@ class BundleMap:
             raise CliError(f"Unsupported pattern type: {self._pattern_type}")
 
         for resolved_src in resolved_sources:
+            if ignore and _matches_ignore(resolved_src.name, ignore):
+                continue
+
             match_found = True
+
+            if ignore:
+                canonical = resolved_src.relative_to(self._project_root)
+                self._ignore_patterns[canonical] = ignore
 
             if dest:
                 dest_stem = dest.rstrip("/")
@@ -174,7 +193,7 @@ class BundleMap:
         """
         Adds an artifact mapping rule to this instance.
         """
-        self._add_mapping(mapping.src, mapping.dest)
+        self._add_mapping(mapping.src, mapping.dest, mapping.ignore or [])
 
     def _expand_artifact_mapping(
         self,
@@ -204,15 +223,20 @@ class BundleMap:
         src_for_output = self._to_output_src(absolute_src, absolute)
         dest_for_output = self._to_output_dest(absolute_dest, absolute)
 
+        ignore = self._ignore_patterns.get(canonical_src, [])
+
         if predicate(src_for_output, dest_for_output):
             yield src_for_output, dest_for_output
 
         if absolute_src.is_dir() and expand_directories:
-            # both src and dest are directories, and expanding directories was requested. Traverse src, and map each
-            # file to the dest directory
             for root, subdirs, files in os.walk(absolute_src, followlinks=True):
+                if ignore:
+                    subdirs[:] = [d for d in subdirs if not _matches_ignore(d, ignore)]
+
                 relative_root = Path(root).relative_to(absolute_src)
                 for name in itertools.chain(subdirs, files):
+                    if ignore and _matches_ignore(name, ignore):
+                        continue
                     src_file_for_output = src_for_output / relative_root / name
                     dest_file_for_output = dest_for_output / relative_root / name
                     if predicate(src_file_for_output, dest_file_for_output):
