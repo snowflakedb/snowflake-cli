@@ -1,6 +1,21 @@
 # serializer version: 1
 # name: test_help_messages[]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root [OPTIONS] COMMAND [ARGS]...                                        
                                                                                   
@@ -44,6 +59,21 @@
 # ---
 # name: test_help_messages[__app.bundle]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root __app bundle [OPTIONS]                                             
                                                                                   
@@ -92,6 +122,21 @@
 # ---
 # name: test_help_messages[__app.deploy]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root __app deploy [OPTIONS]                                             
                                                                                   
@@ -236,6 +281,21 @@
 # ---
 # name: test_help_messages[__app.init]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root __app init [OPTIONS]                                               
                                                                                   
@@ -373,6 +433,21 @@
 # ---
 # name: test_help_messages[__app.open]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root __app open [OPTIONS]                                               
                                                                                   
@@ -515,6 +590,21 @@
 # ---
 # name: test_help_messages[__app.validate]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root __app validate [OPTIONS]                                           
                                                                                   
@@ -657,6 +747,21 @@
 # ---
 # name: test_help_messages[__app]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root __app [OPTIONS] COMMAND [ARGS]...                                  
                                                                                   
@@ -679,6 +784,21 @@
 # ---
 # name: test_help_messages[app.bundle]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app bundle [OPTIONS]                                               
                                                                                   
@@ -732,6 +852,21 @@
 # ---
 # name: test_help_messages[app.deploy]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app deploy [OPTIONS] [PATHS]...                                    
                                                                                   
@@ -941,6 +1076,21 @@
 # ---
 # name: test_help_messages[app.diff]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app diff [OPTIONS]                                                 
                                                                                   
@@ -1088,6 +1238,21 @@
 # ---
 # name: test_help_messages[app.events]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app events [OPTIONS]                                               
                                                                                   
@@ -1290,6 +1455,21 @@
 # ---
 # name: test_help_messages[app.open]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app open [OPTIONS]                                                 
                                                                                   
@@ -1438,6 +1618,21 @@
 # ---
 # name: test_help_messages[app.publish]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app publish [OPTIONS]                                              
                                                                                   
@@ -1672,6 +1867,21 @@
 # ---
 # name: test_help_messages[app.release-channel.add-accounts]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app release-channel add-accounts [OPTIONS] CHANNEL                 
                                                                                   
@@ -1827,6 +2037,21 @@
 # ---
 # name: test_help_messages[app.release-channel.add-version]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app release-channel add-version [OPTIONS] CHANNEL                  
                                                                                   
@@ -1981,6 +2206,21 @@
 # ---
 # name: test_help_messages[app.release-channel.list]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app release-channel list [OPTIONS] [CHANNEL]                       
                                                                                   
@@ -2132,6 +2372,21 @@
 # ---
 # name: test_help_messages[app.release-channel.remove-accounts]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app release-channel remove-accounts [OPTIONS] CHANNEL              
                                                                                   
@@ -2287,6 +2542,21 @@
 # ---
 # name: test_help_messages[app.release-channel.remove-version]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app release-channel remove-version [OPTIONS] CHANNEL               
                                                                                   
@@ -2441,6 +2711,21 @@
 # ---
 # name: test_help_messages[app.release-channel.set-accounts]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app release-channel set-accounts [OPTIONS] CHANNEL                 
                                                                                   
@@ -2590,6 +2875,21 @@
 # ---
 # name: test_help_messages[app.release-channel]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app release-channel [OPTIONS] COMMAND [ARGS]...                    
                                                                                   
@@ -2613,6 +2913,21 @@
 # ---
 # name: test_help_messages[app.release-directive.add-accounts]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app release-directive add-accounts [OPTIONS] DIRECTIVE             
                                                                                   
@@ -2770,6 +3085,21 @@
 # ---
 # name: test_help_messages[app.release-directive.list]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app release-directive list [OPTIONS]                               
                                                                                   
@@ -2932,6 +3262,21 @@
 # ---
 # name: test_help_messages[app.release-directive.remove-accounts]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app release-directive remove-accounts [OPTIONS] DIRECTIVE          
                                                                                   
@@ -3089,6 +3434,21 @@
 # ---
 # name: test_help_messages[app.release-directive.set]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app release-directive set [OPTIONS] DIRECTIVE                      
                                                                                   
@@ -3255,6 +3615,21 @@
 # ---
 # name: test_help_messages[app.release-directive.unset]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app release-directive unset [OPTIONS] DIRECTIVE                    
                                                                                   
@@ -3408,6 +3783,21 @@
 # ---
 # name: test_help_messages[app.release-directive]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app release-directive [OPTIONS] COMMAND [ARGS]...                  
                                                                                   
@@ -3432,6 +3822,21 @@
 # ---
 # name: test_help_messages[app.run]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app run [OPTIONS]                                                  
                                                                                   
@@ -3674,6 +4079,21 @@
 # ---
 # name: test_help_messages[app.teardown]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app teardown [OPTIONS]                                             
                                                                                   
@@ -3848,6 +4268,21 @@
 # ---
 # name: test_help_messages[app.validate]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app validate [OPTIONS]                                             
                                                                                   
@@ -3995,6 +4430,21 @@
 # ---
 # name: test_help_messages[app.version.create]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app version create [OPTIONS] [VERSION]                             
                                                                                   
@@ -4215,6 +4665,21 @@
 # ---
 # name: test_help_messages[app.version.drop]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app version drop [OPTIONS] [VERSION]                               
                                                                                   
@@ -4395,6 +4860,21 @@
 # ---
 # name: test_help_messages[app.version.list]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app version list [OPTIONS]                                         
                                                                                   
@@ -4542,6 +5022,21 @@
 # ---
 # name: test_help_messages[app.version]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app version [OPTIONS] COMMAND [ARGS]...                            
                                                                                   
@@ -4565,6 +5060,21 @@
 # ---
 # name: test_help_messages[app]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app [OPTIONS] COMMAND [ARGS]...                                    
                                                                                   
@@ -4605,6 +5115,21 @@
 # ---
 # name: test_help_messages[auth.oidc.read-token]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root auth oidc read-token [OPTIONS]                                     
                                                                                   
@@ -4648,6 +5173,21 @@
 # ---
 # name: test_help_messages[auth.oidc]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root auth oidc [OPTIONS] COMMAND [ARGS]...                              
                                                                                   
@@ -4666,6 +5206,21 @@
 # ---
 # name: test_help_messages[auth]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root auth [OPTIONS] COMMAND [ARGS]...                                   
                                                                                   
@@ -4683,6 +5238,21 @@
 # ---
 # name: test_help_messages[connection.add]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root connection add [OPTIONS]                                           
                                                                                   
@@ -4758,6 +5328,21 @@
 # ---
 # name: test_help_messages[connection.generate-jwt]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root connection generate-jwt [OPTIONS]                                  
                                                                                   
@@ -4893,6 +5478,21 @@
 # ---
 # name: test_help_messages[connection.list]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root connection list [OPTIONS]                                          
                                                                                   
@@ -4937,6 +5537,21 @@
 # ---
 # name: test_help_messages[connection.remove]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root connection remove [OPTIONS] CONNECTION_NAME                        
                                                                                   
@@ -4982,6 +5597,21 @@
 # ---
 # name: test_help_messages[connection.set-default]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root connection set-default [OPTIONS] NAME                              
                                                                                   
@@ -5028,6 +5658,21 @@
 # ---
 # name: test_help_messages[connection.test]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root connection test [OPTIONS]                                          
                                                                                   
@@ -5163,6 +5808,21 @@
 # ---
 # name: test_help_messages[connection]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root connection [OPTIONS] COMMAND [ARGS]...                             
                                                                                   
@@ -5186,6 +5846,21 @@
 # ---
 # name: test_help_messages[dbt.deploy]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dbt deploy [OPTIONS] NAME                                          
                                                                                   
@@ -5365,6 +6040,21 @@
 # ---
 # name: test_help_messages[dbt.describe]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dbt describe [OPTIONS] NAME                                        
                                                                                   
@@ -5504,6 +6194,21 @@
 # ---
 # name: test_help_messages[dbt.drop]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dbt drop [OPTIONS] NAME                                            
                                                                                   
@@ -5645,6 +6350,21 @@
 # ---
 # name: test_help_messages[dbt.execute.build]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dbt execute [OPTIONS] NAME DBT_COMMAND                             
                                                                                   
@@ -5820,6 +6540,21 @@
 # ---
 # name: test_help_messages[dbt.execute.compile]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dbt execute [OPTIONS] NAME DBT_COMMAND                             
                                                                                   
@@ -5995,6 +6730,21 @@
 # ---
 # name: test_help_messages[dbt.execute.deps]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dbt execute [OPTIONS] NAME DBT_COMMAND                             
                                                                                   
@@ -6170,6 +6920,21 @@
 # ---
 # name: test_help_messages[dbt.execute.list]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dbt execute [OPTIONS] NAME DBT_COMMAND                             
                                                                                   
@@ -6345,6 +7110,21 @@
 # ---
 # name: test_help_messages[dbt.execute.parse]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dbt execute [OPTIONS] NAME DBT_COMMAND                             
                                                                                   
@@ -6520,6 +7300,21 @@
 # ---
 # name: test_help_messages[dbt.execute.retry]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dbt execute [OPTIONS] NAME DBT_COMMAND                             
                                                                                   
@@ -6695,6 +7490,21 @@
 # ---
 # name: test_help_messages[dbt.execute.run-operation]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dbt execute [OPTIONS] NAME DBT_COMMAND                             
                                                                                   
@@ -6870,6 +7680,21 @@
 # ---
 # name: test_help_messages[dbt.execute.run]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dbt execute [OPTIONS] NAME DBT_COMMAND                             
                                                                                   
@@ -7045,6 +7870,21 @@
 # ---
 # name: test_help_messages[dbt.execute.seed]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dbt execute [OPTIONS] NAME DBT_COMMAND                             
                                                                                   
@@ -7220,6 +8060,21 @@
 # ---
 # name: test_help_messages[dbt.execute.show]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dbt execute [OPTIONS] NAME DBT_COMMAND                             
                                                                                   
@@ -7395,6 +8250,21 @@
 # ---
 # name: test_help_messages[dbt.execute.snapshot]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dbt execute [OPTIONS] NAME DBT_COMMAND                             
                                                                                   
@@ -7570,6 +8440,21 @@
 # ---
 # name: test_help_messages[dbt.execute.test]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dbt execute [OPTIONS] NAME DBT_COMMAND                             
                                                                                   
@@ -7745,6 +8630,21 @@
 # ---
 # name: test_help_messages[dbt.execute]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dbt execute [OPTIONS] NAME DBT_COMMAND                             
                                                                                   
@@ -7920,6 +8820,21 @@
 # ---
 # name: test_help_messages[dbt.list]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dbt list [OPTIONS]                                                 
                                                                                   
@@ -8068,6 +8983,21 @@
 # ---
 # name: test_help_messages[dbt]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dbt [OPTIONS] COMMAND [ARGS]...                                    
                                                                                   
@@ -8091,6 +9021,21 @@
 # ---
 # name: test_help_messages[dcm.create]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dcm create [OPTIONS] [IDENTIFIER]                                  
                                                                                   
@@ -8239,6 +9184,21 @@
 # ---
 # name: test_help_messages[dcm.deploy]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dcm deploy [OPTIONS] [IDENTIFIER]                                  
                                                                                   
@@ -8392,6 +9352,21 @@
 # ---
 # name: test_help_messages[dcm.describe]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dcm describe [OPTIONS] [IDENTIFIER]                                
                                                                                   
@@ -8539,6 +9514,21 @@
 # ---
 # name: test_help_messages[dcm.drop-deployment]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dcm drop-deployment [OPTIONS] [IDENTIFIER]                         
                                                                                   
@@ -8695,6 +9685,21 @@
 # ---
 # name: test_help_messages[dcm.drop]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dcm drop [OPTIONS] [IDENTIFIER]                                    
                                                                                   
@@ -8844,6 +9849,21 @@
 # ---
 # name: test_help_messages[dcm.list-deployments]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dcm list-deployments [OPTIONS] [IDENTIFIER]                        
                                                                                   
@@ -8991,6 +10011,21 @@
 # ---
 # name: test_help_messages[dcm.list]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dcm list [OPTIONS]                                                 
                                                                                   
@@ -9143,6 +10178,21 @@
 # ---
 # name: test_help_messages[dcm.plan]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dcm plan [OPTIONS] [IDENTIFIER]                                    
                                                                                   
@@ -9295,6 +10345,21 @@
 # ---
 # name: test_help_messages[dcm.preview]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dcm preview [OPTIONS] [IDENTIFIER]                                 
                                                                                   
@@ -9448,6 +10513,21 @@
 # ---
 # name: test_help_messages[dcm.raw-analyze]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dcm raw-analyze [OPTIONS] [IDENTIFIER]                             
                                                                                   
@@ -9599,6 +10679,21 @@
 # ---
 # name: test_help_messages[dcm.refresh]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dcm refresh [OPTIONS] [IDENTIFIER]                                 
                                                                                   
@@ -9749,6 +10844,21 @@
 # ---
 # name: test_help_messages[dcm.test]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dcm test [OPTIONS] [IDENTIFIER]                                    
                                                                                   
@@ -9899,6 +11009,21 @@
 # ---
 # name: test_help_messages[dcm]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dcm [OPTIONS] COMMAND [ARGS]...                                    
                                                                                   
@@ -9932,6 +11057,21 @@
 # ---
 # name: test_help_messages[git.copy]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root git copy [OPTIONS] REPOSITORY_PATH DESTINATION_PATH                
                                                                                   
@@ -10085,6 +11225,21 @@
 # ---
 # name: test_help_messages[git.describe]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root git describe [OPTIONS] NAME                                        
                                                                                   
@@ -10224,6 +11379,21 @@
 # ---
 # name: test_help_messages[git.drop]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root git drop [OPTIONS] NAME                                            
                                                                                   
@@ -10365,6 +11535,21 @@
 # ---
 # name: test_help_messages[git.execute]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root git execute [OPTIONS] REPOSITORY_PATH                              
                                                                                   
@@ -10526,6 +11711,21 @@
 # ---
 # name: test_help_messages[git.fetch]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root git fetch [OPTIONS] REPOSITORY_NAME                                
                                                                                   
@@ -10666,6 +11866,21 @@
 # ---
 # name: test_help_messages[git.list-branches]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root git list-branches [OPTIONS] REPOSITORY_NAME                        
                                                                                   
@@ -10810,6 +12025,21 @@
 # ---
 # name: test_help_messages[git.list-files]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root git list-files [OPTIONS] REPOSITORY_PATH                           
                                                                                   
@@ -10955,6 +12185,21 @@
 # ---
 # name: test_help_messages[git.list-tags]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root git list-tags [OPTIONS] REPOSITORY_NAME                            
                                                                                   
@@ -11099,6 +12344,21 @@
 # ---
 # name: test_help_messages[git.list]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root git list [OPTIONS]                                                 
                                                                                   
@@ -11247,6 +12507,21 @@
 # ---
 # name: test_help_messages[git.setup]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root git setup [OPTIONS] REPOSITORY_NAME                                
                                                                                   
@@ -11399,6 +12674,21 @@
 # ---
 # name: test_help_messages[git]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root git [OPTIONS] COMMAND [ARGS]...                                    
                                                                                   
@@ -11429,6 +12719,21 @@
 # ---
 # name: test_help_messages[init]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root init [OPTIONS] PATH                                                
                                                                                   
@@ -11486,6 +12791,21 @@
 # ---
 # name: test_help_messages[logs]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root logs [OPTIONS] OBJECT_TYPE OBJECT_NAME                             
                                                                                   
@@ -11641,6 +12961,21 @@
 # ---
 # name: test_help_messages[notebook.create]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root notebook create [OPTIONS] IDENTIFIER                               
                                                                                   
@@ -11784,6 +13119,21 @@
 # ---
 # name: test_help_messages[notebook.deploy]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root notebook deploy [OPTIONS] [ENTITY_ID]                              
                                                                                   
@@ -11936,6 +13286,21 @@
 # ---
 # name: test_help_messages[notebook.execute]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root notebook execute [OPTIONS] IDENTIFIER                              
                                                                                   
@@ -12076,6 +13441,21 @@
 # ---
 # name: test_help_messages[notebook.get-url]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root notebook get-url [OPTIONS] IDENTIFIER                              
                                                                                   
@@ -12216,6 +13596,21 @@
 # ---
 # name: test_help_messages[notebook.open]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root notebook open [OPTIONS] IDENTIFIER                                 
                                                                                   
@@ -12356,6 +13751,21 @@
 # ---
 # name: test_help_messages[notebook]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root notebook [OPTIONS] COMMAND [ARGS]...                               
                                                                                   
@@ -12378,6 +13788,21 @@
 # ---
 # name: test_help_messages[object.create]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root object create [OPTIONS] OBJECT_TYPE [OBJECT_ATTRIBUTES]...         
                                                                                   
@@ -12538,6 +13963,21 @@
 # ---
 # name: test_help_messages[object.describe]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root object describe [OPTIONS] OBJECT_TYPE OBJECT_NAME                  
                                                                                   
@@ -12685,6 +14125,21 @@
 # ---
 # name: test_help_messages[object.drop]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root object drop [OPTIONS] OBJECT_TYPE OBJECT_NAME                      
                                                                                   
@@ -12834,6 +14289,21 @@
 # ---
 # name: test_help_messages[object.list]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root object list [OPTIONS] OBJECT_TYPE                                  
                                                                                   
@@ -12994,6 +14464,21 @@
 # ---
 # name: test_help_messages[object]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root object [OPTIONS] COMMAND [ARGS]...                                 
                                                                                   
@@ -13015,6 +14500,21 @@
 # ---
 # name: test_help_messages[plugin.disable]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root plugin disable [OPTIONS] [PLUGIN_NAME]                             
                                                                                   
@@ -13059,6 +14559,21 @@
 # ---
 # name: test_help_messages[plugin.enable]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root plugin enable [OPTIONS] [PLUGIN_NAME]                              
                                                                                   
@@ -13103,6 +14618,21 @@
 # ---
 # name: test_help_messages[plugin.list]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root plugin list [OPTIONS]                                              
                                                                                   
@@ -13144,6 +14674,21 @@
 # ---
 # name: test_help_messages[plugin]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root plugin [OPTIONS] COMMAND [ARGS]...                                 
                                                                                   
@@ -13163,6 +14708,21 @@
 # ---
 # name: test_help_messages[snowpark.build]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root snowpark build [OPTIONS]                                           
                                                                                   
@@ -13320,6 +14880,21 @@
 # ---
 # name: test_help_messages[snowpark.deploy]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root snowpark deploy [OPTIONS]                                          
                                                                                   
@@ -13476,6 +15051,21 @@
 # ---
 # name: test_help_messages[snowpark.describe]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root snowpark describe [OPTIONS] OBJECT_TYPE:{procedure|function}       
                                  IDENTIFIER                                       
@@ -13621,6 +15211,21 @@
 # ---
 # name: test_help_messages[snowpark.drop]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root snowpark drop [OPTIONS] OBJECT_TYPE:{procedure|function}           
    IDENTIFIER                                                                     
@@ -13768,6 +15373,21 @@
 # ---
 # name: test_help_messages[snowpark.execute]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root snowpark execute [OPTIONS] OBJECT_TYPE:{procedure|function}        
                                 EXECUTION_IDENTIFIER                              
@@ -13915,6 +15535,21 @@
 # ---
 # name: test_help_messages[snowpark.list]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root snowpark list [OPTIONS] OBJECT_TYPE:{procedure|function}           
                                                                                   
@@ -14067,6 +15702,21 @@
 # ---
 # name: test_help_messages[snowpark.package.create]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root snowpark package create [OPTIONS] NAME                             
                                                                                   
@@ -14221,6 +15871,21 @@
 # ---
 # name: test_help_messages[snowpark.package.lookup]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root snowpark package lookup [OPTIONS] PACKAGE_NAME                     
                                                                                   
@@ -14360,6 +16025,21 @@
 # ---
 # name: test_help_messages[snowpark.package.upload]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root snowpark package upload [OPTIONS]                                  
                                                                                   
@@ -14502,6 +16182,21 @@
 # ---
 # name: test_help_messages[snowpark.package]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root snowpark package [OPTIONS] COMMAND [ARGS]...                       
                                                                                   
@@ -14523,6 +16218,21 @@
 # ---
 # name: test_help_messages[snowpark]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root snowpark [OPTIONS] COMMAND [ARGS]...                               
                                                                                   
@@ -14554,6 +16264,21 @@
 # ---
 # name: test_help_messages[spcs.compute-pool.create]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs compute-pool create [OPTIONS] NAME                            
                                                                                   
@@ -14751,6 +16476,21 @@
 # ---
 # name: test_help_messages[spcs.compute-pool.deploy]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs compute-pool deploy [OPTIONS] [ENTITY_ID]                     
                                                                                   
@@ -14896,6 +16636,21 @@
 # ---
 # name: test_help_messages[spcs.compute-pool.describe]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs compute-pool describe [OPTIONS] NAME                          
                                                                                   
@@ -15036,6 +16791,21 @@
 # ---
 # name: test_help_messages[spcs.compute-pool.drop]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs compute-pool drop [OPTIONS] NAME                              
                                                                                   
@@ -15178,6 +16948,21 @@
 # ---
 # name: test_help_messages[spcs.compute-pool.list]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs compute-pool list [OPTIONS]                                   
                                                                                   
@@ -15318,6 +17103,21 @@
 # ---
 # name: test_help_messages[spcs.compute-pool.resume]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs compute-pool resume [OPTIONS] NAME                            
                                                                                   
@@ -15458,6 +17258,21 @@
 # ---
 # name: test_help_messages[spcs.compute-pool.set]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs compute-pool set [OPTIONS] NAME                               
                                                                                   
@@ -15618,6 +17433,21 @@
 # ---
 # name: test_help_messages[spcs.compute-pool.status]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs compute-pool status [OPTIONS] POOL_NAME                       
                                                                                   
@@ -15759,6 +17589,21 @@
 # ---
 # name: test_help_messages[spcs.compute-pool.stop-all]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs compute-pool stop-all [OPTIONS] NAME                          
                                                                                   
@@ -15899,6 +17744,21 @@
 # ---
 # name: test_help_messages[spcs.compute-pool.suspend]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs compute-pool suspend [OPTIONS] NAME                           
                                                                                   
@@ -16040,6 +17900,21 @@
 # ---
 # name: test_help_messages[spcs.compute-pool.unset]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs compute-pool unset [OPTIONS] NAME                             
                                                                                   
@@ -16189,6 +18064,21 @@
 # ---
 # name: test_help_messages[spcs.compute-pool]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs compute-pool [OPTIONS] COMMAND [ARGS]...                      
                                                                                   
@@ -16219,6 +18109,21 @@
 # ---
 # name: test_help_messages[spcs.image-registry.login]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs image-registry login [OPTIONS]                                
                                                                                   
@@ -16360,6 +18265,21 @@
 # ---
 # name: test_help_messages[spcs.image-registry.token]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs image-registry token [OPTIONS]                                
                                                                                   
@@ -16505,6 +18425,21 @@
 # ---
 # name: test_help_messages[spcs.image-registry.url]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs image-registry url [OPTIONS]                                  
                                                                                   
@@ -16645,6 +18580,21 @@
 # ---
 # name: test_help_messages[spcs.image-registry]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs image-registry [OPTIONS] COMMAND [ARGS]...                    
                                                                                   
@@ -16666,6 +18616,21 @@
 # ---
 # name: test_help_messages[spcs.image-repository.create]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs image-repository create [OPTIONS] NAME                        
                                                                                   
@@ -16809,6 +18774,21 @@
 # ---
 # name: test_help_messages[spcs.image-repository.deploy]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs image-repository deploy [OPTIONS] [ENTITY_ID]                 
                                                                                   
@@ -16952,6 +18932,21 @@
 # ---
 # name: test_help_messages[spcs.image-repository.drop]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs image-repository drop [OPTIONS] NAME                          
                                                                                   
@@ -17094,6 +19089,21 @@
 # ---
 # name: test_help_messages[spcs.image-repository.list-images]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs image-repository list-images [OPTIONS] NAME                   
                                                                                   
@@ -17238,6 +19248,21 @@
 # ---
 # name: test_help_messages[spcs.image-repository.list-tags]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs image-repository list-tags [OPTIONS] NAME                     
                                                                                   
@@ -17384,6 +19409,21 @@
 # ---
 # name: test_help_messages[spcs.image-repository.list]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs image-repository list [OPTIONS]                               
                                                                                   
@@ -17532,6 +19572,21 @@
 # ---
 # name: test_help_messages[spcs.image-repository.url]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs image-repository url [OPTIONS] NAME                           
                                                                                   
@@ -17672,6 +19727,21 @@
 # ---
 # name: test_help_messages[spcs.image-repository]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs image-repository [OPTIONS] COMMAND [ARGS]...                  
                                                                                   
@@ -17699,6 +19769,21 @@
 # ---
 # name: test_help_messages[spcs.service.build-image]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs service build-image [OPTIONS]                                 
                                                                                   
@@ -17886,6 +19971,21 @@
 # ---
 # name: test_help_messages[spcs.service.create]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs service create [OPTIONS] NAME                                 
                                                                                   
@@ -18083,6 +20183,21 @@
 # ---
 # name: test_help_messages[spcs.service.deploy]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs service deploy [OPTIONS] [ENTITY_ID]                          
                                                                                   
@@ -18229,6 +20344,21 @@
 # ---
 # name: test_help_messages[spcs.service.describe]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs service describe [OPTIONS] NAME                               
                                                                                   
@@ -18368,6 +20498,21 @@
 # ---
 # name: test_help_messages[spcs.service.drop]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs service drop [OPTIONS] NAME                                   
                                                                                   
@@ -18509,6 +20654,21 @@
 # ---
 # name: test_help_messages[spcs.service.execute-job]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs service execute-job [OPTIONS] NAME                            
                                                                                   
@@ -18674,6 +20834,21 @@
 # ---
 # name: test_help_messages[spcs.service.list-containers]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs service list-containers [OPTIONS] NAME                        
                                                                                   
@@ -18813,6 +20988,21 @@
 # ---
 # name: test_help_messages[spcs.service.list-endpoints]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs service list-endpoints [OPTIONS] NAME                         
                                                                                   
@@ -18952,6 +21142,21 @@
 # ---
 # name: test_help_messages[spcs.service.list-instances]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs service list-instances [OPTIONS] NAME                         
                                                                                   
@@ -19091,6 +21296,21 @@
 # ---
 # name: test_help_messages[spcs.service.list-roles]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs service list-roles [OPTIONS] NAME                             
                                                                                   
@@ -19230,6 +21450,21 @@
 # ---
 # name: test_help_messages[spcs.service.list]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs service list [OPTIONS]                                        
                                                                                   
@@ -19378,6 +21613,21 @@
 # ---
 # name: test_help_messages[spcs.service.logs]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs service logs [OPTIONS] NAME                                   
                                                                                   
@@ -19529,6 +21779,21 @@
 # ---
 # name: test_help_messages[spcs.service.metrics]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs service metrics [OPTIONS] NAME                                
                                                                                   
@@ -19678,6 +21943,21 @@
 # ---
 # name: test_help_messages[spcs.service.resume]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs service resume [OPTIONS] NAME                                 
                                                                                   
@@ -19817,6 +22097,21 @@
 # ---
 # name: test_help_messages[spcs.service.set]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs service set [OPTIONS] NAME                                    
                                                                                   
@@ -20003,6 +22298,21 @@
 # ---
 # name: test_help_messages[spcs.service.status]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs service status [OPTIONS] NAME                                 
                                                                                   
@@ -20146,6 +22456,21 @@
 # ---
 # name: test_help_messages[spcs.service.suspend]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs service suspend [OPTIONS] NAME                                
                                                                                   
@@ -20285,6 +22610,21 @@
 # ---
 # name: test_help_messages[spcs.service.unset]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs service unset [OPTIONS] NAME                                  
                                                                                   
@@ -20441,6 +22781,21 @@
 # ---
 # name: test_help_messages[spcs.service.upgrade]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs service upgrade [OPTIONS] NAME                                
                                                                                   
@@ -20582,6 +22937,21 @@
 # ---
 # name: test_help_messages[spcs.service]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs service [OPTIONS] COMMAND [ARGS]...                           
                                                                                   
@@ -20631,6 +23001,21 @@
 # ---
 # name: test_help_messages[spcs]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs [OPTIONS] COMMAND [ARGS]...                                   
                                                                                   
@@ -20652,6 +23037,21 @@
 # ---
 # name: test_help_messages[sql]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root sql [OPTIONS]                                                      
                                                                                   
@@ -20666,61 +23066,73 @@
    The command supports variable substitution that happens on client-side.        
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --query           -q                      TEXT             Query to execute. |
-  | --filename        -f                      FILE             File to execute.  |
-  | --stdin           -i                                       Read the query    |
-  |                                                            from standard     |
-  |                                                            input. Use it     |
-  |                                                            when piping input |
-  |                                                            to this command.  |
-  | --variable        -D                      TEXT             String in format  |
-  |                                                            of key=value. If  |
-  |                                                            provided the SQL  |
-  |                                                            content will be   |
-  |                                                            treated as        |
-  |                                                            template and      |
-  |                                                            rendered using    |
-  |                                                            provided data.    |
-  | --retain-commen…                                           Retains comments  |
-  |                                                            in queries passed |
-  |                                                            to Snowflake      |
-  | --single-transa…      --no-single-tra…                     Connects with     |
-  |                                                            autocommit        |
-  |                                                            disabled. Wraps   |
-  |                                                            BEGIN/COMMIT      |
-  |                                                            around statements |
-  |                                                            to execute them   |
-  |                                                            as a single       |
-  |                                                            transaction,      |
-  |                                                            ensuring all      |
-  |                                                            commands complete |
-  |                                                            successfully or   |
-  |                                                            no change is      |
-  |                                                            applied.          |
-  |                                                            [default:         |
-  |                                                            no-single-transa… |
-  | --enable-templa…                          [LEGACY|STANDAR  Syntax used to    |
-  |                                           D|JINJA|ALL|NON  resolve variables |
-  |                                           E]               before passing    |
-  |                                                            queries to        |
-  |                                                            Snowflake.        |
-  |                                                            [default: LEGACY, |
-  |                                                            STANDARD]         |
-  | --project         -p                      TEXT             Path where the    |
-  |                                                            Snowflake project |
-  |                                                            is stored.        |
-  |                                                            Defaults to the   |
-  |                                                            current working   |
-  |                                                            directory.        |
-  | --env                                     TEXT             String in the     |
-  |                                                            format key=value. |
-  |                                                            Overrides         |
-  |                                                            variables from    |
-  |                                                            the env section   |
-  |                                                            used for          |
-  |                                                            templates.        |
-  | --help            -h                                       Show this message |
-  |                                                            and exit.         |
+  | --query            -q                     TEXT              Query to         |
+  |                                                             execute.         |
+  | --filename         -f                     FILE              File to execute. |
+  | --stdin            -i                                       Read the query   |
+  |                                                             from standard    |
+  |                                                             input. Use it    |
+  |                                                             when piping      |
+  |                                                             input to this    |
+  |                                                             command.         |
+  | --variable         -D                     TEXT              String in format |
+  |                                                             of key=value. If |
+  |                                                             provided the SQL |
+  |                                                             content will be  |
+  |                                                             treated as       |
+  |                                                             template and     |
+  |                                                             rendered using   |
+  |                                                             provided data.   |
+  | --retain-comments                                           Retains comments |
+  |                                                             in queries       |
+  |                                                             passed to        |
+  |                                                             Snowflake        |
+  | --single-transac…      --no-single-tr…                      Connects with    |
+  |                                                             autocommit       |
+  |                                                             disabled. Wraps  |
+  |                                                             BEGIN/COMMIT     |
+  |                                                             around           |
+  |                                                             statements to    |
+  |                                                             execute them as  |
+  |                                                             a single         |
+  |                                                             transaction,     |
+  |                                                             ensuring all     |
+  |                                                             commands         |
+  |                                                             complete         |
+  |                                                             successfully or  |
+  |                                                             no change is     |
+  |                                                             applied.         |
+  |                                                             [default:        |
+  |                                                             no-single-trans… |
+  | --enable-templat…                         [LEGACY|STANDARD  Syntax used to   |
+  |                                           |JINJA|ALL|NONE]  resolve          |
+  |                                                             variables before |
+  |                                                             passing queries  |
+  |                                                             to Snowflake.    |
+  |                                                             [default:        |
+  |                                                             LEGACY,          |
+  |                                                             STANDARD]        |
+  | --no-prompt-exit…                                           Do not prompt    |
+  |                                                             before exiting   |
+  |                                                             the REPL.        |
+  | --project          -p                     TEXT              Path where the   |
+  |                                                             Snowflake        |
+  |                                                             project is       |
+  |                                                             stored. Defaults |
+  |                                                             to the current   |
+  |                                                             working          |
+  |                                                             directory.       |
+  | --env                                     TEXT              String in the    |
+  |                                                             format           |
+  |                                                             key=value.       |
+  |                                                             Overrides        |
+  |                                                             variables from   |
+  |                                                             the env section  |
+  |                                                             used for         |
+  |                                                             templates.       |
+  | --help             -h                                       Show this        |
+  |                                                             message and      |
+  |                                                             exit.            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -20849,6 +23261,21 @@
 # ---
 # name: test_help_messages[stage.copy]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root stage copy [OPTIONS] SOURCE_PATH DESTINATION_PATH                  
                                                                                   
@@ -21020,6 +23447,21 @@
 # ---
 # name: test_help_messages[stage.create]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root stage create [OPTIONS] STAGE_NAME                                  
                                                                                   
@@ -21168,6 +23610,21 @@
 # ---
 # name: test_help_messages[stage.describe]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root stage describe [OPTIONS] NAME                                      
                                                                                   
@@ -21307,6 +23764,21 @@
 # ---
 # name: test_help_messages[stage.diff]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root stage diff [OPTIONS] STAGE_NAME FOLDER_NAME                        
                                                                                   
@@ -21448,6 +23920,21 @@
 # ---
 # name: test_help_messages[stage.drop]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root stage drop [OPTIONS] NAME                                          
                                                                                   
@@ -21589,6 +24076,21 @@
 # ---
 # name: test_help_messages[stage.execute]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root stage execute [OPTIONS] STAGE_PATH                                 
                                                                                   
@@ -21747,6 +24249,21 @@
 # ---
 # name: test_help_messages[stage.list-files]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root stage list-files [OPTIONS] STAGE_NAME                              
                                                                                   
@@ -21890,6 +24407,21 @@
 # ---
 # name: test_help_messages[stage.list]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root stage list [OPTIONS]                                               
                                                                                   
@@ -22038,6 +24570,21 @@
 # ---
 # name: test_help_messages[stage.remove]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root stage remove [OPTIONS] STAGE_NAME FILE_NAME                        
                                                                                   
@@ -22179,6 +24726,21 @@
 # ---
 # name: test_help_messages[stage]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root stage [OPTIONS] COMMAND [ARGS]...                                  
                                                                                   
@@ -22207,6 +24769,21 @@
 # ---
 # name: test_help_messages[streamlit.deploy]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root streamlit deploy [OPTIONS] [ENTITY_ID]                             
                                                                                   
@@ -22366,6 +24943,21 @@
 # ---
 # name: test_help_messages[streamlit.describe]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root streamlit describe [OPTIONS] NAME                                  
                                                                                   
@@ -22506,6 +25098,21 @@
 # ---
 # name: test_help_messages[streamlit.drop]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root streamlit drop [OPTIONS] NAME                                      
                                                                                   
@@ -22648,6 +25255,21 @@
 # ---
 # name: test_help_messages[streamlit.execute]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root streamlit execute [OPTIONS] NAME                                   
                                                                                   
@@ -22788,6 +25410,21 @@
 # ---
 # name: test_help_messages[streamlit.get-url]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root streamlit get-url [OPTIONS] NAME                                   
                                                                                   
@@ -22929,6 +25566,21 @@
 # ---
 # name: test_help_messages[streamlit.list]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root streamlit list [OPTIONS]                                           
                                                                                   
@@ -23077,6 +25729,21 @@
 # ---
 # name: test_help_messages[streamlit.share]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root streamlit share [OPTIONS] NAME TO_ROLE                             
                                                                                   
@@ -23219,6 +25886,21 @@
 # ---
 # name: test_help_messages[streamlit]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root streamlit [OPTIONS] COMMAND [ARGS]...                              
                                                                                   
@@ -23248,6 +25930,21 @@
 # ---
 # name: test_help_messages_no_help_flag[]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root [OPTIONS] COMMAND [ARGS]...                                        
                                                                                   
@@ -23291,6 +25988,21 @@
 # ---
 # name: test_help_messages_no_help_flag[__app]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root __app [OPTIONS] COMMAND [ARGS]...                                  
                                                                                   
@@ -23313,6 +26025,21 @@
 # ---
 # name: test_help_messages_no_help_flag[app.release-channel]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app release-channel [OPTIONS] COMMAND [ARGS]...                    
                                                                                   
@@ -23336,6 +26063,21 @@
 # ---
 # name: test_help_messages_no_help_flag[app.release-directive]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app release-directive [OPTIONS] COMMAND [ARGS]...                  
                                                                                   
@@ -23360,6 +26102,21 @@
 # ---
 # name: test_help_messages_no_help_flag[app.version]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app version [OPTIONS] COMMAND [ARGS]...                            
                                                                                   
@@ -23383,6 +26140,21 @@
 # ---
 # name: test_help_messages_no_help_flag[app]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root app [OPTIONS] COMMAND [ARGS]...                                    
                                                                                   
@@ -23423,6 +26195,21 @@
 # ---
 # name: test_help_messages_no_help_flag[auth.oidc]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root auth oidc [OPTIONS] COMMAND [ARGS]...                              
                                                                                   
@@ -23441,6 +26228,21 @@
 # ---
 # name: test_help_messages_no_help_flag[auth]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root auth [OPTIONS] COMMAND [ARGS]...                                   
                                                                                   
@@ -23458,6 +26260,21 @@
 # ---
 # name: test_help_messages_no_help_flag[connection]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root connection [OPTIONS] COMMAND [ARGS]...                             
                                                                                   
@@ -23481,6 +26298,21 @@
 # ---
 # name: test_help_messages_no_help_flag[dbt.execute]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dbt execute [OPTIONS] NAME DBT_COMMAND                             
                                                                                   
@@ -23656,6 +26488,21 @@
 # ---
 # name: test_help_messages_no_help_flag[dbt]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dbt [OPTIONS] COMMAND [ARGS]...                                    
                                                                                   
@@ -23679,6 +26526,21 @@
 # ---
 # name: test_help_messages_no_help_flag[dcm]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root dcm [OPTIONS] COMMAND [ARGS]...                                    
                                                                                   
@@ -23712,6 +26574,21 @@
 # ---
 # name: test_help_messages_no_help_flag[git]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root git [OPTIONS] COMMAND [ARGS]...                                    
                                                                                   
@@ -23742,6 +26619,21 @@
 # ---
 # name: test_help_messages_no_help_flag[notebook]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root notebook [OPTIONS] COMMAND [ARGS]...                               
                                                                                   
@@ -23764,6 +26656,21 @@
 # ---
 # name: test_help_messages_no_help_flag[object]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root object [OPTIONS] COMMAND [ARGS]...                                 
                                                                                   
@@ -23785,6 +26692,21 @@
 # ---
 # name: test_help_messages_no_help_flag[plugin]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root plugin [OPTIONS] COMMAND [ARGS]...                                 
                                                                                   
@@ -23804,6 +26726,21 @@
 # ---
 # name: test_help_messages_no_help_flag[snowpark.package]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root snowpark package [OPTIONS] COMMAND [ARGS]...                       
                                                                                   
@@ -23825,6 +26762,21 @@
 # ---
 # name: test_help_messages_no_help_flag[snowpark]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root snowpark [OPTIONS] COMMAND [ARGS]...                               
                                                                                   
@@ -23856,6 +26808,21 @@
 # ---
 # name: test_help_messages_no_help_flag[spcs.compute-pool]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs compute-pool [OPTIONS] COMMAND [ARGS]...                      
                                                                                   
@@ -23886,6 +26853,21 @@
 # ---
 # name: test_help_messages_no_help_flag[spcs.image-registry]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs image-registry [OPTIONS] COMMAND [ARGS]...                    
                                                                                   
@@ -23907,6 +26889,21 @@
 # ---
 # name: test_help_messages_no_help_flag[spcs.image-repository]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs image-repository [OPTIONS] COMMAND [ARGS]...                  
                                                                                   
@@ -23934,6 +26931,21 @@
 # ---
 # name: test_help_messages_no_help_flag[spcs.service]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs service [OPTIONS] COMMAND [ARGS]...                           
                                                                                   
@@ -23983,6 +26995,21 @@
 # ---
 # name: test_help_messages_no_help_flag[spcs]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root spcs [OPTIONS] COMMAND [ARGS]...                                   
                                                                                   
@@ -24004,6 +27031,21 @@
 # ---
 # name: test_help_messages_no_help_flag[stage]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root stage [OPTIONS] COMMAND [ARGS]...                                  
                                                                                   
@@ -24032,6 +27074,21 @@
 # ---
 # name: test_help_messages_no_help_flag[streamlit]
   '''
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
+  
+  
+  DEBUG path = ('cli', 'features')
+  
+  
                                                                                   
    Usage: root streamlit [OPTIONS] COMMAND [ARGS]...                              
                                                                                   
