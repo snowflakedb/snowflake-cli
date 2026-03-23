@@ -44,8 +44,7 @@ def _validate_encoding(encoding: str, source: str) -> None:
         codecs.lookup(encoding)
     except LookupError:
         raise CliError(
-            f"Unknown encoding '{encoding}'. "
-            f"Check {source} or [cli.encoding] file_io / subprocess in config.toml."
+            f"Unknown encoding '{encoding}'. Check the value set in {source}."
         )
 
 

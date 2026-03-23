@@ -23,6 +23,7 @@ from snowflake.cli.api.encoding import (
     get_file_io_encoding,
     get_subprocess_encoding,
 )
+from snowflake.cli.api.exceptions import CliError
 
 
 def detect_encoding_environment() -> Dict[str, str]:
@@ -74,6 +75,11 @@ class TestGetFileIoEncoding:
         # Even if config would return something else, env var wins
         assert get_file_io_encoding() == "utf-8"
 
+    def test_raises_on_invalid_encoding(self, monkeypatch):
+        monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "not-a-codec")
+        with pytest.raises(CliError, match="Unknown encoding 'not-a-codec'"):
+            get_file_io_encoding()
+
 
 class TestGetSubprocessEncoding:
     def test_returns_none_when_not_configured(self, monkeypatch):
@@ -83,6 +89,11 @@ class TestGetSubprocessEncoding:
     def test_reads_from_env_var(self, monkeypatch):
         monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", "utf-8")
         assert get_subprocess_encoding() == "utf-8"
+
+    def test_raises_on_invalid_encoding(self, monkeypatch):
+        monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", "not-a-codec")
+        with pytest.raises(CliError, match="Unknown encoding 'not-a-codec'"):
+            get_subprocess_encoding()
 
 
 class TestDetectEncodingEnvironment:
