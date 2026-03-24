@@ -338,7 +338,7 @@ def _confirm_purge(project_id: FQN) -> None:
             raise typer.Abort()
 
         if command == _PURGE_CONFIRM_COMMAND and len(parts) == 2:
-            if parts[1] == expected_identifier:
+            if parts[1].upper() == expected_identifier.upper():
                 return
             cli_console.message(
                 f"  Project identifier mismatch. Expected: {expected_identifier}, provided: {parts[1]}"

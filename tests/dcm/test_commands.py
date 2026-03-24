@@ -511,7 +511,7 @@ class TestDCMPurge:
         "project_identifier,user_inputs,expected_prompt_count",
         [
             ("fooBar", ["purge fooBar"], 1),
-            ("fooBar", ["PURGE FOOBAR", "purge fooBar"], 2),
+            ("fooBar", ["PURGE FOOBAR"], 1),
             ("fooBar", ["invalid", "purge", "purge wrong_project", "purge fooBar"], 4),
             (
                 "fooBar",
