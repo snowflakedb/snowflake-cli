@@ -700,6 +700,66 @@ def test_get_local_target_path_case_insensitive(
     assert result == Path(expected_local_path)
 
 
+@pytest.mark.parametrize(
+    "stage_str, expected",
+    [
+        ("@my_stage", False),
+        ("@db.schema.my_stage/path", False),
+        ("~", False),
+        ("snow://streamlit/db.schema.name/versions/live", True),
+        ("snow://project/MY_DB.MY_SCHEMA.MY_PROJECT/deployments/v1/", True),
+        ("snow://notebook/schema.name", True),
+    ],
+)
+def test_is_vstage(stage_str, expected):
+    assert StagePath.from_stage_str(stage_str).is_vstage() == expected
+
+
+def test_is_vstage_preserved_through_operations():
+    sp = StagePath.from_stage_str(
+        "snow://project/DCM_DEMO.PROJECTS.MY_PROJECT/deployments/v1/"
+    )
+    assert sp.is_vstage() is True
+    assert (sp / "subdir").is_vstage() is True
+    assert sp.parent.is_vstage() is True
+    assert sp.root_path().is_vstage() is True
+
+
+@pytest.mark.parametrize(
+    "file_path_str, stage_root_str, expected_relative",
+    [
+        # $ in unquoted identifier — case-insensitive
+        ("@s/deployment$1/file.sql", "@s/DEPLOYMENT$1/", "file.sql"),
+        # Plain alpha case mismatch — case-insensitive
+        ("@s/DATA_DIR/file.csv", "@s/data_dir/", "file.csv"),
+        # Component with dots — exact match succeeds
+        ("@s/My.Dir/file.sql", "@s/My.Dir/", "file.sql"),
+    ],
+)
+def test_relative_to_quoted_identifier_success(
+    file_path_str, stage_root_str, expected_relative
+):
+    fp = StagePath.from_stage_str(file_path_str)
+    root = StagePath.from_stage_str(stage_root_str)
+    assert fp.relative_to(root) == PurePosixPath(expected_relative)
+
+
+@pytest.mark.parametrize(
+    "file_path_str, stage_root_str",
+    [
+        # Component with dots and wrong case — exact match required, must raise
+        ("@s/My.Dir/file.sql", "@s/my.dir/"),
+        # Completely different paths
+        ("@s/foo/file.sql", "@s/bar/"),
+    ],
+)
+def test_relative_to_raises_for_non_subpath(file_path_str, stage_root_str):
+    fp = StagePath.from_stage_str(file_path_str)
+    root = StagePath.from_stage_str(stage_root_str)
+    with pytest.raises(ValueError, match="is not in the subpath of"):
+        fp.relative_to(root)
+
+
 def test_local_dir_with_dot_are_identified_as_dir_not_file():
     with tempfile.TemporaryDirectory(suffix="dot.in.name") as dir_path:
         assert "." in dir_path
