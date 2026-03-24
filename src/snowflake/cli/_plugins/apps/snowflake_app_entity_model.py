@@ -71,6 +71,18 @@ class ArtifactRepositoryReference(UpdatableModel):
     )
 
 
+class ImageRepositoryReference(UpdatableModel):
+    """Reference to an image repository used for container image storage."""
+
+    name: str = IdentifierField(title="Name of the image repository")
+    schema_: Optional[str] = IdentifierField(
+        title="Schema of the image repository", alias="schema", default=None
+    )
+    database: Optional[str] = IdentifierField(
+        title="Database of the image repository", default=None
+    )
+
+
 class CodeStageReference(UpdatableModel):
     """Reference to a code stage."""
 
@@ -135,6 +147,10 @@ class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
 
     artifact_repository: Optional[ArtifactRepositoryReference] = Field(
         title="Artifact repository for the app", default=None
+    )
+
+    image_repository: Optional[ImageRepositoryReference] = Field(
+        title="Image repository for container images", default=None
     )
 
     code_stage: Optional[CodeStageReference] = Field(

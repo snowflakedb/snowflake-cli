@@ -34,6 +34,7 @@ from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import ProjectPaths
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.connector.cursor import DictCursor
 
 DEFINITION_FILENAME = "snowflake.yml"
 SNOWFLAKE_APP_ENTITY_TYPE = "snowflake-app"
@@ -326,17 +327,30 @@ class SnowflakeAppManager(SqlExecutionMixin):
         """Drop a service if it exists."""
         self.execute_query(f"DROP SERVICE IF EXISTS {service_fqn.sql_identifier}")
 
-    def get_image_repo_url(self, repo_name: str) -> str:
+    def get_image_repo_url(
+        self,
+        repo_name: str,
+        database: Optional[str] = None,
+        schema: Optional[str] = None,
+    ) -> str:
         """Get the image repository URL and convert to local registry."""
         from snowflake.cli.api.project.util import (
             identifier_to_show_like_pattern,
             unquote_identifier,
         )
-        from snowflake.connector.cursor import DictCursor
 
         show_obj_query = (
             f"show image repositories like {identifier_to_show_like_pattern(repo_name)}"
         )
+        if database and schema:
+            schema_fqn = FQN(database=None, schema=database, name=schema)
+            show_obj_query += f" in schema {schema_fqn.sql_identifier}"
+        elif database:
+            show_obj_query += f" in database IDENTIFIER('{database}')"
+        elif schema:
+            raise CliError(
+                "image_repository.schema requires image_repository.database to be set."
+            )
         cursor = self.execute_query(show_obj_query, cursor_class=DictCursor)
 
         if cursor.rowcount is None or cursor.rowcount == 0:

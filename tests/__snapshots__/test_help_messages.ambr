@@ -103,11 +103,17 @@
    If --entity-id is not specified and the project contains exactly one           
    snowflake-app entity, that entity will be used automatically.                  
                                                                                   
+   Use --skip-build to skip the build phase and redeploy using the existing       
+   container image (e.g. after a configuration-only change).                      
+                                                                                  
   +- Options --------------------------------------------------------------------+
-  | --entity-id          TEXT  ID of the snowflake-app entity to deploy.         |
-  |                            Required if multiple snowflake-app entities       |
-  |                            exist.                                            |
-  | --help       -h            Show this message and exit.                       |
+  | --entity-id           TEXT  ID of the snowflake-app entity to deploy.        |
+  |                             Required if multiple snowflake-app entities      |
+  |                             exist.                                           |
+  | --skip-build                Skip the build phase and go straight to          |
+  |                             deploying the service. Assumes the container     |
+  |                             image has already been built.                    |
+  | --help        -h            Show this message and exit.                      |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |

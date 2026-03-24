@@ -16,6 +16,7 @@ from textwrap import dedent
 from typing import Optional
 
 from snowflake.cli._plugins.apps.manager import (
+    DEFAULT_IMAGE_REPOSITORY,
     _get_compute_pool,
     _get_external_access,
 )
@@ -97,6 +98,8 @@ def _generate_snowflake_yml(
             service_eai: null
             artifact_repository:
               name: {artifact_repository}
+            image_repository:
+              name: {DEFAULT_IMAGE_REPOSITORY}
             code_stage:
               name: {code_stage}
         """
