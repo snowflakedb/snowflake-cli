@@ -25,10 +25,11 @@ from subprocess import run as _subprocess_run
 from typing import Dict, List, Optional, Tuple
 
 import yaml
-from click import ClickException
+
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.project.schemas.project_definition import DefinitionV20
 from snowflake.cli.api.project.schemas.scripts import ScriptModel
 from snowflake.cli.api.secure_path import SecurePath
@@ -60,13 +61,13 @@ class ScriptManager:
         """Load scripts from snowflake.yml or manifest.yml.
 
         Scripts can be defined in either file but not both.
-        Raises ClickException if scripts are found in both files.
+        Raises CliError if scripts are found in both files.
         """
         snowflake_scripts, snowflake_source = self._load_snowflake_scripts()
         manifest_scripts, manifest_source = self._load_manifest_scripts()
 
         if snowflake_scripts and manifest_scripts:
-            raise ClickException(
+            raise CliError(
                 "Scripts defined in both manifest.yml and snowflake.yml.\n"
                 "Scripts must be defined in only one file per directory.\n\n"
                 "Recommendation: Move all scripts to one file.\n"
@@ -209,8 +210,10 @@ class ScriptManager:
                 if shell_mode:
                     return shlex.quote(value)
                 return value
-            log.warning("Variable '${%s}' not found, leaving as-is", var_name)
-            return match.group(0)
+            raise CliError(
+                f"Undefined variable '${{{var_name}}}' in script command. "
+                f"Define it in your project env section or pass --var {var_name}=VALUE"
+            )
 
         return VARIABLE_PATTERN.sub(replace_var, cmd)
 
@@ -229,7 +232,7 @@ class ScriptManager:
             _call_stack = []
 
         if name in _call_stack:
-            raise ClickException(
+            raise CliError(
                 f"Circular dependency detected: {' -> '.join(_call_stack)} -> {name}"
             )
 

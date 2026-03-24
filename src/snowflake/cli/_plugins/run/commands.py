@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import typer
-from click import ClickException
+
 from snowflake.cli._plugins.run.manager import ScriptManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition
@@ -26,7 +26,13 @@ from snowflake.cli.api.commands.flags import variables_option
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.api.output.types import CommandResult, MessageResult
+from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.output.types import (
+    CollectionResult,
+    CommandResult,
+    MessageResult,
+)
+from snowflake.cli.api.sanitizers import sanitize_for_terminal
 
 app = SnowTyperFactory(
     name="run",
@@ -102,37 +108,43 @@ def run_script(
             return MessageResult("No scripts defined in snowflake.yml or manifest.yml")
 
         source = manager.scripts_source or "project"
-        cc.message(f"Available scripts (from {source}):")
-        for name, script in scripts.items():
-            desc = script.description or "(no description)"
-            cc.message(f"  {name:20} {desc}")
-        return MessageResult("")
+        return CollectionResult(
+            [
+                {
+                    "name": name,
+                    "description": script.description or "",
+                    "source": source,
+                }
+                for name, script in scripts.items()
+            ]
+        )
 
     if not script_name:
         scripts = manager.list_scripts()
-        if scripts:
-            source = manager.scripts_source or "project"
-            cc.message(f"Available scripts from {source} (use --list for details):")
-            for name in scripts:
-                cc.message(f"  {name}")
-            return MessageResult("\nSpecify a script name to run, or use --list")
-        return MessageResult(
-            "No scripts defined. Add a 'scripts' section to snowflake.yml or manifest.yml"
-        )
+        if not scripts:
+            return MessageResult(
+                "No scripts defined. Add a 'scripts' section to snowflake.yml or manifest.yml"
+            )
+        source = manager.scripts_source or "project"
+        cc.message(f"Available scripts from {source} (use --list for details):")
+        for name in scripts:
+            cc.message(f"  {sanitize_for_terminal(name)}")
+        return MessageResult("\nSpecify a script name to run, or use --list")
 
-    vars_dict = {}
-    if var_overrides:
-        for v in parse_key_value_variables(var_overrides):
-            vars_dict[v.key] = v.value
+    vars_dict = (
+        {v.key: v.value for v in parse_key_value_variables(var_overrides)}
+        if var_overrides
+        else {}
+    )
 
     script = manager.get_script(script_name)
     if not script:
         available = list(manager.list_scripts().keys())
         if available:
-            raise ClickException(
+            raise CliError(
                 f"Script '{script_name}' not found. Available scripts: {', '.join(available)}"
             )
-        raise ClickException(
+        raise CliError(
             f"Script '{script_name}' not found. No scripts defined in snowflake.yml or manifest.yml"
         )
 
@@ -146,5 +158,7 @@ def run_script(
     )
 
     if not result.success:
-        raise typer.Exit(result.exit_code)
+        raise CliError(
+            f"Script '{script_name}' failed with exit code {result.exit_code}"
+        )
     return MessageResult("")

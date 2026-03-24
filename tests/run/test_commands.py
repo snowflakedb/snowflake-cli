@@ -22,10 +22,10 @@ class TestRunList:
         with project_directory("run_scripts"):
             result = runner.invoke(["run", "--list"])
             assert result.exit_code == 0
-            assert "Available scripts" in result.output
             assert "dev" in result.output
             assert "deploy" in result.output
             assert "build" in result.output
+            assert "snowflake.yml" in result.output
 
     def test_list_scripts_shows_descriptions(self, runner, project_directory):
         with project_directory("run_scripts"):
@@ -177,7 +177,8 @@ class TestRunExecute:
         mock_run.return_value = mock.Mock(returncode=42)
         with project_directory("run_scripts"):
             result = runner.invoke(["run", "deploy-all", "--continue-on-error"])
-            assert result.exit_code == 42
+            assert result.exit_code == 1
+            assert "failed with exit code" in result.output
 
 
 class TestRunHelp:
@@ -194,8 +195,7 @@ class TestRunManifestScripts:
         with project_directory("run_manifest_scripts"):
             result = runner.invoke(["run", "--list"])
             assert result.exit_code == 0
-            assert "Available scripts" in result.output
-            assert "from manifest.yml" in result.output
+            assert "manifest.yml" in result.output
             assert "validate" in result.output
             assert "deploy" in result.output
 
@@ -230,7 +230,7 @@ class TestRunManifestScripts:
         with project_directory("run_scripts"):
             result = runner.invoke(["run", "--list"])
             assert result.exit_code == 0
-            assert "from snowflake.yml" in result.output
+            assert "snowflake.yml" in result.output
 
     @mock.patch(SUBPROCESS_RUN)
     def test_run_manifest_only_project(self, mock_run, runner, project_directory):
