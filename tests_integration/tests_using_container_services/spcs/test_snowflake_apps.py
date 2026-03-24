@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Integration tests for ``snow __app init`` and ``snow __app deploy``."""
+"""Integration tests for ``snow __app setup`` and ``snow __app deploy``."""
 
 from __future__ import annotations
 
@@ -96,7 +96,7 @@ def snowflake_apps_setup(snowflake_session):
 
 
 @pytest.mark.integration
-def test_snowflake_apps_init_and_deploy(
+def test_snowflake_apps_setup_and_deploy(
     runner,
     snowflake_session,
     project_directory,
@@ -152,15 +152,15 @@ def test_snowflake_apps_init_and_deploy(
 
 
 @pytest.mark.integration
-def test_snowflake_apps_init_creates_valid_yml(
+def test_snowflake_apps_setup_creates_valid_yml(
     runner,
     temporary_working_directory,
     enable_snowflake_apps_feature_flag,
 ):
-    """``snow __app init`` should produce a valid snowflake.yml."""
+    """``snow __app setup`` should produce a valid snowflake.yml."""
 
     result = runner.invoke_with_connection(
-        ["__app", "init", "--app-name", "my_test_app"]
+        ["__app", "setup", "--app-name", "my_test_app"]
     )
     assert result.exit_code == 0, result.output
     assert "Initialized Snowflake App project" in result.output
