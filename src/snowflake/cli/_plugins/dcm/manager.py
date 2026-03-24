@@ -201,7 +201,7 @@ class DCMProjectManager(SqlExecutionMixin):
         if alias:
             query += f' AS "{alias}"'
         if skip_plan:
-            query += f" SKIP PLAN"
+            query += " SKIP PLAN"
         return self.execute_query(query=query)
 
     def test(self, project_identifier: FQN) -> SnowflakeCursor:
