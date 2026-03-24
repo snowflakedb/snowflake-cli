@@ -47,6 +47,7 @@ DEFAULT_EXTERNAL_ACCESS = "SNOW_APPS_DEFAULT_EXTERNAL_ACCESS"
 DEFAULT_IMAGE_REPOSITORY = "SNOW_APPS_DEFAULT_IMAGE_REPOSITORY"
 
 _BUILD_IMAGE = "/snowflake/images/snowflake_images/sf-image-build:0.0.1"
+_SERVICE_PLACEHOLDER_IMAGE = "/snowflake/images/snowflake_images/sf-image-build:0.0.1"
 
 
 T = TypeVar("T")
@@ -471,7 +472,9 @@ class SnowflakeAppManager(SqlExecutionMixin):
         app_comment: Optional[str] = None,
     ) -> None:
         """Create a service with a placeholder spec (suspended by default)."""
-        spec = _service_spec(_BUILD_IMAGE, app_port, command=["sleep", "infinity"])
+        spec = _service_spec(
+            _SERVICE_PLACEHOLDER_IMAGE, app_port, command=["sleep", "infinity"]
+        )
 
         query = (
             f"CREATE SERVICE IF NOT EXISTS {service_name.sql_identifier}\n"
@@ -536,7 +539,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
             cursor_class=DictCursor,
         )
         for row in cursor:
-            if row["name"] == endpoint_name:
+            if row["name"].upper() == endpoint_name.upper():
                 url = row["ingress_url"]
                 if url and not url.startswith(("http://", "https://")):
                     url = f"https://{url}"
