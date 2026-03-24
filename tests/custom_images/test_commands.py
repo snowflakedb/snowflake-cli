@@ -12,31 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 from unittest import mock
 
-
-def make_docker_inspect_response(
-    entrypoint: list[str] | None = None,
-    env_vars: list[str] | None = None,
-) -> str:
-    """Helper to create a mock docker inspect JSON response."""
-    return json.dumps(
-        [
-            {
-                "Config": {
-                    "Entrypoint": entrypoint,
-                    "Env": env_vars or [],
-                    "Labels": {},
-                }
-            }
-        ]
-    )
-
-
-def make_pip_list_response(packages: list[dict]) -> str:
-    """Helper to create a mock pip list JSON response."""
-    return json.dumps(packages)
+from tests.custom_images.test_helpers import (
+    FULL_PACKAGE_LIST,
+    create_mock_side_effect,
+    make_docker_inspect_response,
+    make_pip_list_response,
+)
 
 
 class TestValidateCustomImageCommand:
@@ -49,46 +32,13 @@ class TestValidateCustomImageCommand:
             entrypoint=["/usr/local/bin/entrypoint.sh"],
             env_vars=["DASHBOARD_PORT=12003"],
         )
-        pip_list_response = make_pip_list_response(
-            [
-                {"name": "snowflake-ml-python", "version": "1.0"},
-                {"name": "ray", "version": "2.0"},
-                {"name": "ipykernel", "version": "6.0"},
-                {"name": "sqlparse", "version": "0.5"},
-                {"name": "jinja2", "version": "3.0"},
-                {"name": "notebook", "version": "7.0"},
-                {"name": "ipython", "version": "8.0"},
-                {"name": "psutil", "version": "5.0"},
-                {"name": "snowflake-snowpark-python", "version": "1.0"},
-                {"name": "jupyter-server", "version": "2.0"},
-                {"name": "lightgbm-ray", "version": "0.1"},
-                {"name": "xgboost-ray", "version": "0.1"},
-                {"name": "snowflake", "version": "1.0"},
-                {"name": "snowflake.core", "version": "1.0"},
-                {"name": "snowflake-connector-python", "version": "3.0"},
-            ]
+        pip_list_response = make_pip_list_response(FULL_PACKAGE_LIST)
+
+        mock_run.side_effect = create_mock_side_effect(
+            inspect_response=inspect_response,
+            pip_list_response=pip_list_response,
+            pip_check_result=(0, "No broken requirements found."),
         )
-
-        def side_effect(*args, **kwargs):
-            cmd = args[0]
-            cmd_str = " ".join(cmd)
-            if cmd[0] == "docker":
-                if "inspect" in cmd:
-                    return mock.Mock(returncode=0, stdout=inspect_response, stderr="")
-                elif "run" in cmd:
-                    if "pip list" in cmd_str:
-                        return mock.Mock(
-                            returncode=0, stdout=pip_list_response, stderr=""
-                        )
-                    elif "pip check" in cmd_str:
-                        return mock.Mock(
-                            returncode=0,
-                            stdout="No broken requirements found.",
-                            stderr="",
-                        )
-            return mock.Mock(returncode=0, stdout="", stderr="")
-
-        mock_run.side_effect = side_effect
 
         result = runner.invoke(["custom-image", "validate", "test-image:latest"])
 
@@ -108,22 +58,10 @@ class TestValidateCustomImageCommand:
             ]
         )
 
-        def side_effect(*args, **kwargs):
-            cmd = args[0]
-            cmd_str = " ".join(cmd)
-            if cmd[0] == "docker":
-                if "inspect" in cmd:
-                    return mock.Mock(returncode=0, stdout=inspect_response, stderr="")
-                elif "run" in cmd:
-                    if "pip list" in cmd_str:
-                        return mock.Mock(
-                            returncode=0, stdout=pip_list_response, stderr=""
-                        )
-                    elif "pip check" in cmd_str:
-                        return mock.Mock(returncode=0, stdout="", stderr="")
-            return mock.Mock(returncode=0, stdout="", stderr="")
-
-        mock_run.side_effect = side_effect
+        mock_run.side_effect = create_mock_side_effect(
+            inspect_response=inspect_response,
+            pip_list_response=pip_list_response,
+        )
 
         result = runner.invoke(["custom-image", "validate", "test-image:latest"])
 
@@ -179,42 +117,12 @@ class TestValidateCustomImageCommand:
             entrypoint=["/wrong/entrypoint.sh"],
             env_vars=["DASHBOARD_PORT=12003"],
         )
-        pip_list_response = make_pip_list_response(
-            [
-                {"name": "snowflake-ml-python", "version": "1.0"},
-                {"name": "ray", "version": "2.0"},
-                {"name": "ipykernel", "version": "6.0"},
-                {"name": "sqlparse", "version": "0.5"},
-                {"name": "jinja2", "version": "3.0"},
-                {"name": "notebook", "version": "7.0"},
-                {"name": "ipython", "version": "8.0"},
-                {"name": "psutil", "version": "5.0"},
-                {"name": "snowflake-snowpark-python", "version": "1.0"},
-                {"name": "jupyter-server", "version": "2.0"},
-                {"name": "lightgbm-ray", "version": "0.1"},
-                {"name": "xgboost-ray", "version": "0.1"},
-                {"name": "snowflake", "version": "1.0"},
-                {"name": "snowflake.core", "version": "1.0"},
-                {"name": "snowflake-connector-python", "version": "3.0"},
-            ]
+        pip_list_response = make_pip_list_response(FULL_PACKAGE_LIST)
+
+        mock_run.side_effect = create_mock_side_effect(
+            inspect_response=inspect_response,
+            pip_list_response=pip_list_response,
         )
-
-        def side_effect(*args, **kwargs):
-            cmd = args[0]
-            cmd_str = " ".join(cmd)
-            if cmd[0] == "docker":
-                if "inspect" in cmd:
-                    return mock.Mock(returncode=0, stdout=inspect_response, stderr="")
-                elif "run" in cmd:
-                    if "pip list" in cmd_str:
-                        return mock.Mock(
-                            returncode=0, stdout=pip_list_response, stderr=""
-                        )
-                    elif "pip check" in cmd_str:
-                        return mock.Mock(returncode=0, stdout="", stderr="")
-            return mock.Mock(returncode=0, stdout="", stderr="")
-
-        mock_run.side_effect = side_effect
 
         result = runner.invoke(["custom-image", "validate", "test-image:latest"])
 

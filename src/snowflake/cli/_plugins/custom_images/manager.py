@@ -21,8 +21,6 @@ from typing import Any, Optional
 import yaml
 from click import ClickException
 
-CONFIG_DIR = Path(__file__).parent / "config"
-
 _FAIL_SEVERITIES = {"high", "critical"}
 
 
@@ -165,7 +163,7 @@ class CustomImageManager:
 
     def _get_image_info(self, image_name: str) -> Optional[dict]:
         """Get Docker image inspection info."""
-        returncode, stdout, stderr = self._run_docker_command(
+        returncode, stdout, _stderr = self._run_docker_command(
             ["docker", "inspect", image_name]
         )
         if returncode != 0:
@@ -250,13 +248,10 @@ class CustomImageManager:
         """Check if the image entrypoint matches the expected value and file exists."""
         # Get the actual configured entrypoint
         entrypoint = context.image_info.get("Config", {}).get("Entrypoint")
-        actual = (
-            entrypoint[0]
-            if isinstance(entrypoint, list) and entrypoint
-            else entrypoint
-            if not isinstance(entrypoint, list)
-            else None
-        )
+        if isinstance(entrypoint, list):
+            actual = entrypoint[0] if entrypoint else None
+        else:
+            actual = entrypoint
 
         # Check if entrypoint matches expected
         if actual != expected:
