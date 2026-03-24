@@ -24,6 +24,7 @@ from snowflake.cli._app.printing import print_result
 from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_templates
 from snowflake.cli._plugins.sql.statement_reader import (
     CompiledStatement,
+    _strip_sql_comments,
     compile_statements,
     files_reader,
     query_reader,
@@ -67,43 +68,52 @@ class SqlManager(SqlExecutionMixin):
         query = sys.stdin.read() if std_in else query
 
         stmt_operators = []
-        if template_syntax_config.enable_legacy_syntax:
-            stmt_operators.append(transpile_snowsql_templates)
 
         # Jinja block rendering ({% if %}, {% for %}, etc.) must happen on the
         # whole content BEFORE split_statements, because split_statements splits
         # on `;` which breaks Jinja blocks containing SQL statements.
-        # Standard/legacy syntax uses variable-only rendering (no blocks) so
-        # per-statement rendering is fine.
+        # When Jinja is enabled, ALL rendering (legacy transpile, standard/<% %>
+        # variables, Jinja blocks) is unified into a single pre-render pass so
+        # that the correct order (standard → Jinja) is preserved and sourced
+        # files (!source) receive the same treatment.
         # See: https://github.com/snowflakedb/snowflake-cli/issues/2650
         jinja_pre_render = None
         if template_syntax_config.enable_jinja_syntax:
 
             def _jinja_pre_render(content: str) -> str:
+                # Strip SQL comments first so that template-like syntax inside
+                # comments (e.g. ``-- {{ var }}``) is not evaluated by Jinja.
+                content = _strip_sql_comments(content)
+                if template_syntax_config.enable_legacy_syntax:
+                    content = transpile_snowsql_templates(content)
                 return snowflake_sql_jinja_render(
                     content,
                     template_syntax_config=SQLTemplateSyntaxConfig(
-                        enable_legacy_syntax=False,
-                        enable_standard_syntax=False,
+                        enable_legacy_syntax=template_syntax_config.enable_legacy_syntax,
+                        enable_standard_syntax=template_syntax_config.enable_standard_syntax,
                         enable_jinja_syntax=True,
                     ),
                     data=data,
                 )
 
             jinja_pre_render = _jinja_pre_render
+            # No per-statement operators needed — everything is done in pre-render.
+        else:
+            if template_syntax_config.enable_legacy_syntax:
+                stmt_operators.append(transpile_snowsql_templates)
 
-        per_stmt_config = SQLTemplateSyntaxConfig(
-            enable_legacy_syntax=template_syntax_config.enable_legacy_syntax,
-            enable_standard_syntax=template_syntax_config.enable_standard_syntax,
-            enable_jinja_syntax=False,
-        )
-        stmt_operators.append(
-            partial(
-                snowflake_sql_jinja_render,
-                template_syntax_config=per_stmt_config,
-                data=data,
+            per_stmt_config = SQLTemplateSyntaxConfig(
+                enable_legacy_syntax=template_syntax_config.enable_legacy_syntax,
+                enable_standard_syntax=template_syntax_config.enable_standard_syntax,
+                enable_jinja_syntax=False,
             )
-        )
+            stmt_operators.append(
+                partial(
+                    snowflake_sql_jinja_render,
+                    template_syntax_config=per_stmt_config,
+                    data=data,
+                )
+            )
         remove_comments = not retain_comments
 
         if query:
@@ -122,7 +132,7 @@ class SqlManager(SqlExecutionMixin):
             stmt_reader
         )
         if not any((errors, expected_results_cnt, compiled_statements)):
-            raise CliArgumentError("Use either query, filename or input option.")
+            raise CliArgumentError("No SQL statements found to execute.")
 
         if errors:
             for error in errors:

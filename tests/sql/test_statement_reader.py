@@ -8,6 +8,7 @@ from snowflake.cli._plugins.sql.statement_reader import (
     CompiledStatement,
     ParsedStatement,
     StatementType,
+    _strip_sql_comments,
     compile_statements,
     files_reader,
     parse_statement,
@@ -408,6 +409,44 @@ def test_detect_async_queries():
     ]
 
 
+def test_source_file_receives_pre_render(tmp_path_factory: pytest.TempPathFactory):
+    """pre_render must be applied to files loaded via !source, not just the top-level query."""
+    f1 = tmp_path_factory.mktemp("jinja_source") / "sourced.sql"
+    f1.write_text("{% if flag %}SELECT 42;{% endif %}")
+
+    rendered_calls: list[str] = []
+
+    def pre_render(content: str) -> str:
+        from snowflake.cli.api.rendering.sql_templates import (
+            SQLTemplateSyntaxConfig,
+            snowflake_sql_jinja_render,
+        )
+
+        rendered_calls.append(content)
+        return snowflake_sql_jinja_render(
+            content,
+            template_syntax_config=SQLTemplateSyntaxConfig(
+                enable_legacy_syntax=False,
+                enable_standard_syntax=False,
+                enable_jinja_syntax=True,
+            ),
+            data={"flag": True},
+        )
+
+    source = query_reader(
+        f"!source {f1.as_posix()};",
+        operators=[],
+        pre_render=pre_render,
+    )
+    errors, cnt, compiled = compile_statements(source)
+
+    assert errors == [], errors
+    assert cnt == 1
+    assert compiled[0].statement == "SELECT 42;"
+    # pre_render must have been called for the sourced file
+    assert any("{% if flag %}" in c for c in rendered_calls)
+
+
 @pytest.mark.parametrize("command", ["queries", "abort", "result", "AbOrT"])
 def test_parse_command(command):
     query = f"!{command} args k1=v1 k2=v2;"
@@ -425,3 +464,42 @@ def test_parse_unknown_command():
     assert parsed_statement.statement.read() == query
     assert parsed_statement.source_path is None
     assert parsed_statement.error == "Unknown command: unknown_cmd"
+
+
+# ---------------------------------------------------------------------------
+# _strip_sql_comments tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "sql, expected",
+    [
+        # Line comment stripped, newline preserved
+        ("SELECT 1; -- a comment\nSELECT 2;", "SELECT 1; \nSELECT 2;"),
+        # Block comment stripped
+        ("SELECT /* inline */ 1;", "SELECT  1;"),
+        # Multi-line block comment stripped
+        ("SELECT\n/* line1\nline2\n*/\n1;", "SELECT\n\n1;"),
+        # Single-quoted string preserved intact
+        ("SELECT '-- not a comment';", "SELECT '-- not a comment';"),
+        # Single-quoted string with '' escape preserved
+        ("SELECT 'it''s fine';", "SELECT 'it''s fine';"),
+        # Dollar-quoted string preserved
+        (
+            "SELECT $$-- not a comment\n{{var}}$$;",
+            "SELECT $$-- not a comment\n{{var}}$$;",
+        ),
+        # Jinja-like syntax in line comment is stripped
+        ("-- {{ var }}\nSELECT 1;", "\nSELECT 1;"),
+        # Jinja-like syntax in block comment is stripped
+        ("/* {{ var }} */\nSELECT 1;", "\nSELECT 1;"),
+        # No comments — input returned unchanged
+        ("SELECT 1; SELECT 2;", "SELECT 1; SELECT 2;"),
+        # Unterminated block comment — rest discarded
+        ("SELECT 1; /* no end", "SELECT 1; "),
+        # Unterminated line comment (no trailing newline) — rest discarded
+        ("SELECT 1; -- no newline", "SELECT 1; "),
+    ],
+)
+def test_strip_sql_comments(sql, expected):
+    assert _strip_sql_comments(sql) == expected

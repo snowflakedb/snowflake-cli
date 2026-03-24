@@ -645,6 +645,49 @@ def test_jinja_block_in_file_with_semicolons(
 
 
 @mock.patch("snowflake.cli._plugins.sql.manager.SqlManager._execute_string")
+def test_jinja_if_false_no_statements_error_message(mock_execute_query):
+    """Empty Jinja output should raise a clear error, not 'Use either query…'."""
+    manager = SqlManager()
+    query = "{% if x %}select 1;{% endif %}"
+    with pytest.raises(CliArgumentError, match="No SQL statements found to execute"):
+        manager.execute(
+            query=query,
+            files=None,
+            std_in=False,
+            data={"x": False},
+            template_syntax_config=SQLTemplateSyntaxConfig(
+                enable_legacy_syntax=False,
+                enable_standard_syntax=False,
+                enable_jinja_syntax=True,
+            ),
+        )
+    mock_execute_query.assert_not_called()
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlManager._execute_string")
+def test_jinja_template_syntax_in_sql_comment_is_ignored(mock_execute_query):
+    """Template-like syntax inside SQL comments must not be evaluated by Jinja."""
+    manager = SqlManager()
+    # The line comment contains {{ undefined_var }} which would raise an
+    # UndefinedError if evaluated, but SQL comments should be stripped first.
+    query = "-- {{ undefined_var }}\nSELECT 1;"
+    mock_execute_query.return_value = iter([])
+    _, results = manager.execute(
+        query=query,
+        files=None,
+        std_in=False,
+        data={},
+        template_syntax_config=SQLTemplateSyntaxConfig(
+            enable_legacy_syntax=False,
+            enable_standard_syntax=False,
+            enable_jinja_syntax=True,
+        ),
+    )
+    list(results)
+    mock_execute_query.assert_called_once_with("SELECT 1;", cursor_class=mock.ANY)
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlManager._execute_string")
 def test_jinja_undefined_var_in_block_gives_error(mock_execute_query):
     manager = SqlManager()
     query = "{% if undefined_var %}select 1;{% endif %}"
