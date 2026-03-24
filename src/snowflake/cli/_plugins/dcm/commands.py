@@ -315,9 +315,8 @@ def deploy(
 
 
 def _confirm_purge(project_id: FQN) -> None:
-    cli_console.warning("⚠️  DANGER: IRREVERSIBLE OPERATION ⚠️")
     cli_console.warning(
-        f"This operation will DROP ALL objects managed by DCM Project '{project_id}'."
+        f"⚠️  DANGER: This operation will DROP ALL objects managed by DCM Project '{project_id}'  ⚠️"
     )
     while True:
         user_input = typer.prompt(
