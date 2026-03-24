@@ -23,7 +23,7 @@ ArtifactPredicate = Callable[[Path, Path], bool]
 
 def _matches_ignore(name: str, patterns: List[str]) -> bool:
     """Return True if *name* (a single path component) matches any ignore pattern."""
-    return any(fnmatch.fnmatch(name, p) for p in patterns)
+    return any(fnmatch.fnmatchcase(name, p) for p in patterns)
 
 
 def _specifies_directory(s: str) -> bool:
@@ -232,11 +232,10 @@ class BundleMap:
             for root, subdirs, files in os.walk(absolute_src, followlinks=True):
                 if ignore:
                     subdirs[:] = [d for d in subdirs if not _matches_ignore(d, ignore)]
+                    files = [f for f in files if not _matches_ignore(f, ignore)]
 
                 relative_root = Path(root).relative_to(absolute_src)
                 for name in itertools.chain(subdirs, files):
-                    if ignore and _matches_ignore(name, ignore):
-                        continue
                     src_file_for_output = src_for_output / relative_root / name
                     dest_file_for_output = dest_for_output / relative_root / name
                     if predicate(src_file_for_output, dest_file_for_output):
