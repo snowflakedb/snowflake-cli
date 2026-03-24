@@ -688,6 +688,31 @@ def test_jinja_template_syntax_in_sql_comment_is_ignored(mock_execute_query):
 
 
 @mock.patch("snowflake.cli._plugins.sql.manager.SqlManager._execute_string")
+def test_standard_variable_containing_jinja_block(mock_execute_query):
+    """Standard <% %> variables expand first; if the value contains Jinja syntax
+    that Jinja then resolves in the same pass, the final SQL is correct.
+
+    Rendering order: standard → Jinja (inside one snowflake_sql_jinja_render call).
+    """
+    manager = SqlManager()
+    query = "<% snippet %>"
+    mock_execute_query.return_value = iter([])
+    _, results = manager.execute(
+        query=query,
+        files=None,
+        std_in=False,
+        data={"snippet": "{% if True %}select 1;{% endif %}"},
+        template_syntax_config=SQLTemplateSyntaxConfig(
+            enable_legacy_syntax=False,
+            enable_standard_syntax=True,
+            enable_jinja_syntax=True,
+        ),
+    )
+    list(results)
+    mock_execute_query.assert_called_once_with("select 1;", cursor_class=mock.ANY)
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlManager._execute_string")
 def test_jinja_undefined_var_in_block_gives_error(mock_execute_query):
     manager = SqlManager()
     query = "{% if undefined_var %}select 1;{% endif %}"
