@@ -24,6 +24,66 @@ URL_PATTERN = re.compile(r"^(\w+?):\/(\/.*)", flags=re.IGNORECASE)
 ASYNC_SUFFIX = ";>"
 
 
+def _strip_sql_comments(sql: str) -> str:
+    """Strip SQL comments from *sql* while preserving string and dollar-quoted literals.
+
+    Handles:
+    - ``--`` line comments
+    - ``/* ... */`` block comments (non-nestable)
+    - Single-quoted strings ``'...'`` with ``''`` escape
+    - Dollar-quoted strings ``$tag$...$tag$``
+
+    Used before Jinja pre-render so that template-like syntax inside comments
+    (e.g. ``-- {{ var }}``) is not interpreted by Jinja.
+    """
+    result: list[str] = []
+    i = 0
+    n = len(sql)
+    while i < n:
+        ch = sql[i]
+        # Single-quoted string: consume until closing quote, honouring '' escape
+        if ch == "'":
+            j = i + 1
+            while j < n:
+                if sql[j] == "'":
+                    j += 1
+                    if j < n and sql[j] == "'":  # escaped ''
+                        j += 1
+                        continue
+                    break
+                j += 1
+            result.append(sql[i:j])
+            i = j
+            continue
+        # Dollar-quoted string: $tag$...$tag$
+        if ch == "$":
+            end_tag = sql.find("$", i + 1)
+            if end_tag != -1:
+                tag = sql[i : end_tag + 1]
+                closing = sql.find(tag, end_tag + 1)
+                if closing != -1:
+                    result.append(sql[i : closing + len(tag)])
+                    i = closing + len(tag)
+                    continue
+        # Line comment: skip to end of line, preserving the newline
+        if sql[i : i + 2] == "--":
+            j = sql.find("\n", i)
+            if j == -1:
+                break  # rest of string is a comment
+            i = j  # keep the newline itself
+            continue
+        # Block comment: skip /* ... */
+        if sql[i : i + 2] == "/*":
+            j = sql.find("*/", i + 2)
+            if j == -1:
+                break  # unterminated block comment, skip rest
+            i = j + 2
+            continue
+        result.append(ch)
+        i += 1
+    return "".join(result)
+
+
 SplitedStatements = Generator[
     tuple[str, bool | None] | tuple[str, Literal[False]],
     Any,
@@ -186,6 +246,7 @@ def recursive_statement_reader(
     seen_files: list,
     operators: OperatorFunctions,
     remove_comments: bool,
+    pre_render: SqlTransformFunc | None = None,
 ) -> RecursiveStatementReader:
     """Based on detected source command reads content of the source and tracks for recursion cycles."""
     for stmt, _ in source:
@@ -203,11 +264,16 @@ def recursive_statement_reader(
 
                 seen_files.append(parsed_source.source_path)
 
+                content = parsed_source.statement.read()
+                if pre_render:
+                    content = pre_render(content)
+
                 yield from recursive_statement_reader(
-                    split_statements(parsed_source.statement, remove_comments),
+                    split_statements(io.StringIO(content), remove_comments),
                     seen_files,
                     operators,
                     remove_comments,
+                    pre_render,
                 )
 
                 seen_files.pop()
@@ -240,6 +306,7 @@ def files_reader(
                 [path.as_posix()],
                 operators,
                 remove_comments,
+                pre_render,
             )
 
 
@@ -260,7 +327,9 @@ def query_reader(
     if pre_render:
         content = pre_render(content)
     stmts = split_statements(io.StringIO(content), remove_comments)
-    yield from recursive_statement_reader(stmts, [], operators, remove_comments)
+    yield from recursive_statement_reader(
+        stmts, [], operators, remove_comments, pre_render
+    )
 
 
 @dataclass
