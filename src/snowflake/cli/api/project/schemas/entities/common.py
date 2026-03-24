@@ -246,6 +246,13 @@ class PathMapping(UpdatableModel):
         default=[],
     )
 
+    ignore: Optional[List[str]] = Field(
+        title="Glob patterns for files and directories to exclude from bundling.",
+        description="Each pattern is matched against individual path components "
+        "(e.g. 'node_modules' excludes any node_modules directory at any depth).",
+        default=None,
+    )
+
     @field_validator("processors")
     @classmethod
     def transform_processors(
