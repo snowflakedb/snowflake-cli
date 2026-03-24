@@ -512,6 +512,44 @@ class TestSnowflakeAppManager:
             SnowflakeAppManager().get_image_repo_url("MY_REPO")
 
     @patch(EXECUTE_QUERY)
+    def test_get_image_repo_url_with_database_and_schema(self, mock_execute):
+        cursor = Mock()
+        cursor.rowcount = 1
+        cursor.fetchall.return_value = [
+            {
+                "name": "MY_REPO",
+                "repository_url": "host.registry.snowflakecomputing.com/db/schema/my_repo",
+            }
+        ]
+        mock_execute.return_value = cursor
+
+        SnowflakeAppManager().get_image_repo_url(
+            "MY_REPO", database="CUSTOM_DB", schema="CUSTOM_SCHEMA"
+        )
+        query = mock_execute.call_args[0][0]
+        assert "in schema IDENTIFIER('CUSTOM_DB.CUSTOM_SCHEMA')" in query
+
+    @patch(EXECUTE_QUERY)
+    def test_get_image_repo_url_with_database_only(self, mock_execute):
+        cursor = Mock()
+        cursor.rowcount = 1
+        cursor.fetchall.return_value = [
+            {
+                "name": "MY_REPO",
+                "repository_url": "host.registry.snowflakecomputing.com/db/schema/my_repo",
+            }
+        ]
+        mock_execute.return_value = cursor
+
+        SnowflakeAppManager().get_image_repo_url("MY_REPO", database="CUSTOM_DB")
+        query = mock_execute.call_args[0][0]
+        assert "in database IDENTIFIER('CUSTOM_DB')" in query
+
+    def test_get_image_repo_url_schema_without_database_raises(self):
+        with pytest.raises(CliError, match="image_repository.schema requires"):
+            SnowflakeAppManager().get_image_repo_url("MY_REPO", schema="CUSTOM_SCHEMA")
+
+    @patch(EXECUTE_QUERY)
     def test_execute_build_job_without_eai(self, mock_execute):
         job_fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
         stage_fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
@@ -1501,6 +1539,9 @@ class TestDeployCommand:
                 result = runner.invoke(["__app", "deploy", "--skip-build"])
                 assert result.exit_code == 0, result.output
                 assert "Skipping build phase" in result.output
+                mock_mgr.get_image_repo_url.assert_called_once_with(
+                    "MY_REPO", database="TEST_DB", schema="TEST_SCHEMA"
+                )
                 mock_mgr.create_schema_if_not_exists.assert_not_called()
                 mock_mgr.execute_build_job.assert_not_called()
                 mock_mgr.create_service.assert_called_once()

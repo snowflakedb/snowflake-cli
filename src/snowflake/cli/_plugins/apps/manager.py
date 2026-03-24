@@ -343,9 +343,14 @@ class SnowflakeAppManager(SqlExecutionMixin):
             f"show image repositories like {identifier_to_show_like_pattern(repo_name)}"
         )
         if database and schema:
-            show_obj_query += f" in schema {database}.{schema}"
+            schema_fqn = FQN(database=None, schema=database, name=schema)
+            show_obj_query += f" in schema {schema_fqn.sql_identifier}"
         elif database:
-            show_obj_query += f" in database {database}"
+            show_obj_query += f" in database IDENTIFIER('{database}')"
+        elif schema:
+            raise CliError(
+                "image_repository.schema requires image_repository.database to be set."
+            )
         cursor = self.execute_query(show_obj_query, cursor_class=DictCursor)
 
         if cursor.rowcount is None or cursor.rowcount == 0:
