@@ -52,7 +52,7 @@ from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import (
     ObjectType,
 )
-from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.exceptions import CliError, FQNNameError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
@@ -318,16 +318,35 @@ def _confirm_purge(project_id: FQN) -> None:
     cli_console.warning(
         f"⚠️  DANGER: This operation will DROP ALL objects managed by DCM Project {project_id}  ⚠️"
     )
+    expected_identifier = str(project_id)
     while True:
         user_input = typer.prompt(
-            "Type PURGE to confirm or CANCEL to abort",
+            f"Type 'purge {expected_identifier}' to confirm or 'cancel' to abort",
             show_default=False,
         )
-        normalized = user_input.strip().upper()
-        if normalized == "PURGE":
-            return
-        if normalized == "CANCEL":
+        parts = user_input.strip().split(maxsplit=1)
+        if not parts:
+            continue
+
+        command = parts[0].upper()
+
+        if command == "CANCEL":
             raise typer.Abort()
+
+        if command == "PURGE" and len(parts) == 2:
+            try:
+                project_id_provided = FQN.from_string(parts[1])
+                if project_id_provided.identifier == project_id.identifier:
+                    return
+                cli_console.message(
+                    f"  Project identifier mismatch. Expected: {project_id.identifier}, provided: {project_id_provided.identifier}"
+                )
+            except FQNNameError:
+                log.debug(
+                    "Invalid project identifier provided during purge confirmation: '%s'",
+                    parts[1],
+                )
+                continue
 
 
 @app.command(requires_connection=True, hidden=True)

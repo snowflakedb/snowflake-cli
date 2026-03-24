@@ -878,7 +878,7 @@ def test_dcm_purge(
         # WHEN: purge the project
         result = runner.invoke_with_connection(
             ["dcm", "purge", project_name],
-            input="PURGE\n",
+            input="purge project_descriptive_name\n",
         )
         assert result.exit_code == 0, result.output
 
