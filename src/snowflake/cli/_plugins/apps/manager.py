@@ -555,7 +555,11 @@ class SnowflakeAppManager(SqlExecutionMixin):
         for row in cursor:
             if row["name"].upper() == endpoint_name.upper():
                 url = row["ingress_url"]
-                if url and not url.startswith(("http://", "https://")):
+                if (
+                    url
+                    and not url.startswith(("http://", "https://"))
+                    and "provisioning in progress" not in url.lower()
+                ):
                     url = f"https://{url}"
                 return url
         return None
