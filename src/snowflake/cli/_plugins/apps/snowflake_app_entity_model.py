@@ -172,13 +172,21 @@ class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
         if not isinstance(value, str) or not value.strip():
             raise ValueError("build_image must be a non-empty string")
         value = value.strip()
-        if " " in value or "\t" in value:
+        import re
+
+        if re.search(r"\s", value):
             raise ValueError(f"build_image must not contain whitespace, got: {value!r}")
+        _unsafe_chars = {"$", '"'}
+        found = _unsafe_chars.intersection(value)
+        if found:
+            raise ValueError(
+                f"build_image contains unsafe character(s) {found}, got: {value!r}"
+            )
         return value
 
     execute_as_caller: bool = Field(
         title="Whether the service runs with caller privileges",
-        default=False,
+        default=True,
     )
 
     dev_roles: Optional[List[str]] = Field(

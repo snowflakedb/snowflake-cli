@@ -42,7 +42,7 @@ class TestSnowflakeAppEntityModel:
         assert model.code_stage is None
         assert model.meta is None
         assert model.build_image is None
-        assert model.execute_as_caller is False
+        assert model.execute_as_caller is True
         assert model.dev_roles is None
 
     def test_full_model(self):
@@ -229,22 +229,58 @@ class TestSnowflakeAppEntityModel:
                 build_image="/my image:latest",
             )
 
-    def test_execute_as_caller_defaults_to_false(self):
-        model = SnowflakeAppEntityModel(
-            type="snowflake-app",
-            identifier="my_app",
-            artifacts=["app/*"],
-        )
-        assert model.execute_as_caller is False
+    def test_build_image_rejects_newline(self):
+        with pytest.raises(ValueError, match="must not contain whitespace"):
+            SnowflakeAppEntityModel(
+                type="snowflake-app",
+                identifier="my_app",
+                artifacts=["app/*"],
+                build_image="/my/image:latest\n/other",
+            )
 
-    def test_execute_as_caller_can_be_set_true(self):
+    def test_build_image_rejects_carriage_return(self):
+        with pytest.raises(ValueError, match="must not contain whitespace"):
+            SnowflakeAppEntityModel(
+                type="snowflake-app",
+                identifier="my_app",
+                artifacts=["app/*"],
+                build_image="/my/image\r:latest",
+            )
+
+    def test_build_image_rejects_dollar_sign(self):
+        with pytest.raises(ValueError, match="unsafe character"):
+            SnowflakeAppEntityModel(
+                type="snowflake-app",
+                identifier="my_app",
+                artifacts=["app/*"],
+                build_image="/my/$image:latest",
+            )
+
+    def test_build_image_rejects_double_quote(self):
+        with pytest.raises(ValueError, match="unsafe character"):
+            SnowflakeAppEntityModel(
+                type="snowflake-app",
+                identifier="my_app",
+                artifacts=["app/*"],
+                build_image='/my/"image":latest',
+            )
+
+    def test_execute_as_caller_defaults_to_true(self):
         model = SnowflakeAppEntityModel(
             type="snowflake-app",
             identifier="my_app",
             artifacts=["app/*"],
-            execute_as_caller=True,
         )
         assert model.execute_as_caller is True
+
+    def test_execute_as_caller_can_be_set_false(self):
+        model = SnowflakeAppEntityModel(
+            type="snowflake-app",
+            identifier="my_app",
+            artifacts=["app/*"],
+            execute_as_caller=False,
+        )
+        assert model.execute_as_caller is False
 
 
 class TestSnowflakeAppInProjectDefinition:
