@@ -1,0 +1,6 @@
+type: dcm_project
+
+scripts:
+  deploy:
+    cmd: echo "Deploying from manifest.yml"
+    description: Deploy script from manifest.yml

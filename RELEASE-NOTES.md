@@ -20,6 +20,12 @@
 ## Deprecations
 
 ## New additions
+* Added `snow run` command to execute project scripts defined in `snowflake.yml` or `manifest.yml`:
+  * Scripts support variable interpolation (`${database}`, `${env.VAR}`, `${entity.<name>.<prop>}`)
+  * Composite scripts can chain multiple named scripts via the `run` field
+  * Supports `--list`, `--dry-run`, `--continue-on-error`, and `--var` overrides
+  * Additional arguments can be passed through to the underlying command after `--`
+* Added `scripts` section to the `snowflake.yml` project definition schema and `manifest.yml` for defining reusable project scripts. Each script supports `cmd` (single command), `run` (composite), `description`, `shell`, `cwd`, and `env` fields. Scripts must be defined in only one file per project.
 
 ## Fixes and improvements
 

@@ -35,6 +35,7 @@ from snowflake.cli.api.project.schemas.entities.entities import (
     EntityModel,
     v2_entity_model_types_map,
 )
+from snowflake.cli.api.project.schemas.scripts import ScriptModel
 from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 from snowflake.cli.api.project.schemas.v1.native_app.native_app import (
     NativeApp,
@@ -131,6 +132,10 @@ class DefinitionV20(_ProjectDefinitionBase):
     )
     mixins: Optional[Dict[str, Dict]] = Field(
         title="Mixins to apply to entities",
+        default=None,
+    )
+    scripts: Optional[Dict[str, ScriptModel]] = Field(
+        title="Project scripts for common tasks",
         default=None,
     )
 
