@@ -310,12 +310,20 @@ def _service_spec(
     image_url: str,
     app_port: int = DEFAULT_APP_PORT,
     command: Optional[list] = None,
+    execute_as_caller: bool = False,
 ) -> str:
     """Return the SPCS YAML spec for the application service."""
     command_block = ""
     if command:
         items = "\n".join(f"        - {c}" for c in command)
         command_block = f"\n      command:\n{items}"
+
+    capabilities_block = ""
+    if execute_as_caller:
+        capabilities_block = """
+capabilities:
+  securityContext:
+    executeAsCaller: true"""
 
     return f"""spec:
   containers:
@@ -324,10 +332,7 @@ def _service_spec(
   endpoints:
     - name: app-endpoint
       port: {app_port}
-      public: true
-capabilities:
-  securityContext:
-    executeAsCaller: true
+      public: true{capabilities_block}
 serviceRoles:
   - name: viewer
     endpoints:
@@ -487,10 +492,14 @@ class SnowflakeAppManager(SqlExecutionMixin):
         query_warehouse: str,
         app_port: int = DEFAULT_APP_PORT,
         app_comment: Optional[str] = None,
+        execute_as_caller: bool = False,
     ) -> None:
         """Create a service with a placeholder spec (suspended by default)."""
         spec = _service_spec(
-            _SERVICE_PLACEHOLDER_IMAGE, app_port, command=["sleep", "infinity"]
+            _SERVICE_PLACEHOLDER_IMAGE,
+            app_port,
+            command=["sleep", "infinity"],
+            execute_as_caller=execute_as_caller,
         )
 
         query = (
@@ -515,9 +524,10 @@ class SnowflakeAppManager(SqlExecutionMixin):
         service_name: FQN,
         image_url: str,
         app_port: int = DEFAULT_APP_PORT,
+        execute_as_caller: bool = False,
     ) -> None:
         """Alter a service with the built image spec."""
-        spec = _service_spec(image_url, app_port)
+        spec = _service_spec(image_url, app_port, execute_as_caller=execute_as_caller)
 
         query = (
             f"ALTER SERVICE {service_name.sql_identifier}\n"

@@ -164,6 +164,11 @@ class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
         default=None,
     )
 
+    execute_as_caller: bool = Field(
+        title="Whether the service runs with caller privileges",
+        default=False,
+    )
+
     dev_roles: Optional[List[str]] = Field(
         title="Development roles for the app", default=None
     )
