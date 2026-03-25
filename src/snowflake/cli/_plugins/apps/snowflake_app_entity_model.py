@@ -164,6 +164,18 @@ class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
         default=None,
     )
 
+    @field_validator("build_image", mode="before")
+    @classmethod
+    def _validate_build_image(cls, value):
+        if value is None:
+            return None
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("build_image must be a non-empty string")
+        value = value.strip()
+        if " " in value or "\t" in value:
+            raise ValueError(f"build_image must not contain whitespace, got: {value!r}")
+        return value
+
     execute_as_caller: bool = Field(
         title="Whether the service runs with caller privileges",
         default=False,

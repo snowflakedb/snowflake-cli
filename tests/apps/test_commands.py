@@ -587,6 +587,36 @@ class TestSnowflakeAppManager:
         assert "EXTERNAL_ACCESS_INTEGRATIONS = (MY_EAI)" in query
 
     @patch(EXECUTE_QUERY)
+    def test_execute_build_job_uses_default_image(self, mock_execute):
+        job_fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        stage_fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
+        SnowflakeAppManager().execute_build_job(
+            job_service_name=job_fqn,
+            compute_pool="BUILD_POOL",
+            code_stage=stage_fqn,
+            image_repo_url="host/db/schema/repo",
+            app_id="my_app",
+        )
+        query = mock_execute.call_args[0][0]
+        assert "sf-image-build:0.0.1" in query
+
+    @patch(EXECUTE_QUERY)
+    def test_execute_build_job_with_custom_build_image(self, mock_execute):
+        job_fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        stage_fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
+        SnowflakeAppManager().execute_build_job(
+            job_service_name=job_fqn,
+            compute_pool="BUILD_POOL",
+            code_stage=stage_fqn,
+            image_repo_url="host/db/schema/repo",
+            app_id="my_app",
+            build_image="/my/custom/builder:2.0",
+        )
+        query = mock_execute.call_args[0][0]
+        assert '"/my/custom/builder:2.0"' in query
+        assert "sf-image-build:0.0.1" not in query
+
+    @patch(EXECUTE_QUERY)
     def test_get_build_status_done(self, mock_execute):
         cursor = Mock()
         cursor.__iter__ = Mock(
@@ -646,6 +676,29 @@ class TestSnowflakeAppManager:
         assert "ALTER SERVICE IDENTIFIER('DB.SCHEMA.SVC') SUSPEND" in suspend_query
 
     @patch(EXECUTE_QUERY)
+    def test_create_service_default_no_execute_as_caller(self, mock_execute):
+        fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
+        SnowflakeAppManager().create_service(
+            service_name=fqn,
+            compute_pool="SVC_POOL",
+            query_warehouse="WH",
+        )
+        create_query = mock_execute.call_args_list[0][0][0]
+        assert "executeAsCaller" not in create_query
+
+    @patch(EXECUTE_QUERY)
+    def test_create_service_with_execute_as_caller(self, mock_execute):
+        fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
+        SnowflakeAppManager().create_service(
+            service_name=fqn,
+            compute_pool="SVC_POOL",
+            query_warehouse="WH",
+            execute_as_caller=True,
+        )
+        create_query = mock_execute.call_args_list[0][0][0]
+        assert "executeAsCaller: true" in create_query
+
+    @patch(EXECUTE_QUERY)
     def test_create_service_with_comment(self, mock_execute):
         fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
         SnowflakeAppManager().create_service(
@@ -683,6 +736,27 @@ class TestSnowflakeAppManager:
         query = mock_execute.call_args[0][0]
         assert "ALTER SERVICE IDENTIFIER('DB.SCHEMA.SVC')" in query
         assert "/db/schema/repo/my_app:latest" in query
+
+    @patch(EXECUTE_QUERY)
+    def test_alter_service_spec_default_no_execute_as_caller(self, mock_execute):
+        fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
+        SnowflakeAppManager().alter_service_spec(
+            service_name=fqn,
+            image_url="/db/schema/repo/my_app:latest",
+        )
+        query = mock_execute.call_args[0][0]
+        assert "executeAsCaller" not in query
+
+    @patch(EXECUTE_QUERY)
+    def test_alter_service_spec_with_execute_as_caller(self, mock_execute):
+        fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
+        SnowflakeAppManager().alter_service_spec(
+            service_name=fqn,
+            image_url="/db/schema/repo/my_app:latest",
+            execute_as_caller=True,
+        )
+        query = mock_execute.call_args[0][0]
+        assert "executeAsCaller: true" in query
 
     @patch(EXECUTE_QUERY)
     def test_resume_service(self, mock_execute):
@@ -762,6 +836,26 @@ class TestSnowflakeAppManager:
         fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
         url = SnowflakeAppManager().get_service_endpoint_url(fqn)
         assert url is None
+
+    @patch(EXECUTE_QUERY)
+    def test_get_service_endpoint_url_provisioning_in_progress(self, mock_execute):
+        cursor = Mock()
+        cursor.__iter__ = Mock(
+            return_value=iter(
+                [
+                    {
+                        "name": "app-endpoint",
+                        "ingress_url": "Provisioning in progress... check back later",
+                    }
+                ]
+            )
+        )
+        mock_execute.return_value = cursor
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
+        url = SnowflakeAppManager().get_service_endpoint_url(fqn)
+        assert url == "Provisioning in progress... check back later"
+        assert not url.startswith("https://")
 
 
 # ── CLI command tests ─────────────────────────────────────────────────
