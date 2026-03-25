@@ -634,7 +634,7 @@ def test_temporary_connection(mock_connector, mock_ctx, option, runner):
         schema="PUBLIC",
         warehouse="xsmall",
         application_name="snowcli",
-        using_session_keep_alive=True,
+        client_session_keep_alive=True,
     )
 
 
@@ -720,7 +720,7 @@ def test_key_pair_authentication(
         schema="PUBLIC",
         warehouse="xsmall",
         application_name="snowcli",
-        using_session_keep_alive=True,
+        client_session_keep_alive=True,
     )
 
 
@@ -769,7 +769,7 @@ def test_session_and_master_tokens(mock_connector, mock_ctx, runner):
         warehouse="xsmall",
         server_session_keep_alive=True,
         application_name="snowcli",
-        using_session_keep_alive=True,
+        client_session_keep_alive=True,
     )
 
 
@@ -797,7 +797,7 @@ def test_token_file_path_tokens(mock_connector, mock_ctx, runner, temporary_dire
         application="SNOWCLI.OBJECT.LIST",
         token_file_path=str(token_file),
         application_name="snowcli",
-        using_session_keep_alive=True,
+        client_session_keep_alive=True,
     )
 
 
@@ -846,7 +846,7 @@ def test_key_pair_authentication_from_config(
         authenticator="SNOWFLAKE_JWT",
         private_key="secret value",
         application_name="snowcli",
-        using_session_keep_alive=True,
+        client_session_keep_alive=True,
     )
 
 
@@ -985,7 +985,7 @@ def test_connection_details_are_resolved_using_environment_variables(
             "role": "role",
             "password": "dummy",
             "application_name": "snowcli",
-            "using_session_keep_alive": True,
+            "client_session_keep_alive": True,
             "token": "a_dummy_token",
         }
 
@@ -1049,7 +1049,7 @@ def test_flags_take_precedence_before_environment_variables(
             "password": "password_from_flag",
             "role": "role_from_flag",
             "application_name": "snowcli",
-            "using_session_keep_alive": True,
+            "client_session_keep_alive": True,
             "token": "a_dummy_token_but_from_flag",
         }
 
@@ -1088,7 +1088,7 @@ def test_source_precedence(mock_connect, runner):
         "database": "database_from_connection_env",
         "role": "role_from_global_env",
         "application_name": "snowcli",
-        "using_session_keep_alive": True,
+        "client_session_keep_alive": True,
     }
 
 
