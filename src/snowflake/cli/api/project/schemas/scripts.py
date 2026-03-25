@@ -17,7 +17,6 @@ from __future__ import annotations
 from typing import Dict, List, Optional
 
 from pydantic import Field, model_validator
-
 from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 
 

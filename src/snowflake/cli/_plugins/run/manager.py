@@ -25,7 +25,6 @@ from subprocess import run as _subprocess_run
 from typing import Dict, List, Optional, Tuple
 
 import yaml
-
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB

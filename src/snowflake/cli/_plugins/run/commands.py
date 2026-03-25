@@ -18,7 +18,6 @@ from pathlib import Path
 from typing import List, Optional
 
 import typer
-
 from snowflake.cli._plugins.run.manager import ScriptManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition
