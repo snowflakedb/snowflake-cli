@@ -215,6 +215,10 @@ class ScriptManager:
                 f"Define it in your project env section or pass --var {var_name}=VALUE"
             )
 
+        if not shell_mode:
+            args = shlex.split(cmd)
+            return shlex.join(VARIABLE_PATTERN.sub(replace_var, arg) for arg in args)
+
         return VARIABLE_PATTERN.sub(replace_var, cmd)
 
     def execute_script(
@@ -240,7 +244,7 @@ class ScriptManager:
         if not script:
             raise ValueError(f"Script '{name}' not found")
 
-        if script.run:
+        if script.run is not None:
             return self._execute_composite(
                 name,
                 script,
@@ -266,9 +270,8 @@ class ScriptManager:
         verbose: bool,
     ) -> ScriptExecutionResult:
         """Execute a single command script."""
-        cmd = self.interpolate_variables(
-            script.cmd, var_overrides, shell_mode=bool(script.shell)
-        )
+        is_shell = bool(script.shell)
+        cmd = self.interpolate_variables(script.cmd, var_overrides, shell_mode=is_shell)
 
         if extra_args:
             cmd = f"{cmd} {' '.join(shlex.quote(arg) for arg in extra_args)}"
@@ -287,7 +290,7 @@ class ScriptManager:
         if script.env:
             env.update(script.env)
 
-        if script.shell:
+        if is_shell:
             if sys.platform == "win32":
                 result = _subprocess_run(
                     cmd,

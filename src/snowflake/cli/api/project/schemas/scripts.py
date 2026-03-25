@@ -17,6 +17,7 @@ from __future__ import annotations
 from typing import Dict, List, Optional
 
 from pydantic import Field, model_validator
+
 from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 
 
@@ -54,4 +55,6 @@ class ScriptModel(UpdatableModel):
             raise ValueError("Script must have either 'cmd' or 'run' defined")
         if self.cmd is not None and self.run is not None:
             raise ValueError("Script cannot have both 'cmd' and 'run' defined")
+        if self.run is not None and len(self.run) == 0:
+            raise ValueError("'run' field cannot be an empty list")
         return self
