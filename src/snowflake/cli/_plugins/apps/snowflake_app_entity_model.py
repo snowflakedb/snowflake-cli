@@ -159,6 +159,11 @@ class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
 
     app_port: int = Field(title="Port the app listens on", default=DEFAULT_APP_PORT)
 
+    build_image: Optional[str] = Field(
+        title="Custom container image for building the app",
+        default=None,
+    )
+
     dev_roles: Optional[List[str]] = Field(
         title="Development roles for the app", default=None
     )

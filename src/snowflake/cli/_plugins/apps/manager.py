@@ -284,12 +284,14 @@ def _build_job_spec(
     image_repo_url: str,
     app_id: str,
     code_stage: FQN,
+    build_image: Optional[str] = None,
 ) -> str:
     """Return the SPCS YAML spec for the image-build job service."""
+    image = build_image or _BUILD_IMAGE
     return f"""spec:
   containers:
   - name: main
-    image: "{_BUILD_IMAGE}"
+    image: "{image}"
     env:
       IMAGE_REGISTRY_URL: "{image_repo_url}"
       IMAGE_NAME: "{app_id.lower()}"
@@ -440,9 +442,10 @@ class SnowflakeAppManager(SqlExecutionMixin):
         image_repo_url: str,
         app_id: str,
         external_access_integration: Optional[str] = None,
+        build_image: Optional[str] = None,
     ) -> None:
         """Execute a build job service."""
-        spec = _build_job_spec(image_repo_url, app_id, code_stage)
+        spec = _build_job_spec(image_repo_url, app_id, code_stage, build_image)
 
         query_lines = [
             f"EXECUTE JOB SERVICE IN COMPUTE POOL {compute_pool}",

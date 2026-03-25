@@ -362,6 +362,7 @@ def deploy(
             image_repo_url=image_repo_url,
             app_id=app_name,
             external_access_integration=build_eai,
+            build_image=entity.build_image,
         )
 
         # Step 6: Poll for build completion
