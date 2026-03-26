@@ -33,6 +33,9 @@ class TestNotebookProjectCommands:
 
     @mock.patch(PROJECT_MANAGER)
     def test_create_project(self, mock_project_manager, runner):
+        mock_project_manager.return_value.process_source.return_value = (
+            'snow://workspace/"test_workspace"'
+        )
         mock_project_manager.return_value.create.return_value = (
             "Project successfully created."
         )
@@ -50,6 +53,9 @@ class TestNotebookProjectCommands:
         )
         assert result.exit_code == 0, result.output
         assert "Project successfully created." in result.output
+        mock_project_manager.return_value.process_source.assert_called_once_with(
+            'snow://workspace/"test_workspace"'
+        )
         mock_project_manager.return_value.create.assert_called_once_with(
             "test_project",
             'snow://workspace/"test_workspace"',
@@ -60,6 +66,9 @@ class TestNotebookProjectCommands:
 
     @mock.patch(PROJECT_MANAGER)
     def test_create_project_without_comment(self, mock_project_manager, runner):
+        mock_project_manager.return_value.process_source.return_value = (
+            'snow://workspace/"test_workspace"'
+        )
         mock_project_manager.return_value.create.return_value = (
             "Project successfully created."
         )
@@ -75,6 +84,9 @@ class TestNotebookProjectCommands:
         )
         assert result.exit_code == 0, result.output
         assert "Project successfully created." in result.output
+        mock_project_manager.return_value.process_source.assert_called_once_with(
+            'snow://workspace/"test_workspace"'
+        )
         mock_project_manager.return_value.create.assert_called_once_with(
             "test_project", 'snow://workspace/"test_workspace"', None, False, False
         )
@@ -112,6 +124,9 @@ class TestNotebookProjectCommands:
 
     @mock.patch(PROJECT_MANAGER)
     def test_create_project_with_overwrite(self, mock_project_manager, runner):
+        mock_project_manager.return_value.process_source.return_value = (
+            'snow://workspace/"test_workspace"'
+        )
         mock_project_manager.return_value.create.return_value = (
             "Project successfully created."
         )
@@ -130,6 +145,9 @@ class TestNotebookProjectCommands:
         )
         assert result.exit_code == 0, result.output
         assert "Project successfully created." in result.output
+        mock_project_manager.return_value.process_source.assert_called_once_with(
+            'snow://workspace/"test_workspace"'
+        )
         mock_project_manager.return_value.create.assert_called_once_with(
             "test_project",
             'snow://workspace/"test_workspace"',
@@ -140,6 +158,9 @@ class TestNotebookProjectCommands:
 
     @mock.patch(PROJECT_MANAGER)
     def test_create_project_with_skip_if_exists(self, mock_project_manager, runner):
+        mock_project_manager.return_value.process_source.return_value = (
+            'snow://workspace/"test_workspace"'
+        )
         mock_project_manager.return_value.create.return_value = (
             "Project successfully created."
         )
@@ -158,6 +179,9 @@ class TestNotebookProjectCommands:
         )
         assert result.exit_code == 0, result.output
         assert "Project successfully created." in result.output
+        mock_project_manager.return_value.process_source.assert_called_once_with(
+            'snow://workspace/"test_workspace"'
+        )
         mock_project_manager.return_value.create.assert_called_once_with(
             "test_project",
             'snow://workspace/"test_workspace"',
@@ -327,3 +351,111 @@ class TestNotebookProjectCommands:
         )
         assert result.exit_code == 1
         assert "Main file is required" in result.output
+
+    @mock.patch(PROJECT_MANAGER)
+    def test_create_project_with_stage_source(self, mock_project_manager, runner):
+        mock_project_manager.return_value.process_source.return_value = "@my_stage/path"
+        mock_project_manager.return_value.create.return_value = (
+            "Project successfully created."
+        )
+        result = runner.invoke(
+            [
+                "notebook",
+                "project",
+                "create",
+                "test_project",
+                "--source",
+                "@my_stage/path",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Project successfully created." in result.output
+        mock_project_manager.return_value.process_source.assert_called_once_with(
+            "@my_stage/path"
+        )
+        mock_project_manager.return_value.create.assert_called_once_with(
+            "test_project", "@my_stage/path", None, False, False
+        )
+
+    @mock.patch(PROJECT_MANAGER)
+    def test_create_project_with_local_source(self, mock_project_manager, runner):
+        mock_project_manager.return_value.process_source.return_value = (
+            "@tmp_npo_stage_1234567"
+        )
+        mock_project_manager.return_value.create.return_value = (
+            "Project successfully created."
+        )
+        result = runner.invoke(
+            [
+                "notebook",
+                "project",
+                "create",
+                "test_project",
+                "--source",
+                "/local/path/to/project",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Project successfully created." in result.output
+        mock_project_manager.return_value.process_source.assert_called_once_with(
+            "/local/path/to/project"
+        )
+        mock_project_manager.return_value.create.assert_called_once_with(
+            "test_project", "@tmp_npo_stage_1234567", None, False, False
+        )
+
+    @mock.patch(PROJECT_MANAGER)
+    def test_create_project_with_file_protocol_source(
+        self, mock_project_manager, runner
+    ):
+        mock_project_manager.return_value.process_source.return_value = (
+            "@tmp_npo_stage_7654321"
+        )
+        mock_project_manager.return_value.create.return_value = (
+            "Project successfully created."
+        )
+        result = runner.invoke(
+            [
+                "notebook",
+                "project",
+                "create",
+                "test_project",
+                "--source",
+                "file:///local/path/to/project",
+                "--comment",
+                "local project",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Project successfully created." in result.output
+        mock_project_manager.return_value.process_source.assert_called_once_with(
+            "file:///local/path/to/project"
+        )
+        mock_project_manager.return_value.create.assert_called_once_with(
+            "test_project", "@tmp_npo_stage_7654321", "local project", False, False
+        )
+
+    def test_create_project_missing_name(self, runner):
+        result = runner.invoke(
+            [
+                "notebook",
+                "project",
+                "create",
+                "--source",
+                "@my_stage/path",
+            ]
+        )
+        assert result.exit_code == 1
+        assert "Name is required" in result.output
+
+    def test_create_project_missing_source(self, runner):
+        result = runner.invoke(
+            [
+                "notebook",
+                "project",
+                "create",
+                "test_project",
+            ]
+        )
+        assert result.exit_code == 1
+        assert "Source is required" in result.output
