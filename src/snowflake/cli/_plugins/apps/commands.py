@@ -20,18 +20,22 @@ import typer
 from snowflake.cli._plugins.apps.generate import _generate_snowflake_yml
 from snowflake.cli._plugins.apps.manager import (
     _APP_COMMAND_NAME,
+<<<<<<< HEAD
     APP_DEFAULTS_TABLE,
+=======
+    DEFAULT_IMAGE_REPOSITORY,
+>>>>>>> 45649e222 (artifact repo wip)
     DEFINITION_FILENAME,
     EXPOSE_UNSUPPORTED_SYNTAX,
     SnowflakeAppManager,
     _find_dockerfile_expose_port,
     _get_entity,
     _poll_until,
-    _resolve_deploy_defaults,
     _resolve_entity_id,
     perform_bundle,
 )
 from snowflake.cli._plugins.stage.manager import StageManager
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliError
@@ -44,23 +48,6 @@ app = SnowTyperFactory(
     help="Manages Snowflake Apps.",
     is_hidden=FeatureFlag.ENABLE_SNOWFLAKE_APPS.is_disabled,
 )
-
-
-def _make_stub_entity(app_name: str):
-    """Build a minimal entity-like object for _resolve_deploy_defaults.
-
-    Used during ``setup`` before a snowflake.yml exists, so all
-    configurable fields are None and only the app name is set.
-    """
-    from types import SimpleNamespace
-
-    return SimpleNamespace(
-        fqn=FQN.from_string(app_name),
-        query_warehouse=None,
-        build_compute_pool=None,
-        service_compute_pool=None,
-        build_eai=None,
-    )
 
 
 @app.command("setup", requires_connection=True)
@@ -82,15 +69,14 @@ def setup(
             f"{DEFINITION_FILENAME} already exists. Skipping initialization."
         )
 
-    manager = SnowflakeAppManager()
-    entity = _make_stub_entity(app_name)
-    defaults = _resolve_deploy_defaults(entity, manager)
+    # Get connection context for username and warehouse
+    ctx = get_cli_context()
+    ctx.connection_context.validate_and_complete()
+    ctx.connection_context.update_from_config()
+    warehouse = ctx.connection_context.warehouse
+    database = ctx.connection_context.database
 
-    project_file.write_text(
-        _generate_snowflake_yml(
-            app_name, defaults["query_warehouse"], defaults["database"]
-        )
-    )
+    project_file.write_text(_generate_snowflake_yml(app_name, warehouse, database))
     return MessageResult(f"Initialized Snowflake App project in {DEFINITION_FILENAME}.")
 
 
@@ -128,8 +114,9 @@ def validate(
     """
     Validates a local Snowflake App project.
 
-    Bundles the project and checks that a Dockerfile with an EXPOSE directive
-    exists.
+    Bundles the project, checks that a Dockerfile with an EXPOSE directive
+    exists, and verifies that the current role has the BIND SERVICE ENDPOINT
+    privilege required for deployment.
     """
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
@@ -203,7 +190,13 @@ def open_app(
     entity = _get_entity(resolved_entity_id)
 
     fqn = entity.fqn
-    service_fqn = FQN(database=fqn.database, schema=fqn.schema, name=fqn.name)
+    ctx = get_cli_context()
+    conn = ctx.connection_context
+    service_fqn = FQN(
+        database=fqn.database or conn.database,
+        schema=fqn.schema or conn.schema,
+        name=fqn.name,
+    )
 
     manager = SnowflakeAppManager()
     endpoint_url = manager.get_service_endpoint_url(service_fqn)
@@ -253,12 +246,26 @@ def deploy(
     fqn = entity.fqn
     app_name = fqn.name
 
+    ctx = get_cli_context()
+    conn = ctx.connection_context
+    database = fqn.database or conn.database
+    schema = fqn.schema or conn.schema
+
     if entity.code_stage:
         stage_name = entity.code_stage.name
         encryption_type = entity.code_stage.encryption_type or "SNOWFLAKE_SSE"
     else:
         stage_name = f"{app_name}_CODE_STAGE"
         encryption_type = "SNOWFLAKE_SSE"
+
+    build_compute_pool = (
+        entity.build_compute_pool.name if entity.build_compute_pool else None
+    )
+    build_eai = entity.build_eai.name if entity.build_eai else None
+    service_compute_pool = (
+        entity.service_compute_pool.name if entity.service_compute_pool else None
+    )
+    query_warehouse = entity.query_warehouse
 
     app_title = entity.meta.title if entity.meta else None
     app_description = entity.meta.description if entity.meta else None
@@ -279,23 +286,30 @@ def deploy(
     image_repo_database = defaults.get("image_repo_database") or database
     image_repo_schema = defaults.get("image_repo_schema") or schema
 
+    use_artifact_repo = entity.artifact_repository is not None
+    if use_artifact_repo:
+        ar = entity.artifact_repository
+        ar_database = ar.database or database
+        ar_schema = ar.schema_ or schema
+        artifact_repo_fqn_str = f"{ar_database}.{ar_schema}.{ar.name}"
+
     # ── Validate required configuration ───────────────────────────────
     if not skip_build and not build_compute_pool:
         raise CliError(
             "build_compute_pool is required for deploy. "
-            f"Please configure it in snowflake.yml or {APP_DEFAULTS_TABLE}."
+            "Please configure it in snowflake.yml."
         )
 
     if not service_compute_pool:
         raise CliError(
             "service_compute_pool is required for deploy. "
-            f"Please configure it in snowflake.yml or {APP_DEFAULTS_TABLE}."
+            "Please configure it in snowflake.yml."
         )
 
-    if not query_warehouse:
+    if not use_artifact_repo and not query_warehouse:
         raise CliError(
             "query_warehouse is required for deploy. "
-            f"Please configure it in snowflake.yml or {APP_DEFAULTS_TABLE}."
+            "Please configure it in snowflake.yml."
         )
 
     # ── Derived names ─────────────────────────────────────────────────
@@ -306,22 +320,20 @@ def deploy(
 
     stage_manager = StageManager()
 
-    # ── Resolve image repository URL (needed by both build and deploy) ─
-    cli_console.step(f"Getting image repository URL for {image_repository}")
-    image_repo_url = manager.get_image_repo_url(
-        image_repository, database=image_repo_database, schema=image_repo_schema
-    )
+    if not use_artifact_repo:
+        cli_console.step(f"Getting image repository URL for {image_repository}")
+        image_repo_url = manager.get_image_repo_url(
+            image_repository, database=image_repo_database, schema=image_repo_schema
+        )
 
     # ── Build phase ───────────────────────────────────────────────────
 
     if skip_build:
         cli_console.step("Skipping build phase (--skip-build)")
     else:
-        # Step 1: Create schema if it doesn't exist
         cli_console.step(f"Creating schema {schema} if it doesn't exist")
         manager.create_schema_if_not_exists(database, schema)
 
-        # Step 2: Clear or create stage
         if manager.stage_exists(stage_fqn):
             cli_console.step(f"Clearing existing stage @{stage_fqn}")
             manager.clear_stage(stage_fqn)
@@ -329,12 +341,6 @@ def deploy(
             cli_console.step(f"Creating stage @{stage_fqn}")
             manager.create_stage(stage_fqn, encryption_type)
 
-        # Step 3: Bundle and upload artifact files to stage
-        #
-        # We reuse perform_bundle (same logic as `snow __app bundle`) to resolve
-        # glob patterns and src/dest mappings into a flat temporary directory,
-        # then upload that directory recursively so nested folders are preserved
-        # on the stage.
         project_paths = perform_bundle(resolved_entity_id, entity)
 
         try:
@@ -350,83 +356,95 @@ def deploy(
         finally:
             project_paths.clean_up_output()
 
-        # Step 4: Drop existing build job if present
-        cli_console.step(f"Dropping service if exists: {build_job_fqn}")
-        manager.drop_service_if_exists(build_job_fqn)
+        if use_artifact_repo:
+            cli_console.step("Building app using artifact repository...")
+            build_result = manager.build_app_artifact_repo(
+                stage_fqn=stage_fqn,
+                artifact_repo_fqn=artifact_repo_fqn_str,
+                app_id=app_name,
+                compute_pool=build_compute_pool,
+            )
+            cli_console.step(
+                f"SPCS_TEST_BUILD_APP_ARTIFACT_REPO output:\n{build_result}"
+            )
+        else:
+            cli_console.step(f"Dropping service if exists: {build_job_fqn}")
+            manager.drop_service_if_exists(build_job_fqn)
 
-        # Step 5: Execute build job service
-        cli_console.step(f"Executing build job service: {build_job_fqn}")
-        manager.execute_build_job(
-            job_service_name=build_job_fqn,
-            compute_pool=build_compute_pool,
-            code_stage=stage_fqn,
-            image_repo_url=image_repo_url,
-            app_id=app_name,
-            external_access_integration=build_eai,
-            build_image=entity.build_image,
-        )
+            cli_console.step(f"Executing build job service: {build_job_fqn}")
+            manager.execute_build_job(
+                job_service_name=build_job_fqn,
+                compute_pool=build_compute_pool,
+                code_stage=stage_fqn,
+                image_repo_url=image_repo_url,
+                app_id=app_name,
+                external_access_integration=build_eai,
+                build_image=entity.build_image,
+            )
 
-        # Step 6: Poll for build completion
-        cli_console.step("Waiting for build to complete...")
-        _poll_until(
-            poll_fn=lambda: manager.get_build_status(build_job_fqn),
-            done_states={"DONE"},
-            error_states={"FAILED", "IDLE"},
-            known_pending_states={"PENDING", "RUNNING"},
-            timeout_message=f"Build timed out. Check service logs: {build_job_fqn}",
-        )
+            cli_console.step("Waiting for build to complete...")
+            _poll_until(
+                poll_fn=lambda: manager.get_build_status(build_job_fqn),
+                done_states={"DONE"},
+                error_states={"FAILED", "IDLE"},
+                known_pending_states={"PENDING", "RUNNING"},
+                timeout_message=f"Build timed out. Check service logs: {build_job_fqn}",
+            )
 
     # ── Deploy phase ──────────────────────────────────────────────────
 
-    # Construct the image path from the repo URL
-    # image_repo_url is a full registry URL like "host/db/schema/repo_name"
-    # Extract the path portion (everything after the host) for the service spec
-    repo_path = "/" + "/".join(image_repo_url.split("/")[1:])
-    image_url = f"{repo_path}/{app_name.lower()}:latest"
+    if use_artifact_repo:
+        cli_console.step("Deploying app using artifact repository...")
+        run_result = manager.run_app_artifact_repo(
+            artifact_repo_fqn=artifact_repo_fqn_str,
+            app_id=app_name,
+            version="LATEST",
+            service_name=app_name,
+            compute_pool=service_compute_pool,
+        )
+        cli_console.step(f"SPCS_TEST_RUN_APP_ARTIFACT_REPO output:\n{run_result}")
+    else:
+        repo_path = "/" + "/".join(image_repo_url.split("/")[1:])
+        image_url = f"{repo_path}/{app_name.lower()}:latest"
 
-    # Build app comment with metadata
-    comment_data = {"appId": app_name}
-    if app_title:
-        comment_data["appName"] = app_title
-    if app_description:
-        comment_data["appDescription"] = app_description
-    if app_icon:
-        comment_data["appIcon"] = app_icon
-    app_comment = json.dumps(comment_data)
+        comment_data = {"appId": app_name}
+        if app_title:
+            comment_data["appName"] = app_title
+        if app_description:
+            comment_data["appDescription"] = app_description
+        if app_icon:
+            comment_data["appIcon"] = app_icon
+        app_comment = json.dumps(comment_data)
 
-    # Step 7: Create service if it doesn't exist
-    cli_console.step(f"Creating service {service_fqn} if it doesn't exist")
-    manager.create_service(
-        service_name=service_fqn,
-        compute_pool=service_compute_pool,
-        query_warehouse=query_warehouse,
-        app_comment=app_comment,
-        execute_as_caller=entity.execute_as_caller,
-    )
+        cli_console.step(f"Creating service {service_fqn} if it doesn't exist")
+        manager.create_service(
+            service_name=service_fqn,
+            compute_pool=service_compute_pool,
+            query_warehouse=query_warehouse,
+            app_comment=app_comment,
+            execute_as_caller=entity.execute_as_caller,
+        )
 
-    # Step 8: Alter service with built image
-    cli_console.step(f"Updating service with image: {image_url}")
-    manager.alter_service_spec(
-        service_name=service_fqn,
-        image_url=image_url,
-        execute_as_caller=entity.execute_as_caller,
-    )
+        cli_console.step(f"Updating service with image: {image_url}")
+        manager.alter_service_spec(
+            service_name=service_fqn,
+            image_url=image_url,
+            execute_as_caller=entity.execute_as_caller,
+        )
 
-    # Step 9: Resume service
-    cli_console.step("Resuming service")
-    manager.resume_service(service_fqn)
+        cli_console.step("Resuming service")
+        manager.resume_service(service_fqn)
 
-    # Step 10: Poll until service is RUNNING
-    cli_console.step("Waiting for service to be ready...")
-    _poll_until(
-        poll_fn=lambda: manager.get_service_status(service_fqn),
-        done_states={"RUNNING"},
-        error_states={"FAILED", "IDLE"},
-        known_pending_states={"PENDING", "SUSPENDING", "SUSPENDED"},
-        timeout_message=f"Service timed out. Check service status: {service_fqn}",
-    )
+        cli_console.step("Waiting for service to be ready...")
+        _poll_until(
+            poll_fn=lambda: manager.get_service_status(service_fqn),
+            done_states={"RUNNING"},
+            error_states={"FAILED", "IDLE"},
+            known_pending_states={"PENDING", "SUSPENDING", "SUSPENDED"},
+            timeout_message=f"Service timed out. Check service status: {service_fqn}",
+        )
 
-    # Step 11: Get endpoint URL (poll until provisioning completes)
+    # ── Get endpoint URL ──────────────────────────────────────────────
     cli_console.step("Getting endpoint URL")
     endpoint_url = _poll_until(
         poll_fn=lambda: manager.get_service_endpoint_url(service_fqn),

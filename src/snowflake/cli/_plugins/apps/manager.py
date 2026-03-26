@@ -55,6 +55,7 @@ APP_DEFAULTS_INTEGRATION = "snowflake-apps"
 
 _BUILD_IMAGE = "/snowflake/images/snowflake_images/sf-image-build:0.0.1"
 _SERVICE_PLACEHOLDER_IMAGE = "/snowflake/images/snowflake_images/sf-image-build:0.0.1"
+_RUNTIME_IMAGE = "/temp/spcs_workspaces/repo/snowflake_spcs_runtime_app_x86_64:test-np"
 
 
 T = TypeVar("T")
@@ -723,3 +724,51 @@ class SnowflakeAppManager(SqlExecutionMixin):
                 exc_info=True,
             )
             return {}
+
+    def build_app_artifact_repo(
+        self,
+        stage_fqn: FQN,
+        artifact_repo_fqn: str,
+        app_id: str,
+        compute_pool: str,
+        runtime_image: str = _RUNTIME_IMAGE,
+        project_type: str = "",
+    ) -> str:
+        """Build an app using SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO."""
+        query = (
+            f"SELECT SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO("
+            f"'@{stage_fqn.identifier}', "
+            f"'{artifact_repo_fqn}', "
+            f"'{app_id}', "
+            f"'{compute_pool}', "
+            f"'{runtime_image}', "
+            f"'{project_type}'"
+            f")"
+        )
+        cursor = self.execute_query(query)
+        row = cursor.fetchone()
+        return row[0] if row else ""
+
+    def run_app_artifact_repo(
+        self,
+        artifact_repo_fqn: str,
+        app_id: str,
+        version: str,
+        service_name: str,
+        compute_pool: str,
+        runtime_image: str = _RUNTIME_IMAGE,
+    ) -> str:
+        """Deploy an app using SYSTEM$SPCS_TEST_RUN_APP_ARTIFACT_REPO."""
+        query = (
+            f"SELECT SYSTEM$SPCS_TEST_RUN_APP_ARTIFACT_REPO("
+            f"'{artifact_repo_fqn}', "
+            f"'{app_id}', "
+            f"'{version}', "
+            f"'{service_name}', "
+            f"'{compute_pool}', "
+            f"'{runtime_image}'"
+            f")"
+        )
+        cursor = self.execute_query(query)
+        row = cursor.fetchone()
+        return row[0] if row else ""
