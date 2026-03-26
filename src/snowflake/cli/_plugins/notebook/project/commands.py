@@ -68,8 +68,9 @@ def create(
     if overwrite and skip_if_exists:
         raise ClickException("overwrite and skip_if_exists cannot be used together")
     manager = NotebookProjectManager()
+    processed_source = manager.process_source(source)
     return MessageResult(
-        manager.create(name, source, comment, overwrite, skip_if_exists)
+        manager.create(name, processed_source, comment, overwrite, skip_if_exists)
     )
 
 
