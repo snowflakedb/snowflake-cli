@@ -416,6 +416,9 @@ def deploy(
     # ── Deploy phase ──────────────────────────────────────────────────
 
     if use_artifact_repo:
+        cli_console.step(f"Dropping service if exists: {service_fqn}")
+        manager.drop_service_if_exists(service_fqn)
+
         cli_console.step("Deploying app using artifact repository...")
         run_result = manager.run_app_artifact_repo(
             artifact_repo_fqn=artifact_repo_fqn_str,
