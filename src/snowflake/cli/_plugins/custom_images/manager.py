@@ -123,10 +123,12 @@ class CustomImageManager:
         self.config = self._load_config(self.config_path)
         # Config-driven checks (controlled by image_validation.yaml)
         self._check_handlers: dict[str, Any] = {
-            "required_scripts": self._check_required_scripts,
             "environment_variables": self._check_environment_variables,
             "python_packages": self._check_python_packages,
             "dependency_health": self._check_dependency_health,
+        }
+        self._notebook_check_handlers: dict[str, Any] = {
+            "required_scripts": self._check_required_scripts,
         }
 
     def _load_config(self, config_path: Path) -> dict:
@@ -236,12 +238,39 @@ class CustomImageManager:
             else:
                 report.add_result(results)
 
+        # Notebook-specific checks (failures only affect Notebook readiness)
+        notebook_checks = self.config.get("notebook_checks", {})
+        notebook_all_passed = True
+        for check_name, handler in self._notebook_check_handlers.items():
+            check_config = notebook_checks.get(check_name)
+            if check_config is None or check_config is False:
+                continue
+            results = handler(context, check_config)
+            if isinstance(results, list):
+                for result in results:
+                    report.add_result(result)
+                    if not result.passed:
+                        notebook_all_passed = False
+            else:
+                report.add_result(results)
+                if not results.passed:
+                    notebook_all_passed = False
+
         # User-requested checks (controlled by CLI flags)
         if scan_vulnerabilities:
             result = self._check_vulnerabilities(context)
             report.add_result(result)
 
-        return report, format_report(report)
+        common_passed = all(
+            r.passed for r in report.results if not r.check_name.startswith("script_")
+        )
+        readiness = []
+        if common_passed:
+            readiness.append("ML Jobs")
+        if common_passed and notebook_all_passed:
+            readiness.append("Notebooks")
+
+        return report, format_report(report, readiness)
 
     def _check_entrypoint(
         self, context: ValidationContext, expected: str
@@ -533,7 +562,7 @@ class CustomImageManager:
         )
 
 
-def format_report(report: ValidationReport) -> str:
+def format_report(report: ValidationReport, readiness: list[str] | None = None) -> str:
     """Format the validation report for display."""
     lines = []
     lines.append(f"\n{'=' * 60}")
@@ -546,6 +575,11 @@ def format_report(report: ValidationReport) -> str:
 
     lines.append(f"\n{'-' * 60}")
     lines.append(f"Summary: {report.passed_count} passed, {report.failed_count} failed")
+
+    if readiness:
+        lines.append(f"Ready for: {', '.join(readiness)}")
+    elif readiness is not None:
+        lines.append("Ready for: None")
 
     if report.all_passed:
         lines.append("Status: ALL CHECKS PASSED")

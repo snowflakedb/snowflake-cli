@@ -39,8 +39,6 @@ version: "1.0"
 
 checks:
   entrypoint: "/usr/local/bin/entrypoint.sh"
-  required_scripts:
-    - start_nbctl.sh
   environment_variables:
     - name: DASHBOARD_PORT
       value: "12003"
@@ -51,6 +49,10 @@ checks:
     enabled: true
     ignore_patterns:
       - jupyter-lsp
+
+notebook_checks:
+  required_scripts:
+    - start_nbctl.sh
 """
         config_file = tmp_path / "test_config.yaml"
         config_file.write_text(config_content)
@@ -226,8 +228,8 @@ checks:
         assert "vulnerability_scan" not in check_names
 
     @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
-    def test_required_scripts_pass(self, mock_run, config_path):
-        """Test that required_scripts check passes when script exists and is executable."""
+    def test_notebook_ready_when_script_present(self, mock_run, config_path):
+        """Test readiness reports both ML Jobs and Notebooks when all checks pass."""
         inspect_response = make_docker_inspect_response(
             entrypoint=["/usr/local/bin/entrypoint.sh"],
             env_vars=["DASHBOARD_PORT=12003"],
@@ -244,17 +246,17 @@ checks:
         )
         manager = CustomImageManager(config_path=config_path)
 
-        report, _ = manager.validate("test-image:latest")
+        report, output = manager.validate("test-image:latest")
 
         script_result = next(
             r for r in report.results if r.check_name == "script_start_nbctl.sh"
         )
         assert script_result.passed
-        assert "executable" in script_result.message
+        assert "Ready for: ML Jobs, Notebooks" in output
 
     @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
-    def test_required_scripts_missing(self, mock_run, config_path):
-        """Test that required_scripts check fails when script is missing or not executable."""
+    def test_ml_job_only_when_script_missing(self, mock_run, config_path):
+        """Test readiness reports ML Jobs only when notebook script is missing."""
         inspect_response = make_docker_inspect_response(
             entrypoint=["/usr/local/bin/entrypoint.sh"],
             env_vars=["DASHBOARD_PORT=12003"],
@@ -272,13 +274,57 @@ checks:
         )
         manager = CustomImageManager(config_path=config_path)
 
-        report, _ = manager.validate("test-image:latest")
+        report, output = manager.validate("test-image:latest")
 
         script_result = next(
             r for r in report.results if r.check_name == "script_start_nbctl.sh"
         )
         assert not script_result.passed
-        assert "missing or not executable" in script_result.message
+        assert "Ready for: ML Jobs" in output
+        assert "Notebooks" not in output
+
+    @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
+    def test_required_scripts_empty_list(self, mock_run, tmp_path):
+        """Test that an empty required_scripts list is treated as no notebook checks."""
+        config_content = """
+version: "1.0"
+
+checks:
+  entrypoint: "/usr/local/bin/entrypoint.sh"
+  environment_variables:
+    - name: DASHBOARD_PORT
+      value: "12003"
+  python_packages:
+    - snowflake-ml-python
+    - ray
+
+notebook_checks:
+  required_scripts: []
+"""
+        config_file = tmp_path / "empty_scripts_config.yaml"
+        config_file.write_text(config_content)
+
+        inspect_response = make_docker_inspect_response(
+            entrypoint=["/usr/local/bin/entrypoint.sh"],
+            env_vars=["DASHBOARD_PORT=12003"],
+        )
+        pip_list = make_pip_list_response(
+            [
+                {"name": "snowflake-ml-python", "version": "1.0"},
+                {"name": "ray", "version": "2.0"},
+            ]
+        )
+        mock_run.side_effect = create_mock_side_effect(
+            inspect_response=inspect_response,
+            pip_list_response=pip_list,
+        )
+        manager = CustomImageManager(config_path=config_file)
+
+        report, output = manager.validate("test-image:latest")
+
+        check_names = [r.check_name for r in report.results]
+        assert not any(name.startswith("script_") for name in check_names)
+        assert "Ready for: ML Jobs, Notebooks" in output
 
 
 @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")

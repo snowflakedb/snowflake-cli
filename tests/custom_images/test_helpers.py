@@ -90,7 +90,7 @@ def create_mock_side_effect(
                     )
                 elif "test" in cmd and ("-x" in cmd or "-f" in cmd):
                     target = cmd[-1]
-                    failed = any(s in target for s in missing_scripts)
+                    failed = target in missing_scripts
                     return mock.Mock(
                         returncode=1 if failed else 0, stdout="", stderr=""
                     )

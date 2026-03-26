@@ -2,13 +2,9 @@
 
 version: "1.0"
 
+# Common checks run for all workloads (ML Jobs + Notebooks).
 checks:
   entrypoint: "/usr/local/bin/entrypoint.sh"
-
-  # Scripts that must exist and be executable in the image working directory.
-  # PEP injects "./start_nbctl.sh /shared/nbctl" as container args for vNext notebooks.
-  required_scripts:
-    - start_nbctl.sh
 
   environment_variables:
     - name: DASHBOARD_PORT
@@ -40,3 +36,9 @@ checks:
     enabled: true
     ignore_patterns:
       - jupyter-lsp  # Intentionally uninstalled from official images
+
+# Notebook-specific checks. Always run; failures here only affect Notebook readiness.
+# PEP injects "./start_nbctl.sh /shared/nbctl" as container args for vNext notebooks.
+notebook_checks:
+  required_scripts:
+    - start_nbctl.sh
