@@ -88,11 +88,12 @@ def _generate_snowflake_yml(
                 dest: ./
                 ignore:
                   - node_modules
-                  - .env
+                  - .env*
                   - __pycache__
                   - "*.pyc"
                   - .next
                   - .git
+                  - snowflake.log
 
             query_warehouse: {warehouse}
             {compute_pool_yaml}
