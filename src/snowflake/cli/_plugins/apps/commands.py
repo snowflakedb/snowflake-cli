@@ -20,6 +20,7 @@ import typer
 from snowflake.cli._plugins.apps.generate import _generate_snowflake_yml
 from snowflake.cli._plugins.apps.manager import (
     _APP_COMMAND_NAME,
+    APP_DEFAULTS_TABLE,
     DEFAULT_IMAGE_REPOSITORY,
     DEFINITION_FILENAME,
     EXPOSE_UNSUPPORTED_SYNTAX,
@@ -27,6 +28,7 @@ from snowflake.cli._plugins.apps.manager import (
     _find_dockerfile_expose_port,
     _get_entity,
     _poll_until,
+    _resolve_deploy_defaults,
     _resolve_entity_id,
     perform_bundle,
 )
@@ -245,8 +247,6 @@ def deploy(
     # ── Extract entity configuration ──────────────────────────────────
     fqn = entity.fqn
     app_name = fqn.name
-    database = fqn.database
-    schema = fqn.schema
 
     if entity.code_stage:
         stage_name = entity.code_stage.name
@@ -255,18 +255,20 @@ def deploy(
         stage_name = f"{app_name}_CODE_STAGE"
         encryption_type = "SNOWFLAKE_SSE"
 
-    build_compute_pool = (
-        entity.build_compute_pool.name if entity.build_compute_pool else None
-    )
-    build_eai = entity.build_eai.name if entity.build_eai else None
-    service_compute_pool = (
-        entity.service_compute_pool.name if entity.service_compute_pool else None
-    )
-    query_warehouse = entity.query_warehouse
-
     app_title = entity.meta.title if entity.meta else None
     app_description = entity.meta.description if entity.meta else None
     app_icon = entity.meta.icon if entity.meta else None
+
+    # ── Resolve defaults (snowflake.yml > config table > built-in) ────
+    manager = SnowflakeAppManager()
+    defaults = _resolve_deploy_defaults(entity, manager)
+
+    database = defaults["database"]
+    schema = defaults["schema"]
+    build_compute_pool = defaults["build_compute_pool"]
+    service_compute_pool = defaults["service_compute_pool"]
+    query_warehouse = defaults["query_warehouse"]
+    build_eai = defaults["build_eai"]
 
     if entity.image_repository:
         image_repository = entity.image_repository.name
@@ -281,19 +283,19 @@ def deploy(
     if not skip_build and not build_compute_pool:
         raise CliError(
             "build_compute_pool is required for deploy. "
-            "Please configure it in snowflake.yml."
+            f"Please configure it in snowflake.yml or {APP_DEFAULTS_TABLE}."
         )
 
     if not service_compute_pool:
         raise CliError(
             "service_compute_pool is required for deploy. "
-            "Please configure it in snowflake.yml."
+            f"Please configure it in snowflake.yml or {APP_DEFAULTS_TABLE}."
         )
 
     if not query_warehouse:
         raise CliError(
             "query_warehouse is required for deploy. "
-            "Please configure it in snowflake.yml."
+            f"Please configure it in snowflake.yml or {APP_DEFAULTS_TABLE}."
         )
 
     # ── Derived names ─────────────────────────────────────────────────
@@ -302,7 +304,6 @@ def deploy(
     build_job_fqn = FQN(database=database, schema=schema, name=build_job_service_name)
     service_fqn = FQN(database=database, schema=schema, name=app_name)
 
-    manager = SnowflakeAppManager()
     stage_manager = StageManager()
 
     # ── Resolve image repository URL (needed by both build and deploy) ─

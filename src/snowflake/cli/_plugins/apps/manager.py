@@ -14,6 +14,8 @@
 
 from __future__ import annotations
 
+import json
+import logging
 import re
 import time
 from pathlib import Path
@@ -36,6 +38,8 @@ from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import DictCursor
 
+log = logging.getLogger(__name__)
+
 DEFINITION_FILENAME = "snowflake.yml"
 SNOWFLAKE_APP_ENTITY_TYPE = "snowflake-app"
 # TODO: Update to "app" after migration from __app
@@ -45,6 +49,7 @@ _APP_COMMAND_NAME = "__app"
 SNOW_APPS_COMPUTE_POOL = "SNOW_APPS_DEFAULT_COMPUTE_POOL"
 DEFAULT_EXTERNAL_ACCESS = "SNOW_APPS_DEFAULT_EXTERNAL_ACCESS"
 DEFAULT_IMAGE_REPOSITORY = "SNOW_APPS_DEFAULT_IMAGE_REPOSITORY"
+APP_DEFAULTS_TABLE = "SNOW_APPS.CONFIG.APP_DEFAULTS"
 
 _BUILD_IMAGE = "/snowflake/images/snowflake_images/sf-image-build:0.0.1"
 _SERVICE_PLACEHOLDER_IMAGE = "/snowflake/images/snowflake_images/sf-image-build:0.0.1"
@@ -147,6 +152,74 @@ def _get_external_access(app_id: str) -> Optional[str]:
         return app_specific_eai
 
     return None
+
+
+def _resolve_deploy_defaults(
+    entity: "SnowflakeAppEntityModel",
+    manager: "SnowflakeAppManager",
+) -> Dict[str, Optional[str]]:
+    """Resolve deploy defaults using a three-tier precedence:
+
+    1. Values explicitly set in ``snowflake.yml`` (highest priority)
+    2. Values from the ``APP_DEFAULTS_TABLE`` config table
+    3. Built-in defaults (object-existence checks, lowest priority)
+
+    Returns a dict with keys ``query_warehouse``, ``build_compute_pool``,
+    ``service_compute_pool``, ``build_eai``, ``database``, and ``schema``.
+    Any of them may still be ``None`` if no source provides a value.
+    """
+
+    # ── 1. snowflake.yml values ───────────────────────────────────────
+    fqn = entity.fqn
+    app_name = fqn.name
+    yml_vals: Dict[str, Optional[str]] = {
+        "query_warehouse": entity.query_warehouse,
+        "build_compute_pool": (
+            entity.build_compute_pool.name if entity.build_compute_pool else None
+        ),
+        "service_compute_pool": (
+            entity.service_compute_pool.name if entity.service_compute_pool else None
+        ),
+        "build_eai": entity.build_eai.name if entity.build_eai else None,
+        "database": fqn.database,
+        "schema": fqn.schema,
+    }
+
+    # ── 2. Config-table values ────────────────────────────────────────
+    table_vals: Dict[str, Optional[str]] = {}
+    role = manager.current_role()
+    if role:
+        raw = manager.fetch_config_table_defaults(role)
+        if raw:
+            cli_console.step(
+                f"Loaded config-table defaults for role {role}: "
+                + ", ".join(f"{k}={v}" for k, v in raw.items())
+            )
+        table_vals = {
+            "query_warehouse": raw.get("warehouse"),
+            "build_compute_pool": raw.get("compute_pool"),
+            "service_compute_pool": raw.get("compute_pool"),
+            "build_eai": raw.get("eai"),
+            "database": raw.get("database"),
+            "schema": raw.get("schema"),
+        }
+
+    # ── 3. Built-in defaults ──────────────────────────────────────────
+    builtin_vals: Dict[str, Optional[str]] = {
+        "build_compute_pool": _get_compute_pool(),
+        "service_compute_pool": _get_compute_pool(),
+        "build_eai": _get_external_access(app_name),
+    }
+
+    # ── Merge (first non-None wins) ──────────────────────────────────
+    all_keys = set(yml_vals) | set(table_vals) | set(builtin_vals)
+    resolved: Dict[str, Optional[str]] = {}
+    for key in all_keys:
+        resolved[key] = (
+            yml_vals.get(key) or table_vals.get(key) or builtin_vals.get(key)
+        )
+
+    return resolved
 
 
 def _get_snowflake_app_entities() -> Dict[str, Any]:
@@ -576,3 +649,47 @@ class SnowflakeAppManager(SqlExecutionMixin):
                     url = f"https://{url}"
                 return url
         return None
+
+    def fetch_config_table_defaults(
+        self, role: str, integration: str = "snowflake-apps"
+    ) -> Dict[str, str]:
+        """Fetch defaults from the APP_DEFAULTS_TABLE for the given role.
+
+        Returns a dict that may contain keys such as ``warehouse``,
+        ``compute_pool``, ``eai``, ``database``, ``schema``.  Returns an empty
+        dict when the table does not exist, the role lacks permissions, the
+        query returns no rows, or any other error occurs.
+        """
+        from snowflake.cli.api.project.util import to_string_literal
+
+        try:
+            safe_integration = to_string_literal(integration)
+            safe_role = to_string_literal(role.upper())
+
+            cursor = self.execute_query(
+                f"SELECT defaults FROM {APP_DEFAULTS_TABLE} "
+                f"WHERE integration = {safe_integration} AND role = {safe_role} "
+                f"ORDER BY updated_at DESC LIMIT 1",
+                cursor_class=DictCursor,
+            )
+            row = cursor.fetchone()
+            if row is None:
+                return {}
+
+            raw = row.get("DEFAULTS") or row.get("defaults")
+            if raw is None:
+                return {}
+
+            defaults = json.loads(raw) if isinstance(raw, str) else raw
+            if not isinstance(defaults, dict):
+                return {}
+
+            return {k: str(v) for k, v in defaults.items() if v is not None}
+        except Exception:
+            log.debug(
+                "Could not read %s (table may not "
+                "exist or role lacks permissions) – skipping config-table defaults.",
+                APP_DEFAULTS_TABLE,
+                exc_info=True,
+            )
+            return {}
