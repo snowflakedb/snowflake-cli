@@ -49,7 +49,9 @@ _APP_COMMAND_NAME = "__app"
 SNOW_APPS_COMPUTE_POOL = "SNOW_APPS_DEFAULT_COMPUTE_POOL"
 DEFAULT_EXTERNAL_ACCESS = "SNOW_APPS_DEFAULT_EXTERNAL_ACCESS"
 DEFAULT_IMAGE_REPOSITORY = "SNOW_APPS_DEFAULT_IMAGE_REPOSITORY"
-APP_DEFAULTS_TABLE = "SNOW_APPS.CONFIG.APP_DEFAULTS"
+
+APP_DEFAULTS_TABLE = "TEMP.SNOW_APPS.SNOW_APP_DEFAULTS"
+APP_DEFAULTS_INTEGRATION = "snowflake-apps"
 
 _BUILD_IMAGE = "/snowflake/images/snowflake_images/sf-image-build:0.0.1"
 _SERVICE_PLACEHOLDER_IMAGE = "/snowflake/images/snowflake_images/sf-image-build:0.0.1"
@@ -651,7 +653,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         return None
 
     def fetch_config_table_defaults(
-        self, role: str, integration: str = "snowflake-apps"
+        self, role: str, integration: str = APP_DEFAULTS_INTEGRATION
     ) -> Dict[str, str]:
         """Fetch defaults from the APP_DEFAULTS_TABLE for the given role.
 
