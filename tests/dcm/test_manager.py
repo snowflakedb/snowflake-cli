@@ -490,6 +490,44 @@ def test_deploy_project_with_alias_special_characters(
     )
 
 
+@mock.patch(execute_queries)
+def test_purge_project(mock_execute_query):
+    mgr = DCMProjectManager()
+    mgr.purge(
+        project_identifier=TEST_PROJECT,
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PURGE"
+    )
+
+
+@mock.patch(execute_queries)
+def test_purge_project_with_skip_plan(mock_execute_query):
+    mgr = DCMProjectManager()
+    mgr.purge(
+        project_identifier=TEST_PROJECT,
+        skip_plan=True,
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PURGE SKIP PLAN"
+    )
+
+
+@mock.patch(execute_queries)
+def test_purge_project_with_alias(mock_execute_query):
+    mgr = DCMProjectManager()
+    mgr.purge(
+        project_identifier=TEST_PROJECT,
+        alias="my_alias",
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PURGE AS \"my_alias\""
+    )
+
+
 class TestSyncLocalFiles:
     @mock.patch("snowflake.cli._plugins.dcm.manager.sync_artifacts_with_stage")
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")

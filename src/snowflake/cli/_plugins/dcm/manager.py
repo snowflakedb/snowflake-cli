@@ -186,6 +186,24 @@ class DCMProjectManager(SqlExecutionMixin):
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} REFRESH ALL"
         return self.execute_query(query=query)
 
+    def purge(
+        self,
+        project_identifier: FQN,
+        alias: str | None = None,
+        skip_plan: bool = False,
+    ) -> SnowflakeCursor:
+        log.info(
+            "Running DCM purge manager operation (project_identifier=%s, skip_plan=%s).",
+            project_identifier,
+            skip_plan,
+        )
+        query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} PURGE"
+        if alias:
+            query += f' AS "{alias}"'
+        if skip_plan:
+            query += " SKIP PLAN"
+        return self.execute_query(query=query)
+
     def test(self, project_identifier: FQN) -> SnowflakeCursor:
         log.info(
             "Running DCM test manager operation (project_identifier=%s).",

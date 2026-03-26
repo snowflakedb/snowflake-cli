@@ -840,3 +840,56 @@ def test_dcm_raw_analyze_with_errors(
         result = runner.invoke_with_connection(["dcm", "raw-analyze", project_name])
         assert result.exit_code == 1, result.output
         assert "Analysis found 1 error(s)." in result.output
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_dcm_purge(
+    runner,
+    test_database,
+    project_directory,
+    sql_test_helper,
+):
+    project_name = "project_descriptive_name"
+    table_fqn = f"{test_database}.PUBLIC.PurgeTestTable"
+
+    with project_directory("dcm_project"):
+        # GIVEN: create a DCM project and deploy a table
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection(
+            [
+                "dcm",
+                "deploy",
+                project_name,
+                "-D",
+                f"table_name='{table_fqn}'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        # Sanity check: the deployed table exists
+        rows = sql_test_helper.execute_single_sql(
+            f"SHOW TABLES LIKE 'PurgeTestTable' IN SCHEMA {test_database}.PUBLIC"
+        )
+        assert len(rows) == 1
+
+        # WHEN: purge the project
+        result = runner.invoke_with_connection(
+            ["dcm", "purge", project_name],
+            input="purge project_descriptive_name\n",
+        )
+        assert result.exit_code == 0, result.output
+
+        # THEN: the project still exists
+        rows = sql_test_helper.execute_single_sql(
+            f"SHOW DCM PROJECTS LIKE '{project_name}'"
+        )
+        assert len(rows) == 1
+
+        # THEN: the table no longer exists
+        rows = sql_test_helper.execute_single_sql(
+            f"SHOW TABLES LIKE 'PurgeTestTable' IN SCHEMA {test_database}.PUBLIC"
+        )
+        assert len(rows) == 0
