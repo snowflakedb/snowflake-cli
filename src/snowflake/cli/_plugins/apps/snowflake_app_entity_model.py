@@ -159,6 +159,36 @@ class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
 
     app_port: int = Field(title="Port the app listens on", default=DEFAULT_APP_PORT)
 
+    build_image: Optional[str] = Field(
+        title="Custom container image for building the app",
+        default=None,
+    )
+
+    @field_validator("build_image", mode="before")
+    @classmethod
+    def _validate_build_image(cls, value):
+        if value is None:
+            return None
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("build_image must be a non-empty string")
+        value = value.strip()
+        import re
+
+        if re.search(r"\s", value):
+            raise ValueError(f"build_image must not contain whitespace, got: {value!r}")
+        _unsafe_chars = {"$", '"'}
+        found = _unsafe_chars.intersection(value)
+        if found:
+            raise ValueError(
+                f"build_image contains unsafe character(s) {found}, got: {value!r}"
+            )
+        return value
+
+    execute_as_caller: bool = Field(
+        title="Whether the service runs with caller privileges",
+        default=True,
+    )
+
     dev_roles: Optional[List[str]] = Field(
         title="Development roles for the app", default=None
     )

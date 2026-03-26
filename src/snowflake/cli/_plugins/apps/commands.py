@@ -362,6 +362,7 @@ def deploy(
             image_repo_url=image_repo_url,
             app_id=app_name,
             external_access_integration=build_eai,
+            build_image=entity.build_image,
         )
 
         # Step 6: Poll for build completion
@@ -399,6 +400,7 @@ def deploy(
         compute_pool=service_compute_pool,
         query_warehouse=query_warehouse,
         app_comment=app_comment,
+        execute_as_caller=entity.execute_as_caller,
     )
 
     # Step 8: Alter service with built image
@@ -406,6 +408,7 @@ def deploy(
     manager.alter_service_spec(
         service_name=service_fqn,
         image_url=image_url,
+        execute_as_caller=entity.execute_as_caller,
     )
 
     # Step 9: Resume service
