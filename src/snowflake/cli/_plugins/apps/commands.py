@@ -474,8 +474,11 @@ def deploy(
 
     # ── Get endpoint URL ──────────────────────────────────────────────
     cli_console.step("Getting endpoint URL")
+    ep_name = "web" if use_artifact_repo else "app-endpoint"
     endpoint_url = _poll_until(
-        poll_fn=lambda: manager.get_service_endpoint_url(service_fqn),
+        poll_fn=lambda: manager.get_service_endpoint_url(
+            service_fqn, endpoint_name=ep_name
+        ),
         is_done=lambda url: url is not None
         and "provisioning in progress" not in url.lower(),
         format_status=lambda url: url or "Endpoint URL not yet available",
