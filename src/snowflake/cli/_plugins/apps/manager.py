@@ -55,8 +55,6 @@ APP_DEFAULTS_INTEGRATION = "snowflake-apps"
 
 _BUILD_IMAGE = "/snowflake/images/snowflake_images/sf-image-build:0.0.1"
 _SERVICE_PLACEHOLDER_IMAGE = "/snowflake/images/snowflake_images/sf-image-build:0.0.1"
-_RUNTIME_IMAGE = "/temp/spcs_workspaces/repo/snowflake_spcs_runtime_app_x86_64:test-np"
-
 
 T = TypeVar("T")
 
@@ -725,16 +723,24 @@ class SnowflakeAppManager(SqlExecutionMixin):
             )
             return {}
 
+    def _use_database_and_schema(self, database: str, schema: str) -> None:
+        """Set session database and schema context."""
+        self.execute_query(f"USE DATABASE {database}")
+        self.execute_query(f"USE SCHEMA {schema}")
+
     def build_app_artifact_repo(
         self,
         stage_fqn: FQN,
         artifact_repo_fqn: str,
         app_id: str,
         compute_pool: str,
-        runtime_image: str = _RUNTIME_IMAGE,
-        project_type: str = "",
+        database: str,
+        schema: str,
+        runtime_image: str,
+        project_type: str = "nodejs",
     ) -> str:
         """Build an app using SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO."""
+        self._use_database_and_schema(database, schema)
         query = (
             f"SELECT SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO("
             f"'@{stage_fqn.identifier}', "
@@ -756,9 +762,12 @@ class SnowflakeAppManager(SqlExecutionMixin):
         version: str,
         service_name: str,
         compute_pool: str,
-        runtime_image: str = _RUNTIME_IMAGE,
+        database: str,
+        schema: str,
+        runtime_image: str,
     ) -> str:
         """Deploy an app using SYSTEM$SPCS_TEST_RUN_APP_ARTIFACT_REPO."""
+        self._use_database_and_schema(database, schema)
         query = (
             f"SELECT SYSTEM$SPCS_TEST_RUN_APP_ARTIFACT_REPO("
             f"'{artifact_repo_fqn}', "

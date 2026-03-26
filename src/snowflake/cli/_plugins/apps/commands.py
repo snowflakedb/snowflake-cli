@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -20,11 +21,7 @@ import typer
 from snowflake.cli._plugins.apps.generate import _generate_snowflake_yml
 from snowflake.cli._plugins.apps.manager import (
     _APP_COMMAND_NAME,
-<<<<<<< HEAD
     APP_DEFAULTS_TABLE,
-=======
-    DEFAULT_IMAGE_REPOSITORY,
->>>>>>> 45649e222 (artifact repo wip)
     DEFINITION_FILENAME,
     EXPOSE_UNSUPPORTED_SYNTAX,
     SnowflakeAppManager,
@@ -363,9 +360,34 @@ def deploy(
                 artifact_repo_fqn=artifact_repo_fqn_str,
                 app_id=app_name,
                 compute_pool=build_compute_pool,
+                database=database,
+                schema=schema,
+                runtime_image=entity.runtime_image,
             )
             cli_console.step(
                 f"SPCS_TEST_BUILD_APP_ARTIFACT_REPO output:\n{build_result}"
+            )
+
+            match = re.search(r"Build job submitted:\s*(\S+)", build_result)
+            if not match:
+                raise CliError(
+                    f"Could not parse build job name from output: {build_result}"
+                )
+            artifact_build_job_fqn = FQN.from_string(match.group(1))
+            cli_console.step(
+                f"Waiting for artifact repo build to complete: "
+                f"{artifact_build_job_fqn}..."
+            )
+            _poll_until(
+                poll_fn=lambda: manager.get_build_status(artifact_build_job_fqn),
+                done_states={"DONE"},
+                error_states={"FAILED", "IDLE"},
+                known_pending_states={"PENDING", "RUNNING"},
+                timeout_message=(
+                    f"Artifact repo build timed out. Check build logs:\n"
+                    f"  SELECT * FROM TABLE("
+                    f"{artifact_build_job_fqn.identifier}!SPCS_GET_LOGS())"
+                ),
             )
         else:
             cli_console.step(f"Dropping service if exists: {build_job_fqn}")
@@ -401,6 +423,9 @@ def deploy(
             version="LATEST",
             service_name=app_name,
             compute_pool=service_compute_pool,
+            database=database,
+            schema=schema,
+            runtime_image=entity.runtime_image,
         )
         cli_console.step(f"SPCS_TEST_RUN_APP_ARTIFACT_REPO output:\n{run_result}")
     else:
