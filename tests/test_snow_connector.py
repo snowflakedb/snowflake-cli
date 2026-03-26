@@ -100,6 +100,7 @@ def test_command_context_is_passed_to_snowflake_connection(
         password="dummy_password",
         application_name="snowcli",
         client_session_keep_alive=True,
+        client_session_keep_alive_heartbeat_frequency=3600,
     )
 
 
@@ -180,6 +181,7 @@ def test_private_key_loading_and_aliases(
             authenticator="SNOWFLAKE_JWT",
             application_name="snowcli",
             client_session_keep_alive=True,
+            client_session_keep_alive_heartbeat_frequency=3600,
             **expected_private_key_args,
         )
         if expected_private_key_file_value is not None:
@@ -276,6 +278,7 @@ def test_internal_application_data_is_sent_if_feature_flag_is_set(
         "password": "dummy_password",
         "application_name": "snowcli",
         "client_session_keep_alive": True,
+        "client_session_keep_alive_heartbeat_frequency": 3600,
     }
     if feature_flag:
         # internal app data should be disabled by default

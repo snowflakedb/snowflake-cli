@@ -27,6 +27,7 @@ def test_workload_identity_provider_parameter(mock_connect, runner):
         user="test_user",
         workload_identity_provider="AWS",
         client_session_keep_alive=True,
+        client_session_keep_alive_heartbeat_frequency=3600,
     )
 
 
@@ -66,6 +67,7 @@ def test_workload_identity_provider_from_config(mock_connect, runner, config_fil
         user="test_user",
         workload_identity_provider="AZURE",
         client_session_keep_alive=True,
+        client_session_keep_alive_heartbeat_frequency=3600,
     )
 
 

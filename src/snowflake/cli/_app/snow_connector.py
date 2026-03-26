@@ -179,6 +179,10 @@ def connect_to_snowflake(
         connection_parameters = {}  # we will apply overrides in next step
 
     connection_parameters["client_session_keep_alive"] = True
+    # Workaround: the connector crashes with TypeError when
+    # client_session_keep_alive_heartbeat_frequency is None (e.g. token-based
+    # auth skips the login response that normally populates it).
+    connection_parameters["client_session_keep_alive_heartbeat_frequency"] = 3600
 
     # Apply overrides to connection details
     # (1) Command line override case

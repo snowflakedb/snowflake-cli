@@ -635,6 +635,7 @@ def test_temporary_connection(mock_connector, mock_ctx, option, runner):
         warehouse="xsmall",
         application_name="snowcli",
         client_session_keep_alive=True,
+        client_session_keep_alive_heartbeat_frequency=3600,
     )
 
 
@@ -721,6 +722,7 @@ def test_key_pair_authentication(
         warehouse="xsmall",
         application_name="snowcli",
         client_session_keep_alive=True,
+        client_session_keep_alive_heartbeat_frequency=3600,
     )
 
 
@@ -770,6 +772,7 @@ def test_session_and_master_tokens(mock_connector, mock_ctx, runner):
         server_session_keep_alive=True,
         application_name="snowcli",
         client_session_keep_alive=True,
+        client_session_keep_alive_heartbeat_frequency=3600,
     )
 
 
@@ -798,6 +801,7 @@ def test_token_file_path_tokens(mock_connector, mock_ctx, runner, temporary_dire
         token_file_path=str(token_file),
         application_name="snowcli",
         client_session_keep_alive=True,
+        client_session_keep_alive_heartbeat_frequency=3600,
     )
 
 
@@ -847,6 +851,7 @@ def test_key_pair_authentication_from_config(
         private_key="secret value",
         application_name="snowcli",
         client_session_keep_alive=True,
+        client_session_keep_alive_heartbeat_frequency=3600,
     )
 
 
@@ -986,6 +991,7 @@ def test_connection_details_are_resolved_using_environment_variables(
             "password": "dummy",
             "application_name": "snowcli",
             "client_session_keep_alive": True,
+            "client_session_keep_alive_heartbeat_frequency": 3600,
             "token": "a_dummy_token",
         }
 
@@ -1050,6 +1056,7 @@ def test_flags_take_precedence_before_environment_variables(
             "role": "role_from_flag",
             "application_name": "snowcli",
             "client_session_keep_alive": True,
+            "client_session_keep_alive_heartbeat_frequency": 3600,
             "token": "a_dummy_token_but_from_flag",
         }
 
@@ -1089,6 +1096,7 @@ def test_source_precedence(mock_connect, runner):
         "role": "role_from_global_env",
         "application_name": "snowcli",
         "client_session_keep_alive": True,
+        "client_session_keep_alive_heartbeat_frequency": 3600,
     }
 
 
