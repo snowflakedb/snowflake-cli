@@ -160,11 +160,12 @@ def _resolve_deploy_defaults(
     entity: "SnowflakeAppEntityModel",
     manager: "SnowflakeAppManager",
 ) -> Dict[str, Optional[str]]:
-    """Resolve deploy defaults using a three-tier precedence:
+    """Resolve deploy defaults using a four-tier precedence:
 
     1. Values explicitly set in ``snowflake.yml`` (highest priority)
-    2. Values from the ``APP_DEFAULTS_TABLE`` config table
-    3. Built-in defaults (object-existence checks, lowest priority)
+    2. Values from the current connection context
+    3. Values from the ``APP_DEFAULTS_TABLE`` config table
+    4. Built-in defaults (object-existence checks, lowest priority)
 
     Returns a dict with keys ``query_warehouse``, ``build_compute_pool``,
     ``service_compute_pool``, ``build_eai``, ``image_repository``,
@@ -198,7 +199,16 @@ def _resolve_deploy_defaults(
         "schema": fqn.schema,
     }
 
-    # ── 2. Config-table values ────────────────────────────────────────
+    # ── 2. Current connection values ──────────────────────────────────
+    ctx = get_cli_context()
+    conn = ctx.connection_context
+    conn_vals: Dict[str, Optional[str]] = {
+        "query_warehouse": conn.warehouse,
+        "database": conn.database,
+        "schema": conn.schema,
+    }
+
+    # ── 3. Config-table values ────────────────────────────────────────
     table_vals: Dict[str, Optional[str]] = {}
     role = manager.current_role()
     if role:
@@ -220,7 +230,7 @@ def _resolve_deploy_defaults(
             "schema": raw.get("schema"),
         }
 
-    # ── 3. Built-in defaults ──────────────────────────────────────────
+    # ── 4. Built-in defaults ──────────────────────────────────────────
     builtin_vals: Dict[str, Optional[str]] = {
         "build_compute_pool": _get_compute_pool(),
         "service_compute_pool": _get_compute_pool(),
@@ -229,11 +239,14 @@ def _resolve_deploy_defaults(
     }
 
     # ── Merge (first non-None wins) ──────────────────────────────────
-    all_keys = set(yml_vals) | set(table_vals) | set(builtin_vals)
+    all_keys = set(yml_vals) | set(conn_vals) | set(table_vals) | set(builtin_vals)
     resolved: Dict[str, Optional[str]] = {}
     for key in all_keys:
         resolved[key] = (
-            yml_vals.get(key) or table_vals.get(key) or builtin_vals.get(key)
+            yml_vals.get(key)
+            or conn_vals.get(key)
+            or table_vals.get(key)
+            or builtin_vals.get(key)
         )
 
     return resolved

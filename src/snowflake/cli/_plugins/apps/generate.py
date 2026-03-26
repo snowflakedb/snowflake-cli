@@ -25,6 +25,7 @@ from snowflake.cli.api.project.util import get_env_username
 # Feature flags
 IS_PERSONAL_DB_SUPPORTED = False  # Will be enabled in the future
 
+DEFAULT_SCHEMA = "SNOW_APPS"
 
 def _generate_snowflake_yml(
     app_id: str,
@@ -39,10 +40,9 @@ def _generate_snowflake_yml(
     if IS_PERSONAL_DB_SUPPORTED:
         database = f"USER${username}"
     else:
-        database = database or "<% ctx.connection.database %>"
+        database = database or None
 
-    # Schema: SNOW_APP_<APP_ID>_<USERNAME>
-    schema = f"SNOW_APP_{app_id.upper()}_{username}"
+    schema = DEFAULT_SCHEMA
 
     # Stage: <APP_ID>_CODE
     code_stage = f"{app_id.upper()}_CODE"
@@ -94,7 +94,7 @@ def _generate_snowflake_yml(
                   - .next
                   - .git
 
-            query_warehouse: {warehouse or "<% ctx.connection.warehouse %>"}
+            query_warehouse: {warehouse}
             {compute_pool_yaml}
             {build_eai_yaml}
             service_eai: null

@@ -32,7 +32,6 @@ from snowflake.cli._plugins.apps.manager import (
     perform_bundle,
 )
 from snowflake.cli._plugins.stage.manager import StageManager
-from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliError
@@ -45,6 +44,23 @@ app = SnowTyperFactory(
     help="Manages Snowflake Apps.",
     is_hidden=FeatureFlag.ENABLE_SNOWFLAKE_APPS.is_disabled,
 )
+
+
+def _make_stub_entity(app_name: str):
+    """Build a minimal entity-like object for _resolve_deploy_defaults.
+
+    Used during ``setup`` before a snowflake.yml exists, so all
+    configurable fields are None and only the app name is set.
+    """
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        fqn=FQN.from_string(app_name),
+        query_warehouse=None,
+        build_compute_pool=None,
+        service_compute_pool=None,
+        build_eai=None,
+    )
 
 
 @app.command("setup", requires_connection=True)
@@ -66,14 +82,15 @@ def setup(
             f"{DEFINITION_FILENAME} already exists. Skipping initialization."
         )
 
-    # Get connection context for username and warehouse
-    ctx = get_cli_context()
-    ctx.connection_context.validate_and_complete()
-    ctx.connection_context.update_from_config()
-    warehouse = ctx.connection_context.warehouse
-    database = ctx.connection_context.database
+    manager = SnowflakeAppManager()
+    entity = _make_stub_entity(app_name)
+    defaults = _resolve_deploy_defaults(entity, manager)
 
-    project_file.write_text(_generate_snowflake_yml(app_name, warehouse, database))
+    project_file.write_text(
+        _generate_snowflake_yml(
+            app_name, defaults["query_warehouse"], defaults["database"]
+        )
+    )
     return MessageResult(f"Initialized Snowflake App project in {DEFINITION_FILENAME}.")
 
 
@@ -111,9 +128,8 @@ def validate(
     """
     Validates a local Snowflake App project.
 
-    Bundles the project, checks that a Dockerfile with an EXPOSE directive
-    exists, and verifies that the current role has the BIND SERVICE ENDPOINT
-    privilege required for deployment.
+    Bundles the project and checks that a Dockerfile with an EXPOSE directive
+    exists.
     """
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
@@ -154,16 +170,6 @@ def validate(
     finally:
         if project_paths is not None:
             project_paths.clean_up_output()
-
-    # Check BIND SERVICE ENDPOINT privilege
-    manager = SnowflakeAppManager()
-    role = manager.current_role()
-    if role and role.upper() != "ACCOUNTADMIN":
-        if not manager.role_has_bind_service_endpoint(role):
-            warnings.append(
-                f"Role '{role}' does not have the BIND SERVICE ENDPOINT "
-                f"privilege. This privilege is required to deploy a Snowflake App."
-            )
 
     for warning in warnings:
         cli_console.warning(warning)

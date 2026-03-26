@@ -344,7 +344,7 @@ class TestGenerateSnowflakeYml:
         assert "type: snowflake-app" in result
         assert "name: MY_APP" in result
         assert "database: TEST_DB" in result
-        assert "schema: SNOW_APP_MY_APP_TESTUSER" in result
+        assert "schema: SNOW_APPS" in result
         assert "query_warehouse: TEST_WH" in result
         assert "build_compute_pool:" in result
         assert "name: null" in result
@@ -363,13 +363,13 @@ class TestGenerateSnowflakeYml:
     @patch(GET_ENV_USERNAME, return_value="testuser")
     def test_generates_yml_default_database_template(self, mock_user, mock_exists):
         result = _generate_snowflake_yml("my_app", "TEST_WH")
-        assert "database: <% ctx.connection.database %>" in result
+        assert "database: None" in result
 
     @patch(OBJECT_EXISTS, return_value=False)
     @patch(GET_ENV_USERNAME, return_value="testuser")
-    def test_generates_yml_default_warehouse_template(self, mock_user, mock_exists):
+    def test_generates_yml_default_warehouse_none(self, mock_user, mock_exists):
         result = _generate_snowflake_yml("my_app", None, "TEST_DB")
-        assert "query_warehouse: <% ctx.connection.warehouse %>" in result
+        assert "query_warehouse: None" in result
 
     @patch(OBJECT_EXISTS, return_value=False)
     @patch(GET_ENV_USERNAME, return_value="testuser")
@@ -975,6 +975,17 @@ FETCH_CONFIG_DEFAULTS = (
 )
 
 
+GET_CLI_CONTEXT = "snowflake.cli._plugins.apps.manager.get_cli_context"
+
+
+def _mock_connection_context(warehouse=None, database=None, schema=None):
+    ctx = Mock()
+    ctx.connection_context.warehouse = warehouse
+    ctx.connection_context.database = database
+    ctx.connection_context.schema = schema
+    return ctx
+
+
 class TestResolveDeployDefaults:
     def _make_entity(
         self,
@@ -1008,7 +1019,10 @@ class TestResolveDeployDefaults:
     @patch(OBJECT_EXISTS, return_value=False)
     @patch(FETCH_CONFIG_DEFAULTS, return_value={})
     @patch(CURRENT_ROLE, return_value="ENGINEER")
-    def test_yml_values_take_precedence(self, mock_role, mock_fetch, mock_exists):
+    @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
+    def test_yml_values_take_precedence(
+        self, mock_ctx, mock_role, mock_fetch, mock_exists
+    ):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
         entity = self._make_entity(
@@ -1035,7 +1049,10 @@ class TestResolveDeployDefaults:
         },
     )
     @patch(CURRENT_ROLE, return_value="ENGINEER")
-    def test_config_table_fills_gaps(self, mock_role, mock_fetch, mock_exists):
+    @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
+    def test_config_table_fills_gaps(
+        self, mock_ctx, mock_role, mock_fetch, mock_exists
+    ):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
         entity = self._make_entity(database=None, schema=None)
@@ -1050,8 +1067,9 @@ class TestResolveDeployDefaults:
     @patch(OBJECT_EXISTS, return_value=True)
     @patch(FETCH_CONFIG_DEFAULTS, return_value={})
     @patch(CURRENT_ROLE, return_value="ENGINEER")
+    @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
     def test_builtin_defaults_fill_remaining_gaps(
-        self, mock_role, mock_fetch, mock_exists
+        self, mock_ctx, mock_role, mock_fetch, mock_exists
     ):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
@@ -1067,25 +1085,28 @@ class TestResolveDeployDefaults:
         return_value={"compute_pool": "TABLE_POOL", "warehouse": "TABLE_WH"},
     )
     @patch(CURRENT_ROLE, return_value="ENGINEER")
-    def test_yml_beats_table_beats_builtin(self, mock_role, mock_fetch, mock_exists):
+    @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
+    def test_yml_beats_conn_beats_table_beats_builtin(
+        self, mock_ctx, mock_role, mock_fetch, mock_exists
+    ):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
         entity = self._make_entity(
             query_warehouse="YML_WH",
         )
         result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
-        # yml wins for warehouse
         assert result["query_warehouse"] == "YML_WH"
-        # table wins for compute_pool (yml is None, table has value)
         assert result["build_compute_pool"] == "TABLE_POOL"
         assert result["service_compute_pool"] == "TABLE_POOL"
-        # builtin wins for eai (yml is None, table is None, builtin exists)
         assert result["build_eai"] == "SNOW_APPS_DEFAULT_EXTERNAL_ACCESS"
 
     @patch(OBJECT_EXISTS, return_value=False)
     @patch(FETCH_CONFIG_DEFAULTS, return_value={})
     @patch(CURRENT_ROLE, return_value=None)
-    def test_no_role_skips_config_table(self, mock_role, mock_fetch, mock_exists):
+    @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
+    def test_no_role_skips_config_table(
+        self, mock_ctx, mock_role, mock_fetch, mock_exists
+    ):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
         entity = self._make_entity()
@@ -1096,8 +1117,9 @@ class TestResolveDeployDefaults:
     @patch(OBJECT_EXISTS, return_value=False)
     @patch(FETCH_CONFIG_DEFAULTS, return_value={})
     @patch(CURRENT_ROLE, return_value="ENGINEER")
+    @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
     def test_preserves_yml_database_and_schema(
-        self, mock_role, mock_fetch, mock_exists
+        self, mock_ctx, mock_role, mock_fetch, mock_exists
     ):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
@@ -1105,6 +1127,44 @@ class TestResolveDeployDefaults:
         result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
         assert result["database"] == "MY_DB"
         assert result["schema"] == "MY_SCHEMA"
+
+    @patch(OBJECT_EXISTS, return_value=False)
+    @patch(FETCH_CONFIG_DEFAULTS, return_value={})
+    @patch(CURRENT_ROLE, return_value="ENGINEER")
+    @patch(
+        GET_CLI_CONTEXT,
+        return_value=_mock_connection_context(
+            warehouse="CONN_WH", database="CONN_DB", schema="CONN_SCHEMA"
+        ),
+    )
+    def test_connection_fills_gaps_before_table(
+        self, mock_ctx, mock_role, mock_fetch, mock_exists
+    ):
+        from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
+
+        entity = self._make_entity(database=None, schema=None)
+        result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
+        assert result["query_warehouse"] == "CONN_WH"
+        assert result["database"] == "CONN_DB"
+        assert result["schema"] == "CONN_SCHEMA"
+
+    @patch(OBJECT_EXISTS, return_value=False)
+    @patch(
+        FETCH_CONFIG_DEFAULTS,
+        return_value={"warehouse": "TABLE_WH", "database": "TABLE_DB"},
+    )
+    @patch(CURRENT_ROLE, return_value="ENGINEER")
+    @patch(
+        GET_CLI_CONTEXT,
+        return_value=_mock_connection_context(warehouse="CONN_WH"),
+    )
+    def test_connection_beats_table(self, mock_ctx, mock_role, mock_fetch, mock_exists):
+        from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
+
+        entity = self._make_entity(database=None, schema=None)
+        result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
+        assert result["query_warehouse"] == "CONN_WH"
+        assert result["database"] == "TABLE_DB"
 
 
 # ── CLI command tests ─────────────────────────────────────────────────
@@ -1115,7 +1175,17 @@ class TestSetupCommand:
         "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
         return_value="definition_version: '2'\n",
     )
-    def test_init_creates_file(self, mock_gen, runner, tmp_path):
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_deploy_defaults",
+        return_value={
+            "query_warehouse": "WH",
+            "database": "DB",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_init_creates_file(
+        self, mock_mgr, mock_defaults, mock_gen, runner, tmp_path
+    ):
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
             from tests_common import change_directory
 
@@ -1516,88 +1586,6 @@ class TestValidateCommand:
                 assert "Validation passed with 1 warning(s)" in result.output
                 assert "8080" in result.output
                 assert "3000" in result.output
-
-    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
-    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
-    @patch("snowflake.cli._plugins.apps.commands._get_entity")
-    @patch(
-        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
-        return_value="my_app",
-    )
-    def test_validate_warns_missing_bind_privilege(
-        self,
-        mock_resolve,
-        mock_get_entity,
-        mock_perform_bundle,
-        mock_manager_cls,
-        runner,
-        tmp_path,
-    ):
-        from snowflake.cli.api.project.project_paths import ProjectPaths
-
-        entity = Mock()
-        entity.app_port = 3000
-        mock_get_entity.return_value = entity
-
-        bundle_dir = tmp_path / "output" / "bundle"
-        bundle_dir.mkdir(parents=True)
-        (bundle_dir / "Dockerfile").write_text("FROM python:3.11\nEXPOSE 3000\n")
-
-        project_paths = ProjectPaths(project_root=tmp_path)
-        mock_perform_bundle.return_value = project_paths
-
-        mock_mgr = mock_manager_cls.return_value
-        mock_mgr.current_role.return_value = "DEV_ROLE"
-        mock_mgr.role_has_bind_service_endpoint.return_value = False
-
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "validate"])
-                assert result.exit_code == 0, result.output
-                assert "Validation passed with 1 warning(s)" in result.output
-                assert "BIND SERVICE ENDPOINT" in result.output
-
-    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
-    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
-    @patch("snowflake.cli._plugins.apps.commands._get_entity")
-    @patch(
-        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
-        return_value="my_app",
-    )
-    def test_validate_skips_privilege_check_for_accountadmin(
-        self,
-        mock_resolve,
-        mock_get_entity,
-        mock_perform_bundle,
-        mock_manager_cls,
-        runner,
-        tmp_path,
-    ):
-        from snowflake.cli.api.project.project_paths import ProjectPaths
-
-        entity = Mock()
-        entity.app_port = 3000
-        mock_get_entity.return_value = entity
-
-        bundle_dir = tmp_path / "output" / "bundle"
-        bundle_dir.mkdir(parents=True)
-        (bundle_dir / "Dockerfile").write_text("FROM python:3.11\nEXPOSE 3000\n")
-
-        project_paths = ProjectPaths(project_root=tmp_path)
-        mock_perform_bundle.return_value = project_paths
-
-        mock_mgr = mock_manager_cls.return_value
-        mock_mgr.current_role.return_value = "ACCOUNTADMIN"
-
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "validate"])
-                assert result.exit_code == 0, result.output
-                mock_mgr.role_has_bind_service_endpoint.assert_not_called()
 
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
