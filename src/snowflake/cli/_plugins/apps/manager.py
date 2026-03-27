@@ -37,6 +37,7 @@ from snowflake.cli.api.project.project_paths import ProjectPaths
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import DictCursor
+from snowflake.connector.errors import ProgrammingError
 
 log = logging.getLogger(__name__)
 
@@ -471,9 +472,23 @@ class SnowflakeAppManager(SqlExecutionMixin):
         return False
 
     def create_schema_if_not_exists(self, database: str, schema: str) -> None:
-        """Create schema if it doesn't exist."""
+        """Create schema if it doesn't exist.
+
+        Falls back to a SHOW SCHEMAS check when the role lacks CREATE SCHEMA
+        privilege — the schema may already exist and be usable.
+        """
         schema_fqn = FQN(database=None, schema=database, name=schema)
-        self.execute_query(f"CREATE SCHEMA IF NOT EXISTS {schema_fqn.sql_identifier}")
+        try:
+            self.execute_query(
+                f"CREATE SCHEMA IF NOT EXISTS {schema_fqn.sql_identifier}"
+            )
+        except ProgrammingError:
+            cursor = self.execute_query(
+                f"SHOW SCHEMAS LIKE '{schema}' IN DATABASE {database}",
+                cursor_class=DictCursor,
+            )
+            if not cursor.fetchone():
+                raise
 
     def stage_exists(self, stage_fqn: FQN) -> bool:
         """Check if a stage exists."""
