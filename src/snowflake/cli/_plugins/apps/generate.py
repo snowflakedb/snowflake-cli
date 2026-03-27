@@ -68,6 +68,9 @@ def _generate_snowflake_yml(
     else:
         build_eai_yaml = "build_eai: null"
 
+    db_yaml = database if database else "null"
+    wh_yaml = warehouse if warehouse else "null"
+
     return dedent(
         f"""\
         definition_version: "2"
@@ -77,7 +80,7 @@ def _generate_snowflake_yml(
             type: snowflake-app
             identifier:
               name: {app_id.upper()}
-              database: {database}
+              database: {db_yaml}
               schema: {schema}
             meta:
               title: {app_id}
@@ -95,7 +98,7 @@ def _generate_snowflake_yml(
                   - .git
                   - snowflake.log
 
-            query_warehouse: {warehouse}
+            query_warehouse: {wh_yaml}
             {compute_pool_yaml}
             {build_eai_yaml}
             service_eai: null

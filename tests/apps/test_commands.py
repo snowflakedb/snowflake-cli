@@ -363,13 +363,13 @@ class TestGenerateSnowflakeYml:
     @patch(GET_ENV_USERNAME, return_value="testuser")
     def test_generates_yml_default_database_template(self, mock_user, mock_exists):
         result = _generate_snowflake_yml("my_app", "TEST_WH")
-        assert "database: None" in result
+        assert "database: null" in result
 
     @patch(OBJECT_EXISTS, return_value=False)
     @patch(GET_ENV_USERNAME, return_value="testuser")
     def test_generates_yml_default_warehouse_none(self, mock_user, mock_exists):
         result = _generate_snowflake_yml("my_app", None, "TEST_DB")
-        assert "query_warehouse: None" in result
+        assert "query_warehouse: null" in result
 
     @patch(OBJECT_EXISTS, return_value=False)
     @patch(GET_ENV_USERNAME, return_value="testuser")
