@@ -167,8 +167,10 @@ def _resolve_deploy_defaults(
     3. Built-in defaults (object-existence checks, lowest priority)
 
     Returns a dict with keys ``query_warehouse``, ``build_compute_pool``,
-    ``service_compute_pool``, ``build_eai``, ``database``, and ``schema``.
-    Any of them may still be ``None`` if no source provides a value.
+    ``service_compute_pool``, ``build_eai``, ``image_repository``,
+    ``image_repo_database``, ``image_repo_schema``, ``database``, and
+    ``schema``.  Any of them may still be ``None`` if no source provides
+    a value.
     """
 
     # ── 1. snowflake.yml values ───────────────────────────────────────
@@ -183,6 +185,15 @@ def _resolve_deploy_defaults(
             entity.service_compute_pool.name if entity.service_compute_pool else None
         ),
         "build_eai": entity.build_eai.name if entity.build_eai else None,
+        "image_repository": (
+            entity.image_repository.name if entity.image_repository else None
+        ),
+        "image_repo_database": (
+            entity.image_repository.database if entity.image_repository else None
+        ),
+        "image_repo_schema": (
+            entity.image_repository.schema_ if entity.image_repository else None
+        ),
         "database": fqn.database,
         "schema": fqn.schema,
     }
@@ -202,6 +213,9 @@ def _resolve_deploy_defaults(
             "build_compute_pool": raw.get("compute_pool"),
             "service_compute_pool": raw.get("compute_pool"),
             "build_eai": raw.get("eai"),
+            "image_repository": raw.get("image_repository"),
+            "image_repo_database": raw.get("image_repo_database"),
+            "image_repo_schema": raw.get("image_repo_schema"),
             "database": raw.get("database"),
             "schema": raw.get("schema"),
         }
@@ -211,6 +225,7 @@ def _resolve_deploy_defaults(
         "build_compute_pool": _get_compute_pool(),
         "service_compute_pool": _get_compute_pool(),
         "build_eai": _get_external_access(app_name),
+        "image_repository": DEFAULT_IMAGE_REPOSITORY,
     }
 
     # ── Merge (first non-None wins) ──────────────────────────────────

@@ -21,7 +21,6 @@ from snowflake.cli._plugins.apps.generate import _generate_snowflake_yml
 from snowflake.cli._plugins.apps.manager import (
     _APP_COMMAND_NAME,
     APP_DEFAULTS_TABLE,
-    DEFAULT_IMAGE_REPOSITORY,
     DEFINITION_FILENAME,
     EXPOSE_UNSUPPORTED_SYNTAX,
     SnowflakeAppManager,
@@ -270,14 +269,9 @@ def deploy(
     query_warehouse = defaults["query_warehouse"]
     build_eai = defaults["build_eai"]
 
-    if entity.image_repository:
-        image_repository = entity.image_repository.name
-        image_repo_database = entity.image_repository.database or database
-        image_repo_schema = entity.image_repository.schema_ or schema
-    else:
-        image_repository = DEFAULT_IMAGE_REPOSITORY
-        image_repo_database = None
-        image_repo_schema = None
+    image_repository = defaults["image_repository"]
+    image_repo_database = defaults.get("image_repo_database") or database
+    image_repo_schema = defaults.get("image_repo_schema") or schema
 
     # ── Validate required configuration ───────────────────────────────
     if not skip_build and not build_compute_pool:
