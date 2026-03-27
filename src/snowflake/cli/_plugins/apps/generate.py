@@ -102,7 +102,7 @@ def _generate_snowflake_yml(
               description: null
               icon: null
             artifacts:
-              - src: app/*
+              - src: ./*
                 dest: ./
                 ignore:
                   - node_modules
