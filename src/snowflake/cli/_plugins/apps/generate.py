@@ -25,8 +25,6 @@ from snowflake.cli.api.project.util import get_env_username
 # Feature flags
 IS_PERSONAL_DB_SUPPORTED = False  # Will be enabled in the future
 
-DEFAULT_ARTIFACT_REPOSITORY = "SNOW_APPS_DEFAULT_ARTIFACT_REPOSITORY"
-
 
 def _generate_snowflake_yml(
     app_id: str,
@@ -70,9 +68,6 @@ def _generate_snowflake_yml(
     else:
         build_eai_yaml = "build_eai: null"
 
-    # TODO: Check if artifact repository exists
-    artifact_repository = DEFAULT_ARTIFACT_REPOSITORY
-
     return dedent(
         f"""\
         definition_version: "2"
@@ -103,8 +98,6 @@ def _generate_snowflake_yml(
             {compute_pool_yaml}
             {build_eai_yaml}
             service_eai: null
-            artifact_repository:
-              name: {artifact_repository}
             image_repository:
               name: {DEFAULT_IMAGE_REPOSITORY}
             code_stage:
