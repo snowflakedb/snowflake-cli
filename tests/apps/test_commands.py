@@ -16,7 +16,6 @@ from unittest.mock import Mock, patch
 
 import pytest
 from snowflake.cli._plugins.apps.generate import (
-    DEFAULT_IMAGE_REPOSITORY,
     _generate_snowflake_yml,
 )
 from snowflake.cli._plugins.apps.manager import (
@@ -349,8 +348,8 @@ class TestGenerateSnowflakeYml:
         assert "build_compute_pool:" in result
         assert "name: null" in result
         assert "name: MY_APP_CODE" in result
-        assert "image_repository:" in result
-        assert f"name: {DEFAULT_IMAGE_REPOSITORY}" in result
+        assert "artifact_repository" not in result
+        assert "image_repository" not in result
 
     @patch(OBJECT_EXISTS, return_value=True)
     @patch(GET_ENV_USERNAME, return_value="testuser")
@@ -370,6 +369,74 @@ class TestGenerateSnowflakeYml:
     def test_generates_yml_default_warehouse_none(self, mock_user, mock_exists):
         result = _generate_snowflake_yml("my_app", None, "TEST_DB")
         assert "query_warehouse: null" in result
+
+    @patch(OBJECT_EXISTS, return_value=False)
+    @patch(GET_ENV_USERNAME, return_value="testuser")
+    def test_config_overrides_fill_missing_database(self, mock_user, mock_exists):
+        result = _generate_snowflake_yml(
+            "my_app", "TEST_WH", config_overrides={"database": "CFG_DB"}
+        )
+        assert "database: CFG_DB" in result
+
+    @patch(OBJECT_EXISTS, return_value=False)
+    @patch(GET_ENV_USERNAME, return_value="testuser")
+    def test_config_overrides_fill_missing_warehouse(self, mock_user, mock_exists):
+        result = _generate_snowflake_yml(
+            "my_app", None, config_overrides={"warehouse": "CFG_WH"}
+        )
+        assert "query_warehouse: CFG_WH" in result
+
+    @patch(OBJECT_EXISTS, return_value=False)
+    @patch(GET_ENV_USERNAME, return_value="testuser")
+    def test_explicit_values_beat_config_overrides(self, mock_user, mock_exists):
+        result = _generate_snowflake_yml(
+            "my_app",
+            "EXPLICIT_WH",
+            "EXPLICIT_DB",
+            config_overrides={"warehouse": "CFG_WH", "database": "CFG_DB"},
+        )
+        assert "database: EXPLICIT_DB" in result
+        assert "query_warehouse: EXPLICIT_WH" in result
+
+    @patch(OBJECT_EXISTS, return_value=False)
+    @patch(GET_ENV_USERNAME, return_value="testuser")
+    def test_config_overrides_compute_pool_beats_builtin(self, mock_user, mock_exists):
+        result = _generate_snowflake_yml(
+            "my_app", "WH", "DB", config_overrides={"compute_pool": "CFG_POOL"}
+        )
+        assert "name: CFG_POOL" in result
+
+    @patch(OBJECT_EXISTS, return_value=False)
+    @patch(GET_ENV_USERNAME, return_value="testuser")
+    def test_config_overrides_schema(self, mock_user, mock_exists):
+        result = _generate_snowflake_yml(
+            "my_app", "WH", "DB", config_overrides={"schema": "CFG_SCHEMA"}
+        )
+        assert "schema: CFG_SCHEMA" in result
+
+    @patch(OBJECT_EXISTS, return_value=False)
+    @patch(GET_ENV_USERNAME, return_value="testuser")
+    def test_repos_omitted_without_config_overrides(self, mock_user, mock_exists):
+        result = _generate_snowflake_yml("my_app", "WH", "DB")
+        assert "artifact_repository" not in result
+        assert "image_repository" not in result
+
+    @patch(OBJECT_EXISTS, return_value=False)
+    @patch(GET_ENV_USERNAME, return_value="testuser")
+    def test_config_overrides_set_repos(self, mock_user, mock_exists):
+        result = _generate_snowflake_yml(
+            "my_app",
+            "WH",
+            "DB",
+            config_overrides={
+                "artifact_repository": "MY_AR",
+                "image_repository": "MY_IR",
+            },
+        )
+        assert "artifact_repository:" in result
+        assert "name: MY_AR" in result
+        assert "image_repository:" in result
+        assert "name: MY_IR" in result
 
     @patch(OBJECT_EXISTS, return_value=False)
     @patch(GET_ENV_USERNAME, return_value="testuser")
@@ -1175,17 +1242,12 @@ class TestSetupCommand:
         "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
         return_value="definition_version: '2'\n",
     )
-    @patch(
-        "snowflake.cli._plugins.apps.commands._resolve_deploy_defaults",
-        return_value={
-            "query_warehouse": "WH",
-            "database": "DB",
-        },
-    )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
-    def test_init_creates_file(
-        self, mock_mgr, mock_defaults, mock_gen, runner, tmp_path
-    ):
+    def test_init_creates_file(self, mock_mgr_cls, mock_gen, runner, tmp_path):
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.current_role.return_value = "TEST_ROLE"
+        mock_mgr.fetch_config_table_defaults.return_value = {"database": "CFG_DB"}
+
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
             from tests_common import change_directory
 
@@ -1194,6 +1256,33 @@ class TestSetupCommand:
                 assert result.exit_code == 0, result.output
                 assert "Initialized Snowflake App project" in result.output
                 assert (tmp_path / "snowflake.yml").exists()
+
+        mock_mgr.current_role.assert_called_once()
+        mock_mgr.fetch_config_table_defaults.assert_called_once_with("TEST_ROLE")
+        call_kwargs = mock_gen.call_args
+        assert call_kwargs[1].get("config_overrides") == {"database": "CFG_DB"} or (
+            len(call_kwargs[0]) >= 4 and call_kwargs[0][3] == {"database": "CFG_DB"}
+        )
+
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
+        return_value="definition_version: '2'\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_init_skips_config_table_when_no_role(
+        self, mock_mgr_cls, mock_gen, runner, tmp_path
+    ):
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.current_role.return_value = None
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "setup", "--app-name", "my_app"])
+                assert result.exit_code == 0, result.output
+
+        mock_mgr.fetch_config_table_defaults.assert_not_called()
 
     def test_init_skips_when_file_exists(self, runner, tmp_path):
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):

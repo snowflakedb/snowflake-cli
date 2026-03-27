@@ -13,10 +13,9 @@
 # limitations under the License.
 
 from textwrap import dedent
-from typing import Optional
+from typing import Dict, Optional
 
 from snowflake.cli._plugins.apps.manager import (
-    DEFAULT_IMAGE_REPOSITORY,
     _get_compute_pool,
     _get_external_access,
 )
@@ -31,24 +30,32 @@ def _generate_snowflake_yml(
     app_id: str,
     warehouse: Optional[str],
     database: Optional[str] = None,
+    config_overrides: Optional[Dict[str, str]] = None,
 ) -> str:
-    """Generate snowflake.yml content for a Snow App project."""
+    """Generate snowflake.yml content for a Snow App project.
 
+    *config_overrides* is an optional dict of defaults read from the
+    config table.  Values here act as a fallback: they are only used
+    when the corresponding explicit parameter is ``None``, but they
+    take priority over built-in defaults (object-existence checks).
+    """
+
+    overrides = config_overrides or {}
     username = get_env_username().upper()
 
-    # Database: use personal DB if supported, otherwise use connection database
     if IS_PERSONAL_DB_SUPPORTED:
         database = f"USER${username}"
     else:
-        database = database or None
+        database = database or overrides.get("database")
 
-    schema = DEFAULT_SCHEMA
+    warehouse = warehouse or overrides.get("warehouse")
+    schema = overrides.get("schema") or DEFAULT_SCHEMA
 
     # Stage: <APP_ID>_CODE
     code_stage = f"{app_id.upper()}_CODE"
 
-    # Compute pool: check for existing pools
-    compute_pool = _get_compute_pool()
+    # Compute pool: config table > built-in object-existence check
+    compute_pool = overrides.get("compute_pool") or _get_compute_pool()
     if compute_pool:
         compute_pool_yaml = f"""build_compute_pool:
               name: {compute_pool}
@@ -60,13 +67,21 @@ def _generate_snowflake_yml(
             service_compute_pool:
               name: null"""
 
-    # Build EAI: check for existing integrations
-    build_eai = _get_external_access(app_id)
+    # Build EAI: config table > built-in object-existence check
+    build_eai = overrides.get("eai") or _get_external_access(app_id)
     if build_eai:
         build_eai_yaml = f"""build_eai:
               name: {build_eai}"""
     else:
         build_eai_yaml = "build_eai: null"
+
+    image_repository = overrides.get("image_repository")
+
+    repo_lines = ""
+    if image_repository:
+        repo_lines += (
+            f"\n            image_repository:\n              name: {image_repository}"
+        )
 
     db_yaml = database if database else "null"
     wh_yaml = warehouse if warehouse else "null"
@@ -101,9 +116,7 @@ def _generate_snowflake_yml(
             query_warehouse: {wh_yaml}
             {compute_pool_yaml}
             {build_eai_yaml}
-            service_eai: null
-            image_repository:
-              name: {DEFAULT_IMAGE_REPOSITORY}
+            service_eai: null{repo_lines}
             code_stage:
               name: {code_stage}
         """

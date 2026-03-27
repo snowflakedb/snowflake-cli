@@ -66,14 +66,21 @@ def setup(
             f"{DEFINITION_FILENAME} already exists. Skipping initialization."
         )
 
-    # Get connection context for username and warehouse
     ctx = get_cli_context()
     ctx.connection_context.validate_and_complete()
     ctx.connection_context.update_from_config()
     warehouse = ctx.connection_context.warehouse
     database = ctx.connection_context.database
 
-    project_file.write_text(_generate_snowflake_yml(app_name, warehouse, database))
+    manager = SnowflakeAppManager()
+    config_overrides = {}
+    role = manager.current_role()
+    if role:
+        config_overrides = manager.fetch_config_table_defaults(role)
+
+    project_file.write_text(
+        _generate_snowflake_yml(app_name, warehouse, database, config_overrides)
+    )
     return MessageResult(f"Initialized Snowflake App project in {DEFINITION_FILENAME}.")
 
 
