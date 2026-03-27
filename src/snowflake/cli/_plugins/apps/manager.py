@@ -806,3 +806,18 @@ class SnowflakeAppManager(SqlExecutionMixin):
         cursor = self.execute_query(query)
         row = cursor.fetchone()
         return row[0] if row else ""
+
+    def get_service_logs(self, service_fqn: FQN, num_lines: int = 50) -> Optional[str]:
+        """Fetch recent container logs from a service.
+
+        Returns the log text, or ``None`` if the logs cannot be retrieved
+        (e.g. the service has already been dropped).
+        """
+        try:
+            cursor = self.execute_query(
+                f"CALL SYSTEM$GET_SERVICE_LOGS('{service_fqn.identifier}', '0', 'main', {num_lines})"
+            )
+            row = cursor.fetchone()
+            return row[0] if row else None
+        except Exception:
+            return None
