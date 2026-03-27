@@ -148,7 +148,9 @@ class CliAppFactory:
         def callback(value: bool):
             if value:
                 print_result(
-                    MessageResult(f"Snowflake CLI version: {__about__.VERSION}")
+                    MessageResult(
+                        f"Snowflake CLI version: {__about__.get_display_version()}"
+                    )
                 )
                 self._exit_with_cleanup()
 
