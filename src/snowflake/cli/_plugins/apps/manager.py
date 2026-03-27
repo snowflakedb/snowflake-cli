@@ -48,7 +48,9 @@ _APP_COMMAND_NAME = "__app"
 # Default resource names for Snowflake Apps
 SNOW_APPS_COMPUTE_POOL = "SNOW_APPS_DEFAULT_COMPUTE_POOL"
 DEFAULT_EXTERNAL_ACCESS = "SNOW_APPS_DEFAULT_EXTERNAL_ACCESS"
-DEFAULT_IMAGE_REPOSITORY = "SNOW_APPS_DEFAULT_IMAGE_REPOSITORY"
+DEFAULT_IMAGE_REPOSITORY = "IMAGE_REPO"
+DEFAULT_IMAGE_REPO_DATABASE = "TEMP"
+DEFAULT_IMAGE_REPO_SCHEMA = "APPS"
 
 APP_DEFAULTS_TABLE = "TEMP.SNOW_APPS.SNOW_APP_DEFAULTS"
 APP_DEFAULTS_INTEGRATION = "snowflake-apps"
@@ -247,6 +249,14 @@ def _resolve_deploy_defaults(
             or table_vals.get(key)
             or builtin_vals.get(key)
         )
+
+    # Default image repo lives in TEMP.APPS; user-specified repos without
+    # explicit db/schema will fall back to the entity db/schema in the caller.
+    if resolved["image_repository"] == DEFAULT_IMAGE_REPOSITORY:
+        if not resolved.get("image_repo_database"):
+            resolved["image_repo_database"] = DEFAULT_IMAGE_REPO_DATABASE
+        if not resolved.get("image_repo_schema"):
+            resolved["image_repo_schema"] = DEFAULT_IMAGE_REPO_SCHEMA
 
     return resolved
 
