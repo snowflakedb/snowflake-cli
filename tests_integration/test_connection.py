@@ -11,8 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from textwrap import dedent
+from unittest import mock
 
 import pytest
+
+from tests_common import IS_WINDOWS
 from tests_integration.snowflake_connector import (
     setup_test_database,
     setup_test_schema,
