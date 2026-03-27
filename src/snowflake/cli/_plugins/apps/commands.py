@@ -21,13 +21,13 @@ import typer
 from snowflake.cli._plugins.apps.generate import _generate_snowflake_yml
 from snowflake.cli._plugins.apps.manager import (
     _APP_COMMAND_NAME,
-    APP_DEFAULTS_TABLE,
     DEFINITION_FILENAME,
     EXPOSE_UNSUPPORTED_SYNTAX,
     SnowflakeAppManager,
     _find_dockerfile_expose_port,
     _get_entity,
     _poll_until,
+    _resolve_deploy_defaults,
     _resolve_entity_id,
     perform_bundle,
 )
