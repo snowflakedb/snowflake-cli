@@ -16,7 +16,6 @@ from unittest.mock import Mock, patch
 
 import pytest
 from snowflake.cli._plugins.apps.generate import (
-    DEFAULT_IMAGE_REPOSITORY,
     _generate_snowflake_yml,
 )
 from snowflake.cli._plugins.apps.manager import (
@@ -344,13 +343,13 @@ class TestGenerateSnowflakeYml:
         assert "type: snowflake-app" in result
         assert "name: MY_APP" in result
         assert "database: TEST_DB" in result
-        assert "schema: SNOW_APP_MY_APP_TESTUSER" in result
+        assert "schema: SNOW_APPS" in result
         assert "query_warehouse: TEST_WH" in result
         assert "build_compute_pool:" in result
         assert "name: null" in result
         assert "name: MY_APP_CODE" in result
-        assert "image_repository:" in result
-        assert f"name: {DEFAULT_IMAGE_REPOSITORY}" in result
+        assert "artifact_repository" not in result
+        assert "image_repository" not in result
 
     @patch(OBJECT_EXISTS, return_value=True)
     @patch(GET_ENV_USERNAME, return_value="testuser")
@@ -363,13 +362,81 @@ class TestGenerateSnowflakeYml:
     @patch(GET_ENV_USERNAME, return_value="testuser")
     def test_generates_yml_default_database_template(self, mock_user, mock_exists):
         result = _generate_snowflake_yml("my_app", "TEST_WH")
-        assert "database: <% ctx.connection.database %>" in result
+        assert "database: null" in result
 
     @patch(OBJECT_EXISTS, return_value=False)
     @patch(GET_ENV_USERNAME, return_value="testuser")
-    def test_generates_yml_default_warehouse_template(self, mock_user, mock_exists):
+    def test_generates_yml_default_warehouse_none(self, mock_user, mock_exists):
         result = _generate_snowflake_yml("my_app", None, "TEST_DB")
-        assert "query_warehouse: <% ctx.connection.warehouse %>" in result
+        assert "query_warehouse: null" in result
+
+    @patch(OBJECT_EXISTS, return_value=False)
+    @patch(GET_ENV_USERNAME, return_value="testuser")
+    def test_config_overrides_fill_missing_database(self, mock_user, mock_exists):
+        result = _generate_snowflake_yml(
+            "my_app", "TEST_WH", config_overrides={"database": "CFG_DB"}
+        )
+        assert "database: CFG_DB" in result
+
+    @patch(OBJECT_EXISTS, return_value=False)
+    @patch(GET_ENV_USERNAME, return_value="testuser")
+    def test_config_overrides_fill_missing_warehouse(self, mock_user, mock_exists):
+        result = _generate_snowflake_yml(
+            "my_app", None, config_overrides={"warehouse": "CFG_WH"}
+        )
+        assert "query_warehouse: CFG_WH" in result
+
+    @patch(OBJECT_EXISTS, return_value=False)
+    @patch(GET_ENV_USERNAME, return_value="testuser")
+    def test_explicit_values_beat_config_overrides(self, mock_user, mock_exists):
+        result = _generate_snowflake_yml(
+            "my_app",
+            "EXPLICIT_WH",
+            "EXPLICIT_DB",
+            config_overrides={"warehouse": "CFG_WH", "database": "CFG_DB"},
+        )
+        assert "database: EXPLICIT_DB" in result
+        assert "query_warehouse: EXPLICIT_WH" in result
+
+    @patch(OBJECT_EXISTS, return_value=False)
+    @patch(GET_ENV_USERNAME, return_value="testuser")
+    def test_config_overrides_compute_pool_beats_builtin(self, mock_user, mock_exists):
+        result = _generate_snowflake_yml(
+            "my_app", "WH", "DB", config_overrides={"compute_pool": "CFG_POOL"}
+        )
+        assert "name: CFG_POOL" in result
+
+    @patch(OBJECT_EXISTS, return_value=False)
+    @patch(GET_ENV_USERNAME, return_value="testuser")
+    def test_config_overrides_schema(self, mock_user, mock_exists):
+        result = _generate_snowflake_yml(
+            "my_app", "WH", "DB", config_overrides={"schema": "CFG_SCHEMA"}
+        )
+        assert "schema: CFG_SCHEMA" in result
+
+    @patch(OBJECT_EXISTS, return_value=False)
+    @patch(GET_ENV_USERNAME, return_value="testuser")
+    def test_repos_omitted_without_config_overrides(self, mock_user, mock_exists):
+        result = _generate_snowflake_yml("my_app", "WH", "DB")
+        assert "artifact_repository" not in result
+        assert "image_repository" not in result
+
+    @patch(OBJECT_EXISTS, return_value=False)
+    @patch(GET_ENV_USERNAME, return_value="testuser")
+    def test_config_overrides_set_repos(self, mock_user, mock_exists):
+        result = _generate_snowflake_yml(
+            "my_app",
+            "WH",
+            "DB",
+            config_overrides={
+                "artifact_repository": "MY_AR",
+                "image_repository": "MY_IR",
+            },
+        )
+        assert "artifact_repository:" in result
+        assert "name: MY_AR" in result
+        assert "image_repository:" in result
+        assert "name: MY_IR" in result
 
     @patch(OBJECT_EXISTS, return_value=False)
     @patch(GET_ENV_USERNAME, return_value="testuser")
