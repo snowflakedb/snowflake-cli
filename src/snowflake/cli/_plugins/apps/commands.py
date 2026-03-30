@@ -362,6 +362,9 @@ def deploy(
     if skip_build:
         cli_console.step("Skipping build phase (--skip-build)")
     else:
+        cli_console.step(f"Creating schema {schema} if it doesn't exist")
+        manager.create_schema_if_not_exists(database, schema)
+
         if manager.stage_exists(stage_fqn):
             cli_console.step(f"Clearing existing stage @{stage_fqn}")
             manager.clear_stage(stage_fqn)
@@ -449,6 +452,9 @@ def deploy(
     # ── Deploy phase ──────────────────────────────────────────────────
 
     if use_artifact_repo:
+        cli_console.step(f"Dropping service if exists: {service_fqn}")
+        manager.drop_service_if_exists(service_fqn)
+
         cli_console.step("Deploying app using artifact repository...")
         run_result = manager.run_app_artifact_repo(
             artifact_repo_fqn=artifact_repo_fqn_str,
