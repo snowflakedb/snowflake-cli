@@ -775,11 +775,12 @@ def build_image(
     stage_path = StagePath.from_stage_str(
         f"@{stage_fqn.identifier}/{build_context_stage_path}"
     )
-    stage_manager.put(
+    for _ in stage_manager.put_recursive(
         local_path=build_context_dir,
         stage_path=str(stage_path),
         overwrite=True,
-    )
+    ):
+        pass
 
     # Execute the build job asynchronously so we can stream logs
     cli_console.step(f"Starting image build job: {job_name}")
