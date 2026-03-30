@@ -2276,6 +2276,10 @@ TEST_BUILD_IMAGE_DIRECTORIES = (
 )
 
 
+@patch("time.sleep")
+@patch(
+    "snowflake.cli._plugins.spcs.services.commands.ObjectManager",
+)
 @patch(
     "snowflake.cli._plugins.spcs.services.commands.ServiceManager",
 )
@@ -2285,6 +2289,8 @@ TEST_BUILD_IMAGE_DIRECTORIES = (
 def test_build_image_cli_recursive_upload_with_nested_dirs(
     mock_stage_execute_query,
     mock_service_manager_class,
+    mock_object_manager_class,
+    mock_sleep,
     runner,
 ):
     """Test that build-image uploads nested directory structures correctly via put_recursive."""
@@ -2300,6 +2306,12 @@ def test_build_image_cli_recursive_upload_with_nested_dirs(
     mock_service_manager.stream_logs.return_value = iter(
         [("__TERMINAL_STATUS__", "DONE")]
     )
+
+    mock_object_manager = Mock()
+    mock_object_manager_class.return_value = mock_object_manager
+    mock_describe_cursor = Mock()
+    mock_describe_cursor.fetchone.return_value = {"status": "RUNNING"}
+    mock_object_manager.describe.return_value = mock_describe_cursor
 
     result = runner.invoke(
         [
@@ -2328,20 +2340,6 @@ def test_build_image_cli_recursive_upload_with_nested_dirs(
         if str(c).startswith("call('put ")
     ]
 
-    uploaded_sources = set()
-    for call_obj in put_calls:
-        sql = call_obj.args[0]
-        source = sql.split("put ")[1].split(" @")[0]
-        source = source.replace("file://", "")
-        uploaded_sources.add(source)
-
-    assert any("templates" in s and "partials" in s for s in uploaded_sources), (
-        f"Nested directory 'templates/partials' files not uploaded. PUT calls: {put_calls}"
-    )
-    assert any("Dockerfile" in s for s in uploaded_sources), (
-        f"Root-level files not uploaded. PUT calls: {put_calls}"
-    )
-
     stage_paths = set()
     for call_obj in put_calls:
         sql = call_obj.args[0]
@@ -2350,6 +2348,12 @@ def test_build_image_cli_recursive_upload_with_nested_dirs(
 
     assert any("templates/partials" in sp for sp in stage_paths), (
         f"Stage path does not preserve nested directory structure. Stage paths: {stage_paths}"
+    )
+    assert any("templates" in sp and "partials" not in sp for sp in stage_paths), (
+        f"Stage path missing 'templates' level. Stage paths: {stage_paths}"
+    )
+    assert any(sp.endswith("build_contexts/" + sp.split("build_contexts/")[1].split("/")[0]) for sp in stage_paths if "build_contexts/" in sp and "templates" not in sp), (
+        f"Root-level upload missing. Stage paths: {stage_paths}"
     )
 
 
