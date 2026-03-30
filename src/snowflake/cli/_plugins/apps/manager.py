@@ -14,6 +14,8 @@
 
 from __future__ import annotations
 
+import json
+import logging
 import re
 import time
 from pathlib import Path
@@ -35,6 +37,9 @@ from snowflake.cli.api.project.project_paths import ProjectPaths
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import DictCursor
+from snowflake.connector.errors import ProgrammingError
+
+log = logging.getLogger(__name__)
 
 DEFINITION_FILENAME = "snowflake.yml"
 SNOWFLAKE_APP_ENTITY_TYPE = "snowflake-app"
@@ -44,11 +49,15 @@ _APP_COMMAND_NAME = "__app"
 # Default resource names for Snowflake Apps
 SNOW_APPS_COMPUTE_POOL = "SNOW_APPS_DEFAULT_COMPUTE_POOL"
 DEFAULT_EXTERNAL_ACCESS = "SNOW_APPS_DEFAULT_EXTERNAL_ACCESS"
-DEFAULT_IMAGE_REPOSITORY = "SNOW_APPS_DEFAULT_IMAGE_REPOSITORY"
+DEFAULT_IMAGE_REPOSITORY = "IMAGE_REPO"
+DEFAULT_IMAGE_REPO_DATABASE = "APPS"
+DEFAULT_IMAGE_REPO_SCHEMA = "PUBLIC"
+
+APP_DEFAULTS_TABLE = "APPS.PUBLIC.SNOW_APP_DEFAULTS"
+APP_DEFAULTS_INTEGRATION = "snowflake-apps"
 
 _BUILD_IMAGE = "/snowflake/images/snowflake_images/sf-image-build:0.0.1"
 _SERVICE_PLACEHOLDER_IMAGE = "/snowflake/images/snowflake_images/sf-image-build:0.0.1"
-
 
 T = TypeVar("T")
 
@@ -147,6 +156,110 @@ def _get_external_access(app_id: str) -> Optional[str]:
         return app_specific_eai
 
     return None
+
+
+def _resolve_deploy_defaults(
+    entity: "SnowflakeAppEntityModel",
+    manager: "SnowflakeAppManager",
+) -> Dict[str, Optional[str]]:
+    """Resolve deploy defaults using a four-tier precedence:
+
+    1. Values explicitly set in ``snowflake.yml`` (highest priority)
+    2. Values from the current connection context
+    3. Values from the ``APP_DEFAULTS_TABLE`` config table
+    4. Built-in defaults (object-existence checks, lowest priority)
+
+    Returns a dict with keys ``query_warehouse``, ``build_compute_pool``,
+    ``service_compute_pool``, ``build_eai``, ``image_repository``,
+    ``image_repo_database``, ``image_repo_schema``, ``database``, and
+    ``schema``.  Any of them may still be ``None`` if no source provides
+    a value.
+    """
+
+    # ── 1. snowflake.yml values ───────────────────────────────────────
+    fqn = entity.fqn
+    app_name = fqn.name
+    yml_vals: Dict[str, Optional[str]] = {
+        "query_warehouse": entity.query_warehouse,
+        "build_compute_pool": (
+            entity.build_compute_pool.name if entity.build_compute_pool else None
+        ),
+        "service_compute_pool": (
+            entity.service_compute_pool.name if entity.service_compute_pool else None
+        ),
+        "build_eai": entity.build_eai.name if entity.build_eai else None,
+        "image_repository": (
+            entity.image_repository.name if entity.image_repository else None
+        ),
+        "image_repo_database": (
+            entity.image_repository.database if entity.image_repository else None
+        ),
+        "image_repo_schema": (
+            entity.image_repository.schema_ if entity.image_repository else None
+        ),
+        "database": fqn.database,
+        "schema": fqn.schema,
+    }
+
+    # ── 2. Current connection values ──────────────────────────────────
+    ctx = get_cli_context()
+    conn = ctx.connection_context
+    conn_vals: Dict[str, Optional[str]] = {
+        "query_warehouse": conn.warehouse,
+        "database": conn.database,
+        "schema": conn.schema,
+    }
+
+    # ── 3. Config-table values ────────────────────────────────────────
+    table_vals: Dict[str, Optional[str]] = {}
+    role = manager.current_role()
+    if role:
+        raw = manager.fetch_config_table_defaults(role)
+        if raw:
+            cli_console.step(
+                f"Loaded config-table defaults for role {role}: "
+                + ", ".join(f"{k}={v}" for k, v in raw.items())
+            )
+        table_vals = {
+            "query_warehouse": raw.get("warehouse"),
+            "build_compute_pool": raw.get("compute_pool"),
+            "service_compute_pool": raw.get("compute_pool"),
+            "build_eai": raw.get("eai"),
+            "image_repository": raw.get("image_repository"),
+            "image_repo_database": raw.get("image_repo_database"),
+            "image_repo_schema": raw.get("image_repo_schema"),
+            "database": raw.get("database"),
+            "schema": raw.get("schema"),
+        }
+
+    # ── 4. Built-in defaults ──────────────────────────────────────────
+    builtin_vals: Dict[str, Optional[str]] = {
+        "build_compute_pool": _get_compute_pool(),
+        "service_compute_pool": _get_compute_pool(),
+        "build_eai": _get_external_access(app_name),
+        "image_repository": DEFAULT_IMAGE_REPOSITORY,
+    }
+
+    # ── Merge (first non-None wins) ──────────────────────────────────
+    all_keys = set(yml_vals) | set(conn_vals) | set(table_vals) | set(builtin_vals)
+    resolved: Dict[str, Optional[str]] = {}
+    for key in all_keys:
+        resolved[key] = (
+            yml_vals.get(key)
+            or conn_vals.get(key)
+            or table_vals.get(key)
+            or builtin_vals.get(key)
+        )
+
+    # Default image repo lives in TEMP.APPS; user-specified repos without
+    # explicit db/schema will fall back to the entity db/schema in the caller.
+    if resolved["image_repository"] == DEFAULT_IMAGE_REPOSITORY:
+        if not resolved.get("image_repo_database"):
+            resolved["image_repo_database"] = DEFAULT_IMAGE_REPO_DATABASE
+        if not resolved.get("image_repo_schema"):
+            resolved["image_repo_schema"] = DEFAULT_IMAGE_REPO_SCHEMA
+
+    return resolved
 
 
 def _get_snowflake_app_entities() -> Dict[str, Any]:
@@ -359,9 +472,23 @@ class SnowflakeAppManager(SqlExecutionMixin):
         return False
 
     def create_schema_if_not_exists(self, database: str, schema: str) -> None:
-        """Create schema if it doesn't exist."""
+        """Create schema if it doesn't exist.
+
+        Falls back to a SHOW SCHEMAS check when the role lacks CREATE SCHEMA
+        privilege — the schema may already exist and be usable.
+        """
         schema_fqn = FQN(database=None, schema=database, name=schema)
-        self.execute_query(f"CREATE SCHEMA IF NOT EXISTS {schema_fqn.sql_identifier}")
+        try:
+            self.execute_query(
+                f"CREATE SCHEMA IF NOT EXISTS {schema_fqn.sql_identifier}"
+            )
+        except ProgrammingError:
+            cursor = self.execute_query(
+                f"SHOW SCHEMAS LIKE '{schema}' IN DATABASE {database}",
+                cursor_class=DictCursor,
+            )
+            if not cursor.fetchone():
+                raise
 
     def stage_exists(self, stage_fqn: FQN) -> bool:
         """Check if a stage exists."""
@@ -576,3 +703,106 @@ class SnowflakeAppManager(SqlExecutionMixin):
                     url = f"https://{url}"
                 return url
         return None
+
+    def fetch_config_table_defaults(
+        self, role: str, integration: str = APP_DEFAULTS_INTEGRATION
+    ) -> Dict[str, str]:
+        """Fetch defaults from the APP_DEFAULTS_TABLE for the given role.
+
+        Returns a dict that may contain keys such as ``warehouse``,
+        ``compute_pool``, ``eai``, ``database``, ``schema``.  Returns an empty
+        dict when the table does not exist, the role lacks permissions, the
+        query returns no rows, or any other error occurs.
+        """
+        from snowflake.cli.api.project.util import to_string_literal
+
+        try:
+            safe_integration = to_string_literal(integration)
+            safe_role = to_string_literal(role.upper())
+
+            cursor = self.execute_query(
+                f"SELECT defaults FROM {APP_DEFAULTS_TABLE} "
+                f"WHERE integration = {safe_integration} AND role = {safe_role} "
+                f"ORDER BY updated_at DESC LIMIT 1",
+                cursor_class=DictCursor,
+            )
+            row = cursor.fetchone()
+            if row is None:
+                return {}
+
+            raw = row.get("DEFAULTS") or row.get("defaults")
+            if raw is None:
+                return {}
+
+            defaults = json.loads(raw) if isinstance(raw, str) else raw
+            if not isinstance(defaults, dict):
+                return {}
+
+            return {k: str(v) for k, v in defaults.items() if v is not None}
+        except Exception:
+            log.debug(
+                "Could not read %s (table may not "
+                "exist or role lacks permissions) – skipping config-table defaults.",
+                APP_DEFAULTS_TABLE,
+                exc_info=True,
+            )
+            return {}
+
+    def _use_database_and_schema(self, database: str, schema: str) -> None:
+        """Set session database and schema context."""
+        self.execute_query(f"USE DATABASE {database}")
+        self.execute_query(f"USE SCHEMA {schema}")
+
+    def build_app_artifact_repo(
+        self,
+        stage_fqn: FQN,
+        artifact_repo_fqn: str,
+        app_id: str,
+        compute_pool: str,
+        database: str,
+        schema: str,
+        runtime_image: str,
+        project_type: str = "nodejs",
+    ) -> str:
+        """Build an app using SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO."""
+        self._use_database_and_schema(database, schema)
+        query = (
+            f"SELECT SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO("
+            f"'@{stage_fqn.identifier}', "
+            f"'{artifact_repo_fqn}', "
+            f"'{app_id}', "
+            f"'{compute_pool}', "
+            f"'{runtime_image}', "
+            f"'{project_type}'"
+            f")"
+        )
+        cursor = self.execute_query(query)
+        row = cursor.fetchone()
+        return row[0] if row else ""
+
+    def run_app_artifact_repo(
+        self,
+        artifact_repo_fqn: str,
+        app_id: str,
+        version: str,
+        service_name: str,
+        compute_pool: str,
+        database: str,
+        schema: str,
+        runtime_image: str,
+    ) -> str:
+        """Deploy an app using SYSTEM$SPCS_TEST_RUN_APP_ARTIFACT_REPO."""
+        self._use_database_and_schema(database, schema)
+        query = (
+            f"SELECT SYSTEM$SPCS_TEST_RUN_APP_ARTIFACT_REPO("
+            f"'{artifact_repo_fqn}', "
+            f"'{app_id}', "
+            f"'{version}', "
+            f"'{service_name}', "
+            f"'{compute_pool}', "
+            f"'{runtime_image}'"
+            f")"
+        )
+        cursor = self.execute_query(query)
+        row = cursor.fetchone()
+        return row[0] if row else ""
