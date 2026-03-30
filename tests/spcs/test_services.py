@@ -2266,6 +2266,93 @@ def test_stream_logs_without_terminal_status_check(mock_sleep, mock_logs):
     assert "log 2" in generated_logs[1]
 
 
+TEST_BUILD_IMAGE_DIRECTORIES = (
+    Path(__file__).parent.parent.parent
+    / "tests_integration"
+    / "tests_using_container_services"
+    / "spcs"
+    / "docker"
+    / "test_build_image_directories"
+)
+
+
+@patch(
+    "snowflake.cli._plugins.spcs.services.commands.ServiceManager",
+)
+@patch(
+    "snowflake.cli._plugins.stage.manager.StageManager.execute_query",
+)
+def test_build_image_cli_recursive_upload_with_nested_dirs(
+    mock_stage_execute_query,
+    mock_service_manager_class,
+    runner,
+):
+    """Test that build-image uploads nested directory structures correctly via put_recursive."""
+    build_context = TEST_BUILD_IMAGE_DIRECTORIES
+
+    mock_stage_execute_query.return_value = Mock(fetchall=lambda: [])
+
+    mock_service_manager = Mock()
+    mock_service_manager_class.return_value = mock_service_manager
+    mock_build_cursor = Mock()
+    mock_build_cursor.fetchone.return_value = {"status": "DONE"}
+    mock_service_manager.build_image.return_value = mock_build_cursor
+    mock_service_manager.stream_logs.return_value = iter(
+        [("__TERMINAL_STATUS__", "DONE")]
+    )
+
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "build-image",
+            "--compute-pool",
+            "test_pool",
+            "--image-repository",
+            "db.schema.repo",
+            "--image-name",
+            "my_image",
+            "--image-tag",
+            "v1.0",
+            "--build-context-dir",
+            str(build_context),
+            "--stage",
+            "test_stage",
+        ],
+        catch_exceptions=False,
+    )
+
+    put_calls = [
+        c
+        for c in mock_stage_execute_query.call_args_list
+        if str(c).startswith("call('put ")
+    ]
+
+    uploaded_sources = set()
+    for call_obj in put_calls:
+        sql = call_obj.args[0]
+        source = sql.split("put ")[1].split(" @")[0]
+        source = source.replace("file://", "")
+        uploaded_sources.add(source)
+
+    assert any("templates" in s and "partials" in s for s in uploaded_sources), (
+        f"Nested directory 'templates/partials' files not uploaded. PUT calls: {put_calls}"
+    )
+    assert any("Dockerfile" in s for s in uploaded_sources), (
+        f"Root-level files not uploaded. PUT calls: {put_calls}"
+    )
+
+    stage_paths = set()
+    for call_obj in put_calls:
+        sql = call_obj.args[0]
+        stage_path = sql.split("@")[1].split(" ")[0] if "@" in sql else ""
+        stage_paths.add(stage_path)
+
+    assert any("templates/partials" in sp for sp in stage_paths), (
+        f"Stage path does not preserve nested directory structure. Stage paths: {stage_paths}"
+    )
+
+
 def test_build_image_hidden_by_default(runner):
     """Test that build-image command is hidden by default (feature flag disabled)."""
     result = runner.invoke(["spcs", "service", "--help"])
