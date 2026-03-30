@@ -14,9 +14,29 @@
 
 from __future__ import annotations
 
+import re
+import subprocess
 from enum import Enum, unique
 
 VERSION = "3.17.0.dev0"
+
+
+def get_display_version() -> str:
+    """Return VERSION with short commit SHA appended for dev builds."""
+    if re.search(r"\.dev\d*$", VERSION):
+        try:
+            sha = (
+                subprocess.check_output(
+                    ["git", "rev-parse", "--short", "HEAD"],
+                    stderr=subprocess.DEVNULL,
+                )
+                .decode()
+                .strip()
+            )
+            return f"{VERSION} ({sha})"
+        except Exception:
+            return VERSION
+    return VERSION
 
 
 @unique
