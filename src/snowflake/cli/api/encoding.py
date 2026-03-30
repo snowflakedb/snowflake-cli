@@ -21,17 +21,8 @@ from typing import Optional
 
 from snowflake.cli.api.config import ENCODING_SECTION_PATH, get_config_value
 from snowflake.cli.api.exceptions import CliError
-from snowflake.connector.errors import ConfigSourceError, MissingConfigOptionError
-from tomlkit.exceptions import NonExistentKey
 
 log = logging.getLogger(__name__)
-
-_MISSING_ENCODING_EXCEPTIONS = (
-    KeyError,
-    NonExistentKey,
-    MissingConfigOptionError,
-    ConfigSourceError,
-)
 
 
 def _validate_encoding(encoding: str, source: str) -> None:
@@ -61,12 +52,7 @@ def get_file_io_encoding() -> Optional[str]:
         _validate_encoding(env_encoding, "SNOWFLAKE_CLI_ENCODING_FILE_IO")
         return env_encoding
 
-    try:
-        value = get_config_value(*ENCODING_SECTION_PATH, key="file_io")
-    except _MISSING_ENCODING_EXCEPTIONS:
-        log.debug("No file_io encoding in config.toml; using platform default.")
-        return None
-
+    value = get_config_value(*ENCODING_SECTION_PATH, key="file_io", default=None)
     if value is not None:
         _validate_encoding(value, "[cli.encoding] file_io")
     return value
@@ -85,12 +71,7 @@ def get_subprocess_encoding() -> Optional[str]:
         _validate_encoding(env_encoding, "SNOWFLAKE_CLI_ENCODING_SUBPROCESS")
         return env_encoding
 
-    try:
-        value = get_config_value(*ENCODING_SECTION_PATH, key="subprocess")
-    except _MISSING_ENCODING_EXCEPTIONS:
-        log.debug("No subprocess encoding in config.toml; using platform default.")
-        return None
-
+    value = get_config_value(*ENCODING_SECTION_PATH, key="subprocess", default=None)
     if value is not None:
         _validate_encoding(value, "[cli.encoding] subprocess")
     return value
