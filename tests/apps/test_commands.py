@@ -1871,6 +1871,7 @@ class TestDeployCommand:
         entity.code_stage = None
         entity.artifacts = []
         entity.meta = None
+        entity.artifact_repository = None
         entity.image_repository = Mock()
         entity.image_repository.name = "MY_REPO"
         mock_get_entity.return_value = entity
@@ -1923,6 +1924,7 @@ class TestDeployCommand:
         entity.code_stage = None
         entity.artifacts = []
         entity.meta = None
+        entity.artifact_repository = None
         entity.image_repository = Mock()
         entity.image_repository.name = "MY_REPO"
         entity.image_repository.database = None
@@ -1931,7 +1933,7 @@ class TestDeployCommand:
 
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.get_image_repo_url.return_value = (
-            "host.registry-local.snowflakecomputing.com/TEST_DB/TEST_SCHEMA/MY_REPO"
+            "host.registry-local.snowflakecomputing.com/TEST_DB/TEST_SCHEMA/IMAGE_REPO"
         )
         mock_poll.return_value = "https://my-app.snowflakecomputing.app"
 
@@ -1943,7 +1945,7 @@ class TestDeployCommand:
                 assert result.exit_code == 0, result.output
                 assert "Skipping build phase" in result.output
                 mock_mgr.get_image_repo_url.assert_called_once_with(
-                    "MY_REPO", database="TEST_DB", schema="TEST_SCHEMA"
+                    "IMAGE_REPO", database="TEST_DB", schema="TEST_SCHEMA"
                 )
                 mock_mgr.create_schema_if_not_exists.assert_not_called()
                 mock_mgr.execute_build_job.assert_not_called()
@@ -1981,6 +1983,7 @@ class TestDeployCommand:
         entity.code_stage = None
         entity.artifacts = []
         entity.meta = None
+        entity.artifact_repository = None
         entity.image_repository = None
         mock_get_entity.return_value = entity
 
@@ -2022,6 +2025,7 @@ class TestDeployCommand:
         entity.code_stage = None
         entity.artifacts = []
         entity.meta = None
+        entity.artifact_repository = None
         entity.image_repository = Mock()
         entity.image_repository.name = "MY_REPO"
         mock_get_entity.return_value = entity
@@ -2063,6 +2067,7 @@ class TestDeployCommand:
         entity.code_stage = None
         entity.artifacts = []
         entity.meta = None
+        entity.artifact_repository = None
         entity.image_repository = Mock()
         entity.image_repository.name = "MY_REPO"
         mock_get_entity.return_value = entity
