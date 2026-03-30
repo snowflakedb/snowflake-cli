@@ -889,7 +889,7 @@ class TestFetchConfigTableDefaults:
             "schema": "APPS",
         }
         query = mock_execute.call_args[0][0]
-        assert "SNOW_APPS.CONFIG.APP_DEFAULTS" in query
+        assert "APPS.PUBLIC.SNOW_APP_DEFAULTS" in query
         assert "'ENGINEER'" in query
 
     @patch(EXECUTE_QUERY)
@@ -1851,6 +1851,9 @@ class TestDeployCommand:
             "build_eai": None,
             "database": "TEST_DB",
             "schema": "TEST_SCHEMA",
+            "image_repository": "IMAGE_REPO",
+            "image_repo_database": "TEST_DB",
+            "image_repo_schema": "TEST_SCHEMA",
         },
     )
     @patch(
@@ -1891,6 +1894,9 @@ class TestDeployCommand:
             "build_eai": None,
             "database": "TEST_DB",
             "schema": "TEST_SCHEMA",
+            "image_repository": "IMAGE_REPO",
+            "image_repo_database": "TEST_DB",
+            "image_repo_schema": "TEST_SCHEMA",
         },
     )
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
@@ -1954,6 +1960,9 @@ class TestDeployCommand:
             "build_eai": None,
             "database": "TEST_DB",
             "schema": "TEST_SCHEMA",
+            "image_repository": "IMAGE_REPO",
+            "image_repo_database": "TEST_DB",
+            "image_repo_schema": "TEST_SCHEMA",
         },
     )
     @patch(
@@ -1993,6 +2002,9 @@ class TestDeployCommand:
             "build_eai": None,
             "database": "TEST_DB",
             "schema": "TEST_SCHEMA",
+            "image_repository": "IMAGE_REPO",
+            "image_repo_database": "TEST_DB",
+            "image_repo_schema": "TEST_SCHEMA",
         },
     )
     @patch(
@@ -2031,6 +2043,9 @@ class TestDeployCommand:
             "build_eai": None,
             "database": "TEST_DB",
             "schema": "TEST_SCHEMA",
+            "image_repository": "IMAGE_REPO",
+            "image_repo_database": "TEST_DB",
+            "image_repo_schema": "TEST_SCHEMA",
         },
     )
     @patch(
