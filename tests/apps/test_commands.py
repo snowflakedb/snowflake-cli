@@ -425,15 +425,18 @@ class TestGenerateSnowflakeYml:
 
     @patch(OBJECT_EXISTS, return_value=False)
     @patch(GET_ENV_USERNAME, return_value="testuser")
-    def test_config_overrides_set_image_repo(self, mock_user, mock_exists):
+    def test_config_overrides_set_repos(self, mock_user, mock_exists):
         result = _generate_snowflake_yml(
             "my_app",
             "WH",
             "DB",
             config_overrides={
+                "artifact_repository": "MY_AR",
                 "image_repository": "MY_IR",
             },
         )
+        assert "artifact_repository:" in result
+        assert "name: MY_AR" in result
         assert "image_repository:" in result
         assert "name: MY_IR" in result
 
@@ -736,7 +739,6 @@ class TestSnowflakeAppManager:
                 return call[0][0]
         raise AssertionError(f"No query containing '{substr}' found")
 
-<<<<<<< HEAD
     @patch(EXECUTE_QUERY)
     def test_build_app_artifact_repo_sanitizes_inputs(self, mock_execute):
         cursor = Mock()
