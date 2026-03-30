@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 from enum import Enum, unique
@@ -29,6 +30,7 @@ def get_display_version() -> str:
                 subprocess.check_output(
                     ["git", "rev-parse", "--short", "HEAD"],
                     stderr=subprocess.DEVNULL,
+                    cwd=os.path.dirname(__file__),
                 )
                 .decode()
                 .strip()

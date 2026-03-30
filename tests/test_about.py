@@ -12,9 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from unittest.mock import patch
 
+import snowflake.cli.__about__ as about_module
 from snowflake.cli.__about__ import get_display_version
+
+ABOUT_DIR = os.path.dirname(about_module.__file__)
 
 
 class TestGetDisplayVersion:
@@ -22,6 +26,9 @@ class TestGetDisplayVersion:
     @patch("snowflake.cli.__about__.VERSION", "1.0.0.dev0")
     def test_dev_version_appends_git_sha(self, mock_git):
         assert get_display_version() == "1.0.0.dev0 (abc1234)"
+        mock_git.assert_called_once()
+        _, kwargs = mock_git.call_args
+        assert kwargs["cwd"] == ABOUT_DIR
 
     @patch(
         "snowflake.cli.__about__.subprocess.check_output",
