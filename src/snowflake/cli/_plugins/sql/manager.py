@@ -25,6 +25,7 @@ from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_temp
 from snowflake.cli._plugins.sql.statement_reader import (
     CompiledStatement,
     _strip_sql_comments,
+    _wrap_comments_in_jinja_raw,
     compile_statements,
     files_reader,
     query_reader,
@@ -81,9 +82,13 @@ class SqlManager(SqlExecutionMixin):
         if template_syntax_config.enable_jinja_syntax:
 
             def _jinja_pre_render(content: str) -> str:
-                # Strip SQL comments first so that template-like syntax inside
-                # comments (e.g. ``-- {{ var }}``) is not evaluated by Jinja.
-                content = _strip_sql_comments(content)
+                # Guard comments from Jinja evaluation. When retaining comments
+                # we wrap them in {% raw %}...{% endraw %} so Jinja ignores
+                # their content; otherwise we strip them outright.
+                if retain_comments:
+                    content = _wrap_comments_in_jinja_raw(content)
+                else:
+                    content = _strip_sql_comments(content)
                 if template_syntax_config.enable_legacy_syntax:
                     content = transpile_snowsql_templates(content)
                 return snowflake_sql_jinja_render(

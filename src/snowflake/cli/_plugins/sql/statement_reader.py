@@ -24,19 +24,20 @@ URL_PATTERN = re.compile(r"^(\w+?):\/(\/.*)", flags=re.IGNORECASE)
 ASYNC_SUFFIX = ";>"
 
 
-def _strip_sql_comments(sql: str) -> str:
-    """Strip SQL comments from *sql* while preserving string and dollar-quoted literals.
+def _tokenize_sql(
+    sql: str,
+) -> "Generator[tuple[str, str], None, None]":
+    """Yield ``(kind, text)`` pairs for every segment of *sql*.
 
-    Handles:
-    - ``--`` line comments
-    - ``/* ... */`` block comments (non-nestable)
-    - Single-quoted strings ``'...'`` with ``''`` escape
-    - Dollar-quoted strings ``$tag$...$tag$``
+    ``kind`` is one of:
+    - ``"code"``         — non-comment SQL, including string literals
+    - ``"line_comment"`` — ``--`` comment text (not including the trailing ``\\n``)
+    - ``"block_comment"``— ``/* ... */`` comment text (including delimiters)
+    - ``"newline"``      — a single ``\\n`` that terminated a line comment
 
-    Used before Jinja pre-render so that template-like syntax inside comments
-    (e.g. ``-- {{ var }}``) is not interpreted by Jinja.
+    String literals (single-quoted and dollar-quoted) are treated as ``"code"``
+    so that comment-like syntax inside them is never mis-classified.
     """
-    result: list[str] = []
     i = 0
     n = len(sql)
     while i < n:
@@ -52,7 +53,7 @@ def _strip_sql_comments(sql: str) -> str:
                         continue
                     break
                 j += 1
-            result.append(sql[i:j])
+            yield "code", sql[i:j]
             i = j
             continue
         # Dollar-quoted string: $tag$...$tag$
@@ -62,26 +63,63 @@ def _strip_sql_comments(sql: str) -> str:
                 tag = sql[i : end_tag + 1]
                 closing = sql.find(tag, end_tag + 1)
                 if closing != -1:
-                    result.append(sql[i : closing + len(tag)])
+                    yield "code", sql[i : closing + len(tag)]
                     i = closing + len(tag)
                     continue
-        # Line comment: skip to end of line, preserving the newline
+        # Line comment: everything from -- to end of line (newline emitted separately)
         if sql[i : i + 2] == "--":
             j = sql.find("\n", i)
             if j == -1:
-                break  # rest of string is a comment
-            i = j  # keep the newline itself
+                yield "line_comment", sql[i:]
+                break
+            yield "line_comment", sql[i:j]
+            yield "newline", "\n"
+            i = j + 1
             continue
-        # Block comment: skip /* ... */
+        # Block comment: /* ... */
         if sql[i : i + 2] == "/*":
             j = sql.find("*/", i + 2)
             if j == -1:
-                break  # unterminated block comment, skip rest
+                yield "block_comment", sql[i:]
+                break
+            yield "block_comment", sql[i : j + 2]
             i = j + 2
             continue
-        result.append(ch)
+        yield "code", ch
         i += 1
-    return "".join(result)
+
+
+def _strip_sql_comments(sql: str) -> str:
+    """Strip SQL comments from *sql* while preserving string and dollar-quoted literals.
+
+    Handles:
+    - ``--`` line comments
+    - ``/* ... */`` block comments (non-nestable)
+    - Single-quoted strings ``'...'`` with ``''`` escape
+    - Dollar-quoted strings ``$tag$...$tag$``
+
+    Used before Jinja pre-render so that template-like syntax inside comments
+    (e.g. ``-- {{ var }}``) is not interpreted by Jinja.
+    """
+    return "".join(
+        text for kind, text in _tokenize_sql(sql) if kind in ("code", "newline")
+    )
+
+
+def _wrap_comments_in_jinja_raw(sql: str) -> str:
+    """Wrap SQL comments in ``{% raw %}...{% endraw %}`` so Jinja ignores their content.
+
+    Preserves comments intact while preventing Jinja from interpreting
+    template-like syntax inside them (e.g. ``-- {{ var }}``).  Used before
+    Jinja pre-render when ``--retain-comments`` is active.
+    """
+    parts: list[str] = []
+    for kind, text in _tokenize_sql(sql):
+        if kind in ("line_comment", "block_comment"):
+            parts.append(f"{{% raw %}}{text}{{% endraw %}}")
+        else:
+            parts.append(text)
+    return "".join(parts)
 
 
 SplitedStatements = Generator[

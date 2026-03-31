@@ -862,6 +862,32 @@ def test_comments_are_handled_correctly_from_query(
 
 
 @mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_retain_comments_with_jinja_enabled(
+    mock_execute, runner, mock_cursor, named_temporary_file
+):
+    """--retain-comments must preserve SQL comments even when Jinja rendering is on.
+
+    Regression test for https://github.com/snowflakedb/snowflake-cli/issues/2650 —
+    _strip_sql_comments was called unconditionally in _jinja_pre_render, silently
+    dropping comments regardless of the --retain-comments flag.
+    """
+    mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(2))
+    query = "SELECT 42;\n-- optimizer hint\nSELECT 1;"
+
+    with named_temporary_file() as tmp_file:
+        tmp_file.write_text(query)
+        result = runner.invoke(
+            ["sql", "-f", tmp_file, "--retain-comments", "--enable-templating", "jinja"]
+        )
+
+    assert result.exit_code == 0, result.output
+    executed = [call.args[0] for call in mock_execute.mock_calls]
+    assert any("-- optimizer hint" in stmt for stmt in executed), (
+        f"Expected comment to be preserved, but got: {executed}"
+    )
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
 def test_sql_no_template_with_invalid_snowflake_yml(
     mock_execute, mock_cursor, runner, temporary_directory, snapshot
 ):

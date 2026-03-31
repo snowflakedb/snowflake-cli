@@ -9,6 +9,7 @@ from snowflake.cli._plugins.sql.statement_reader import (
     ParsedStatement,
     StatementType,
     _strip_sql_comments,
+    _wrap_comments_in_jinja_raw,
     compile_statements,
     files_reader,
     parse_statement,
@@ -503,3 +504,75 @@ def test_parse_unknown_command():
 )
 def test_strip_sql_comments(sql, expected):
     assert _strip_sql_comments(sql) == expected
+
+
+# ---------------------------------------------------------------------------
+# _wrap_comments_in_jinja_raw tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "sql, expected",
+    [
+        # Line comment wrapped, newline preserved outside the raw block
+        (
+            "SELECT 1; -- a comment\nSELECT 2;",
+            "SELECT 1; {% raw %}-- a comment{% endraw %}\nSELECT 2;",
+        ),
+        # Block comment wrapped
+        (
+            "SELECT /* inline */ 1;",
+            "SELECT {% raw %}/* inline */{% endraw %} 1;",
+        ),
+        # Multi-line block comment wrapped
+        (
+            "SELECT\n/* line1\nline2\n*/\n1;",
+            "SELECT\n{% raw %}/* line1\nline2\n*/{% endraw %}\n1;",
+        ),
+        # Jinja-like syntax in line comment is neutralised
+        (
+            "-- {{ var }}\nSELECT 1;",
+            "{% raw %}-- {{ var }}{% endraw %}\nSELECT 1;",
+        ),
+        # Jinja-like syntax in block comment is neutralised
+        (
+            "/* {{ var }} */\nSELECT 1;",
+            "{% raw %}/* {{ var }} */{% endraw %}\nSELECT 1;",
+        ),
+        # Single-quoted string passed through unchanged
+        (
+            "SELECT '-- not a comment';",
+            "SELECT '-- not a comment';",
+        ),
+        # Dollar-quoted string passed through unchanged
+        (
+            "SELECT $$-- not a comment\n{{var}}$$;",
+            "SELECT $$-- not a comment\n{{var}}$$;",
+        ),
+        # No comments — input returned unchanged
+        ("SELECT 1; SELECT 2;", "SELECT 1; SELECT 2;"),
+        # Unterminated block comment — rest wrapped
+        ("SELECT 1; /* no end", "SELECT 1; {% raw %}/* no end{% endraw %}"),
+        # Unterminated line comment (no trailing newline) — rest wrapped
+        ("SELECT 1; -- no newline", "SELECT 1; {% raw %}-- no newline{% endraw %}"),
+    ],
+)
+def test_wrap_comments_in_jinja_raw(sql, expected):
+    assert _wrap_comments_in_jinja_raw(sql) == expected
+
+
+def test_wrap_comments_roundtrip_through_jinja():
+    """Comments wrapped in {% raw %} must survive Jinja rendering unchanged."""
+    from snowflake.cli.api.rendering.sql_templates import (
+        SQLTemplateSyntaxConfig,
+        snowflake_sql_jinja_render,
+    )
+
+    sql = "-- {{ not_a_var }}\nSELECT /* {{ also_not }} */ 1;"
+    wrapped = _wrap_comments_in_jinja_raw(sql)
+    rendered = snowflake_sql_jinja_render(
+        wrapped,
+        template_syntax_config=SQLTemplateSyntaxConfig(enable_jinja_syntax=True),
+        data={},
+    )
+    assert rendered == sql
