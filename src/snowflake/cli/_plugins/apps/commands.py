@@ -47,6 +47,19 @@ app = SnowTyperFactory(
 )
 
 
+def _fetch_and_print_failure_logs(
+    manager: SnowflakeAppManager, service_fqn: FQN, label: str
+) -> None:
+    """Fetch container logs from a failed service and print them."""
+    logs = manager.get_service_logs(service_fqn)
+    if logs and logs.strip():
+        cli_console.warning(f"{label} logs:")
+        for line in logs.strip().splitlines():
+            cli_console.step(f"  {line}")
+    else:
+        cli_console.warning(f"No {label.lower()} logs available.")
+
+
 @app.command("setup", requires_connection=True)
 def setup(
     app_name: str = typer.Option(
@@ -332,6 +345,8 @@ def deploy(
 
     # ── Build phase ───────────────────────────────────────────────────
 
+    metrics = get_cli_context().metrics
+
     if skip_build:
         cli_console.step("Skipping build phase (--skip-build)")
     else:
@@ -345,18 +360,24 @@ def deploy(
             cli_console.step(f"Creating stage @{stage_fqn}")
             manager.create_stage(stage_fqn, encryption_type)
 
-        project_paths = perform_bundle(resolved_entity_id, entity)
+        # Step 3: Bundle artifact files
+        with metrics.span("snowflake_app.bundle"):
+            project_paths = perform_bundle(resolved_entity_id, entity)
 
+        # Step 4: Upload bundled files to stage
         try:
-            cli_console.step(f"Uploading bundled files to @{stage_fqn}")
-            for result in stage_manager.put_recursive(
-                local_path=project_paths.bundle_root,
-                stage_path=f"@{stage_fqn}",
-                overwrite=True,
-                auto_compress=False,
-                temp_directory=project_paths.bundle_root,
-            ):
-                cli_console.step(f"  Uploaded {result['source']} -> {result['target']}")
+            with metrics.span("snowflake_app.upload"):
+                cli_console.step(f"Uploading bundled files to @{stage_fqn}")
+                for result in stage_manager.put_recursive(
+                    local_path=project_paths.bundle_root,
+                    stage_path=f"@{stage_fqn}",
+                    overwrite=True,
+                    auto_compress=False,
+                    temp_directory=project_paths.bundle_root,
+                ):
+                    cli_console.step(
+                        f"  Uploaded {result['source']} -> {result['target']}"
+                    )
         finally:
             project_paths.clean_up_output()
 
@@ -397,28 +418,36 @@ def deploy(
                 ),
             )
         else:
-            cli_console.step(f"Dropping service if exists: {build_job_fqn}")
-            manager.drop_service_if_exists(build_job_fqn)
+            with metrics.span("snowflake_app.build"):
+                # Drop existing build job if present
+                cli_console.step(f"Dropping service if exists: {build_job_fqn}")
+                manager.drop_service_if_exists(build_job_fqn)
 
-            cli_console.step(f"Executing build job service: {build_job_fqn}")
-            manager.execute_build_job(
-                job_service_name=build_job_fqn,
-                compute_pool=build_compute_pool,
-                code_stage=stage_fqn,
-                image_repo_url=image_repo_url,
-                app_id=app_name,
-                external_access_integration=build_eai,
-                build_image=entity.build_image,
-            )
+                # Execute build job service
+                cli_console.step(f"Executing build job service: {build_job_fqn}")
+                manager.execute_build_job(
+                    job_service_name=build_job_fqn,
+                    compute_pool=build_compute_pool,
+                    code_stage=stage_fqn,
+                    image_repo_url=image_repo_url,
+                    app_id=app_name,
+                    external_access_integration=build_eai,
+                    build_image=entity.build_image,
+                )
 
-            cli_console.step("Waiting for build to complete...")
-            _poll_until(
-                poll_fn=lambda: manager.get_build_status(build_job_fqn),
-                done_states={"DONE"},
-                error_states={"FAILED", "IDLE"},
-                known_pending_states={"PENDING", "RUNNING"},
-                timeout_message=f"Build timed out. Check service logs: {build_job_fqn}",
-            )
+                # Poll for build completion
+                cli_console.step("Waiting for build to complete...")
+                try:
+                    _poll_until(
+                        poll_fn=lambda: manager.get_build_status(build_job_fqn),
+                        done_states={"DONE"},
+                        error_states={"FAILED", "IDLE"},
+                        known_pending_states={"PENDING", "RUNNING"},
+                        timeout_message=f"Build timed out. Check service logs: {build_job_fqn}",
+                    )
+                except CliError:
+                    _fetch_and_print_failure_logs(manager, build_job_fqn, "Build job")
+                    raise
 
     # ── Deploy phase ──────────────────────────────────────────────────
 
@@ -451,47 +480,57 @@ def deploy(
             comment_data["appIcon"] = app_icon
         app_comment = json.dumps(comment_data)
 
-        cli_console.step(f"Creating service {service_fqn} if it doesn't exist")
-        manager.create_service(
-            service_name=service_fqn,
-            compute_pool=service_compute_pool,
-            query_warehouse=query_warehouse,
-            app_comment=app_comment,
-            execute_as_caller=entity.execute_as_caller,
-        )
+        with metrics.span("snowflake_app.deploy_service"):
+            # Create service if it doesn't exist
+            cli_console.step(f"Creating service {service_fqn} if it doesn't exist")
+            manager.create_service(
+                service_name=service_fqn,
+                compute_pool=service_compute_pool,
+                query_warehouse=query_warehouse,
+                app_comment=app_comment,
+                execute_as_caller=entity.execute_as_caller,
+            )
 
-        cli_console.step(f"Updating service with image: {image_url}")
-        manager.alter_service_spec(
-            service_name=service_fqn,
-            image_url=image_url,
-            execute_as_caller=entity.execute_as_caller,
-        )
+            # Alter service with built image
+            cli_console.step(f"Updating service with image: {image_url}")
+            manager.alter_service_spec(
+                service_name=service_fqn,
+                image_url=image_url,
+                execute_as_caller=entity.execute_as_caller,
+            )
 
-        cli_console.step("Resuming service")
-        manager.resume_service(service_fqn)
+            # Resume service
+            cli_console.step("Resuming service")
+            manager.resume_service(service_fqn)
 
-        cli_console.step("Waiting for service to be ready...")
-        _poll_until(
-            poll_fn=lambda: manager.get_service_status(service_fqn),
-            done_states={"RUNNING"},
-            error_states={"FAILED", "IDLE"},
-            known_pending_states={"PENDING", "SUSPENDING", "SUSPENDED"},
-            timeout_message=f"Service timed out. Check service status: {service_fqn}",
-        )
+            # Poll until service is RUNNING
+            cli_console.step("Waiting for service to be ready...")
+            try:
+                _poll_until(
+                    poll_fn=lambda: manager.get_service_status(service_fqn),
+                    done_states={"RUNNING"},
+                    error_states={"FAILED", "IDLE"},
+                    known_pending_states={"PENDING", "SUSPENDING", "SUSPENDED"},
+                    timeout_message=f"Service timed out. Check service status: {service_fqn}",
+                )
+            except CliError:
+                _fetch_and_print_failure_logs(manager, service_fqn, "Service")
+                raise
 
     # ── Get endpoint URL ──────────────────────────────────────────────
-    cli_console.step("Getting endpoint URL")
     ep_name = "web" if use_artifact_repo else "app-endpoint"
-    endpoint_url = _poll_until(
-        poll_fn=lambda: manager.get_service_endpoint_url(
-            service_fqn, endpoint_name=ep_name
-        ),
-        is_done=lambda url: url is not None
-        and "provisioning in progress" not in url.lower(),
-        format_status=lambda url: url or "Endpoint URL not yet available",
-        timeout_message=(
-            f"Endpoint provisioning timed out. "
-            f'Check with: snow sql -q "SHOW ENDPOINTS IN SERVICE {service_fqn}"'
-        ),
-    )
+    with metrics.span("snowflake_app.endpoint_provision"):
+        cli_console.step("Getting endpoint URL")
+        endpoint_url = _poll_until(
+            poll_fn=lambda: manager.get_service_endpoint_url(
+                service_fqn, endpoint_name=ep_name
+            ),
+            is_done=lambda url: url is not None
+            and "provisioning in progress" not in url.lower(),
+            format_status=lambda url: url or "Endpoint URL not yet available",
+            timeout_message=(
+                f"Endpoint provisioning timed out. "
+                f'Check with: snow sql -q "SHOW ENDPOINTS IN SERVICE {service_fqn}"'
+            ),
+        )
     return MessageResult(f"App ready at {endpoint_url}")
