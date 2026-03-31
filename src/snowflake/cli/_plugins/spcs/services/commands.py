@@ -869,6 +869,16 @@ def build_image(
         ):
             pass
 
+    # put_recursive uses a * glob which skips hidden files (dotfiles).
+    # Upload .dockerignore explicitly so BuildKit can use it during the image build.
+    dockerignore_path = build_context_dir / ".dockerignore"
+    if dockerignore_path.is_file():
+        stage_manager.put(
+            local_path=dockerignore_path,
+            stage_path=str(stage_path),
+            overwrite=True,
+        )
+
     # Execute the build job asynchronously so we can stream logs
     cli_console.step(f"Starting image build job: {job_name}")
     service_manager = ServiceManager()

@@ -2510,6 +2510,10 @@ def test_build_image_cli_dockerignore_excludes_files(
         f".pyc files should be excluded by .dockerignore. PUT calls: {put_calls}"
     )
 
+    assert any(".dockerignore" in c.args[0] for c in put_calls), (
+        f".dockerignore should be uploaded explicitly. PUT calls: {put_calls}"
+    )
+
     assert "Using .dockerignore" in result.output
 
 
