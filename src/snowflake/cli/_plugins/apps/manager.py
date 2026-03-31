@@ -753,6 +753,19 @@ class SnowflakeAppManager(SqlExecutionMixin):
         self.execute_query(f"USE DATABASE {database}")
         self.execute_query(f"USE SCHEMA {schema}")
 
+    @staticmethod
+    def _build_artifact_repo_config(
+        query_warehouse: Optional[str] = None,
+        build_eai: Optional[str] = None,
+    ) -> str:
+        """Build the JSON config blob accepted by the artifact-repo system functions."""
+        cfg: Dict[str, Any] = {}
+        if query_warehouse:
+            cfg["query_warehouse"] = query_warehouse
+        if build_eai:
+            cfg["external_access_integrations"] = [build_eai]
+        return json.dumps(cfg)
+
     def build_app_artifact_repo(
         self,
         stage_fqn: FQN,
@@ -762,10 +775,13 @@ class SnowflakeAppManager(SqlExecutionMixin):
         database: str,
         schema: str,
         runtime_image: str,
+        query_warehouse: Optional[str] = None,
+        build_eai: Optional[str] = None,
         project_type: str = "nodejs",
     ) -> str:
         """Build an app using SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO."""
         self._use_database_and_schema(database, schema)
+        config = self._build_artifact_repo_config(query_warehouse, build_eai)
         query = (
             f"SELECT SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO("
             f"'@{stage_fqn.identifier}', "
@@ -773,7 +789,8 @@ class SnowflakeAppManager(SqlExecutionMixin):
             f"'{app_id}', "
             f"'{compute_pool}', "
             f"'{runtime_image}', "
-            f"'{project_type}'"
+            f"'{project_type}', "
+            f"'{config}'"
             f")"
         )
         cursor = self.execute_query(query)
@@ -790,9 +807,12 @@ class SnowflakeAppManager(SqlExecutionMixin):
         database: str,
         schema: str,
         runtime_image: str,
+        query_warehouse: Optional[str] = None,
+        build_eai: Optional[str] = None,
     ) -> str:
         """Deploy an app using SYSTEM$SPCS_TEST_RUN_APP_ARTIFACT_REPO."""
         self._use_database_and_schema(database, schema)
+        config = self._build_artifact_repo_config(query_warehouse, build_eai)
         query = (
             f"SELECT SYSTEM$SPCS_TEST_RUN_APP_ARTIFACT_REPO("
             f"'{artifact_repo_fqn}', "
@@ -800,7 +820,8 @@ class SnowflakeAppManager(SqlExecutionMixin):
             f"'{version}', "
             f"'{service_name}', "
             f"'{compute_pool}', "
-            f"'{runtime_image}'"
+            f"'{runtime_image}', "
+            f"'{config}'"
             f")"
         )
         cursor = self.execute_query(query)
