@@ -881,10 +881,8 @@ def test_retain_comments_with_jinja_enabled(
         )
 
     assert result.exit_code == 0, result.output
-    executed = [call.args[0] for call in mock_execute.mock_calls]
-    assert any("-- optimizer hint" in stmt for stmt in executed), (
-        f"Expected comment to be preserved, but got: {executed}"
-    )
+    executed_sql = " ".join(call.args[0] for call in mock_execute.mock_calls)
+    assert "-- optimizer hint" in executed_sql
 
 
 @mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
