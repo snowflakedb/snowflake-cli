@@ -24,7 +24,6 @@
 
 ## Fixes and improvements
 * Fixed `snow streamlit deploy` failing with a collision error when `pages/*.py` glob in `additional_source_files` overlaps with the automatically-included `pages/` directory. Overlapping glob patterns are now deduplicated during v1-to-v2 definition conversion.
-* Fixed `snow stage copy` and `snow stage put` failing when a local directory path contains glob special characters (e.g. square brackets in `[id]` or `[slug]`). The path is now escaped before glob expansion so literal directory names are matched correctly.
 
 # v3.16.0
 
