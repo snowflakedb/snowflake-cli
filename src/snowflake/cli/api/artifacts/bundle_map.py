@@ -471,14 +471,25 @@ class _ArtifactPathMap:
             # Check that dest is currently unmapped
             current_is_dir = self._dest_is_dir.get(dest, False)
             if current_is_dir:
-                # mapping to an existing directory is not allowed
-                raise TooManyFilesError(dest)
+                # Directory destination already exists. Verify that every file already
+                # mapped under dest is consistent with what the new directory source would
+                # produce (i.e. it came from src/relative_path). Files that arrived from
+                # a different source indicate a clobbering conflict.
+                for child_dest, existing_source in self.__dest_to_src.items():
+                    if child_dest == dest or not child_dest.is_relative_to(dest):
+                        continue
+                    if existing_source != src / child_dest.relative_to(dest):
+                        raise TooManyFilesError(child_dest)
+                # All existing children are consistent - duplicate directory mapping, skip it
+                return
         else:
             # file -> file
-            # Check that there is no previous mapping for the same file.
-            if current_source is not None and current_source != src:
-                # There is already a different source mapping to this destination
-                raise TooManyFilesError(dest)
+            if current_source is not None:
+                if current_source != src:
+                    raise TooManyFilesError(dest)
+                # Same source already maps to this destination (e.g., via a parent directory).
+                # Skip adding a duplicate mapping.
+                return
 
         if src_is_dir:
             # mark all subdirectories of this source as directories so that we can
@@ -488,7 +499,13 @@ class _ArtifactPathMap:
                 canonical_dest_subdir = dest / canonical_subdir
                 self._update_dest_is_dir(canonical_dest_subdir, is_dir=True)
                 for f in files:
-                    self._update_dest_is_dir(canonical_dest_subdir / f, is_dir=False)
+                    child_dest = canonical_dest_subdir / f
+                    child_src = src / canonical_subdir / f
+                    self._update_dest_is_dir(child_dest, is_dir=False)
+                    existing_source = self.__dest_to_src.get(child_dest)
+                    if existing_source is not None and existing_source != child_src:
+                        raise TooManyFilesError(child_dest)
+                    self.__dest_to_src[child_dest] = child_src
 
         # make sure we check for dest_is_dir consistency regardless of whether the
         # insertion happened. This update can fail, so we need to do it first to
