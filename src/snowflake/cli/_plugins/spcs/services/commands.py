@@ -14,10 +14,7 @@
 
 from __future__ import annotations
 
-import fnmatch
 import itertools
-import os
-import shutil
 import time
 import uuid
 from pathlib import Path
@@ -33,6 +30,10 @@ from snowflake.cli._plugins.object.common import CommentOption, Tag, TagOption
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.spcs.common import (
     validate_and_set_instances,
+)
+from snowflake.cli._plugins.spcs.services.build_image_utils import (
+    copy_filtered_build_context,
+    load_dockerignore_patterns,
 )
 from snowflake.cli._plugins.spcs.services.manager import ServiceManager
 from snowflake.cli._plugins.spcs.services.service_entity_model import ServiceEntityModel
@@ -642,68 +643,6 @@ def unset_property(
     return SingleQueryResult(cursor)
 
 
-def _load_dockerignore_patterns(build_context_dir: Path) -> List[str]:
-    """Load patterns from .dockerignore if it exists. Returns a list of glob patterns."""
-    dockerignore_path = build_context_dir / ".dockerignore"
-    if not dockerignore_path.is_file():
-        return []
-    patterns = []
-    for line in dockerignore_path.read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        patterns.append(line)
-    return patterns
-
-
-def _is_ignored(rel_path: str, patterns: List[str]) -> bool:
-    """Check if a relative path matches any of the ignore patterns.
-
-    Matches against both the full relative path and individual path components,
-    similar to how .dockerignore works.
-    """
-    rel_path_posix = rel_path.replace(os.sep, "/")
-    for pattern in patterns:
-        if fnmatch.fnmatch(rel_path_posix, pattern):
-            return True
-        if fnmatch.fnmatch(rel_path_posix, pattern + "/**"):
-            return True
-        for component in Path(rel_path_posix).parts:
-            if fnmatch.fnmatch(component, pattern):
-                return True
-    return False
-
-
-def _copy_filtered_build_context(
-    build_context_dir: Path, dest_dir: Path, patterns: List[str]
-) -> None:
-    """Copy build context to dest_dir, excluding files matching ignore patterns.
-
-    The .dockerignore file itself is always included so BuildKit can use it.
-    """
-    for root, dirs, files in os.walk(build_context_dir):
-        rel_root = os.path.relpath(root, build_context_dir)
-
-        if rel_root != "." and _is_ignored(rel_root, patterns):
-            dirs.clear()
-            continue
-
-        dirs[:] = [
-            d
-            for d in dirs
-            if not _is_ignored(
-                os.path.join(rel_root, d) if rel_root != "." else d, patterns
-            )
-        ]
-
-        for fname in files:
-            rel_file = os.path.join(rel_root, fname) if rel_root != "." else fname
-            if fname == ".dockerignore" or not _is_ignored(rel_file, patterns):
-                dest_file = dest_dir / rel_file
-                dest_file.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(os.path.join(root, fname), dest_file)
-
-
 @app.command(
     "build-image",
     requires_connection=True,
@@ -838,7 +777,7 @@ def build_image(
         f"Uploading build context from {build_context_dir} to @{stage_fqn.identifier}/{build_context_stage_path}"
     )
 
-    ignore_patterns = _load_dockerignore_patterns(build_context_dir)
+    ignore_patterns = load_dockerignore_patterns(build_context_dir)
     if ignore_patterns:
         cli_console.message(
             f"Using .dockerignore ({len(ignore_patterns)} pattern(s))"
@@ -851,7 +790,7 @@ def build_image(
     if ignore_patterns:
         with TemporaryDirectory() as tmp_dir:
             filtered_dir = Path(tmp_dir)
-            _copy_filtered_build_context(
+            copy_filtered_build_context(
                 build_context_dir, filtered_dir, ignore_patterns
             )
             for _ in stage_manager.put_recursive(

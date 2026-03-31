@@ -25,12 +25,12 @@ import pytest
 from click import ClickException
 from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli._plugins.spcs.common import NoPropertiesProvidedError
-from snowflake.cli._plugins.spcs.services.commands import (
-    _copy_filtered_build_context,
-    _is_ignored,
-    _load_dockerignore_patterns,
-    _service_name_callback,
+from snowflake.cli._plugins.spcs.services.build_image_utils import (
+    copy_filtered_build_context,
+    is_ignored,
+    load_dockerignore_patterns,
 )
+from snowflake.cli._plugins.spcs.services.commands import _service_name_callback
 from snowflake.cli._plugins.spcs.services.manager import ServiceManager
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
@@ -2369,12 +2369,12 @@ def test_load_dockerignore_patterns(temporary_directory):
     """Test loading patterns from .dockerignore file."""
     tmp_dir = Path(temporary_directory)
 
-    assert _load_dockerignore_patterns(tmp_dir) == []
+    assert load_dockerignore_patterns(tmp_dir) == []
 
     dockerignore = tmp_dir / ".dockerignore"
     dockerignore.write_text("__pycache__\n*.pyc\n# comment\n\n.git\nnode_modules\n")
 
-    patterns = _load_dockerignore_patterns(tmp_dir)
+    patterns = load_dockerignore_patterns(tmp_dir)
     assert patterns == ["__pycache__", "*.pyc", ".git", "node_modules"]
 
 
@@ -2382,21 +2382,21 @@ def test_is_ignored():
     """Test pattern matching for ignored paths."""
     patterns = ["__pycache__", "*.pyc", ".git", "node_modules"]
 
-    assert _is_ignored("__pycache__", patterns)
-    assert _is_ignored("src/__pycache__", patterns)
-    assert _is_ignored("app.pyc", patterns)
-    assert _is_ignored("src/app.pyc", patterns)
-    assert _is_ignored(".git", patterns)
-    assert _is_ignored("node_modules", patterns)
-    assert _is_ignored("node_modules/package/index.js", patterns)
+    assert is_ignored("__pycache__", patterns)
+    assert is_ignored("src/__pycache__", patterns)
+    assert is_ignored("app.pyc", patterns)
+    assert is_ignored("src/app.pyc", patterns)
+    assert is_ignored(".git", patterns)
+    assert is_ignored("node_modules", patterns)
+    assert is_ignored("node_modules/package/index.js", patterns)
 
-    assert not _is_ignored("Dockerfile", patterns)
-    assert not _is_ignored("app.py", patterns)
-    assert not _is_ignored("templates/index.html", patterns)
+    assert not is_ignored("Dockerfile", patterns)
+    assert not is_ignored("app.py", patterns)
+    assert not is_ignored("templates/index.html", patterns)
 
 
 def test_copy_filtered_build_context(temporary_directory):
-    """Test that _copy_filtered_build_context excludes ignored files but keeps .dockerignore."""
+    """Test that copy_filtered_build_context excludes ignored files but keeps .dockerignore."""
     tmp_dir = Path(temporary_directory)
     src = tmp_dir / "src"
     src.mkdir()
@@ -2415,7 +2415,7 @@ def test_copy_filtered_build_context(temporary_directory):
     dest = tmp_dir / "dest"
     dest.mkdir()
 
-    _copy_filtered_build_context(src, dest, ["__pycache__", "*.pyc"])
+    copy_filtered_build_context(src, dest, ["__pycache__", "*.pyc"])
 
     assert (dest / "Dockerfile").exists()
     assert (dest / "app.py").exists()
