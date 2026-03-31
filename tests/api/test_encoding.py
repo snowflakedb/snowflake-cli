@@ -28,7 +28,7 @@ from snowflake.cli.api.exceptions import CliError
 
 def detect_encoding_environment() -> Dict[str, str]:
     """Detect and log encoding environment information (test helper only)."""
-    log = logging.getLogger(__name__)
+    log = logging.getLogger("snowflake.cli.encoding")
 
     env_info = {
         "filesystem": sys.getfilesystemencoding(),
@@ -119,7 +119,7 @@ class TestDetectEncodingEnvironment:
         monkeypatch.setattr("locale.getpreferredencoding", lambda: "cp1252")
         monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
 
-        with caplog.at_level(logging.WARNING):
+        with caplog.at_level(logging.WARNING, logger="snowflake.cli"):
             detect_encoding_environment()
         assert "Encoding mismatch detected" in caplog.text
 
