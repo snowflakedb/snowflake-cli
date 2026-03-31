@@ -370,6 +370,8 @@ def deploy(
                 database=database,
                 schema=schema,
                 runtime_image=entity.runtime_image,
+                query_warehouse=query_warehouse,
+                build_eai=build_eai,
             )
             cli_console.step(
                 f"SPCS_TEST_BUILD_APP_ARTIFACT_REPO output:\n{build_result}"
@@ -436,6 +438,8 @@ def deploy(
             database=database,
             schema=schema,
             runtime_image=entity.runtime_image,
+            query_warehouse=query_warehouse,
+            build_eai=build_eai,
         )
         cli_console.step(f"SPCS_TEST_RUN_APP_ARTIFACT_REPO output:\n{run_result}")
     else:
