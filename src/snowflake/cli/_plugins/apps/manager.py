@@ -809,6 +809,19 @@ class SnowflakeAppManager(SqlExecutionMixin):
             cfg["external_access_integrations"] = [build_eai]
         return json.dumps(cfg)
 
+    @staticmethod
+    def _build_artifact_repo_config(
+        query_warehouse: Optional[str] = None,
+        build_eai: Optional[str] = None,
+    ) -> str:
+        """Build the JSON config blob accepted by the artifact-repo system functions."""
+        cfg: Dict[str, Any] = {}
+        if query_warehouse:
+            cfg["query_warehouse"] = query_warehouse
+        if build_eai:
+            cfg["external_access_integrations"] = [build_eai]
+        return json.dumps(cfg)
+
     def build_app_artifact_repo(
         self,
         stage_fqn: FQN,
