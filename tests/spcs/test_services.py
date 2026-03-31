@@ -2304,6 +2304,7 @@ def test_build_image_cli_recursive_upload_with_nested_dirs(
     mock_build_cursor.__iter__ = Mock(return_value=iter([]))
     mock_build_cursor.fetchone.return_value = {"status": "DONE"}
     mock_build_cursor.description = []
+    mock_build_cursor.query = ""
     mock_service_manager.build_image.return_value = mock_build_cursor
     mock_service_manager.stream_logs.return_value = iter(
         [("__TERMINAL_STATUS__", "DONE")]
