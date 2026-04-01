@@ -397,14 +397,143 @@ class TestGenerateSnowflakeYml:
 # ── SnowflakeAppManager tests ─────────────────────────────────────────
 
 
-class TestSnowflakeAppManager:
+class TestDatabaseExists:
     @patch(EXECUTE_QUERY)
-    def test_create_schema_if_not_exists(self, mock_execute):
-        SnowflakeAppManager().create_schema_if_not_exists("TEST_DB", "TEST_SCHEMA")
-        mock_execute.assert_called_once_with(
-            "CREATE SCHEMA IF NOT EXISTS IDENTIFIER('TEST_DB.TEST_SCHEMA')"
-        )
+    def test_returns_true_when_database_found(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = {"name": "MY_DB"}
+        mock_execute.return_value = cursor
 
+        assert SnowflakeAppManager().database_exists("MY_DB") is True
+        query = mock_execute.call_args[0][0]
+        assert "SHOW DATABASES LIKE" in query
+        assert "'MY_DB'" in query
+
+    @patch(EXECUTE_QUERY)
+    def test_returns_false_when_database_not_found(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = None
+        mock_execute.return_value = cursor
+
+        assert SnowflakeAppManager().database_exists("NO_SUCH_DB") is False
+
+    @patch(EXECUTE_QUERY)
+    def test_escapes_database_name(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = None
+        mock_execute.return_value = cursor
+
+        SnowflakeAppManager().database_exists("BAD'DB")
+        query = mock_execute.call_args[0][0]
+        assert "BAD\\'DB" in query
+        assert "BAD'DB" not in query
+
+
+class TestSchemaExists:
+    @patch(EXECUTE_QUERY)
+    def test_returns_true_when_schema_found(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = {"name": "MY_SCHEMA"}
+        mock_execute.return_value = cursor
+
+        assert SnowflakeAppManager().schema_exists("MY_DB", "MY_SCHEMA") is True
+        query = mock_execute.call_args[0][0]
+        assert "SHOW SCHEMAS LIKE" in query
+        assert "'MY_SCHEMA'" in query
+        assert "MY_DB" in query
+
+    @patch(EXECUTE_QUERY)
+    def test_returns_false_when_schema_not_found(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = None
+        mock_execute.return_value = cursor
+
+        assert SnowflakeAppManager().schema_exists("MY_DB", "NO_SUCH") is False
+
+
+class TestRoleHasSchemaPrivilege:
+    @staticmethod
+    def _show_schemas_cursor(owner="OTHER_ROLE"):
+        cursor = Mock()
+        cursor.fetchone.return_value = {"name": "SCHEMA", "owner": owner}
+        return cursor
+
+    @staticmethod
+    def _show_schemas_cursor_empty():
+        cursor = Mock()
+        cursor.fetchone.return_value = None
+        return cursor
+
+    @staticmethod
+    def _grants_cursor(rows):
+        cursor = Mock()
+        cursor.__iter__ = Mock(return_value=iter(rows))
+        return cursor
+
+    @patch(
+        "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.current_role",
+        return_value="DEV_ROLE",
+    )
+    @patch(EXECUTE_QUERY)
+    def test_returns_true_when_owner_column_matches(self, mock_execute, mock_role):
+        mock_execute.return_value = self._show_schemas_cursor(owner="DEV_ROLE")
+
+        assert SnowflakeAppManager().role_has_schema_privilege("DB", "SCHEMA") is True
+        assert mock_execute.call_count == 1
+
+    @patch(
+        "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.current_role",
+        return_value="DEV_ROLE",
+    )
+    @patch(EXECUTE_QUERY)
+    def test_returns_true_with_ownership_grant(self, mock_execute, mock_role):
+        mock_execute.side_effect = [
+            self._show_schemas_cursor(owner="OTHER_ROLE"),
+            self._grants_cursor(
+                [{"grantee_name": "DEV_ROLE", "privilege": "OWNERSHIP"}]
+            ),
+        ]
+
+        assert SnowflakeAppManager().role_has_schema_privilege("DB", "SCHEMA") is True
+        assert mock_execute.call_count == 2
+
+    @patch(
+        "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.current_role",
+        return_value="DEV_ROLE",
+    )
+    @patch(EXECUTE_QUERY)
+    def test_returns_false_with_usage_only(self, mock_execute, mock_role):
+        mock_execute.side_effect = [
+            self._show_schemas_cursor(owner="OTHER_ROLE"),
+            self._grants_cursor([{"grantee_name": "DEV_ROLE", "privilege": "USAGE"}]),
+        ]
+
+        assert SnowflakeAppManager().role_has_schema_privilege("DB", "SCHEMA") is False
+
+    @patch(
+        "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.current_role",
+        return_value="DEV_ROLE",
+    )
+    @patch(EXECUTE_QUERY)
+    def test_returns_false_when_no_matching_grant(self, mock_execute, mock_role):
+        mock_execute.side_effect = [
+            self._show_schemas_cursor(owner="OTHER_ROLE"),
+            self._grants_cursor(
+                [{"grantee_name": "OTHER_ROLE", "privilege": "OWNERSHIP"}]
+            ),
+        ]
+
+        assert SnowflakeAppManager().role_has_schema_privilege("DB", "SCHEMA") is False
+
+    @patch(
+        "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.current_role",
+        return_value=None,
+    )
+    def test_returns_false_when_no_role(self, mock_role):
+        assert SnowflakeAppManager().role_has_schema_privilege("DB", "SCHEMA") is False
+
+
+class TestSnowflakeAppManager:
     @patch(EXECUTE_QUERY)
     def test_stage_exists_returns_true(self, mock_execute):
         fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
@@ -615,6 +744,93 @@ class TestSnowflakeAppManager:
         query = mock_execute.call_args[0][0]
         assert '"/my/custom/builder:2.0"' in query
         assert "sf-image-build:0.0.1" not in query
+
+    @patch(EXECUTE_QUERY)
+    def test_build_app_artifact_repo_sanitizes_inputs(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ("Build job submitted: DB.SCHEMA.JOB",)
+        mock_execute.return_value = cursor
+
+        stage_fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
+        SnowflakeAppManager().build_app_artifact_repo(
+            stage_fqn=stage_fqn,
+            artifact_repo_fqn="DB.SCHEMA.REPO",
+            app_id="my_app",
+            compute_pool="BUILD_POOL",
+            database="DB",
+            schema="SCHEMA",
+            runtime_image="runtime:latest",
+        )
+        build_query = mock_execute.call_args_list[-1][0][0]
+        assert "SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO(" in build_query
+        assert "'DB.SCHEMA.REPO'" in build_query
+        assert "'my_app'" in build_query
+        assert "'BUILD_POOL'" in build_query
+
+    @patch(EXECUTE_QUERY)
+    def test_build_app_artifact_repo_escapes_single_quotes(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ("Build job submitted: DB.SCHEMA.JOB",)
+        mock_execute.return_value = cursor
+
+        stage_fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
+        SnowflakeAppManager().build_app_artifact_repo(
+            stage_fqn=stage_fqn,
+            artifact_repo_fqn="DB.SCHEMA.REPO",
+            app_id="app'injection",
+            compute_pool="BUILD_POOL",
+            database="DB",
+            schema="SCHEMA",
+            runtime_image="runtime:latest",
+        )
+        build_query = mock_execute.call_args_list[-1][0][0]
+        assert "app'injection" not in build_query
+        assert "app\\'injection" in build_query
+
+    @patch(EXECUTE_QUERY)
+    def test_run_app_artifact_repo_sanitizes_inputs(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ("Service created",)
+        mock_execute.return_value = cursor
+
+        SnowflakeAppManager().run_app_artifact_repo(
+            artifact_repo_fqn="DB.SCHEMA.REPO",
+            app_id="my_app",
+            version="LATEST",
+            service_name="my_app",
+            compute_pool="SVC_POOL",
+            database="DB",
+            schema="SCHEMA",
+            runtime_image="runtime:latest",
+        )
+        run_query = mock_execute.call_args_list[-1][0][0]
+        assert "SYSTEM$SPCS_TEST_RUN_APP_ARTIFACT_REPO(" in run_query
+        assert "'DB.SCHEMA.REPO'" in run_query
+        assert "'my_app'" in run_query
+        assert "'LATEST'" in run_query
+        assert "'SVC_POOL'" in run_query
+
+    @patch(EXECUTE_QUERY)
+    def test_run_app_artifact_repo_escapes_single_quotes(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ("Service created",)
+        mock_execute.return_value = cursor
+
+        SnowflakeAppManager().run_app_artifact_repo(
+            artifact_repo_fqn="DB.SCHEMA.REPO",
+            app_id="app'injection",
+            version="LATEST",
+            service_name="svc'name",
+            compute_pool="SVC_POOL",
+            database="DB",
+            schema="SCHEMA",
+            runtime_image="runtime:latest",
+        )
+        run_query = mock_execute.call_args_list[-1][0][0]
+        assert "app'injection" not in run_query
+        assert "app\\'injection" in run_query
+        assert "svc'name" not in run_query
+        assert "svc\\'name" in run_query
 
     @patch(EXECUTE_QUERY)
     def test_get_build_status_done(self, mock_execute):
@@ -1411,6 +1627,21 @@ class TestFindDockerfileExposePort:
 
 
 class TestValidateCommand:
+    @staticmethod
+    def _make_validate_entity(app_port=3000):
+        entity = Mock()
+        entity.app_port = app_port
+        entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP")
+        return entity
+
+    @staticmethod
+    def _configure_manager_mock(mock_manager_cls):
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.database_exists.return_value = True
+        mock_mgr.schema_exists.return_value = True
+        mock_mgr.role_has_schema_privilege.return_value = True
+        return mock_mgr
+
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
@@ -1429,19 +1660,14 @@ class TestValidateCommand:
     ):
         from snowflake.cli.api.project.project_paths import ProjectPaths
 
-        entity = Mock()
-        entity.app_port = 3000
-        mock_get_entity.return_value = entity
+        mock_get_entity.return_value = self._make_validate_entity()
+        self._configure_manager_mock(mock_manager_cls)
 
         bundle_dir = tmp_path / "output" / "bundle"
         bundle_dir.mkdir(parents=True)
         (bundle_dir / "Dockerfile").write_text("FROM python:3.11\nEXPOSE 3000\n")
 
-        project_paths = ProjectPaths(project_root=tmp_path)
-        mock_perform_bundle.return_value = project_paths
-
-        mock_mgr = mock_manager_cls.return_value
-        mock_mgr.current_role.return_value = "ACCOUNTADMIN"
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
             from tests_common import change_directory
@@ -1451,6 +1677,98 @@ class TestValidateCommand:
                 assert result.exit_code == 0, result.output
                 assert "Valid Snowflake App project" in result.output
 
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_validate_fails_database_not_found(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        mock_get_entity.return_value = self._make_validate_entity()
+        mock_mgr = self._configure_manager_mock(mock_manager_cls)
+        mock_mgr.database_exists.return_value = False
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "validate"])
+                assert result.exit_code == 1
+                assert "Database 'TEST_DB' does not exist" in result.output
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_validate_fails_schema_not_found(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        mock_get_entity.return_value = self._make_validate_entity()
+        mock_mgr = self._configure_manager_mock(mock_manager_cls)
+        mock_mgr.schema_exists.return_value = False
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "validate"])
+                assert result.exit_code == 1
+                assert "Schema 'TEST_DB.TEST_SCHEMA' does not exist" in result.output
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_validate_warns_role_lacks_schema_privilege(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_perform_bundle,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        mock_get_entity.return_value = self._make_validate_entity()
+        mock_mgr = self._configure_manager_mock(mock_manager_cls)
+        mock_mgr.role_has_schema_privilege.return_value = False
+        mock_mgr.current_role.return_value = "LIMITED_ROLE"
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        (bundle_dir / "Dockerfile").write_text("FROM python:3.11\nEXPOSE 3000\n")
+
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "validate"])
+                assert result.exit_code == 0, result.output
+                assert "LIMITED_ROLE" in result.output
+                assert "may not have the required privileges" in result.output
+                assert "warning" in result.output.lower()
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
     @patch(
@@ -1462,20 +1780,19 @@ class TestValidateCommand:
         mock_resolve,
         mock_get_entity,
         mock_perform_bundle,
+        mock_manager_cls,
         runner,
         tmp_path,
     ):
         from snowflake.cli.api.project.project_paths import ProjectPaths
 
-        entity = Mock()
-        entity.app_port = 3000
-        mock_get_entity.return_value = entity
+        mock_get_entity.return_value = self._make_validate_entity()
+        self._configure_manager_mock(mock_manager_cls)
 
         bundle_dir = tmp_path / "output" / "bundle"
         bundle_dir.mkdir(parents=True)
 
-        project_paths = ProjectPaths(project_root=tmp_path)
-        mock_perform_bundle.return_value = project_paths
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
             from tests_common import change_directory
@@ -1503,19 +1820,14 @@ class TestValidateCommand:
     ):
         from snowflake.cli.api.project.project_paths import ProjectPaths
 
-        entity = Mock()
-        entity.app_port = 3000
-        mock_get_entity.return_value = entity
-
-        mock_mgr = mock_manager_cls.return_value
-        mock_mgr.current_role.return_value = "ACCOUNTADMIN"
+        mock_get_entity.return_value = self._make_validate_entity()
+        self._configure_manager_mock(mock_manager_cls)
 
         bundle_dir = tmp_path / "output" / "bundle"
         bundle_dir.mkdir(parents=True)
         (bundle_dir / "Dockerfile").write_text("FROM python:3.11\nCMD ['python']\n")
 
-        project_paths = ProjectPaths(project_root=tmp_path)
-        mock_perform_bundle.return_value = project_paths
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
             from tests_common import change_directory
@@ -1544,19 +1856,14 @@ class TestValidateCommand:
     ):
         from snowflake.cli.api.project.project_paths import ProjectPaths
 
-        entity = Mock()
-        entity.app_port = 3000
-        mock_get_entity.return_value = entity
-
-        mock_mgr = mock_manager_cls.return_value
-        mock_mgr.current_role.return_value = "ACCOUNTADMIN"
+        mock_get_entity.return_value = self._make_validate_entity()
+        self._configure_manager_mock(mock_manager_cls)
 
         bundle_dir = tmp_path / "output" / "bundle"
         bundle_dir.mkdir(parents=True)
         (bundle_dir / "Dockerfile").write_text("FROM python:3.11\nEXPOSE 3000 8080\n")
 
-        project_paths = ProjectPaths(project_root=tmp_path)
-        mock_perform_bundle.return_value = project_paths
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
             from tests_common import change_directory
@@ -1585,19 +1892,14 @@ class TestValidateCommand:
     ):
         from snowflake.cli.api.project.project_paths import ProjectPaths
 
-        entity = Mock()
-        entity.app_port = 3000
-        mock_get_entity.return_value = entity
+        mock_get_entity.return_value = self._make_validate_entity()
+        self._configure_manager_mock(mock_manager_cls)
 
         bundle_dir = tmp_path / "output" / "bundle"
         bundle_dir.mkdir(parents=True)
         (bundle_dir / "Dockerfile").write_text("FROM python:3.11\nEXPOSE 8080\n")
 
-        project_paths = ProjectPaths(project_root=tmp_path)
-        mock_perform_bundle.return_value = project_paths
-
-        mock_mgr = mock_manager_cls.return_value
-        mock_mgr.current_role.return_value = "ACCOUNTADMIN"
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
             from tests_common import change_directory
@@ -1609,6 +1911,7 @@ class TestValidateCommand:
                 assert "8080" in result.output
                 assert "3000" in result.output
 
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
     @patch(
@@ -1620,20 +1923,19 @@ class TestValidateCommand:
         mock_resolve,
         mock_get_entity,
         mock_perform_bundle,
+        mock_manager_cls,
         runner,
         tmp_path,
     ):
         from snowflake.cli.api.project.project_paths import ProjectPaths
 
-        entity = Mock()
-        entity.app_port = 3000
-        mock_get_entity.return_value = entity
+        mock_get_entity.return_value = self._make_validate_entity()
+        self._configure_manager_mock(mock_manager_cls)
 
         bundle_dir = tmp_path / "output" / "bundle"
         bundle_dir.mkdir(parents=True)
 
-        project_paths = ProjectPaths(project_root=tmp_path)
-        mock_perform_bundle.return_value = project_paths
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
             from tests_common import change_directory
@@ -1643,6 +1945,7 @@ class TestValidateCommand:
                 assert result.exit_code == 1
                 assert not bundle_dir.exists()
 
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
     @patch(
@@ -1654,16 +1957,13 @@ class TestValidateCommand:
         mock_resolve,
         mock_get_entity,
         mock_perform_bundle,
+        mock_manager_cls,
         runner,
         tmp_path,
     ):
-        from snowflake.cli.api.project.project_paths import ProjectPaths
+        mock_get_entity.return_value = self._make_validate_entity()
+        self._configure_manager_mock(mock_manager_cls)
 
-        entity = Mock()
-        entity.app_port = 3000
-        mock_get_entity.return_value = entity
-
-        project_paths = ProjectPaths(project_root=tmp_path)
         mock_perform_bundle.side_effect = CliError("bundle failed")
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
@@ -1947,7 +2247,6 @@ class TestDeployCommand:
                 mock_mgr.get_image_repo_url.assert_called_once_with(
                     "IMAGE_REPO", database="TEST_DB", schema="TEST_SCHEMA"
                 )
-                mock_mgr.create_schema_if_not_exists.assert_not_called()
                 mock_mgr.execute_build_job.assert_not_called()
                 mock_mgr.create_service.assert_called_once()
                 mock_mgr.alter_service_spec.assert_called_once()
@@ -2079,3 +2378,112 @@ class TestDeployCommand:
                 result = runner.invoke(["__app", "deploy"])
                 assert result.exit_code == 1
                 assert "query_warehouse is required" in result.output
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.StageManager")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "image_repository": "IMAGE_REPO",
+            "image_repo_database": "TEST_DB",
+            "image_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_artifact_repo_path(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        mock_stage_manager_cls,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """Deploy with artifact_repository set uses build/run artifact repo APIs."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.runtime_image = "runtime:latest"
+        entity.query_warehouse = "WH"
+        entity.build_image = None
+        entity.execute_as_caller = False
+        ar_mock = Mock(database="AR_DB", schema_="AR_SCHEMA")
+        ar_mock.name = "AR_REPO"
+        entity.artifact_repository = ar_mock
+        entity.image_repository = None
+        entity.build_compute_pool = None
+        entity.service_compute_pool = None
+        entity.build_eai = None
+        mock_get_entity.return_value = entity
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        project_paths = ProjectPaths(project_root=tmp_path)
+        mock_perform_bundle.return_value = project_paths
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.build_app_artifact_repo.return_value = (
+            "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
+        )
+        mock_poll.return_value = "https://my-app.snowflakecomputing.app"
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "deploy"])
+                assert result.exit_code == 0, result.output
+
+        mock_mgr.build_app_artifact_repo.assert_called_once_with(
+            stage_fqn=FQN(
+                database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP_CODE_STAGE"
+            ),
+            artifact_repo_fqn="AR_DB.AR_SCHEMA.AR_REPO",
+            app_id="MY_APP",
+            compute_pool="BUILD_POOL",
+            database="TEST_DB",
+            schema="TEST_SCHEMA",
+            runtime_image="runtime:latest",
+            query_warehouse="WH",
+            build_eai="MY_EAI",
+        )
+        mock_mgr.run_app_artifact_repo.assert_called_once_with(
+            artifact_repo_fqn="AR_DB.AR_SCHEMA.AR_REPO",
+            app_id="MY_APP",
+            version="LATEST",
+            service_name="MY_APP",
+            compute_pool="SVC_POOL",
+            database="TEST_DB",
+            schema="TEST_SCHEMA",
+            runtime_image="runtime:latest",
+            query_warehouse="WH",
+            build_eai="MY_EAI",
+        )
+        mock_mgr.get_image_repo_url.assert_not_called()
+        mock_mgr.create_service.assert_not_called()
+        mock_mgr.alter_service_spec.assert_not_called()
+        mock_mgr.execute_build_job.assert_not_called()
+        assert mock_poll.call_count == 2
