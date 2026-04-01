@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import re
 from textwrap import dedent
 from typing import Dict, Optional
 
@@ -42,7 +41,6 @@ def _generate_snowflake_yml(
     take priority over built-in defaults (object-existence checks).
     """
 
-    app_id = re.sub(r"[^a-zA-Z0-9_]", "_", app_id)
     overrides = config_overrides or {}
     username = get_env_username().upper()
 

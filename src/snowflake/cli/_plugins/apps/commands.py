@@ -13,10 +13,12 @@
 # limitations under the License.
 
 import json
+import re
 from pathlib import Path
 from typing import Optional
 
 import typer
+from click import ClickException
 from snowflake.cli._plugins.apps.generate import _generate_snowflake_yml
 from snowflake.cli._plugins.apps.manager import (
     _APP_COMMAND_NAME,
@@ -58,6 +60,12 @@ def setup(
     """
     Initializes a snowflake.yml file for a Snowflake App project.
     """
+
+    if not re.fullmatch(r"[a-zA-Z0-9_]+", app_name):
+        raise ClickException(
+            f"Invalid app name '{app_name}'. "
+            "Only letters, digits, and underscores are allowed."
+        )
 
     project_file = Path.cwd() / DEFINITION_FILENAME
     if project_file.exists():
