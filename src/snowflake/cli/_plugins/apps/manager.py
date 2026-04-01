@@ -18,6 +18,7 @@ import json
 import logging
 import re
 import time
+from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Set, TypeVar
 
@@ -749,10 +750,20 @@ class SnowflakeAppManager(SqlExecutionMixin):
             )
             return {}
 
-    def _use_database_and_schema(self, database: str, schema: str) -> None:
-        """Set session database and schema context."""
+    @contextmanager
+    def _use_database_and_schema(self, database: str, schema: str):
+        """Temporarily set session database and schema, restoring previous values on exit."""
+        prev_db = self.execute_query("SELECT CURRENT_DATABASE()").fetchone()[0]
+        prev_schema = self.execute_query("SELECT CURRENT_SCHEMA()").fetchone()[0]
         self.execute_query(f"USE DATABASE {database}")
         self.execute_query(f"USE SCHEMA {schema}")
+        try:
+            yield
+        finally:
+            if prev_db:
+                self.execute_query(f"USE DATABASE {prev_db}")
+                if prev_schema:
+                    self.execute_query(f"USE SCHEMA {prev_schema}")
 
     @staticmethod
     def _build_artifact_repo_config(
@@ -783,22 +794,22 @@ class SnowflakeAppManager(SqlExecutionMixin):
         """Build an app using SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO."""
         from snowflake.cli.api.project.util import to_string_literal
 
-        self._use_database_and_schema(database, schema)
-        config = self._build_artifact_repo_config(query_warehouse, build_eai)
-        query = (
-            f"SELECT SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO("
-            f"'@{stage_fqn.identifier}', "
-            f"{to_string_literal(artifact_repo_fqn)}, "
-            f"{to_string_literal(app_id)}, "
-            f"{to_string_literal(compute_pool)}, "
-            f"{to_string_literal(runtime_image)}, "
-            f"{to_string_literal(project_type)}, "
-            f"{to_string_literal(config)}"
-            f")"
-        )
-        cursor = self.execute_query(query)
-        row = cursor.fetchone()
-        return row[0] if row else ""
+        with self._use_database_and_schema(database, schema):
+            config = self._build_artifact_repo_config(query_warehouse, build_eai)
+            query = (
+                f"SELECT SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO("
+                f"'@{stage_fqn.identifier}', "
+                f"{to_string_literal(artifact_repo_fqn)}, "
+                f"{to_string_literal(app_id)}, "
+                f"{to_string_literal(compute_pool)}, "
+                f"{to_string_literal(runtime_image)}, "
+                f"{to_string_literal(project_type)}, "
+                f"{to_string_literal(config)}"
+                f")"
+            )
+            cursor = self.execute_query(query)
+            row = cursor.fetchone()
+            return row[0] if row else ""
 
     def run_app_artifact_repo(
         self,
@@ -816,19 +827,19 @@ class SnowflakeAppManager(SqlExecutionMixin):
         """Deploy an app using SYSTEM$SPCS_TEST_RUN_APP_ARTIFACT_REPO."""
         from snowflake.cli.api.project.util import to_string_literal
 
-        self._use_database_and_schema(database, schema)
-        config = self._build_artifact_repo_config(query_warehouse, build_eai)
-        query = (
-            f"SELECT SYSTEM$SPCS_TEST_RUN_APP_ARTIFACT_REPO("
-            f"{to_string_literal(artifact_repo_fqn)}, "
-            f"{to_string_literal(app_id)}, "
-            f"{to_string_literal(version)}, "
-            f"{to_string_literal(service_name)}, "
-            f"{to_string_literal(compute_pool)}, "
-            f"{to_string_literal(runtime_image)}, "
-            f"{to_string_literal(config)}"
-            f")"
-        )
-        cursor = self.execute_query(query)
-        row = cursor.fetchone()
-        return row[0] if row else ""
+        with self._use_database_and_schema(database, schema):
+            config = self._build_artifact_repo_config(query_warehouse, build_eai)
+            query = (
+                f"SELECT SYSTEM$SPCS_TEST_RUN_APP_ARTIFACT_REPO("
+                f"{to_string_literal(artifact_repo_fqn)}, "
+                f"{to_string_literal(app_id)}, "
+                f"{to_string_literal(version)}, "
+                f"{to_string_literal(service_name)}, "
+                f"{to_string_literal(compute_pool)}, "
+                f"{to_string_literal(runtime_image)}, "
+                f"{to_string_literal(config)}"
+                f")"
+            )
+            cursor = self.execute_query(query)
+            row = cursor.fetchone()
+            return row[0] if row else ""
