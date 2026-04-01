@@ -736,6 +736,7 @@ class TestSnowflakeAppManager:
                 return call[0][0]
         raise AssertionError(f"No query containing '{substr}' found")
 
+<<<<<<< HEAD
     @patch(EXECUTE_QUERY)
     def test_build_app_artifact_repo_sanitizes_inputs(self, mock_execute):
         cursor = Mock()
@@ -886,93 +887,6 @@ class TestSnowflakeAppManager:
         run_query = self._find_query(
             mock_execute.call_args_list, "SPCS_TEST_RUN_APP_ARTIFACT_REPO"
         )
-        assert "app'injection" not in run_query
-        assert "app\\'injection" in run_query
-        assert "svc'name" not in run_query
-        assert "svc\\'name" in run_query
-
-    @patch(EXECUTE_QUERY)
-    def test_build_app_artifact_repo_sanitizes_inputs(self, mock_execute):
-        cursor = Mock()
-        cursor.fetchone.return_value = ("Build job submitted: DB.SCHEMA.JOB",)
-        mock_execute.return_value = cursor
-
-        stage_fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
-        SnowflakeAppManager().build_app_artifact_repo(
-            stage_fqn=stage_fqn,
-            artifact_repo_fqn="DB.SCHEMA.REPO",
-            app_id="my_app",
-            compute_pool="BUILD_POOL",
-            database="DB",
-            schema="SCHEMA",
-            runtime_image="runtime:latest",
-        )
-        build_query = mock_execute.call_args_list[-1][0][0]
-        assert "SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO(" in build_query
-        assert "'DB.SCHEMA.REPO'" in build_query
-        assert "'my_app'" in build_query
-        assert "'BUILD_POOL'" in build_query
-
-    @patch(EXECUTE_QUERY)
-    def test_build_app_artifact_repo_escapes_single_quotes(self, mock_execute):
-        cursor = Mock()
-        cursor.fetchone.return_value = ("Build job submitted: DB.SCHEMA.JOB",)
-        mock_execute.return_value = cursor
-
-        stage_fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
-        SnowflakeAppManager().build_app_artifact_repo(
-            stage_fqn=stage_fqn,
-            artifact_repo_fqn="DB.SCHEMA.REPO",
-            app_id="app'injection",
-            compute_pool="BUILD_POOL",
-            database="DB",
-            schema="SCHEMA",
-            runtime_image="runtime:latest",
-        )
-        build_query = mock_execute.call_args_list[-1][0][0]
-        assert "app'injection" not in build_query
-        assert "app\\'injection" in build_query
-
-    @patch(EXECUTE_QUERY)
-    def test_run_app_artifact_repo_sanitizes_inputs(self, mock_execute):
-        cursor = Mock()
-        cursor.fetchone.return_value = ("Service created",)
-        mock_execute.return_value = cursor
-
-        SnowflakeAppManager().run_app_artifact_repo(
-            artifact_repo_fqn="DB.SCHEMA.REPO",
-            app_id="my_app",
-            version="LATEST",
-            service_name="my_app",
-            compute_pool="SVC_POOL",
-            database="DB",
-            schema="SCHEMA",
-            runtime_image="runtime:latest",
-        )
-        run_query = mock_execute.call_args_list[-1][0][0]
-        assert "SYSTEM$SPCS_TEST_RUN_APP_ARTIFACT_REPO(" in run_query
-        assert "'DB.SCHEMA.REPO'" in run_query
-        assert "'my_app'" in run_query
-        assert "'LATEST'" in run_query
-        assert "'SVC_POOL'" in run_query
-
-    @patch(EXECUTE_QUERY)
-    def test_run_app_artifact_repo_escapes_single_quotes(self, mock_execute):
-        cursor = Mock()
-        cursor.fetchone.return_value = ("Service created",)
-        mock_execute.return_value = cursor
-
-        SnowflakeAppManager().run_app_artifact_repo(
-            artifact_repo_fqn="DB.SCHEMA.REPO",
-            app_id="app'injection",
-            version="LATEST",
-            service_name="svc'name",
-            compute_pool="SVC_POOL",
-            database="DB",
-            schema="SCHEMA",
-            runtime_image="runtime:latest",
-        )
-        run_query = mock_execute.call_args_list[-1][0][0]
         assert "app'injection" not in run_query
         assert "app\\'injection" in run_query
         assert "svc'name" not in run_query
