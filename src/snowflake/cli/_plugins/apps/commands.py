@@ -155,12 +155,6 @@ def validate(
                     f"Schema '{database}.{schema}' does not exist "
                     f"or is not accessible."
                 )
-            if not manager.role_has_schema_privilege(database, schema):
-                role = manager.current_role() or "current role"
-                warnings.append(
-                    f"Role '{role}' may not have the required privileges "
-                    f"to operate on schema '{database}.{schema}'."
-                )
 
     # ── Validate bundle / Dockerfile ──────────────────────────────────
     project_paths = None
