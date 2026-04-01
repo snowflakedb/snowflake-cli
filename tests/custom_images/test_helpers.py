@@ -63,12 +63,15 @@ def create_mock_side_effect(
     pip_check_result: tuple[int, str] = (0, ""),
     grype_result: tuple[int, str] = (0, ""),
     grype_error: Exception | None = None,
+    missing_scripts: set[str] | None = None,
 ):
     """Build a subprocess.run side_effect that routes docker/grype commands."""
     if inspect_response is None:
         inspect_response = make_docker_inspect_response()
     if pip_list_response is None:
         pip_list_response = make_pip_list_response([])
+    if missing_scripts is None:
+        missing_scripts = set()
 
     def side_effect(*args, **kwargs):
         cmd = args[0]
@@ -84,6 +87,12 @@ def create_mock_side_effect(
                         returncode=pip_check_result[0],
                         stdout=pip_check_result[1],
                         stderr="",
+                    )
+                elif "test" in cmd and ("-x" in cmd or "-f" in cmd):
+                    target = cmd[-1]
+                    failed = target in missing_scripts
+                    return mock.Mock(
+                        returncode=1 if failed else 0, stdout="", stderr=""
                     )
         elif cmd[0] == "grype":
             if grype_error:
