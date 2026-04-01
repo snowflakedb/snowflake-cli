@@ -38,7 +38,6 @@ from snowflake.cli.api.project.project_paths import ProjectPaths
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import DictCursor
-from snowflake.connector.errors import ProgrammingError
 
 log = logging.getLogger(__name__)
 
@@ -480,6 +479,40 @@ class SnowflakeAppManager(SqlExecutionMixin):
         )
         return cursor.fetchone() is not None
 
+    def role_has_schema_privilege(self, database: str, schema: str) -> bool:
+        """Return True if the current role owns *database.schema*.
+
+        Checks the ``owner`` column from ``SHOW SCHEMAS`` first, then falls
+        back to ``SHOW GRANTS ON SCHEMA`` looking for an OWNERSHIP grant.
+        """
+        from snowflake.cli.api.project.util import to_string_literal
+
+        role = self.current_role()
+        if not role:
+            return False
+
+        cursor = self.execute_query(
+            f"SHOW SCHEMAS LIKE {to_string_literal(schema)}"
+            f" IN DATABASE IDENTIFIER({to_string_literal(database)})",
+            cursor_class=DictCursor,
+        )
+        row = cursor.fetchone()
+        if row and row.get("owner", "").upper() == role.upper():
+            return True
+
+        schema_fqn = FQN(database=None, schema=database, name=schema)
+        cursor = self.execute_query(
+            f"SHOW GRANTS ON SCHEMA {schema_fqn.sql_identifier}",
+            cursor_class=DictCursor,
+        )
+        for grant_row in cursor:
+            if (
+                grant_row.get("grantee_name", "").upper() == role.upper()
+                and grant_row.get("privilege") == "OWNERSHIP"
+            ):
+                return True
+        return False
+
     def role_has_bind_service_endpoint(self, role: str) -> bool:
         """Return True if *role* has the account-level BIND SERVICE ENDPOINT privilege."""
         from snowflake.cli.api.project.util import to_string_literal
@@ -495,25 +528,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
             ):
                 return True
         return False
-
-    def create_schema_if_not_exists(self, database: str, schema: str) -> None:
-        """Create schema if it doesn't exist.
-
-        Falls back to a SHOW SCHEMAS check when the role lacks CREATE SCHEMA
-        privilege — the schema may already exist and be usable.
-        """
-        schema_fqn = FQN(database=None, schema=database, name=schema)
-        try:
-            self.execute_query(
-                f"CREATE SCHEMA IF NOT EXISTS {schema_fqn.sql_identifier}"
-            )
-        except ProgrammingError:
-            cursor = self.execute_query(
-                f"SHOW SCHEMAS LIKE '{schema}' IN DATABASE {database}",
-                cursor_class=DictCursor,
-            )
-            if not cursor.fetchone():
-                raise
 
     def stage_exists(self, stage_fqn: FQN) -> bool:
         """Check if a stage exists."""
