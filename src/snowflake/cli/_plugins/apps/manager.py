@@ -37,7 +37,6 @@ from snowflake.cli.api.project.project_paths import ProjectPaths
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import DictCursor
-from snowflake.connector.errors import ProgrammingError
 
 log = logging.getLogger(__name__)
 
@@ -455,6 +454,61 @@ serviceRoles:
 class SnowflakeAppManager(SqlExecutionMixin):
     """Manager for Snowflake App operations."""
 
+    def database_exists(self, database: str) -> bool:
+        """Return True if *database* exists and is visible to the current role."""
+        from snowflake.cli.api.project.util import to_string_literal
+
+        cursor = self.execute_query(
+            f"SHOW DATABASES LIKE {to_string_literal(database)}",
+            cursor_class=DictCursor,
+        )
+        return cursor.fetchone() is not None
+
+    def schema_exists(self, database: str, schema: str) -> bool:
+        """Return True if *schema* exists in *database*."""
+        from snowflake.cli.api.project.util import to_string_literal
+
+        cursor = self.execute_query(
+            f"SHOW SCHEMAS LIKE {to_string_literal(schema)}"
+            f" IN DATABASE IDENTIFIER({to_string_literal(database)})",
+            cursor_class=DictCursor,
+        )
+        return cursor.fetchone() is not None
+
+    def role_has_schema_privilege(self, database: str, schema: str) -> bool:
+        """Return True if the current role owns *database.schema*.
+
+        Checks the ``owner`` column from ``SHOW SCHEMAS`` first, then falls
+        back to ``SHOW GRANTS ON SCHEMA`` looking for an OWNERSHIP grant.
+        """
+        from snowflake.cli.api.project.util import to_string_literal
+
+        role = self.current_role()
+        if not role:
+            return False
+
+        cursor = self.execute_query(
+            f"SHOW SCHEMAS LIKE {to_string_literal(schema)}"
+            f" IN DATABASE IDENTIFIER({to_string_literal(database)})",
+            cursor_class=DictCursor,
+        )
+        row = cursor.fetchone()
+        if row and row.get("owner", "").upper() == role.upper():
+            return True
+
+        schema_fqn = FQN(database=None, schema=database, name=schema)
+        cursor = self.execute_query(
+            f"SHOW GRANTS ON SCHEMA {schema_fqn.sql_identifier}",
+            cursor_class=DictCursor,
+        )
+        for grant_row in cursor:
+            if (
+                grant_row.get("grantee_name", "").upper() == role.upper()
+                and grant_row.get("privilege") == "OWNERSHIP"
+            ):
+                return True
+        return False
+
     def role_has_bind_service_endpoint(self, role: str) -> bool:
         """Return True if *role* has the account-level BIND SERVICE ENDPOINT privilege."""
         from snowflake.cli.api.project.util import to_string_literal
@@ -470,25 +524,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
             ):
                 return True
         return False
-
-    def create_schema_if_not_exists(self, database: str, schema: str) -> None:
-        """Create schema if it doesn't exist.
-
-        Falls back to a SHOW SCHEMAS check when the role lacks CREATE SCHEMA
-        privilege — the schema may already exist and be usable.
-        """
-        schema_fqn = FQN(database=None, schema=database, name=schema)
-        try:
-            self.execute_query(
-                f"CREATE SCHEMA IF NOT EXISTS {schema_fqn.sql_identifier}"
-            )
-        except ProgrammingError:
-            cursor = self.execute_query(
-                f"SHOW SCHEMAS LIKE '{schema}' IN DATABASE {database}",
-                cursor_class=DictCursor,
-            )
-            if not cursor.fetchone():
-                raise
 
     def stage_exists(self, stage_fqn: FQN) -> bool:
         """Check if a stage exists."""
@@ -780,17 +815,19 @@ class SnowflakeAppManager(SqlExecutionMixin):
         project_type: str = "nodejs",
     ) -> str:
         """Build an app using SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO."""
+        from snowflake.cli.api.project.util import to_string_literal
+
         self._use_database_and_schema(database, schema)
         config = self._build_artifact_repo_config(query_warehouse, build_eai)
         query = (
             f"SELECT SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO("
             f"'@{stage_fqn.identifier}', "
-            f"'{artifact_repo_fqn}', "
-            f"'{app_id}', "
-            f"'{compute_pool}', "
-            f"'{runtime_image}', "
-            f"'{project_type}', "
-            f"'{config}'"
+            f"{to_string_literal(artifact_repo_fqn)}, "
+            f"{to_string_literal(app_id)}, "
+            f"{to_string_literal(compute_pool)}, "
+            f"{to_string_literal(runtime_image)}, "
+            f"{to_string_literal(project_type)}, "
+            f"{to_string_literal(config)}"
             f")"
         )
         cursor = self.execute_query(query)
@@ -811,17 +848,19 @@ class SnowflakeAppManager(SqlExecutionMixin):
         build_eai: Optional[str] = None,
     ) -> str:
         """Deploy an app using SYSTEM$SPCS_TEST_RUN_APP_ARTIFACT_REPO."""
+        from snowflake.cli.api.project.util import to_string_literal
+
         self._use_database_and_schema(database, schema)
         config = self._build_artifact_repo_config(query_warehouse, build_eai)
         query = (
             f"SELECT SYSTEM$SPCS_TEST_RUN_APP_ARTIFACT_REPO("
-            f"'{artifact_repo_fqn}', "
-            f"'{app_id}', "
-            f"'{version}', "
-            f"'{service_name}', "
-            f"'{compute_pool}', "
-            f"'{runtime_image}', "
-            f"'{config}'"
+            f"{to_string_literal(artifact_repo_fqn)}, "
+            f"{to_string_literal(app_id)}, "
+            f"{to_string_literal(version)}, "
+            f"{to_string_literal(service_name)}, "
+            f"{to_string_literal(compute_pool)}, "
+            f"{to_string_literal(runtime_image)}, "
+            f"{to_string_literal(config)}"
             f")"
         )
         cursor = self.execute_query(query)
