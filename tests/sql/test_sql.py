@@ -669,7 +669,8 @@ def test_jinja_template_syntax_in_sql_comment_is_ignored(mock_execute_query):
     """Template-like syntax inside SQL comments must not be evaluated by Jinja."""
     manager = SqlManager()
     # The line comment contains {{ undefined_var }} which would raise an
-    # UndefinedError if evaluated, but SQL comments should be stripped first.
+    # UndefinedError if evaluated, but SQL comments are replaced with inert
+    # placeholders before Jinja runs so their content is never evaluated.
     query = "-- {{ undefined_var }}\nSELECT 1;"
     mock_execute_query.return_value = iter([])
     _, results = manager.execute(
@@ -868,8 +869,8 @@ def test_retain_comments_with_jinja_enabled(
     """--retain-comments must preserve SQL comments even when Jinja rendering is on.
 
     Regression test for https://github.com/snowflakedb/snowflake-cli/issues/2650 —
-    _strip_sql_comments was called unconditionally in _jinja_pre_render, silently
-    dropping comments regardless of the --retain-comments flag.
+    comments must survive the Jinja pre-render step so that split_statements can
+    honour the remove_comments=False flag and pass them through to Snowflake.
     """
     mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(2))
     query = "SELECT 42;\n-- optimizer hint\nSELECT 1;"
