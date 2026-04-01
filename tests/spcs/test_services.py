@@ -2349,15 +2349,17 @@ def test_build_image_cli_recursive_upload_with_nested_dirs(
         stage_path = sql.split("@")[1].split(" ")[0] if "@" in sql else ""
         stage_paths.add(stage_path)
 
-    assert any("templates/partials" in sp for sp in stage_paths), (
-        f"Stage path does not preserve nested directory structure. Stage paths: {stage_paths}"
-    )
-    assert any("templates" in sp and "partials" not in sp for sp in stage_paths), (
-        f"Stage path missing 'templates' level. Stage paths: {stage_paths}"
-    )
-    assert any(sp.endswith("build_contexts/" + sp.split("build_contexts/")[1].split("/")[0]) for sp in stage_paths if "build_contexts/" in sp and "templates" not in sp), (
-        f"Root-level upload missing. Stage paths: {stage_paths}"
-    )
+    assert any(
+        "templates/partials" in sp for sp in stage_paths
+    ), f"Stage path does not preserve nested directory structure. Stage paths: {stage_paths}"
+    assert any(
+        "templates" in sp and "partials" not in sp for sp in stage_paths
+    ), f"Stage path missing 'templates' level. Stage paths: {stage_paths}"
+    assert any(
+        sp.endswith("build_contexts/" + sp.split("build_contexts/")[1].split("/")[0])
+        for sp in stage_paths
+        if "build_contexts/" in sp and "templates" not in sp
+    ), f"Root-level upload missing. Stage paths: {stage_paths}"
 
 
 def test_build_image_hidden_by_default(runner):
