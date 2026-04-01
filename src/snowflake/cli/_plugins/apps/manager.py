@@ -244,12 +244,13 @@ def _resolve_deploy_defaults(
     all_keys = set(yml_vals) | set(conn_vals) | set(table_vals) | set(builtin_vals)
     resolved: Dict[str, Optional[str]] = {}
     for key in all_keys:
-        resolved[key] = (
-            yml_vals.get(key)
-            or conn_vals.get(key)
-            or table_vals.get(key)
-            or builtin_vals.get(key)
-        )
+        for source in (yml_vals, conn_vals, table_vals, builtin_vals):
+            val = source.get(key)
+            if val is not None:
+                resolved[key] = val
+                break
+        else:
+            resolved[key] = None
 
     # Default image repo lives in TEMP.APPS; user-specified repos without
     # explicit db/schema will fall back to the entity db/schema in the caller.
