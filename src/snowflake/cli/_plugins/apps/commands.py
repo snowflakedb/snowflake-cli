@@ -46,7 +46,12 @@ from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.output.types import CommandResult, MessageResult, ObjectResult
+from snowflake.cli.api.output.types import (
+    CommandResult,
+    EmptyResult,
+    MessageResult,
+    ObjectResult,
+)
 from snowflake.cli.api.project.util import get_env_username, identifier_for_url
 from snowflake.connector.errors import ProgrammingError
 
@@ -125,16 +130,20 @@ def setup(
             "Ensure they are set in the config table or your connection profile."
         )
 
-    if dry_run:
-        return ObjectResult(resolved)
+    if not dry_run:
+        project_file.write_text(_generate_snowflake_yml(app_name, resolved))
 
-    project_file.write_text(_generate_snowflake_yml(app_name, resolved))
-    return ObjectResult(
-        {
-            "message": f"Initialized Snowflake App project in {DEFINITION_FILENAME}.",
-            **resolved,
-        }
-    )
+    is_json = get_cli_context().output_format.is_json
+    if is_json:
+        return ObjectResult({"success": not dry_run, **resolved})
+
+    if dry_run:
+        cli_console.step("Dry run — resolved configuration:")
+    else:
+        cli_console.step(f"Initialized Snowflake App project in {DEFINITION_FILENAME}.")
+    for key, value in resolved.items():
+        cli_console.step(f"  {key}: {value}")
+    return EmptyResult()
 
 
 @app.command()

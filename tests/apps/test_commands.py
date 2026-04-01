@@ -1591,6 +1591,7 @@ class TestSetupCommand:
                 )
                 assert result.exit_code == 0, result.output
                 parsed = json_mod.loads(result.output)
+                assert parsed["success"] is False
                 assert parsed["database"] == "CFG_DB"
                 assert parsed["warehouse"] == "CFG_WH"
                 assert parsed["compute_pool"] == "DEFAULT_POOL"
@@ -1603,7 +1604,7 @@ class TestSetupCommand:
         return_value="definition_version: '2'\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
-    def test_success_returns_resolved_values(
+    def test_success_json_includes_resolved_values(
         self, mock_mgr_cls, mock_gen, mock_pool, mock_eai, runner, tmp_path
     ):
         import json as json_mod
@@ -1631,9 +1632,36 @@ class TestSetupCommand:
                 )
                 assert result.exit_code == 0, result.output
                 parsed = json_mod.loads(result.output)
+                assert parsed["success"] is True
                 assert parsed["database"] == "CFG_DB"
                 assert parsed["warehouse"] == "CFG_WH"
-                assert "message" in parsed
+
+    @patch(COMMANDS_GET_EXTERNAL_ACCESS, return_value="DEFAULT_EAI")
+    @patch(COMMANDS_GET_COMPUTE_POOL, return_value="DEFAULT_POOL")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
+        return_value="definition_version: '2'\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_success_prints_resolved_values_in_default_format(
+        self, mock_mgr_cls, mock_gen, mock_pool, mock_eai, runner, tmp_path
+    ):
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.current_role.return_value = "TEST_ROLE"
+        mock_mgr.fetch_config_table_defaults.return_value = {
+            "database": "CFG_DB",
+            "warehouse": "CFG_WH",
+        }
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "setup", "--app-name", "my_app"])
+                assert result.exit_code == 0, result.output
+                assert "database: CFG_DB" in result.output
+                assert "warehouse: CFG_WH" in result.output
+                assert "compute_pool: DEFAULT_POOL" in result.output
 
 
 # ── perform_bundle tests ──────────────────────────────────────────────
