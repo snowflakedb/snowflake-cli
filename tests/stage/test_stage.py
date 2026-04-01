@@ -1676,7 +1676,7 @@ def test_stage_put_with_square_brackets_in_directory_name(mock_execute, mock_cur
         sm = StageManager()
         sm.put(bracket_dir, "stageName")
 
-        expected_path = glob.escape(str(bracket_dir.resolve())) + "/*"
+        expected_path = glob.escape(str(bracket_dir)) + "/*"
         mock_execute.assert_called_with(
             f"put file://{expected_path} @stageName auto_compress=false parallel=4 overwrite=False",
             cursor_class=SnowflakeCursor,
@@ -1744,7 +1744,7 @@ def test_stage_put_with_square_brackets_and_trailing_slash(mock_execute, mock_cu
         sm = StageManager()
         sm.put(str(bracket_dir) + "/", "stageName")
 
-        expected_path = glob.escape(str(bracket_dir.resolve())) + "/*"
+        expected_path = glob.escape(str(bracket_dir)) + "/*"
         call_args = mock_execute.call_args[0][0]
         assert "//*" not in call_args, f"Double slash found in: {call_args}"
         assert call_args == (
