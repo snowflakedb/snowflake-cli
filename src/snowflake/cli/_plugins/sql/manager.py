@@ -24,8 +24,7 @@ from snowflake.cli._app.printing import print_result
 from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_templates
 from snowflake.cli._plugins.sql.statement_reader import (
     CompiledStatement,
-    _strip_sql_comments,
-    _wrap_comments_in_jinja_raw,
+    _protect_sql_comments,
     compile_statements,
     files_reader,
     query_reader,
@@ -82,16 +81,15 @@ class SqlManager(SqlExecutionMixin):
         if template_syntax_config.enable_jinja_syntax:
 
             def _jinja_pre_render(content: str) -> str:
-                # Guard comments from Jinja evaluation. When retaining comments
-                # we wrap them in {% raw %}...{% endraw %} so Jinja ignores
-                # their content; otherwise we strip them outright.
-                if retain_comments:
-                    content = _wrap_comments_in_jinja_raw(content)
-                else:
-                    content = _strip_sql_comments(content)
+                # Replace comments with inert placeholders before Jinja runs
+                # so that template-like syntax inside comments (e.g. -- {{ v }})
+                # is never evaluated.  Placeholders are restored afterwards;
+                # split_statements(remove_comments=…) then handles the actual
+                # comment stripping or retention decision.
+                content, _saved = _protect_sql_comments(content)
                 if template_syntax_config.enable_legacy_syntax:
                     content = transpile_snowsql_templates(content)
-                return snowflake_sql_jinja_render(
+                content = snowflake_sql_jinja_render(
                     content,
                     template_syntax_config=SQLTemplateSyntaxConfig(
                         enable_legacy_syntax=template_syntax_config.enable_legacy_syntax,
@@ -100,6 +98,7 @@ class SqlManager(SqlExecutionMixin):
                     ),
                     data=data,
                 )
+                return _saved.restore(content)
 
             jinja_pre_render = _jinja_pre_render
             # No per-statement operators needed — everything is done in pre-render.

@@ -2,7 +2,8 @@ import enum
 import io
 import re
 import urllib.error
-from dataclasses import dataclass
+import uuid
+from dataclasses import dataclass, field
 from typing import Any, Callable, Generator, List, Literal, Sequence, Tuple
 from urllib.request import urlopen
 
@@ -24,102 +25,101 @@ URL_PATTERN = re.compile(r"^(\w+?):\/(\/.*)", flags=re.IGNORECASE)
 ASYNC_SUFFIX = ";>"
 
 
-def _tokenize_sql(
-    sql: str,
-) -> "Generator[tuple[str, str], None, None]":
-    """Yield ``(kind, text)`` pairs for every segment of *sql*.
+# Regex that recognises SQL tokens whose contents must not be scanned for
+# comment syntax.  Alternatives are tried left-to-right:
+#   1. single-quoted string  'text' with '' escaping
+#   2. $$-dollar-quoted string
+#   3. opening of a block comment  /*  (content handled by depth-counting loop)
+#   4. line comment  -- …  (everything up to but not including the newline)
+_SQL_TOKEN_RE = re.compile(
+    r"""
+      '[^']*(?:''[^']*)*'          # single-quoted string ('' escape, no backslash)
+    | \$\$.*?\$\$                  # $$-dollar-quoted string
+    | (?P<block_start> /\* )       # block comment opening → depth-counted below
+    | (?P<line_comment> --[^\n]* ) # line comment text (newline NOT consumed)
+    """,
+    re.VERBOSE | re.DOTALL,
+)
 
-    ``kind`` is one of:
-    - ``"code"``         — non-comment SQL, including string literals
-    - ``"line_comment"`` — ``--`` comment text (not including the trailing ``\\n``)
-    - ``"block_comment"``— ``/* ... */`` comment text (including delimiters)
-    - ``"newline"``      — a single ``\\n`` that terminated a line comment
 
-    String literals (single-quoted and dollar-quoted) are treated as ``"code"``
-    so that comment-like syntax inside them is never mis-classified.
+@dataclass
+class _SavedComments:
+    """Stores SQL comment text replaced by inert placeholders.
+
+    Placeholders contain a random nonce so they cannot collide with user SQL.
     """
-    i = 0
-    n = len(sql)
-    while i < n:
-        ch = sql[i]
-        # Single-quoted string: consume until closing quote, honouring '' escape
-        if ch == "'":
-            j = i + 1
-            while j < n:
-                if sql[j] == "'":
-                    j += 1
-                    if j < n and sql[j] == "'":  # escaped ''
-                        j += 1
-                        continue
-                    break
-                j += 1
-            yield "code", sql[i:j]
-            i = j
-            continue
-        # Dollar-quoted string: $tag$...$tag$
-        if ch == "$":
-            end_tag = sql.find("$", i + 1)
-            if end_tag != -1:
-                tag = sql[i : end_tag + 1]
-                closing = sql.find(tag, end_tag + 1)
-                if closing != -1:
-                    yield "code", sql[i : closing + len(tag)]
-                    i = closing + len(tag)
-                    continue
-        # Line comment: everything from -- to end of line (newline emitted separately)
-        if sql[i : i + 2] == "--":
-            j = sql.find("\n", i)
-            if j == -1:
-                yield "line_comment", sql[i:]
-                break
-            yield "line_comment", sql[i:j]
-            yield "newline", "\n"
-            i = j + 1
-            continue
-        # Block comment: /* ... */
-        if sql[i : i + 2] == "/*":
-            j = sql.find("*/", i + 2)
-            if j == -1:
-                yield "block_comment", sql[i:]
-                break
-            yield "block_comment", sql[i : j + 2]
-            i = j + 2
-            continue
-        yield "code", ch
-        i += 1
+
+    _comments: list = field(default_factory=list)
+    _nonce: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
+
+    def save(self, text: str) -> str:
+        """Replace *text* with a placeholder and remember the original."""
+        idx = len(self._comments)
+        self._comments.append(text)
+        return f"__SQLC_{self._nonce}_{idx}__"
+
+    def restore(self, sql: str) -> str:
+        """Put all saved comment texts back into *sql*."""
+        for i, comment in enumerate(self._comments):
+            sql = sql.replace(f"__SQLC_{self._nonce}_{i}__", comment)
+        return sql
 
 
-def _strip_sql_comments(sql: str) -> str:
-    """Strip SQL comments from *sql* while preserving string and dollar-quoted literals.
+def _protect_sql_comments(sql: str) -> tuple[str, _SavedComments]:
+    """Replace SQL comments in *sql* with inert placeholders.
+
+    Returns ``(placeholder_sql, saved)`` where ``saved.restore(rendered)``
+    puts the original comment text back after Jinja has run.
 
     Handles:
     - ``--`` line comments
-    - ``/* ... */`` block comments (non-nestable)
-    - Single-quoted strings ``'...'`` with ``''`` escape
-    - Dollar-quoted strings ``$tag$...$tag$``
+    - ``/* … */`` block comments, including Snowflake-style **nested** block
+      comments (e.g. ``/* outer /* inner */ … */``)
+    - Single-quoted strings and ``$$``-dollar-quoted strings are skipped so
+      that comment-like syntax inside string literals is never mis-classified.
 
-    Used before Jinja pre-render so that template-like syntax inside comments
-    (e.g. ``-- {{ var }}``) is not interpreted by Jinja.
+    Used inside ``_jinja_pre_render`` so that Jinja-like syntax inside comments
+    (e.g. ``-- {{ var }}``) is not evaluated by Jinja.  Comment removal or
+    retention is then left entirely to ``split_statements(remove_comments=…)``.
     """
-    return "".join(
-        text for kind, text in _tokenize_sql(sql) if kind in ("code", "newline")
-    )
+    saved = _SavedComments()
+    result: list[str] = []
+    pos = 0
 
+    while pos < len(sql):
+        m = _SQL_TOKEN_RE.search(sql, pos)
+        if m is None:
+            break
 
-def _wrap_comments_in_jinja_raw(sql: str) -> str:
-    """Wrap SQL comments in ``{% raw %}...{% endraw %}`` so Jinja ignores their content.
+        if m.group("line_comment"):
+            result.append(sql[pos : m.start()])
+            result.append(saved.save(m.group()))
+            pos = m.end()
 
-    Preserves comments intact while preventing Jinja from interpreting
-    template-like syntax inside them (e.g. ``-- {{ var }}``).  Used before
-    Jinja pre-render when ``--retain-comments`` is active.
-    """
-    parts: list[str] = []
-    for kind, text in _tokenize_sql(sql):
-        if kind in ("line_comment", "block_comment"):
-            parts.append(f"{{% raw %}}{text}{{% endraw %}}")
+        elif m.group("block_start"):
+            # Depth-count to find the matching */ for nested block comments.
+            depth = 1
+            j = m.end()
+            while j < len(sql) and depth > 0:
+                if sql[j : j + 2] == "/*":
+                    depth += 1
+                    j += 2
+                elif sql[j : j + 2] == "*/":
+                    depth -= 1
+                    j += 2
+                else:
+                    j += 1
+            result.append(sql[pos : m.start()])
+            result.append(saved.save(sql[m.start() : j]))
+            pos = j
+
         else:
-            parts.append(text)
-    return "".join(parts)
+            # String literal — emit as-is and advance past it.
+            result.append(sql[pos : m.end()])
+            pos = m.end()
+
+    result.append(sql[pos:])
+    return "".join(result), saved
 
 
 SplitedStatements = Generator[
