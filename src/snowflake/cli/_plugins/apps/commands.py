@@ -19,14 +19,20 @@ from typing import Optional
 
 import typer
 from click import ClickException
-from snowflake.cli._plugins.apps.generate import _generate_snowflake_yml
+from snowflake.cli._plugins.apps.generate import (
+    DEFAULT_SCHEMA,
+    IS_PERSONAL_DB_SUPPORTED,
+    _generate_snowflake_yml,
+)
 from snowflake.cli._plugins.apps.manager import (
     _APP_COMMAND_NAME,
     DEFINITION_FILENAME,
     EXPOSE_UNSUPPORTED_SYNTAX,
     SnowflakeAppManager,
     _find_dockerfile_expose_port,
+    _get_compute_pool,
     _get_entity,
+    _get_external_access,
     _poll_until,
     _resolve_deploy_defaults,
     _resolve_entity_id,
@@ -39,7 +45,8 @@ from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.output.types import CommandResult, MessageResult
+from snowflake.cli.api.output.types import CommandResult, MessageResult, ObjectResult
+from snowflake.cli.api.project.util import get_env_username
 
 app = SnowTyperFactory(
     name=_APP_COMMAND_NAME,
@@ -55,6 +62,11 @@ def setup(
         "--app-name",
         help="Name of the Snowflake App to initialize.",
     ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Only print the resolved configuration values without creating the project file.",
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -68,7 +80,7 @@ def setup(
         )
 
     project_file = Path.cwd() / DEFINITION_FILENAME
-    if project_file.exists():
+    if not dry_run and project_file.exists():
         return MessageResult(
             f"{DEFINITION_FILENAME} already exists. Skipping initialization."
         )
@@ -76,8 +88,7 @@ def setup(
     ctx = get_cli_context()
     ctx.connection_context.validate_and_complete()
     ctx.connection_context.update_from_config()
-    warehouse = ctx.connection_context.warehouse
-    database = ctx.connection_context.database
+    conn = ctx.connection_context
 
     manager = SnowflakeAppManager()
     config_overrides = {}
@@ -85,10 +96,43 @@ def setup(
     if role:
         config_overrides = manager.fetch_config_table_defaults(role)
 
-    project_file.write_text(
-        _generate_snowflake_yml(app_name, warehouse, database, config_overrides)
+    # Resolve with priority: config table > connection > built-in defaults
+    if IS_PERSONAL_DB_SUPPORTED:
+        database = f"USER${get_env_username().upper()}"
+    else:
+        database = config_overrides.get("database") or conn.database
+
+    resolved = {
+        "database": database,
+        "schema": config_overrides.get("schema") or DEFAULT_SCHEMA,
+        "warehouse": config_overrides.get("warehouse") or conn.warehouse,
+        "compute_pool": config_overrides.get("compute_pool") or _get_compute_pool(),
+        "build_eai": config_overrides.get("eai") or _get_external_access(app_name),
+    }
+
+    image_repository = config_overrides.get("image_repository")
+    if image_repository:
+        resolved["image_repository"] = image_repository
+
+    # Validate: fail on ALL missing required values, not just the first
+    required_keys = ["database", "warehouse", "compute_pool", "build_eai"]
+    missing = [key for key in required_keys if not resolved.get(key)]
+    if missing:
+        raise ClickException(
+            f"Missing required configuration value(s): {', '.join(missing)}. "
+            "Ensure they are set in the config table or your connection profile."
+        )
+
+    if dry_run:
+        return ObjectResult(resolved)
+
+    project_file.write_text(_generate_snowflake_yml(app_name, resolved))
+    return ObjectResult(
+        {
+            "message": f"Initialized Snowflake App project in {DEFINITION_FILENAME}.",
+            **resolved,
+        }
     )
-    return MessageResult(f"Initialized Snowflake App project in {DEFINITION_FILENAME}.")
 
 
 @app.command()
