@@ -537,6 +537,8 @@
   +- Options --------------------------------------------------------------------+
   | *  --app-name          TEXT  Name of the Snowflake App to initialize.        |
   |                              [required]                                      |
+  |    --dry-run                 Only print the resolved configuration values    |
+  |                              without creating the project file.              |
   |    --help      -h            Show this message and exit.                     |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
