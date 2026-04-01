@@ -2340,7 +2340,7 @@ def test_build_image_cli_recursive_upload_with_nested_dirs(
     put_calls = [
         c
         for c in mock_stage_execute_query.call_args_list
-        if str(c).startswith("call('put ")
+        if c.args and isinstance(c.args[0], str) and c.args[0].strip().startswith("put ")
     ]
 
     stage_paths = set()
