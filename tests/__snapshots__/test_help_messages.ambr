@@ -249,13 +249,16 @@
    Opens a deployed Snowflake App in the browser.                                 
                                                                                   
    Looks up the service endpoint URL for the app and opens it.  Use --print-only  
-   to print the URL without launching a browser.                                  
+   to print the URL without launching a browser. Use --settings to open the       
+   Snowsight settings page for the app.                                           
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --entity-id           TEXT  ID of the snowflake-app entity to open. Required |
   |                             if multiple snowflake-app entities exist.        |
   | --print-only                Print the app URL without opening it in the      |
   |                             browser.                                         |
+  | --settings                  Open the app settings page in Snowsight instead  |
+  |                             of the app itself.                               |
   | --help        -h            Show this message and exit.                      |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
