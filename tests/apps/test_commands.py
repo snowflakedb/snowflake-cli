@@ -663,6 +663,13 @@ class TestSnowflakeAppManager:
         assert '"/my/custom/builder:2.0"' in query
         assert "sf-image-build:0.0.1" not in query
 
+    @staticmethod
+    def _find_query(call_args_list, substr):
+        for call in call_args_list:
+            if substr in call[0][0]:
+                return call[0][0]
+        raise AssertionError(f"No query containing '{substr}' found")
+
     @patch(EXECUTE_QUERY)
     def test_build_app_artifact_repo_sanitizes_inputs(self, mock_execute):
         cursor = Mock()
@@ -679,8 +686,9 @@ class TestSnowflakeAppManager:
             schema="SCHEMA",
             runtime_image="runtime:latest",
         )
-        build_query = mock_execute.call_args_list[-1][0][0]
-        assert "SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO(" in build_query
+        build_query = self._find_query(
+            mock_execute.call_args_list, "SPCS_TEST_BUILD_APP_ARTIFACT_REPO"
+        )
         assert "'DB.SCHEMA.REPO'" in build_query
         assert "'my_app'" in build_query
         assert "'BUILD_POOL'" in build_query
@@ -701,9 +709,73 @@ class TestSnowflakeAppManager:
             schema="SCHEMA",
             runtime_image="runtime:latest",
         )
-        build_query = mock_execute.call_args_list[-1][0][0]
+        build_query = self._find_query(
+            mock_execute.call_args_list, "SPCS_TEST_BUILD_APP_ARTIFACT_REPO"
+        )
         assert "app'injection" not in build_query
         assert "app\\'injection" in build_query
+
+    @patch(EXECUTE_QUERY)
+    def test_build_app_artifact_repo_restores_session(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.side_effect = [
+            ("PREV_DB",),
+            ("PREV_SCHEMA",),
+            None,
+            None,
+            ("Build job submitted: DB.SCHEMA.JOB",),
+            None,
+            None,
+        ]
+        mock_execute.return_value = cursor
+
+        stage_fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
+        SnowflakeAppManager().build_app_artifact_repo(
+            stage_fqn=stage_fqn,
+            artifact_repo_fqn="DB.SCHEMA.REPO",
+            app_id="my_app",
+            compute_pool="BUILD_POOL",
+            database="DB",
+            schema="SCHEMA",
+            runtime_image="runtime:latest",
+        )
+        queries = [c[0][0] for c in mock_execute.call_args_list]
+        spcs_idx = next(i for i, q in enumerate(queries) if "SPCS_TEST_BUILD" in q)
+        restore_db_idx = queries.index("USE DATABASE PREV_DB")
+        restore_schema_idx = queries.index("USE SCHEMA PREV_SCHEMA")
+        assert restore_db_idx > spcs_idx
+        assert restore_schema_idx > restore_db_idx
+
+    @patch(EXECUTE_QUERY)
+    def test_run_app_artifact_repo_restores_session(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.side_effect = [
+            ("PREV_DB",),
+            ("PREV_SCHEMA",),
+            None,
+            None,
+            ("Service created",),
+            None,
+            None,
+        ]
+        mock_execute.return_value = cursor
+
+        SnowflakeAppManager().run_app_artifact_repo(
+            artifact_repo_fqn="DB.SCHEMA.REPO",
+            app_id="my_app",
+            version="LATEST",
+            service_name="my_app",
+            compute_pool="SVC_POOL",
+            database="DB",
+            schema="SCHEMA",
+            runtime_image="runtime:latest",
+        )
+        queries = [c[0][0] for c in mock_execute.call_args_list]
+        spcs_idx = next(i for i, q in enumerate(queries) if "SPCS_TEST_RUN" in q)
+        restore_db_idx = queries.index("USE DATABASE PREV_DB")
+        restore_schema_idx = queries.index("USE SCHEMA PREV_SCHEMA")
+        assert restore_db_idx > spcs_idx
+        assert restore_schema_idx > restore_db_idx
 
     @patch(EXECUTE_QUERY)
     def test_run_app_artifact_repo_sanitizes_inputs(self, mock_execute):
@@ -721,8 +793,9 @@ class TestSnowflakeAppManager:
             schema="SCHEMA",
             runtime_image="runtime:latest",
         )
-        run_query = mock_execute.call_args_list[-1][0][0]
-        assert "SYSTEM$SPCS_TEST_RUN_APP_ARTIFACT_REPO(" in run_query
+        run_query = self._find_query(
+            mock_execute.call_args_list, "SPCS_TEST_RUN_APP_ARTIFACT_REPO"
+        )
         assert "'DB.SCHEMA.REPO'" in run_query
         assert "'my_app'" in run_query
         assert "'LATEST'" in run_query
@@ -744,7 +817,9 @@ class TestSnowflakeAppManager:
             schema="SCHEMA",
             runtime_image="runtime:latest",
         )
-        run_query = mock_execute.call_args_list[-1][0][0]
+        run_query = self._find_query(
+            mock_execute.call_args_list, "SPCS_TEST_RUN_APP_ARTIFACT_REPO"
+        )
         assert "app'injection" not in run_query
         assert "app\\'injection" in run_query
         assert "svc'name" not in run_query
