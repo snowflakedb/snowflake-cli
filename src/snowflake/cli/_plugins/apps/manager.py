@@ -475,40 +475,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
         )
         return cursor.fetchone() is not None
 
-    def role_has_schema_privilege(self, database: str, schema: str) -> bool:
-        """Return True if the current role owns *database.schema*.
-
-        Checks the ``owner`` column from ``SHOW SCHEMAS`` first, then falls
-        back to ``SHOW GRANTS ON SCHEMA`` looking for an OWNERSHIP grant.
-        """
-        from snowflake.cli.api.project.util import to_string_literal
-
-        role = self.current_role()
-        if not role:
-            return False
-
-        cursor = self.execute_query(
-            f"SHOW SCHEMAS LIKE {to_string_literal(schema)}"
-            f" IN DATABASE IDENTIFIER({to_string_literal(database)})",
-            cursor_class=DictCursor,
-        )
-        row = cursor.fetchone()
-        if row and row.get("owner", "").upper() == role.upper():
-            return True
-
-        schema_fqn = FQN(database=None, schema=database, name=schema)
-        cursor = self.execute_query(
-            f"SHOW GRANTS ON SCHEMA {schema_fqn.sql_identifier}",
-            cursor_class=DictCursor,
-        )
-        for grant_row in cursor:
-            if (
-                grant_row.get("grantee_name", "").upper() == role.upper()
-                and grant_row.get("privilege") == "OWNERSHIP"
-            ):
-                return True
-        return False
-
     def role_has_bind_service_endpoint(self, role: str) -> bool:
         """Return True if *role* has the account-level BIND SERVICE ENDPOINT privilege."""
         from snowflake.cli.api.project.util import to_string_literal

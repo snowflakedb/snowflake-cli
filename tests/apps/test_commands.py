@@ -451,88 +451,6 @@ class TestSchemaExists:
         assert SnowflakeAppManager().schema_exists("MY_DB", "NO_SUCH") is False
 
 
-class TestRoleHasSchemaPrivilege:
-    @staticmethod
-    def _show_schemas_cursor(owner="OTHER_ROLE"):
-        cursor = Mock()
-        cursor.fetchone.return_value = {"name": "SCHEMA", "owner": owner}
-        return cursor
-
-    @staticmethod
-    def _show_schemas_cursor_empty():
-        cursor = Mock()
-        cursor.fetchone.return_value = None
-        return cursor
-
-    @staticmethod
-    def _grants_cursor(rows):
-        cursor = Mock()
-        cursor.__iter__ = Mock(return_value=iter(rows))
-        return cursor
-
-    @patch(
-        "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.current_role",
-        return_value="DEV_ROLE",
-    )
-    @patch(EXECUTE_QUERY)
-    def test_returns_true_when_owner_column_matches(self, mock_execute, mock_role):
-        mock_execute.return_value = self._show_schemas_cursor(owner="DEV_ROLE")
-
-        assert SnowflakeAppManager().role_has_schema_privilege("DB", "SCHEMA") is True
-        assert mock_execute.call_count == 1
-
-    @patch(
-        "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.current_role",
-        return_value="DEV_ROLE",
-    )
-    @patch(EXECUTE_QUERY)
-    def test_returns_true_with_ownership_grant(self, mock_execute, mock_role):
-        mock_execute.side_effect = [
-            self._show_schemas_cursor(owner="OTHER_ROLE"),
-            self._grants_cursor(
-                [{"grantee_name": "DEV_ROLE", "privilege": "OWNERSHIP"}]
-            ),
-        ]
-
-        assert SnowflakeAppManager().role_has_schema_privilege("DB", "SCHEMA") is True
-        assert mock_execute.call_count == 2
-
-    @patch(
-        "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.current_role",
-        return_value="DEV_ROLE",
-    )
-    @patch(EXECUTE_QUERY)
-    def test_returns_false_with_usage_only(self, mock_execute, mock_role):
-        mock_execute.side_effect = [
-            self._show_schemas_cursor(owner="OTHER_ROLE"),
-            self._grants_cursor([{"grantee_name": "DEV_ROLE", "privilege": "USAGE"}]),
-        ]
-
-        assert SnowflakeAppManager().role_has_schema_privilege("DB", "SCHEMA") is False
-
-    @patch(
-        "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.current_role",
-        return_value="DEV_ROLE",
-    )
-    @patch(EXECUTE_QUERY)
-    def test_returns_false_when_no_matching_grant(self, mock_execute, mock_role):
-        mock_execute.side_effect = [
-            self._show_schemas_cursor(owner="OTHER_ROLE"),
-            self._grants_cursor(
-                [{"grantee_name": "OTHER_ROLE", "privilege": "OWNERSHIP"}]
-            ),
-        ]
-
-        assert SnowflakeAppManager().role_has_schema_privilege("DB", "SCHEMA") is False
-
-    @patch(
-        "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.current_role",
-        return_value=None,
-    )
-    def test_returns_false_when_no_role(self, mock_role):
-        assert SnowflakeAppManager().role_has_schema_privilege("DB", "SCHEMA") is False
-
-
 class TestSnowflakeAppManager:
     @patch(EXECUTE_QUERY)
     def test_stage_exists_returns_true(self, mock_execute):
@@ -1639,7 +1557,6 @@ class TestValidateCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.database_exists.return_value = True
         mock_mgr.schema_exists.return_value = True
-        mock_mgr.role_has_schema_privilege.return_value = True
         return mock_mgr
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
@@ -1728,45 +1645,6 @@ class TestValidateCommand:
                 result = runner.invoke(["__app", "validate"])
                 assert result.exit_code == 1
                 assert "Schema 'TEST_DB.TEST_SCHEMA' does not exist" in result.output
-
-    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
-    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
-    @patch("snowflake.cli._plugins.apps.commands._get_entity")
-    @patch(
-        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
-        return_value="my_app",
-    )
-    def test_validate_warns_role_lacks_schema_privilege(
-        self,
-        mock_resolve,
-        mock_get_entity,
-        mock_perform_bundle,
-        mock_manager_cls,
-        runner,
-        tmp_path,
-    ):
-        from snowflake.cli.api.project.project_paths import ProjectPaths
-
-        mock_get_entity.return_value = self._make_validate_entity()
-        mock_mgr = self._configure_manager_mock(mock_manager_cls)
-        mock_mgr.role_has_schema_privilege.return_value = False
-        mock_mgr.current_role.return_value = "LIMITED_ROLE"
-
-        bundle_dir = tmp_path / "output" / "bundle"
-        bundle_dir.mkdir(parents=True)
-        (bundle_dir / "Dockerfile").write_text("FROM python:3.11\nEXPOSE 3000\n")
-
-        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
-
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "validate"])
-                assert result.exit_code == 0, result.output
-                assert "LIMITED_ROLE" in result.output
-                assert "may not have the required privileges" in result.output
-                assert "warning" in result.output.lower()
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
