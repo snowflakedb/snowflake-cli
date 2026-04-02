@@ -2266,16 +2266,6 @@ def test_stream_logs_without_terminal_status_check(mock_sleep, mock_logs):
     assert "log 2" in generated_logs[1]
 
 
-TEST_BUILD_IMAGE_DIRECTORIES = (
-    Path(__file__).parent.parent.parent
-    / "tests_integration"
-    / "tests_using_container_services"
-    / "spcs"
-    / "docker"
-    / "test_build_image_directories"
-)
-
-
 @patch("time.sleep")
 @patch(
     "snowflake.cli._plugins.spcs.services.commands.ObjectManager",
@@ -2284,19 +2274,33 @@ TEST_BUILD_IMAGE_DIRECTORIES = (
     "snowflake.cli._plugins.spcs.services.commands.ServiceManager",
 )
 @patch(
+    "snowflake.cli._plugins.stage.manager.StageManager.put",
+)
+@patch(
     "snowflake.cli._plugins.stage.manager.StageManager.execute_query",
 )
 def test_build_image_cli_recursive_upload_with_nested_dirs(
     mock_stage_execute_query,
+    mock_stage_put,
     mock_service_manager_class,
     mock_object_manager_class,
     mock_sleep,
     runner,
+    temporary_directory,
 ):
     """Test that build-image uploads nested directory structures correctly via put_recursive."""
-    build_context = TEST_BUILD_IMAGE_DIRECTORIES
+    build_context = Path(temporary_directory) / "build_context"
+    build_context.mkdir()
+    (build_context / "Dockerfile").write_text("FROM python:3.10-alpine\nCOPY templates/ /app/templates/")
+    (build_context / "app.py").write_text("print('hello')")
+    templates_dir = build_context / "templates"
+    templates_dir.mkdir()
+    (templates_dir / "index.html").write_text("<h1>Hello</h1>")
+    partials_dir = templates_dir / "partials"
+    partials_dir.mkdir()
+    (partials_dir / "header.html").write_text("<header>Header</header>")
 
-    mock_stage_execute_query.return_value = Mock(fetchall=lambda: [])
+    mock_stage_put.return_value = Mock(fetchall=lambda: [])
 
     mock_service_manager = Mock()
     mock_service_manager_class.return_value = mock_service_manager
@@ -2336,18 +2340,13 @@ def test_build_image_cli_recursive_upload_with_nested_dirs(
         ],
         catch_exceptions=False,
     )
-
-    put_calls = [
-        c
-        for c in mock_stage_execute_query.call_args_list
-        if c.args and isinstance(c.args[0], str) and c.args[0].strip().startswith("put ")
-    ]
+    assert result.exit_code == 0, f"Command failed with output: {result.output}"
 
     stage_paths = set()
-    for call_obj in put_calls:
-        sql = call_obj.args[0]
-        stage_path = sql.split("@")[1].split(" ")[0] if "@" in sql else ""
-        stage_paths.add(stage_path)
+    for c in mock_stage_put.call_args_list:
+        sp = c.kwargs.get("stage_path", None)
+        if sp is not None:
+            stage_paths.add(str(sp))
 
     assert any(
         "templates/partials" in sp for sp in stage_paths
@@ -2356,9 +2355,7 @@ def test_build_image_cli_recursive_upload_with_nested_dirs(
         "templates" in sp and "partials" not in sp for sp in stage_paths
     ), f"Stage path missing 'templates' level. Stage paths: {stage_paths}"
     assert any(
-        sp.endswith("build_contexts/" + sp.split("build_contexts/")[1].split("/")[0])
-        for sp in stage_paths
-        if "build_contexts/" in sp and "templates" not in sp
+        "build_contexts/" in sp and "templates" not in sp for sp in stage_paths
     ), f"Root-level upload missing. Stage paths: {stage_paths}"
 
 
