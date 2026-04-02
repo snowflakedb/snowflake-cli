@@ -1559,9 +1559,7 @@ class TestSetupCommand:
         return_value="definition_version: '2'\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
-    def test_init_creates_file(
-        self, mock_mgr_cls, mock_gen, runner, tmp_path
-    ):
+    def test_init_creates_file(self, mock_mgr_cls, mock_gen, runner, tmp_path):
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.current_role.return_value = "TEST_ROLE"
         mock_mgr.fetch_snow_apps_parameters.return_value = {}
