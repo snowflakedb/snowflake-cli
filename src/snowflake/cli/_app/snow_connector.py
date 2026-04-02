@@ -178,12 +178,6 @@ def connect_to_snowflake(
     elif temporary_connection:
         connection_parameters = {}  # we will apply overrides in next step
 
-    connection_parameters["client_session_keep_alive"] = True
-    # Workaround: the connector crashes with TypeError when
-    # client_session_keep_alive_heartbeat_frequency is None (e.g. token-based
-    # auth skips the login response that normally populates it).
-    connection_parameters["client_session_keep_alive_heartbeat_frequency"] = 3600
-
     # Apply overrides to connection details
     # (1) Command line override case
     for key, value in overrides.items():
@@ -266,6 +260,11 @@ def _avoid_closing_the_connection_if_it_was_shared(
 ):
     if using_session_token and using_master_token:
         connection_parameters["server_session_keep_alive"] = True
+        connection_parameters["client_session_keep_alive"] = True
+        # Workaround: the connector crashes with TypeError when
+        # client_session_keep_alive_heartbeat_frequency is None because
+        # token-based auth skips the login response that normally populates it.
+        connection_parameters["client_session_keep_alive_heartbeat_frequency"] = 3600
 
 
 def _raise_errors_related_to_session_token(
