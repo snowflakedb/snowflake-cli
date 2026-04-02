@@ -535,11 +535,15 @@
    Initializes a snowflake.yml file for a Snowflake App project.                  
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | *  --app-name          TEXT  Name of the Snowflake App to initialize.        |
-  |                              [required]                                      |
-  |    --dry-run                 Only print the resolved configuration values    |
-  |                              without creating the project file.              |
-  |    --help      -h            Show this message and exit.                     |
+  | *  --app-name              TEXT  Name of the Snowflake App to initialize.    |
+  |                                  [required]                                  |
+  |    --dry-run                     Only print the resolved configuration       |
+  |                                  values without writing snowflake.yml.       |
+  |    --compute-pool          TEXT  Compute pool for building and running the   |
+  |                                  app.                                        |
+  |    --build-eai             TEXT  External access integration used during the |
+  |                                  app build.                                  |
+  |    --help          -h            Show this message and exit.                 |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
