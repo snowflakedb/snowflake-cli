@@ -41,8 +41,6 @@ from snowflake.connector.cursor import DictCursor
 
 log = logging.getLogger(__name__)
 
-log = logging.getLogger(__name__)
-
 DEFINITION_FILENAME = "snowflake.yml"
 SNOWFLAKE_APP_ENTITY_TYPE = "snowflake-app"
 # TODO: Update to "app" after migration from __app
