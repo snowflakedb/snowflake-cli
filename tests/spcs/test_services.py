@@ -2291,7 +2291,9 @@ def test_build_image_cli_recursive_upload_with_nested_dirs(
     """Test that build-image uploads nested directory structures correctly via put_recursive."""
     build_context = Path(temporary_directory) / "build_context"
     build_context.mkdir()
-    (build_context / "Dockerfile").write_text("FROM python:3.10-alpine\nCOPY templates/ /app/templates/")
+    (build_context / "Dockerfile").write_text(
+        "FROM python:3.10-alpine\nCOPY templates/ /app/templates/"
+    )
     (build_context / "app.py").write_text("print('hello')")
     templates_dir = build_context / "templates"
     templates_dir.mkdir()
