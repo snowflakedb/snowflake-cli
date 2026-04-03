@@ -344,6 +344,8 @@ def main():
                 model,
                 "--connection",
                 "integration",
+                "--plan",
+                "--auto-accept-plans",
                 "--bypass",
                 "--output-format",
                 "stream-json",
