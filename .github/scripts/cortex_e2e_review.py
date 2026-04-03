@@ -224,6 +224,9 @@ class CortexClient:
                 if (
                     "unavailable" in err_str.lower()
                     or "not supported" in err_str.lower()
+                    or "not allowed" in err_str.lower()
+                    or "not found" in err_str.lower()
+                    or "unknown model" in err_str.lower()
                 ):
                     last_err = e
                     continue
