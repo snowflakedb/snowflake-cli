@@ -151,10 +151,13 @@ def connect_snowflake() -> snowflake.connector.SnowflakeConnection:
 
 
 def post_comment(repo: str, pr_number: int, body: str) -> None:
-    subprocess.run(
-        ["gh", "pr", "comment", str(pr_number), "--repo", repo, "--body", body],
-        check=True,
-    )
+    try:
+        subprocess.run(
+            ["gh", "pr", "comment", str(pr_number), "--repo", repo, "--body", body],
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        print(f"Warning: Failed to post comment: {e}", file=sys.stderr)
 
 
 def delete_previous_comment(repo: str, pr_number: int) -> None:
@@ -362,35 +365,32 @@ def main():
         _cleanup(conn, playground_db)
         sys.exit(1)
 
-    # Step 7: Post the review comment
-    print("[Step 7] Posting review comment...")
-    # Delete previous bot comment to avoid accumulation
-    delete_previous_comment(repo, pr_number)
-    # Get commit SHA for the header
-    head_sha_result = subprocess.run(
-        ["git", "rev-parse", "--short", "HEAD"],
-        capture_output=True,
-        text=True,
-    )
-    head_sha = head_sha_result.stdout.strip() or "unknown"
-    duration_min = int(agent_duration // 60)
-    duration_sec = int(agent_duration % 60)
-    header = (
-        "<!-- cortex-review-bot -->\n"
-        "## Cortex AI E2E Review\n\n"
-        f"> Model: `{model}` | "
-        f"Commit: `{head_sha}` | "
-        f"Duration: {duration_min}m {duration_sec}s | "
-        f"Reviewed at: {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}\n\n"
-    )
-    comment_body = header + agent_output
-    # GitHub comment limit is 65536 chars
-    if len(comment_body) > 65000:
-        comment_body = comment_body[:65000] + "\n\n... [comment truncated]"
-    post_comment(repo, pr_number, comment_body)
-
-    # Step 8: Cleanup
-    _cleanup(conn, playground_db)
+    # Step 7: Post the review comment and cleanup
+    try:
+        print("[Step 7] Posting review comment...")
+        delete_previous_comment(repo, pr_number)
+        head_sha_result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+        )
+        head_sha = head_sha_result.stdout.strip() or "unknown"
+        duration_min = int(agent_duration // 60)
+        duration_sec = int(agent_duration % 60)
+        header = (
+            "<!-- cortex-review-bot -->\n"
+            "## Cortex AI E2E Review\n\n"
+            f"> Model: `{model}` | "
+            f"Commit: `{head_sha}` | "
+            f"Duration: {duration_min}m {duration_sec}s | "
+            f"Reviewed at: {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}\n\n"
+        )
+        comment_body = header + agent_output
+        if len(comment_body) > 65000:
+            comment_body = comment_body[:65000] + "\n\n... [comment truncated]"
+        post_comment(repo, pr_number, comment_body)
+    finally:
+        _cleanup(conn, playground_db)
     print("Done.")
 
 
