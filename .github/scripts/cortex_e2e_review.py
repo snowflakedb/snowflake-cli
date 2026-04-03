@@ -82,15 +82,31 @@ _ENV_PREFIX = "SNOWFLAKE_CONNECTIONS_INTEGRATION"
 
 REVIEWER_SYSTEM_PROMPT = textwrap.dedent(
     """\
-    You are an expert code reviewer for the snowflake-cli project, a Python CLI
-    tool that wraps the Snowflake REST and SQL APIs. Your analysis must be
-    precise and grounded in the actual diff provided.
+    You are an end-to-end verification bot for the snowflake-cli project,
+    a Python CLI tool invoked as `snow <subcommand> [options]`.
 
-    The CLI is invoked as `snow <subcommand> [options]`. You know its full
-    command tree: cortex, sql, object, stage, git, streamlit, snowpark,
-    connection, helpers, notebook, etc.
+    Your ONLY job is to determine whether the PR changes CLI behavior that
+    can be verified end-to-end, and if so, suggest concrete test commands.
 
-    When asked to suggest test commands, follow these rules strictly:
+    You do NOT perform static code review. No commenting on code style,
+    security, test coverage, or architecture. Only dynamic E2E verification.
+
+    ## Decision: Does this PR need E2E testing?
+
+    Answer NEEDS_E2E: YES only if the PR changes:
+    - A CLI command's behavior, options, arguments, or output format
+    - SQL queries or API calls that the CLI makes
+    - Connection handling, authentication, or session logic
+    - Any user-facing functionality of the `snow` CLI
+
+    Answer NEEDS_E2E: NO if the PR only changes:
+    - CI/CD workflows, GitHub Actions, or automation scripts
+    - Documentation, README, release notes
+    - Tests only (no production code changes)
+    - Internal refactoring with no behavior change
+    - Build/packaging configuration
+
+    ## If NEEDS_E2E: YES, suggest test commands following these rules:
     1. Every command MUST start with the literal word `snow`.
     2. Only use subcommands from this allowlist: cortex, sql, object, stage,
        git, streamlit, snowpark, connection, helpers, notebook.
@@ -102,6 +118,8 @@ REVIEWER_SYSTEM_PROMPT = textwrap.dedent(
     7. Commands may use --help to verify that a new or changed subcommand is
        present and has the expected interface.
     8. For commands that need a connection, use: --connection integration
+    9. Only suggest commands that directly test the CHANGED behavior.
+       Do not suggest generic smoke tests unrelated to the diff.
 """
 )
 
@@ -120,44 +138,44 @@ REVIEWER_USER_PROMPT_TEMPLATE = textwrap.dedent(
     {diff}
     ```
 
-    ## Your Tasks
+    ## Your Task
 
-    ### Part 1 - Code Review Analysis
-    Provide a structured review covering:
-    - **Purpose**: What does this PR accomplish? Does the description match
-      the diff?
-    - **Correctness**: Are there obvious bugs, missed edge cases, or broken
-      logic?
-    - **CLI Contract**: Does the PR change any command name, option, or output
-      format? If so, is it backward-compatible?
-    - **Test Coverage**: Does the diff include or update tests? Are the tests
-      adequate?
-    - **Security**: Any hardcoded credentials, unsafe subprocess calls, or
-      SQL injection risks?
+    First, determine whether this PR changes CLI behavior that can be
+    verified end-to-end.
 
-    ### Part 2 - Suggested Test Commands
-    List concrete `snow` CLI commands that would validate the changes
-    end-to-end. For each command, prefix the line with CMD: and follow the
-    rules in your system prompt. After each CMD line, add a line starting
-    with EXPECT: describing what a successful output looks like.
+    Output exactly one of:
+    NEEDS_E2E: YES
+    NEEDS_E2E: NO
+
+    If NO, explain in one sentence why no E2E testing is needed, then stop.
+
+    If YES, explain what behavioral change needs verification, then list
+    test commands. For each command, prefix the line with CMD: and follow
+    the rules in your system prompt. After each CMD line, add a line
+    starting with EXPECT: describing what a successful output looks like.
 
     Example format:
-    CMD: snow cortex complete "Is 2+2 equal to 4? Answer yes or no." --model llama3.1-8b --connection integration
-    EXPECT: Output contains "yes" (case-insensitive), exit code 0.
+    NEEDS_E2E: YES
+    The PR modifies the `snow cortex complete` command to accept a new --temperature flag.
+
+    CMD: snow cortex complete "Hello" --model llama3.1-8b --temperature 0.5 --connection integration
+    EXPECT: Output contains a response, exit code 0.
+    CMD: snow cortex complete --help
+    EXPECT: Output lists --temperature as an available option.
 """
 )
 
 FINAL_ASSESSOR_SYSTEM_PROMPT = textwrap.dedent(
     """\
-    You are a CI automation bot that synthesizes code review analysis with
-    actual command execution results to produce a final PR review comment.
+    You are a CI automation bot that reports end-to-end verification
+    results for a PR. You do NOT perform static code review.
 
-    Be factual. Base your verdict only on evidence: the original analysis and
-    the execution results. Do not hallucinate command outputs. If a command
-    was not run (rejected or timed out), say so explicitly and explain why.
+    Be factual. Base your report only on evidence: what commands were run,
+    what they produced, and whether side effects in Snowflake matched
+    expectations. Do not comment on code quality, style, or architecture.
 
-    Format your output as valid GitHub Markdown. Use the exact section headers
-    below. Do not add extra sections.
+    Format your output as valid GitHub Markdown. Use the exact section
+    headers below. Do not add extra sections.
 """
 )
 
@@ -193,7 +211,7 @@ VERIFICATION_PROMPT_TEMPLATE = textwrap.dedent(
 
 FINAL_ASSESSOR_USER_PROMPT_TEMPLATE = textwrap.dedent(
     """\
-    ## Original Review Analysis
+    ## E2E Analysis
     {review_analysis}
 
     ## Command Execution Results
@@ -203,15 +221,12 @@ FINAL_ASSESSOR_USER_PROMPT_TEMPLATE = textwrap.dedent(
     {verification_results_formatted}
 
     ## Instructions
-    Produce the final GitHub PR review comment with these exact sections:
+    Produce the final GitHub PR comment with these exact sections:
 
     ### Summary
-    One paragraph (3-5 sentences) summarizing what the PR does and the
-    overall verdict.
-
-    ### Code Review Findings
-    Bullet list of issues, concerns, or praise from the static analysis.
-    Label each bullet as one of: [BUG], [CONCERN], [SUGGESTION], [PRAISE].
+    One paragraph summarizing what the PR does and whether E2E verification
+    was needed. If no E2E testing was needed, explain why and stop after
+    this section (skip all other sections).
 
     ### E2E Test Results
     For each command that was run: show the command, its exit code, whether
@@ -221,17 +236,14 @@ FINAL_ASSESSOR_USER_PROMPT_TEMPLATE = textwrap.dedent(
     ### Side-Effect Verification
     For each verification query that was run: show the query, the result,
     whether it matched expectations, and a one-line verdict. If no
-    verification queries were run, state that no side effects needed
-    verification.
+    verification queries were run, state why.
 
     ### Verdict
-    One of: APPROVE / REQUEST_CHANGES / NEEDS_DISCUSSION
+    One of: PASS / FAIL / SKIP
+    - PASS: all tests passed and side effects verified
+    - FAIL: one or more tests failed unexpectedly
+    - SKIP: no E2E testing was needed for this PR
     Followed by one sentence justifying the verdict.
-
-    ### Caveats
-    Note that this review was generated automatically by Snowflake Cortex AI
-    and should be treated as a first-pass analysis, not a substitute for
-    human review.
 """
 )
 
@@ -649,8 +661,8 @@ class ReviewPipeline:
     def run(self) -> str:
         """Execute the review pipeline and return the final comment body."""
 
-        # Step 3: First Cortex call - review + command generation
-        print("[Step 3] Sending diff to Cortex for review analysis...")
+        # Step 3: First Cortex call - analyze diff and decide if E2E needed
+        print("[Step 3] Sending diff to Cortex for E2E analysis...")
         user_prompt = REVIEWER_USER_PROMPT_TEMPLATE.format(
             pr_title=self.pr.title,
             pr_body=(self.pr.body[:3000] or "(no description provided)"),
@@ -663,7 +675,20 @@ class ReviewPipeline:
                 {"role": "user", "content": user_prompt},
             ]
         )
-        print(f"  Review analysis received ({len(review_response)} chars)")
+        print(f"  Analysis received ({len(review_response)} chars)")
+
+        # Check if Cortex determined E2E testing is needed
+        needs_e2e = "NEEDS_E2E: YES" in review_response
+        if not needs_e2e:
+            print("  Cortex determined: no E2E testing needed for this PR")
+            return self._compose_comment(
+                "### Summary\n\n"
+                + review_response.split("NEEDS_E2E: NO")[-1].strip()
+                + "\n\n### Verdict\n**SKIP** — No CLI behavioral changes "
+                "detected in this PR; E2E testing is not applicable."
+            )
+
+        print("  Cortex determined: E2E testing IS needed")
 
         # Step 4: Parse CMD: lines and execute them
         print("[Step 4] Executing suggested commands in sandbox...")
