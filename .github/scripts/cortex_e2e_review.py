@@ -455,6 +455,8 @@ class CommandRunner:
             return proc.stdout[:8000], proc.stderr[:4000], proc.returncode, False
         except subprocess.TimeoutExpired:
             return "", "", -1, True
+        except (FileNotFoundError, OSError) as e:
+            return "", f"Command failed: {e}", -1, False
 
 
 # ---------------------------------------------------------------------------
