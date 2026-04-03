@@ -332,27 +332,24 @@ def main():
         diff=pr["diff"],
     )
 
-    # Write prompt to file (avoids shell argument length limits)
-    prompt_file = "/tmp/cortex_review_prompt.txt"
-    with open(prompt_file, "w") as f:
-        f.write(prompt)
-
     # Step 7: Run Cortex Code CLI agent
     print("[Step 7] Running Cortex Code CLI agent...")
     try:
         agent_result = subprocess.run(
             [
                 "cortex",
-                "-f",
-                prompt_file,
+                "-p",
+                prompt,
                 "--model",
                 model,
                 "--connection",
                 "integration",
                 "--bypass",
-                "--dangerously-allow-all-tool-calls",
                 "--output-format",
                 "stream-json",
+                "--no-auto-update",
+                "--config-file",
+                connections_toml,
             ],
             capture_output=True,
             text=True,
