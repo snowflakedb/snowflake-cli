@@ -298,7 +298,21 @@ def main():
     snowflake_home = os.path.expanduser("~/.snowflake")
     os.makedirs(snowflake_home, exist_ok=True)
     connections_toml = os.path.join(snowflake_home, "connections.toml")
-    # Build connection config from env vars
+
+    # Write private key to a file if provided as raw
+    private_key_raw = os.environ.get(f"{_ENV_PREFIX}_PRIVATE_KEY_RAW", "")
+    private_key_file = os.environ.get(
+        f"{_ENV_PREFIX}_PRIVATE_KEY_FILE",
+        os.environ.get(f"{_ENV_PREFIX}_PRIVATE_KEY_PATH", ""),
+    )
+    if private_key_raw and not private_key_file:
+        private_key_file = os.path.join(snowflake_home, "rsa_key.p8")
+        with open(private_key_file, "w") as f:
+            f.write(private_key_raw)
+        os.chmod(private_key_file, 0o600)
+        print(f"  Wrote private key to {private_key_file}")
+
+    # Build connection config
     conn_config = {
         "account": os.environ.get(f"{_ENV_PREFIX}_ACCOUNT", ""),
         "user": os.environ.get(f"{_ENV_PREFIX}_USER", ""),
@@ -308,20 +322,23 @@ def main():
         "warehouse": os.environ.get(f"{_ENV_PREFIX}_WAREHOUSE", ""),
         "role": os.environ.get(f"{_ENV_PREFIX}_ROLE", ""),
     }
-    private_key_raw = os.environ.get(f"{_ENV_PREFIX}_PRIVATE_KEY_RAW", "")
-    if private_key_raw:
-        conn_config["private_key_raw"] = private_key_raw
-    # Write TOML
+    if private_key_file:
+        conn_config["private_key_file"] = private_key_file
+
+    # Write TOML — use multi-line string for private key path
     toml_lines = ["[integration]"]
     for key, val in conn_config.items():
         if val:
-            # Escape for TOML string
             escaped = val.replace("\\", "\\\\").replace('"', '\\"')
             toml_lines.append(f'{key} = "{escaped}"')
     with open(connections_toml, "w") as f:
         f.write("\n".join(toml_lines) + "\n")
     os.chmod(connections_toml, 0o600)
     print(f"  Wrote {connections_toml}")
+    # Debug: show the config (redact sensitive fields)
+    for line in toml_lines:
+        if "private_key" not in line.lower():
+            print(f"    {line}")
 
     # Step 6: Build the prompt
     prompt = AGENT_PROMPT_TEMPLATE.format(
