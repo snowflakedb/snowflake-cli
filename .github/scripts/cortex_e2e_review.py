@@ -37,7 +37,6 @@ from snowflake.cli._app.snow_connector import update_connection_details_with_pri
 # Constants
 # ---------------------------------------------------------------------------
 
-MAX_DIFF_CHARS = 40_000
 _ENV_PREFIX = "SNOWFLAKE_CONNECTIONS_INTEGRATION"
 
 AGENT_PROMPT_TEMPLATE = """\
@@ -63,11 +62,13 @@ tests_e2e/                    - end-to-end tests
   You can CREATE, DROP, INSERT, ALTER anything in it. It will be destroyed
   after your run completes.
 - Connection: --connection integration (points to the playground database)
+- You have `gh` CLI available to fetch PR details.
 
 ## How to investigate changes
 
-1. **Understand scope** - Read changed files fully. Search (grep) for callers
-   and imports of changed functions across the codebase. Check existing tests.
+1. **Understand scope** - Fetch the PR diff and changed files using `gh`.
+   Read changed files fully. Search (grep) for callers and imports of
+   changed functions across the codebase. Check existing tests.
 
 2. **Test happy path** - Run the changed CLI commands with typical inputs.
 
@@ -82,29 +83,13 @@ tests_e2e/                    - end-to-end tests
 6. **Verify side effects** - After running commands, query Snowflake to
    confirm objects were created/modified as expected.
 
-## Pull Request to verify
-
-**Title:** {pr_title}
-
-**Description:**
-{pr_body}
-
-**Changed files:**
-{changed_files}
-
-**Diff:**
-```diff
-{diff}
-```
-
 ## Your task
 
-If this PR does NOT change CLI behavior (e.g. CI-only, docs-only, test-only),
-output a short summary explaining why and verdict SKIP.
+Review PR #{pr_number} in the {pr_repo} repository.
 
-If it DOES change CLI behavior, investigate thoroughly using the process above.
-You have full access to run snow commands, execute SQL, read files, and search
-the codebase. Use as many steps as you need.
+Start by fetching the PR details, diff, and changed files using `gh`.
+Then determine if CLI behavior changed. If not, report SKIP.
+If it did, investigate thoroughly and report your findings.
 
 Output your final report as GitHub Markdown with these sections:
 
@@ -124,51 +109,6 @@ not testable in the playground. If none, say so.
 ### Verdict
 One of: PASS / FAIL / SKIP with one sentence justification.
 """
-
-# ---------------------------------------------------------------------------
-# PR Fetcher
-# ---------------------------------------------------------------------------
-
-
-def fetch_pr(repo: str, pr_number: int) -> dict:
-    """Fetch PR metadata via gh CLI."""
-    meta_raw = subprocess.run(
-        [
-            "gh",
-            "--repo",
-            repo,
-            "pr",
-            "view",
-            str(pr_number),
-            "--json",
-            "title,body,headRefOid,baseRefOid,files",
-        ],
-        capture_output=True,
-        text=True,
-        timeout=60,
-        check=True,
-    ).stdout
-    meta = json.loads(meta_raw)
-
-    diff_raw = subprocess.run(
-        ["gh", "--repo", repo, "pr", "diff", str(pr_number)],
-        capture_output=True,
-        text=True,
-        timeout=60,
-        check=True,
-    ).stdout
-    diff = diff_raw[:MAX_DIFF_CHARS]
-    if len(diff_raw) > MAX_DIFF_CHARS:
-        diff += f"\n... [diff truncated at {MAX_DIFF_CHARS} chars]"
-
-    return {
-        "title": meta.get("title", ""),
-        "body": meta.get("body", "") or "",
-        "diff": diff,
-        "changed_files": [f["path"] for f in meta.get("files", [])],
-        "head_sha": meta.get("headRefOid", ""),
-    }
-
 
 # ---------------------------------------------------------------------------
 # Snowflake connection (for playground setup/teardown only)
@@ -275,26 +215,16 @@ def main():
     repo = os.environ["PR_REPO"]
     model = os.environ.get("CORTEX_MODEL", "claude-opus-4-6")
 
-    # Step 1: Fetch PR metadata
-    print(f"[Step 1] Fetching PR #{pr_number} metadata...")
-    try:
-        pr = fetch_pr(repo, pr_number)
-    except subprocess.CalledProcessError as e:
-        print(f"ERROR: Failed to fetch PR: {e.stderr}", file=sys.stderr)
-        sys.exit(1)
-    print(f"  Title: {pr['title']}")
-    print(f"  Changed files: {len(pr['changed_files'])}")
-
-    # Step 2: Verify CLI build
-    print("[Step 2] Verifying CLI build...")
+    # Step 1: Verify CLI build
+    print("[Step 1] Verifying CLI build...")
     result = subprocess.run(["snow", "--version"], capture_output=True, text=True)
     if result.returncode != 0:
         print("ERROR: snow CLI not found", file=sys.stderr)
         sys.exit(1)
     print(f"  CLI version: {result.stdout.strip()}")
 
-    # Step 3: Verify cortex CLI is installed
-    print("[Step 3] Verifying Cortex Code CLI...")
+    # Step 2: Verify cortex CLI is installed
+    print("[Step 2] Verifying Cortex Code CLI...")
     # Ensure ~/.local/bin is in PATH (cortex install location)
     local_bin = os.path.expanduser("~/.local/bin")
     if local_bin not in os.environ.get("PATH", ""):
@@ -305,8 +235,8 @@ def main():
         sys.exit(1)
     print(f"  Cortex version: {result.stdout.strip()}")
 
-    # Step 4: Create playground database
-    print("[Step 4] Creating playground database...")
+    # Step 3: Create playground database
+    print("[Step 3] Creating playground database...")
     conn = connect_snowflake()
     run_id = os.environ.get("GITHUB_RUN_ID", "local")
     playground_db = f"CORTEX_REVIEW_PR{pr_number}_{run_id}"
@@ -322,8 +252,8 @@ def main():
     # Point snow CLI at the playground
     os.environ[f"{_ENV_PREFIX}_DATABASE"] = playground_db
 
-    # Step 5: Configure cortex connection
-    print("[Step 5] Configuring cortex connection...")
+    # Step 4: Configure cortex connection
+    print("[Step 4] Configuring cortex connection...")
     snowflake_home = os.path.expanduser("~/.snowflake")
     os.makedirs(snowflake_home, exist_ok=True)
     connections_toml = os.path.join(snowflake_home, "connections.toml")
@@ -369,17 +299,15 @@ def main():
         if "private_key" not in line.lower():
             print(f"    {line}")
 
-    # Step 6: Build the prompt
+    # Step 5: Build the prompt
     prompt = AGENT_PROMPT_TEMPLATE.format(
         playground_db=playground_db,
-        pr_title=pr["title"],
-        pr_body=pr["body"][:3000] or "(no description)",
-        changed_files="\n".join(f"- {f}" for f in pr["changed_files"]),
-        diff=pr["diff"],
+        pr_number=pr_number,
+        pr_repo=repo,
     )
 
-    # Step 7: Run Cortex Code CLI agent
-    print("[Step 7] Running Cortex Code CLI agent...")
+    # Step 6: Run Cortex Code CLI agent
+    print("[Step 6] Running Cortex Code CLI agent...")
     agent_start = time.monotonic()
     try:
         agent_result = subprocess.run(
@@ -391,6 +319,8 @@ def main():
                 model,
                 "--connection",
                 "integration",
+                "--workdir",
+                os.getcwd(),
                 "--plan",
                 "--auto-accept-plans",
                 "--bypass",
@@ -432,11 +362,17 @@ def main():
         _cleanup(conn, playground_db)
         sys.exit(1)
 
-    # Step 8: Post the review comment
-    print("[Step 8] Posting review comment...")
+    # Step 7: Post the review comment
+    print("[Step 7] Posting review comment...")
     # Delete previous bot comment to avoid accumulation
     delete_previous_comment(repo, pr_number)
-    head_sha = pr["head_sha"][:8]
+    # Get commit SHA for the header
+    head_sha_result = subprocess.run(
+        ["git", "rev-parse", "--short", "HEAD"],
+        capture_output=True,
+        text=True,
+    )
+    head_sha = head_sha_result.stdout.strip() or "unknown"
     duration_min = int(agent_duration // 60)
     duration_sec = int(agent_duration % 60)
     header = (
@@ -453,7 +389,7 @@ def main():
         comment_body = comment_body[:65000] + "\n\n... [comment truncated]"
     post_comment(repo, pr_number, comment_body)
 
-    # Step 9: Cleanup
+    # Step 8: Cleanup
     _cleanup(conn, playground_db)
     print("Done.")
 
