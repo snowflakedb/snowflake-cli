@@ -165,33 +165,14 @@ REVIEWER_USER_PROMPT_TEMPLATE = textwrap.dedent(
 """
 )
 
-FINAL_ASSESSOR_SYSTEM_PROMPT = textwrap.dedent(
+EXECUTION_RESULTS_PROMPT = textwrap.dedent(
     """\
-    You are a CI automation bot that reports end-to-end verification
-    results for a PR. You do NOT perform static code review.
+    I executed the commands you suggested. Here are the results:
 
-    Be factual. Base your report only on evidence: what commands were run,
-    what they produced, and whether side effects in Snowflake matched
-    expectations. Do not comment on code quality, style, or architecture.
-
-    Format your output as valid GitHub Markdown. Use the exact section
-    headers below. Do not add extra sections.
-"""
-)
-
-VERIFICATION_PROMPT_TEMPLATE = textwrap.dedent(
-    """\
-    You just ran the following `snow` CLI commands against a Snowflake account.
-    Review the execution results below and suggest SQL verification queries
-    to confirm the expected side effects actually happened in Snowflake.
-
-    ## Commands and Results
     {execution_results_formatted}
 
-    ## Instructions
-    For each command that succeeded (exit code 0) and might have created,
-    modified, or interacted with Snowflake objects, suggest a read-only SQL
-    query to verify the side effect.
+    Based on these results, suggest read-only SQL verification queries to
+    confirm the expected side effects actually happened in Snowflake.
 
     Rules:
     1. Only SELECT, SHOW, DESCRIBE, LIST, or CALL (for read-only procedures).
@@ -200,33 +181,21 @@ VERIFICATION_PROMPT_TEMPLATE = textwrap.dedent(
     4. After each QUERY line, add VERIFY: describing what the result should
        show if the command worked correctly.
     5. At most 6 queries.
-    6. If no commands succeeded or none have verifiable side effects, output
-       nothing.
-
-    Example:
-    QUERY: SHOW STAGES LIKE 'my_stage' IN SCHEMA PUBLIC
-    VERIFY: Should return at least one row showing the stage exists.
+    6. If no commands had verifiable side effects, say so and skip queries.
 """
 )
 
-FINAL_ASSESSOR_USER_PROMPT_TEMPLATE = textwrap.dedent(
+VERIFICATION_RESULTS_PROMPT = textwrap.dedent(
     """\
-    ## E2E Analysis
-    {review_analysis}
+    I executed the verification queries. Here are the results:
 
-    ## Command Execution Results
-    {execution_results_formatted}
-
-    ## Snowflake Side-Effect Verification
     {verification_results_formatted}
 
-    ## Instructions
-    Produce the final GitHub PR comment with these exact sections:
+    Now produce the final GitHub PR comment with these exact sections:
 
     ### Summary
     One paragraph summarizing what the PR does and whether E2E verification
-    was needed. If no E2E testing was needed, explain why and stop after
-    this section (skip all other sections).
+    passed. If no E2E testing was needed, explain why.
 
     ### E2E Test Results
     For each command that was run: show the command, its exit code, whether
@@ -234,9 +203,9 @@ FINAL_ASSESSOR_USER_PROMPT_TEMPLATE = textwrap.dedent(
     For commands that were rejected or timed out: explain why.
 
     ### Side-Effect Verification
-    For each verification query that was run: show the query, the result,
-    whether it matched expectations, and a one-line verdict. If no
-    verification queries were run, state why.
+    For each verification query: show the query, the result, whether it
+    matched expectations, and a one-line verdict. If no verification
+    queries were run, state why.
 
     ### Verdict
     One of: PASS / FAIL / SKIP
@@ -659,40 +628,42 @@ class ReviewPipeline:
         self.repo = repo
 
     def run(self) -> str:
-        """Execute the review pipeline and return the final comment body."""
+        """Execute the review pipeline in a single Cortex conversation."""
 
-        # Step 3: First Cortex call - analyze diff and decide if E2E needed
-        print("[Step 3] Sending diff to Cortex for E2E analysis...")
+        # Single conversation history maintained across all turns
+        conversation: list[dict] = [
+            {"role": "system", "content": REVIEWER_SYSTEM_PROMPT},
+        ]
+
+        # Turn 1: Analyze diff and decide if E2E is needed
+        print("[Turn 1] Sending diff to Cortex for E2E analysis...")
         user_prompt = REVIEWER_USER_PROMPT_TEMPLATE.format(
             pr_title=self.pr.title,
             pr_body=(self.pr.body[:3000] or "(no description provided)"),
             changed_files="\n".join(f"- {f}" for f in self.pr.changed_files),
             diff=self.pr.diff,
         )
-        review_response = self.cortex.complete(
-            [
-                {"role": "system", "content": REVIEWER_SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt},
-            ]
-        )
-        print(f"  Analysis received ({len(review_response)} chars)")
+        conversation.append({"role": "user", "content": user_prompt})
+        turn1_response = self.cortex.complete(conversation)
+        conversation.append({"role": "assistant", "content": turn1_response})
+        print(f"  Analysis received ({len(turn1_response)} chars)")
 
         # Check if Cortex determined E2E testing is needed
-        needs_e2e = "NEEDS_E2E: YES" in review_response
+        needs_e2e = "NEEDS_E2E: YES" in turn1_response
         if not needs_e2e:
-            print("  Cortex determined: no E2E testing needed for this PR")
+            print("  Cortex determined: no E2E testing needed")
             return self._compose_comment(
                 "### Summary\n\n"
-                + review_response.split("NEEDS_E2E: NO")[-1].strip()
+                + turn1_response.split("NEEDS_E2E: NO")[-1].strip()
                 + "\n\n### Verdict\n**SKIP** — No CLI behavioral changes "
                 "detected in this PR; E2E testing is not applicable."
             )
 
         print("  Cortex determined: E2E testing IS needed")
 
-        # Step 4: Parse CMD: lines and execute them
-        print("[Step 4] Executing suggested commands in sandbox...")
-        commands = self._parse_commands(review_response)
+        # Execute suggested commands
+        print("[Execute] Running suggested commands in sandbox...")
+        commands = self._parse_commands(turn1_response)
         print(f"  Found {len(commands)} commands to execute")
         results = self.sandbox.run(commands)
         for r in results:
@@ -705,57 +676,53 @@ class ReviewPipeline:
             )
             print(f"  [{status}] {r.command}")
 
-        # Step 5: Cortex suggests verification queries for side effects
-        print("[Step 5] Asking Cortex for side-effect verification queries...")
+        # Turn 2: Feed execution results, ask for verification queries
+        print("[Turn 2] Feeding results, requesting verification queries...")
         results_text = self._format_results(results)
-        verification_results: list[VerificationResult] = []
-        if any(r.exit_code == 0 and not r.rejected for r in results):
-            verify_response = self.cortex.complete(
-                [
-                    {"role": "system", "content": REVIEWER_SYSTEM_PROMPT},
-                    {
-                        "role": "user",
-                        "content": VERIFICATION_PROMPT_TEMPLATE.format(
-                            execution_results_formatted=results_text,
-                        ),
-                    },
-                ]
-            )
-            queries = self._parse_verification_queries(verify_response)
-            print(f"  Found {len(queries)} verification queries")
-            if queries:
-                verifier = SQLVerifier()
-                verification_results = verifier.run(queries, self.cortex.connection)
-                for v in verification_results:
-                    status = (
-                        "REJECTED"
-                        if v.rejected
-                        else "ERROR"
-                        if v.error
-                        else f"{len(v.rows)} rows"
-                    )
-                    print(f"  [{status}] {v.query[:80]}")
-        else:
-            print("  No successful commands to verify")
-
-        # Step 6: Final Cortex call - assessment with all evidence
-        print("[Step 6] Sending all results to Cortex for final assessment...")
-        verification_text = self._format_verification_results(verification_results)
-        final_response = self.cortex.complete(
-            [
-                {"role": "system", "content": FINAL_ASSESSOR_SYSTEM_PROMPT},
-                {
-                    "role": "user",
-                    "content": FINAL_ASSESSOR_USER_PROMPT_TEMPLATE.format(
-                        review_analysis=review_response,
-                        execution_results_formatted=results_text
-                        or "(no commands were suggested or all were rejected)",
-                        verification_results_formatted=verification_text
-                        or "(no side-effect verification was performed)",
-                    ),
-                },
-            ]
+        conversation.append(
+            {
+                "role": "user",
+                "content": EXECUTION_RESULTS_PROMPT.format(
+                    execution_results_formatted=results_text
+                    or "(no commands were executed)",
+                ),
+            }
         )
+        turn2_response = self.cortex.complete(conversation)
+        conversation.append({"role": "assistant", "content": turn2_response})
+
+        # Execute verification queries
+        verification_results: list[VerificationResult] = []
+        queries = self._parse_verification_queries(turn2_response)
+        if queries:
+            print(f"[Execute] Running {len(queries)} verification queries...")
+            verifier = SQLVerifier()
+            verification_results = verifier.run(queries, self.cortex.connection)
+            for v in verification_results:
+                status = (
+                    "REJECTED"
+                    if v.rejected
+                    else "ERROR"
+                    if v.error
+                    else f"{len(v.rows)} rows"
+                )
+                print(f"  [{status}] {v.query[:80]}")
+        else:
+            print("  No verification queries suggested")
+
+        # Turn 3: Feed verification results, get final report
+        print("[Turn 3] Requesting final report...")
+        verification_text = self._format_verification_results(verification_results)
+        conversation.append(
+            {
+                "role": "user",
+                "content": VERIFICATION_RESULTS_PROMPT.format(
+                    verification_results_formatted=verification_text
+                    or "(no verification queries were needed or executed)",
+                ),
+            }
+        )
+        final_response = self.cortex.complete(conversation)
 
         return self._compose_comment(final_response)
 
