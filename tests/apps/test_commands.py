@@ -2150,6 +2150,78 @@ class TestOpenCommand:
                 assert "No endpoint URL found" in result.output
 
     @patch("snowflake.cli._plugins.apps.commands.typer.launch")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands.get_cli_context")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_open_falls_back_to_connection_context(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_ctx,
+        mock_manager_cls,
+        mock_launch,
+        runner,
+        tmp_path,
+    ):
+        """Non-settings path uses connection_context when fqn has no db/schema."""
+        entity = Mock()
+        fqn = Mock(database=None, schema=None)
+        fqn.name = "MY_APP"
+        entity.fqn = fqn
+        mock_get_entity.return_value = entity
+        mock_ctx.return_value.connection_context = Mock(
+            database="CONN_DB", schema="CONN_SCHEMA"
+        )
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.get_service_endpoint_url.return_value = (
+            "https://my-app.snowflakecomputing.app"
+        )
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "open"])
+                assert result.exit_code == 0, result.output
+                call_args = mock_mgr.get_service_endpoint_url.call_args[0][0]
+                assert str(call_args).startswith("CONN_DB")
+
+    @patch("snowflake.cli._plugins.apps.commands.get_cli_context")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_open_fails_when_db_schema_unresolvable(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_ctx,
+        runner,
+        tmp_path,
+    ):
+        """Non-settings path errors when neither fqn nor connection has db/schema."""
+        entity = Mock()
+        fqn = Mock(database=None, schema=None)
+        fqn.name = "MY_APP"
+        entity.fqn = fqn
+        mock_get_entity.return_value = entity
+        mock_ctx.return_value.connection_context = Mock(database=None, schema=None)
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "open"])
+                assert result.exit_code == 1
+                assert "Cannot resolve" in result.output
+
+    @patch("snowflake.cli._plugins.apps.commands.typer.launch")
     @patch(
         "snowflake.cli._plugins.apps.commands.make_snowsight_url",
         return_value="https://app.snowflake.com/org/acct/#/apps/service/DB.SCHEMA.MY_APP/details",
@@ -2176,6 +2248,7 @@ class TestOpenCommand:
         entity.fqn = fqn
         mock_get_entity.return_value = entity
         mock_ctx.return_value.connection = Mock()
+        mock_ctx.return_value.connection_context = Mock(database="DB", schema="SCHEMA")
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
             from tests_common import change_directory
@@ -2216,6 +2289,7 @@ class TestOpenCommand:
         entity.fqn = fqn
         mock_get_entity.return_value = entity
         mock_ctx.return_value.connection = Mock()
+        mock_ctx.return_value.connection_context = Mock(database="DB", schema="SCHEMA")
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
             from tests_common import change_directory
@@ -2225,6 +2299,122 @@ class TestOpenCommand:
                 assert result.exit_code == 0, result.output
                 assert "#/apps/service/DB.SCHEMA.MY_APP/details" in result.output
                 mock_launch.assert_not_called()
+
+    @patch("snowflake.cli._plugins.apps.commands.typer.launch")
+    @patch(
+        "snowflake.cli._plugins.apps.commands.make_snowsight_url",
+        return_value="https://app.snowflake.com/org/acct/#/apps/service/CONN_DB.CONN_SCHEMA.MY_APP/details",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.get_cli_context")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_open_settings_falls_back_to_connection_context(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_ctx,
+        mock_snowsight,
+        mock_launch,
+        runner,
+        tmp_path,
+    ):
+        """When fqn.database/schema are None, fall back to connection_context."""
+        entity = Mock()
+        fqn = Mock(database=None, schema=None)
+        fqn.name = "MY_APP"
+        entity.fqn = fqn
+        mock_get_entity.return_value = entity
+        mock_ctx.return_value.connection = Mock()
+        mock_ctx.return_value.connection_context = Mock(
+            database="CONN_DB", schema="CONN_SCHEMA"
+        )
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "open", "--settings"])
+                assert result.exit_code == 0, result.output
+                path_arg = mock_snowsight.call_args[0][1]
+                assert path_arg == "#/apps/service/CONN_DB.CONN_SCHEMA.MY_APP/details"
+
+    @patch("snowflake.cli._plugins.apps.commands.get_cli_context")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_open_fails_when_database_and_schema_unresolvable(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_ctx,
+        runner,
+        tmp_path,
+    ):
+        """Error when neither fqn nor connection_context provides database/schema."""
+        entity = Mock()
+        fqn = Mock(database=None, schema=None)
+        fqn.name = "MY_APP"
+        entity.fqn = fqn
+        mock_get_entity.return_value = entity
+        mock_ctx.return_value.connection_context = Mock(database=None, schema=None)
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "open", "--settings"])
+                assert result.exit_code == 1
+                assert "Cannot resolve" in result.output
+                assert "database" in result.output
+                assert "schema" in result.output
+
+    @patch("snowflake.cli._plugins.apps.commands.typer.launch")
+    @patch(
+        "snowflake.cli._plugins.apps.commands.make_snowsight_url",
+        return_value="https://app.snowflake.com/org/acct/#/apps/service/MY%20DB.MY%20SCHEMA.MY%20APP/details",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.get_cli_context")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_open_settings_url_encodes_identifiers(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_ctx,
+        mock_snowsight,
+        mock_launch,
+        runner,
+        tmp_path,
+    ):
+        """Identifiers with special characters are URL-encoded in the settings URL."""
+        entity = Mock()
+        fqn = Mock(database='"MY DB"', schema='"MY SCHEMA"')
+        fqn.name = '"MY APP"'
+        entity.fqn = fqn
+        mock_get_entity.return_value = entity
+        mock_ctx.return_value.connection = Mock()
+        mock_ctx.return_value.connection_context = Mock(
+            database='"MY DB"', schema='"MY SCHEMA"'
+        )
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "open", "--settings"])
+                assert result.exit_code == 0, result.output
+                path_arg = mock_snowsight.call_args[0][1]
+                assert "MY%20DB" in path_arg
+                assert "MY%20SCHEMA" in path_arg
+                assert "MY%20APP" in path_arg
 
 
 # ── Deploy CLI command tests ──────────────────────────────────────────

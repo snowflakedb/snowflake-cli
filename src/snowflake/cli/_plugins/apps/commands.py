@@ -41,6 +41,7 @@ from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import CommandResult, MessageResult
+from snowflake.cli.api.project.util import identifier_for_url
 
 app = SnowTyperFactory(
     name=_APP_COMMAND_NAME,
@@ -230,15 +231,27 @@ def open_app(
     fqn = entity.fqn
     ctx = get_cli_context()
 
+    db = fqn.database or ctx.connection_context.database
+    schema = fqn.schema or ctx.connection_context.schema
+
+    if not db or not schema:
+        missing = [k for k, v in {"database": db, "schema": schema}.items() if not v]
+        raise CliError(
+            f"Cannot resolve {' or '.join(missing)} for the app. "
+            "Set them in snowflake.yml or in your connection configuration."
+        )
+
     if settings:
-        db = fqn.database or ctx.connection_context.database
-        schema = fqn.schema or ctx.connection_context.schema
-        app_id = f"{db}.{schema}.{fqn.name}"
+        app_id = (
+            f"{identifier_for_url(db)}"
+            f".{identifier_for_url(schema)}"
+            f".{identifier_for_url(fqn.name)}"
+        )
         url = make_snowsight_url(ctx.connection, f"#/apps/service/{app_id}/details")
     else:
         service_fqn = FQN(
-            database=fqn.database or ctx.connection_context.database,
-            schema=fqn.schema or ctx.connection_context.schema,
+            database=db,
+            schema=schema,
             name=fqn.name,
         )
 
