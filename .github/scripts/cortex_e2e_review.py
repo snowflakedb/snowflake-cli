@@ -36,7 +36,7 @@ import sys
 import textwrap
 import time
 import traceback
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import snowflake.connector
 from snowflake.cli._app.snow_connector import update_connection_details_with_private_key
@@ -160,6 +160,36 @@ FINAL_ASSESSOR_SYSTEM_PROMPT = textwrap.dedent(
 """
 )
 
+VERIFICATION_PROMPT_TEMPLATE = textwrap.dedent(
+    """\
+    You just ran the following `snow` CLI commands against a Snowflake account.
+    Review the execution results below and suggest SQL verification queries
+    to confirm the expected side effects actually happened in Snowflake.
+
+    ## Commands and Results
+    {execution_results_formatted}
+
+    ## Instructions
+    For each command that succeeded (exit code 0) and might have created,
+    modified, or interacted with Snowflake objects, suggest a read-only SQL
+    query to verify the side effect.
+
+    Rules:
+    1. Only SELECT, SHOW, DESCRIBE, LIST, or CALL (for read-only procedures).
+    2. Never use INSERT, UPDATE, DELETE, DROP, CREATE, ALTER, GRANT, REVOKE.
+    3. Each query on its own line, prefixed with QUERY: exactly.
+    4. After each QUERY line, add VERIFY: describing what the result should
+       show if the command worked correctly.
+    5. At most 6 queries.
+    6. If no commands succeeded or none have verifiable side effects, output
+       nothing.
+
+    Example:
+    QUERY: SHOW STAGES LIKE 'my_stage' IN SCHEMA PUBLIC
+    VERIFY: Should return at least one row showing the stage exists.
+"""
+)
+
 FINAL_ASSESSOR_USER_PROMPT_TEMPLATE = textwrap.dedent(
     """\
     ## Original Review Analysis
@@ -167,6 +197,9 @@ FINAL_ASSESSOR_USER_PROMPT_TEMPLATE = textwrap.dedent(
 
     ## Command Execution Results
     {execution_results_formatted}
+
+    ## Snowflake Side-Effect Verification
+    {verification_results_formatted}
 
     ## Instructions
     Produce the final GitHub PR review comment with these exact sections:
@@ -183,6 +216,12 @@ FINAL_ASSESSOR_USER_PROMPT_TEMPLATE = textwrap.dedent(
     For each command that was run: show the command, its exit code, whether
     the actual output matched the expected output, and a one-line verdict.
     For commands that were rejected or timed out: explain why.
+
+    ### Side-Effect Verification
+    For each verification query that was run: show the query, the result,
+    whether it matched expectations, and a one-line verdict. If no
+    verification queries were run, state that no side effects needed
+    verification.
 
     ### Verdict
     One of: APPROVE / REQUEST_CHANGES / NEEDS_DISCUSSION
@@ -491,6 +530,104 @@ class CommandSandbox:
 
 
 # ---------------------------------------------------------------------------
+# SQLVerifier
+# ---------------------------------------------------------------------------
+
+MAX_VERIFICATION_QUERIES = 6
+QUERY_TIMEOUT_SECONDS = 30
+
+ALLOWED_SQL_PREFIXES = (
+    "SELECT",
+    "SHOW",
+    "DESCRIBE",
+    "DESC",
+    "LIST",
+    "CALL",
+    "WITH",
+)
+
+BLOCKED_SQL_PATTERNS = re.compile(
+    r"\b(INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|GRANT|REVOKE|TRUNCATE|MERGE|COPY|PUT|GET|REMOVE)\b",
+    re.IGNORECASE,
+)
+
+
+@dataclass
+class VerificationResult:
+    query: str
+    expected: str
+    rows: list[dict] = field(default_factory=list)
+    error: str = ""
+    rejected: bool = False
+    rejection_reason: str = ""
+
+
+class SQLVerifier:
+    """Executes read-only SQL verification queries against Snowflake."""
+
+    def validate_query(self, raw: str) -> tuple[bool, str]:
+        stripped = raw.strip().rstrip(";")
+        upper = stripped.upper().lstrip()
+        if not any(upper.startswith(p) for p in ALLOWED_SQL_PREFIXES):
+            return (
+                False,
+                f"Query must start with one of: {', '.join(ALLOWED_SQL_PREFIXES)}",
+            )
+        if BLOCKED_SQL_PATTERNS.search(stripped):
+            return False, "Query contains a blocked DDL/DML keyword"
+        return True, ""
+
+    def run(
+        self,
+        queries: list[tuple[str, str]],
+        connection: snowflake.connector.SnowflakeConnection,
+    ) -> list[VerificationResult]:
+        results = []
+        for raw_query, expected in queries[:MAX_VERIFICATION_QUERIES]:
+            valid, reason = self.validate_query(raw_query)
+            if not valid:
+                results.append(
+                    VerificationResult(
+                        query=raw_query,
+                        expected=expected,
+                        rejected=True,
+                        rejection_reason=reason,
+                    )
+                )
+                continue
+
+            cursor = connection.cursor()
+            try:
+                cursor.execute(raw_query, timeout=QUERY_TIMEOUT_SECONDS)
+                columns = (
+                    [desc[0] for desc in cursor.description]
+                    if cursor.description
+                    else []
+                )
+                rows = []
+                for row in cursor.fetchmany(20):
+                    rows.append(dict(zip(columns, row)))
+                results.append(
+                    VerificationResult(
+                        query=raw_query,
+                        expected=expected,
+                        rows=rows,
+                    )
+                )
+            except Exception as e:
+                results.append(
+                    VerificationResult(
+                        query=raw_query,
+                        expected=expected,
+                        error=str(e)[:500],
+                    )
+                )
+            finally:
+                cursor.close()
+        return results
+
+
+# ---------------------------------------------------------------------------
 # ReviewPipeline
 # ---------------------------------------------------------------------------
 
@@ -542,9 +679,42 @@ class ReviewPipeline:
             )
             print(f"  [{status}] {r.command}")
 
-        # Step 5: Second Cortex call - final assessment
-        print("[Step 5] Sending execution results to Cortex for final assessment...")
+        # Step 5: Cortex suggests verification queries for side effects
+        print("[Step 5] Asking Cortex for side-effect verification queries...")
         results_text = self._format_results(results)
+        verification_results: list[VerificationResult] = []
+        if any(r.exit_code == 0 and not r.rejected for r in results):
+            verify_response = self.cortex.complete(
+                [
+                    {"role": "system", "content": REVIEWER_SYSTEM_PROMPT},
+                    {
+                        "role": "user",
+                        "content": VERIFICATION_PROMPT_TEMPLATE.format(
+                            execution_results_formatted=results_text,
+                        ),
+                    },
+                ]
+            )
+            queries = self._parse_verification_queries(verify_response)
+            print(f"  Found {len(queries)} verification queries")
+            if queries:
+                verifier = SQLVerifier()
+                verification_results = verifier.run(queries, self.cortex.connection)
+                for v in verification_results:
+                    status = (
+                        "REJECTED"
+                        if v.rejected
+                        else "ERROR"
+                        if v.error
+                        else f"{len(v.rows)} rows"
+                    )
+                    print(f"  [{status}] {v.query[:80]}")
+        else:
+            print("  No successful commands to verify")
+
+        # Step 6: Final Cortex call - assessment with all evidence
+        print("[Step 6] Sending all results to Cortex for final assessment...")
+        verification_text = self._format_verification_results(verification_results)
         final_response = self.cortex.complete(
             [
                 {"role": "system", "content": FINAL_ASSESSOR_SYSTEM_PROMPT},
@@ -554,6 +724,8 @@ class ReviewPipeline:
                         review_analysis=review_response,
                         execution_results_formatted=results_text
                         or "(no commands were suggested or all were rejected)",
+                        verification_results_formatted=verification_text
+                        or "(no side-effect verification was performed)",
                     ),
                 },
             ]
@@ -589,6 +761,51 @@ class ReviewPipeline:
                     f"EXIT CODE: {r.exit_code}\n"
                     f"STDOUT:\n{r.stdout}\n"
                     f"STDERR:\n{r.stderr}"
+                )
+        return "\n\n---\n\n".join(parts)
+
+    def _parse_verification_queries(self, text: str) -> list[tuple[str, str]]:
+        """Extract QUERY:/VERIFY: pairs from Cortex response."""
+        lines = text.splitlines()
+        queries = []
+        current_query = None
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith("QUERY:"):
+                current_query = stripped.split("QUERY:", 1)[1].strip()
+            elif stripped.startswith("VERIFY:") and current_query:
+                expected = stripped.split("VERIFY:", 1)[1].strip()
+                queries.append((current_query, expected))
+                current_query = None
+        # Handle trailing QUERY: without VERIFY:
+        if current_query:
+            queries.append((current_query, "(no expectation provided)"))
+        return queries
+
+    def _format_verification_results(self, results: list[VerificationResult]) -> str:
+        parts = []
+        for v in results:
+            if v.rejected:
+                parts.append(
+                    f"QUERY: `{v.query}`\n"
+                    f"EXPECTED: {v.expected}\n"
+                    f"STATUS: REJECTED\n"
+                    f"REASON: {v.rejection_reason}"
+                )
+            elif v.error:
+                parts.append(
+                    f"QUERY: `{v.query}`\n"
+                    f"EXPECTED: {v.expected}\n"
+                    f"STATUS: ERROR\n"
+                    f"ERROR: {v.error}"
+                )
+            else:
+                rows_str = json.dumps(v.rows, indent=2, default=str)[:3000]
+                parts.append(
+                    f"QUERY: `{v.query}`\n"
+                    f"EXPECTED: {v.expected}\n"
+                    f"ROWS RETURNED: {len(v.rows)}\n"
+                    f"RESULTS:\n{rows_str}"
                 )
         return "\n\n---\n\n".join(parts)
 
@@ -667,7 +884,7 @@ def main():
         )
         sys.exit(1)
 
-    # Steps 3-5: Run review pipeline
+    # Steps 3-6: Run review pipeline
     sandbox = CommandSandbox()
     pipeline = ReviewPipeline(cortex=cortex, pr=pr, sandbox=sandbox, repo=repo)
     try:
@@ -683,8 +900,8 @@ def main():
     finally:
         cortex.connection.close()
 
-    # Step 6: Post the review comment
-    print("[Step 6] Posting review comment to PR...")
+    # Step 7: Post the review comment
+    print("[Step 7] Posting review comment to PR...")
     _post_comment(repo, pr_number, comment_body)
     print("Done.")
 
