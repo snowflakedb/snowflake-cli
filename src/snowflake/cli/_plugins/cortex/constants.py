@@ -14,5 +14,5 @@
 
 from snowflake.cli._plugins.cortex.types import Model
 
-DEFAULT_MODEL: Model = Model("llama3.3-70b")
+DEFAULT_MODEL: Model = Model("llama3.1-70b")
 DEFAULT_BACKEND = "rest"

@@ -217,6 +217,40 @@ def post_comment(repo: str, pr_number: int, body: str) -> None:
     )
 
 
+def delete_previous_comment(repo: str, pr_number: int) -> None:
+    """Delete the previous cortex-review-bot comment if it exists."""
+    try:
+        comments_raw = subprocess.run(
+            [
+                "gh",
+                "api",
+                f"repos/{repo}/issues/{pr_number}/comments",
+                "--paginate",
+                "--jq",
+                '.[] | select(.body | contains("<!-- cortex-review-bot -->")) | .id',
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        ).stdout
+        for comment_id in comments_raw.strip().splitlines():
+            if comment_id.strip():
+                subprocess.run(
+                    [
+                        "gh",
+                        "api",
+                        "-X",
+                        "DELETE",
+                        f"repos/{repo}/issues/comments/{comment_id.strip()}",
+                    ],
+                    capture_output=True,
+                    timeout=15,
+                )
+                print(f"  Deleted previous bot comment {comment_id.strip()}")
+    except Exception as e:
+        print(f"  Warning: could not delete previous comment: {e}")
+
+
 def post_error_comment(repo: str, pr_number: int, message: str) -> None:
     body = (
         "<!-- cortex-review-bot -->\n"
@@ -270,11 +304,6 @@ def main():
         print("ERROR: cortex CLI not found", file=sys.stderr)
         sys.exit(1)
     print(f"  Cortex version: {result.stdout.strip()}")
-
-    # Dump full cortex --help for debugging
-    help_result = subprocess.run(["cortex", "--help"], capture_output=True, text=True)
-    full_help = help_result.stdout + help_result.stderr
-    print(f"  cortex --help (full):\n{full_help}")
 
     # Step 4: Create playground database
     print("[Step 4] Creating playground database...")
@@ -351,6 +380,7 @@ def main():
 
     # Step 7: Run Cortex Code CLI agent
     print("[Step 7] Running Cortex Code CLI agent...")
+    agent_start = time.monotonic()
     try:
         agent_result = subprocess.run(
             [
@@ -374,18 +404,23 @@ def main():
             text=True,
             timeout=3000,  # 50 minutes
         )
-        # Parse stream-json output
+        # Parse stream-json output — take only the last message (the report)
         agent_output = _parse_stream_json(agent_result.stdout)
         if not agent_output:
-            agent_output = agent_result.stdout[:10000]
+            # Fallback: post raw output so the user sees something
+            agent_output = (
+                "_Could not parse structured output from Cortex agent. "
+                "Raw output below:_\n\n```\n" + agent_result.stdout[:8000] + "\n```"
+            )
+        agent_duration = time.monotonic() - agent_start
         print(
             f"  Agent finished (exit={agent_result.returncode},"
-            f" {len(agent_output)} chars)"
+            f" {len(agent_output)} chars, {agent_duration:.0f}s)"
         )
         if agent_result.returncode != 0:
-            print(f"  Stderr (full):\n{agent_result.stderr}")
-            print(f"  Stdout (full):\n{agent_result.stdout[:3000]}")
+            print(f"  Stderr: {agent_result.stderr[:1000]}")
     except subprocess.TimeoutExpired:
+        agent_duration = time.monotonic() - agent_start
         agent_output = "Agent timed out after 50 minutes."
         print("  Agent timed out")
     except Exception as e:
@@ -398,12 +433,17 @@ def main():
 
     # Step 8: Post the review comment
     print("[Step 8] Posting review comment...")
+    # Delete previous bot comment to avoid accumulation
+    delete_previous_comment(repo, pr_number)
     head_sha = pr["head_sha"][:8]
+    duration_min = int(agent_duration // 60)
+    duration_sec = int(agent_duration % 60)
     header = (
         "<!-- cortex-review-bot -->\n"
         "## Cortex AI E2E Review\n\n"
         f"> Model: `{model}` | "
         f"Commit: `{head_sha}` | "
+        f"Duration: {duration_min}m {duration_sec}s | "
         f"Reviewed at: {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}\n\n"
     )
     comment_body = header + agent_output

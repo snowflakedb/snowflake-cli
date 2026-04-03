@@ -151,11 +151,6 @@ def complete(
         "--backend",
         help="String specifying whether to use sql or rest backend.",
     ),
-    verbose: bool = typer.Option(
-        False,
-        "--verbose",
-        help="Show model name and token usage in the output.",
-    ),
     file: Optional[Path] = ExclusiveReadableFileOption(
         help="JSON file containing conversation history to be used to generate a completion. Cannot be combined with TEXT argument.",
     ),
@@ -192,11 +187,7 @@ def complete(
     else:
         raise UsageError("--backend option should be either rest or sql.")
 
-    output = result_text.strip()
-    if verbose:
-        output = f"[Model: {model}]\n{output}"
-
-    return MessageResult(output)
+    return MessageResult(result_text.strip())
 
 
 @app.command(
