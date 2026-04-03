@@ -103,6 +103,10 @@ Start by fetching the PR details, diff, and changed files using `gh`.
 Then determine if CLI behavior changed. If not, report SKIP.
 If it did, investigate thoroughly and report your findings.
 
+IMPORTANT: Your final report MUST begin with the exact marker line
+`<!-- E2E_REPORT -->` on its own line, immediately followed by the report.
+Do NOT include any text, reasoning, or preamble before this marker.
+
 Output your final report as GitHub Markdown with these sections:
 
 ### Summary
@@ -414,13 +418,18 @@ def main():
 def _parse_stream_json(raw: str) -> str:
     """Extract the final report from Cortex Code CLI stream-json output.
 
-    Strategy: collect all text from the stream, then extract from the
-    LAST occurrence of a Summary heading onward. The final report is
-    always the last thing the agent outputs.
+    Strategy (in priority order):
+    1. If a ``result`` message exists, use it (final agent output).
+    2. Look for the ``<!-- E2E_REPORT -->`` delimiter the prompt asks for.
+    3. Fallback: find the LAST ``### Summary`` heading across all messages.
     """
     import re
 
-    all_text = []
+    report_marker = "<!-- E2E_REPORT -->"
+
+    result_text = ""
+    all_text: list[str] = []
+
     for line in raw.splitlines():
         line = line.strip()
         if not line:
@@ -428,10 +437,10 @@ def _parse_stream_json(raw: str) -> str:
         try:
             obj = json.loads(line)
             content = ""
-            if obj.get("type") == "text" and obj.get("content"):
+            if obj.get("type") == "result" and obj.get("result"):
+                result_text = obj["result"]
+            elif obj.get("type") == "text" and obj.get("content"):
                 content = obj["content"]
-            elif obj.get("type") == "result" and obj.get("result"):
-                content = obj["result"]
             elif obj.get("type") == "assistant" and isinstance(obj.get("content"), str):
                 content = obj["content"]
             if content:
@@ -439,9 +448,22 @@ def _parse_stream_json(raw: str) -> str:
         except json.JSONDecodeError:
             continue
 
+    # 1. Prefer ``result`` message — typically contains only the final output
+    if result_text:
+        if report_marker in result_text:
+            return result_text.split(report_marker, 1)[1].strip()
+        m = list(re.finditer(r"^#{1,4}\s+Summary", result_text, re.MULTILINE))
+        if m:
+            return result_text[m[-1].start() :]
+        return result_text
+
     full_output = "\n".join(all_text)
 
-    # Find the LAST Summary heading — that's the start of the final report
+    # 2. Look for the explicit report delimiter
+    if report_marker in full_output:
+        return full_output.split(report_marker, 1)[1].strip()
+
+    # 3. Fallback: last Summary heading
     matches = list(re.finditer(r"^#{1,4}\s+Summary", full_output, re.MULTILINE))
     if matches:
         return full_output[matches[-1].start() :]
