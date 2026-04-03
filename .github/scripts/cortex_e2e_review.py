@@ -398,6 +398,10 @@ def main():
 
     # Step 8: Post the review comment
     print("[Step 8] Posting review comment...")
+    # Strip agent thinking — only keep from ### Summary onward
+    summary_idx = agent_output.find("### Summary")
+    if summary_idx != -1:
+        agent_output = agent_output[summary_idx:]
     head_sha = pr["head_sha"][:8]
     header = (
         "<!-- cortex-review-bot -->\n"
