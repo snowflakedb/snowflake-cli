@@ -65,6 +65,14 @@ MAX_COMMANDS_TO_RUN = 8
 COMMAND_TIMEOUT_SECONDS = 45
 CORTEX_REQUEST_TIMEOUT = 120
 
+# Models to try in order of preference if the primary model is unavailable
+MODEL_FALLBACK_CHAIN = [
+    "claude-4-opus",
+    "claude-4-sonnet",
+    "llama3.1-405b",
+    "llama3.1-70b",
+]
+
 _ENV_PREFIX = "SNOWFLAKE_CONNECTIONS_INTEGRATION"
 
 # ---------------------------------------------------------------------------
@@ -198,27 +206,38 @@ class CortexClient:
     model: str
 
     def complete(self, messages: list[dict]) -> str:
-        """Call Cortex COMPLETE, trying SQL first then REST as fallback."""
-        try:
-            return self._complete_sql(messages)
-        except Exception as sql_err:
-            print(f"  SQL backend failed ({sql_err}), trying REST backend...")
+        """Call Cortex COMPLETE, trying fallback models if unavailable."""
+        models_to_try = [self.model] + [
+            m for m in MODEL_FALLBACK_CHAIN if m != self.model
+        ]
+        last_err = None
+        for model in models_to_try:
             try:
-                return self._complete_rest(messages)
-            except Exception as rest_err:
-                raise RuntimeError(
-                    f"Both Cortex backends failed.\n"
-                    f"SQL error: {sql_err}\n"
-                    f"REST error: {rest_err}"
-                ) from rest_err
+                result = self._complete_sql(messages, model)
+                if model != self.model:
+                    print(f"  Using fallback model: {model}")
+                    self.model = model
+                return result
+            except Exception as e:
+                err_str = str(e)
+                print(f"  Model '{model}' failed: {err_str[:200]}")
+                if (
+                    "unavailable" in err_str.lower()
+                    or "not supported" in err_str.lower()
+                ):
+                    last_err = e
+                    continue
+                # Non-model error — don't try other models, just raise
+                raise
+        raise RuntimeError(f"All models failed. Last error: {last_err}")
 
-    def _complete_sql(self, messages: list[dict]) -> str:
+    def _complete_sql(self, messages: list[dict], model: str) -> str:
         """Call SNOWFLAKE.CORTEX.COMPLETE via SQL."""
         conversation = json.dumps(messages)
         escaped = conversation.replace("\\", "\\\\").replace("'", "\\'")
         query = (
             f"SELECT SNOWFLAKE.CORTEX.COMPLETE("
-            f"'{self.model}', PARSE_JSON('{escaped}'), {{}}"
+            f"'{model}', PARSE_JSON('{escaped}'), {{}}"
             f") AS CORTEX_RESULT"
         )
         cursor = self.connection.cursor()
