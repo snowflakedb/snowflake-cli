@@ -261,11 +261,19 @@ def main():
 
     # Step 3: Verify cortex CLI is installed
     print("[Step 3] Verifying Cortex Code CLI...")
+    # Ensure ~/.local/bin is in PATH (cortex install location)
+    local_bin = os.path.expanduser("~/.local/bin")
+    if local_bin not in os.environ.get("PATH", ""):
+        os.environ["PATH"] = f"{local_bin}:{os.environ.get('PATH', '')}"
     result = subprocess.run(["cortex", "--version"], capture_output=True, text=True)
     if result.returncode != 0:
         print("ERROR: cortex CLI not found", file=sys.stderr)
         sys.exit(1)
     print(f"  Cortex version: {result.stdout.strip()}")
+
+    # Dump cortex --help for debugging
+    help_result = subprocess.run(["cortex", "--help"], capture_output=True, text=True)
+    print(f"  cortex --help:\n{help_result.stdout[:1000]}")
 
     # Step 4: Create playground database
     print("[Step 4] Creating playground database...")
@@ -284,7 +292,37 @@ def main():
     # Point snow CLI at the playground
     os.environ[f"{_ENV_PREFIX}_DATABASE"] = playground_db
 
-    # Step 5: Build the prompt
+    # Step 5: Configure cortex connection
+    print("[Step 5] Configuring cortex connection...")
+    snowflake_home = os.path.expanduser("~/.snowflake")
+    os.makedirs(snowflake_home, exist_ok=True)
+    connections_toml = os.path.join(snowflake_home, "connections.toml")
+    # Build connection config from env vars
+    conn_config = {
+        "account": os.environ.get(f"{_ENV_PREFIX}_ACCOUNT", ""),
+        "user": os.environ.get(f"{_ENV_PREFIX}_USER", ""),
+        "authenticator": os.environ.get(f"{_ENV_PREFIX}_AUTHENTICATOR", ""),
+        "host": os.environ.get(f"{_ENV_PREFIX}_HOST", ""),
+        "database": playground_db,
+        "warehouse": os.environ.get(f"{_ENV_PREFIX}_WAREHOUSE", ""),
+        "role": os.environ.get(f"{_ENV_PREFIX}_ROLE", ""),
+    }
+    private_key_raw = os.environ.get(f"{_ENV_PREFIX}_PRIVATE_KEY_RAW", "")
+    if private_key_raw:
+        conn_config["private_key_raw"] = private_key_raw
+    # Write TOML
+    toml_lines = ["[integration]"]
+    for key, val in conn_config.items():
+        if val:
+            # Escape for TOML string
+            escaped = val.replace("\\", "\\\\").replace('"', '\\"')
+            toml_lines.append(f'{key} = "{escaped}"')
+    with open(connections_toml, "w") as f:
+        f.write("\n".join(toml_lines) + "\n")
+    os.chmod(connections_toml, 0o600)
+    print(f"  Wrote {connections_toml}")
+
+    # Step 6: Build the prompt
     prompt = AGENT_PROMPT_TEMPLATE.format(
         playground_db=playground_db,
         pr_title=pr["title"],
@@ -298,8 +336,8 @@ def main():
     with open(prompt_file, "w") as f:
         f.write(prompt)
 
-    # Step 6: Run Cortex Code CLI agent
-    print("[Step 6] Running Cortex Code CLI agent...")
+    # Step 7: Run Cortex Code CLI agent
+    print("[Step 7] Running Cortex Code CLI agent...")
     try:
         agent_result = subprocess.run(
             [
@@ -340,8 +378,8 @@ def main():
         _cleanup(conn, playground_db)
         sys.exit(1)
 
-    # Step 7: Post the review comment
-    print("[Step 7] Posting review comment...")
+    # Step 8: Post the review comment
+    print("[Step 8] Posting review comment...")
     head_sha = pr["head_sha"][:8]
     header = (
         "<!-- cortex-review-bot -->\n"
@@ -356,7 +394,7 @@ def main():
         comment_body = comment_body[:65000] + "\n\n... [comment truncated]"
     post_comment(repo, pr_number, comment_body)
 
-    # Step 8: Cleanup
+    # Step 9: Cleanup
     _cleanup(conn, playground_db)
     print("Done.")
 
