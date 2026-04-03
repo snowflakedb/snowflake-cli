@@ -37,6 +37,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install .
 
+      - name: Install Cortex Code CLI
+        run: curl -LsS https://ai.snowflake.com/static/cc-scripts/install.sh | sh
+
       - name: Run Cortex E2E review
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
