@@ -420,9 +420,10 @@ def main():
         if agent_result.returncode != 0:
             print(f"  Stderr: {agent_result.stderr[:1000]}")
     except subprocess.TimeoutExpired:
-        agent_duration = time.monotonic() - agent_start
-        agent_output = "Agent timed out after 50 minutes."
         print("  Agent timed out")
+        post_error_comment(repo, pr_number, "Cortex agent timed out after 50 minutes.")
+        _cleanup(conn, playground_db)
+        sys.exit(1)
     except Exception as e:
         tb = traceback.format_exc()
         post_error_comment(
