@@ -398,10 +398,13 @@ def main():
 
     # Step 8: Post the review comment
     print("[Step 8] Posting review comment...")
-    # Strip agent thinking — only keep from ### Summary onward
-    summary_idx = agent_output.find("### Summary")
-    if summary_idx != -1:
-        agent_output = agent_output[summary_idx:]
+    # Strip agent thinking — only keep the final report
+    # Try multiple patterns the agent might use for the summary header
+    import re
+
+    summary_match = re.search(r"^#{1,4}\s*Summary", agent_output, re.MULTILINE)
+    if summary_match:
+        agent_output = agent_output[summary_match.start() :]
     head_sha = pr["head_sha"][:8]
     header = (
         "<!-- cortex-review-bot -->\n"
