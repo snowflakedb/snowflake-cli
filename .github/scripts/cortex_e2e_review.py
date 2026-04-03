@@ -395,29 +395,41 @@ def main():
 
 
 def _parse_stream_json(raw: str) -> str:
-    """Extract the final text output from Cortex Code CLI stream-json.
+    """Extract the final report from Cortex Code CLI stream-json output.
 
-    The stream contains many intermediate messages (thinking, tool calls,
-    tool results). We only want the last assistant text message — that's
-    the final report.
+    Strategy: collect all text from the stream, then extract from the
+    LAST occurrence of a Summary heading onward. The final report is
+    always the last thing the agent outputs.
     """
-    last_text = ""
+    import re
+
+    all_text = []
     for line in raw.splitlines():
         line = line.strip()
         if not line:
             continue
         try:
             obj = json.loads(line)
-            # Capture the last text/result — the final report
+            content = ""
             if obj.get("type") == "text" and obj.get("content"):
-                last_text = obj["content"]
+                content = obj["content"]
             elif obj.get("type") == "result" and obj.get("result"):
-                last_text = obj["result"]
+                content = obj["result"]
             elif obj.get("type") == "assistant" and isinstance(obj.get("content"), str):
-                last_text = obj["content"]
+                content = obj["content"]
+            if content:
+                all_text.append(content)
         except json.JSONDecodeError:
             continue
-    return last_text
+
+    full_output = "\n".join(all_text)
+
+    # Find the LAST Summary heading — that's the start of the final report
+    matches = list(re.finditer(r"^#{1,4}\s+Summary", full_output, re.MULTILINE))
+    if matches:
+        return full_output[matches[-1].start() :]
+
+    return full_output
 
 
 def _cleanup(conn: snowflake.connector.SnowflakeConnection, playground_db: str):
