@@ -198,6 +198,42 @@ class CortexClient:
     model: str
 
     def complete(self, messages: list[dict]) -> str:
+        """Call Cortex COMPLETE, trying SQL first then REST as fallback."""
+        try:
+            return self._complete_sql(messages)
+        except Exception as sql_err:
+            print(f"  SQL backend failed ({sql_err}), trying REST backend...")
+            try:
+                return self._complete_rest(messages)
+            except Exception as rest_err:
+                raise RuntimeError(
+                    f"Both Cortex backends failed.\n"
+                    f"SQL error: {sql_err}\n"
+                    f"REST error: {rest_err}"
+                ) from rest_err
+
+    def _complete_sql(self, messages: list[dict]) -> str:
+        """Call SNOWFLAKE.CORTEX.COMPLETE via SQL."""
+        conversation = json.dumps(messages)
+        escaped = conversation.replace("\\", "\\\\").replace("'", "\\'")
+        query = (
+            f"SELECT SNOWFLAKE.CORTEX.COMPLETE("
+            f"'{self.model}', PARSE_JSON('{escaped}'), {{}}"
+            f") AS CORTEX_RESULT"
+        )
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute(query)
+            row = cursor.fetchone()
+            if row is None:
+                raise RuntimeError("Cortex SQL returned no rows")
+            raw_result = str(row[0])
+            json_result = json.loads(raw_result)
+            return json_result["choices"][0]["messages"]
+        finally:
+            cursor.close()
+
+    def _complete_rest(self, messages: list[dict]) -> str:
         """Call Cortex COMPLETE via the REST backend (CortexInferenceService)."""
         from snowflake.core import Root
         from snowflake.core.cortex.inference_service import CortexInferenceService
@@ -265,7 +301,7 @@ class CortexClient:
         update_connection_details_with_private_key(config)
 
         conn = snowflake.connector.connect(**config)
-        model = os.environ.get("CORTEX_MODEL", "claude-sonnet-4-6")
+        model = os.environ.get("CORTEX_MODEL", "llama3.1-70b")
         return cls(connection=conn, model=model)
 
 
