@@ -52,7 +52,7 @@ jobs:
           SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_RAW: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_RAW }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_REPO: ${{ github.repository }}
-          CORTEX_MODEL: claude-4-opus
+          CORTEX_MODEL: claude-opus-4-6
         run: python .github/scripts/cortex_e2e_review.py
 
   cortex-review-fork:
@@ -95,7 +95,7 @@ jobs:
           SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_RAW: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_RAW }}
           PR_NUMBER: ${{ github.event.client_payload.pull_request.number }}
           PR_REPO: ${{ github.repository }}
-          CORTEX_MODEL: claude-4-opus
+          CORTEX_MODEL: claude-opus-4-6
         run: python .github/scripts/cortex_e2e_review.py
 
       - uses: actions/github-script@v7

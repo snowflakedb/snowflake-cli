@@ -67,7 +67,8 @@ CORTEX_REQUEST_TIMEOUT = 120
 
 # Models to try in order of preference if the primary model is unavailable
 MODEL_FALLBACK_CHAIN = [
-    "claude-4-opus",
+    "claude-opus-4-6",
+    "claude-sonnet-4-6",
     "claude-4-sonnet",
     "llama3.1-405b",
     "llama3.1-70b",
@@ -362,7 +363,7 @@ class CortexClient:
         update_connection_details_with_private_key(config)
 
         conn = snowflake.connector.connect(**config)
-        model = os.environ.get("CORTEX_MODEL", "claude-4-opus")
+        model = os.environ.get("CORTEX_MODEL", "claude-opus-4-6")
         return cls(connection=conn, model=model)
 
 
