@@ -80,50 +80,81 @@ _ENV_PREFIX = "SNOWFLAKE_CONNECTIONS_INTEGRATION"
 # Prompt templates
 # ---------------------------------------------------------------------------
 
-REVIEWER_SYSTEM_PROMPT = textwrap.dedent(
+AGENT_SYSTEM_PROMPT = textwrap.dedent(
     """\
-    You are an end-to-end verification bot for the snowflake-cli project,
-    a Python CLI tool invoked as `snow <subcommand> [options]`.
-
-    Your ONLY job is to determine whether the PR changes CLI behavior that
-    can be verified end-to-end, and if so, suggest concrete test commands.
+    You are an autonomous end-to-end verification agent for the snowflake-cli
+    project, a Python CLI tool invoked as `snow <subcommand> [options]`.
 
     You do NOT perform static code review. No commenting on code style,
-    security, test coverage, or architecture. Only dynamic E2E verification.
+    security, test coverage, or architecture. Your only job is dynamic E2E
+    verification of CLI behavioral changes.
 
-    ## Decision: Does this PR need E2E testing?
+    ## How you work
 
-    Answer NEEDS_E2E: YES only if the PR changes:
-    - A CLI command's behavior, options, arguments, or output format
-    - SQL queries or API calls that the CLI makes
-    - Connection handling, authentication, or session logic
-    - Any user-facing functionality of the `snow` CLI
+    You have two tools available. To use them, output action lines:
 
-    Answer NEEDS_E2E: NO if the PR only changes:
-    - CI/CD workflows, GitHub Actions, or automation scripts
-    - Documentation, README, release notes
-    - Tests only (no production code changes)
-    - Internal refactoring with no behavior change
-    - Build/packaging configuration
+    ACTION: CMD <command>
+      Executes a `snow` CLI command on the runner. You will receive stdout,
+      stderr, and exit code.
 
-    ## If NEEDS_E2E: YES, suggest test commands following these rules:
-    1. Every command MUST start with the literal word `snow`.
-    2. Only use subcommands from this allowlist: cortex, sql, object, stage,
-       git, streamlit, snowpark, connection, helpers, notebook.
-    3. Commands MUST be read-only or idempotent. Never use drop, delete,
-       truncate, remove, overwrite, replace, or undeploy.
-    4. Each command must be on its own line, prefixed with CMD: exactly.
-    5. Suggest at most 6 commands.
-    6. Do NOT use shell pipes, redirections, or variable substitution.
-    7. Commands may use --help to verify that a new or changed subcommand is
-       present and has the expected interface.
-    8. For commands that need a connection, use: --connection integration
-    9. Only suggest commands that directly test the CHANGED behavior.
-       Do not suggest generic smoke tests unrelated to the diff.
+    ACTION: QUERY <sql>
+      Executes a read-only SQL query against Snowflake. You will receive
+      the result rows.
+
+    You can request multiple actions in one response (one per line). After
+    each batch, I will execute them and show you the results. You can then
+    request more actions based on what you learned.
+
+    When you are done, output your final report using:
+    ACTION: REPORT
+    Followed by the report in GitHub Markdown (described below).
+
+    ## Workflow
+
+    1. Analyze the PR diff to determine if CLI behavior changed.
+    2. If NO behavioral changes: immediately output ACTION: REPORT with a
+       short summary and verdict SKIP.
+    3. If YES: use ACTION: CMD and ACTION: QUERY to verify the changes.
+       You may run multiple rounds — inspect results, run follow-up
+       commands, verify side effects, etc.
+    4. When satisfied, output ACTION: REPORT with your findings.
+
+    ## CMD rules
+    - Must start with `snow`
+    - Only subcommands: cortex, sql, object, stage, git, streamlit,
+      snowpark, connection, helpers, notebook
+    - Read-only or idempotent. Never: drop, delete, truncate, remove,
+      overwrite, replace, undeploy
+    - No shell pipes, redirections, or variable substitution
+    - For commands needing a connection: --connection integration
+    - May use --help to verify interfaces
+
+    ## QUERY rules
+    - Only: SELECT, SHOW, DESCRIBE, DESC, LIST, WITH
+    - Never: INSERT, UPDATE, DELETE, DROP, CREATE, ALTER, GRANT, REVOKE,
+      TRUNCATE, MERGE, COPY, PUT, GET, REMOVE
+
+    ## REPORT format
+    ACTION: REPORT
+
+    ### Summary
+    One paragraph on what the PR does and whether E2E verification passed.
+
+    ### E2E Test Results
+    Table or list of commands run, exit codes, whether output matched
+    expectations, and a verdict per command.
+
+    ### Side-Effect Verification
+    Any SQL verification queries run and their results. If none needed,
+    say so.
+
+    ### Verdict
+    One of: PASS / FAIL / SKIP
+    Followed by one sentence justifying the verdict.
 """
 )
 
-REVIEWER_USER_PROMPT_TEMPLATE = textwrap.dedent(
+AGENT_USER_PROMPT_TEMPLATE = textwrap.dedent(
     """\
     ## Pull Request: {pr_title}
 
@@ -138,81 +169,19 @@ REVIEWER_USER_PROMPT_TEMPLATE = textwrap.dedent(
     {diff}
     ```
 
-    ## Your Task
-
-    First, determine whether this PR changes CLI behavior that can be
-    verified end-to-end.
-
-    Output exactly one of:
-    NEEDS_E2E: YES
-    NEEDS_E2E: NO
-
-    If NO, explain in one sentence why no E2E testing is needed, then stop.
-
-    If YES, explain what behavioral change needs verification, then list
-    test commands. For each command, prefix the line with CMD: and follow
-    the rules in your system prompt. After each CMD line, add a line
-    starting with EXPECT: describing what a successful output looks like.
-
-    Example format:
-    NEEDS_E2E: YES
-    The PR modifies the `snow cortex complete` command to accept a new --temperature flag.
-
-    CMD: snow cortex complete "Hello" --model llama3.1-8b --temperature 0.5 --connection integration
-    EXPECT: Output contains a response, exit code 0.
-    CMD: snow cortex complete --help
-    EXPECT: Output lists --temperature as an available option.
+    Analyze this PR. If CLI behavior changed, use your tools to verify it.
+    If not, report SKIP immediately.
 """
 )
 
-EXECUTION_RESULTS_PROMPT = textwrap.dedent(
+AGENT_RESULTS_TEMPLATE = textwrap.dedent(
     """\
-    I executed the commands you suggested. Here are the results:
+    Here are the results of your requested actions:
 
-    {execution_results_formatted}
+    {results}
 
-    Based on these results, suggest read-only SQL verification queries to
-    confirm the expected side effects actually happened in Snowflake.
-
-    Rules:
-    1. Only SELECT, SHOW, DESCRIBE, LIST, or CALL (for read-only procedures).
-    2. Never use INSERT, UPDATE, DELETE, DROP, CREATE, ALTER, GRANT, REVOKE.
-    3. Each query on its own line, prefixed with QUERY: exactly.
-    4. After each QUERY line, add VERIFY: describing what the result should
-       show if the command worked correctly.
-    5. At most 6 queries.
-    6. If no commands had verifiable side effects, say so and skip queries.
-"""
-)
-
-VERIFICATION_RESULTS_PROMPT = textwrap.dedent(
-    """\
-    I executed the verification queries. Here are the results:
-
-    {verification_results_formatted}
-
-    Now produce the final GitHub PR comment with these exact sections:
-
-    ### Summary
-    One paragraph summarizing what the PR does and whether E2E verification
-    passed. If no E2E testing was needed, explain why.
-
-    ### E2E Test Results
-    For each command that was run: show the command, its exit code, whether
-    the actual output matched the expected output, and a one-line verdict.
-    For commands that were rejected or timed out: explain why.
-
-    ### Side-Effect Verification
-    For each verification query: show the query, the result, whether it
-    matched expectations, and a one-line verdict. If no verification
-    queries were run, state why.
-
-    ### Verdict
-    One of: PASS / FAIL / SKIP
-    - PASS: all tests passed and side effects verified
-    - FAIL: one or more tests failed unexpectedly
-    - SKIP: no E2E testing was needed for this PR
-    Followed by one sentence justifying the verdict.
+    Continue your analysis. You may request more actions or output your
+    final ACTION: REPORT.
 """
 )
 
@@ -610,202 +579,178 @@ class SQLVerifier:
 
 
 # ---------------------------------------------------------------------------
-# ReviewPipeline
+# AgentLoop
 # ---------------------------------------------------------------------------
 
+MAX_AGENT_TURNS = 10
 
-class ReviewPipeline:
+
+class AgentLoop:
+    """Cortex-driven agent loop: Cortex decides what to run, script executes."""
+
     def __init__(
         self,
         cortex: CortexClient,
         pr: PRMetadata,
         sandbox: CommandSandbox,
-        repo: str,
+        verifier: SQLVerifier,
     ):
         self.cortex = cortex
         self.pr = pr
         self.sandbox = sandbox
-        self.repo = repo
-
-    def run(self) -> str:
-        """Execute the review pipeline in a single Cortex conversation."""
-
-        # Single conversation history maintained across all turns
-        conversation: list[dict] = [
-            {"role": "system", "content": REVIEWER_SYSTEM_PROMPT},
+        self.verifier = verifier
+        self.conversation: list[dict] = [
+            {"role": "system", "content": AGENT_SYSTEM_PROMPT},
         ]
 
-        # Turn 1: Analyze diff and decide if E2E is needed
-        print("[Turn 1] Sending diff to Cortex for E2E analysis...")
-        user_prompt = REVIEWER_USER_PROMPT_TEMPLATE.format(
+    def run(self) -> str:
+        """Run the agent loop until Cortex outputs ACTION: REPORT."""
+
+        # Initial turn: send the PR diff
+        user_prompt = AGENT_USER_PROMPT_TEMPLATE.format(
             pr_title=self.pr.title,
             pr_body=(self.pr.body[:3000] or "(no description provided)"),
             changed_files="\n".join(f"- {f}" for f in self.pr.changed_files),
             diff=self.pr.diff,
         )
-        conversation.append({"role": "user", "content": user_prompt})
-        turn1_response = self.cortex.complete(conversation)
-        conversation.append({"role": "assistant", "content": turn1_response})
-        print(f"  Analysis received ({len(turn1_response)} chars)")
+        self.conversation.append({"role": "user", "content": user_prompt})
 
-        # Check if Cortex determined E2E testing is needed
-        needs_e2e = "NEEDS_E2E: YES" in turn1_response
-        if not needs_e2e:
-            print("  Cortex determined: no E2E testing needed")
-            return self._compose_comment(
-                "### Summary\n\n"
-                + turn1_response.split("NEEDS_E2E: NO")[-1].strip()
-                + "\n\n### Verdict\n**SKIP** — No CLI behavioral changes "
-                "detected in this PR; E2E testing is not applicable."
+        for turn in range(1, MAX_AGENT_TURNS + 1):
+            print(f"[Turn {turn}] Calling Cortex...")
+            response = self.cortex.complete(self.conversation)
+            self.conversation.append({"role": "assistant", "content": response})
+            print(f"  Response: {len(response)} chars")
+
+            # Parse actions from response
+            actions = self._parse_actions(response)
+
+            # Check for REPORT action — we're done
+            report = self._extract_report(response)
+            if report is not None:
+                print(f"  Agent produced final report (turn {turn})")
+                return self._compose_comment(report)
+
+            if not actions:
+                # No actions and no report — nudge the agent
+                print("  No actions found, nudging agent...")
+                self.conversation.append(
+                    {
+                        "role": "user",
+                        "content": "No actions detected. Please use ACTION: CMD, "
+                        "ACTION: QUERY, or ACTION: REPORT to proceed.",
+                    }
+                )
+                continue
+
+            # Execute all requested actions
+            print(f"  Executing {len(actions)} actions...")
+            results_parts = []
+            for action_type, action_value in actions:
+                if action_type == "CMD":
+                    result = self._execute_cmd(action_value)
+                    results_parts.append(result)
+                elif action_type == "QUERY":
+                    result = self._execute_query(action_value)
+                    results_parts.append(result)
+
+            # Feed results back
+            results_text = "\n\n---\n\n".join(results_parts)
+            self.conversation.append(
+                {
+                    "role": "user",
+                    "content": AGENT_RESULTS_TEMPLATE.format(results=results_text),
+                }
             )
 
-        print("  Cortex determined: E2E testing IS needed")
-
-        # Execute suggested commands
-        print("[Execute] Running suggested commands in sandbox...")
-        commands = self._parse_commands(turn1_response)
-        print(f"  Found {len(commands)} commands to execute")
-        results = self.sandbox.run(commands)
-        for r in results:
-            status = (
-                "REJECTED"
-                if r.rejected
-                else "TIMEOUT"
-                if r.timed_out
-                else f"exit={r.exit_code}"
-            )
-            print(f"  [{status}] {r.command}")
-
-        # Turn 2: Feed execution results, ask for verification queries
-        print("[Turn 2] Feeding results, requesting verification queries...")
-        results_text = self._format_results(results)
-        conversation.append(
+        # Max turns reached — ask for final report
+        print(f"  Max turns ({MAX_AGENT_TURNS}) reached, forcing report...")
+        self.conversation.append(
             {
                 "role": "user",
-                "content": EXECUTION_RESULTS_PROMPT.format(
-                    execution_results_formatted=results_text
-                    or "(no commands were executed)",
-                ),
+                "content": "Maximum turns reached. Please output ACTION: REPORT "
+                "with your findings so far.",
             }
         )
-        turn2_response = self.cortex.complete(conversation)
-        conversation.append({"role": "assistant", "content": turn2_response})
+        response = self.cortex.complete(self.conversation)
+        report = self._extract_report(response)
+        if report:
+            return self._compose_comment(report)
+        return self._compose_comment(response)
 
-        # Execute verification queries
-        verification_results: list[VerificationResult] = []
-        queries = self._parse_verification_queries(turn2_response)
-        if queries:
-            print(f"[Execute] Running {len(queries)} verification queries...")
-            verifier = SQLVerifier()
-            verification_results = verifier.run(queries, self.cortex.connection)
-            for v in verification_results:
-                status = (
-                    "REJECTED"
-                    if v.rejected
-                    else "ERROR"
-                    if v.error
-                    else f"{len(v.rows)} rows"
-                )
-                print(f"  [{status}] {v.query[:80]}")
-        else:
-            print("  No verification queries suggested")
-
-        # Turn 3: Feed verification results, get final report
-        print("[Turn 3] Requesting final report...")
-        verification_text = self._format_verification_results(verification_results)
-        conversation.append(
-            {
-                "role": "user",
-                "content": VERIFICATION_RESULTS_PROMPT.format(
-                    verification_results_formatted=verification_text
-                    or "(no verification queries were needed or executed)",
-                ),
-            }
-        )
-        final_response = self.cortex.complete(conversation)
-
-        return self._compose_comment(final_response)
-
-    def _parse_commands(self, review_text: str) -> list[str]:
-        """Extract CMD: lines from the review response."""
-        return [
-            line.split("CMD:", 1)[1].strip()
-            for line in review_text.splitlines()
-            if line.strip().startswith("CMD:")
-        ]
-
-    def _format_results(self, results: list[ExecutionResult]) -> str:
-        parts = []
-        for r in results:
-            if r.rejected:
-                parts.append(
-                    f"COMMAND: `{r.command}`\n"
-                    f"STATUS: REJECTED\n"
-                    f"REASON: {r.rejection_reason}"
-                )
-            elif r.timed_out:
-                parts.append(
-                    f"COMMAND: `{r.command}`\n"
-                    f"STATUS: TIMED OUT (>{COMMAND_TIMEOUT_SECONDS}s)"
-                )
-            else:
-                parts.append(
-                    f"COMMAND: `{r.command}`\n"
-                    f"EXIT CODE: {r.exit_code}\n"
-                    f"STDOUT:\n{r.stdout}\n"
-                    f"STDERR:\n{r.stderr}"
-                )
-        return "\n\n---\n\n".join(parts)
-
-    def _parse_verification_queries(self, text: str) -> list[tuple[str, str]]:
-        """Extract QUERY:/VERIFY: pairs from Cortex response."""
-        lines = text.splitlines()
-        queries = []
-        current_query = None
-        for line in lines:
+    def _parse_actions(self, text: str) -> list[tuple[str, str]]:
+        """Extract ACTION: CMD and ACTION: QUERY lines."""
+        actions = []
+        for line in text.splitlines():
             stripped = line.strip()
-            if stripped.startswith("QUERY:"):
-                current_query = stripped.split("QUERY:", 1)[1].strip()
-            elif stripped.startswith("VERIFY:") and current_query:
-                expected = stripped.split("VERIFY:", 1)[1].strip()
-                queries.append((current_query, expected))
-                current_query = None
-        # Handle trailing QUERY: without VERIFY:
-        if current_query:
-            queries.append((current_query, "(no expectation provided)"))
-        return queries
+            if stripped.startswith("ACTION: CMD "):
+                cmd = stripped[len("ACTION: CMD ") :].strip()
+                actions.append(("CMD", cmd))
+            elif stripped.startswith("ACTION: QUERY "):
+                query = stripped[len("ACTION: QUERY ") :].strip()
+                actions.append(("QUERY", query))
+        return actions
 
-    def _format_verification_results(self, results: list[VerificationResult]) -> str:
-        parts = []
-        for v in results:
-            if v.rejected:
-                parts.append(
-                    f"QUERY: `{v.query}`\n"
-                    f"EXPECTED: {v.expected}\n"
-                    f"STATUS: REJECTED\n"
-                    f"REASON: {v.rejection_reason}"
-                )
-            elif v.error:
-                parts.append(
-                    f"QUERY: `{v.query}`\n"
-                    f"EXPECTED: {v.expected}\n"
-                    f"STATUS: ERROR\n"
-                    f"ERROR: {v.error}"
-                )
-            else:
-                rows_str = json.dumps(v.rows, indent=2, default=str)[:3000]
-                parts.append(
-                    f"QUERY: `{v.query}`\n"
-                    f"EXPECTED: {v.expected}\n"
-                    f"ROWS RETURNED: {len(v.rows)}\n"
-                    f"RESULTS:\n{rows_str}"
-                )
-        return "\n\n---\n\n".join(parts)
+    def _extract_report(self, text: str) -> str | None:
+        """Extract everything after ACTION: REPORT."""
+        marker = "ACTION: REPORT"
+        idx = text.find(marker)
+        if idx == -1:
+            return None
+        return text[idx + len(marker) :].strip()
+
+    def _execute_cmd(self, raw_cmd: str) -> str:
+        results = self.sandbox.run([raw_cmd])
+        r = results[0]
+        if r.rejected:
+            print(f"  [REJECTED] {raw_cmd}: {r.rejection_reason}")
+            return (
+                f"**CMD:** `{raw_cmd}`\n"
+                f"**STATUS:** REJECTED\n"
+                f"**REASON:** {r.rejection_reason}"
+            )
+        if r.timed_out:
+            print(f"  [TIMEOUT] {raw_cmd}")
+            return (
+                f"**CMD:** `{raw_cmd}`\n"
+                f"**STATUS:** TIMED OUT (>{COMMAND_TIMEOUT_SECONDS}s)"
+            )
+        print(f"  [exit={r.exit_code}] {raw_cmd}")
+        return (
+            f"**CMD:** `{raw_cmd}`\n"
+            f"**EXIT CODE:** {r.exit_code}\n"
+            f"**STDOUT:**\n```\n{r.stdout}\n```\n"
+            f"**STDERR:**\n```\n{r.stderr}\n```"
+        )
+
+    def _execute_query(self, raw_query: str) -> str:
+        results = self.verifier.run([(raw_query, "")], self.cortex.connection)
+        v = results[0]
+        if v.rejected:
+            print(f"  [REJECTED] {raw_query[:60]}: {v.rejection_reason}")
+            return (
+                f"**QUERY:** `{raw_query}`\n"
+                f"**STATUS:** REJECTED\n"
+                f"**REASON:** {v.rejection_reason}"
+            )
+        if v.error:
+            print(f"  [ERROR] {raw_query[:60]}: {v.error[:100]}")
+            return (
+                f"**QUERY:** `{raw_query}`\n"
+                f"**STATUS:** ERROR\n"
+                f"**ERROR:** {v.error}"
+            )
+        rows_str = json.dumps(v.rows, indent=2, default=str)[:3000]
+        print(f"  [{len(v.rows)} rows] {raw_query[:60]}")
+        return (
+            f"**QUERY:** `{raw_query}`\n"
+            f"**ROWS:** {len(v.rows)}\n"
+            f"**RESULTS:**\n```json\n{rows_str}\n```"
+        )
 
     def _compose_comment(self, final_text: str) -> str:
         header = (
             "<!-- cortex-review-bot -->\n"
-            "## Cortex AI PR Review\n\n"
+            "## Cortex AI E2E Review\n\n"
             f"> Model: `{self.cortex.model}` | "
             f"Reviewed at: {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}\n\n"
         )
@@ -877,11 +822,12 @@ def main():
         )
         sys.exit(1)
 
-    # Steps 3-6: Run review pipeline
+    # Run agent loop
     sandbox = CommandSandbox()
-    pipeline = ReviewPipeline(cortex=cortex, pr=pr, sandbox=sandbox, repo=repo)
+    verifier = SQLVerifier()
+    agent = AgentLoop(cortex=cortex, pr=pr, sandbox=sandbox, verifier=verifier)
     try:
-        comment_body = pipeline.run()
+        comment_body = agent.run()
     except Exception as e:
         tb = traceback.format_exc()
         _post_error_comment(
