@@ -301,7 +301,7 @@ class CortexClient:
         update_connection_details_with_private_key(config)
 
         conn = snowflake.connector.connect(**config)
-        model = os.environ.get("CORTEX_MODEL", "llama3.1-70b")
+        model = os.environ.get("CORTEX_MODEL", "claude-4-opus")
         return cls(connection=conn, model=model)
 
 
