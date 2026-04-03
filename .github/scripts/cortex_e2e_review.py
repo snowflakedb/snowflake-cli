@@ -398,13 +398,6 @@ def main():
 
     # Step 8: Post the review comment
     print("[Step 8] Posting review comment...")
-    # Strip agent thinking — only keep the final report
-    # Try multiple patterns the agent might use for the summary header
-    import re
-
-    summary_match = re.search(r"^#{1,4}\s*Summary", agent_output, re.MULTILINE)
-    if summary_match:
-        agent_output = agent_output[summary_match.start() :]
     head_sha = pr["head_sha"][:8]
     header = (
         "<!-- cortex-review-bot -->\n"
@@ -425,23 +418,29 @@ def main():
 
 
 def _parse_stream_json(raw: str) -> str:
-    """Extract text content from Cortex Code CLI stream-json output."""
-    text_parts = []
+    """Extract the final text output from Cortex Code CLI stream-json.
+
+    The stream contains many intermediate messages (thinking, tool calls,
+    tool results). We only want the last assistant text message — that's
+    the final report.
+    """
+    last_text = ""
     for line in raw.splitlines():
         line = line.strip()
         if not line:
             continue
         try:
             obj = json.loads(line)
-            if obj.get("type") == "text":
-                text_parts.append(obj.get("content", ""))
-            elif obj.get("type") == "result":
-                text_parts.append(obj.get("result", ""))
-            elif isinstance(obj.get("content"), str):
-                text_parts.append(obj["content"])
+            # Capture the last text/result — the final report
+            if obj.get("type") == "text" and obj.get("content"):
+                last_text = obj["content"]
+            elif obj.get("type") == "result" and obj.get("result"):
+                last_text = obj["result"]
+            elif obj.get("type") == "assistant" and isinstance(obj.get("content"), str):
+                last_text = obj["content"]
         except json.JSONDecodeError:
             continue
-    return "\n".join(text_parts)
+    return last_text
 
 
 def _cleanup(conn: snowflake.connector.SnowflakeConnection, playground_db: str):
