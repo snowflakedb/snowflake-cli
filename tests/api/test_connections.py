@@ -97,6 +97,4 @@ def test_connection_cache_caches(
         warehouse="xs",
         password="dummy_password",
         application_name="snowcli",
-        client_session_keep_alive=True,
-        client_session_keep_alive_heartbeat_frequency=3600,
     )
