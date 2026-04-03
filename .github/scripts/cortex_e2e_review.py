@@ -75,10 +75,22 @@ tests_e2e/                    - end-to-end tests
 3. **Test edge cases** - Empty inputs, special characters, missing objects,
    invalid values, very long strings, null/None.
 
-4. **Test backward compatibility** - Does old usage still work?
+4. **Identify breaking changes** - Check if the PR changes any of these:
+   - Command names, subcommand names, or aliases (renamed/removed)
+   - CLI option names, short flags, or their defaults
+   - Output format (JSON structure, table columns, message text that
+     scripts may parse)
+   - Exit codes or error messages
+   - Required arguments or their order
+   - Behavior of existing flags (e.g. a flag that was no-op now does
+     something, or vice versa)
+   - Environment variable names or config file keys
+   For each breaking change found, verify by running the old usage
+   pattern and confirming it fails or behaves differently.
 
 5. **Check interactions** - Does the change affect shared utilities used by
-   other plugins? Could it break a seemingly unrelated command?
+   other plugins? Could it break a seemingly unrelated command? Search
+   for shared functions, base classes, or decorators that were modified.
 
 6. **Verify side effects** - After running commands, query Snowflake to
    confirm objects were created/modified as expected.
@@ -98,6 +110,11 @@ One paragraph on what the PR does and whether E2E verification passed.
 
 ### E2E Test Results
 Commands run, exit codes, whether output matched expectations.
+
+### Breaking Changes
+Any changes that break backward compatibility: renamed/removed commands
+or options, changed output formats, different exit codes, altered defaults.
+If none, say "No breaking changes detected."
 
 ### Side-Effect Verification
 SQL queries run and their results. If none needed, say so.
