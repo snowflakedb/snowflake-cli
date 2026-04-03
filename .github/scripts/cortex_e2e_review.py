@@ -754,7 +754,32 @@ def main():
     finally:
         cursor.close()
 
+    # Point the snow CLI's integration connection at the playground database
+    os.environ[f"{_ENV_PREFIX}_DATABASE"] = playground_db
+    print(f"  Set {_ENV_PREFIX}_DATABASE={playground_db}")
+
+    # Verify the snow CLI can connect
+    print("[Step 4] Verifying snow CLI connection to playground...")
+    verify = subprocess.run(
+        [
+            "snow",
+            "sql",
+            "-q",
+            "SELECT CURRENT_DATABASE()",
+            "--connection",
+            "integration",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if verify.returncode == 0:
+        print(f"  Connection OK: {verify.stdout.strip()[:100]}")
+    else:
+        print(f"  Warning: connection test failed: {verify.stderr.strip()[:200]}")
+
     # Run agent loop
+    print("[Step 5] Starting agent loop...")
     cmd_runner = CommandRunner()
     query_runner = QueryRunner(cortex.connection)
     agent = AgentLoop(
