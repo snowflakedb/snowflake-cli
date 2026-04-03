@@ -29,14 +29,13 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import shlex
 import subprocess
 import sys
 import textwrap
 import time
 import traceback
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import snowflake.connector
 from snowflake.cli._app.snow_connector import update_connection_details_with_private_key
@@ -45,25 +44,9 @@ from snowflake.cli._app.snow_connector import update_connection_details_with_pri
 # Constants
 # ---------------------------------------------------------------------------
 
-ALLOWED_SNOW_SUBCOMMANDS = frozenset(
-    [
-        "cortex",
-        "sql",
-        "object",
-        "stage",
-        "git",
-        "streamlit",
-        "snowpark",
-        "connection",
-        "helpers",
-        "notebook",
-    ]
-)
-
 MAX_DIFF_CHARS = 40_000
-MAX_COMMANDS_TO_RUN = 8
-COMMAND_TIMEOUT_SECONDS = 45
-CORTEX_REQUEST_TIMEOUT = 120
+COMMAND_TIMEOUT_SECONDS = 60
+QUERY_TIMEOUT_SECONDS = 30
 
 # Models to try in order of preference if the primary model is unavailable
 MODEL_FALLBACK_CHAIN = [
@@ -89,50 +72,55 @@ AGENT_SYSTEM_PROMPT = textwrap.dedent(
     security, test coverage, or architecture. Your only job is dynamic E2E
     verification of CLI behavioral changes.
 
-    ## How you work
+    ## Your environment
 
-    You have two tools available. To use them, output action lines:
+    You have a dedicated Snowflake playground database: {playground_db}
+    This database is yours — you can CREATE, DROP, INSERT, ALTER anything
+    in it freely. It will be destroyed after your run completes.
+
+    The `snow` CLI is installed from the PR branch and configured with
+    `--connection integration` pointing to this playground database.
+
+    ## Tools
 
     ACTION: CMD <command>
-      Executes a `snow` CLI command on the runner. You will receive stdout,
-      stderr, and exit code.
+      Executes any shell command on the runner. Typically `snow ...` CLI
+      commands, but you can also use standard tools (e.g. `snow --help`,
+      `snow sql -q "..."`, etc.). You will receive stdout, stderr, and
+      exit code.
 
     ACTION: QUERY <sql>
-      Executes a read-only SQL query against Snowflake. You will receive
-      the result rows.
+      Executes any SQL statement against Snowflake (using the playground
+      database). You will receive result rows or error messages.
+      You can CREATE tables, stages, functions — anything needed to set
+      up test scenarios and verify side effects.
+
+    ACTION: REPORT
+      Signals you are done. Everything after this line is your final
+      report in GitHub Markdown.
 
     You can request multiple actions in one response (one per line). After
     each batch, I will execute them and show you the results. You can then
     request more actions based on what you learned.
-
-    When you are done, output your final report using:
-    ACTION: REPORT
-    Followed by the report in GitHub Markdown (described below).
 
     ## Workflow
 
     1. Analyze the PR diff to determine if CLI behavior changed.
     2. If NO behavioral changes: immediately output ACTION: REPORT with a
        short summary and verdict SKIP.
-    3. If YES: use ACTION: CMD and ACTION: QUERY to verify the changes.
-       You may run multiple rounds — inspect results, run follow-up
-       commands, verify side effects, etc.
+    3. If YES:
+       - Set up any test fixtures you need (tables, stages, data) using
+         ACTION: QUERY in the playground database.
+       - Run CLI commands with ACTION: CMD to exercise the changed behavior.
+       - Verify side effects with ACTION: QUERY.
+       - Run follow-up commands if results are unexpected.
+       - Clean up is optional — the database will be dropped automatically.
     4. When satisfied, output ACTION: REPORT with your findings.
 
-    ## CMD rules
-    - Must start with `snow`
-    - Only subcommands: cortex, sql, object, stage, git, streamlit,
-      snowpark, connection, helpers, notebook
-    - Read-only or idempotent. Never: drop, delete, truncate, remove,
-      overwrite, replace, undeploy
-    - No shell pipes, redirections, or variable substitution
-    - For commands needing a connection: --connection integration
-    - May use --help to verify interfaces
-
-    ## QUERY rules
-    - Only: SELECT, SHOW, DESCRIBE, DESC, LIST, WITH
-    - Never: INSERT, UPDATE, DELETE, DROP, CREATE, ALTER, GRANT, REVOKE,
-      TRUNCATE, MERGE, COPY, PUT, GET, REMOVE
+    ## CMD tips
+    - For commands needing a Snowflake connection: --connection integration
+    - You can run `snow <command> --help` to inspect interfaces.
+    - You have full access — create objects, deploy apps, run any snow command.
 
     ## REPORT format
     ACTION: REPORT
@@ -378,204 +366,61 @@ class PRFetcher:
 
 
 # ---------------------------------------------------------------------------
-# CommandSandbox
+# CommandRunner (unrestricted)
 # ---------------------------------------------------------------------------
 
 
-@dataclass
-class ExecutionResult:
-    command: str
-    stdout: str
-    stderr: str
-    exit_code: int
-    timed_out: bool = False
-    rejected: bool = False
-    rejection_reason: str = ""
+class CommandRunner:
+    """Executes shell commands via subprocess. No restrictions — the agent
+    operates in an ephemeral CI runner with a playground database."""
 
-
-class CommandSandbox:
-    """
-    Executes `snow` CLI commands in subprocess with strict safety controls:
-    - Allowlist on subcommands
-    - Block list on destructive keywords
-    - No shell=True; arguments parsed via shlex
-    - Per-command timeout
-    - Output size caps
-    """
-
-    BLOCKED_OPERATION_PATTERNS = re.compile(
-        r"\b(drop|delete|truncate|overwrite|replace|undeploy|remove)\b",
-        re.IGNORECASE,
-    )
-
-    def validate_command(self, raw: str) -> tuple[bool, str, list[str]]:
-        """Returns (is_valid, rejection_reason, argv_list)."""
+    def run(self, raw_cmd: str) -> tuple[str, str, int, bool]:
+        """Returns (stdout, stderr, exit_code, timed_out)."""
         try:
-            argv = shlex.split(raw)
+            argv = shlex.split(raw_cmd)
         except ValueError as e:
-            return False, f"Cannot parse command: {e}", []
+            return "", f"Cannot parse command: {e}", -1, False
 
-        if not argv or argv[0] != "snow":
-            return False, "Command must start with 'snow'", []
-
-        if len(argv) < 2 or argv[1] not in ALLOWED_SNOW_SUBCOMMANDS:
-            subcommand = argv[1] if len(argv) > 1 else ""
-            return (
-                False,
-                f"Subcommand '{subcommand}' not in allowlist",
-                [],
+        try:
+            proc = subprocess.run(
+                argv,
+                capture_output=True,
+                text=True,
+                timeout=COMMAND_TIMEOUT_SECONDS,
             )
-
-        if self.BLOCKED_OPERATION_PATTERNS.search(raw):
-            return False, "Command contains a blocked destructive keyword", []
-
-        for arg in argv[2:]:
-            if any(c in arg for c in (";", "|", "&", "`", "$", ">(", "<(")):
-                return False, f"Suspicious character in argument: {arg!r}", []
-
-        return True, "", argv
-
-    def run(self, commands: list[str]) -> list[ExecutionResult]:
-        results = []
-        for raw_cmd in commands[:MAX_COMMANDS_TO_RUN]:
-            valid, reason, argv = self.validate_command(raw_cmd)
-            if not valid:
-                results.append(
-                    ExecutionResult(
-                        command=raw_cmd,
-                        stdout="",
-                        stderr="",
-                        exit_code=-1,
-                        rejected=True,
-                        rejection_reason=reason,
-                    )
-                )
-                continue
-
-            try:
-                proc = subprocess.run(
-                    argv,
-                    capture_output=True,
-                    text=True,
-                    timeout=COMMAND_TIMEOUT_SECONDS,
-                )
-                results.append(
-                    ExecutionResult(
-                        command=raw_cmd,
-                        stdout=proc.stdout[:4000],
-                        stderr=proc.stderr[:2000],
-                        exit_code=proc.returncode,
-                    )
-                )
-            except subprocess.TimeoutExpired:
-                results.append(
-                    ExecutionResult(
-                        command=raw_cmd,
-                        stdout="",
-                        stderr="",
-                        exit_code=-1,
-                        timed_out=True,
-                    )
-                )
-        return results
+            return proc.stdout[:8000], proc.stderr[:4000], proc.returncode, False
+        except subprocess.TimeoutExpired:
+            return "", "", -1, True
 
 
 # ---------------------------------------------------------------------------
-# SQLVerifier
+# QueryRunner (unrestricted)
 # ---------------------------------------------------------------------------
 
-MAX_VERIFICATION_QUERIES = 6
-QUERY_TIMEOUT_SECONDS = 30
 
-ALLOWED_SQL_PREFIXES = (
-    "SELECT",
-    "SHOW",
-    "DESCRIBE",
-    "DESC",
-    "LIST",
-    "CALL",
-    "WITH",
-)
+class QueryRunner:
+    """Executes any SQL against Snowflake. The agent operates in an
+    ephemeral playground database that is dropped after the run."""
 
-BLOCKED_SQL_PATTERNS = re.compile(
-    r"\b(INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|GRANT|REVOKE|TRUNCATE|MERGE|COPY|PUT|GET|REMOVE)\b",
-    re.IGNORECASE,
-)
+    def __init__(self, connection: snowflake.connector.SnowflakeConnection):
+        self.connection = connection
 
-
-@dataclass
-class VerificationResult:
-    query: str
-    expected: str
-    rows: list[dict] = field(default_factory=list)
-    error: str = ""
-    rejected: bool = False
-    rejection_reason: str = ""
-
-
-class SQLVerifier:
-    """Executes read-only SQL verification queries against Snowflake."""
-
-    def validate_query(self, raw: str) -> tuple[bool, str]:
-        stripped = raw.strip().rstrip(";")
-        upper = stripped.upper().lstrip()
-        if not any(upper.startswith(p) for p in ALLOWED_SQL_PREFIXES):
-            return (
-                False,
-                f"Query must start with one of: {', '.join(ALLOWED_SQL_PREFIXES)}",
+    def run(self, raw_query: str) -> tuple[list[dict], str]:
+        """Returns (rows, error). Rows is a list of dicts, error is empty on success."""
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute(raw_query, timeout=QUERY_TIMEOUT_SECONDS)
+            columns = (
+                [desc[0] for desc in cursor.description] if cursor.description else []
             )
-        if BLOCKED_SQL_PATTERNS.search(stripped):
-            return False, "Query contains a blocked DDL/DML keyword"
-        return True, ""
-
-    def run(
-        self,
-        queries: list[tuple[str, str]],
-        connection: snowflake.connector.SnowflakeConnection,
-    ) -> list[VerificationResult]:
-        results = []
-        for raw_query, expected in queries[:MAX_VERIFICATION_QUERIES]:
-            valid, reason = self.validate_query(raw_query)
-            if not valid:
-                results.append(
-                    VerificationResult(
-                        query=raw_query,
-                        expected=expected,
-                        rejected=True,
-                        rejection_reason=reason,
-                    )
-                )
-                continue
-
-            cursor = connection.cursor()
-            try:
-                cursor.execute(raw_query, timeout=QUERY_TIMEOUT_SECONDS)
-                columns = (
-                    [desc[0] for desc in cursor.description]
-                    if cursor.description
-                    else []
-                )
-                rows = []
-                for row in cursor.fetchmany(20):
-                    rows.append(dict(zip(columns, row)))
-                results.append(
-                    VerificationResult(
-                        query=raw_query,
-                        expected=expected,
-                        rows=rows,
-                    )
-                )
-            except Exception as e:
-                results.append(
-                    VerificationResult(
-                        query=raw_query,
-                        expected=expected,
-                        error=str(e)[:500],
-                    )
-                )
-            finally:
-                cursor.close()
-        return results
+            rows = []
+            for row in cursor.fetchmany(50):
+                rows.append(dict(zip(columns, row)))
+            return rows, ""
+        except Exception as e:
+            return [], str(e)[:1000]
+        finally:
+            cursor.close()
 
 
 # ---------------------------------------------------------------------------
@@ -592,15 +437,22 @@ class AgentLoop:
         self,
         cortex: CortexClient,
         pr: PRMetadata,
-        sandbox: CommandSandbox,
-        verifier: SQLVerifier,
+        cmd_runner: CommandRunner,
+        query_runner: QueryRunner,
+        playground_db: str,
     ):
         self.cortex = cortex
         self.pr = pr
-        self.sandbox = sandbox
-        self.verifier = verifier
+        self.cmd_runner = cmd_runner
+        self.query_runner = query_runner
+        self.playground_db = playground_db
         self.conversation: list[dict] = [
-            {"role": "system", "content": AGENT_SYSTEM_PROMPT},
+            {
+                "role": "system",
+                "content": AGENT_SYSTEM_PROMPT.format(
+                    playground_db=playground_db,
+                ),
+            },
         ]
 
     def run(self) -> str:
@@ -699,51 +551,35 @@ class AgentLoop:
         return text[idx + len(marker) :].strip()
 
     def _execute_cmd(self, raw_cmd: str) -> str:
-        results = self.sandbox.run([raw_cmd])
-        r = results[0]
-        if r.rejected:
-            print(f"  [REJECTED] {raw_cmd}: {r.rejection_reason}")
-            return (
-                f"**CMD:** `{raw_cmd}`\n"
-                f"**STATUS:** REJECTED\n"
-                f"**REASON:** {r.rejection_reason}"
-            )
-        if r.timed_out:
+        stdout, stderr, exit_code, timed_out = self.cmd_runner.run(raw_cmd)
+        if timed_out:
             print(f"  [TIMEOUT] {raw_cmd}")
             return (
                 f"**CMD:** `{raw_cmd}`\n"
                 f"**STATUS:** TIMED OUT (>{COMMAND_TIMEOUT_SECONDS}s)"
             )
-        print(f"  [exit={r.exit_code}] {raw_cmd}")
+        print(f"  [exit={exit_code}] {raw_cmd}")
         return (
             f"**CMD:** `{raw_cmd}`\n"
-            f"**EXIT CODE:** {r.exit_code}\n"
-            f"**STDOUT:**\n```\n{r.stdout}\n```\n"
-            f"**STDERR:**\n```\n{r.stderr}\n```"
+            f"**EXIT CODE:** {exit_code}\n"
+            f"**STDOUT:**\n```\n{stdout}\n```\n"
+            f"**STDERR:**\n```\n{stderr}\n```"
         )
 
     def _execute_query(self, raw_query: str) -> str:
-        results = self.verifier.run([(raw_query, "")], self.cortex.connection)
-        v = results[0]
-        if v.rejected:
-            print(f"  [REJECTED] {raw_query[:60]}: {v.rejection_reason}")
-            return (
-                f"**QUERY:** `{raw_query}`\n"
-                f"**STATUS:** REJECTED\n"
-                f"**REASON:** {v.rejection_reason}"
-            )
-        if v.error:
-            print(f"  [ERROR] {raw_query[:60]}: {v.error[:100]}")
+        rows, error = self.query_runner.run(raw_query)
+        if error:
+            print(f"  [ERROR] {raw_query[:60]}: {error[:100]}")
             return (
                 f"**QUERY:** `{raw_query}`\n"
                 f"**STATUS:** ERROR\n"
-                f"**ERROR:** {v.error}"
+                f"**ERROR:** {error}"
             )
-        rows_str = json.dumps(v.rows, indent=2, default=str)[:3000]
-        print(f"  [{len(v.rows)} rows] {raw_query[:60]}")
+        rows_str = json.dumps(rows, indent=2, default=str)[:3000]
+        print(f"  [{len(rows)} rows] {raw_query[:60]}")
         return (
             f"**QUERY:** `{raw_query}`\n"
-            f"**ROWS:** {len(v.rows)}\n"
+            f"**ROWS:** {len(rows)}\n"
             f"**RESULTS:**\n```json\n{rows_str}\n```"
         )
 
@@ -822,10 +658,28 @@ def main():
         )
         sys.exit(1)
 
+    # Create playground database
+    run_id = os.environ.get("GITHUB_RUN_ID", "local")
+    playground_db = f"CORTEX_REVIEW_PR{pr_number}_{run_id}"
+    print(f"[Step 3] Creating playground database: {playground_db}")
+    cursor = cortex.connection.cursor()
+    try:
+        cursor.execute(f"CREATE DATABASE IF NOT EXISTS {playground_db}")
+        cursor.execute(f"USE DATABASE {playground_db}")
+        cursor.execute("USE SCHEMA PUBLIC")
+    finally:
+        cursor.close()
+
     # Run agent loop
-    sandbox = CommandSandbox()
-    verifier = SQLVerifier()
-    agent = AgentLoop(cortex=cortex, pr=pr, sandbox=sandbox, verifier=verifier)
+    cmd_runner = CommandRunner()
+    query_runner = QueryRunner(cortex.connection)
+    agent = AgentLoop(
+        cortex=cortex,
+        pr=pr,
+        cmd_runner=cmd_runner,
+        query_runner=query_runner,
+        playground_db=playground_db,
+    )
     try:
         comment_body = agent.run()
     except Exception as e:
@@ -837,10 +691,19 @@ def main():
         )
         sys.exit(1)
     finally:
+        # Always clean up playground database
+        print(f"[Cleanup] Dropping playground database: {playground_db}")
+        cleanup_cursor = cortex.connection.cursor()
+        try:
+            cleanup_cursor.execute(f"DROP DATABASE IF EXISTS {playground_db}")
+        except Exception as cleanup_err:
+            print(f"  Warning: cleanup failed: {cleanup_err}")
+        finally:
+            cleanup_cursor.close()
         cortex.connection.close()
 
-    # Step 7: Post the review comment
-    print("[Step 7] Posting review comment to PR...")
+    # Post the review comment
+    print("[Post] Posting review comment to PR...")
     _post_comment(repo, pr_number, comment_body)
     print("Done.")
 
