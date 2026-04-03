@@ -427,7 +427,7 @@ class QueryRunner:
 # AgentLoop
 # ---------------------------------------------------------------------------
 
-MAX_AGENT_TURNS = 10
+MAX_AGENT_TURNS = 50
 
 
 class AgentLoop:
