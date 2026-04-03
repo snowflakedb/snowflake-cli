@@ -271,9 +271,10 @@ def main():
         sys.exit(1)
     print(f"  Cortex version: {result.stdout.strip()}")
 
-    # Dump cortex --help for debugging
+    # Dump full cortex --help for debugging
     help_result = subprocess.run(["cortex", "--help"], capture_output=True, text=True)
-    print(f"  cortex --help:\n{help_result.stdout[:1000]}")
+    full_help = help_result.stdout + help_result.stderr
+    print(f"  cortex --help (full):\n{full_help}")
 
     # Step 4: Create playground database
     print("[Step 4] Creating playground database...")
@@ -365,8 +366,9 @@ def main():
             f"  Agent finished (exit={agent_result.returncode},"
             f" {len(agent_output)} chars)"
         )
-        if agent_result.returncode != 0 and agent_result.stderr:
-            print(f"  Stderr: {agent_result.stderr[:500]}")
+        if agent_result.returncode != 0:
+            print(f"  Stderr (full):\n{agent_result.stderr}")
+            print(f"  Stdout (full):\n{agent_result.stdout[:3000]}")
     except subprocess.TimeoutExpired:
         agent_output = "Agent timed out after 50 minutes."
         print("  Agent timed out")
