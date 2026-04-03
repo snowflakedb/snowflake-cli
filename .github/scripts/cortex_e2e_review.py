@@ -588,6 +588,7 @@ class AgentLoop:
             "<!-- cortex-review-bot -->\n"
             "## Cortex AI E2E Review\n\n"
             f"> Model: `{self.cortex.model}` | "
+            f"Commit: `{self.pr.head_sha[:8]}` | "
             f"Reviewed at: {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}\n\n"
         )
         return header + final_text
