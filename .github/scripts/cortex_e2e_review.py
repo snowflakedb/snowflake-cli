@@ -72,10 +72,21 @@ AGENT_SYSTEM_PROMPT = textwrap.dedent(
     security, test coverage, or architecture. Your only job is dynamic E2E
     verification of CLI behavioral changes.
 
+    ## Project structure
+
+    src/snowflake/cli/_app/       - core app framework, connectors, config
+    src/snowflake/cli/_plugins/   - CLI command plugins (cortex, sql, stage,
+                                    snowpark, nativeapp, git, streamlit, etc.)
+    src/snowflake/cli/api/        - public API surface, shared utilities
+    tests/                        - unit tests (mirrors src/ structure)
+    tests_integration/            - integration tests (require Snowflake)
+    tests_e2e/                    - end-to-end tests (build CLI in venv)
+    pyproject.toml                - dependencies, hatch envs, pytest config
+
     ## Your environment
 
     You have a dedicated Snowflake playground database: {playground_db}
-    This database is yours — you can CREATE, DROP, INSERT, ALTER anything
+    This database is yours - you can CREATE, DROP, INSERT, ALTER anything
     in it freely. It will be destroyed after your run completes.
 
     The `snow` CLI is installed from the PR branch and configured with
@@ -84,60 +95,90 @@ AGENT_SYSTEM_PROMPT = textwrap.dedent(
     ## Tools
 
     ACTION: CMD <command>
-      Executes any shell command on the runner. Typically `snow ...` CLI
-      commands, but you can also use standard tools (e.g. `snow --help`,
-      `snow sql -q "..."`, etc.). You will receive stdout, stderr, and
-      exit code.
+      Executes any shell command on the runner. You will receive stdout,
+      stderr, and exit code. Output is capped at 8KB stdout / 4KB stderr.
 
-    ACTION: QUERY <sql>
-      Executes any SQL statement against Snowflake (using the playground
-      database). You will receive result rows or error messages.
-      You can CREATE tables, stages, functions — anything needed to set
-      up test scenarios and verify side effects.
+    ACTION: QUERY <sql>            (single line)
+    ACTION: QUERY                  (multi-line, terminated by END_ACTION)
+    <sql line 1>
+    <sql line 2>
+    END_ACTION
+      Executes any SQL statement against Snowflake (playground database).
+      Use single-line for short queries, multi-line block for DDL/complex SQL.
 
     ACTION: READ <filepath>
-      Reads a file from the snowflake-cli repository. Use this to inspect
-      source code beyond the diff — check how a changed function is called,
-      look at related modules, read test files, understand the full context
-      of a change. Path is relative to the repo root (e.g. src/snowflake/
-      cli/_plugins/cortex/manager.py).
+    ACTION: READ <filepath> <start>-<end>
+      Reads a file from the repo (relative to root). Optionally specify a
+      line range (e.g. `ACTION: READ src/foo.py 50-100`). Output capped
+      at 8KB. If truncated you will be told — request a narrower range.
+
+    ACTION: GREP <pattern>
+      Searches all Python files in the repo for a regex pattern.
+      Returns matching lines with file paths and line numbers.
+      Use this to find callers, imports, and usages of changed code.
+      Output capped at 5KB.
 
     ACTION: GLOB <pattern>
-      Finds files matching a glob pattern in the repository (e.g.
-      src/snowflake/cli/_plugins/cortex/*.py or tests/**/test_cortex*.py).
-      Returns a list of matching file paths.
+      Finds files matching a glob pattern (e.g. `**/*cortex*.py`).
 
     ACTION: REPORT
       Signals you are done. Everything after this line is your final
       report in GitHub Markdown.
 
-    You can request multiple actions in one response (one per line). After
-    each batch, I will execute them and show you the results. You can then
-    request more actions based on what you learned.
+    You can request multiple actions in one response. After each batch,
+    I will execute them and show you the results. You can then request
+    more actions based on what you learned.
+
+    ## How to investigate changes
+
+    When the PR changes CLI behavior, follow this investigation process:
+
+    1. **Understand the change scope**
+       - Read the changed files fully (ACTION: READ), not just the diff.
+       - GREP for the changed function/class names to find all callers
+         and imports across the codebase.
+       - Check existing tests for the changed code to understand the
+         intended behavior.
+
+    2. **Test the happy path**
+       - Run the changed CLI command with typical inputs.
+       - Verify the output matches expectations.
+
+    3. **Test edge cases and error paths**
+       - Empty inputs, missing arguments, invalid values.
+       - Special characters, very long strings, unicode.
+       - Missing Snowflake objects (tables/stages that don't exist).
+       - Permission errors, connection issues.
+       - Null/None values where applicable.
+
+    4. **Test backward compatibility**
+       - Does old usage still work after the change?
+       - Are deprecated options still accepted?
+       - Does output format remain parseable for existing consumers?
+
+    5. **Check for interaction effects**
+       - Does the change affect shared utilities used by other plugins?
+       - Could it break a seemingly unrelated command?
+       - GREP for shared functions that were modified.
+
+    6. **Verify side effects in Snowflake**
+       - After running commands, use ACTION: QUERY to confirm objects
+         were created/modified/deleted as expected.
+       - Check that no unintended objects were left behind.
 
     ## Workflow
 
     1. Analyze the PR diff to determine if CLI behavior changed.
     2. If NO behavioral changes: immediately output ACTION: REPORT with a
        short summary and verdict SKIP.
-    3. If YES:
-       - Use ACTION: READ and ACTION: GLOB to understand how the changed
-         code interacts with the rest of the project. Check callers,
-         imports, related modules, and existing tests.
-       - Set up any test fixtures you need (tables, stages, data) using
-         ACTION: QUERY in the playground database.
-       - Run CLI commands with ACTION: CMD to exercise the changed behavior.
-       - Verify side effects with ACTION: QUERY.
-       - Run follow-up commands if results are unexpected.
-       - Look for unintended side effects by reading related code and
-         testing edge cases.
-       - Clean up is optional — the database will be dropped automatically.
+    3. If YES: follow the investigation process above. Use as many turns
+       as you need to be thorough.
     4. When satisfied, output ACTION: REPORT with your findings.
 
     ## CMD tips
     - For commands needing a Snowflake connection: --connection integration
     - You can run `snow <command> --help` to inspect interfaces.
-    - You have full access — create objects, deploy apps, run any snow command.
+    - You have full access - create objects, deploy apps, run any snow command.
 
     ## REPORT format
     ACTION: REPORT
@@ -152,6 +193,12 @@ AGENT_SYSTEM_PROMPT = textwrap.dedent(
     ### Side-Effect Verification
     Any SQL verification queries run and their results. If none needed,
     say so.
+
+    ### Potential Risks
+    Things you noticed that could be problematic but couldn't fully verify
+    in this environment. Include interaction risks with other modules,
+    edge cases not testable in the playground, and behavioral changes
+    that may affect downstream users. If none, say so.
 
     ### Verdict
     One of: PASS / FAIL / SKIP
@@ -528,6 +575,9 @@ class AgentLoop:
                 elif action_type == "GLOB":
                     result = self._execute_glob(action_value)
                     results_parts.append(result)
+                elif action_type == "GREP":
+                    result = self._execute_grep(action_value)
+                    results_parts.append(result)
 
             # Feed results back
             results_text = "\n\n---\n\n".join(results_parts)
@@ -554,22 +604,36 @@ class AgentLoop:
         return self._compose_comment(response)
 
     def _parse_actions(self, text: str) -> list[tuple[str, str]]:
-        """Extract ACTION: CMD, QUERY, READ, and GLOB lines."""
+        """Extract actions, supporting both single-line and multi-line blocks."""
         actions = []
-        for line in text.splitlines():
-            stripped = line.strip()
+        lines = text.splitlines()
+        i = 0
+        while i < len(lines):
+            stripped = lines[i].strip()
+
+            # Single-line actions with inline value
             if stripped.startswith("ACTION: CMD "):
-                cmd = stripped[len("ACTION: CMD ") :].strip()
-                actions.append(("CMD", cmd))
+                actions.append(("CMD", stripped[len("ACTION: CMD ") :].strip()))
             elif stripped.startswith("ACTION: QUERY "):
-                query = stripped[len("ACTION: QUERY ") :].strip()
-                actions.append(("QUERY", query))
+                actions.append(("QUERY", stripped[len("ACTION: QUERY ") :].strip()))
             elif stripped.startswith("ACTION: READ "):
-                path = stripped[len("ACTION: READ ") :].strip()
-                actions.append(("READ", path))
+                actions.append(("READ", stripped[len("ACTION: READ ") :].strip()))
             elif stripped.startswith("ACTION: GLOB "):
-                pattern = stripped[len("ACTION: GLOB ") :].strip()
-                actions.append(("GLOB", pattern))
+                actions.append(("GLOB", stripped[len("ACTION: GLOB ") :].strip()))
+            elif stripped.startswith("ACTION: GREP "):
+                actions.append(("GREP", stripped[len("ACTION: GREP ") :].strip()))
+
+            # Multi-line block: ACTION: QUERY / ACTION: CMD on its own line
+            elif stripped in ("ACTION: QUERY", "ACTION: CMD"):
+                action_type = stripped.split()[-1]
+                block_lines = []
+                i += 1
+                while i < len(lines) and lines[i].strip() != "END_ACTION":
+                    block_lines.append(lines[i])
+                    i += 1
+                actions.append((action_type, "\n".join(block_lines).strip()))
+
+            i += 1
         return actions
 
     def _extract_report(self, text: str) -> str | None:
@@ -588,33 +652,56 @@ class AgentLoop:
                 f"**CMD:** `{raw_cmd}`\n"
                 f"**STATUS:** TIMED OUT (>{COMMAND_TIMEOUT_SECONDS}s)"
             )
+        stdout_trunc = ""
+        if len(stdout) >= 8000:
+            stdout_trunc = "\n[STDOUT TRUNCATED]"
+        stderr_trunc = ""
+        if len(stderr) >= 4000:
+            stderr_trunc = "\n[STDERR TRUNCATED]"
         print(f"  [exit={exit_code}] {raw_cmd}")
         return (
             f"**CMD:** `{raw_cmd}`\n"
             f"**EXIT CODE:** {exit_code}\n"
-            f"**STDOUT:**\n```\n{stdout}\n```\n"
-            f"**STDERR:**\n```\n{stderr}\n```"
+            f"**STDOUT:**\n```\n{stdout}\n```{stdout_trunc}\n"
+            f"**STDERR:**\n```\n{stderr}\n```{stderr_trunc}"
         )
 
     def _execute_query(self, raw_query: str) -> str:
         rows, error = self.query_runner.run(raw_query)
+        query_display = raw_query[:200].replace("\n", " ")
         if error:
-            print(f"  [ERROR] {raw_query[:60]}: {error[:100]}")
+            print(f"  [ERROR] {query_display[:60]}: {error[:100]}")
             return (
-                f"**QUERY:** `{raw_query}`\n"
+                f"**QUERY:** `{query_display}`\n"
                 f"**STATUS:** ERROR\n"
                 f"**ERROR:** {error}"
             )
-        rows_str = json.dumps(rows, indent=2, default=str)[:3000]
-        print(f"  [{len(rows)} rows] {raw_query[:60]}")
+        rows_str = json.dumps(rows, indent=2, default=str)
+        truncated = ""
+        if len(rows_str) > 3000:
+            rows_str = rows_str[:3000]
+            truncated = "\n[OUTPUT TRUNCATED - narrow your query to get full results]"
+        print(f"  [{len(rows)} rows] {query_display[:60]}")
         return (
-            f"**QUERY:** `{raw_query}`\n"
+            f"**QUERY:** `{query_display}`\n"
             f"**ROWS:** {len(rows)}\n"
-            f"**RESULTS:**\n```json\n{rows_str}\n```"
+            f"**RESULTS:**\n```json\n{rows_str}\n```{truncated}"
         )
 
-    def _execute_read(self, filepath: str) -> str:
+    def _execute_read(self, raw_arg: str) -> str:
         import pathlib
+
+        # Parse optional line range: "path/to/file.py 50-100"
+        parts = raw_arg.strip().split()
+        filepath = parts[0]
+        line_start, line_end = None, None
+        if len(parts) > 1 and "-" in parts[-1]:
+            try:
+                range_parts = parts[-1].split("-")
+                line_start = int(range_parts[0])
+                line_end = int(range_parts[1])
+            except (ValueError, IndexError):
+                pass
 
         # Resolve relative to repo root, prevent path traversal
         repo_root = pathlib.Path.cwd()
@@ -623,24 +710,81 @@ class AgentLoop:
             print(f"  [BLOCKED] Path traversal attempt: {filepath}")
             return (
                 f"**READ:** `{filepath}`\n"
-                f"**STATUS:** BLOCKED — path is outside the repository"
+                f"**STATUS:** BLOCKED - path is outside the repository"
             )
         if not target.is_file():
             print(f"  [NOT FOUND] {filepath}")
             return f"**READ:** `{filepath}`\n**STATUS:** File not found"
 
         try:
-            content = target.read_text(errors="replace")
-            # Cap at 8K chars to avoid blowing up context
-            if len(content) > 8000:
-                content = (
-                    content[:8000]
-                    + f"\n... [truncated at 8000 chars, total {len(content)}]"
+            all_lines = target.read_text(errors="replace").splitlines()
+            total_lines = len(all_lines)
+
+            if line_start is not None and line_end is not None:
+                selected = all_lines[max(0, line_start - 1) : line_end]
+                content = "\n".join(
+                    f"{i}: {line}"
+                    for i, line in enumerate(selected, start=max(1, line_start))
                 )
-            print(f"  [OK] {filepath} ({len(content)} chars)")
-            return f"**READ:** `{filepath}`\n" f"**CONTENT:**\n```\n{content}\n```"
+                label = f" (lines {line_start}-{line_end} of {total_lines})"
+            else:
+                content = "\n".join(
+                    f"{i}: {line}" for i, line in enumerate(all_lines, start=1)
+                )
+                label = f" ({total_lines} lines)"
+
+            truncated = ""
+            if len(content) > 8000:
+                content = content[:8000]
+                truncated = (
+                    f"\n[OUTPUT TRUNCATED - use ACTION: READ {filepath} "
+                    f"<start>-<end> to read specific line ranges]"
+                )
+
+            print(f"  [OK] {filepath}{label}")
+            return (
+                f"**READ:** `{filepath}`{label}\n"
+                f"**CONTENT:**\n```\n{content}\n```{truncated}"
+            )
         except Exception as e:
-            return f"**READ:** `{filepath}`\n**STATUS:** ERROR — {e}"
+            return f"**READ:** `{filepath}`\n**STATUS:** ERROR - {e}"
+
+    def _execute_grep(self, pattern: str) -> str:
+        try:
+            proc = subprocess.run(
+                [
+                    "grep",
+                    "-rn",
+                    "--include=*.py",
+                    "--include=*.yaml",
+                    "--include=*.toml",
+                    "--include=*.sql",
+                    "-m",
+                    "50",
+                    pattern,
+                    ".",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            output = proc.stdout
+            truncated = ""
+            if len(output) > 5000:
+                output = output[:5000]
+                truncated = "\n[OUTPUT TRUNCATED - use a more specific pattern]"
+            lines = output.strip().count("\n") + 1 if output.strip() else 0
+            print(f"  [{lines} matches] grep {pattern}")
+            if not output.strip():
+                return f"**GREP:** `{pattern}`\n**MATCHES:** 0"
+            return (
+                f"**GREP:** `{pattern}`\n"
+                f"**MATCHES:**\n```\n{output}\n```{truncated}"
+            )
+        except subprocess.TimeoutExpired:
+            return f"**GREP:** `{pattern}`\n**STATUS:** TIMED OUT"
+        except Exception as e:
+            return f"**GREP:** `{pattern}`\n**STATUS:** ERROR - {e}"
 
     def _execute_glob(self, pattern: str) -> str:
         import glob as globmod
