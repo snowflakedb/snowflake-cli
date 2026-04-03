@@ -95,6 +95,18 @@ AGENT_SYSTEM_PROMPT = textwrap.dedent(
       You can CREATE tables, stages, functions — anything needed to set
       up test scenarios and verify side effects.
 
+    ACTION: READ <filepath>
+      Reads a file from the snowflake-cli repository. Use this to inspect
+      source code beyond the diff — check how a changed function is called,
+      look at related modules, read test files, understand the full context
+      of a change. Path is relative to the repo root (e.g. src/snowflake/
+      cli/_plugins/cortex/manager.py).
+
+    ACTION: GLOB <pattern>
+      Finds files matching a glob pattern in the repository (e.g.
+      src/snowflake/cli/_plugins/cortex/*.py or tests/**/test_cortex*.py).
+      Returns a list of matching file paths.
+
     ACTION: REPORT
       Signals you are done. Everything after this line is your final
       report in GitHub Markdown.
@@ -109,11 +121,16 @@ AGENT_SYSTEM_PROMPT = textwrap.dedent(
     2. If NO behavioral changes: immediately output ACTION: REPORT with a
        short summary and verdict SKIP.
     3. If YES:
+       - Use ACTION: READ and ACTION: GLOB to understand how the changed
+         code interacts with the rest of the project. Check callers,
+         imports, related modules, and existing tests.
        - Set up any test fixtures you need (tables, stages, data) using
          ACTION: QUERY in the playground database.
        - Run CLI commands with ACTION: CMD to exercise the changed behavior.
        - Verify side effects with ACTION: QUERY.
        - Run follow-up commands if results are unexpected.
+       - Look for unintended side effects by reading related code and
+         testing edge cases.
        - Clean up is optional — the database will be dropped automatically.
     4. When satisfied, output ACTION: REPORT with your findings.
 
@@ -489,7 +506,8 @@ class AgentLoop:
                     {
                         "role": "user",
                         "content": "No actions detected. Please use ACTION: CMD, "
-                        "ACTION: QUERY, or ACTION: REPORT to proceed.",
+                        "ACTION: QUERY, ACTION: READ, ACTION: GLOB, or "
+                        "ACTION: REPORT to proceed.",
                     }
                 )
                 continue
@@ -503,6 +521,12 @@ class AgentLoop:
                     results_parts.append(result)
                 elif action_type == "QUERY":
                     result = self._execute_query(action_value)
+                    results_parts.append(result)
+                elif action_type == "READ":
+                    result = self._execute_read(action_value)
+                    results_parts.append(result)
+                elif action_type == "GLOB":
+                    result = self._execute_glob(action_value)
                     results_parts.append(result)
 
             # Feed results back
@@ -530,7 +554,7 @@ class AgentLoop:
         return self._compose_comment(response)
 
     def _parse_actions(self, text: str) -> list[tuple[str, str]]:
-        """Extract ACTION: CMD and ACTION: QUERY lines."""
+        """Extract ACTION: CMD, QUERY, READ, and GLOB lines."""
         actions = []
         for line in text.splitlines():
             stripped = line.strip()
@@ -540,6 +564,12 @@ class AgentLoop:
             elif stripped.startswith("ACTION: QUERY "):
                 query = stripped[len("ACTION: QUERY ") :].strip()
                 actions.append(("QUERY", query))
+            elif stripped.startswith("ACTION: READ "):
+                path = stripped[len("ACTION: READ ") :].strip()
+                actions.append(("READ", path))
+            elif stripped.startswith("ACTION: GLOB "):
+                pattern = stripped[len("ACTION: GLOB ") :].strip()
+                actions.append(("GLOB", pattern))
         return actions
 
     def _extract_report(self, text: str) -> str | None:
@@ -582,6 +612,59 @@ class AgentLoop:
             f"**ROWS:** {len(rows)}\n"
             f"**RESULTS:**\n```json\n{rows_str}\n```"
         )
+
+    def _execute_read(self, filepath: str) -> str:
+        import pathlib
+
+        # Resolve relative to repo root, prevent path traversal
+        repo_root = pathlib.Path.cwd()
+        target = (repo_root / filepath).resolve()
+        if not str(target).startswith(str(repo_root)):
+            print(f"  [BLOCKED] Path traversal attempt: {filepath}")
+            return (
+                f"**READ:** `{filepath}`\n"
+                f"**STATUS:** BLOCKED — path is outside the repository"
+            )
+        if not target.is_file():
+            print(f"  [NOT FOUND] {filepath}")
+            return f"**READ:** `{filepath}`\n**STATUS:** File not found"
+
+        try:
+            content = target.read_text(errors="replace")
+            # Cap at 8K chars to avoid blowing up context
+            if len(content) > 8000:
+                content = (
+                    content[:8000]
+                    + f"\n... [truncated at 8000 chars, total {len(content)}]"
+                )
+            print(f"  [OK] {filepath} ({len(content)} chars)")
+            return f"**READ:** `{filepath}`\n" f"**CONTENT:**\n```\n{content}\n```"
+        except Exception as e:
+            return f"**READ:** `{filepath}`\n**STATUS:** ERROR — {e}"
+
+    def _execute_glob(self, pattern: str) -> str:
+        import glob as globmod
+        import pathlib
+
+        repo_root = pathlib.Path.cwd()
+        matches = sorted(globmod.glob(str(repo_root / pattern), recursive=True))
+        # Make paths relative to repo root
+        rel_paths = []
+        for m in matches:
+            try:
+                rel_paths.append(str(pathlib.Path(m).relative_to(repo_root)))
+            except ValueError:
+                continue
+        # Cap results
+        total = len(rel_paths)
+        if total > 50:
+            rel_paths = rel_paths[:50]
+        print(f"  [{total} matches] {pattern}")
+        listing = "\n".join(rel_paths) if rel_paths else "(no matches)"
+        result = f"**GLOB:** `{pattern}`\n**MATCHES ({total}):**\n```\n{listing}\n```"
+        if total > 50:
+            result += f"\n... (showing first 50 of {total})"
+        return result
 
     def _compose_comment(self, final_text: str) -> str:
         header = (
