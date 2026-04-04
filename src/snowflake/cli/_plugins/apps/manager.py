@@ -47,14 +47,22 @@ SNOWFLAKE_APP_ENTITY_TYPE = "snowflake-app"
 _APP_COMMAND_NAME = "__app"
 
 # Default resource names for Snowflake Apps
-SNOW_APPS_COMPUTE_POOL = "SNOW_APPS_DEFAULT_COMPUTE_POOL"
-DEFAULT_EXTERNAL_ACCESS = "SNOW_APPS_DEFAULT_EXTERNAL_ACCESS"
 DEFAULT_IMAGE_REPOSITORY = "IMAGE_REPO"
 DEFAULT_IMAGE_REPO_DATABASE = "APPS"
 DEFAULT_IMAGE_REPO_SCHEMA = "PUBLIC"
 
 APP_DEFAULTS_TABLE = "APPS.PUBLIC.SNOW_APP_DEFAULTS"
 APP_DEFAULTS_INTEGRATION = "snowflake-apps"
+
+# Mapping from SHOW PARAMETERS result names to internal resolution keys.
+_SNOW_APPS_PARAM_MAP = {
+    "DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE": "query_warehouse",
+    "DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL": "build_compute_pool",
+    "DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL": "service_compute_pool",
+    "DEFAULT_SNOWFLAKE_APPS_BUILD_EXTERNAL_ACCESS_INTEGRATION": "build_eai",
+    "DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE": "database",
+    "DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA": "schema",
+}
 
 _BUILD_IMAGE = "/snowflake/images/snowflake_images/sf-image-build:0.0.1"
 _SERVICE_PLACEHOLDER_IMAGE = "/snowflake/images/snowflake_images/sf-image-build:0.0.1"
@@ -127,37 +135,6 @@ def _object_exists(object_type: str, name: str) -> bool:
         return False
 
 
-def _get_compute_pool() -> Optional[str]:
-    """
-    Get the compute pool to use for Snowflake Apps.
-
-    Returns SNOW_APPS_DEFAULT_COMPUTE_POOL if it exists, otherwise None.
-    """
-    if _object_exists("compute-pool", SNOW_APPS_COMPUTE_POOL):
-        return SNOW_APPS_COMPUTE_POOL
-    return None
-
-
-def _get_external_access(app_id: str) -> Optional[str]:
-    """
-    Get the external access integration to use for Snow Apps.
-
-    Checks in order:
-    1. SNOW_APPS_DEFAULT_EXTERNAL_ACCESS
-    2. SNOW_APPS_<APP_ID>_EXTERNAL_ACCESS
-
-    Returns None if neither exists.
-    """
-    if _object_exists("external-access-integration", DEFAULT_EXTERNAL_ACCESS):
-        return DEFAULT_EXTERNAL_ACCESS
-
-    app_specific_eai = f"SNOW_APPS_{app_id.upper()}_EXTERNAL_ACCESS"
-    if _object_exists("external-access-integration", app_specific_eai):
-        return app_specific_eai
-
-    return None
-
-
 def _resolve_deploy_defaults(
     entity: "SnowflakeAppEntityModel",
     manager: "SnowflakeAppManager",
@@ -166,8 +143,8 @@ def _resolve_deploy_defaults(
 
     1. Values explicitly set in ``snowflake.yml`` (highest priority)
     2. Values from the current connection context
-    3. Values from the ``APP_DEFAULTS_TABLE`` config table
-    4. Built-in defaults (object-existence checks, lowest priority)
+    3. SnowApps parameters (``SHOW PARAMETERS LIKE 'DEFAULT_SNOWFLAKE_APPS_%' IN USER``)
+    4. Values from the ``APP_DEFAULTS_TABLE`` config table (lowest priority)
 
     Returns a dict with keys ``query_warehouse``, ``build_compute_pool``,
     ``service_compute_pool``, ``build_eai``, ``image_repository``,
@@ -178,7 +155,6 @@ def _resolve_deploy_defaults(
 
     # ── 1. snowflake.yml values ───────────────────────────────────────
     fqn = entity.fqn
-    app_name = fqn.name
     yml_vals: Dict[str, Optional[str]] = {
         "query_warehouse": entity.query_warehouse,
         "build_compute_pool": (
@@ -210,7 +186,17 @@ def _resolve_deploy_defaults(
         "schema": conn.schema,
     }
 
-    # ── 3. Config-table values ────────────────────────────────────────
+    # ── 3. SnowApps parameters (user-level) ──────────────────────────
+    param_vals: Dict[str, Optional[str]] = {}
+    raw_params = manager.fetch_snow_apps_parameters()
+    if raw_params:
+        cli_console.step(
+            "Loaded SnowApps parameters: "
+            + ", ".join(f"{k}={v}" for k, v in raw_params.items())
+        )
+        param_vals = dict(raw_params)
+
+    # ── 4. Config-table values ────────────────────────────────────────
     table_vals: Dict[str, Optional[str]] = {}
     role = manager.current_role()
     if role:
@@ -232,19 +218,13 @@ def _resolve_deploy_defaults(
             "schema": raw.get("schema"),
         }
 
-    # ── 4. Built-in defaults ──────────────────────────────────────────
-    builtin_vals: Dict[str, Optional[str]] = {
-        "build_compute_pool": _get_compute_pool(),
-        "service_compute_pool": _get_compute_pool(),
-        "build_eai": _get_external_access(app_name),
-        "image_repository": DEFAULT_IMAGE_REPOSITORY,
-    }
-
     # ── Merge (first non-None wins) ──────────────────────────────────
-    all_keys = set(yml_vals) | set(conn_vals) | set(table_vals) | set(builtin_vals)
+    all_keys = (
+        set(yml_vals) | set(conn_vals) | set(param_vals) | set(table_vals)
+    )
     resolved: Dict[str, Optional[str]] = {}
     for key in all_keys:
-        for source in (yml_vals, conn_vals, table_vals, builtin_vals):
+        for source in (yml_vals, conn_vals, param_vals, table_vals):
             val = source.get(key)
             if val is not None:
                 resolved[key] = val
@@ -252,9 +232,9 @@ def _resolve_deploy_defaults(
         else:
             resolved[key] = None
 
-    # Default image repo lives in TEMP.APPS; user-specified repos without
+    # Default image repo lives in APPS.PUBLIC; user-specified repos without
     # explicit db/schema will fall back to the entity db/schema in the caller.
-    if resolved["image_repository"] == DEFAULT_IMAGE_REPOSITORY:
+    if resolved.get("image_repository") == DEFAULT_IMAGE_REPOSITORY:
         if not resolved.get("image_repo_database"):
             resolved["image_repo_database"] = DEFAULT_IMAGE_REPO_DATABASE
         if not resolved.get("image_repo_schema"):
@@ -714,6 +694,36 @@ class SnowflakeAppManager(SqlExecutionMixin):
                     url = f"https://{url}"
                 return url
         return None
+
+    def fetch_snow_apps_parameters(self) -> Dict[str, str]:
+        """Fetch SnowApps default parameters for the current user.
+
+        Runs ``SHOW PARAMETERS LIKE 'DEFAULT_SNOWFLAKE_APPS_%' IN USER``
+        and returns a dict whose keys match the internal resolution names
+        (``query_warehouse``, ``build_compute_pool``, etc.).
+
+        Empty-string parameter values are treated as "not set" and omitted.
+        Returns an empty dict on any error (e.g. insufficient privileges).
+        """
+        try:
+            cursor = self.execute_query(
+                "SHOW PARAMETERS LIKE 'DEFAULT_SNOWFLAKE_APPS_%' IN USER",
+                cursor_class=DictCursor,
+            )
+            result: Dict[str, str] = {}
+            for row in cursor:
+                param_name = (row.get("key") or row.get("KEY") or "").upper()
+                param_value = row.get("value") or row.get("VALUE") or ""
+                mapped_key = _SNOW_APPS_PARAM_MAP.get(param_name)
+                if mapped_key and param_value:
+                    result[mapped_key] = param_value
+            return result
+        except Exception:
+            log.debug(
+                "Could not fetch SnowApps user parameters – skipping.",
+                exc_info=True,
+            )
+            return {}
 
     def fetch_config_table_defaults(
         self, role: str, integration: str = APP_DEFAULTS_INTEGRATION

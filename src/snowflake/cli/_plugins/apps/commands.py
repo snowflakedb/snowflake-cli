@@ -107,15 +107,20 @@ def setup(
     conn_config = get_connection_dict(connection_name)
 
     manager = SnowflakeAppManager()
+    snow_apps_params = manager.fetch_snow_apps_parameters()
     config_table = {}
     role = manager.current_role()
     if role:
         config_table = manager.fetch_config_table_defaults(role)
 
-    def _resolve(flag_val, config_key, conn_key=None, builtin=None):
-        """Return (value, source) using: flag > account default > connection config > builtin."""
+    def _resolve(flag_val, config_key, conn_key=None, param_key=None):
+        """Return (value, source) using: flag > account parameter > account default > connection config."""
         if flag_val is not None:
             return flag_val, "flag"
+        if param_key is not None:
+            param_val = snow_apps_params.get(param_key)
+            if param_val:
+                return param_val, "account parameter"
         table_val = config_table.get(config_key)
         if table_val:
             return table_val, "account default"
@@ -128,21 +133,25 @@ def setup(
             conn_val = conn_config.get(conn_key)
             if conn_val:
                 return conn_val, "connection config"
-        if builtin is not None:
-            return builtin, "default"
         return None, "missing"
 
     if IS_PERSONAL_DB_SUPPORTED:
         database_resolved = (f"USER${get_env_username().upper()}", "personal db")
     else:
-        database_resolved = _resolve(None, "database", conn_key="database")
+        database_resolved = _resolve(
+            None, "database", conn_key="database", param_key="database"
+        )
 
     resolved = {
         "database": database_resolved,
-        "schema": _resolve(None, "schema", conn_key="schema"),
-        "warehouse": _resolve(None, "warehouse", conn_key="warehouse"),
-        "compute_pool": _resolve(compute_pool, "compute_pool"),
-        "build_eai": _resolve(build_eai, "eai"),
+        "schema": _resolve(None, "schema", conn_key="schema", param_key="schema"),
+        "warehouse": _resolve(
+            None, "warehouse", conn_key="warehouse", param_key="query_warehouse"
+        ),
+        "compute_pool": _resolve(
+            compute_pool, "compute_pool", param_key="build_compute_pool"
+        ),
+        "build_eai": _resolve(build_eai, "eai", param_key="build_eai"),
     }
 
     img_repo = _resolve(None, "image_repository")
