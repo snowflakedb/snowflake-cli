@@ -21,18 +21,11 @@ import logging
 from typing import Any, Optional, Sequence, Tuple
 
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
-
-try:
-    from snowflake.ml.feature_store.decl import api as decl_api
-except ImportError:
-    decl_api = None  # type: ignore[assignment]
+from snowflake.ml.feature_store.decl import api as decl_api
+from snowflake.ml.feature_store.decl.sql_generator import generate_sql
+from snowflake.ml.feature_store.decl.types import PlanOptions
 
 log = logging.getLogger(__name__)
-
-_NOT_IMPL_MSG = (
-    "decl library not yet available (Phase 1 in progress). "
-    "Returning placeholder result."
-)
 
 
 def _expand_globs(patterns: Sequence[str]) -> list[str]:
@@ -45,11 +38,7 @@ def _expand_globs(patterns: Sequence[str]) -> list[str]:
 
 
 class FeatureManager(SqlExecutionMixin):
-    """Orchestrates the declarative feature-store workflow.
-
-    All calls to the ``decl`` shared library are wrapped in try/except so
-    that the CLI remains structurally testable before Phase 1 is complete.
-    """
+    """Orchestrates the declarative feature-store workflow."""
 
     # ------------------------------------------------------------------
     # apply
@@ -69,61 +58,44 @@ class FeatureManager(SqlExecutionMixin):
         log.debug("apply: files=%s dry_run=%s", files, dry_run)
 
         # --- 1. Load specs ---
-        try:
-            batch = decl_api.load_specs(files, config)  # type: ignore[union-attr]
-        except (NotImplementedError, Exception) as exc:
-            log.warning("load_specs raised %s: %s", type(exc).__name__, exc)
-            return {"status": "pending", "message": _NOT_IMPL_MSG, "error": str(exc)}
+        batch = decl_api.load_specs(files, config)
 
         # --- 2. Fetch live state ---
-        try:
-            raw_show = list(self.execute_query("SHOW ONLINE FEATURE TABLES IN SCHEMA"))
-            raw_tables = list(self.execute_query("SHOW TABLES LIKE '%' IN SCHEMA"))
-            applied_state = decl_api.fetch_applied_state(  # type: ignore[union-attr]
-                raw_show_results=[dict(r) for r in raw_show],
-                raw_table_results=[dict(r) for r in raw_tables],
-            )
-        except (NotImplementedError, Exception) as exc:
-            log.warning("fetch_applied_state raised %s: %s", type(exc).__name__, exc)
-            return {"status": "pending", "message": _NOT_IMPL_MSG, "error": str(exc)}
+        raw_show = list(self.execute_query("SHOW ONLINE FEATURE TABLES IN SCHEMA"))
+        raw_tables = list(self.execute_query("SHOW TABLES LIKE '%' IN SCHEMA"))
+        applied_state = decl_api.fetch_applied_state(
+            raw_show_results=[dict(r) for r in raw_show],
+            raw_table_results=[dict(r) for r in raw_tables],
+        )
 
         # --- 3. Validate ---
-        try:
-            validation_results = decl_api.validate_specs(batch, applied_state)  # type: ignore[union-attr]
-            errors = [r for r in validation_results if getattr(r, "is_error", False)]
-            if errors:
-                return {
-                    "status": "validation_failed",
-                    "errors": [str(e) for e in errors],
-                }
-        except (NotImplementedError, Exception) as exc:
-            log.warning("validate_specs raised %s: %s", type(exc).__name__, exc)
-            return {"status": "pending", "message": _NOT_IMPL_MSG, "error": str(exc)}
+        validation_results = decl_api.validate_specs(batch, applied_state)
+        errors = [
+            r for r in validation_results if getattr(r, "severity", "") == "ERROR"
+        ]
+        if errors:
+            return {
+                "status": "validation_failed",
+                "errors": [str(e) for e in errors],
+            }
 
         # --- 4. Generate plan ---
-        try:
-            from snowflake.ml.feature_store.decl.types import PlanOptions
-
-            options = PlanOptions(
-                dev_mode=dev_mode, overwrite=overwrite, allow_recreate=allow_recreate
-            )
-            plan = decl_api.generate_plan(batch, applied_state, options)  # type: ignore[union-attr]
-        except (NotImplementedError, Exception) as exc:
-            log.warning("generate_plan raised %s: %s", type(exc).__name__, exc)
-            return {"status": "pending", "message": _NOT_IMPL_MSG, "error": str(exc)}
+        options = PlanOptions(
+            dev_mode=dev_mode, overwrite=overwrite, allow_recreate=allow_recreate
+        )
+        plan = decl_api.generate_plan(batch, applied_state, options)
 
         # --- 5. Display plan ---
         ops = getattr(plan, "ops", [])
         log.debug("plan ops: %d", len(ops))
 
         # --- 6. Execute (if not dry_run) ---
+        sql_stmts = generate_sql(plan)
         executed: list[str] = []
         if not dry_run:
-            for op in ops:
-                sql = getattr(op, "sql", None)
-                if sql:
-                    self.execute_query(sql)
-                    executed.append(sql)
+            for sql in sql_stmts:
+                self.execute_query(sql)
+                executed.append(sql)
 
         return {
             "status": "dry_run" if dry_run else "applied",
@@ -143,17 +115,9 @@ class FeatureManager(SqlExecutionMixin):
         """List specs from files (if provided) or deployed specs from Snowflake."""
         if input_files:
             files = _expand_globs(input_files)
-            try:
-                batch = decl_api.load_specs(files, config)  # type: ignore[union-attr]
-                specs = getattr(batch, "specs", [])
-                return {"source": "files", "specs": [str(s) for s in specs]}
-            except (NotImplementedError, Exception) as exc:
-                log.warning("load_specs raised %s: %s", type(exc).__name__, exc)
-                return {
-                    "status": "pending",
-                    "message": _NOT_IMPL_MSG,
-                    "error": str(exc),
-                }
+            batch = decl_api.load_specs(files, config)
+            specs = getattr(batch, "specs", [])
+            return {"source": "files", "specs": [str(s) for s in specs]}
 
         # No files — list from Snowflake
         try:
@@ -213,16 +177,12 @@ class FeatureManager(SqlExecutionMixin):
     ) -> dict[str, Any]:
         """Convert spec files from Python DSL to YAML or JSON."""
         files = _expand_globs(input_files)
-        try:
-            batch = decl_api.load_specs(files, config)  # type: ignore[union-attr]
-            specs = getattr(batch, "specs", [])
-            return {
-                "status": "converted",
-                "format": file_format,
-                "output_dir": output_dir,
-                "recursive": recursive,
-                "count": len(specs),
-            }
-        except (NotImplementedError, Exception) as exc:
-            log.warning("convert raised %s: %s", type(exc).__name__, exc)
-            return {"status": "pending", "message": _NOT_IMPL_MSG, "error": str(exc)}
+        batch = decl_api.load_specs(files, config)
+        specs = getattr(batch, "specs", [])
+        return {
+            "status": "converted",
+            "format": file_format,
+            "output_dir": output_dir,
+            "recursive": recursive,
+            "count": len(specs),
+        }
