@@ -474,14 +474,17 @@ def _parse_stream_json(raw: str) -> str:
 def _cleanup(conn: snowflake.connector.SnowflakeConnection, playground_db: str):
     """Drop the playground database."""
     print(f"[Cleanup] Dropping {playground_db}...")
-    cursor = conn.cursor()
     try:
-        cursor.execute(f"DROP DATABASE IF EXISTS {playground_db}")
+        cursor = conn.cursor()
+        try:
+            cursor.execute(f"DROP DATABASE IF EXISTS {playground_db}")
+        except Exception as e:
+            print(f"  Warning: cleanup failed: {e}")
+        finally:
+            cursor.close()
+        conn.close()
     except Exception as e:
-        print(f"  Warning: cleanup failed: {e}")
-    finally:
-        cursor.close()
-    conn.close()
+        print(f"  Warning: cleanup error: {e}")
 
 
 if __name__ == "__main__":
