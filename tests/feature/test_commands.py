@@ -254,3 +254,89 @@ def test_convert_recursive_flag(mock_manager, runner):
     assert result.exit_code == 0, result.output
     call_kwargs = mock_manager.return_value.convert.call_args[1]
     assert call_kwargs["recursive"] is True
+
+
+# ---------------------------------------------------------------------------
+# example
+# ---------------------------------------------------------------------------
+
+EXPECTED_FILES = [
+    "entities/example_entity.yaml",
+    "datasources/example_events_source.yaml",
+    "feature_views/example_feature_view.yaml",
+]
+
+
+def test_example_creates_files(runner, tmp_path):
+    """example --dir <path> should create 3 YAML files in subdirectories."""
+    result = runner.invoke(["feature", "example", "--dir", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    for rel_path in EXPECTED_FILES:
+        assert (tmp_path / rel_path).exists(), f"Missing: {rel_path}"
+
+
+def test_example_entity_content(runner, tmp_path):
+    """The generated entity YAML should contain correct spec fields."""
+    import yaml
+
+    runner.invoke(["feature", "example", "--dir", str(tmp_path)])
+    data = yaml.safe_load((tmp_path / "entities/example_entity.yaml").read_text())
+    assert data["kind"] == "Entity"
+    assert data["name"] == "user"
+    join_keys = data["join_keys"]
+    assert len(join_keys) == 1
+    assert join_keys[0]["name"] == "user_id"
+    assert join_keys[0]["type"] == "StringType"
+
+
+def test_example_source_content(runner, tmp_path):
+    """The generated source YAML should contain correct spec fields."""
+    import yaml
+
+    runner.invoke(["feature", "example", "--dir", str(tmp_path)])
+    data = yaml.safe_load(
+        (tmp_path / "datasources/example_events_source.yaml").read_text()
+    )
+    assert data["kind"] == "StreamingSource"
+    assert data["name"] == "user_events"
+    assert data["type"] == "REST"
+    col_names = {c["name"]: c["type"] for c in data["columns"]}
+    assert col_names["user_id"] == "StringType"
+    assert col_names["event_type"] == "StringType"
+    assert col_names["event_value"] == "FloatType"
+    assert col_names["timestamp"] == "TimestampType"
+
+
+def test_example_feature_view_content(runner, tmp_path):
+    """The generated feature view YAML should contain correct spec fields."""
+    import yaml
+
+    runner.invoke(["feature", "example", "--dir", str(tmp_path)])
+    data = yaml.safe_load(
+        (tmp_path / "feature_views/example_feature_view.yaml").read_text()
+    )
+    assert data["kind"] == "StreamingFeatureView"
+    assert data["name"] == "user_event_features"
+    assert data["online"] is True
+    assert data["timestamp_field"] == "timestamp"
+    assert data["feature_granularity"] == "5m"
+    assert data["ordered_entity_column_names"] == ["user_id"]
+    sources = data["sources"]
+    assert len(sources) == 1
+    assert sources[0]["name"] == "user_events"
+    assert sources[0]["source_type"] == "Stream"
+    features = {f["name"]: f for f in data["features"]}
+    assert "event_count_1h" in features
+    assert features["event_count_1h"]["type"] == "IntegerType"
+    assert "total_value_1h" in features
+    assert features["total_value_1h"]["type"] == "FloatType"
+
+
+def test_example_default_dir(runner, tmp_path, monkeypatch):
+    """example without --dir should write files into the current directory."""
+
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(["feature", "example"])
+    assert result.exit_code == 0, result.output
+    for rel_path in EXPECTED_FILES:
+        assert (tmp_path / rel_path).exists(), f"Missing: {rel_path}"
