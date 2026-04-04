@@ -17,11 +17,14 @@
 from __future__ import annotations
 
 import glob as _glob
+import json
 import logging
+import time
 from pathlib import Path
 from typing import Any, Optional, Sequence, Tuple
 
 import yaml
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.ml.feature_store.decl import api as decl_api
 from snowflake.ml.feature_store.decl.sql_generator import generate_sql
@@ -244,3 +247,119 @@ class FeatureManager(SqlExecutionMixin):
             "recursive": recursive,
             "count": len(specs),
         }
+
+    # ------------------------------------------------------------------
+    # get_status
+    # ------------------------------------------------------------------
+
+    def get_status(self) -> dict[str, Any]:
+        """Query and parse the feature store runtime status."""
+        ctx = get_cli_context()
+        database = ctx.connection.database
+        schema = ctx.connection.schema
+        try:
+            rows = list(
+                self.execute_query(
+                    f"SELECT SYSTEM$GET_FEATURE_STORE_RUNTIME_STATUS('{database}.{schema}')"
+                )
+            )
+            raw = list(rows[0])[0] if rows else None
+            if raw is None:
+                return {"status": "error", "error": "No response from system function"}
+            parsed = json.loads(raw) if isinstance(raw, str) else raw
+            return parsed
+        except Exception as exc:
+            log.warning("get_status raised %s: %s", type(exc).__name__, exc)
+            return {"status": "error", "error": str(exc)}
+
+    # ------------------------------------------------------------------
+    # initialize_service
+    # ------------------------------------------------------------------
+
+    def initialize_service(self) -> dict[str, Any]:
+        """Check status, create runtime if needed, then poll until RUNNING."""
+        ctx = get_cli_context()
+        database = ctx.connection.database
+        schema = ctx.connection.schema
+        location = f"{database}.{schema}"
+
+        # Check if already running
+        current = self.get_status()
+        if current.get("status") == "RUNNING":
+            log.info("Feature store runtime already running in %s", location)
+            return {
+                "status": "RUNNING",
+                "message": f"Service already initialized in {location}",
+            }
+
+        # Create the runtime
+        try:
+            self.execute_query(
+                f"SELECT SYSTEM$CREATE_FEATURE_STORE_RUNTIME('{location}', '{{\"roles\": {{}}}}')"
+            )
+        except Exception as exc:
+            log.warning("create_runtime raised %s: %s", type(exc).__name__, exc)
+            return {"status": "error", "error": str(exc)}
+
+        # Poll until RUNNING (max 10 minutes, every 15 seconds)
+        deadline = time.monotonic() + 600
+        while time.monotonic() < deadline:
+            time.sleep(15)
+            current = self.get_status()
+            if current.get("status") == "RUNNING":
+                return {
+                    "status": "RUNNING",
+                    "message": "Service initialized successfully",
+                }
+
+        return {
+            "status": "timeout",
+            "error": "Timed out waiting for service to reach RUNNING",
+        }
+
+    # ------------------------------------------------------------------
+    # destroy_service
+    # ------------------------------------------------------------------
+
+    def destroy_service(self) -> dict[str, Any]:
+        """Drop all OFTs in the schema then drop the feature store runtime."""
+        ctx = get_cli_context()
+        database = ctx.connection.database
+        schema = ctx.connection.schema
+        location = f"{database}.{schema}"
+
+        # Discover OFTs
+        dropped_ofts: list[str] = []
+        errors: list[str] = []
+        try:
+            rows = list(
+                self.execute_query(f"SHOW ONLINE FEATURE TABLES IN SCHEMA {location}")
+            )
+            for row in rows:
+                row_dict = dict(row)
+                name = row_dict.get("name", "")
+                if name:
+                    try:
+                        self.execute_query(
+                            f"DROP ONLINE FEATURE TABLE IF EXISTS {location}.{name}"
+                        )
+                        dropped_ofts.append(name)
+                    except Exception as exc:
+                        log.warning(
+                            "drop OFT %s raised %s: %s", name, type(exc).__name__, exc
+                        )
+                        errors.append(f"{name}: {exc}")
+        except Exception as exc:
+            log.warning("SHOW OFTs raised %s: %s", type(exc).__name__, exc)
+            errors.append(f"SHOW OFTs: {exc}")
+
+        # Drop the runtime
+        try:
+            self.execute_query(
+                f"SELECT SYSTEM$DROP_FEATURE_STORE_RUNTIME('{location}')"
+            )
+        except Exception as exc:
+            log.warning("drop_runtime raised %s: %s", type(exc).__name__, exc)
+            errors.append(f"drop_runtime: {exc}")
+
+        return {"status": "destroyed", "dropped_ofts": dropped_ofts, "errors": errors}

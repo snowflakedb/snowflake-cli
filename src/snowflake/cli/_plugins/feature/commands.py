@@ -257,3 +257,45 @@ def example(
     """Generate example YAML spec files for testing (no Snowflake connection required)."""
     result = generate_example(output_dir or ".")
     return _to_result(result)
+
+
+# ---------------------------------------------------------------------------
+# status
+# ---------------------------------------------------------------------------
+
+
+@app.command(requires_connection=True)
+def status(
+    **options,
+) -> CommandResult:
+    """Show the current feature store runtime status."""
+    result = FeatureManager().get_status()
+    return _to_result(result)
+
+
+# ---------------------------------------------------------------------------
+# initialize-service
+# ---------------------------------------------------------------------------
+
+
+@app.command(name="initialize-service", requires_connection=True)
+def initialize_service(
+    **options,
+) -> CommandResult:
+    """Initialize the feature store runtime service (creates and waits until RUNNING)."""
+    result = FeatureManager().initialize_service()
+    return _to_result(result)
+
+
+# ---------------------------------------------------------------------------
+# destroy-service
+# ---------------------------------------------------------------------------
+
+
+@app.command(name="destroy-service", requires_connection=True)
+def destroy_service(
+    **options,
+) -> CommandResult:
+    """Destroy the feature store runtime service and all Online Feature Tables."""
+    result = FeatureManager().destroy_service()
+    return _to_result(result)
