@@ -340,3 +340,69 @@ def test_example_default_dir(runner, tmp_path, monkeypatch):
     assert result.exit_code == 0, result.output
     for rel_path in EXPECTED_FILES:
         assert (tmp_path / rel_path).exists(), f"Missing: {rel_path}"
+
+
+# ---------------------------------------------------------------------------
+# status
+# ---------------------------------------------------------------------------
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_status_returns_parsed_json(mock_manager, runner):
+    """status should call FeatureManager.get_status and return its result."""
+    mock_manager.return_value.get_status.return_value = {
+        "status": "RUNNING",
+        "compute_pool": "active",
+        "postgres": "active",
+        "service": "active",
+        "endpoints": [],
+    }
+    result = runner.invoke(["feature", "status"])
+    assert result.exit_code == 0, result.output
+    mock_manager.return_value.get_status.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# initialize-service
+# ---------------------------------------------------------------------------
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_initialize_service_already_running_is_noop(mock_manager, runner):
+    """initialize-service should be a no-op when status is already RUNNING."""
+    mock_manager.return_value.initialize_service.return_value = {
+        "status": "RUNNING",
+        "message": "Service already initialized",
+    }
+    result = runner.invoke(["feature", "initialize-service"])
+    assert result.exit_code == 0, result.output
+    mock_manager.return_value.initialize_service.assert_called_once()
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_initialize_service_creates_and_polls(mock_manager, runner):
+    """initialize-service should create the runtime and poll until RUNNING."""
+    mock_manager.return_value.initialize_service.return_value = {
+        "status": "RUNNING",
+        "message": "Service initialized successfully",
+    }
+    result = runner.invoke(["feature", "initialize-service"])
+    assert result.exit_code == 0, result.output
+    mock_manager.return_value.initialize_service.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# destroy-service
+# ---------------------------------------------------------------------------
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_destroy_service_drops_ofts_then_runtime(mock_manager, runner):
+    """destroy-service should drop OFTs then call FeatureManager.destroy_service."""
+    mock_manager.return_value.destroy_service.return_value = {
+        "status": "destroyed",
+        "dropped_ofts": ["TABLE_A", "TABLE_B"],
+    }
+    result = runner.invoke(["feature", "destroy-service"])
+    assert result.exit_code == 0, result.output
+    mock_manager.return_value.destroy_service.assert_called_once()
