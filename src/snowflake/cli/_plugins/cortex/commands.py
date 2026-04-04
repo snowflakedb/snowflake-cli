@@ -325,7 +325,7 @@ def translate(
     ),
     to_language: str = typer.Option(
         ...,
-        "--to",
+        "--target-lang",
         help="String specifying the language code into which the text should be translated. See Snowflake Cortex documentation for a list of supported language codes.",
         show_default=False,
     ),
