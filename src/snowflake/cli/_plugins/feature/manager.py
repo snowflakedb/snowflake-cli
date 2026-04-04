@@ -99,6 +99,11 @@ def generate_example(output_dir: str) -> dict[str, Any]:
     return {"status": "created", "files": created}
 
 
+def _rows_to_dicts(rows) -> list[dict[str, Any]]:
+    """Convert DictCursor rows to plain dicts for JSON serialization."""
+    return [dict(r) for r in rows]
+
+
 class FeatureManager(SqlExecutionMixin):
     """Orchestrates the declarative feature-store workflow."""
 
@@ -134,8 +139,8 @@ class FeatureManager(SqlExecutionMixin):
             )
         )
         applied_state = decl_api.fetch_applied_state(
-            raw_show_results=raw_show,
-            raw_table_results=raw_tables,
+            raw_show_results=_rows_to_dicts(raw_show),
+            raw_table_results=_rows_to_dicts(raw_tables),
         )
 
         # --- 3. Validate ---
@@ -197,7 +202,7 @@ class FeatureManager(SqlExecutionMixin):
                     cursor_class=DictCursor,
                 )
             )
-            return {"source": "snowflake", "specs": rows}
+            return {"source": "snowflake", "specs": _rows_to_dicts(rows)}
         except Exception as exc:
             log.warning("SHOW query raised %s: %s", type(exc).__name__, exc)
             return {"status": "error", "error": str(exc)}
@@ -218,7 +223,7 @@ class FeatureManager(SqlExecutionMixin):
                     cursor_class=DictCursor,
                 )
             )
-            return {"name": name, "rows": rows}
+            return {"name": name, "rows": _rows_to_dicts(rows)}
         except Exception as exc:
             log.warning("describe raised %s: %s", type(exc).__name__, exc)
             return {"status": "error", "name": name, "error": str(exc)}
