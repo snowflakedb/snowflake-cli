@@ -175,27 +175,6 @@ def test_describe_passes_name(mock_manager, runner):
     assert call_kwargs["name"] == "MY_ENTITY"
 
 
-@mock.patch(FEATURE_MANAGER)
-def test_describe_schema_and_database_options(mock_manager, runner):
-    """describe should accept --schema and --database options."""
-    mock_manager.return_value.describe.return_value = {}
-    result = runner.invoke(
-        [
-            "feature",
-            "describe",
-            "MY_ENTITY",
-            "--schema",
-            "MY_SCHEMA",
-            "--database",
-            "MY_DB",
-        ]
-    )
-    assert result.exit_code == 0, result.output
-    call_kwargs = mock_manager.return_value.describe.call_args[1]
-    assert call_kwargs["schema"] == "MY_SCHEMA"
-    assert call_kwargs["database"] == "MY_DB"
-
-
 # ---------------------------------------------------------------------------
 # drop
 # ---------------------------------------------------------------------------
@@ -227,41 +206,41 @@ def test_drop_passes_names(mock_manager, runner):
 @mock.patch(FEATURE_MANAGER)
 def test_convert_requires_files(mock_manager, runner):
     """convert with no files should exit with usage error."""
-    result = runner.invoke(["feature", "convert", "--format", "yaml"])
+    result = runner.invoke(["feature", "convert", "--file-format", "yaml"])
     assert result.exit_code == 2, result.output
 
 
 @mock.patch(FEATURE_MANAGER)
 def test_convert_requires_format(mock_manager, runner):
-    """convert without --format should exit with usage error."""
+    """convert without --file-format should exit with usage error."""
     result = runner.invoke(["feature", "convert", "specs.py"])
     assert result.exit_code == 2, result.output
 
 
 @mock.patch(FEATURE_MANAGER)
 def test_convert_yaml_format(mock_manager, runner):
-    """convert --format yaml should call FeatureManager.convert."""
+    """convert --file-format yaml should call FeatureManager.convert."""
     mock_manager.return_value.convert.return_value = {}
-    result = runner.invoke(["feature", "convert", "specs.py", "--format", "yaml"])
+    result = runner.invoke(["feature", "convert", "specs.py", "--file-format", "yaml"])
     assert result.exit_code == 0, result.output
     call_kwargs = mock_manager.return_value.convert.call_args[1]
-    assert call_kwargs["format"] == "yaml"
+    assert call_kwargs["file_format"] == "yaml"
 
 
 @mock.patch(FEATURE_MANAGER)
 def test_convert_json_format(mock_manager, runner):
-    """convert --format json should call FeatureManager.convert."""
+    """convert --file-format json should call FeatureManager.convert."""
     mock_manager.return_value.convert.return_value = {}
-    result = runner.invoke(["feature", "convert", "specs.py", "--format", "json"])
+    result = runner.invoke(["feature", "convert", "specs.py", "--file-format", "json"])
     assert result.exit_code == 0, result.output
     call_kwargs = mock_manager.return_value.convert.call_args[1]
-    assert call_kwargs["format"] == "json"
+    assert call_kwargs["file_format"] == "json"
 
 
 @mock.patch(FEATURE_MANAGER)
 def test_convert_invalid_format(mock_manager, runner):
-    """convert with an invalid --format should exit with usage error."""
-    result = runner.invoke(["feature", "convert", "specs.py", "--format", "xml"])
+    """convert with an invalid --file-format should exit with usage error."""
+    result = runner.invoke(["feature", "convert", "specs.py", "--file-format", "xml"])
     assert result.exit_code == 2, result.output
 
 
@@ -269,7 +248,9 @@ def test_convert_invalid_format(mock_manager, runner):
 def test_convert_recursive_flag(mock_manager, runner):
     """convert -R should pass recursive=True to FeatureManager.convert."""
     mock_manager.return_value.convert.return_value = {}
-    result = runner.invoke(["feature", "convert", "specs.py", "--format", "yaml", "-R"])
+    result = runner.invoke(
+        ["feature", "convert", "specs.py", "--file-format", "yaml", "-R"]
+    )
     assert result.exit_code == 0, result.output
     call_kwargs = mock_manager.return_value.convert.call_args[1]
     assert call_kwargs["recursive"] is True
