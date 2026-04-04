@@ -19,6 +19,7 @@ from unittest import mock
 
 import pytest
 from snowflake.cli.api.rest_api import CannotDetermineCreateURLException, RestApi
+from snowflake.connector.errors import BadRequest
 from snowflake.connector.vendored.requests.exceptions import HTTPError
 
 _DUMMY_SERVER_URL = "https://DUMMY_SERVER_URL"
@@ -96,6 +97,47 @@ def test_endpoint_exists_handles_404(
     mock_rest_connection.assert_rest_fetch_calls_matches(
         [_RestApiCallMatch(url=f"{_DUMMY_SERVER_URL}/dummy_url", method="get")]
     )
+
+
+def test_endpoint_exists_handles_bad_request(
+    mock_rest_connection,
+):
+    mock_rest_connection.setup(fetch_side_effects=[BadRequest(msg="result set too large")])
+    rest_api = RestApi(mock_rest_connection)
+    assert rest_api.get_endpoint_exists("/dummy_url")
+    mock_rest_connection.assert_rest_fetch_calls_matches(
+        [_RestApiCallMatch(url=f"{_DUMMY_SERVER_URL}/dummy_url", method="get")]
+    )
+
+
+def test_endpoint_exists_reraises_non_404_http_error(
+    mock_rest_connection,
+):
+    error_500 = HTTPError(response=mock.MagicMock(status_code=500))
+    mock_rest_connection.setup(fetch_side_effects=[error_500])
+    rest_api = RestApi(mock_rest_connection)
+    with pytest.raises(HTTPError):
+        rest_api.get_endpoint_exists("/dummy_url")
+
+
+def test_send_rest_request_passes_no_data_for_get(
+    mock_rest_connection,
+):
+    mock_rest_connection.setup(fetch_return_value=[])
+    rest_api = RestApi(mock_rest_connection.connection)
+    rest_api.send_rest_request("/dummy_url", method="get")
+    fetch_call = mock_rest_connection.rest.fetch.call_args
+    assert fetch_call.kwargs["data"] is None
+
+
+def test_send_rest_request_passes_json_data_for_post(
+    mock_rest_connection,
+):
+    mock_rest_connection.setup(fetch_return_value=[])
+    rest_api = RestApi(mock_rest_connection.connection)
+    rest_api.send_rest_request("/dummy_url", method="post", data={"key": "value"})
+    fetch_call = mock_rest_connection.rest.fetch.call_args
+    assert fetch_call.kwargs["data"] == '{"key": "value"}'
 
 
 @pytest.mark.parametrize("number_of_fails", range(4))
