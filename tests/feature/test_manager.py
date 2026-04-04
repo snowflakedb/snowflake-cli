@@ -51,7 +51,6 @@ class TestFeatureManagerApply:
             dev_mode=False,
             overwrite=False,
             allow_recreate=False,
-            verbose=False,
         )
         assert isinstance(result, dict)
 
@@ -66,7 +65,6 @@ class TestFeatureManagerApply:
             dev_mode=False,
             overwrite=False,
             allow_recreate=False,
-            verbose=False,
         )
         # execute_query should only be called for SHOW queries (state fetch), not for plan ops
         for call in mock_execute_query.call_args_list:
@@ -84,7 +82,6 @@ class TestFeatureManagerApply:
             dev_mode=False,
             overwrite=False,
             allow_recreate=False,
-            verbose=False,
         )
         mock_decl.load_specs.assert_called_once()
 
@@ -103,7 +100,6 @@ class TestFeatureManagerApply:
             dev_mode=False,
             overwrite=False,
             allow_recreate=False,
-            verbose=False,
         )
         assert isinstance(result, dict)
         assert "status" in result or "message" in result or "error" in result
@@ -114,7 +110,7 @@ class TestFeatureManagerListSpecs:
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         mgr = FeatureManager()
-        result = mgr.list_specs(input_files=(), config=None, verbose=False)
+        result = mgr.list_specs(input_files=(), config=None)
         assert isinstance(result, dict)
 
     def test_list_specs_not_implemented_returns_placeholder(
@@ -124,7 +120,7 @@ class TestFeatureManagerListSpecs:
 
         mock_decl.load_specs.side_effect = NotImplementedError("Phase 1 not done")
         mgr = FeatureManager()
-        result = mgr.list_specs(input_files=("specs.yaml",), config=None, verbose=False)
+        result = mgr.list_specs(input_files=("specs.yaml",), config=None)
         assert isinstance(result, dict)
 
 
@@ -133,7 +129,7 @@ class TestFeatureManagerDescribe:
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         mgr = FeatureManager()
-        result = mgr.describe(name="MY_ENTITY", schema=None, database=None)
+        result = mgr.describe(name="MY_ENTITY")
         assert isinstance(result, dict)
 
 
@@ -142,7 +138,7 @@ class TestFeatureManagerDrop:
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         mgr = FeatureManager()
-        result = mgr.drop(names=("MY_ENTITY",), schema=None, database=None)
+        result = mgr.drop(names=("MY_ENTITY",))
         assert isinstance(result, dict)
 
 
@@ -153,7 +149,7 @@ class TestFeatureManagerConvert:
         mgr = FeatureManager()
         result = mgr.convert(
             input_files=["specs.py"],
-            format="yaml",
+            file_format="yaml",
             output_dir=None,
             recursive=False,
             config=None,
