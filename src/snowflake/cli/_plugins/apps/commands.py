@@ -107,58 +107,62 @@ def setup(
     conn_config = get_connection_dict(connection_name)
 
     manager = SnowflakeAppManager()
-    snow_apps_params = manager.fetch_snow_apps_parameters()
-    config_table = {}
+    param = manager.fetch_snow_apps_parameters()
+    table = {}
     role = manager.current_role()
     if role:
-        config_table = manager.fetch_config_table_defaults(role)
+        table = manager.fetch_config_table_defaults(role)
 
-    def _resolve(flag_val, config_key, conn_key=None, param_key=None, default_val=None):
-        """Return (value, source) using: flag > account parameter > config table > default > current session."""
-        if flag_val is not None:
-            return flag_val, "flag"
-        if param_key is not None:
-            param_val = snow_apps_params.get(param_key)
-            if param_val:
-                return param_val, "account parameter"
-        table_val = config_table.get(config_key)
-        if table_val:
-            return table_val, "config table"
-        if default_val is not None:
-            return default_val
-        if conn_key is not None:
-            # ctx.connection_context is only populated (without update_from_config) when
-            # the user explicitly passed the flag on the CLI, so this signals "flag" provenance.
-            ctx_val = getattr(ctx.connection_context, conn_key, None)
-            if ctx_val:
-                return ctx_val, "flag"
-            conn_val = conn_config.get(conn_key)
-            if conn_val:
-                return conn_val, "current session"
+    def _first_of(*sources):
+        """Return the first (value, source) pair where value is truthy."""
+        for value, source in sources:
+            if value:
+                return value, source
         return None, "missing"
 
-    personal_db = None
-    if IS_PERSONAL_DB_SUPPORTED:
-        personal_db = (f"USER${get_env_username().upper()}", "personal db")
+    # ── Pre-compute session values (CLI flags + connection config) ────
+    conn = ctx.connection_context
+    session_wh = getattr(conn, "warehouse", None) or conn_config.get("warehouse")
+    session_db = getattr(conn, "database", None) or conn_config.get("database")
+    session_schema = getattr(conn, "schema", None) or conn_config.get("schema")
 
+    personal_db = (
+        f"USER${get_env_username().upper()}" if IS_PERSONAL_DB_SUPPORTED else None
+    )
+
+    # ── Resolve each field (each chain is the full precedence) ────────
     resolved = {
-        "database": _resolve(
-            None, "database", conn_key="database", param_key="database",
-            default_val=personal_db,
+        "database": _first_of(
+            (param.get("database"), "account parameter"),
+            (table.get("database"), "config table"),
+            (personal_db, "personal db"),
+            (session_db, "current session"),
         ),
-        "schema": _resolve(None, "schema", conn_key="schema", param_key="schema"),
-        "warehouse": _resolve(
-            None, "warehouse", conn_key="warehouse", param_key="query_warehouse"
+        "schema": _first_of(
+            (param.get("schema"), "account parameter"),
+            (table.get("schema"), "config table"),
+            (session_schema, "current session"),
         ),
-        "compute_pool": _resolve(
-            compute_pool, "compute_pool", param_key="build_compute_pool"
+        "warehouse": _first_of(
+            (param.get("query_warehouse"), "account parameter"),
+            (table.get("warehouse"), "config table"),
+            (session_wh, "current session"),
         ),
-        "build_eai": _resolve(build_eai, "eai", param_key="build_eai"),
+        "compute_pool": _first_of(
+            (compute_pool, "user input"),
+            (param.get("build_compute_pool"), "account parameter"),
+            (table.get("compute_pool"), "config table"),
+        ),
+        "build_eai": _first_of(
+            (build_eai, "user input"),
+            (param.get("build_eai"), "account parameter"),
+            (table.get("eai"), "config table"),
+        ),
     }
 
-    img_repo = _resolve(None, "image_repository")
-    if img_repo[0]:
-        resolved["image_repository"] = img_repo
+    img_repo_val = param.get("image_repository") or table.get("image_repository")
+    if img_repo_val:
+        resolved["image_repository"] = (img_repo_val, "account parameter" if param.get("image_repository") else "config table")
 
     # Validate: fail on ALL missing required values at once
     required_keys = ["database", "warehouse", "compute_pool", "build_eai"]
