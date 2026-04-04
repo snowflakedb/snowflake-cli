@@ -26,6 +26,7 @@ from typing import Any, Optional, Sequence, Tuple
 import yaml
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.connector.cursor import DictCursor
 from snowflake.ml.feature_store.decl import api as decl_api
 from snowflake.ml.feature_store.decl.sql_generator import generate_sql
 from snowflake.ml.feature_store.decl.types import PlanOptions
@@ -122,11 +123,19 @@ class FeatureManager(SqlExecutionMixin):
         batch = decl_api.load_specs(files, config)
 
         # --- 2. Fetch live state ---
-        raw_show = list(self.execute_query("SHOW ONLINE FEATURE TABLES IN SCHEMA"))
-        raw_tables = list(self.execute_query("SHOW TABLES LIKE '%' IN SCHEMA"))
+        raw_show = list(
+            self.execute_query(
+                "SHOW ONLINE FEATURE TABLES IN SCHEMA", cursor_class=DictCursor
+            )
+        )
+        raw_tables = list(
+            self.execute_query(
+                "SHOW TABLES LIKE '%' IN SCHEMA", cursor_class=DictCursor
+            )
+        )
         applied_state = decl_api.fetch_applied_state(
-            raw_show_results=[dict(r) for r in raw_show],
-            raw_table_results=[dict(r) for r in raw_tables],
+            raw_show_results=raw_show,
+            raw_table_results=raw_tables,
         )
 
         # --- 3. Validate ---
@@ -182,8 +191,13 @@ class FeatureManager(SqlExecutionMixin):
 
         # No files — list from Snowflake
         try:
-            rows = list(self.execute_query("SHOW ONLINE FEATURE TABLES IN SCHEMA"))
-            return {"source": "snowflake", "specs": [dict(r) for r in rows]}
+            rows = list(
+                self.execute_query(
+                    "SHOW ONLINE FEATURE TABLES IN SCHEMA",
+                    cursor_class=DictCursor,
+                )
+            )
+            return {"source": "snowflake", "specs": rows}
         except Exception as exc:
             log.warning("SHOW query raised %s: %s", type(exc).__name__, exc)
             return {"status": "error", "error": str(exc)}
@@ -198,8 +212,13 @@ class FeatureManager(SqlExecutionMixin):
     ) -> dict[str, Any]:
         """Return metadata for a single named feature-store object."""
         try:
-            rows = list(self.execute_query(f"SHOW ONLINE FEATURE TABLES LIKE '{name}'"))
-            return {"name": name, "rows": [dict(r) for r in rows]}
+            rows = list(
+                self.execute_query(
+                    f"SHOW ONLINE FEATURE TABLES LIKE '{name}'",
+                    cursor_class=DictCursor,
+                )
+            )
+            return {"name": name, "rows": rows}
         except Exception as exc:
             log.warning("describe raised %s: %s", type(exc).__name__, exc)
             return {"status": "error", "name": name, "error": str(exc)}
@@ -333,11 +352,13 @@ class FeatureManager(SqlExecutionMixin):
         errors: list[str] = []
         try:
             rows = list(
-                self.execute_query(f"SHOW ONLINE FEATURE TABLES IN SCHEMA {location}")
+                self.execute_query(
+                    f"SHOW ONLINE FEATURE TABLES IN SCHEMA {location}",
+                    cursor_class=DictCursor,
+                )
             )
             for row in rows:
-                row_dict = dict(row)
-                name = row_dict.get("name", "")
+                name = row.get("name", "")
                 if name:
                     try:
                         self.execute_query(
