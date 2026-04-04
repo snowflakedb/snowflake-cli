@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import date, datetime
+from decimal import Decimal
 from enum import Enum
 from typing import List, Optional
 
@@ -34,9 +36,28 @@ app = SnowTyperFactory(
 log = logging.getLogger(__name__)
 
 
+class _SafeEncoder(json.JSONEncoder):
+    """JSON encoder that handles Snowflake row value types."""
+
+    def default(self, o):
+        if isinstance(o, (datetime, date)):
+            return o.isoformat()
+        if isinstance(o, Decimal):
+            return float(o)
+        if isinstance(o, bytes):
+            return o.decode("utf-8", errors="replace")
+        if isinstance(o, set):
+            return list(o)
+        try:
+            return dict(o)
+        except (TypeError, ValueError):
+            pass
+        return str(o)
+
+
 def _to_result(data: dict) -> CommandResult:
     """Format a manager result dict as a CLI MessageResult."""
-    return MessageResult(json.dumps(data, indent=2))
+    return MessageResult(json.dumps(data, indent=2, cls=_SafeEncoder))
 
 
 # ---------------------------------------------------------------------------
