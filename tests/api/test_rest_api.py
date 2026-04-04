@@ -102,7 +102,9 @@ def test_endpoint_exists_handles_404(
 def test_endpoint_exists_handles_bad_request(
     mock_rest_connection,
 ):
-    mock_rest_connection.setup(fetch_side_effects=[BadRequest(msg="result set too large")])
+    mock_rest_connection.setup(
+        fetch_side_effects=[BadRequest(msg="result set too large")]
+    )
     rest_api = RestApi(mock_rest_connection)
     assert rest_api.get_endpoint_exists("/dummy_url")
     mock_rest_connection.assert_rest_fetch_calls_matches(
