@@ -22,7 +22,7 @@ from enum import Enum
 from typing import List, Optional
 
 import typer
-from snowflake.cli._plugins.feature.manager import FeatureManager
+from snowflake.cli._plugins.feature.manager import FeatureManager, generate_example
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import CommandResult, MessageResult
 
@@ -236,4 +236,24 @@ def convert(
         recursive=recursive,
         config=config,
     )
+    return _to_result(result)
+
+
+# ---------------------------------------------------------------------------
+# example
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def example(
+    output_dir: Optional[str] = typer.Option(
+        None,
+        "--dir",
+        help="Directory to write example files into. Defaults to the current directory.",
+        show_default=False,
+    ),
+    **options,
+) -> CommandResult:
+    """Generate example YAML spec files for testing (no Snowflake connection required)."""
+    result = generate_example(output_dir or ".")
     return _to_result(result)

@@ -18,8 +18,10 @@ from __future__ import annotations
 
 import glob as _glob
 import logging
+from pathlib import Path
 from typing import Any, Optional, Sequence, Tuple
 
+import yaml
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.ml.feature_store.decl import api as decl_api
 from snowflake.ml.feature_store.decl.sql_generator import generate_sql
@@ -35,6 +37,62 @@ def _expand_globs(patterns: Sequence[str]) -> list[str]:
         expanded = _glob.glob(pattern, recursive=True)
         files.extend(expanded if expanded else [pattern])
     return files
+
+
+_EXAMPLE_SPECS: dict[str, dict[str, Any]] = {
+    "entities/example_entity.yaml": {
+        "kind": "Entity",
+        "name": "user",
+        "join_keys": [{"name": "user_id", "type": "StringType"}],
+    },
+    "datasources/example_events_source.yaml": {
+        "kind": "StreamingSource",
+        "name": "user_events",
+        "type": "REST",
+        "columns": [
+            {"name": "user_id", "type": "StringType"},
+            {"name": "event_type", "type": "StringType"},
+            {"name": "event_value", "type": "FloatType"},
+            {"name": "timestamp", "type": "TimestampType"},
+        ],
+    },
+    "feature_views/example_feature_view.yaml": {
+        "kind": "StreamingFeatureView",
+        "name": "user_event_features",
+        "online": True,
+        "timestamp_field": "timestamp",
+        "feature_granularity": "5m",
+        "ordered_entity_column_names": ["user_id"],
+        "sources": [{"name": "user_events", "source_type": "Stream"}],
+        "features": [
+            {
+                "name": "event_count_1h",
+                "type": "IntegerType",
+                "aggregation": "count",
+                "column": "event_type",
+                "window": "1h",
+            },
+            {
+                "name": "total_value_1h",
+                "type": "FloatType",
+                "aggregation": "sum",
+                "column": "event_value",
+                "window": "1h",
+            },
+        ],
+    },
+}
+
+
+def generate_example(output_dir: str) -> dict[str, Any]:
+    """Write example YAML spec files under *output_dir* and return a result dict."""
+    created: list[str] = []
+    for rel_path, spec in _EXAMPLE_SPECS.items():
+        dest = Path(output_dir) / rel_path
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(yaml.dump(spec, default_flow_style=False))
+        created.append(str(dest))
+    return {"status": "created", "files": created}
 
 
 class FeatureManager(SqlExecutionMixin):
