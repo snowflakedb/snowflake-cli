@@ -46,10 +46,7 @@ SNOWFLAKE_APP_ENTITY_TYPE = "snowflake-app"
 # TODO: Update to "app" after migration from __app
 _APP_COMMAND_NAME = "__app"
 
-# Default resource names for Snowflake Apps
 DEFAULT_IMAGE_REPOSITORY = "IMAGE_REPO"
-DEFAULT_IMAGE_REPO_DATABASE = "APPS"
-DEFAULT_IMAGE_REPO_SCHEMA = "PUBLIC"
 
 APP_DEFAULTS_TABLE = "APPS.PUBLIC.SNOW_APP_DEFAULTS"
 APP_DEFAULTS_INTEGRATION = "snowflake-apps"
@@ -142,9 +139,9 @@ def _resolve_deploy_defaults(
     """Resolve deploy defaults using a four-tier precedence:
 
     1. Values explicitly set in ``snowflake.yml`` (highest priority)
-    2. Values from the current connection context
-    3. SnowApps parameters (``SHOW PARAMETERS LIKE 'DEFAULT_SNOWFLAKE_APPS_%' IN USER``)
-    4. Values from the ``APP_DEFAULTS_TABLE`` config table (lowest priority)
+    2. SnowApps parameters (``SHOW PARAMETERS LIKE 'DEFAULT_SNOWFLAKE_APPS_%' IN USER``)
+    3. Values from the ``APP_DEFAULTS_TABLE`` config table
+    4. Current session values (lowest priority)
 
     Returns a dict with keys ``query_warehouse``, ``build_compute_pool``,
     ``service_compute_pool``, ``build_eai``, ``image_repository``,
@@ -177,16 +174,7 @@ def _resolve_deploy_defaults(
         "schema": fqn.schema,
     }
 
-    # ── 2. Current connection values ──────────────────────────────────
-    ctx = get_cli_context()
-    conn = ctx.connection_context
-    conn_vals: Dict[str, Optional[str]] = {
-        "query_warehouse": conn.warehouse,
-        "database": conn.database,
-        "schema": conn.schema,
-    }
-
-    # ── 3. SnowApps parameters (user-level) ──────────────────────────
+    # ── 2. SnowApps parameters (user-level) ──────────────────────────
     param_vals: Dict[str, Optional[str]] = {}
     raw_params = manager.fetch_snow_apps_parameters()
     if raw_params:
@@ -196,8 +184,8 @@ def _resolve_deploy_defaults(
         )
         param_vals = dict(raw_params)
 
-    # ── 4. Config-table values ────────────────────────────────────────
-    table_vals: Dict[str, Optional[str]] = {}
+    # ── 3. Config-table values ────────────────────────────────────────
+    config_table_vals: Dict[str, Optional[str]] = {}
     role = manager.current_role()
     if role:
         raw = manager.fetch_config_table_defaults(role)
@@ -206,7 +194,7 @@ def _resolve_deploy_defaults(
                 f"Loaded config-table defaults for role {role}: "
                 + ", ".join(f"{k}={v}" for k, v in raw.items())
             )
-        table_vals = {
+        config_table_vals = {
             "query_warehouse": raw.get("warehouse"),
             "build_compute_pool": raw.get("compute_pool"),
             "service_compute_pool": raw.get("compute_pool"),
@@ -218,13 +206,23 @@ def _resolve_deploy_defaults(
             "schema": raw.get("schema"),
         }
 
+    # ── 4. Current session values ─────────────────────────────────────
+    ctx = get_cli_context()
+    conn = ctx.connection_context
+    curr_session_vals: Dict[str, Optional[str]] = {
+        "query_warehouse": conn.warehouse,
+        "database": conn.database,
+        "schema": conn.schema,
+    }
+
     # ── Merge (first non-None wins) ──────────────────────────────────
     all_keys = (
-        set(yml_vals) | set(conn_vals) | set(param_vals) | set(table_vals)
+        set(yml_vals) | set(param_vals) | set(config_table_vals)
+        | set(curr_session_vals)
     )
     resolved: Dict[str, Optional[str]] = {}
     for key in all_keys:
-        for source in (yml_vals, conn_vals, param_vals, table_vals):
+        for source in (yml_vals, param_vals, config_table_vals, curr_session_vals):
             val = source.get(key)
             if val is not None:
                 resolved[key] = val
@@ -232,13 +230,11 @@ def _resolve_deploy_defaults(
         else:
             resolved[key] = None
 
-    # Default image repo lives in APPS.PUBLIC; user-specified repos without
-    # explicit db/schema will fall back to the entity db/schema in the caller.
-    if resolved.get("image_repository") == DEFAULT_IMAGE_REPOSITORY:
-        if not resolved.get("image_repo_database"):
-            resolved["image_repo_database"] = DEFAULT_IMAGE_REPO_DATABASE
-        if not resolved.get("image_repo_schema"):
-            resolved["image_repo_schema"] = DEFAULT_IMAGE_REPO_SCHEMA
+    # Image repo db/schema default to the resolved database/schema.
+    if not resolved.get("image_repo_database"):
+        resolved["image_repo_database"] = resolved.get("database")
+    if not resolved.get("image_repo_schema"):
+        resolved["image_repo_schema"] = resolved.get("schema")
 
     return resolved
 

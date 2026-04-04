@@ -113,8 +113,8 @@ def setup(
     if role:
         config_table = manager.fetch_config_table_defaults(role)
 
-    def _resolve(flag_val, config_key, conn_key=None, param_key=None):
-        """Return (value, source) using: flag > account parameter > account default > connection config."""
+    def _resolve(flag_val, config_key, conn_key=None, param_key=None, default_val=None):
+        """Return (value, source) using: flag > account parameter > config table > default > current session."""
         if flag_val is not None:
             return flag_val, "flag"
         if param_key is not None:
@@ -123,7 +123,9 @@ def setup(
                 return param_val, "account parameter"
         table_val = config_table.get(config_key)
         if table_val:
-            return table_val, "account default"
+            return table_val, "config table"
+        if default_val is not None:
+            return default_val
         if conn_key is not None:
             # ctx.connection_context is only populated (without update_from_config) when
             # the user explicitly passed the flag on the CLI, so this signals "flag" provenance.
@@ -132,18 +134,18 @@ def setup(
                 return ctx_val, "flag"
             conn_val = conn_config.get(conn_key)
             if conn_val:
-                return conn_val, "connection config"
+                return conn_val, "current session"
         return None, "missing"
 
+    personal_db = None
     if IS_PERSONAL_DB_SUPPORTED:
-        database_resolved = (f"USER${get_env_username().upper()}", "personal db")
-    else:
-        database_resolved = _resolve(
-            None, "database", conn_key="database", param_key="database"
-        )
+        personal_db = (f"USER${get_env_username().upper()}", "personal db")
 
     resolved = {
-        "database": database_resolved,
+        "database": _resolve(
+            None, "database", conn_key="database", param_key="database",
+            default_val=personal_db,
+        ),
         "schema": _resolve(None, "schema", conn_key="schema", param_key="schema"),
         "warehouse": _resolve(
             None, "warehouse", conn_key="warehouse", param_key="query_warehouse"

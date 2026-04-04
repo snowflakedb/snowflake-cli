@@ -1437,7 +1437,7 @@ class TestResolveDeployDefaults:
     )
     @patch(CURRENT_ROLE, return_value="ENGINEER")
     @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
-    def test_yml_beats_conn_beats_params_beats_table(
+    def test_yml_beats_params_beats_table_beats_session(
         self, mock_ctx, mock_role, mock_fetch, mock_params
     ):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
@@ -1487,7 +1487,7 @@ class TestResolveDeployDefaults:
             warehouse="CONN_WH", database="CONN_DB", schema="CONN_SCHEMA"
         ),
     )
-    def test_connection_fills_gaps_before_params(
+    def test_session_fills_gaps_after_params_and_table(
         self, mock_ctx, mock_role, mock_fetch, mock_params
     ):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
@@ -1511,14 +1511,14 @@ class TestResolveDeployDefaults:
         GET_CLI_CONTEXT,
         return_value=_mock_connection_context(warehouse="CONN_WH"),
     )
-    def test_connection_beats_params_beats_table(
+    def test_params_beat_table_beat_session(
         self, mock_ctx, mock_role, mock_fetch, mock_params
     ):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
         entity = self._make_entity(database=None, schema=None)
         result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
-        assert result["query_warehouse"] == "CONN_WH"  # conn beats param
+        assert result["query_warehouse"] == "PARAM_WH"  # param beats table and session
         assert result["database"] == "PARAM_DB"  # param beats table
 
     @patch(FETCH_SNOW_APPS_PARAMS, return_value={})
