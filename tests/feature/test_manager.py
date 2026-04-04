@@ -85,24 +85,21 @@ class TestFeatureManagerApply:
         )
         mock_decl.load_specs.assert_called_once()
 
-    def test_apply_not_implemented_error_returns_placeholder(
-        self, mock_execute_query, mock_decl
-    ):
-        """If load_specs raises NotImplementedError, apply should still return a dict."""
+    def test_apply_load_specs_error_propagates(self, mock_execute_query, mock_decl):
+        """If load_specs raises, the exception propagates to the caller."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        mock_decl.load_specs.side_effect = NotImplementedError("Phase 1 not done")
+        mock_decl.load_specs.side_effect = ValueError("bad spec file")
         mgr = FeatureManager()
-        result = mgr.apply(
-            input_files=["specs.yaml"],
-            config=None,
-            dry_run=False,
-            dev_mode=False,
-            overwrite=False,
-            allow_recreate=False,
-        )
-        assert isinstance(result, dict)
-        assert "status" in result or "message" in result or "error" in result
+        with pytest.raises(ValueError, match="bad spec file"):
+            mgr.apply(
+                input_files=["specs.yaml"],
+                config=None,
+                dry_run=False,
+                dev_mode=False,
+                overwrite=False,
+                allow_recreate=False,
+            )
 
 
 class TestFeatureManagerListSpecs:
@@ -113,15 +110,15 @@ class TestFeatureManagerListSpecs:
         result = mgr.list_specs(input_files=(), config=None)
         assert isinstance(result, dict)
 
-    def test_list_specs_not_implemented_returns_placeholder(
+    def test_list_specs_load_specs_error_propagates(
         self, mock_execute_query, mock_decl
     ):
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        mock_decl.load_specs.side_effect = NotImplementedError("Phase 1 not done")
+        mock_decl.load_specs.side_effect = ValueError("bad spec file")
         mgr = FeatureManager()
-        result = mgr.list_specs(input_files=("specs.yaml",), config=None)
-        assert isinstance(result, dict)
+        with pytest.raises(ValueError, match="bad spec file"):
+            mgr.list_specs(input_files=("specs.yaml",), config=None)
 
 
 class TestFeatureManagerDescribe:
