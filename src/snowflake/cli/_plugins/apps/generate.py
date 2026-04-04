@@ -28,15 +28,16 @@ def _generate_snowflake_yml(
     """Generate snowflake.yml content from pre-resolved configuration values.
 
     All required keys (``database``, ``schema``, ``warehouse``,
-    ``compute_pool``, ``build_eai``) must be present and non-empty in
-    *resolved*.  The optional key ``image_repository`` is included only
-    when provided.
+    ``build_compute_pool``, ``service_compute_pool``, ``build_eai``) must
+    be present and non-empty in *resolved*.  The optional key
+    ``image_repository`` is included only when provided.
     """
 
     database = resolved["database"]
     schema = resolved["schema"]
     warehouse = resolved["warehouse"]
-    compute_pool = resolved["compute_pool"]
+    build_compute_pool = resolved["build_compute_pool"]
+    service_compute_pool = resolved["service_compute_pool"]
     build_eai = resolved["build_eai"]
     image_repository = resolved.get("image_repository")
 
@@ -75,9 +76,9 @@ def _generate_snowflake_yml(
 
             query_warehouse: {warehouse}
             build_compute_pool:
-              name: {compute_pool}
+              name: {build_compute_pool}
             service_compute_pool:
-              name: {compute_pool}
+              name: {service_compute_pool}
             build_eai:
               name: {build_eai}{repo_lines}
             code_stage:

@@ -308,7 +308,8 @@ class TestGenerateSnowflakeYml:
         "database": "TEST_DB",
         "schema": "SNOW_APPS",
         "warehouse": "TEST_WH",
-        "compute_pool": "MY_POOL",
+        "build_compute_pool": "MY_POOL",
+        "service_compute_pool": "MY_POOL",
         "build_eai": "MY_EAI",
     }
 
@@ -1407,6 +1408,7 @@ class TestResolveDeployDefaults:
         return_value={
             "query_warehouse": "PARAM_WH",
             "build_compute_pool": "PARAM_POOL",
+            "service_compute_pool": "PARAM_SVC_POOL",
             "build_eai": "PARAM_EAI",
         },
     )
@@ -1571,7 +1573,7 @@ class TestSetupCommand:
         resolved = mock_gen.call_args[0][1]
         assert resolved["database"] == "CFG_DB"
         assert resolved["warehouse"] == "CFG_WH"
-        assert resolved["compute_pool"] == "CFG_POOL"
+        assert resolved["build_compute_pool"] == "CFG_POOL"
         assert resolved["build_eai"] == "CFG_EAI"
 
     @patch(
@@ -1720,7 +1722,7 @@ class TestSetupCommand:
                 assert parsed["success"] is False
                 assert parsed["database"] == "CFG_DB"
                 assert parsed["warehouse"] == "CFG_WH"
-                assert parsed["compute_pool"] == "CFG_POOL"
+                assert parsed["build_compute_pool"] == "CFG_POOL"
                 assert parsed["build_eai"] == "CFG_EAI"
 
     @patch(
@@ -1789,7 +1791,7 @@ class TestSetupCommand:
                 assert result.exit_code == 0, result.output
                 assert "database: CFG_DB" in result.output
                 assert "warehouse: CFG_WH" in result.output
-                assert "compute_pool: CFG_POOL" in result.output
+                assert "build_compute_pool: CFG_POOL" in result.output
 
     @patch(
         "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
@@ -1805,6 +1807,7 @@ class TestSetupCommand:
         mock_mgr.fetch_snow_apps_parameters.return_value = {
             "query_warehouse": "PARAM_WH",
             "build_compute_pool": "PARAM_POOL",
+            "service_compute_pool": "PARAM_SVC_POOL",
             "build_eai": "PARAM_EAI",
             "database": "PARAM_DB",
         }
@@ -1825,7 +1828,7 @@ class TestSetupCommand:
         resolved = mock_gen.call_args[0][1]
         assert resolved["database"] == "PARAM_DB"
         assert resolved["warehouse"] == "PARAM_WH"
-        assert resolved["compute_pool"] == "PARAM_POOL"
+        assert resolved["build_compute_pool"] == "PARAM_POOL"
         assert resolved["build_eai"] == "PARAM_EAI"
 
     @patch(
@@ -1839,6 +1842,7 @@ class TestSetupCommand:
         mock_mgr.current_role.return_value = "TEST_ROLE"
         mock_mgr.fetch_snow_apps_parameters.return_value = {
             "build_compute_pool": "PARAM_POOL",
+            "service_compute_pool": "PARAM_SVC_POOL",
             "build_eai": "PARAM_EAI",
             "database": "PARAM_DB",
             "query_warehouse": "PARAM_WH",
@@ -1864,7 +1868,7 @@ class TestSetupCommand:
                 assert result.exit_code == 0, result.output
 
         resolved = mock_gen.call_args[0][1]
-        assert resolved["compute_pool"] == "FLAG_POOL"
+        assert resolved["build_compute_pool"] == "FLAG_POOL"
         assert resolved["build_eai"] == "FLAG_EAI"
         # These come from params since no flag overrides them
         assert resolved["database"] == "PARAM_DB"
@@ -1884,6 +1888,7 @@ class TestSetupCommand:
         mock_mgr.fetch_snow_apps_parameters.return_value = {
             "query_warehouse": "PARAM_WH",
             "build_compute_pool": "PARAM_POOL",
+            "service_compute_pool": "PARAM_SVC_POOL",
             "build_eai": "PARAM_EAI",
             "database": "PARAM_DB",
         }

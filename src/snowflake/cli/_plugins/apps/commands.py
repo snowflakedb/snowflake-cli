@@ -148,9 +148,14 @@ def setup(
             (table.get("warehouse"), "config table"),
             (session_wh, "current session"),
         ),
-        "compute_pool": _first_of(
+        "build_compute_pool": _first_of(
             (compute_pool, "user input"),
             (param.get("build_compute_pool"), "account parameter"),
+            (table.get("compute_pool"), "config table"),
+        ),
+        "service_compute_pool": _first_of(
+            (compute_pool, "user input"),
+            (param.get("service_compute_pool"), "account parameter"),
             (table.get("compute_pool"), "config table"),
         ),
         "build_eai": _first_of(
@@ -165,13 +170,14 @@ def setup(
         resolved["image_repository"] = (img_repo_val, "account parameter" if param.get("image_repository") else "config table")
 
     # Validate: fail on ALL missing required values at once
-    required_keys = ["database", "warehouse", "compute_pool", "build_eai"]
+    required_keys = ["database", "warehouse", "build_compute_pool", "service_compute_pool", "build_eai"]
     missing = [key for key in required_keys if not resolved[key][0]]
     if missing:
         flag_map = {
             "database": "--database",
             "warehouse": "--warehouse",
-            "compute_pool": "--compute-pool",
+            "build_compute_pool": "--compute-pool",
+            "service_compute_pool": "--compute-pool",
             "build_eai": "--build-eai",
         }
         flags = ", ".join(flag_map[k] for k in missing)
