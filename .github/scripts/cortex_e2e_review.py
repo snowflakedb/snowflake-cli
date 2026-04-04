@@ -273,121 +273,121 @@ def main():
         cursor.close()
     print(f"  Created: {playground_db}")
 
-    # Point snow CLI at the playground
-    os.environ[f"{_ENV_PREFIX}_DATABASE"] = playground_db
-
-    # Step 4: Configure cortex connection
-    print("[Step 4] Configuring cortex connection...")
-    snowflake_home = os.path.expanduser("~/.snowflake")
-    os.makedirs(snowflake_home, exist_ok=True)
-    connections_toml = os.path.join(snowflake_home, "connections.toml")
-
-    # Write private key to a file if provided as raw
-    private_key_raw = os.environ.get(f"{_ENV_PREFIX}_PRIVATE_KEY_RAW", "")
-    private_key_file = os.environ.get(
-        f"{_ENV_PREFIX}_PRIVATE_KEY_FILE",
-        os.environ.get(f"{_ENV_PREFIX}_PRIVATE_KEY_PATH", ""),
-    )
-    if private_key_raw and not private_key_file:
-        private_key_file = os.path.join(snowflake_home, "rsa_key.p8")
-        with open(private_key_file, "w") as f:
-            f.write(private_key_raw)
-        os.chmod(private_key_file, 0o600)
-        print(f"  Wrote private key to {private_key_file}")
-
-    # Build connection config
-    conn_config = {
-        "account": os.environ.get(f"{_ENV_PREFIX}_ACCOUNT", ""),
-        "user": os.environ.get(f"{_ENV_PREFIX}_USER", ""),
-        "authenticator": os.environ.get(f"{_ENV_PREFIX}_AUTHENTICATOR", ""),
-        "host": os.environ.get(f"{_ENV_PREFIX}_HOST", ""),
-        "database": playground_db,
-        "warehouse": os.environ.get(f"{_ENV_PREFIX}_WAREHOUSE", ""),
-        "role": os.environ.get(f"{_ENV_PREFIX}_ROLE", ""),
-    }
-    if private_key_file:
-        conn_config["private_key_file"] = private_key_file
-
-    # Write TOML — use multi-line string for private key path
-    toml_lines = ["[integration]"]
-    for key, val in conn_config.items():
-        if val:
-            escaped = val.replace("\\", "\\\\").replace('"', '\\"')
-            toml_lines.append(f'{key} = "{escaped}"')
-    with open(connections_toml, "w") as f:
-        f.write("\n".join(toml_lines) + "\n")
-    os.chmod(connections_toml, 0o600)
-    print(f"  Wrote {connections_toml}")
-    # Debug: show the config (redact sensitive fields)
-    for line in toml_lines:
-        if "private_key" not in line.lower():
-            print(f"    {line}")
-
-    # Step 5: Build the prompt
-    prompt = AGENT_PROMPT_TEMPLATE.format(
-        playground_db=playground_db,
-        pr_number=pr_number,
-        pr_repo=repo,
-    )
-
-    # Step 6: Run Cortex Code CLI agent
-    print("[Step 6] Running Cortex Code CLI agent...")
-    agent_start = time.monotonic()
     try:
-        agent_result = subprocess.run(
-            [
-                "cortex",
-                "-p",
-                prompt,
-                "--model",
-                model,
-                "--connection",
-                "integration",
-                "--workdir",
-                os.getcwd(),
-                "--plan",
-                "--auto-accept-plans",
-                "--bypass",
-                "--output-format",
-                "stream-json",
-                "--no-auto-update",
-                "--config-file",
-                connections_toml,
-            ],
-            capture_output=True,
-            text=True,
-            timeout=3000,  # 50 minutes
+        # Point snow CLI at the playground
+        os.environ[f"{_ENV_PREFIX}_DATABASE"] = playground_db
+
+        # Step 4: Configure cortex connection
+        print("[Step 4] Configuring cortex connection...")
+        snowflake_home = os.path.expanduser("~/.snowflake")
+        os.makedirs(snowflake_home, exist_ok=True)
+        connections_toml = os.path.join(snowflake_home, "connections.toml")
+
+        # Write private key to a file if provided as raw
+        private_key_raw = os.environ.get(f"{_ENV_PREFIX}_PRIVATE_KEY_RAW", "")
+        private_key_file = os.environ.get(
+            f"{_ENV_PREFIX}_PRIVATE_KEY_FILE",
+            os.environ.get(f"{_ENV_PREFIX}_PRIVATE_KEY_PATH", ""),
         )
-        # Parse stream-json output — take only the last message (the report)
-        agent_output = _parse_stream_json(agent_result.stdout)
-        if not agent_output:
-            # Fallback: post raw output so the user sees something
-            agent_output = (
-                "_Could not parse structured output from Cortex agent. "
-                "Raw output below:_\n\n```\n" + agent_result.stdout[:8000] + "\n```"
+        if private_key_raw and not private_key_file:
+            private_key_file = os.path.join(snowflake_home, "rsa_key.p8")
+            with open(private_key_file, "w") as f:
+                f.write(private_key_raw)
+            os.chmod(private_key_file, 0o600)
+            print(f"  Wrote private key to {private_key_file}")
+
+        # Build connection config
+        conn_config = {
+            "account": os.environ.get(f"{_ENV_PREFIX}_ACCOUNT", ""),
+            "user": os.environ.get(f"{_ENV_PREFIX}_USER", ""),
+            "authenticator": os.environ.get(f"{_ENV_PREFIX}_AUTHENTICATOR", ""),
+            "host": os.environ.get(f"{_ENV_PREFIX}_HOST", ""),
+            "database": playground_db,
+            "warehouse": os.environ.get(f"{_ENV_PREFIX}_WAREHOUSE", ""),
+            "role": os.environ.get(f"{_ENV_PREFIX}_ROLE", ""),
+        }
+        if private_key_file:
+            conn_config["private_key_file"] = private_key_file
+
+        # Write TOML — use multi-line string for private key path
+        toml_lines = ["[integration]"]
+        for key, val in conn_config.items():
+            if val:
+                escaped = val.replace("\\", "\\\\").replace('"', '\\"')
+                toml_lines.append(f'{key} = "{escaped}"')
+        with open(connections_toml, "w") as f:
+            f.write("\n".join(toml_lines) + "\n")
+        os.chmod(connections_toml, 0o600)
+        print(f"  Wrote {connections_toml}")
+        # Debug: show the config (redact sensitive fields)
+        for line in toml_lines:
+            if "private_key" not in line.lower():
+                print(f"    {line}")
+
+        # Step 5: Build the prompt
+        prompt = AGENT_PROMPT_TEMPLATE.format(
+            playground_db=playground_db,
+            pr_number=pr_number,
+            pr_repo=repo,
+        )
+
+        # Step 6: Run Cortex Code CLI agent
+        print("[Step 6] Running Cortex Code CLI agent...")
+        agent_start = time.monotonic()
+        try:
+            agent_result = subprocess.run(
+                [
+                    "cortex",
+                    "-p",
+                    prompt,
+                    "--model",
+                    model,
+                    "--connection",
+                    "integration",
+                    "--workdir",
+                    os.getcwd(),
+                    "--plan",
+                    "--auto-accept-plans",
+                    "--bypass",
+                    "--output-format",
+                    "stream-json",
+                    "--no-auto-update",
+                    "--config-file",
+                    connections_toml,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=3000,  # 50 minutes
             )
-        agent_duration = time.monotonic() - agent_start
-        print(
-            f"  Agent finished (exit={agent_result.returncode},"
-            f" {len(agent_output)} chars, {agent_duration:.0f}s)"
-        )
-        if agent_result.returncode != 0:
-            print(f"  Stderr: {agent_result.stderr[:1000]}")
-    except subprocess.TimeoutExpired:
-        print("  Agent timed out")
-        post_error_comment(repo, pr_number, "Cortex agent timed out after 50 minutes.")
-        _cleanup(conn, playground_db)
-        sys.exit(1)
-    except Exception as e:
-        tb = traceback.format_exc()
-        post_error_comment(
-            repo, pr_number, f"Cortex agent failed:\n\n```\n{e}\n\n{tb}\n```"
-        )
-        _cleanup(conn, playground_db)
-        sys.exit(1)
+            # Parse stream-json output — take only the last message (the report)
+            agent_output = _parse_stream_json(agent_result.stdout)
+            if not agent_output:
+                # Fallback: post raw output so the user sees something
+                agent_output = (
+                    "_Could not parse structured output from Cortex agent. "
+                    "Raw output below:_\n\n```\n" + agent_result.stdout[:8000] + "\n```"
+                )
+            agent_duration = time.monotonic() - agent_start
+            print(
+                f"  Agent finished (exit={agent_result.returncode},"
+                f" {len(agent_output)} chars, {agent_duration:.0f}s)"
+            )
+            if agent_result.returncode != 0:
+                print(f"  Stderr: {agent_result.stderr[:1000]}")
+        except subprocess.TimeoutExpired:
+            print("  Agent timed out")
+            post_error_comment(
+                repo, pr_number, "Cortex agent timed out after 50 minutes."
+            )
+            sys.exit(1)
+        except Exception as e:
+            tb = traceback.format_exc()
+            post_error_comment(
+                repo, pr_number, f"Cortex agent failed:\n\n```\n{e}\n\n{tb}\n```"
+            )
+            sys.exit(1)
 
-    # Step 7: Post the review comment and cleanup
-    try:
+        # Step 7: Post the review comment
         print("[Step 7] Posting review comment...")
         delete_previous_comment(repo, pr_number)
         head_sha_result = subprocess.run(
