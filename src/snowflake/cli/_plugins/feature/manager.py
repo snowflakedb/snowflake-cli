@@ -19,7 +19,11 @@ from __future__ import annotations
 import glob as _glob
 import json
 import logging
+import os
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from pathlib import Path
 from typing import Any, Optional, Sequence, Tuple
 
@@ -42,6 +46,39 @@ except ImportError:
     _HAS_ONLINE_SERVICE = False
 
 log = logging.getLogger(__name__)
+
+_MAX_RESPONSE_BYTES = 64 * 1024  # cap on response reads to prevent unbounded memory use
+
+
+def _post_json_to_service(
+    url: str,
+    pat: str,
+    body: dict[str, Any],
+    timeout: float = 120.0,
+) -> dict[str, Any]:
+    """POST a JSON body to an Online Service REST endpoint with PAT bearer auth."""
+    payload = json.dumps(body).encode("utf-8")
+    headers = {
+        "Authorization": f'Snowflake Token="{pat}"',
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+    req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
+    try:
+        resp = urllib.request.urlopen(req, timeout=timeout)
+        try:
+            raw = resp.read(_MAX_RESPONSE_BYTES)
+            return json.loads(raw.decode("utf-8"))
+        finally:
+            resp.close()
+    except urllib.error.HTTPError as exc:
+        body_text = exc.read(_MAX_RESPONSE_BYTES).decode("utf-8", errors="replace")
+        return {"status": "error", "http_status": exc.code, "error": body_text}
+    except (urllib.error.URLError, OSError) as exc:
+        return {
+            "status": "error",
+            "error": f"Feature store service is unreachable: {exc}",
+        }
 
 
 def _expand_globs(patterns: Sequence[str]) -> list[str]:
@@ -414,3 +451,84 @@ class FeatureManager(SqlExecutionMixin):
             errors.append(f"drop_runtime: {exc}")
 
         return {"status": "destroyed", "dropped_ofts": dropped_ofts, "errors": errors}
+
+    # ------------------------------------------------------------------
+    # ingest
+    # ------------------------------------------------------------------
+
+    def ingest(self, source_name: str, records: list[dict]) -> dict[str, Any]:
+        """Stream records into a source via the Online Service ingest endpoint.
+
+        Requires ``SNOWFLAKE_PAT`` environment variable.
+        """
+        pat = os.environ.get("SNOWFLAKE_PAT", "").strip()
+        if not pat:
+            raise RuntimeError(
+                "SNOWFLAKE_PAT environment variable is required for feature ingest. "
+                "Set it to a Snowflake Programmatic Access Token."
+            )
+
+        status = self.get_status()
+        ingest_url: Optional[str] = None
+        for ep in status.get("endpoints", []):
+            if isinstance(ep, dict) and ep.get("name") == "ingest":
+                ingest_url = ep.get("url")
+                break
+
+        if not ingest_url:
+            return {
+                "status": "error",
+                "error": (
+                    "Feature store service is not running or has no ingest endpoint. "
+                    "Run 'snow feature status' to check service status."
+                ),
+            }
+
+        url = urllib.parse.urljoin(ingest_url.rstrip("/") + "/", "api/v1/ingest")
+        body: dict[str, Any] = {"records": {source_name: records}}
+        log.debug(
+            "ingest: url=%r source=%r num_records=%d", url, source_name, len(records)
+        )
+        return _post_json_to_service(url, pat, body)
+
+    # ------------------------------------------------------------------
+    # query
+    # ------------------------------------------------------------------
+
+    def query(self, feature_view_name: str, keys: list[dict]) -> dict[str, Any]:
+        """Query online features via the Online Service query endpoint.
+
+        Requires ``SNOWFLAKE_PAT`` environment variable.
+        """
+        pat = os.environ.get("SNOWFLAKE_PAT", "").strip()
+        if not pat:
+            raise RuntimeError(
+                "SNOWFLAKE_PAT environment variable is required for feature query. "
+                "Set it to a Snowflake Programmatic Access Token."
+            )
+
+        status = self.get_status()
+        query_url: Optional[str] = None
+        for ep in status.get("endpoints", []):
+            if isinstance(ep, dict) and ep.get("name") == "query":
+                query_url = ep.get("url")
+                break
+
+        if not query_url:
+            return {
+                "status": "error",
+                "error": (
+                    "Feature store service is not running or has no query endpoint. "
+                    "Run 'snow feature status' to check service status."
+                ),
+            }
+
+        url = urllib.parse.urljoin(query_url.rstrip("/") + "/", "api/v1/query")
+        body: dict[str, Any] = {"feature_view_name": feature_view_name, "keys": keys}
+        log.debug(
+            "query: url=%r feature_view=%r num_keys=%d",
+            url,
+            feature_view_name,
+            len(keys),
+        )
+        return _post_json_to_service(url, pat, body)
