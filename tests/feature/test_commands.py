@@ -523,3 +523,52 @@ def test_query_help_shows_keys_option(mock_manager, runner):
     result = runner.invoke(["feature", "query", "--help"])
     assert result.exit_code == 0, result.output
     assert "--keys" in result.output
+
+
+# ---------------------------------------------------------------------------
+# export
+# ---------------------------------------------------------------------------
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_export_calls_manager(mock_manager, runner, tmp_path):
+    """export should call FeatureManager.export_specs with the given dir."""
+    mock_manager.return_value.export_specs.return_value = {
+        "status": "exported",
+        "directory": str(tmp_path),
+        "files": [str(tmp_path / "feature_views/my_fv.yaml")],
+    }
+    result = runner.invoke(["feature", "export", "--dir", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    mock_manager.return_value.export_specs.assert_called_once_with(str(tmp_path))
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_export_default_dir(mock_manager, runner):
+    """export without --dir should call export_specs with '.'."""
+    mock_manager.return_value.export_specs.return_value = {
+        "status": "exported",
+        "directory": ".",
+        "files": [],
+    }
+    result = runner.invoke(["feature", "export"])
+    assert result.exit_code == 0, result.output
+    mock_manager.return_value.export_specs.assert_called_once_with(".")
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_export_returns_file_list(mock_manager, runner, tmp_path):
+    """export should render the list of written files."""
+    files = [
+        str(tmp_path / "feature_views/my_fv.yaml"),
+        str(tmp_path / "entities/user_id.yaml"),
+        str(tmp_path / "datasources/click_events.yaml"),
+    ]
+    mock_manager.return_value.export_specs.return_value = {
+        "status": "exported",
+        "directory": str(tmp_path),
+        "files": files,
+    }
+    result = runner.invoke(["feature", "export", "--dir", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    assert "my_fv.yaml" in result.output
