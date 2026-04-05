@@ -18,12 +18,14 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
 from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
 from typing import List, Optional
 
 import typer
+from click import ClickException
 from snowflake.cli._plugins.feature.manager import FeatureManager, generate_example
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import CommandResult, MessageResult
@@ -319,4 +321,81 @@ def destroy_service(
 ) -> CommandResult:
     """Destroy the feature store runtime service and all Online Feature Tables."""
     result = FeatureManager().destroy_service()
+    return _to_result(result)
+
+
+# ---------------------------------------------------------------------------
+# ingest
+# ---------------------------------------------------------------------------
+
+
+@app.command(requires_connection=True)
+def ingest(
+    source_name: str = typer.Argument(
+        ...,
+        help="Name of the streaming source to ingest records into.",
+        show_default=False,
+    ),
+    data: str = typer.Option(
+        "-",
+        "--data",
+        help="Path to a JSON file containing a records array, or - to read from stdin.",
+        show_default=False,
+    ),
+    **options,
+) -> CommandResult:
+    """Ingest records into a streaming feature source via the Online Service."""
+    if data == "-":
+        content = sys.stdin.read()
+    else:
+        try:
+            with open(data) as fh:
+                content = fh.read()
+        except OSError as exc:
+            raise typer.BadParameter(str(exc), param_hint="--data")
+
+    try:
+        records = json.loads(content)
+    except json.JSONDecodeError as exc:
+        raise typer.BadParameter(f"Invalid JSON: {exc}", param_hint="--data")
+
+    try:
+        result = FeatureManager().ingest(source_name=source_name, records=records)
+    except RuntimeError as exc:
+        raise ClickException(str(exc))
+    return _to_result(result)
+
+
+# ---------------------------------------------------------------------------
+# query
+# ---------------------------------------------------------------------------
+
+
+@app.command(requires_connection=True)
+def query(
+    feature_view_name: str = typer.Argument(
+        ...,
+        help="Name of the feature view to query.",
+        show_default=False,
+    ),
+    keys: str = typer.Option(
+        ...,
+        "--keys",
+        help='JSON array of entity key objects, e.g. \'[{"user_id": "u1"}]\'.',
+        show_default=False,
+    ),
+    **options,
+) -> CommandResult:
+    """Query online features for a feature view via the Online Service."""
+    try:
+        parsed_keys = json.loads(keys)
+    except json.JSONDecodeError as exc:
+        raise typer.BadParameter(f"Invalid JSON: {exc}", param_hint="--keys")
+
+    try:
+        result = FeatureManager().query(
+            feature_view_name=feature_view_name, keys=parsed_keys
+        )
+    except RuntimeError as exc:
+        raise ClickException(str(exc))
     return _to_result(result)
