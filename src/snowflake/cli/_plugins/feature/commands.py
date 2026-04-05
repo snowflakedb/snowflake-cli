@@ -72,7 +72,6 @@ _TABLE_DISPLAY_COLUMNS = [
     "database_name",
     "schema_name",
     "scheduling_state",
-    "source",
 ]
 
 
