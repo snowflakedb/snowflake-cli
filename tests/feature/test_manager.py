@@ -14,6 +14,7 @@
 
 """Tests for FeatureManager — mocks the decl library."""
 
+import json
 from unittest import mock
 
 import pytest
@@ -152,3 +153,155 @@ class TestFeatureManagerConvert:
             config=None,
         )
         assert isinstance(result, dict)
+
+
+# ---------------------------------------------------------------------------
+# get_status
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def mock_cli_context():
+    """Patch get_cli_context used in service management methods."""
+    with mock.patch("snowflake.cli._plugins.feature.manager.get_cli_context") as m:
+        ctx = mock.MagicMock()
+        ctx.connection.database = "TEST_DB"
+        ctx.connection.schema = "TEST_SCHEMA"
+        m.return_value = ctx
+        yield m
+
+
+class TestFeatureManagerGetStatus:
+    STATUS_JSON = json.dumps(
+        {
+            "status": "RUNNING",
+            "message": "All systems go",
+            "endpoints": [{"name": "query", "url": "https://example.com/query"}],
+            "created_at": "2024-01-01T00:00:00",
+            "updated_at": "2024-01-02T00:00:00",
+            "compute_pool": "active",  # extra field not in OnlineServiceStatus
+        }
+    )
+    EMPTY_ENDPOINTS_JSON = json.dumps({"status": "PENDING", "endpoints": []})
+
+    def test_get_status_returns_dict(self, mock_execute_query, mock_cli_context):
+        """get_status() always returns a dict."""
+        mock_execute_query.return_value = iter([(self.STATUS_JSON,)])
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        result = mgr.get_status()
+        assert isinstance(result, dict)
+
+    def test_get_status_has_status_field(self, mock_execute_query, mock_cli_context):
+        """Result dict includes 'status' with the correct value."""
+        mock_execute_query.return_value = iter([(self.STATUS_JSON,)])
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        result = mgr.get_status()
+        assert "status" in result
+        assert result["status"] == "RUNNING"
+
+    def test_get_status_has_message_field(self, mock_execute_query, mock_cli_context):
+        """Result dict includes 'message' key (aligned with OnlineServiceStatus)."""
+        mock_execute_query.return_value = iter([(self.STATUS_JSON,)])
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        result = mgr.get_status()
+        assert "message" in result
+
+    def test_get_status_has_endpoints_list(self, mock_execute_query, mock_cli_context):
+        """Result dict includes 'endpoints' as a list."""
+        mock_execute_query.return_value = iter([(self.STATUS_JSON,)])
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        result = mgr.get_status()
+        assert "endpoints" in result
+        assert isinstance(result["endpoints"], list)
+
+    def test_get_status_endpoints_are_plain_dicts(
+        self, mock_execute_query, mock_cli_context
+    ):
+        """Endpoint items in result must be plain dicts with 'name' and 'url'."""
+        mock_execute_query.return_value = iter([(self.STATUS_JSON,)])
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        result = mgr.get_status()
+        for ep in result["endpoints"]:
+            assert isinstance(ep, dict), f"Expected dict endpoint, got {type(ep)}"
+            assert "name" in ep
+            assert "url" in ep
+
+    def test_get_status_with_parse_status_available(
+        self, mock_execute_query, mock_cli_context
+    ):
+        """When _HAS_ONLINE_SERVICE is True, _online_service_parse_status is called."""
+        mock_execute_query.return_value = iter([(self.STATUS_JSON,)])
+
+        mock_parse = mock.MagicMock()
+        mock_parsed_status = mock.MagicMock()
+        mock_parsed_status.status = "RUNNING"
+        mock_parsed_status.message = "All systems go"
+        mock_parsed_status.endpoints = ()
+        mock_parsed_status.created_at = None
+        mock_parsed_status.updated_at = None
+        mock_parse.return_value = mock_parsed_status
+
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        with (
+            mock.patch(
+                "snowflake.cli._plugins.feature.manager._HAS_ONLINE_SERVICE", True
+            ),
+            mock.patch(
+                "snowflake.cli._plugins.feature.manager._online_service_parse_status",
+                mock_parse,
+            ),
+        ):
+            mgr = FeatureManager()
+            result = mgr.get_status()
+
+        mock_parse.assert_called_once()
+        assert result["status"] == "RUNNING"
+
+    def test_get_status_fallback_preserves_raw_fields(
+        self, mock_execute_query, mock_cli_context
+    ):
+        """When _HAS_ONLINE_SERVICE is False, raw JSON dict is returned (fallback)."""
+        mock_execute_query.return_value = iter([(self.STATUS_JSON,)])
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        with mock.patch(
+            "snowflake.cli._plugins.feature.manager._HAS_ONLINE_SERVICE", False
+        ):
+            mgr = FeatureManager()
+            result = mgr.get_status()
+
+        assert result["status"] == "RUNNING"
+        # In fallback mode extra raw JSON fields are preserved unchanged
+        assert "compute_pool" in result
+
+    def test_get_status_error_on_execute_exception(
+        self, mock_execute_query, mock_cli_context
+    ):
+        """When execute_query raises, get_status returns an error dict."""
+        mock_execute_query.side_effect = RuntimeError("DB connection failed")
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        result = mgr.get_status()
+        assert result["status"] == "error"
+        assert "error" in result
+
+    def test_get_status_empty_endpoints(self, mock_execute_query, mock_cli_context):
+        """Empty 'endpoints' in JSON produces an empty list in the result."""
+        mock_execute_query.return_value = iter([(self.EMPTY_ENDPOINTS_JSON,)])
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        result = mgr.get_status()
+        assert result["endpoints"] == []
