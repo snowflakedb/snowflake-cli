@@ -169,9 +169,9 @@ def setup(
         ),
     }
 
-    img_repo_val = param.get("image_repository") or table.get("image_repository")
+    img_repo_val = table.get("image_repository")
     if img_repo_val:
-        resolved["image_repository"] = (img_repo_val, "account parameter" if param.get("image_repository") else "config table")
+        resolved["image_repository"] = (img_repo_val, "config table")
 
     # Validate: fail on ALL missing required values at once
     required_keys = ["database", "warehouse", "build_compute_pool", "service_compute_pool", "build_eai"]
