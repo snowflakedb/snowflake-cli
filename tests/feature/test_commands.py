@@ -406,3 +406,113 @@ def test_destroy_service_drops_ofts_then_runtime(mock_manager, runner):
     result = runner.invoke(["feature", "destroy-service"])
     assert result.exit_code == 0, result.output
     mock_manager.return_value.destroy_service.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# ingest
+# ---------------------------------------------------------------------------
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_ingest_requires_source_name(mock_manager, runner):
+    """ingest with no arguments should exit with usage error (code 2)."""
+    result = runner.invoke(["feature", "ingest"])
+    assert result.exit_code == 2, result.output
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_ingest_reads_data_from_file(mock_manager, runner, tmp_path):
+    """ingest --data <file> should parse JSON and pass records to manager."""
+    data_file = tmp_path / "records.json"
+    data_file.write_text('[{"user_id": "u1", "val": 42}]')
+    mock_manager.return_value.ingest.return_value = {"ingested": 1}
+    result = runner.invoke(["feature", "ingest", "my_source", "--data", str(data_file)])
+    assert result.exit_code == 0, result.output
+    mock_manager.return_value.ingest.assert_called_once()
+    call_kwargs = mock_manager.return_value.ingest.call_args[1]
+    assert call_kwargs["source_name"] == "my_source"
+    assert call_kwargs["records"] == [{"user_id": "u1", "val": 42}]
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_ingest_reads_from_stdin(mock_manager, runner):
+    """ingest without --data (defaults to stdin) should read records from stdin."""
+    mock_manager.return_value.ingest.return_value = {"ingested": 2}
+    result = runner.invoke(
+        ["feature", "ingest", "my_source"],
+        input='[{"a": 1}, {"a": 2}]',
+    )
+    assert result.exit_code == 0, result.output
+    call_kwargs = mock_manager.return_value.ingest.call_args[1]
+    assert len(call_kwargs["records"]) == 2
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_ingest_manager_error_propagates(mock_manager, runner):
+    """ingest should propagate RuntimeError from manager (e.g. missing PAT)."""
+    mock_manager.return_value.ingest.side_effect = RuntimeError(
+        "SNOWFLAKE_PAT environment variable is required"
+    )
+    result = runner.invoke(
+        ["feature", "ingest", "my_source"],
+        input="[]",
+    )
+    assert result.exit_code != 0
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_ingest_help_shows_data_option(mock_manager, runner):
+    """ingest --help should show --data option."""
+    result = runner.invoke(["feature", "ingest", "--help"])
+    assert result.exit_code == 0, result.output
+    assert "--data" in result.output
+
+
+# ---------------------------------------------------------------------------
+# query
+# ---------------------------------------------------------------------------
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_query_requires_feature_view_name(mock_manager, runner):
+    """query with no arguments should exit with usage error (code 2)."""
+    result = runner.invoke(["feature", "query"])
+    assert result.exit_code == 2, result.output
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_query_requires_keys(mock_manager, runner):
+    """query without --keys should exit with usage error (code 2)."""
+    result = runner.invoke(["feature", "query", "my_view"])
+    assert result.exit_code == 2, result.output
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_query_calls_manager_with_view_and_keys(mock_manager, runner):
+    """query should pass feature_view_name and parsed keys to manager."""
+    mock_manager.return_value.query.return_value = {"results": []}
+    keys_json = '[{"user_id": "u1"}]'
+    result = runner.invoke(["feature", "query", "my_view", "--keys", keys_json])
+    assert result.exit_code == 0, result.output
+    mock_manager.return_value.query.assert_called_once()
+    call_kwargs = mock_manager.return_value.query.call_args[1]
+    assert call_kwargs["feature_view_name"] == "my_view"
+    assert call_kwargs["keys"] == [{"user_id": "u1"}]
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_query_manager_error_propagates(mock_manager, runner):
+    """query should propagate RuntimeError from manager (e.g. missing PAT)."""
+    mock_manager.return_value.query.side_effect = RuntimeError(
+        "SNOWFLAKE_PAT environment variable is required"
+    )
+    result = runner.invoke(["feature", "query", "my_view", "--keys", '[{"id": "1"}]'])
+    assert result.exit_code != 0
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_query_help_shows_keys_option(mock_manager, runner):
+    """query --help should show --keys option."""
+    result = runner.invoke(["feature", "query", "--help"])
+    assert result.exit_code == 0, result.output
+    assert "--keys" in result.output
