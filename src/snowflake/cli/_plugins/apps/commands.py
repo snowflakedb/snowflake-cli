@@ -25,6 +25,7 @@ from snowflake.cli._plugins.apps.generate import (
 )
 from snowflake.cli._plugins.apps.manager import (
     _APP_COMMAND_NAME,
+    DEFAULT_IMAGE_REPOSITORY,
     DEFINITION_FILENAME,
     EXPOSE_UNSUPPORTED_SYNTAX,
     SnowflakeAppManager,
@@ -169,9 +170,12 @@ def setup(
         ),
     }
 
-    img_repo_val = table.get("image_repository")
-    if img_repo_val:
-        resolved["image_repository"] = (img_repo_val, "config table")
+    # TODO: Remove image_repository default once the artifact repo path
+    # replaces the image repo path.
+    resolved["image_repository"] = _first_available(
+        (table.get("image_repository"), "config table"),
+        (DEFAULT_IMAGE_REPOSITORY, "default"),
+    )
 
     # Validate: fail on ALL missing required values at once
     required_keys = ["database", "warehouse", "build_compute_pool", "service_compute_pool", "build_eai"]
