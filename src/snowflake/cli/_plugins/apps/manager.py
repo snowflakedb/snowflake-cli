@@ -48,6 +48,8 @@ _APP_COMMAND_NAME = "__app"
 
 DEFAULT_IMAGE_REPOSITORY = "IMAGE_REPO"
 
+# TODO: Remove config table once DEFAULT_SNOWFLAKE_APPS_* account parameters
+# are rolled out to production and configurable in Snowsight (week of 2026-04-06).
 APP_DEFAULTS_TABLE = "APPS.PUBLIC.SNOW_APP_DEFAULTS"
 APP_DEFAULTS_INTEGRATION = "snowflake-apps"
 

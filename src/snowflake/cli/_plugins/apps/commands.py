@@ -113,7 +113,7 @@ def setup(
     if role:
         table = manager.fetch_config_table_defaults(role)
 
-    def _first_of(*sources):
+    def _first_available(*sources):
         """Return the first (value, source) pair where value is truthy."""
         for value, source in sources:
             if value:
@@ -132,33 +132,37 @@ def setup(
 
     # ── Resolve each field (each chain is the full precedence) ────────
     resolved = {
-        "database": _first_of(
+        "database": _first_available(
             (param.get("database"), "account parameter"),
             (table.get("database"), "config table"),
             (personal_db, "personal db"),
             (session_db, "current session"),
         ),
-        "schema": _first_of(
+        "schema": _first_available(
             (param.get("schema"), "account parameter"),
             (table.get("schema"), "config table"),
             (session_schema, "current session"),
         ),
-        "warehouse": _first_of(
+        "warehouse": _first_available(
             (param.get("query_warehouse"), "account parameter"),
             (table.get("warehouse"), "config table"),
             (session_wh, "current session"),
         ),
-        "build_compute_pool": _first_of(
+        # TODO: Remove --compute-pool flag once services can run in the
+        # system default compute pool (SYSTEM_COMPUTE_POOL_CPU).
+        "build_compute_pool": _first_available(
             (compute_pool, "user input"),
             (param.get("build_compute_pool"), "account parameter"),
             (table.get("compute_pool"), "config table"),
         ),
-        "service_compute_pool": _first_of(
+        "service_compute_pool": _first_available(
             (compute_pool, "user input"),
             (param.get("service_compute_pool"), "account parameter"),
             (table.get("compute_pool"), "config table"),
         ),
-        "build_eai": _first_of(
+        # TODO: Remove --build-eai flag once the builder service no longer
+        # requires an external access integration.
+        "build_eai": _first_available(
             (build_eai, "user input"),
             (param.get("build_eai"), "account parameter"),
             (table.get("eai"), "config table"),
