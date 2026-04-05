@@ -31,6 +31,16 @@ from snowflake.ml.feature_store.decl import api as decl_api
 from snowflake.ml.feature_store.decl.sql_generator import generate_sql
 from snowflake.ml.feature_store.decl.types import PlanOptions
 
+try:
+    from snowflake.ml.feature_store.online_service import (
+        _parse_status_payload as _online_service_parse_status,
+    )
+
+    _HAS_ONLINE_SERVICE = True
+except ImportError:
+    _online_service_parse_status = None  # type: ignore[assignment]
+    _HAS_ONLINE_SERVICE = False
+
 log = logging.getLogger(__name__)
 
 
@@ -291,7 +301,22 @@ class FeatureManager(SqlExecutionMixin):
             if raw is None:
                 return {"status": "error", "error": "No response from system function"}
             parsed = json.loads(raw) if isinstance(raw, str) else raw
-            return parsed
+            if _HAS_ONLINE_SERVICE and _online_service_parse_status is not None:
+                svc_status = _online_service_parse_status(parsed)
+                return {
+                    "status": svc_status.status,
+                    "message": svc_status.message,
+                    "endpoints": [
+                        {"name": ep.name, "url": ep.url} for ep in svc_status.endpoints
+                    ],
+                    "created_at": svc_status.created_at,
+                    "updated_at": svc_status.updated_at,
+                }
+            else:
+                log.warning(
+                    "online_service module not available; using raw JSON parsing"
+                )
+                return parsed
         except Exception as exc:
             log.warning("get_status raised %s: %s", type(exc).__name__, exc)
             return {"status": "error", "error": str(exc)}
