@@ -337,6 +337,27 @@ def example(
 
 
 # ---------------------------------------------------------------------------
+# export
+# ---------------------------------------------------------------------------
+
+
+@app.command(requires_connection=True)
+def export(
+    output_dir: Optional[str] = typer.Option(
+        None,
+        "--dir",
+        help="Base output directory. Defaults to current directory.",
+        show_default=False,
+    ),
+    **options,
+) -> CommandResult:
+    """Export deployed feature-store objects from Snowflake as YAML spec files."""
+    result = FeatureManager().export_specs(output_dir or ".")
+    files = result.get("files", [])
+    return _to_collection([{"file": f} for f in files], all_columns=True)
+
+
+# ---------------------------------------------------------------------------
 # status
 # ---------------------------------------------------------------------------
 

@@ -456,6 +456,97 @@ class FeatureManager(SqlExecutionMixin):
         return {"status": "destroyed", "dropped_ofts": dropped_ofts, "errors": errors}
 
     # ------------------------------------------------------------------
+    # export_specs
+    # ------------------------------------------------------------------
+
+    def export_specs(self, output_dir: str) -> dict[str, Any]:
+        """Query SHOW ONLINE FEATURE TABLES and write YAML spec files locally."""
+        ctx = get_cli_context()
+        database = ctx.connection.database
+        schema = ctx.connection.schema
+
+        rows = list(
+            self.execute_query(
+                "SHOW ONLINE FEATURE TABLES IN SCHEMA", cursor_class=DictCursor
+            )
+        )
+        rows = _rows_to_dicts(rows)
+
+        base = Path(output_dir) / f"{database}.{schema}"
+        entities_dir = base / "entities"
+        sources_dir = base / "datasources"
+        fv_dir = base / "feature_views"
+        for d in (entities_dir, sources_dir, fv_dir):
+            d.mkdir(parents=True, exist_ok=True)
+
+        seen_entities: set[str] = set()
+        seen_sources: set[str] = set()
+        created: list[str] = []
+
+        for row in rows:
+            raw_spec = row.get("specification", "")
+            if not raw_spec:
+                continue
+            parsed = json.loads(raw_spec)
+            meta = parsed.get("metadata", {})
+            spec = parsed.get("spec", {})
+            kind = parsed.get("kind", "StreamingFeatureView")
+            fv_name = meta.get("name", row.get("name", "unknown"))
+            version = meta.get("version", "")
+            db = meta.get("database", database)
+            sch = meta.get("schema", schema)
+
+            # --- Feature View ---
+            fv_spec: dict[str, Any] = {
+                "kind": kind,
+                "name": fv_name,
+                "version": version,
+                "database": db,
+                "schema": sch,
+            }
+            fv_spec.update(spec)
+            fv_path = fv_dir / f"{fv_name}.yaml"
+            fv_path.write_text(yaml.dump(fv_spec, default_flow_style=False))
+            created.append(str(fv_path))
+
+            # --- Entities (deduplicated) ---
+            for col_name in spec.get("ordered_entity_column_names", []):
+                if col_name not in seen_entities:
+                    seen_entities.add(col_name)
+                    entity_spec = {
+                        "kind": "Entity",
+                        "name": col_name,
+                        "join_keys": [{"name": col_name, "type": "StringType"}],
+                    }
+                    entity_path = entities_dir / f"{col_name}.yaml"
+                    entity_path.write_text(
+                        yaml.dump(entity_spec, default_flow_style=False)
+                    )
+                    created.append(str(entity_path))
+
+            # --- Data Sources (deduplicated) ---
+            for source in spec.get("sources", []):
+                src_name = source.get("name", "")
+                if not src_name or src_name in seen_sources:
+                    continue
+                seen_sources.add(src_name)
+                src_type = source.get("source_type", "")
+                if src_type in ("Batch", "BatchSource"):
+                    src_kind = "BatchSource"
+                else:
+                    src_kind = "StreamingSource"
+                src_spec = {
+                    "kind": src_kind,
+                    "name": src_name,
+                    "columns": source.get("columns", []),
+                }
+                src_path = sources_dir / f"{src_name}.yaml"
+                src_path.write_text(yaml.dump(src_spec, default_flow_style=False))
+                created.append(str(src_path))
+
+        return {"status": "exported", "directory": str(base), "files": created}
+
+    # ------------------------------------------------------------------
     # ingest
     # ------------------------------------------------------------------
 
