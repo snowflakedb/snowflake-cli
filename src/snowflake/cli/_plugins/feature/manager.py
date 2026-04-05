@@ -94,11 +94,13 @@ _EXAMPLE_SPECS: dict[str, dict[str, Any]] = {
     "entities/example_entity.yaml": {
         "kind": "Entity",
         "name": "user",
+        "version": "v1",
         "join_keys": [{"name": "user_id", "type": "StringType"}],
     },
     "datasources/example_events_source.yaml": {
         "kind": "StreamingSource",
         "name": "user_events",
+        "version": "v1",
         "type": "REST",
         "columns": [
             {"name": "user_id", "type": "StringType"},
@@ -110,6 +112,7 @@ _EXAMPLE_SPECS: dict[str, dict[str, Any]] = {
     "feature_views/example_feature_view.yaml": {
         "kind": "StreamingFeatureView",
         "name": "user_event_features",
+        "version": "v1",
         "online": True,
         "timestamp_field": "timestamp",
         "feature_granularity": "5m",
