@@ -64,9 +64,45 @@ def _to_object(data: dict) -> CommandResult:
     return ObjectResult(_sanitize_dict(data))
 
 
-def _to_collection(rows: list[dict]) -> CommandResult:
-    """Multi-row result — renders as a table with column headers."""
-    return CollectionResult([_sanitize_dict(r) for r in rows])
+# Columns to show in table output for SHOW ONLINE FEATURE TABLES results.
+# All columns are still available via --format json.
+_TABLE_DISPLAY_COLUMNS = [
+    "name",
+    "created_on",
+    "database_name",
+    "schema_name",
+    "scheduling_state",
+    "source",
+]
+
+
+def _project_columns(rows: list[dict]) -> list[dict]:
+    """Keep only the display columns (case-insensitive match) for table output."""
+    if not rows:
+        return rows
+    # Build a case-insensitive lookup from the first row's actual keys.
+    first = rows[0]
+    keep = set()
+    lower_to_actual = {k.lower(): k for k in first}
+    for col in _TABLE_DISPLAY_COLUMNS:
+        actual = lower_to_actual.get(col.lower())
+        if actual:
+            keep.add(actual)
+    if not keep:
+        return rows  # none matched — return everything
+    return [{k: v for k, v in r.items() if k in keep} for r in rows]
+
+
+def _to_collection(rows: list[dict], *, all_columns: bool = False) -> CommandResult:
+    """Multi-row result — renders as a table with column headers.
+
+    By default, only the display columns are shown. Pass all_columns=True
+    to include everything (used for non-Snowflake results).
+    """
+    sanitized = [_sanitize_dict(r) for r in rows]
+    if not all_columns:
+        sanitized = _project_columns(sanitized)
+    return CollectionResult(sanitized)
 
 
 def _to_message(text: str) -> CommandResult:
@@ -297,7 +333,7 @@ def example(
     result = generate_example(output_dir or ".")
     files = result.get("files", [])
     if files:
-        return _to_collection([{"file": f} for f in files])
+        return _to_collection([{"file": f} for f in files], all_columns=True)
     return _to_object(result)
 
 
