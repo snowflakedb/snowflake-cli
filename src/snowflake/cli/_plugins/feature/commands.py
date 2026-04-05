@@ -28,7 +28,12 @@ import typer
 from click import ClickException
 from snowflake.cli._plugins.feature.manager import FeatureManager, generate_example
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
-from snowflake.cli.api.output.types import CommandResult, MessageResult
+from snowflake.cli.api.output.types import (
+    CollectionResult,
+    CommandResult,
+    MessageResult,
+    ObjectResult,
+)
 
 app = SnowTyperFactory(
     name="feature",
@@ -38,28 +43,35 @@ app = SnowTyperFactory(
 log = logging.getLogger(__name__)
 
 
-class _SafeEncoder(json.JSONEncoder):
-    """JSON encoder that handles Snowflake row value types."""
-
-    def default(self, o):
-        if isinstance(o, (datetime, date)):
-            return o.isoformat()
-        if isinstance(o, Decimal):
-            return float(o)
-        if isinstance(o, bytes):
-            return o.decode("utf-8", errors="replace")
-        if isinstance(o, set):
-            return list(o)
-        try:
-            return dict(o)
-        except (TypeError, ValueError):
-            pass
-        return str(o)
+def _safe_value(o):
+    """Coerce non-serializable values to strings for display."""
+    if isinstance(o, (datetime, date)):
+        return o.isoformat()
+    if isinstance(o, Decimal):
+        return float(o)
+    if isinstance(o, bytes):
+        return o.decode("utf-8", errors="replace")
+    return o
 
 
-def _to_result(data: dict) -> CommandResult:
-    """Format a manager result dict as a CLI MessageResult."""
-    return MessageResult(json.dumps(data, indent=2, cls=_SafeEncoder))
+def _sanitize_dict(d: dict) -> dict:
+    """Make a dict safe for table/JSON rendering."""
+    return {k: _safe_value(v) for k, v in d.items()}
+
+
+def _to_object(data: dict) -> CommandResult:
+    """Single-object result — renders as key-value table."""
+    return ObjectResult(_sanitize_dict(data))
+
+
+def _to_collection(rows: list[dict]) -> CommandResult:
+    """Multi-row result — renders as a table with column headers."""
+    return CollectionResult([_sanitize_dict(r) for r in rows])
+
+
+def _to_message(text: str) -> CommandResult:
+    """Plain text message."""
+    return MessageResult(text)
 
 
 # ---------------------------------------------------------------------------
@@ -102,11 +114,9 @@ def apply(
         overwrite=overwrite,
         allow_recreate=allow_recreate,
     )
-    return _to_result(result)
+    return _to_object(result)
 
 
-# ---------------------------------------------------------------------------
-# plan
 # ---------------------------------------------------------------------------
 
 
@@ -138,7 +148,7 @@ def plan(
         overwrite=False,
         allow_recreate=False,
     )
-    return _to_result(result)
+    return _to_object(result)
 
 
 # ---------------------------------------------------------------------------
@@ -163,7 +173,10 @@ def list_cmd(
         input_files=tuple(input_files) if input_files else (),
         config=config,
     )
-    return _to_result(result)
+    specs = result.get("specs", [])
+    if isinstance(specs, list) and specs and isinstance(specs[0], dict):
+        return _to_collection(specs)
+    return _to_object(result)
 
 
 # ---------------------------------------------------------------------------
@@ -183,7 +196,10 @@ def describe(
 ) -> CommandResult:
     """Describe a single feature-store object."""
     result = FeatureManager().describe(name=name)
-    return _to_result(result)
+    rows = result.get("rows", [])
+    if isinstance(rows, list) and rows:
+        return _to_collection(rows)
+    return _to_object(result)
 
 
 # ---------------------------------------------------------------------------
@@ -205,7 +221,7 @@ def drop(
     if not names:
         raise typer.BadParameter("At least one name is required.", param_hint="NAMES")
     result = FeatureManager().drop(names=names)
-    return _to_result(result)
+    return _to_object(result)
 
 
 # ---------------------------------------------------------------------------
@@ -259,7 +275,7 @@ def convert(
         recursive=recursive,
         config=config,
     )
-    return _to_result(result)
+    return _to_object(result)
 
 
 # ---------------------------------------------------------------------------
@@ -279,7 +295,10 @@ def example(
 ) -> CommandResult:
     """Generate example YAML spec files for testing (no Snowflake connection required)."""
     result = generate_example(output_dir or ".")
-    return _to_result(result)
+    files = result.get("files", [])
+    if files:
+        return _to_collection([{"file": f} for f in files])
+    return _to_object(result)
 
 
 # ---------------------------------------------------------------------------
@@ -293,7 +312,7 @@ def status(
 ) -> CommandResult:
     """Show the current feature store runtime status."""
     result = FeatureManager().get_status()
-    return _to_result(result)
+    return _to_object(result)
 
 
 # ---------------------------------------------------------------------------
@@ -307,7 +326,7 @@ def initialize_service(
 ) -> CommandResult:
     """Initialize the feature store runtime service (creates and waits until RUNNING)."""
     result = FeatureManager().initialize_service()
-    return _to_result(result)
+    return _to_object(result)
 
 
 # ---------------------------------------------------------------------------
@@ -321,7 +340,7 @@ def destroy_service(
 ) -> CommandResult:
     """Destroy the feature store runtime service and all Online Feature Tables."""
     result = FeatureManager().destroy_service()
-    return _to_result(result)
+    return _to_object(result)
 
 
 # ---------------------------------------------------------------------------
@@ -363,7 +382,7 @@ def ingest(
         result = FeatureManager().ingest(source_name=source_name, records=records)
     except RuntimeError as exc:
         raise ClickException(str(exc))
-    return _to_result(result)
+    return _to_object(result)
 
 
 # ---------------------------------------------------------------------------
@@ -398,4 +417,4 @@ def query(
         )
     except RuntimeError as exc:
         raise ClickException(str(exc))
-    return _to_result(result)
+    return _to_object(result)
