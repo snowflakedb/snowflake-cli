@@ -363,49 +363,56 @@ def test_status_returns_parsed_json(mock_manager, runner):
 
 
 # ---------------------------------------------------------------------------
-# initialize-service
+# online-service
 # ---------------------------------------------------------------------------
 
 
 @mock.patch(FEATURE_MANAGER)
-def test_initialize_service_already_running_is_noop(mock_manager, runner):
-    """initialize-service should be a no-op when status is already RUNNING."""
+def test_online_service_create_already_running_is_noop(mock_manager, runner):
+    """online-service --create should be a no-op when status is already RUNNING."""
     mock_manager.return_value.initialize_service.return_value = {
         "status": "RUNNING",
         "message": "Service already initialized",
     }
-    result = runner.invoke(["feature", "initialize-service"])
+    result = runner.invoke(["feature", "online-service", "--create"])
     assert result.exit_code == 0, result.output
     mock_manager.return_value.initialize_service.assert_called_once()
 
 
 @mock.patch(FEATURE_MANAGER)
-def test_initialize_service_creates_and_polls(mock_manager, runner):
-    """initialize-service should create the runtime and poll until RUNNING."""
+def test_online_service_create_and_polls(mock_manager, runner):
+    """online-service --create should create the runtime and poll until RUNNING."""
     mock_manager.return_value.initialize_service.return_value = {
         "status": "RUNNING",
         "message": "Service initialized successfully",
     }
-    result = runner.invoke(["feature", "initialize-service"])
+    result = runner.invoke(["feature", "online-service", "--create"])
     assert result.exit_code == 0, result.output
     mock_manager.return_value.initialize_service.assert_called_once()
 
 
-# ---------------------------------------------------------------------------
-# destroy-service
-# ---------------------------------------------------------------------------
-
-
 @mock.patch(FEATURE_MANAGER)
-def test_destroy_service_drops_ofts_then_runtime(mock_manager, runner):
-    """destroy-service should drop OFTs then call FeatureManager.destroy_service."""
+def test_online_service_drop(mock_manager, runner):
+    """online-service --drop should drop OFTs then call FeatureManager.destroy_service."""
     mock_manager.return_value.destroy_service.return_value = {
         "status": "destroyed",
         "dropped_ofts": ["TABLE_A", "TABLE_B"],
     }
-    result = runner.invoke(["feature", "destroy-service"])
+    result = runner.invoke(["feature", "online-service", "--drop"])
     assert result.exit_code == 0, result.output
     mock_manager.return_value.destroy_service.assert_called_once()
+
+
+def test_online_service_requires_flag(runner):
+    """online-service without --create or --drop should fail."""
+    result = runner.invoke(["feature", "online-service"])
+    assert result.exit_code != 0
+
+
+def test_online_service_both_flags_rejected(runner):
+    """online-service with both --create and --drop should fail."""
+    result = runner.invoke(["feature", "online-service", "--create", "--drop"])
+    assert result.exit_code != 0
 
 
 # ---------------------------------------------------------------------------

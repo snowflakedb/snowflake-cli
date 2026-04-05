@@ -351,30 +351,35 @@ def status(
 
 
 # ---------------------------------------------------------------------------
-# initialize-service
+# online-service
 # ---------------------------------------------------------------------------
 
 
-@app.command(name="initialize-service", requires_connection=True)
-def initialize_service(
+@app.command(name="online-service", requires_connection=True)
+def online_service(
+    create: bool = typer.Option(
+        False, "--create", help="Create and initialize the online service."
+    ),
+    drop: bool = typer.Option(
+        False,
+        "--drop",
+        help="Destroy the online service and all Online Feature Tables.",
+    ),
     **options,
 ) -> CommandResult:
-    """Initialize the feature store runtime service (creates and waits until RUNNING)."""
-    result = FeatureManager().initialize_service()
-    return _to_object(result)
-
-
-# ---------------------------------------------------------------------------
-# destroy-service
-# ---------------------------------------------------------------------------
-
-
-@app.command(name="destroy-service", requires_connection=True)
-def destroy_service(
-    **options,
-) -> CommandResult:
-    """Destroy the feature store runtime service and all Online Feature Tables."""
-    result = FeatureManager().destroy_service()
+    """Manage the feature store online service (pass --create or --drop)."""
+    if create and drop:
+        raise typer.BadParameter(
+            "Cannot use --create and --drop together.", param_hint="--create/--drop"
+        )
+    if not create and not drop:
+        raise typer.BadParameter(
+            "One of --create or --drop is required.", param_hint="--create/--drop"
+        )
+    if create:
+        result = FeatureManager().initialize_service()
+    else:
+        result = FeatureManager().destroy_service()
     return _to_object(result)
 
 
