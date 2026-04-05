@@ -305,3 +305,204 @@ class TestFeatureManagerGetStatus:
         mgr = FeatureManager()
         result = mgr.get_status()
         assert result["endpoints"] == []
+
+
+# ---------------------------------------------------------------------------
+# export_specs
+# ---------------------------------------------------------------------------
+
+_SPEC_ROW_SINGLE = {
+    "name": "my_fv$v1$ONLINE",
+    "database_name": "TEST_DB",
+    "schema_name": "TEST_SCHEMA",
+    "specification": json.dumps(
+        {
+            "kind": "StreamingFeatureView",
+            "metadata": {
+                "name": "my_fv",
+                "database": "TEST_DB",
+                "schema": "TEST_SCHEMA",
+                "version": "v1",
+            },
+            "spec": {
+                "ordered_entity_column_names": ["user_id"],
+                "sources": [
+                    {
+                        "name": "click_events",
+                        "source_type": "Stream",
+                        "columns": [
+                            {"name": "user_id", "type": "StringType"},
+                            {"name": "event_type", "type": "StringType"},
+                            {"name": "timestamp", "type": "TimestampType"},
+                        ],
+                    },
+                ],
+                "features": [
+                    {
+                        "source_column": {"name": "event_type", "type": "StringType"},
+                        "output_column": {
+                            "name": "click_count_1h",
+                            "type": "IntegerType",
+                        },
+                        "function": "count",
+                        "window_sec": 3600,
+                    },
+                ],
+                "timestamp_field": "timestamp",
+            },
+        }
+    ),
+}
+
+
+def _make_fv_row(fv_name, entity_col="user_id", source_name=None, source_type="Stream"):
+    if source_name is None:
+        source_name = f"src_{fv_name}"
+    return {
+        "name": f"{fv_name}$v1$ONLINE",
+        "database_name": "TEST_DB",
+        "schema_name": "TEST_SCHEMA",
+        "specification": json.dumps(
+            {
+                "kind": "StreamingFeatureView",
+                "metadata": {
+                    "name": fv_name,
+                    "database": "TEST_DB",
+                    "schema": "TEST_SCHEMA",
+                    "version": "v1",
+                },
+                "spec": {
+                    "ordered_entity_column_names": [entity_col],
+                    "sources": [
+                        {"name": source_name, "source_type": source_type, "columns": []}
+                    ],
+                    "features": [],
+                    "timestamp_field": "ts",
+                },
+            }
+        ),
+    }
+
+
+class TestFeatureManagerExportSpecs:
+    def test_export_creates_directory_structure(
+        self, mock_execute_query, mock_cli_context, tmp_path
+    ):
+        """export_specs creates entities/, datasources/, and feature_views/ with correct files."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mock_execute_query.return_value = iter([_SPEC_ROW_SINGLE])
+        mgr = FeatureManager()
+        mgr.export_specs(str(tmp_path))
+
+        base = tmp_path / "TEST_DB.TEST_SCHEMA"
+        assert (base / "feature_views" / "my_fv.yaml").exists()
+        assert (base / "entities" / "user_id.yaml").exists()
+        assert (base / "datasources" / "click_events.yaml").exists()
+
+    def test_export_deduplicates_entities(
+        self, mock_execute_query, mock_cli_context, tmp_path
+    ):
+        """Two FVs sharing an entity column should produce only one entity file."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mock_execute_query.return_value = iter(
+            [
+                _make_fv_row("fv_a", entity_col="user_id"),
+                _make_fv_row("fv_b", entity_col="user_id"),
+            ]
+        )
+        mgr = FeatureManager()
+        mgr.export_specs(str(tmp_path))
+
+        entity_dir = tmp_path / "TEST_DB.TEST_SCHEMA" / "entities"
+        entity_files = list(entity_dir.iterdir())
+        assert len(entity_files) == 1, f"Expected 1 entity file, got: {entity_files}"
+
+    def test_export_deduplicates_sources(
+        self, mock_execute_query, mock_cli_context, tmp_path
+    ):
+        """Two FVs sharing a source should produce only one datasource file."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mock_execute_query.return_value = iter(
+            [
+                _make_fv_row("fv_x", entity_col="cust_id", source_name="shared_stream"),
+                _make_fv_row("fv_y", entity_col="cust_id", source_name="shared_stream"),
+            ]
+        )
+        mgr = FeatureManager()
+        mgr.export_specs(str(tmp_path))
+
+        src_dir = tmp_path / "TEST_DB.TEST_SCHEMA" / "datasources"
+        src_files = list(src_dir.iterdir())
+        assert len(src_files) == 1, f"Expected 1 datasource file, got: {src_files}"
+
+    def test_export_yaml_content(self, mock_execute_query, mock_cli_context, tmp_path):
+        """Exported YAML files have correct structure and field values."""
+        import yaml
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mock_execute_query.return_value = iter([_SPEC_ROW_SINGLE])
+        mgr = FeatureManager()
+        mgr.export_specs(str(tmp_path))
+
+        base = tmp_path / "TEST_DB.TEST_SCHEMA"
+
+        fv_data = yaml.safe_load((base / "feature_views" / "my_fv.yaml").read_text())
+        assert fv_data["kind"] == "StreamingFeatureView"
+        assert fv_data["name"] == "my_fv"
+        assert fv_data["version"] == "v1"
+        assert fv_data["database"] == "TEST_DB"
+        assert fv_data["schema"] == "TEST_SCHEMA"
+        assert fv_data["timestamp_field"] == "timestamp"
+        assert fv_data["ordered_entity_column_names"] == ["user_id"]
+
+        entity_data = yaml.safe_load((base / "entities" / "user_id.yaml").read_text())
+        assert entity_data["kind"] == "Entity"
+        assert entity_data["name"] == "user_id"
+        assert entity_data["join_keys"] == [{"name": "user_id", "type": "StringType"}]
+
+        src_data = yaml.safe_load(
+            (base / "datasources" / "click_events.yaml").read_text()
+        )
+        assert src_data["kind"] == "StreamingSource"
+        assert src_data["name"] == "click_events"
+        assert len(src_data["columns"]) == 3
+
+    def test_export_returns_result_dict(
+        self, mock_execute_query, mock_cli_context, tmp_path
+    ):
+        """export_specs returns a dict with status, directory, and files list."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mock_execute_query.return_value = iter([_SPEC_ROW_SINGLE])
+        mgr = FeatureManager()
+        result = mgr.export_specs(str(tmp_path))
+
+        assert result["status"] == "exported"
+        assert "directory" in result
+        assert isinstance(result["files"], list)
+        assert len(result["files"]) == 3  # fv + entity + source
+
+    def test_export_batch_source_kind(
+        self, mock_execute_query, mock_cli_context, tmp_path
+    ):
+        """A source with source_type 'Batch' should be written as kind: BatchSource."""
+        import yaml
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mock_execute_query.return_value = iter(
+            [
+                _make_fv_row("fv_batch", source_name="my_batch", source_type="Batch"),
+            ]
+        )
+        mgr = FeatureManager()
+        mgr.export_specs(str(tmp_path))
+
+        src_data = yaml.safe_load(
+            (
+                tmp_path / "TEST_DB.TEST_SCHEMA" / "datasources" / "my_batch.yaml"
+            ).read_text()
+        )
+        assert src_data["kind"] == "BatchSource"
