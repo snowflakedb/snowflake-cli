@@ -478,7 +478,12 @@ class FeatureManager(SqlExecutionMixin):
         SHOW ONLINE FEATURE TABLES returns name, database_name, schema_name,
         scheduling_state, and created_on — but NOT the full specification.
         We parse the OFT name (``name$version$ONLINE``) and DESCRIBE each
-        table to get the column schema, then write minimal YAML specs.
+        table to get the column schema, then write YAML specs.
+
+        Note: The exported specs are partial — they include column schemas and
+        entity join keys but cannot recover UDFs, source definitions, feature
+        aggregations, or window configurations. These must be added manually
+        from the original source files if a full round-trip is needed.
         """
         ctx = get_cli_context()
         database = ctx.connection.database or ""
@@ -516,18 +521,42 @@ class FeatureManager(SqlExecutionMixin):
             fqn = f'"{db}"."{sch}"."{raw_name}"'
             columns: list[dict[str, str]] = []
             entity_cols: list[str] = []
+            feature_cols: list[str] = []
             try:
                 desc_rows = list(
-                    self.execute_query(f"DESCRIBE TABLE {fqn}", cursor_class=DictCursor)
+                    self.execute_query(
+                        f"DESCRIBE ONLINE FEATURE TABLE {fqn}",
+                        cursor_class=DictCursor,
+                    )
                 )
                 for dr in _rows_to_dicts(desc_rows):
                     col_name = dr.get("name", "")
                     col_type = dr.get("type", "VARCHAR")
-                    kind_col = dr.get("kind", "")
+                    # Detect primary key — DESCRIBE ONLINE FEATURE TABLE
+                    # returns columns like: name, type, kind, null?, primary key, unique key
+                    # The PK indicator may appear under various key names depending
+                    # on the connector version. Check all known possibilities.
+                    is_pk = False
+                    for pk_key in (
+                        "primary key",
+                        "primary_key",
+                        "PRIMARY KEY",
+                        "PRIMARY_KEY",
+                    ):
+                        if dr.get(pk_key, "") == "Y":
+                            is_pk = True
+                            break
+                    # Fallback: check positionally — 5th value in row
+                    if not is_pk:
+                        raw_vals = list(dr.values())
+                        if len(raw_vals) >= 5 and raw_vals[4] == "Y":
+                            is_pk = True
+
                     columns.append({"name": col_name, "type": col_type})
-                    # Primary key columns are the entity join keys
-                    if kind_col == "Y":
+                    if is_pk:
                         entity_cols.append(col_name)
+                    else:
+                        feature_cols.append(col_name)
             except Exception as exc:
                 log.warning("DESCRIBE %s raised %s: %s", fqn, type(exc).__name__, exc)
 
@@ -542,6 +571,11 @@ class FeatureManager(SqlExecutionMixin):
                 "online": True,
                 "ordered_entity_column_names": entity_cols,
                 "columns": columns,
+                "_note": (
+                    "Partial export — UDFs, sources, feature aggregations, and "
+                    "window configurations are not recoverable from Snowflake. "
+                    "Add these manually from original source files."
+                ),
             }
             fv_path = fv_dir / f"{fv_name}.yaml"
             fv_path.write_text(yaml.dump(fv_spec, default_flow_style=False))
