@@ -353,6 +353,39 @@ class TestNotebookProjectCommands:
         assert "Main file is required" in result.output
 
     @mock.patch(PROJECT_MANAGER)
+    def test_execute_project_with_dashed_arguments(self, mock_project_manager, runner):
+        """Test that arguments containing -- are properly passed to the notebook project."""
+        mock_project_manager.return_value.execute.return_value = (
+            "Project successfully executed."
+        )
+        result = runner.invoke(
+            [
+                "notebook",
+                "project",
+                "execute",
+                "test_project",
+                "--main-file",
+                "main.ipynb",
+                "--",
+                "--custom-arg",
+                "value",
+                "--another-flag",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Project successfully executed." in result.output
+        mock_project_manager.return_value.execute.assert_called_once_with(
+            "test_project",
+            ["--custom-arg", "value", "--another-flag"],
+            "main.ipynb",
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+
+    @mock.patch(PROJECT_MANAGER)
     def test_create_project_with_stage_source(self, mock_project_manager, runner):
         mock_project_manager.return_value.process_source.return_value = "@my_stage/path"
         mock_project_manager.return_value.create.return_value = (

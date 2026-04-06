@@ -95,16 +95,14 @@ def drop(
     return MessageResult(manager.drop(name))
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
 def execute(
+    ctx: typer.Context,
     name: str = typer.Argument(
         None, help="Name of the notebook project.", show_default=False
-    ),
-    arguments: Optional[List[str]] = typer.Argument(
-        None,
-        metavar="ARGUMENTS",
-        help="Arguments to pass to the notebook project.",
-        show_default=False,
     ),
     main_file: str = typer.Option(
         None,
@@ -144,11 +142,16 @@ def execute(
     ),
     **options,
 ):
-    """Executes a notebook project in Snowflake."""
+    """Executes a notebook project in Snowflake.
+
+    Any additional arguments after the known options will be passed to the notebook project.
+    For example: snow notebook project execute my_project --main-file main.py -- --custom-arg value
+    """
     if not name:
         raise ClickException("Name is required.")
     if not main_file:
         raise ClickException("Main file is required.")
+    arguments = ctx.args if ctx.args else None
     manager = NotebookProjectManager()
     return MessageResult(
         manager.execute(
