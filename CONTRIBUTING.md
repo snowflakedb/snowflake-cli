@@ -249,6 +249,266 @@ Application bundle created.
 Publishing application
 ```
 
+## Writing a Plugin (Interface-First)
+
+Snowflake CLI uses an **interface-first** plugin pattern that separates command
+definition from business logic. This lets outside contributors propose a
+command surface, get it reviewed, and only then write the implementation.
+
+### Two-Phase Contribution Workflow
+
+```
+Phase 1 PR:  interface.py  -->  review command surface  -->  merge
+Phase 2 PR:  handler.py + plugin_spec.py  -->  review implementation  -->  merge
+```
+
+### Quickstart with the Plugin Template
+
+The fastest way to start is with the cookiecutter template:
+
+```bash
+pip install cookiecutter
+cookiecutter plugin-template/
+```
+
+You will be prompted for:
+
+| Parameter | Description | Example |
+|-----------|-------------|---------|
+| `plugin_name` | Package name (used in `pip install`) | `snow-analytics` |
+| `plugin_module` | Python module name (auto-derived) | `snow_analytics` |
+| `cli_command_name` | CLI command name under `snow` | `analytics` |
+| `command_type` | `group` (multiple subcommands) or `single` | `group` |
+| `requires_connection` | Whether commands need a Snowflake connection | `true` |
+
+This generates a complete plugin project:
+
+```
+snow-analytics/
+├── pyproject.toml                    # Package config with entry point
+├── README.md
+├── src/snowflakecli_plugins/snow_analytics/
+│   ├── interface.py                  # Phase 1: command surface + handler ABC
+│   ├── handler.py                    # Phase 2: implementation
+│   └── plugin_spec.py               # Wires interface + handler
+└── tests/
+    └── test_interface.py             # Contract validation tests
+```
+
+### Phase 1: Define the Interface
+
+The `interface.py` file contains two things:
+
+1. **Command spec** -- frozen dataclasses describing every command, its
+   parameters, help text, and connection requirements.
+2. **Handler ABC** -- an abstract class with one method per command.
+
+Example for a plugin with two commands (`snow analytics run` and
+`snow analytics report`):
+
+```python
+from __future__ import annotations
+from abc import abstractmethod
+from snowflake.cli.api.output.types import CommandResult
+from snowflake.cli.api.plugins.command.interface import (
+    CommandDef, CommandGroupSpec, CommandHandler,
+    ParamDef, ParamKind, REQUIRED,
+)
+
+ANALYTICS_SPEC = CommandGroupSpec(
+    name="analytics",
+    help="Run analytics queries.",
+    parent_path=(),                          # root level: snow analytics
+    commands=(
+        CommandDef(
+            name="run",
+            help="Run an analytics query.",
+            handler_method="run",
+            requires_connection=True,
+            params=(
+                ParamDef(
+                    name="query_name",
+                    type=str,
+                    kind=ParamKind.ARGUMENT,
+                    help="Name of the query to run.",
+                ),
+                ParamDef(
+                    name="limit",
+                    type=int,
+                    kind=ParamKind.OPTION,
+                    cli_names=("--limit", "-l"),
+                    help="Maximum rows to return.",
+                    default=100,
+                    required=False,
+                ),
+            ),
+            output_type="QueryResult",
+        ),
+        CommandDef(
+            name="report",
+            help="Generate a summary report.",
+            handler_method="report",
+            requires_connection=True,
+            output_type="MessageResult",
+        ),
+    ),
+)
+
+
+class AnalyticsHandler(CommandHandler):
+    @abstractmethod
+    def run(self, query_name: str, limit: int) -> CommandResult: ...
+
+    @abstractmethod
+    def report(self) -> CommandResult: ...
+```
+
+**Key types used in interfaces:**
+
+| Dataclass | Purpose |
+|-----------|---------|
+| `CommandGroupSpec` | Command group with subcommands (e.g. `snow notebook`) |
+| `SingleCommandSpec` | A single command (e.g. `snow sql`) |
+| `CommandDef` | One command: name, help, params, connection requirements |
+| `ParamDef` | One parameter: name, type, argument vs option, CLI names |
+| `CommandHandler` | ABC base class for handler methods |
+
+**ParamDef fields:**
+
+| Field | Description |
+|-------|-------------|
+| `name` | Python parameter name (kwarg to handler method) |
+| `type` | Python type (`str`, `int`, `bool`, `FQN`, `Path`, ...) |
+| `kind` | `ParamKind.ARGUMENT` or `ParamKind.OPTION` |
+| `help` | Help text for `--help` |
+| `cli_names` | CLI names, e.g. `("--limit", "-l")`. Empty = auto-derived |
+| `default` | Default value. `REQUIRED` = no default |
+| `is_flag` | `True` for boolean flags like `--replace` |
+| `click_type` | Custom Click `ParamType` for non-standard types (e.g. `IdentifierType()` for `FQN`) |
+
+**Submit the interface for review.** Reviewers can evaluate the complete command
+surface without seeing any implementation.
+
+### Setting Up CODEOWNERS for Phase 2
+
+As part of the interface PR, add yourself and a colleague as `CODEOWNERS` for
+your plugin directory. This way the Phase 2 implementation PR only requires
+review from your team -- not the Snowflake CLI core team.
+
+In your interface PR, append a line to the `CODEOWNERS` file:
+
+```
+# my-analytics plugin
+/src/snowflake/cli/_plugins/analytics/   @your-github-handle @colleague-handle
+```
+
+For external plugins in a separate repository this is not needed, since you
+own the repo. This guidance applies to built-in plugins contributed to
+`snowflake-cli` by teams outside the CLI core team.
+
+### Phase 2: Implement the Handler
+
+After the interface is approved, create `handler.py`:
+
+```python
+from snowflake.cli.api.output.types import CommandResult, MessageResult, QueryResult
+from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from .interface import AnalyticsHandler
+
+
+class AnalyticsHandlerImpl(AnalyticsHandler):
+
+    def run(self, query_name: str, limit: int) -> CommandResult:
+        executor = SqlExecutionMixin()
+        cursor = executor.execute_query(
+            f"SELECT * FROM analytics.{query_name} LIMIT {limit}"
+        )
+        return QueryResult(cursor)
+
+    def report(self) -> CommandResult:
+        return MessageResult("Report generated.")
+```
+
+Then wire it up in `plugin_spec.py`:
+
+```python
+from snowflake.cli.api.plugins.command import build_command_spec, plugin_hook_impl
+from .interface import ANALYTICS_SPEC
+from .handler import AnalyticsHandlerImpl
+
+
+@plugin_hook_impl
+def command_spec():
+    return build_command_spec(ANALYTICS_SPEC, AnalyticsHandlerImpl())
+```
+
+### Testing Your Plugin
+
+Use the built-in testing utilities to validate the interface-handler contract:
+
+```python
+from snowflake.cli.api.plugins.command.testing import (
+    assert_interface_well_formed,
+    assert_handler_satisfies,
+    assert_builds_valid_spec,
+)
+from .interface import ANALYTICS_SPEC
+from .handler import AnalyticsHandlerImpl
+
+
+def test_interface():
+    assert_interface_well_formed(ANALYTICS_SPEC)
+
+def test_handler_contract():
+    assert_handler_satisfies(ANALYTICS_SPEC, AnalyticsHandlerImpl())
+
+def test_full_build():
+    assert_builds_valid_spec(ANALYTICS_SPEC, AnalyticsHandlerImpl())
+```
+
+These tests run without a Snowflake connection and catch contract mismatches
+at development time.
+
+### Installing and Enabling Your Plugin
+
+```bash
+# Install in development mode
+pip install -e /path/to/your/plugin
+
+# Enable it
+snow plugin enable your_plugin_module
+
+# Verify
+snow plugin list
+```
+
+### Using Decorators
+
+Some commands need extra decorators like `@with_project_definition`. Add them
+to `CommandDef.decorators`:
+
+```python
+CommandDef(
+    name="deploy",
+    help="Deploy from project definition.",
+    handler_method="deploy",
+    requires_connection=True,
+    decorators=("with_project_definition",),
+    ...
+)
+```
+
+Available built-in decorators: `with_project_definition`.
+
+Register custom decorators with `register_decorator("name", factory_fn)`.
+
+### Reference Example
+
+See the notebook plugin for a complete migration example:
+- `src/snowflake/cli/_plugins/notebook/interface.py` -- 5 commands with various param types
+- `src/snowflake/cli/_plugins/notebook/handler.py` -- concrete implementation
+- `src/snowflake/cli/_plugins/notebook/plugin_spec.py` -- one-liner wiring
+
 ## Known issues
 
 ### `permission denied` during integration tests on Windows
