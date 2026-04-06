@@ -166,6 +166,7 @@ def mock_cli_context():
         ctx = mock.MagicMock()
         ctx.connection.database = "TEST_DB"
         ctx.connection.schema = "TEST_SCHEMA"
+        ctx.connection.role = "TEST_ROLE"
         m.return_value = ctx
         yield m
 
@@ -202,7 +203,9 @@ class TestFeatureManagerGetStatus:
 
         mgr = FeatureManager()
         mgr.get_status()
-        mock_decl.service_sql.assert_called_once_with("TEST_DB", "TEST_SCHEMA")
+        mock_decl.service_sql.assert_called_once_with(
+            "TEST_DB", "TEST_SCHEMA", "TEST_ROLE"
+        )
 
     def test_get_status_calls_parse_service_status(
         self, mock_execute_query, mock_cli_context, mock_decl

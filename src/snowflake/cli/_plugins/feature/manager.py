@@ -234,7 +234,9 @@ class FeatureManager(SqlExecutionMixin):
     def get_status(self) -> dict[str, Any]:
         """Query and parse the feature store runtime status."""
         ctx = get_cli_context()
-        sqls = decl_api.service_sql(ctx.connection.database, ctx.connection.schema)
+        sqls = decl_api.service_sql(
+            ctx.connection.database, ctx.connection.schema, ctx.connection.role
+        )
         try:
             rows = list(self.execute_query(sqls["get_status"]))
             raw = list(rows[0])[0] if rows else None
@@ -252,7 +254,9 @@ class FeatureManager(SqlExecutionMixin):
     def initialize_service(self) -> dict[str, Any]:
         """Check status, create runtime if needed, then poll until RUNNING."""
         ctx = get_cli_context()
-        sqls = decl_api.service_sql(ctx.connection.database, ctx.connection.schema)
+        sqls = decl_api.service_sql(
+            ctx.connection.database, ctx.connection.schema, ctx.connection.role
+        )
         location = f"{ctx.connection.database}.{ctx.connection.schema}"
 
         current = self.get_status()
@@ -292,7 +296,9 @@ class FeatureManager(SqlExecutionMixin):
     def destroy_service(self) -> dict[str, Any]:
         """Drop all OFTs in the schema then drop the feature store runtime."""
         ctx = get_cli_context()
-        sqls = decl_api.service_sql(ctx.connection.database, ctx.connection.schema)
+        sqls = decl_api.service_sql(
+            ctx.connection.database, ctx.connection.schema, ctx.connection.role
+        )
 
         dropped_ofts: list[str] = []
         errors: list[str] = []
