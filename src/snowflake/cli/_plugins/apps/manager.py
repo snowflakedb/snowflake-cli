@@ -849,35 +849,96 @@ class SnowflakeAppManager(SqlExecutionMixin):
             row = cursor.fetchone()
             return row[0] if row else ""
 
-    def run_app_artifact_repo(
+    def create_app_service(
         self,
-        artifact_repo_fqn: str,
-        app_id: str,
-        version: str,
         service_name: str,
+        artifact_repo_fqn: str,
+        package_name: str,
         compute_pool: str,
         database: str,
         schema: str,
-        runtime_image: str,
+        version: Optional[str] = None,
         query_warehouse: Optional[str] = None,
-        build_eai: Optional[str] = None,
-    ) -> str:
-        """Deploy an app using SYSTEM$SPCS_TEST_RUN_APP_ARTIFACT_REPO."""
+        external_access_integrations: Optional[list[str]] = None,
+        auto_resume: Optional[bool] = None,
+        auto_suspend_secs: Optional[int] = None,
+        comment: Optional[str] = None,
+    ) -> None:
+        """Create an application service from an artifact repository package."""
+        with self._use_database_and_schema(database, schema):
+            parts = [
+                f"CREATE APPLICATION SERVICE {service_name}",
+                f"FROM ARTIFACT REPOSITORY {artifact_repo_fqn} PACKAGE {package_name}",
+            ]
+            if version:
+                parts.append(f"VERSION {version}")
+            parts.append(f"IN COMPUTE POOL {compute_pool}")
+            if external_access_integrations:
+                eai_list = ", ".join(external_access_integrations)
+                parts.append(f"EXTERNAL_ACCESS_INTEGRATIONS = ({eai_list})")
+            if query_warehouse:
+                parts.append(f"QUERY_WAREHOUSE = {query_warehouse}")
+            if auto_resume is not None:
+                parts.append(f"AUTO_RESUME = {str(auto_resume).upper()}")
+            if auto_suspend_secs is not None:
+                parts.append(f"AUTO_SUSPEND_SECS = {auto_suspend_secs}")
+            if comment:
+                escaped = comment.replace("'", "''")
+                parts.append(f"COMMENT = '{escaped}'")
+
+            query = "\n".join(parts)
+            self.execute_query(query)
+
+    def upgrade_app_service(
+        self,
+        service_name: str,
+        database: str,
+        schema: str,
+        version: Optional[str] = None,
+        using: Optional[Dict[str, str]] = None,
+    ) -> None:
+        """Upgrade an existing application service to a new version."""
+        with self._use_database_and_schema(database, schema):
+            query = f"ALTER APPLICATION SERVICE {service_name} UPGRADE"
+            if version:
+                query += f"\nTO VERSION {version}"
+            if using:
+                pairs = ", ".join(f"{k} => {v}" for k, v in using.items())
+                query += f"\nUSING ({pairs})"
+            self.execute_query(query)
+
+    def drop_app_service(self, service_name: str) -> None:
+        """Drop an application service if it exists."""
+        self.execute_query(f"DROP APPLICATION SERVICE IF EXISTS {service_name}")
+
+    def describe_app_service(self, service_fqn: FQN) -> Dict[str, Any]:
+        """Run ``DESCRIBE APPLICATION SERVICE`` and return a case-insensitive
+        dict of the first result row.
+
+        The Snowflake DictCursor may return column names in any case. This
+        method normalises every key to lowercase so callers can reliably use
+        ``result["url"]`` or ``result["is_upgrading"]``.
+
+        Returns an empty dict when the DESCRIBE returns no rows.
+        """
+        with self._use_database_and_schema(service_fqn.database, service_fqn.schema):
+            cursor = self.execute_query(
+                f"DESCRIBE APPLICATION SERVICE {service_fqn.name}",
+                cursor_class=DictCursor,
+            )
+            row = cursor.fetchone()
+            if row is None:
+                return {}
+            normalised = {k.lower(): v for k, v in row.items()}
+            log.debug("DESCRIBE APPLICATION SERVICE %s: %s", service_fqn, normalised)
+            return normalised
+
+    def get_app_service_logs(self, service_name: str) -> str:
+        """Get logs for an application service."""
         from snowflake.cli.api.project.util import to_string_literal
 
-        with self._use_database_and_schema(database, schema):
-            config = self._build_artifact_repo_config(query_warehouse, build_eai)
-            query = (
-                f"SELECT SYSTEM$SPCS_TEST_RUN_APP_ARTIFACT_REPO("
-                f"{to_string_literal(artifact_repo_fqn)}, "
-                f"{to_string_literal(app_id)}, "
-                f"{to_string_literal(version)}, "
-                f"{to_string_literal(service_name)}, "
-                f"{to_string_literal(compute_pool)}, "
-                f"{to_string_literal(runtime_image)}, "
-                f"{to_string_literal(config)}"
-                f")"
-            )
-            cursor = self.execute_query(query)
-            row = cursor.fetchone()
-            return row[0] if row else ""
+        cursor = self.execute_query(
+            f"CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS({to_string_literal(service_name)})"
+        )
+        row = cursor.fetchone()
+        return row[0] if row else ""
