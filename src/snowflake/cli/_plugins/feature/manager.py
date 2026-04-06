@@ -4,7 +4,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-# http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,137 +16,28 @@
 
 from __future__ import annotations
 
-import glob as _glob
-import json
 import logging
 import os
 import time
-import urllib.error
-import urllib.parse
-import urllib.request
-from pathlib import Path
 from typing import Any, Optional, Sequence, Tuple
 
-import yaml
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import DictCursor
-from snowflake.ml.feature_store.decl import api as decl_api
-from snowflake.ml.feature_store.decl.sql_generator import generate_sql
-from snowflake.ml.feature_store.decl.types import PlanOptions
 
 try:
-    from snowflake.ml.feature_store.online_service import (
-        _parse_status_payload as _online_service_parse_status,
-    )
+    from snowflake.ml.feature_store.decl import api as decl_api
+    from snowflake.ml.feature_store.decl.sql_generator import generate_sql
+    from snowflake.ml.feature_store.decl.types import PlanOptions
 
-    _HAS_ONLINE_SERVICE = True
+    _HAS_DECL_API = True
 except ImportError:
-    _online_service_parse_status = None  # type: ignore[assignment]
-    _HAS_ONLINE_SERVICE = False
+    decl_api = None  # type: ignore[assignment]
+    generate_sql = None  # type: ignore[assignment]
+    PlanOptions = None  # type: ignore[assignment]
+    _HAS_DECL_API = False
 
 log = logging.getLogger(__name__)
-
-_MAX_RESPONSE_BYTES = 64 * 1024  # cap on response reads to prevent unbounded memory use
-
-
-def _post_json_to_service(
-    url: str,
-    pat: str,
-    body: dict[str, Any],
-    timeout: float = 120.0,
-) -> dict[str, Any]:
-    """POST a JSON body to an Online Service REST endpoint with PAT bearer auth."""
-    payload = json.dumps(body).encode("utf-8")
-    headers = {
-        "Authorization": f'Snowflake Token="{pat}"',
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-    }
-    req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
-    try:
-        resp = urllib.request.urlopen(req, timeout=timeout)
-        try:
-            raw = resp.read(_MAX_RESPONSE_BYTES)
-            return json.loads(raw.decode("utf-8"))
-        finally:
-            resp.close()
-    except urllib.error.HTTPError as exc:
-        body_text = exc.read(_MAX_RESPONSE_BYTES).decode("utf-8", errors="replace")
-        return {"status": "error", "http_status": exc.code, "error": body_text}
-    except (urllib.error.URLError, OSError) as exc:
-        return {
-            "status": "error",
-            "error": f"Feature store service is unreachable: {exc}",
-        }
-
-
-def _expand_globs(patterns: Sequence[str]) -> list[str]:
-    """Expand any glob patterns in *patterns* into a flat file list."""
-    files: list[str] = []
-    for pattern in patterns:
-        expanded = _glob.glob(pattern, recursive=True)
-        files.extend(expanded if expanded else [pattern])
-    return files
-
-
-_EXAMPLE_SPECS: dict[str, dict[str, Any]] = {
-    "entities/example_entity.yaml": {
-        "kind": "Entity",
-        "name": "user",
-        "version": "v1",
-        "join_keys": [{"name": "user_id", "type": "StringType"}],
-    },
-    "datasources/example_events_source.yaml": {
-        "kind": "StreamingSource",
-        "name": "user_events",
-        "version": "v1",
-        "type": "REST",
-        "columns": [
-            {"name": "user_id", "type": "StringType"},
-            {"name": "event_type", "type": "StringType"},
-            {"name": "event_value", "type": "FloatType"},
-            {"name": "timestamp", "type": "TimestampType"},
-        ],
-    },
-    "feature_views/example_feature_view.yaml": {
-        "kind": "StreamingFeatureView",
-        "name": "user_event_features",
-        "version": "v1",
-        "online": True,
-        "timestamp_field": "timestamp",
-        "feature_granularity": "5m",
-        "ordered_entity_column_names": ["user_id"],
-        "sources": [{"name": "user_events", "source_type": "Stream"}],
-        "features": [
-            {
-                "name": "event_count_1h",
-                "type": "IntegerType",
-                "aggregation": "count",
-                "column": "event_type",
-                "window": "1h",
-            },
-            {
-                "name": "total_value_1h",
-                "type": "FloatType",
-                "aggregation": "sum",
-                "column": "event_value",
-                "window": "1h",
-            },
-        ],
-    },
-}
-
-
-def generate_example(output_dir: str) -> dict[str, Any]:
-    """Write example YAML spec files under *output_dir* and return a result dict."""
-    created: list[str] = []
-    for rel_path, spec in _EXAMPLE_SPECS.items():
-        dest = Path(output_dir) / rel_path
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_text(yaml.dump(spec, default_flow_style=False))
-        created.append(str(dest))
-    return {"status": "created", "files": created}
 
 
 def _rows_to_dicts(rows) -> list[dict[str, Any]]:
@@ -154,21 +45,16 @@ def _rows_to_dicts(rows) -> list[dict[str, Any]]:
     return [dict(r) for r in rows]
 
 
-def _parse_oft_name(raw_name: str) -> tuple[str, str]:
-    """Parse ``name$version$ONLINE`` into ``(base_name, version)``.
-
-    Falls back gracefully if the name doesn't follow the convention.
-    """
-    parts = raw_name.split("$")
-    if len(parts) >= 3 and parts[-1] == "ONLINE":
-        return parts[0], parts[1]
-    if len(parts) >= 2:
-        return parts[0], parts[1]
-    return raw_name, ""
-
-
 class FeatureManager(SqlExecutionMixin):
     """Orchestrates the declarative feature-store workflow."""
+
+    # ------------------------------------------------------------------
+    # generate_example
+    # ------------------------------------------------------------------
+
+    def generate_example(self, output_dir: str) -> dict[str, Any]:
+        """Write example YAML spec files under *output_dir*."""
+        return decl_api.generate_example(output_dir)
 
     # ------------------------------------------------------------------
     # apply
@@ -184,11 +70,10 @@ class FeatureManager(SqlExecutionMixin):
         allow_recreate: bool,
     ) -> dict[str, Any]:
         """Load → fetch state → validate → plan → (execute if not dry_run)."""
-        files = _expand_globs(input_files)
-        log.debug("apply: files=%s dry_run=%s", files, dry_run)
+        log.debug("apply: files=%s dry_run=%s", list(input_files), dry_run)
 
         # --- 1. Load specs ---
-        batch = decl_api.load_specs(files, config)
+        batch = decl_api.load_specs(list(input_files), config)
 
         # --- 2. Fetch live state ---
         raw_show = list(
@@ -252,8 +137,7 @@ class FeatureManager(SqlExecutionMixin):
     ) -> dict[str, Any]:
         """List specs from files (if provided) or deployed specs from Snowflake."""
         if input_files:
-            files = _expand_globs(input_files)
-            batch = decl_api.load_specs(files, config)
+            batch = decl_api.load_specs(list(input_files), config)
             specs = getattr(batch, "specs", [])
             return {"source": "files", "specs": [str(s) for s in specs]}
 
@@ -324,8 +208,7 @@ class FeatureManager(SqlExecutionMixin):
         config: Optional[dict[str, Any]],
     ) -> dict[str, Any]:
         """Convert spec files from Python DSL to YAML or JSON."""
-        files = _expand_globs(input_files)
-        batch = decl_api.load_specs(files, config)
+        batch = decl_api.load_specs(list(input_files), config)
         specs = getattr(batch, "specs", [])
         return {
             "status": "converted",
@@ -342,34 +225,13 @@ class FeatureManager(SqlExecutionMixin):
     def get_status(self) -> dict[str, Any]:
         """Query and parse the feature store runtime status."""
         ctx = get_cli_context()
-        database = ctx.connection.database
-        schema = ctx.connection.schema
+        sqls = decl_api.service_sql(ctx.connection.database, ctx.connection.schema)
         try:
-            rows = list(
-                self.execute_query(
-                    f"SELECT SYSTEM$GET_FEATURE_STORE_RUNTIME_STATUS('{database}.{schema}')"
-                )
-            )
+            rows = list(self.execute_query(sqls["get_status"]))
             raw = list(rows[0])[0] if rows else None
-            if raw is None:
+            if not raw:
                 return {"status": "error", "error": "No response from system function"}
-            parsed = json.loads(raw) if isinstance(raw, str) else raw
-            if _HAS_ONLINE_SERVICE and _online_service_parse_status is not None:
-                svc_status = _online_service_parse_status(parsed)
-                return {
-                    "status": svc_status.status,
-                    "message": svc_status.message,
-                    "endpoints": [
-                        {"name": ep.name, "url": ep.url} for ep in svc_status.endpoints
-                    ],
-                    "created_at": svc_status.created_at,
-                    "updated_at": svc_status.updated_at,
-                }
-            else:
-                log.warning(
-                    "online_service module not available; using raw JSON parsing"
-                )
-                return parsed
+            return decl_api.parse_service_status(raw)
         except Exception as exc:
             log.warning("get_status raised %s: %s", type(exc).__name__, exc)
             return {"status": "error", "error": str(exc)}
@@ -381,11 +243,9 @@ class FeatureManager(SqlExecutionMixin):
     def initialize_service(self) -> dict[str, Any]:
         """Check status, create runtime if needed, then poll until RUNNING."""
         ctx = get_cli_context()
-        database = ctx.connection.database
-        schema = ctx.connection.schema
-        location = f"{database}.{schema}"
+        sqls = decl_api.service_sql(ctx.connection.database, ctx.connection.schema)
+        location = f"{ctx.connection.database}.{ctx.connection.schema}"
 
-        # Check if already running
         current = self.get_status()
         if current.get("status") == "RUNNING":
             log.info("Feature store runtime already running in %s", location)
@@ -394,11 +254,8 @@ class FeatureManager(SqlExecutionMixin):
                 "message": f"Service already initialized in {location}",
             }
 
-        # Create the runtime
         try:
-            self.execute_query(
-                f"SELECT SYSTEM$CREATE_FEATURE_STORE_RUNTIME('{location}', '{{\"roles\": {{}}}}')"
-            )
+            self.execute_query(sqls["create"])
         except Exception as exc:
             log.warning("create_runtime raised %s: %s", type(exc).__name__, exc)
             return {"status": "error", "error": str(exc)}
@@ -426,27 +283,17 @@ class FeatureManager(SqlExecutionMixin):
     def destroy_service(self) -> dict[str, Any]:
         """Drop all OFTs in the schema then drop the feature store runtime."""
         ctx = get_cli_context()
-        database = ctx.connection.database
-        schema = ctx.connection.schema
-        location = f"{database}.{schema}"
+        sqls = decl_api.service_sql(ctx.connection.database, ctx.connection.schema)
 
-        # Discover OFTs
         dropped_ofts: list[str] = []
         errors: list[str] = []
         try:
-            rows = list(
-                self.execute_query(
-                    f"SHOW ONLINE FEATURE TABLES IN SCHEMA {location}",
-                    cursor_class=DictCursor,
-                )
-            )
+            rows = list(self.execute_query(sqls["show_ofts"], cursor_class=DictCursor))
             for row in rows:
                 name = row.get("name", "")
                 if name:
                     try:
-                        self.execute_query(
-                            f"DROP ONLINE FEATURE TABLE IF EXISTS {location}.{name}"
-                        )
+                        self.execute_query(sqls["drop_oft_template"].format(name=name))
                         dropped_ofts.append(name)
                     except Exception as exc:
                         log.warning(
@@ -457,11 +304,8 @@ class FeatureManager(SqlExecutionMixin):
             log.warning("SHOW OFTs raised %s: %s", type(exc).__name__, exc)
             errors.append(f"SHOW OFTs: {exc}")
 
-        # Drop the runtime
         try:
-            self.execute_query(
-                f"SELECT SYSTEM$DROP_FEATURE_STORE_RUNTIME('{location}')"
-            )
+            self.execute_query(sqls["drop"])
         except Exception as exc:
             log.warning("drop_runtime raised %s: %s", type(exc).__name__, exc)
             errors.append(f"drop_runtime: {exc}")
@@ -473,140 +317,41 @@ class FeatureManager(SqlExecutionMixin):
     # ------------------------------------------------------------------
 
     def export_specs(self, output_dir: str) -> dict[str, Any]:
-        """Query SHOW ONLINE FEATURE TABLES, DESCRIBE each, and write YAML specs locally.
-
-        SHOW ONLINE FEATURE TABLES returns name, database_name, schema_name,
-        scheduling_state, and created_on — but NOT the full specification.
-        We parse the OFT name (``name$version$ONLINE``) and DESCRIBE each
-        table to get the column schema, then write YAML specs.
-
-        Note: The exported specs are partial — they include column schemas and
-        entity join keys but cannot recover UDFs, source definitions, feature
-        aggregations, or window configurations. These must be added manually
-        from the original source files if a full round-trip is needed.
-        """
+        """Query SHOW ONLINE FEATURE TABLES, DESCRIBE each, delegate to decl_api."""
         ctx = get_cli_context()
-        database = ctx.connection.database or ""
-        schema = ctx.connection.schema or ""
-
-        rows = list(
+        show_rows = _rows_to_dicts(
             self.execute_query(
                 "SHOW ONLINE FEATURE TABLES IN SCHEMA", cursor_class=DictCursor
             )
         )
-        rows = _rows_to_dicts(rows)
-        if not rows:
+        if not show_rows:
             return {"status": "exported", "directory": "", "files": []}
 
-        base = Path(output_dir) / f"{database}.{schema}"
-        entities_dir = base / "entities"
-        sources_dir = base / "datasources"
-        fv_dir = base / "feature_views"
-        for d in (entities_dir, sources_dir, fv_dir):
-            d.mkdir(parents=True, exist_ok=True)
-
-        seen_entities: set[str] = set()
-        created: list[str] = []
-
-        for row in rows:
-            raw_name = row.get("name", "")
-            db = row.get("database_name", database)
-            sch = row.get("schema_name", schema)
-            scheduling_state = row.get("scheduling_state", "")
-
-            # Parse name$version$ONLINE → (base_name, version)
-            fv_name, version = _parse_oft_name(raw_name)
-
-            # DESCRIBE the OFT to get column schema
-            fqn = f'"{db}"."{sch}"."{raw_name}"'
-            columns: list[dict[str, str]] = []
-            entity_cols: list[str] = []
-            feature_cols: list[str] = []
-            try:
-                desc_rows = list(
-                    self.execute_query(
-                        f"DESCRIBE ONLINE FEATURE TABLE {fqn}",
-                        cursor_class=DictCursor,
-                    )
+        describe_map: dict[str, list[dict[str, Any]]] = {}
+        for row in show_rows:
+            name = row.get("name", "")
+            fqn = f'"{ctx.connection.database}"."{ctx.connection.schema}"."{name}"'
+            describe_map[name] = _rows_to_dicts(
+                self.execute_query(
+                    f"DESCRIBE ONLINE FEATURE TABLE {fqn}",
+                    cursor_class=DictCursor,
                 )
-                for dr in _rows_to_dicts(desc_rows):
-                    col_name = dr.get("name", "")
-                    col_type = dr.get("type", "VARCHAR")
-                    # Detect primary key — DESCRIBE ONLINE FEATURE TABLE
-                    # returns columns like: name, type, kind, null?, primary key, unique key
-                    # The PK indicator may appear under various key names depending
-                    # on the connector version. Check all known possibilities.
-                    is_pk = False
-                    for pk_key in (
-                        "primary key",
-                        "primary_key",
-                        "PRIMARY KEY",
-                        "PRIMARY_KEY",
-                    ):
-                        if dr.get(pk_key, "") == "Y":
-                            is_pk = True
-                            break
-                    # Fallback: check positionally — 5th value in row
-                    if not is_pk:
-                        raw_vals = list(dr.values())
-                        if len(raw_vals) >= 5 and raw_vals[4] == "Y":
-                            is_pk = True
+            )
 
-                    columns.append({"name": col_name, "type": col_type})
-                    if is_pk:
-                        entity_cols.append(col_name)
-                    else:
-                        feature_cols.append(col_name)
-            except Exception as exc:
-                log.warning("DESCRIBE %s raised %s: %s", fqn, type(exc).__name__, exc)
-
-            # --- Feature View ---
-            fv_spec: dict[str, Any] = {
-                "kind": "StreamingFeatureView",
-                "name": fv_name,
-                "version": version,
-                "database": db,
-                "schema": sch,
-                "scheduling_state": scheduling_state,
-                "online": True,
-                "ordered_entity_column_names": entity_cols,
-                "columns": columns,
-                "_note": (
-                    "Partial export — UDFs, sources, feature aggregations, and "
-                    "window configurations are not recoverable from Snowflake. "
-                    "Add these manually from original source files."
-                ),
-            }
-            fv_path = fv_dir / f"{fv_name}.yaml"
-            fv_path.write_text(yaml.dump(fv_spec, default_flow_style=False))
-            created.append(str(fv_path))
-
-            # --- Entities (deduplicated from primary key columns) ---
-            for col_name in entity_cols:
-                if col_name not in seen_entities:
-                    seen_entities.add(col_name)
-                    entity_spec = {
-                        "kind": "Entity",
-                        "name": col_name,
-                        "join_keys": [{"name": col_name, "type": "StringType"}],
-                    }
-                    entity_path = entities_dir / f"{col_name}.yaml"
-                    entity_path.write_text(
-                        yaml.dump(entity_spec, default_flow_style=False)
-                    )
-                    created.append(str(entity_path))
-
-        return {"status": "exported", "directory": str(base), "files": created}
+        return decl_api.export_specs(
+            show_rows,
+            describe_map,
+            output_dir,
+            ctx.connection.database,
+            ctx.connection.schema,
+        )
 
     # ------------------------------------------------------------------
     # ingest
     # ------------------------------------------------------------------
 
     def ingest(self, source_name: str, records: list[dict]) -> dict[str, Any]:
-        """Stream records into a source via the Online Service ingest endpoint.
-
-        Requires ``SNOWFLAKE_PAT`` environment variable.
-        """
+        """Stream records into a source via the Online Service ingest endpoint."""
         pat = os.environ.get("SNOWFLAKE_PAT", "").strip()
         if not pat:
             raise RuntimeError(
@@ -615,13 +360,8 @@ class FeatureManager(SqlExecutionMixin):
             )
 
         status = self.get_status()
-        ingest_url: Optional[str] = None
-        for ep in status.get("endpoints", []):
-            if isinstance(ep, dict) and ep.get("name") == "ingest":
-                ingest_url = ep.get("url")
-                break
-
-        if not ingest_url:
+        url = decl_api.get_service_endpoint(status, "ingest")
+        if not url:
             return {
                 "status": "error",
                 "error": (
@@ -630,22 +370,15 @@ class FeatureManager(SqlExecutionMixin):
                 ),
             }
 
-        url = urllib.parse.urljoin(ingest_url.rstrip("/") + "/", "api/v1/ingest")
-        body: dict[str, Any] = {"records": {source_name: records}}
-        log.debug(
-            "ingest: url=%r source=%r num_records=%d", url, source_name, len(records)
-        )
-        return _post_json_to_service(url, pat, body)
+        body = decl_api.build_ingest_request(source_name, records)
+        return decl_api.post_service_json(url.rstrip("/") + "/api/v1/ingest", pat, body)
 
     # ------------------------------------------------------------------
     # query
     # ------------------------------------------------------------------
 
     def query(self, feature_view_name: str, keys: list[dict]) -> dict[str, Any]:
-        """Query online features via the Online Service query endpoint.
-
-        Requires ``SNOWFLAKE_PAT`` environment variable.
-        """
+        """Query online features via the Online Service query endpoint."""
         pat = os.environ.get("SNOWFLAKE_PAT", "").strip()
         if not pat:
             raise RuntimeError(
@@ -654,13 +387,8 @@ class FeatureManager(SqlExecutionMixin):
             )
 
         status = self.get_status()
-        query_url: Optional[str] = None
-        for ep in status.get("endpoints", []):
-            if isinstance(ep, dict) and ep.get("name") == "query":
-                query_url = ep.get("url")
-                break
-
-        if not query_url:
+        url = decl_api.get_service_endpoint(status, "query")
+        if not url:
             return {
                 "status": "error",
                 "error": (
@@ -669,12 +397,5 @@ class FeatureManager(SqlExecutionMixin):
                 ),
             }
 
-        url = urllib.parse.urljoin(query_url.rstrip("/") + "/", "api/v1/query")
-        body: dict[str, Any] = {"feature_view_name": feature_view_name, "keys": keys}
-        log.debug(
-            "query: url=%r feature_view=%r num_keys=%d",
-            url,
-            feature_view_name,
-            len(keys),
-        )
-        return _post_json_to_service(url, pat, body)
+        body = decl_api.build_query_request(feature_view_name, keys)
+        return decl_api.post_service_json(url.rstrip("/") + "/api/v1/query", pat, body)

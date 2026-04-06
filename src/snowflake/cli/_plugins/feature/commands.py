@@ -26,7 +26,7 @@ from typing import List, Optional
 
 import typer
 from click import ClickException
-from snowflake.cli._plugins.feature.manager import FeatureManager, generate_example
+from snowflake.cli._plugins.feature.manager import FeatureManager
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -329,7 +329,7 @@ def example(
     **options,
 ) -> CommandResult:
     """Generate example YAML spec files for testing (no Snowflake connection required)."""
-    result = generate_example(output_dir or ".")
+    result = FeatureManager().generate_example(output_dir or ".")
     files = result.get("files", [])
     if files:
         return _to_collection([{"file": f} for f in files], all_columns=True)
