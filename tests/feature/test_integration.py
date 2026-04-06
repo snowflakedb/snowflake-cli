@@ -129,7 +129,7 @@ class TestApplyDryRunIntegration:
             overwrite=False,
             allow_recreate=False,
         )
-        assert result["ops"] >= 0
+        assert isinstance(result["ops"], list)
         assert result["executed"] == 0
 
     def test_dry_run_calls_show_queries(self, spec_dir, mock_execute_query):
@@ -181,6 +181,7 @@ class TestApplyExecuteIntegration:
             allow_recreate=False,
         )
         assert "ops" in result
+        assert isinstance(result["ops"], list)
         assert "executed" in result
 
 

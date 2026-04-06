@@ -109,6 +109,20 @@ def _to_message(text: str) -> CommandResult:
     return MessageResult(text)
 
 
+def _ops_result(result: dict) -> CommandResult:
+    """Render plan/apply results: ops as a table, or a summary message."""
+    ops = result.get("ops", [])
+    warnings = result.get("warnings", [])
+    status = result.get("status", "")
+    if ops:
+        return _to_collection(ops, all_columns=True)
+    parts = [f"Status: {status}", f"Operations: 0"]
+    if warnings:
+        parts.append("Warnings:")
+        parts.extend(f"  - {w}" for w in warnings)
+    return _to_message("\n".join(parts))
+
+
 # ---------------------------------------------------------------------------
 # apply
 # ---------------------------------------------------------------------------
@@ -149,7 +163,9 @@ def apply(
         overwrite=overwrite,
         allow_recreate=allow_recreate,
     )
-    return _to_object(result)
+    if result.get("status") == "validation_failed":
+        return _to_object(result)
+    return _ops_result(result)
 
 
 # ---------------------------------------------------------------------------
@@ -183,7 +199,9 @@ def plan(
         overwrite=False,
         allow_recreate=False,
     )
-    return _to_object(result)
+    if result.get("status") == "validation_failed":
+        return _to_object(result)
+    return _ops_result(result)
 
 
 # ---------------------------------------------------------------------------
