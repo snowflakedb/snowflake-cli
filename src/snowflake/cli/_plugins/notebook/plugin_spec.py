@@ -12,19 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from snowflake.cli._plugins.notebook import commands
+from snowflake.cli._plugins.notebook.handler import NotebookHandlerImpl
+from snowflake.cli._plugins.notebook.interface import NOTEBOOK_SPEC
 from snowflake.cli.api.plugins.command import (
-    SNOWCLI_ROOT_COMMAND_PATH,
-    CommandSpec,
-    CommandType,
+    build_command_spec,
     plugin_hook_impl,
 )
 
 
 @plugin_hook_impl
 def command_spec():
-    return CommandSpec(
-        parent_command_path=SNOWCLI_ROOT_COMMAND_PATH,
-        command_type=CommandType.COMMAND_GROUP,
-        typer_instance=commands.app.create_instance(),
-    )
+    return build_command_spec(NOTEBOOK_SPEC, NotebookHandlerImpl())
