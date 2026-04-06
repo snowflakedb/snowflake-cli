@@ -554,12 +554,10 @@ def deploy(
         cli_console.step("Creating application service...")
         try:
             manager.create_app_service(
-                service_name=app_name,
+                service_fqn=service_fqn,
                 artifact_repo_fqn=artifact_repo_fqn_str,
                 package_name=app_name,
                 compute_pool=service_compute_pool,
-                database=database,
-                schema=schema,
                 version="LATEST",
                 query_warehouse=query_warehouse,
                 external_access_integrations=eai_list,
@@ -571,9 +569,7 @@ def deploy(
                     f"Application service {app_name} already exists. Upgrading..."
                 )
                 manager.upgrade_app_service(
-                    service_name=app_name,
-                    database=database,
-                    schema=schema,
+                    service_fqn=service_fqn,
                     version="LATEST",
                 )
                 did_upgrade = True

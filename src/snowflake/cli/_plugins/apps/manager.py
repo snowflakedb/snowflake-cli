@@ -814,65 +814,45 @@ class SnowflakeAppManager(SqlExecutionMixin):
 
     def create_app_service(
         self,
-        service_name: str,
+        service_fqn: FQN,
         artifact_repo_fqn: str,
         package_name: str,
         compute_pool: str,
-        database: str,
-        schema: str,
         version: Optional[str] = None,
         query_warehouse: Optional[str] = None,
         external_access_integrations: Optional[list[str]] = None,
-        auto_resume: Optional[bool] = None,
-        auto_suspend_secs: Optional[int] = None,
         comment: Optional[str] = None,
     ) -> None:
         """Create an application service from an artifact repository package."""
-        with self._use_database_and_schema(database, schema):
-            parts = [
-                f"CREATE APPLICATION SERVICE {service_name}",
-                f"FROM ARTIFACT REPOSITORY {artifact_repo_fqn} PACKAGE {package_name}",
-            ]
-            if version:
-                parts.append(f"VERSION {version}")
-            parts.append(f"IN COMPUTE POOL {compute_pool}")
-            if external_access_integrations:
-                eai_list = ", ".join(external_access_integrations)
-                parts.append(f"EXTERNAL_ACCESS_INTEGRATIONS = ({eai_list})")
-            if query_warehouse:
-                parts.append(f"QUERY_WAREHOUSE = {query_warehouse}")
-            if auto_resume is not None:
-                parts.append(f"AUTO_RESUME = {str(auto_resume).upper()}")
-            if auto_suspend_secs is not None:
-                parts.append(f"AUTO_SUSPEND_SECS = {auto_suspend_secs}")
-            if comment:
-                escaped = comment.replace("'", "''")
-                parts.append(f"COMMENT = '{escaped}'")
+        parts = [
+            f"CREATE APPLICATION SERVICE {service_fqn.identifier}",
+            f"FROM ARTIFACT REPOSITORY {artifact_repo_fqn} PACKAGE {package_name}",
+        ]
+        if version:
+            parts.append(f"VERSION {version}")
+        parts.append(f"IN COMPUTE POOL {compute_pool}")
+        if external_access_integrations:
+            eai_list = ", ".join(external_access_integrations)
+            parts.append(f"EXTERNAL_ACCESS_INTEGRATIONS = ({eai_list})")
+        if query_warehouse:
+            parts.append(f"QUERY_WAREHOUSE = {query_warehouse}")
+        if comment:
+            escaped = comment.replace("'", "''")
+            parts.append(f"COMMENT = '{escaped}'")
 
-            query = "\n".join(parts)
-            self.execute_query(query)
+        query = "\n".join(parts)
+        self.execute_query(query)
 
     def upgrade_app_service(
         self,
-        service_name: str,
-        database: str,
-        schema: str,
+        service_fqn: FQN,
         version: Optional[str] = None,
-        using: Optional[Dict[str, str]] = None,
     ) -> None:
         """Upgrade an existing application service to a new version."""
-        with self._use_database_and_schema(database, schema):
-            query = f"ALTER APPLICATION SERVICE {service_name} UPGRADE"
-            if version:
-                query += f"\nTO VERSION {version}"
-            if using:
-                pairs = ", ".join(f"{k} => {v}" for k, v in using.items())
-                query += f"\nUSING ({pairs})"
-            self.execute_query(query)
-
-    def drop_app_service(self, service_name: str) -> None:
-        """Drop an application service if it exists."""
-        self.execute_query(f"DROP APPLICATION SERVICE IF EXISTS {service_name}")
+        query = f"ALTER APPLICATION SERVICE {service_fqn.identifier} UPGRADE"
+        if version:
+            query += f"\nTO VERSION {version}"
+        self.execute_query(query)
 
     def describe_app_service(self, service_fqn: FQN) -> Dict[str, Any]:
         """Run ``DESCRIBE APPLICATION SERVICE`` and return a case-insensitive
@@ -884,17 +864,16 @@ class SnowflakeAppManager(SqlExecutionMixin):
 
         Returns an empty dict when the DESCRIBE returns no rows.
         """
-        with self._use_database_and_schema(service_fqn.database, service_fqn.schema):
-            cursor = self.execute_query(
-                f"DESCRIBE APPLICATION SERVICE {service_fqn.name}",
-                cursor_class=DictCursor,
-            )
-            row = cursor.fetchone()
-            if row is None:
-                return {}
-            normalised = {k.lower(): v for k, v in row.items()}
-            log.debug("DESCRIBE APPLICATION SERVICE %s: %s", service_fqn, normalised)
-            return normalised
+        cursor = self.execute_query(
+            f"DESCRIBE APPLICATION SERVICE {service_fqn.identifier}",
+            cursor_class=DictCursor,
+        )
+        row = cursor.fetchone()
+        if row is None:
+            return {}
+        normalised = {k.lower(): v for k, v in row.items()}
+        log.debug("DESCRIBE APPLICATION SERVICE %s: %s", service_fqn, normalised)
+        return normalised
 
     def get_app_service_logs(self, service_name: str) -> str:
         """Get logs for an application service."""
