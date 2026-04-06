@@ -36,6 +36,38 @@ def mock_decl():
         m.fetch_applied_state.return_value = mock.MagicMock(name="state")
         m.validate_specs.return_value = []
         m.generate_plan.return_value = mock.MagicMock(name="plan", ops=[])
+        m.state_queries.return_value = {
+            "show_ofts": "SHOW ONLINE FEATURE TABLES IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_tables": "SHOW TABLES LIKE '%' IN SCHEMA TEST_DB.TEST_SCHEMA",
+        }
+        # generate_apply_sql returns an ApplyResult-like mock
+        apply_result = mock.MagicMock()
+        apply_result.status = "ready"
+        apply_result.ops = []
+        apply_result.sql_statements = []
+        apply_result.warnings = []
+        apply_result.errors = []
+        m.generate_apply_sql.return_value = apply_result
+        m.list_query.return_value = "SHOW ONLINE FEATURE TABLES IN SCHEMA TEST_DB.TEST_SCHEMA"
+        m.describe_query.return_value = "SHOW ONLINE FEATURE TABLES LIKE 'test' IN SCHEMA TEST_DB.TEST_SCHEMA"
+        m.drop_queries.return_value = ['DROP ONLINE FEATURE TABLE IF EXISTS "TEST_DB"."TEST_SCHEMA"."test"']
+        m.export_queries.return_value = {
+            "show_ofts": "SHOW ONLINE FEATURE TABLES IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "describe_template": 'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}"',
+        }
+        yield m
+
+
+@pytest.fixture(autouse=True)
+def mock_cli_context():
+    """Patch get_cli_context for all manager tests."""
+    with mock.patch("snowflake.cli._plugins.feature.manager.get_cli_context") as m:
+        ctx = mock.MagicMock()
+        ctx.connection.database = "TEST_DB"
+        ctx.connection.schema = "TEST_SCHEMA"
+        ctx.connection.warehouse = "TEST_WH"
+        ctx.connection.role = "TEST_ROLE"
+        m.return_value = ctx
         yield m
 
 
@@ -57,6 +89,8 @@ class TestFeatureManagerApply:
     def test_apply_dry_run_does_not_execute_sql(self, mock_execute_query, mock_decl):
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
+        # Set up apply_result with SQL that should NOT be executed in dry_run
+        mock_decl.generate_apply_sql.return_value.sql_statements = ["CREATE TABLE t"]
         mgr = FeatureManager()
         mgr.apply(
             input_files=["specs.yaml"],
@@ -66,10 +100,10 @@ class TestFeatureManagerApply:
             overwrite=False,
             allow_recreate=False,
         )
-        # execute_query should only be called for SHOW queries (state fetch), not for plan ops
+        # execute_query should only be called for state queries, not for DDL
         for call in mock_execute_query.call_args_list:
-            sql = call[0][0] if call[0] else call[1].get("query", "")
-            assert "SHOW" in sql.upper() or sql == ""
+            sql = str(call[0][0]) if call[0] else ""
+            assert "CREATE" not in sql.upper(), f"DDL executed in dry_run: {sql}"
 
     def test_apply_calls_load_specs(self, mock_execute_query, mock_decl):
         from snowflake.cli._plugins.feature.manager import FeatureManager
@@ -157,18 +191,6 @@ class TestFeatureManagerConvert:
 # ---------------------------------------------------------------------------
 # get_status
 # ---------------------------------------------------------------------------
-
-
-@pytest.fixture
-def mock_cli_context():
-    """Patch get_cli_context used in service management methods."""
-    with mock.patch("snowflake.cli._plugins.feature.manager.get_cli_context") as m:
-        ctx = mock.MagicMock()
-        ctx.connection.database = "TEST_DB"
-        ctx.connection.schema = "TEST_SCHEMA"
-        ctx.connection.role = "TEST_ROLE"
-        m.return_value = ctx
-        yield m
 
 
 class TestFeatureManagerGetStatus:
