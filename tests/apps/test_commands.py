@@ -719,57 +719,16 @@ class TestSnowflakeAppManager:
         assert restore_schema_idx > restore_db_idx
 
     @patch(EXECUTE_QUERY)
-    def test_create_app_service_restores_session(self, mock_execute):
-        cursor = Mock()
-        cursor.fetchone.side_effect = [
-            ("PREV_DB",),
-            ("PREV_SCHEMA",),
-            None,
-            None,
-            None,
-            None,
-            None,
-        ]
-        mock_execute.return_value = cursor
-
-        SnowflakeAppManager().create_app_service(
-            service_name="my_app",
-            artifact_repo_fqn="DB.SCHEMA.REPO",
-            package_name="my_app",
-            compute_pool="SVC_POOL",
-            database="DB",
-            schema="SCHEMA",
-        )
-        queries = [c[0][0] for c in mock_execute.call_args_list]
-        create_idx = next(
-            i for i, q in enumerate(queries) if "CREATE APPLICATION SERVICE" in q
-        )
-        restore_db_idx = queries.index("USE DATABASE PREV_DB")
-        restore_schema_idx = queries.index("USE SCHEMA PREV_SCHEMA")
-        assert restore_db_idx > create_idx
-        assert restore_schema_idx > restore_db_idx
-
-    @patch(EXECUTE_QUERY)
     def test_create_app_service_generates_correct_sql(self, mock_execute):
         cursor = Mock()
-        cursor.fetchone.side_effect = [
-            ("PREV_DB",),
-            ("PREV_SCHEMA",),
-            None,
-            None,
-            None,
-            None,
-            None,
-        ]
         mock_execute.return_value = cursor
 
+        fqn = FQN(database="DB", schema="SCHEMA", name="my_app")
         SnowflakeAppManager().create_app_service(
-            service_name="my_app",
+            service_fqn=fqn,
             artifact_repo_fqn="DB.SCHEMA.REPO",
             package_name="my_app",
             compute_pool="SVC_POOL",
-            database="DB",
-            schema="SCHEMA",
             version="LATEST",
             query_warehouse="WH",
             external_access_integrations=["MY_EAI"],
@@ -777,7 +736,7 @@ class TestSnowflakeAppManager:
         create_query = self._find_query(
             mock_execute.call_args_list, "CREATE APPLICATION SERVICE"
         )
-        assert "my_app" in create_query
+        assert "DB.SCHEMA.my_app" in create_query
         assert "ARTIFACT REPOSITORY DB.SCHEMA.REPO" in create_query
         assert "PACKAGE my_app" in create_query
         assert "VERSION LATEST" in create_query
@@ -788,24 +747,14 @@ class TestSnowflakeAppManager:
     @patch(EXECUTE_QUERY)
     def test_create_app_service_with_comment(self, mock_execute):
         cursor = Mock()
-        cursor.fetchone.side_effect = [
-            ("PREV_DB",),
-            ("PREV_SCHEMA",),
-            None,
-            None,
-            None,
-            None,
-            None,
-        ]
         mock_execute.return_value = cursor
 
+        fqn = FQN(database="DB", schema="SCHEMA", name="my_app")
         SnowflakeAppManager().create_app_service(
-            service_name="my_app",
+            service_fqn=fqn,
             artifact_repo_fqn="DB.SCHEMA.REPO",
             package_name="my_app",
             compute_pool="SVC_POOL",
-            database="DB",
-            schema="SCHEMA",
             comment="it's a test",
         )
         create_query = self._find_query(
@@ -816,38 +765,19 @@ class TestSnowflakeAppManager:
     @patch(EXECUTE_QUERY)
     def test_upgrade_app_service_generates_correct_sql(self, mock_execute):
         cursor = Mock()
-        cursor.fetchone.side_effect = [
-            ("PREV_DB",),
-            ("PREV_SCHEMA",),
-            None,
-            None,
-            None,
-            None,
-            None,
-        ]
         mock_execute.return_value = cursor
 
+        fqn = FQN(database="DB", schema="SCHEMA", name="my_app")
         SnowflakeAppManager().upgrade_app_service(
-            service_name="my_app",
-            database="DB",
-            schema="SCHEMA",
+            service_fqn=fqn,
             version="LATEST",
         )
         upgrade_query = self._find_query(
             mock_execute.call_args_list, "ALTER APPLICATION SERVICE"
         )
+        assert "DB.SCHEMA.my_app" in upgrade_query
         assert "UPGRADE" in upgrade_query
         assert "TO VERSION LATEST" in upgrade_query
-
-    @patch(EXECUTE_QUERY)
-    def test_drop_app_service(self, mock_execute):
-        cursor = Mock()
-        mock_execute.return_value = cursor
-
-        SnowflakeAppManager().drop_app_service("my_app")
-        mock_execute.assert_called_once_with(
-            "DROP APPLICATION SERVICE IF EXISTS my_app"
-        )
 
     @patch(EXECUTE_QUERY)
     def test_get_app_service_logs(self, mock_execute):
@@ -864,27 +794,23 @@ class TestSnowflakeAppManager:
     @patch(EXECUTE_QUERY)
     def test_describe_app_service_normalises_keys(self, mock_execute):
         cursor = Mock()
-        # fetchone calls: CURRENT_DATABASE, CURRENT_SCHEMA, DESCRIBE result
-        cursor.fetchone.side_effect = [
-            ("PREV_DB",),
-            ("PREV_SCHEMA",),
-            {"URL": "my-app.snowflakecomputing.app", "IS_UPGRADING": "false"},
-        ]
+        cursor.fetchone.return_value = {
+            "URL": "my-app.snowflakecomputing.app",
+            "IS_UPGRADING": "false",
+        }
         mock_execute.return_value = cursor
 
         fqn = FQN(database="DB", schema="SCHEMA", name="my_app")
         desc = SnowflakeAppManager().describe_app_service(fqn)
         assert desc["url"] == "my-app.snowflakecomputing.app"
         assert desc["is_upgrading"] == "false"
+        query = mock_execute.call_args[0][0]
+        assert "DESCRIBE APPLICATION SERVICE DB.SCHEMA.my_app" in query
 
     @patch(EXECUTE_QUERY)
     def test_describe_app_service_empty(self, mock_execute):
         cursor = Mock()
-        cursor.fetchone.side_effect = [
-            ("PREV_DB",),
-            ("PREV_SCHEMA",),
-            None,
-        ]
+        cursor.fetchone.return_value = None
         mock_execute.return_value = cursor
 
         fqn = FQN(database="DB", schema="SCHEMA", name="my_app")
@@ -3393,12 +3319,10 @@ class TestDeployCommand:
             build_eai="MY_EAI",
         )
         mock_mgr.create_app_service.assert_called_once_with(
-            service_name="MY_APP",
+            service_fqn=FQN(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP"),
             artifact_repo_fqn="AR_DB.AR_SCHEMA.AR_REPO",
             package_name="MY_APP",
             compute_pool="SVC_POOL",
-            database="TEST_DB",
-            schema="TEST_SCHEMA",
             version="LATEST",
             query_warehouse="WH",
             external_access_integrations=["MY_EAI"],
