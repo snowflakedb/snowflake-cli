@@ -154,6 +154,19 @@ def _rows_to_dicts(rows) -> list[dict[str, Any]]:
     return [dict(r) for r in rows]
 
 
+def _parse_oft_name(raw_name: str) -> tuple[str, str]:
+    """Parse ``name$version$ONLINE`` into ``(base_name, version)``.
+
+    Falls back gracefully if the name doesn't follow the convention.
+    """
+    parts = raw_name.split("$")
+    if len(parts) >= 3 and parts[-1] == "ONLINE":
+        return parts[0], parts[1]
+    if len(parts) >= 2:
+        return parts[0], parts[1]
+    return raw_name, ""
+
+
 class FeatureManager(SqlExecutionMixin):
     """Orchestrates the declarative feature-store workflow."""
 
@@ -460,10 +473,16 @@ class FeatureManager(SqlExecutionMixin):
     # ------------------------------------------------------------------
 
     def export_specs(self, output_dir: str) -> dict[str, Any]:
-        """Query SHOW ONLINE FEATURE TABLES and write YAML spec files locally."""
+        """Query SHOW ONLINE FEATURE TABLES, DESCRIBE each, and write YAML specs locally.
+
+        SHOW ONLINE FEATURE TABLES returns name, database_name, schema_name,
+        scheduling_state, and created_on — but NOT the full specification.
+        We parse the OFT name (``name$version$ONLINE``) and DESCRIBE each
+        table to get the column schema, then write minimal YAML specs.
+        """
         ctx = get_cli_context()
-        database = ctx.connection.database
-        schema = ctx.connection.schema
+        database = ctx.connection.database or ""
+        schema = ctx.connection.schema or ""
 
         rows = list(
             self.execute_query(
@@ -471,6 +490,8 @@ class FeatureManager(SqlExecutionMixin):
             )
         )
         rows = _rows_to_dicts(rows)
+        if not rows:
+            return {"status": "exported", "directory": "", "files": []}
 
         base = Path(output_dir) / f"{database}.{schema}"
         entities_dir = base / "entities"
@@ -480,37 +501,54 @@ class FeatureManager(SqlExecutionMixin):
             d.mkdir(parents=True, exist_ok=True)
 
         seen_entities: set[str] = set()
-        seen_sources: set[str] = set()
         created: list[str] = []
 
         for row in rows:
-            raw_spec = row.get("specification", "")
-            if not raw_spec:
-                continue
-            parsed = json.loads(raw_spec)
-            meta = parsed.get("metadata", {})
-            spec = parsed.get("spec", {})
-            kind = parsed.get("kind", "StreamingFeatureView")
-            fv_name = meta.get("name", row.get("name", "unknown"))
-            version = meta.get("version", "")
-            db = meta.get("database", database)
-            sch = meta.get("schema", schema)
+            raw_name = row.get("name", "")
+            db = row.get("database_name", database)
+            sch = row.get("schema_name", schema)
+            scheduling_state = row.get("scheduling_state", "")
+
+            # Parse name$version$ONLINE → (base_name, version)
+            fv_name, version = _parse_oft_name(raw_name)
+
+            # DESCRIBE the OFT to get column schema
+            fqn = f'"{db}"."{sch}"."{raw_name}"'
+            columns: list[dict[str, str]] = []
+            entity_cols: list[str] = []
+            try:
+                desc_rows = list(
+                    self.execute_query(f"DESCRIBE TABLE {fqn}", cursor_class=DictCursor)
+                )
+                for dr in _rows_to_dicts(desc_rows):
+                    col_name = dr.get("name", "")
+                    col_type = dr.get("type", "VARCHAR")
+                    kind_col = dr.get("kind", "")
+                    columns.append({"name": col_name, "type": col_type})
+                    # Primary key columns are the entity join keys
+                    if kind_col == "Y":
+                        entity_cols.append(col_name)
+            except Exception as exc:
+                log.warning("DESCRIBE %s raised %s: %s", fqn, type(exc).__name__, exc)
 
             # --- Feature View ---
             fv_spec: dict[str, Any] = {
-                "kind": kind,
+                "kind": "StreamingFeatureView",
                 "name": fv_name,
                 "version": version,
                 "database": db,
                 "schema": sch,
+                "scheduling_state": scheduling_state,
+                "online": True,
+                "ordered_entity_column_names": entity_cols,
+                "columns": columns,
             }
-            fv_spec.update(spec)
             fv_path = fv_dir / f"{fv_name}.yaml"
             fv_path.write_text(yaml.dump(fv_spec, default_flow_style=False))
             created.append(str(fv_path))
 
-            # --- Entities (deduplicated) ---
-            for col_name in spec.get("ordered_entity_column_names", []):
+            # --- Entities (deduplicated from primary key columns) ---
+            for col_name in entity_cols:
                 if col_name not in seen_entities:
                     seen_entities.add(col_name)
                     entity_spec = {
@@ -523,26 +561,6 @@ class FeatureManager(SqlExecutionMixin):
                         yaml.dump(entity_spec, default_flow_style=False)
                     )
                     created.append(str(entity_path))
-
-            # --- Data Sources (deduplicated) ---
-            for source in spec.get("sources", []):
-                src_name = source.get("name", "")
-                if not src_name or src_name in seen_sources:
-                    continue
-                seen_sources.add(src_name)
-                src_type = source.get("source_type", "")
-                if src_type in ("Batch", "BatchSource"):
-                    src_kind = "BatchSource"
-                else:
-                    src_kind = "StreamingSource"
-                src_spec = {
-                    "kind": src_kind,
-                    "name": src_name,
-                    "columns": source.get("columns", []),
-                }
-                src_path = sources_dir / f"{src_name}.yaml"
-                src_path.write_text(yaml.dump(src_spec, default_flow_style=False))
-                created.append(str(src_path))
 
         return {"status": "exported", "directory": str(base), "files": created}
 

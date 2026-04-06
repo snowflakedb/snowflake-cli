@@ -311,94 +311,75 @@ class TestFeatureManagerGetStatus:
 # export_specs
 # ---------------------------------------------------------------------------
 
-_SPEC_ROW_SINGLE = {
+_SHOW_ROW_SINGLE = {
     "name": "my_fv$v1$ONLINE",
     "database_name": "TEST_DB",
     "schema_name": "TEST_SCHEMA",
-    "specification": json.dumps(
-        {
-            "kind": "StreamingFeatureView",
-            "metadata": {
-                "name": "my_fv",
-                "database": "TEST_DB",
-                "schema": "TEST_SCHEMA",
-                "version": "v1",
-            },
-            "spec": {
-                "ordered_entity_column_names": ["user_id"],
-                "sources": [
-                    {
-                        "name": "click_events",
-                        "source_type": "Stream",
-                        "columns": [
-                            {"name": "user_id", "type": "StringType"},
-                            {"name": "event_type", "type": "StringType"},
-                            {"name": "timestamp", "type": "TimestampType"},
-                        ],
-                    },
-                ],
-                "features": [
-                    {
-                        "source_column": {"name": "event_type", "type": "StringType"},
-                        "output_column": {
-                            "name": "click_count_1h",
-                            "type": "IntegerType",
-                        },
-                        "function": "count",
-                        "window_sec": 3600,
-                    },
-                ],
-                "timestamp_field": "timestamp",
-            },
-        }
-    ),
+    "scheduling_state": "RUNNING",
 }
 
+_DESCRIBE_ROWS_SINGLE = [
+    {"name": "USER_ID", "type": "VARCHAR(16777216)", "kind": "Y"},
+    {"name": "CLICK_COUNT_1H", "type": "NUMBER(38,0)", "kind": ""},
+    {"name": "TIMESTAMP", "type": "TIMESTAMP_NTZ(9)", "kind": ""},
+]
 
-def _make_fv_row(fv_name, entity_col="user_id", source_name=None, source_type="Stream"):
-    if source_name is None:
-        source_name = f"src_{fv_name}"
+
+def _make_show_row(fv_name, entity_col="USER_ID"):
     return {
         "name": f"{fv_name}$v1$ONLINE",
         "database_name": "TEST_DB",
         "schema_name": "TEST_SCHEMA",
-        "specification": json.dumps(
-            {
-                "kind": "StreamingFeatureView",
-                "metadata": {
-                    "name": fv_name,
-                    "database": "TEST_DB",
-                    "schema": "TEST_SCHEMA",
-                    "version": "v1",
-                },
-                "spec": {
-                    "ordered_entity_column_names": [entity_col],
-                    "sources": [
-                        {"name": source_name, "source_type": source_type, "columns": []}
-                    ],
-                    "features": [],
-                    "timestamp_field": "ts",
-                },
-            }
-        ),
+        "scheduling_state": "RUNNING",
     }
 
 
+def _make_describe_rows(entity_col="USER_ID"):
+    return [
+        {"name": entity_col, "type": "VARCHAR(16777216)", "kind": "Y"},
+        {"name": "FEATURE_COL", "type": "NUMBER(38,0)", "kind": ""},
+    ]
+
+
 class TestFeatureManagerExportSpecs:
+    """Tests for export_specs which uses SHOW + DESCRIBE TABLE."""
+
+    def _setup_mock(self, mock_execute_query, show_rows, describe_rows_map=None):
+        """Configure mock to return SHOW rows first, then DESCRIBE rows per OFT.
+
+        Args:
+            show_rows: list of dicts for SHOW ONLINE FEATURE TABLES
+            describe_rows_map: optional dict mapping OFT name → list of DESCRIBE dicts.
+                If None, uses _DESCRIBE_ROWS_SINGLE for all.
+        """
+        default_desc = _DESCRIBE_ROWS_SINGLE
+
+        def side_effect(query, **kwargs):
+            if "SHOW ONLINE FEATURE TABLES" in query:
+                return iter(show_rows)
+            if "DESCRIBE TABLE" in query:
+                if describe_rows_map:
+                    for oft_name, desc_rows in describe_rows_map.items():
+                        if oft_name in query:
+                            return iter(desc_rows)
+                return iter(default_desc)
+            return iter([])
+
+        mock_execute_query.side_effect = side_effect
+
     def test_export_creates_directory_structure(
         self, mock_execute_query, mock_cli_context, tmp_path
     ):
-        """export_specs creates entities/, datasources/, and feature_views/ with correct files."""
+        """export_specs creates entities/ and feature_views/ with correct files."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        mock_execute_query.return_value = iter([_SPEC_ROW_SINGLE])
+        self._setup_mock(mock_execute_query, [_SHOW_ROW_SINGLE])
         mgr = FeatureManager()
         mgr.export_specs(str(tmp_path))
 
         base = tmp_path / "TEST_DB.TEST_SCHEMA"
         assert (base / "feature_views" / "my_fv.yaml").exists()
-        assert (base / "entities" / "user_id.yaml").exists()
-        assert (base / "datasources" / "click_events.yaml").exists()
+        assert (base / "entities" / "USER_ID.yaml").exists()
 
     def test_export_deduplicates_entities(
         self, mock_execute_query, mock_cli_context, tmp_path
@@ -406,11 +387,9 @@ class TestFeatureManagerExportSpecs:
         """Two FVs sharing an entity column should produce only one entity file."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        mock_execute_query.return_value = iter(
-            [
-                _make_fv_row("fv_a", entity_col="user_id"),
-                _make_fv_row("fv_b", entity_col="user_id"),
-            ]
+        self._setup_mock(
+            mock_execute_query,
+            [_make_show_row("fv_a"), _make_show_row("fv_b")],
         )
         mgr = FeatureManager()
         mgr.export_specs(str(tmp_path))
@@ -419,31 +398,12 @@ class TestFeatureManagerExportSpecs:
         entity_files = list(entity_dir.iterdir())
         assert len(entity_files) == 1, f"Expected 1 entity file, got: {entity_files}"
 
-    def test_export_deduplicates_sources(
-        self, mock_execute_query, mock_cli_context, tmp_path
-    ):
-        """Two FVs sharing a source should produce only one datasource file."""
-        from snowflake.cli._plugins.feature.manager import FeatureManager
-
-        mock_execute_query.return_value = iter(
-            [
-                _make_fv_row("fv_x", entity_col="cust_id", source_name="shared_stream"),
-                _make_fv_row("fv_y", entity_col="cust_id", source_name="shared_stream"),
-            ]
-        )
-        mgr = FeatureManager()
-        mgr.export_specs(str(tmp_path))
-
-        src_dir = tmp_path / "TEST_DB.TEST_SCHEMA" / "datasources"
-        src_files = list(src_dir.iterdir())
-        assert len(src_files) == 1, f"Expected 1 datasource file, got: {src_files}"
-
     def test_export_yaml_content(self, mock_execute_query, mock_cli_context, tmp_path):
         """Exported YAML files have correct structure and field values."""
         import yaml
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        mock_execute_query.return_value = iter([_SPEC_ROW_SINGLE])
+        self._setup_mock(mock_execute_query, [_SHOW_ROW_SINGLE])
         mgr = FeatureManager()
         mgr.export_specs(str(tmp_path))
 
@@ -455,20 +415,12 @@ class TestFeatureManagerExportSpecs:
         assert fv_data["version"] == "v1"
         assert fv_data["database"] == "TEST_DB"
         assert fv_data["schema"] == "TEST_SCHEMA"
-        assert fv_data["timestamp_field"] == "timestamp"
-        assert fv_data["ordered_entity_column_names"] == ["user_id"]
+        assert fv_data["ordered_entity_column_names"] == ["USER_ID"]
 
-        entity_data = yaml.safe_load((base / "entities" / "user_id.yaml").read_text())
+        entity_data = yaml.safe_load((base / "entities" / "USER_ID.yaml").read_text())
         assert entity_data["kind"] == "Entity"
-        assert entity_data["name"] == "user_id"
-        assert entity_data["join_keys"] == [{"name": "user_id", "type": "StringType"}]
-
-        src_data = yaml.safe_load(
-            (base / "datasources" / "click_events.yaml").read_text()
-        )
-        assert src_data["kind"] == "StreamingSource"
-        assert src_data["name"] == "click_events"
-        assert len(src_data["columns"]) == 3
+        assert entity_data["name"] == "USER_ID"
+        assert entity_data["join_keys"] == [{"name": "USER_ID", "type": "StringType"}]
 
     def test_export_returns_result_dict(
         self, mock_execute_query, mock_cli_context, tmp_path
@@ -476,33 +428,39 @@ class TestFeatureManagerExportSpecs:
         """export_specs returns a dict with status, directory, and files list."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        mock_execute_query.return_value = iter([_SPEC_ROW_SINGLE])
+        self._setup_mock(mock_execute_query, [_SHOW_ROW_SINGLE])
         mgr = FeatureManager()
         result = mgr.export_specs(str(tmp_path))
 
         assert result["status"] == "exported"
         assert "directory" in result
         assert isinstance(result["files"], list)
-        assert len(result["files"]) == 3  # fv + entity + source
+        # fv + entity = 2 files (no datasources since DESCRIBE doesn't provide source info)
+        assert len(result["files"]) == 2
 
-    def test_export_batch_source_kind(
+    def test_export_empty_schema(self, mock_execute_query, mock_cli_context, tmp_path):
+        """export_specs with no OFTs returns empty file list."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        self._setup_mock(mock_execute_query, [])
+        mgr = FeatureManager()
+        result = mgr.export_specs(str(tmp_path))
+
+        assert result["status"] == "exported"
+        assert result["files"] == []
+
+    def test_export_columns_from_describe(
         self, mock_execute_query, mock_cli_context, tmp_path
     ):
-        """A source with source_type 'Batch' should be written as kind: BatchSource."""
+        """Exported FV YAML includes columns from DESCRIBE TABLE."""
         import yaml
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        mock_execute_query.return_value = iter(
-            [
-                _make_fv_row("fv_batch", source_name="my_batch", source_type="Batch"),
-            ]
-        )
+        self._setup_mock(mock_execute_query, [_SHOW_ROW_SINGLE])
         mgr = FeatureManager()
         mgr.export_specs(str(tmp_path))
 
-        src_data = yaml.safe_load(
-            (
-                tmp_path / "TEST_DB.TEST_SCHEMA" / "datasources" / "my_batch.yaml"
-            ).read_text()
-        )
-        assert src_data["kind"] == "BatchSource"
+        base = tmp_path / "TEST_DB.TEST_SCHEMA"
+        fv_data = yaml.safe_load((base / "feature_views" / "my_fv.yaml").read_text())
+        assert len(fv_data["columns"]) == 3
+        assert fv_data["columns"][0]["name"] == "USER_ID"
