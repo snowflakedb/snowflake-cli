@@ -70,3 +70,21 @@ class CommandSpec:
     @cached_property
     def full_command_path(self) -> CommandPath:
         return CommandPath(self.parent_command_path.path_segments + [self.command.name])
+
+
+# -- Interface-first plugin API (spec + handler pattern) --------------------
+
+from snowflake.cli.api.plugins.command.interface import (  # noqa: E402
+    CommandDef,
+    CommandGroupSpec,
+    CommandHandler,
+    ParamDef,
+    ParamKind,
+    REQUIRED,
+    SingleCommandSpec,
+)
+from snowflake.cli.api.plugins.command.bridge import (  # noqa: E402
+    InterfaceValidationError,
+    build_command_spec,
+    register_decorator,
+)
