@@ -122,8 +122,17 @@ class FeatureManager(SqlExecutionMixin):
 
         return {
             "status": "dry_run" if dry_run else "applied",
-            "ops": len(ops),
+            "ops": [
+                {
+                    "operation": op.kind.value,
+                    "name": op.name,
+                    "reason": op.reason,
+                    "destructive": op.destructive,
+                }
+                for op in ops
+            ],
             "executed": len(executed),
+            "warnings": list(getattr(plan, "warnings", [])),
         }
 
     # ------------------------------------------------------------------
