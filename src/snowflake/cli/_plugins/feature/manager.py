@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""FeatureManager — orchestrates calls between the CLI and the decl library."""
+"""FeatureManager — thin CLI adapter delegating all logic to decl_api."""
 
 from __future__ import annotations
 
@@ -27,14 +27,10 @@ from snowflake.connector.cursor import DictCursor
 
 try:
     from snowflake.ml.feature_store.decl import api as decl_api
-    from snowflake.ml.feature_store.decl.sql_generator import generate_sql
-    from snowflake.ml.feature_store.decl.types import PlanOptions
 
     _HAS_DECL_API = True
 except ImportError:
     decl_api = None  # type: ignore[assignment]
-    generate_sql = None  # type: ignore[assignment]
-    PlanOptions = None  # type: ignore[assignment]
     _HAS_DECL_API = False
 
 log = logging.getLogger(__name__)
@@ -46,7 +42,7 @@ def _rows_to_dicts(rows) -> list[dict[str, Any]]:
 
 
 class FeatureManager(SqlExecutionMixin):
-    """Orchestrates the declarative feature-store workflow."""
+    """Thin CLI adapter — delegates all business logic to decl_api."""
 
     # ------------------------------------------------------------------
     # generate_example
@@ -69,78 +65,55 @@ class FeatureManager(SqlExecutionMixin):
         overwrite: bool,
         allow_recreate: bool,
     ) -> dict[str, Any]:
-        """Load → fetch state → validate → plan → (execute if not dry_run)."""
-        log.debug("apply: files=%s dry_run=%s", list(input_files), dry_run)
+        """Load → validate → plan → generate SQL → (execute if not dry_run)."""
+        ctx = get_cli_context()
 
-        # --- 1. Load specs ---
+        # 1. Fetch state via decl_api query strings
+        sqls = decl_api.state_queries(ctx.connection.database, ctx.connection.schema)
+        raw_show = _rows_to_dicts(
+            self.execute_query(sqls["show_ofts"], cursor_class=DictCursor)
+        )
+        raw_tables = _rows_to_dicts(
+            self.execute_query(sqls["show_tables"], cursor_class=DictCursor)
+        )
+        applied_state = decl_api.fetch_applied_state(raw_show, raw_tables)
+
+        # 2. Load specs
         batch = decl_api.load_specs(list(input_files), config)
 
-        # --- 2. Fetch live state ---
-        raw_show = list(
-            self.execute_query(
-                "SHOW ONLINE FEATURE TABLES IN SCHEMA", cursor_class=DictCursor
-            )
-        )
-        raw_tables = list(
-            self.execute_query(
-                "SHOW TABLES LIKE '%' IN SCHEMA", cursor_class=DictCursor
-            )
-        )
-        applied_state = decl_api.fetch_applied_state(
-            raw_show_results=_rows_to_dicts(raw_show),
-            raw_table_results=_rows_to_dicts(raw_tables),
-        )
+        # 3. Validate + plan + generate SQL — all in decl
+        from snowflake.ml.feature_store.decl.types import PlanOptions
 
-        # --- 3. Validate ---
-        validation_results = decl_api.validate_specs(batch, applied_state)
-        errors = [
-            r for r in validation_results if getattr(r, "severity", "") == "ERROR"
-        ]
-        if errors:
-            return {
-                "status": "validation_failed",
-                "errors": [str(e) for e in errors],
-            }
-
-        # --- 4. Generate plan ---
         options = PlanOptions(
-            dev_mode=dev_mode, overwrite=overwrite, allow_recreate=allow_recreate
+            dev_mode=dev_mode,
+            overwrite=overwrite,
+            allow_recreate=allow_recreate,
         )
-        plan = decl_api.generate_plan(batch, applied_state, options)
+        result = decl_api.generate_apply_sql(
+            batch,
+            applied_state,
+            options,
+            database=ctx.connection.database,
+            schema=ctx.connection.schema,
+            warehouse=ctx.connection.warehouse or "",
+        )
 
-        # --- 5. Inject connection context into plan op payloads ---
-        ops = getattr(plan, "ops", [])
-        log.debug("plan ops: %d", len(ops))
-        ctx = get_cli_context()
-        for op in ops:
-            if not op.payload.get("database"):
-                op.payload["database"] = ctx.connection.database
-            if not op.payload.get("schema"):
-                op.payload["schema"] = ctx.connection.schema
-            if not op.payload.get("warehouse") and ctx.connection.warehouse:
-                op.payload["warehouse"] = ctx.connection.warehouse
-
-        # --- 6. Execute (if not dry_run) ---
-        sql_stmts = generate_sql(plan)
-        executed: list[str] = []
-        if not dry_run:
-            for sql in sql_stmts:
+        # 4. Execute SQL (CLI's only job)
+        executed = 0
+        if result.status != "validation_failed" and not dry_run:
+            for sql in result.sql_statements:
                 self.execute_query(sql)
-                executed.append(sql)
+                executed += 1
 
+        status = "validation_failed" if result.status == "validation_failed" else (
+            "dry_run" if dry_run else "applied"
+        )
         return {
-            "status": "dry_run" if dry_run else "applied",
-            "ops": [
-                {
-                    "operation": op.kind.value,
-                    "name": op.name,
-                    "reason": op.reason,
-                    "destructive": op.destructive,
-                }
-                for op in ops
-            ],
-            "executed": len(executed),
-            "warnings": list(getattr(plan, "warnings", [])),
+            "status": status,
+            "ops": result.ops,
+            "executed": executed,
+            "warnings": result.warnings,
+            "errors": result.errors,
         }
 
     # ------------------------------------------------------------------
@@ -152,41 +125,33 @@ class FeatureManager(SqlExecutionMixin):
         input_files: Tuple[str, ...],
         config: Optional[dict[str, Any]],
     ) -> dict[str, Any]:
-        """List specs from files (if provided) or deployed specs from Snowflake."""
+        """List specs from files or deployed objects from Snowflake."""
         if input_files:
             batch = decl_api.load_specs(list(input_files), config)
             specs = getattr(batch, "specs", [])
             return {"source": "files", "specs": [str(s) for s in specs]}
 
-        # No files — list from Snowflake
+        ctx = get_cli_context()
         try:
-            rows = list(
-                self.execute_query(
-                    "SHOW ONLINE FEATURE TABLES IN SCHEMA",
-                    cursor_class=DictCursor,
-                )
-            )
+            sql = decl_api.list_query(ctx.connection.database, ctx.connection.schema)
+            rows = list(self.execute_query(sql, cursor_class=DictCursor))
             return {"source": "snowflake", "specs": _rows_to_dicts(rows)}
         except Exception as exc:
-            log.warning("SHOW query raised %s: %s", type(exc).__name__, exc)
+            log.warning("list query raised %s: %s", type(exc).__name__, exc)
             return {"status": "error", "error": str(exc)}
 
     # ------------------------------------------------------------------
     # describe
     # ------------------------------------------------------------------
 
-    def describe(
-        self,
-        name: str,
-    ) -> dict[str, Any]:
+    def describe(self, name: str) -> dict[str, Any]:
         """Return metadata for a single named feature-store object."""
+        ctx = get_cli_context()
         try:
-            rows = list(
-                self.execute_query(
-                    f"SHOW ONLINE FEATURE TABLES LIKE '{name}'",
-                    cursor_class=DictCursor,
-                )
+            sql = decl_api.describe_query(
+                name, ctx.connection.database, ctx.connection.schema
             )
+            rows = list(self.execute_query(sql, cursor_class=DictCursor))
             return {"name": name, "rows": _rows_to_dicts(rows)}
         except Exception as exc:
             log.warning("describe raised %s: %s", type(exc).__name__, exc)
@@ -196,16 +161,17 @@ class FeatureManager(SqlExecutionMixin):
     # drop
     # ------------------------------------------------------------------
 
-    def drop(
-        self,
-        names: Sequence[str],
-    ) -> dict[str, Any]:
+    def drop(self, names: Sequence[str]) -> dict[str, Any]:
         """Drop one or more named feature-store objects."""
+        ctx = get_cli_context()
+        sqls = decl_api.drop_queries(
+            list(names), ctx.connection.database, ctx.connection.schema
+        )
         dropped: list[str] = []
         errors: list[str] = []
-        for name in names:
+        for name, sql in zip(names, sqls):
             try:
-                self.execute_query(f"DROP ONLINE FEATURE TABLE IF EXISTS {name}")
+                self.execute_query(sql)
                 dropped.append(name)
             except Exception as exc:
                 log.warning("drop %s raised %s: %s", name, type(exc).__name__, exc)
@@ -262,7 +228,7 @@ class FeatureManager(SqlExecutionMixin):
         producer_role: Optional[str] = None,
         consumer_role: Optional[str] = None,
     ) -> dict[str, Any]:
-        """Check status, create runtime if needed, then poll until RUNNING."""
+        """Check status, create runtime if needed, poll until RUNNING."""
         ctx = get_cli_context()
         p_role = producer_role or ctx.connection.role
         c_role = consumer_role or "PUBLIC"
@@ -273,7 +239,6 @@ class FeatureManager(SqlExecutionMixin):
 
         current = self.get_status()
         if current.get("status") == "RUNNING":
-            log.info("Feature store runtime already running in %s", location)
             return {
                 "status": "RUNNING",
                 "message": f"Service already initialized in {location}",
@@ -285,28 +250,21 @@ class FeatureManager(SqlExecutionMixin):
             log.warning("create_runtime raised %s: %s", type(exc).__name__, exc)
             return {"status": "error", "error": str(exc)}
 
-        # Poll until RUNNING (max 10 minutes, every 15 seconds)
         deadline = time.monotonic() + 600
         while time.monotonic() < deadline:
             time.sleep(15)
             current = self.get_status()
             if current.get("status") == "RUNNING":
-                return {
-                    "status": "RUNNING",
-                    "message": "Service initialized successfully",
-                }
+                return {"status": "RUNNING", "message": "Service initialized successfully"}
 
-        return {
-            "status": "timeout",
-            "error": "Timed out waiting for service to reach RUNNING",
-        }
+        return {"status": "timeout", "error": "Timed out waiting for RUNNING"}
 
     # ------------------------------------------------------------------
     # destroy_service
     # ------------------------------------------------------------------
 
     def destroy_service(self) -> dict[str, Any]:
-        """Drop all OFTs in the schema then drop the feature store runtime."""
+        """Drop all OFTs then drop the feature store runtime."""
         ctx = get_cli_context()
         sqls = decl_api.service_sql(ctx.connection.database, ctx.connection.schema)
 
@@ -318,12 +276,14 @@ class FeatureManager(SqlExecutionMixin):
                 name = row.get("name", "")
                 if name:
                     try:
-                        self.execute_query(sqls["drop_oft_template"].format(name=name))
+                        drop_sql = decl_api.drop_queries(
+                            [name], ctx.connection.database, ctx.connection.schema
+                        )
+                        for sql in drop_sql:
+                            self.execute_query(sql)
                         dropped_ofts.append(name)
                     except Exception as exc:
-                        log.warning(
-                            "drop OFT %s raised %s: %s", name, type(exc).__name__, exc
-                        )
+                        log.warning("drop OFT %s: %s", name, exc)
                         errors.append(f"{name}: {exc}")
         except Exception as exc:
             log.warning("SHOW OFTs raised %s: %s", type(exc).__name__, exc)
@@ -342,12 +302,12 @@ class FeatureManager(SqlExecutionMixin):
     # ------------------------------------------------------------------
 
     def export_specs(self, output_dir: str) -> dict[str, Any]:
-        """Query SHOW ONLINE FEATURE TABLES, DESCRIBE each, delegate to decl_api."""
+        """Export deployed feature-store objects as YAML spec files."""
         ctx = get_cli_context()
+        eq = decl_api.export_queries(ctx.connection.database, ctx.connection.schema)
+
         show_rows = _rows_to_dicts(
-            self.execute_query(
-                "SHOW ONLINE FEATURE TABLES IN SCHEMA", cursor_class=DictCursor
-            )
+            self.execute_query(eq["show_ofts"], cursor_class=DictCursor)
         )
         if not show_rows:
             return {"status": "exported", "directory": "", "files": []}
@@ -355,12 +315,9 @@ class FeatureManager(SqlExecutionMixin):
         describe_map: dict[str, list[dict[str, Any]]] = {}
         for row in show_rows:
             name = row.get("name", "")
-            fqn = f'"{ctx.connection.database}"."{ctx.connection.schema}"."{name}"'
+            desc_sql = eq["describe_template"].format(name=name)
             describe_map[name] = _rows_to_dicts(
-                self.execute_query(
-                    f"DESCRIBE ONLINE FEATURE TABLE {fqn}",
-                    cursor_class=DictCursor,
-                )
+                self.execute_query(desc_sql, cursor_class=DictCursor)
             )
 
         return decl_api.export_specs(
@@ -376,12 +333,11 @@ class FeatureManager(SqlExecutionMixin):
     # ------------------------------------------------------------------
 
     def ingest(self, source_name: str, records: list[dict]) -> dict[str, Any]:
-        """Stream records into a source via the Online Service ingest endpoint."""
+        """Stream records into a source via the Online Service."""
         pat = os.environ.get("SNOWFLAKE_PAT", "").strip()
         if not pat:
             raise RuntimeError(
-                "SNOWFLAKE_PAT environment variable is required for feature ingest. "
-                "Set it to a Snowflake Programmatic Access Token."
+                "SNOWFLAKE_PAT environment variable is required for feature ingest."
             )
 
         status = self.get_status()
@@ -389,10 +345,7 @@ class FeatureManager(SqlExecutionMixin):
         if not url:
             return {
                 "status": "error",
-                "error": (
-                    "Feature store service is not running or has no ingest endpoint. "
-                    "Run 'snow feature status' to check service status."
-                ),
+                "error": "Feature store service is not running or has no ingest endpoint.",
             }
 
         body = decl_api.build_ingest_request(source_name, records)
@@ -403,12 +356,11 @@ class FeatureManager(SqlExecutionMixin):
     # ------------------------------------------------------------------
 
     def query(self, feature_view_name: str, keys: list[dict]) -> dict[str, Any]:
-        """Query online features via the Online Service query endpoint."""
+        """Query online features via the Online Service."""
         pat = os.environ.get("SNOWFLAKE_PAT", "").strip()
         if not pat:
             raise RuntimeError(
-                "SNOWFLAKE_PAT environment variable is required for feature query. "
-                "Set it to a Snowflake Programmatic Access Token."
+                "SNOWFLAKE_PAT environment variable is required for feature query."
             )
 
         status = self.get_status()
@@ -416,10 +368,7 @@ class FeatureManager(SqlExecutionMixin):
         if not url:
             return {
                 "status": "error",
-                "error": (
-                    "Feature store service is not running or has no query endpoint. "
-                    "Run 'snow feature status' to check service status."
-                ),
+                "error": "Feature store service is not running or has no query endpoint.",
             }
 
         body = decl_api.build_query_request(feature_view_name, keys)
