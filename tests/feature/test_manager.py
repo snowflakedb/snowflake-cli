@@ -319,9 +319,30 @@ _SHOW_ROW_SINGLE = {
 }
 
 _DESCRIBE_ROWS_SINGLE = [
-    {"name": "USER_ID", "type": "VARCHAR(16777216)", "kind": "Y"},
-    {"name": "CLICK_COUNT_1H", "type": "NUMBER(38,0)", "kind": ""},
-    {"name": "TIMESTAMP", "type": "TIMESTAMP_NTZ(9)", "kind": ""},
+    {
+        "name": "USER_ID",
+        "type": "VARCHAR(16777216)",
+        "kind": "COLUMN",
+        "null?": "N",
+        "primary key": "Y",
+        "unique key": "N",
+    },
+    {
+        "name": "CLICK_COUNT_1H",
+        "type": "NUMBER(38,0)",
+        "kind": "COLUMN",
+        "null?": "Y",
+        "primary key": "N",
+        "unique key": "N",
+    },
+    {
+        "name": "TIMESTAMP",
+        "type": "TIMESTAMP_NTZ(9)",
+        "kind": "COLUMN",
+        "null?": "Y",
+        "primary key": "N",
+        "unique key": "N",
+    },
 ]
 
 
@@ -336,8 +357,22 @@ def _make_show_row(fv_name, entity_col="USER_ID"):
 
 def _make_describe_rows(entity_col="USER_ID"):
     return [
-        {"name": entity_col, "type": "VARCHAR(16777216)", "kind": "Y"},
-        {"name": "FEATURE_COL", "type": "NUMBER(38,0)", "kind": ""},
+        {
+            "name": entity_col,
+            "type": "VARCHAR(16777216)",
+            "kind": "COLUMN",
+            "null?": "N",
+            "primary key": "Y",
+            "unique key": "N",
+        },
+        {
+            "name": "FEATURE_COL",
+            "type": "NUMBER(38,0)",
+            "kind": "COLUMN",
+            "null?": "Y",
+            "primary key": "N",
+            "unique key": "N",
+        },
     ]
 
 
@@ -357,7 +392,7 @@ class TestFeatureManagerExportSpecs:
         def side_effect(query, **kwargs):
             if "SHOW ONLINE FEATURE TABLES" in query:
                 return iter(show_rows)
-            if "DESCRIBE TABLE" in query:
+            if "DESCRIBE ONLINE FEATURE TABLE" in query:
                 if describe_rows_map:
                     for oft_name, desc_rows in describe_rows_map.items():
                         if oft_name in query:
