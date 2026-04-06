@@ -264,6 +264,7 @@ EXPECTED_FILES = [
     "entities/example_entity.yaml",
     "datasources/example_events_source.yaml",
     "feature_views/example_feature_view.yaml",
+    "feature_views/example_udf.py",
 ]
 
 
@@ -325,11 +326,15 @@ def test_example_feature_view_content(runner, tmp_path):
     assert len(sources) == 1
     assert sources[0]["name"] == "user_events"
     assert sources[0]["source_type"] == "Stream"
-    features = {f["name"]: f for f in data["features"]}
+    features = {f["output_column"]["name"]: f for f in data["features"]}
     assert "event_count_1h" in features
-    assert features["event_count_1h"]["type"] == "IntegerType"
+    assert features["event_count_1h"]["output_column"]["type"] == "IntegerType"
     assert "total_value_1h" in features
-    assert features["total_value_1h"]["type"] == "FloatType"
+    assert features["total_value_1h"]["output_column"]["type"] == "FloatType"
+    # Verify UDF section is present
+    assert "udf" in data
+    assert data["udf"]["engine"] == "pandas"
+    assert data["udf"]["file"].endswith(".py")
 
 
 def test_example_default_dir(runner, tmp_path, monkeypatch):
