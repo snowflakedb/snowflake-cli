@@ -404,6 +404,18 @@ def online_service(
         "--drop",
         help="Destroy the online service and all Online Feature Tables.",
     ),
+    producer_role: Optional[str] = typer.Option(
+        None,
+        "--producer-role",
+        help="Role for producing features. Defaults to the connection role.",
+        show_default=False,
+    ),
+    consumer_role: Optional[str] = typer.Option(
+        None,
+        "--consumer-role",
+        help="Role for consuming features. Defaults to PUBLIC.",
+        show_default=False,
+    ),
     **options,
 ) -> CommandResult:
     """Manage the feature store online service (pass --create or --drop)."""
@@ -416,7 +428,10 @@ def online_service(
             "One of --create or --drop is required.", param_hint="--create/--drop"
         )
     if create:
-        result = FeatureManager().initialize_service()
+        result = FeatureManager().initialize_service(
+            producer_role=producer_role,
+            consumer_role=consumer_role,
+        )
     else:
         result = FeatureManager().destroy_service()
     return _to_object(result)

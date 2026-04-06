@@ -108,9 +108,17 @@ class FeatureManager(SqlExecutionMixin):
         )
         plan = decl_api.generate_plan(batch, applied_state, options)
 
-        # --- 5. Display plan ---
+        # --- 5. Inject connection context into plan op payloads ---
         ops = getattr(plan, "ops", [])
         log.debug("plan ops: %d", len(ops))
+        ctx = get_cli_context()
+        for op in ops:
+            if not op.payload.get("database"):
+                op.payload["database"] = ctx.connection.database
+            if not op.payload.get("schema"):
+                op.payload["schema"] = ctx.connection.schema
+            if not op.payload.get("warehouse") and ctx.connection.warehouse:
+                op.payload["warehouse"] = ctx.connection.warehouse
 
         # --- 6. Execute (if not dry_run) ---
         sql_stmts = generate_sql(plan)
@@ -234,9 +242,7 @@ class FeatureManager(SqlExecutionMixin):
     def get_status(self) -> dict[str, Any]:
         """Query and parse the feature store runtime status."""
         ctx = get_cli_context()
-        sqls = decl_api.service_sql(
-            ctx.connection.database, ctx.connection.schema, ctx.connection.role
-        )
+        sqls = decl_api.service_sql(ctx.connection.database, ctx.connection.schema)
         try:
             rows = list(self.execute_query(sqls["get_status"]))
             raw = list(rows[0])[0] if rows else None
@@ -251,11 +257,17 @@ class FeatureManager(SqlExecutionMixin):
     # initialize_service
     # ------------------------------------------------------------------
 
-    def initialize_service(self) -> dict[str, Any]:
+    def initialize_service(
+        self,
+        producer_role: Optional[str] = None,
+        consumer_role: Optional[str] = None,
+    ) -> dict[str, Any]:
         """Check status, create runtime if needed, then poll until RUNNING."""
         ctx = get_cli_context()
+        p_role = producer_role or ctx.connection.role
+        c_role = consumer_role or "PUBLIC"
         sqls = decl_api.service_sql(
-            ctx.connection.database, ctx.connection.schema, ctx.connection.role
+            ctx.connection.database, ctx.connection.schema, p_role, c_role
         )
         location = f"{ctx.connection.database}.{ctx.connection.schema}"
 
@@ -296,9 +308,7 @@ class FeatureManager(SqlExecutionMixin):
     def destroy_service(self) -> dict[str, Any]:
         """Drop all OFTs in the schema then drop the feature store runtime."""
         ctx = get_cli_context()
-        sqls = decl_api.service_sql(
-            ctx.connection.database, ctx.connection.schema, ctx.connection.role
-        )
+        sqls = decl_api.service_sql(ctx.connection.database, ctx.connection.schema)
 
         dropped_ofts: list[str] = []
         errors: list[str] = []

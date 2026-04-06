@@ -203,9 +203,7 @@ class TestFeatureManagerGetStatus:
 
         mgr = FeatureManager()
         mgr.get_status()
-        mock_decl.service_sql.assert_called_once_with(
-            "TEST_DB", "TEST_SCHEMA", "TEST_ROLE"
-        )
+        mock_decl.service_sql.assert_called_once_with("TEST_DB", "TEST_SCHEMA")
 
     def test_get_status_calls_parse_service_status(
         self, mock_execute_query, mock_cli_context, mock_decl
