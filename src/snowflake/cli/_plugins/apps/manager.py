@@ -687,6 +687,14 @@ class SnowflakeAppManager(SqlExecutionMixin):
 
         return "IDLE"
 
+    def get_service_logs(self, service_fqn: FQN) -> str:
+        """Fetch recent log output from an application service."""
+        cursor = self.execute_query(
+            f"CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{service_fqn.identifier}')"
+        )
+        row = cursor.fetchone()
+        return row[0] if row else ""
+
     def get_service_endpoint_url(
         self, service_fqn: FQN, endpoint_name: str = "app-endpoint"
     ) -> Optional[str]:

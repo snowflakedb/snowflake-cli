@@ -359,6 +359,29 @@ def open_app(
 
 
 @app.command(requires_connection=True)
+def events(
+    entity_id: Optional[str] = typer.Option(
+        None,
+        "--entity-id",
+        help="ID of the snowflake-app entity. Required if multiple snowflake-app entities exist.",
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Fetches the recent log events from a deployed Snowflake App.
+    """
+    resolved_entity_id = _resolve_entity_id(entity_id)
+    entity = _get_entity(resolved_entity_id)
+
+    fqn = entity.fqn
+    service_fqn = FQN(database=fqn.database, schema=fqn.schema, name=fqn.name)
+
+    manager = SnowflakeAppManager()
+    logs = manager.get_service_logs(service_fqn)
+    return MessageResult(logs)
+
+
+@app.command(requires_connection=True)
 def deploy(
     entity_id: Optional[str] = typer.Option(
         None,
