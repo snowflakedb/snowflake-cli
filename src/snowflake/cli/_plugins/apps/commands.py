@@ -35,6 +35,7 @@ from snowflake.cli._plugins.apps.manager import (
     _resolve_entity_id,
     perform_bundle,
 )
+from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
@@ -49,7 +50,7 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     ObjectResult,
 )
-from snowflake.cli.api.project.util import get_env_username
+from snowflake.cli.api.project.util import get_env_username, identifier_for_url
 
 app = SnowTyperFactory(
     name=_APP_COMMAND_NAME,
@@ -299,6 +300,11 @@ def open_app(
         "--print-only",
         help="Print the app URL without opening it in the browser.",
     ),
+    settings: bool = typer.Option(
+        False,
+        "--settings",
+        help="Open the app settings page in Snowsight instead of the app itself.",
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -306,31 +312,50 @@ def open_app(
 
     Looks up the service endpoint URL for the app and opens it.  Use
     --print-only to print the URL without launching a browser.
+    Use --settings to open the Snowsight settings page for the app.
     """
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 
     fqn = entity.fqn
     ctx = get_cli_context()
-    conn = ctx.connection_context
-    service_fqn = FQN(
-        database=fqn.database or conn.database,
-        schema=fqn.schema or conn.schema,
-        name=fqn.name,
-    )
 
-    manager = SnowflakeAppManager()
-    endpoint_url = manager.get_service_endpoint_url(service_fqn)
+    db = fqn.database or ctx.connection_context.database
+    schema = fqn.schema or ctx.connection_context.schema
 
-    if not endpoint_url:
+    if not db or not schema:
+        missing = [k for k, v in {"database": db, "schema": schema}.items() if not v]
         raise CliError(
-            f"No endpoint URL found for service {service_fqn}. "
-            f"Is the app deployed? Run 'snow {_APP_COMMAND_NAME} deploy' first."
+            f"Cannot resolve {' or '.join(missing)} for the app. "
+            "Set them in snowflake.yml or in your connection configuration."
         )
 
+    if settings:
+        app_id = (
+            f"{identifier_for_url(db)}"
+            f".{identifier_for_url(schema)}"
+            f".{identifier_for_url(fqn.name)}"
+        )
+        url = make_snowsight_url(ctx.connection, f"#/apps/service/{app_id}/details")
+    else:
+        service_fqn = FQN(
+            database=db,
+            schema=schema,
+            name=fqn.name,
+        )
+
+        manager = SnowflakeAppManager()
+        url = manager.get_service_endpoint_url(service_fqn)
+
+        if not url:
+            raise CliError(
+                f"No endpoint URL found for service {service_fqn}. "
+                f"Is the app deployed? Run 'snow {_APP_COMMAND_NAME} deploy' first."
+            )
+
     if not print_only:
-        typer.launch(endpoint_url)
-    return MessageResult(endpoint_url)
+        typer.launch(url)
+    return MessageResult(url)
 
 
 @app.command(requires_connection=True)
