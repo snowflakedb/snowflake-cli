@@ -222,7 +222,7 @@ def _register_command(
         return handler_method(**handler_kwargs)
 
     # Attach the constructed signature so Typer/Click build the right CLI
-    command_fn.__signature__ = inspect.Signature(sig_params)
+    command_fn.__signature__ = inspect.Signature(sig_params)  # type: ignore[attr-defined]
     command_fn.__annotations__ = annotations
     command_fn.__doc__ = cmd_def.help
     command_fn.__name__ = cmd_def.handler_method
