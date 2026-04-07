@@ -412,10 +412,39 @@ def online_service(
             "Cannot use --create and --drop together.", param_hint="--create/--drop"
         )
     if create:
-        result = FeatureManager().initialize_service(
+        mgr = FeatureManager()
+        result = mgr.initialize_service(
             producer_role=producer_role,
             consumer_role=consumer_role,
         )
+        if result.get("status") == "RUNNING":
+            return _to_object(result)
+        if result.get("status") == "error":
+            return _to_object(result)
+
+        # Poll with spinner until RUNNING or timeout
+        import itertools
+        import time
+
+        spinner = itertools.cycle(["|", "/", "-", "\\"])
+        deadline = time.monotonic() + 600
+        elapsed = 0
+        while time.monotonic() < deadline:
+            time.sleep(5)
+            elapsed += 5
+            status = mgr.get_status()
+            current = status.get("status", "unknown")
+            typer.echo(
+                f"\r  {next(spinner)} Creating online service... "
+                f"[{elapsed}s] status: {current}   ",
+                nl=False,
+            )
+            if current == "RUNNING":
+                typer.echo("\r  Online service is RUNNING.                       ")
+                return _to_object({"status": "RUNNING", "message": "Service initialized successfully"})
+
+        typer.echo("\r  Timed out waiting for service to reach RUNNING.  ")
+        return _to_object({"status": "timeout", "error": "Timed out after 600s"})
     elif drop:
         result = FeatureManager().destroy_service()
     else:

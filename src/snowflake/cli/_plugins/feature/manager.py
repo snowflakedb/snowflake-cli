@@ -274,7 +274,7 @@ class FeatureManager(SqlExecutionMixin):
         producer_role: Optional[str] = None,
         consumer_role: Optional[str] = None,
     ) -> dict[str, Any]:
-        """Check status, create runtime if needed, poll until RUNNING."""
+        """Send CREATE runtime command. Returns immediately; caller polls."""
         ctx = get_cli_context()
         p_role = producer_role or ctx.connection.role
         c_role = consumer_role or "PUBLIC"
@@ -296,14 +296,7 @@ class FeatureManager(SqlExecutionMixin):
             log.warning("create_runtime raised %s: %s", type(exc).__name__, exc)
             return {"status": "error", "error": str(exc)}
 
-        deadline = time.monotonic() + 600
-        while time.monotonic() < deadline:
-            time.sleep(15)
-            current = self.get_status()
-            if current.get("status") == "RUNNING":
-                return {"status": "RUNNING", "message": "Service initialized successfully"}
-
-        return {"status": "timeout", "error": "Timed out waiting for RUNNING"}
+        return {"status": "CREATING", "message": f"Create requested for {location}"}
 
     # ------------------------------------------------------------------
     # destroy_service
