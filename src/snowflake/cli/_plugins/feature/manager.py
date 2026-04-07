@@ -169,11 +169,35 @@ class FeatureManager(SqlExecutionMixin):
     # ------------------------------------------------------------------
 
     def describe(self, name: str) -> dict[str, Any]:
-        """Return metadata for a single named feature-store object."""
+        """Return metadata for a named feature view (resolves to OFT name)."""
         ctx = get_cli_context()
+
+        # Resolve feature view name → OFT name via SHOW lookup
+        sqls = decl_api.state_queries(ctx.connection.database, ctx.connection.schema)
+        raw_show = _rows_to_dicts(
+            self.execute_query(sqls["show_ofts"], cursor_class=DictCursor)
+        )
+
+        from snowflake.ml.feature_store.decl.state import _parse_oft_name
+
+        oft_name = None
+        for row in raw_show:
+            candidate = row.get("name", "")
+            base_name, _ = _parse_oft_name(candidate)
+            if base_name.upper() == name.upper():
+                oft_name = candidate
+                break
+            # Also allow passing the full OFT name directly
+            if candidate.upper() == name.upper():
+                oft_name = candidate
+                break
+
+        if not oft_name:
+            return {"status": "error", "name": name, "error": f"{name}: not found in deployed feature views"}
+
         try:
             sql = decl_api.describe_query(
-                name, ctx.connection.database, ctx.connection.schema
+                oft_name, ctx.connection.database, ctx.connection.schema
             )
             rows = list(self.execute_query(sql, cursor_class=DictCursor))
             return {"name": name, "rows": _rows_to_dicts(rows)}
