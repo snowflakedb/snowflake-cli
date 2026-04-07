@@ -67,10 +67,10 @@ def _to_object(data: dict) -> CommandResult:
 # Columns to show in table output for SHOW ONLINE FEATURE TABLES results.
 # All columns are still available via --format json.
 _TABLE_DISPLAY_COLUMNS = [
-    "name",
+    "feature_view",
+    "version",
+    "entities",
     "created_on",
-    "database_name",
-    "schema_name",
     "scheduling_state",
 ]
 

@@ -134,8 +134,19 @@ class FeatureManager(SqlExecutionMixin):
         ctx = get_cli_context()
         try:
             sql = decl_api.list_query(ctx.connection.database, ctx.connection.schema)
-            rows = list(self.execute_query(sql, cursor_class=DictCursor))
-            return {"source": "snowflake", "specs": _rows_to_dicts(rows)}
+            rows = _rows_to_dicts(self.execute_query(sql, cursor_class=DictCursor))
+
+            # Enrich with feature_view name, version, and entities
+            eq = decl_api.export_queries(ctx.connection.database, ctx.connection.schema)
+            describe_map: dict[str, list[dict[str, Any]]] = {}
+            for row in rows:
+                name = row.get("name", "")
+                desc_sql = eq["describe_template"].format(name=name)
+                describe_map[name] = _rows_to_dicts(
+                    self.execute_query(desc_sql, cursor_class=DictCursor)
+                )
+            enriched = decl_api.enrich_list_results(rows, describe_map)
+            return {"source": "snowflake", "specs": enriched}
         except Exception as exc:
             log.warning("list query raised %s: %s", type(exc).__name__, exc)
             return {"status": "error", "error": str(exc)}
