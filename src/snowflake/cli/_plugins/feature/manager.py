@@ -226,8 +226,17 @@ class FeatureManager(SqlExecutionMixin):
             status = self.get_status()
             ingest_url = decl_api.get_service_endpoint(status, "ingest")
             query_url = decl_api.get_service_endpoint(status, "query")
+
+            # Try to find source name from local spec files
+            source_name = self._find_source_name(fv_name)
+
             examples = decl_api.build_describe_examples(
-                fv_name.lower(), desc_rows, ingest_url, query_url
+                fv_name.lower(),
+                version.lower(),
+                source_name,
+                desc_rows,
+                ingest_url,
+                query_url,
             )
         except Exception as exc:
             log.debug("Could not fetch service endpoints for examples: %s", exc)
@@ -242,6 +251,44 @@ class FeatureManager(SqlExecutionMixin):
         if examples:
             result["examples"] = examples
         return result
+
+    # ------------------------------------------------------------------
+    # _find_source_name (helper for describe examples)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _find_source_name(fv_name: str) -> str:
+        """Try to extract the source name for a feature view from local spec files.
+
+        Searches YAML files in the current directory (and common subdirs) for
+        a spec whose ``name`` matches *fv_name*. Returns the first source name
+        found, or *fv_name* as a fallback.
+        """
+        import glob as _glob
+
+        try:
+            import yaml
+        except ImportError:
+            return fv_name
+
+        search_dirs = [".", "feature_views", "specs", "example_store/feature_views"]
+        for d in search_dirs:
+            for path in _glob.glob(f"{d}/*.yaml") + _glob.glob(f"{d}/*.yml"):
+                try:
+                    with open(path) as f:
+                        spec = yaml.safe_load(f)
+                    if not isinstance(spec, dict):
+                        continue
+                    spec_name = spec.get("name", "")
+                    if spec_name.lower() == fv_name.lower():
+                        sources = spec.get("sources", [])
+                        if sources and isinstance(sources, list):
+                            src = sources[0]
+                            if isinstance(src, dict) and src.get("name"):
+                                return src["name"]
+                except Exception:
+                    continue
+        return fv_name
 
     # ------------------------------------------------------------------
     # drop
