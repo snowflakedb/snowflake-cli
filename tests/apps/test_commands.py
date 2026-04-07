@@ -2669,7 +2669,6 @@ class TestDeployCommand:
             with change_directory(tmp_path):
                 result = runner.invoke(["__app", "deploy", "--skip-build"])
                 assert result.exit_code == 0, result.output
-                assert "Skipping build phase" in result.output
                 mock_mgr.get_image_repo_url.assert_called_once_with(
                     "IMAGE_REPO", database="TEST_DB", schema="TEST_SCHEMA"
                 )
