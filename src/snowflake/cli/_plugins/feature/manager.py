@@ -227,8 +227,13 @@ class FeatureManager(SqlExecutionMixin):
             ingest_url = decl_api.get_service_endpoint(status, "ingest")
             query_url = decl_api.get_service_endpoint(status, "query")
 
-            # Try to find source name from local spec files
-            source_name = self._find_source_name(fv_name)
+            # Try to find local spec for accurate column info
+            spec = self._find_spec(fv_name)
+            source_name = fv_name  # default fallback
+            if spec:
+                sources = spec.get("sources", [])
+                if sources and isinstance(sources, list) and sources[0].get("name"):
+                    source_name = sources[0]["name"]
 
             examples = decl_api.build_describe_examples(
                 fv_name.lower(),
@@ -237,6 +242,7 @@ class FeatureManager(SqlExecutionMixin):
                 desc_rows,
                 ingest_url,
                 query_url,
+                spec=spec,
             )
         except Exception as exc:
             log.debug("Could not fetch service endpoints for examples: %s", exc)
@@ -257,19 +263,20 @@ class FeatureManager(SqlExecutionMixin):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _find_source_name(fv_name: str) -> str:
-        """Try to extract the source name for a feature view from local spec files.
+    def _find_spec(fv_name: str) -> Optional[dict[str, Any]]:
+        """Try to find a local YAML spec for a feature view by name.
 
-        Searches YAML files in the current directory (and common subdirs) for
-        a spec whose ``name`` matches *fv_name*. Returns the first source name
-        found, or *fv_name* as a fallback.
+        Searches YAML files in the current directory and common subdirs for
+        a spec whose ``name`` matches *fv_name* (case-insensitive).
+
+        Returns the parsed spec dict, or ``None`` if not found.
         """
         import glob as _glob
 
         try:
             import yaml
         except ImportError:
-            return fv_name
+            return None
 
         search_dirs = [".", "feature_views", "specs", "example_store/feature_views"]
         for d in search_dirs:
@@ -281,14 +288,10 @@ class FeatureManager(SqlExecutionMixin):
                         continue
                     spec_name = spec.get("name", "")
                     if spec_name.lower() == fv_name.lower():
-                        sources = spec.get("sources", [])
-                        if sources and isinstance(sources, list):
-                            src = sources[0]
-                            if isinstance(src, dict) and src.get("name"):
-                                return src["name"]
+                        return spec
                 except Exception:
                     continue
-        return fv_name
+        return None
 
     # ------------------------------------------------------------------
     # drop
