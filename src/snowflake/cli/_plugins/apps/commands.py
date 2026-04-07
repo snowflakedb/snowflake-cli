@@ -108,20 +108,44 @@ def setup(
     conn_config = get_connection_dict(connection_name)
 
     manager = SnowflakeAppManager()
-    param = manager.fetch_snow_apps_parameters()
-    table = {}
+    params = manager.fetch_snow_apps_parameters()
+    config_table = {}
     role = manager.current_role()
     if role:
-        table = manager.fetch_config_table_defaults(role)
+        config_table = manager.fetch_config_table_defaults(role)
 
-    def _first_available(*sources):
-        """Return the first (value, source) pair where value is truthy."""
-        for value, source in sources:
-            if value:
-                return value, source
-        return None, "missing"
+    # ── Source provenance labels ────────────────────────────────────────
+    SOURCE_USER_INPUT = "user input"
+    SOURCE_ACCOUNT_PARAM = "account parameter"
+    SOURCE_CONFIG_TABLE = "config table"
+    SOURCE_CURRENT_SESSION = "current session"
+    SOURCE_DEFAULT = "default"
+    SOURCE_MISSING = "missing"
 
-    # ── Pre-compute session values (CLI flags + connection config) ────
+    def _resolve(
+        user_input=None,
+        account_param=None,
+        config_table=None,
+        default_value=None,
+        current_session=None,
+    ):
+        """Return (value, source) using a fixed resolution order.
+
+        Resolution: user_input > account_param > config_table > default_value > current_session.
+        """
+        if user_input:
+            return user_input, SOURCE_USER_INPUT
+        if account_param:
+            return account_param, SOURCE_ACCOUNT_PARAM
+        if config_table:
+            return config_table, SOURCE_CONFIG_TABLE
+        if default_value:
+            return default_value, SOURCE_DEFAULT
+        if current_session:
+            return current_session, SOURCE_CURRENT_SESSION
+        return None, SOURCE_MISSING
+
+    # ── Pre-compute current session values ─────────────────────────────
     conn = ctx.connection_context
     session_wh = getattr(conn, "warehouse", None) or conn_config.get("warehouse")
     session_db = getattr(conn, "database", None) or conn_config.get("database")
@@ -131,68 +155,67 @@ def setup(
         f"USER${get_env_username().upper()}" if IS_PERSONAL_DB_SUPPORTED else None
     )
 
-    # ── Resolve each field (each chain is the full precedence) ────────
+    # ── Resolve each field ────────────────────────────────────────────
     resolved = {
-        "database": _first_available(
-            (param.get("database"), "account parameter"),
-            (table.get("database"), "config table"),
-            (personal_db, "personal db"),
-            (session_db, "current session"),
+        "database": _resolve(
+            account_param=params.get("database"),
+            config_table=config_table.get("database"),
+            default_value=personal_db,
+            current_session=session_db,
         ),
-        "schema": _first_available(
-            (param.get("schema"), "account parameter"),
-            (table.get("schema"), "config table"),
-            (session_schema, "current session"),
+        # TODO: Support per-app schema (e.g. APPS.APP_<app_id>) instead of
+        # a single shared schema for all apps.
+        "schema": _resolve(
+            account_param=params.get("schema"),
+            config_table=config_table.get("schema"),
+            current_session=session_schema,
         ),
-        "warehouse": _first_available(
-            (param.get("query_warehouse"), "account parameter"),
-            (table.get("warehouse"), "config table"),
-            (session_wh, "current session"),
+        "warehouse": _resolve(
+            account_param=params.get("query_warehouse"),
+            config_table=config_table.get("warehouse"),
+            current_session=session_wh,
         ),
-        # TODO: Remove --compute-pool flag once services can run in the
-        # system default compute pool (SYSTEM_COMPUTE_POOL_CPU).
-        "build_compute_pool": _first_available(
-            (compute_pool, "user input"),
-            (param.get("build_compute_pool"), "account parameter"),
-            (table.get("compute_pool"), "config table"),
+        # TODO: Consider removing --compute-pool argument once services can run
+        # in the system default compute pool (SYSTEM_COMPUTE_POOL_CPU).
+        "build_compute_pool": _resolve(
+            user_input=compute_pool,
+            account_param=params.get("build_compute_pool"),
+            config_table=config_table.get("compute_pool"),
         ),
-        "service_compute_pool": _first_available(
-            (compute_pool, "user input"),
-            (param.get("service_compute_pool"), "account parameter"),
-            (table.get("compute_pool"), "config table"),
+        "service_compute_pool": _resolve(
+            user_input=compute_pool,
+            account_param=params.get("service_compute_pool"),
+            config_table=config_table.get("compute_pool"),
         ),
-        # TODO: Remove --build-eai flag once the builder service no longer
+        # TODO: Remove --build-eai argument once the builder service no longer
         # requires an external access integration.
-        "build_eai": _first_available(
-            (build_eai, "user input"),
-            (param.get("build_eai"), "account parameter"),
-            (table.get("eai"), "config table"),
+        "build_eai": _resolve(
+            user_input=build_eai,
+            account_param=params.get("build_eai"),
+            config_table=config_table.get("eai"),
+        ),
+        # TODO: Remove image_repository default once the artifact repo path
+        # replaces the image repo path.
+        "image_repository": _resolve(
+            config_table=config_table.get("image_repository"),
+            default_value=DEFAULT_IMAGE_REPOSITORY,
         ),
     }
 
-    # TODO: Remove image_repository default once the artifact repo path
-    # replaces the image repo path.
-    resolved["image_repository"] = _first_available(
-        (table.get("image_repository"), "config table"),
-        (DEFAULT_IMAGE_REPOSITORY, "default"),
-    )
-
-    # Validate: fail on ALL missing required values at once
-    required_keys = ["database", "warehouse", "build_compute_pool", "service_compute_pool", "build_eai"]
-    missing = [key for key in required_keys if not resolved[key][0]]
-    if missing:
-        flag_map = {
-            "database": "--database",
-            "warehouse": "--warehouse",
-            "build_compute_pool": "--compute-pool",
-            "service_compute_pool": "--compute-pool",
-            "build_eai": "--build-eai",
-        }
-        flags = ", ".join(flag_map[k] for k in missing)
-        raise ClickException(
-            f"Missing required value(s): {', '.join(missing)}. "
-            f"Pass them using: {flags}"
-        )
+    # ── Validate required values ─────────────────────────────────────
+    # TODO: database, warehouse, and schema cannot be passed as arguments
+    # yet — they must come from account parameters, config table, or the
+    # current session.
+    if not resolved["database"][0]:
+        raise ClickException("Missing database. Set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE account parameter or check your connection.")
+    if not resolved["schema"][0]:
+        raise ClickException("Missing schema. Set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA account parameter or check your connection.")
+    if not resolved["warehouse"][0]:
+        raise ClickException("Missing warehouse. Set the DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE account parameter or check your connection.")
+    if not resolved["build_compute_pool"][0] or not resolved["service_compute_pool"][0]:
+        raise ClickException("Missing compute pool. Pass --compute-pool or set the DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL account parameter.")
+    if not resolved["build_eai"][0]:
+        raise ClickException("Missing build EAI. Pass --build-eai or set the DEFAULT_SNOWFLAKE_APPS_BUILD_EXTERNAL_ACCESS_INTEGRATION account parameter.")
 
     resolved_values = {k: v[0] for k, v in resolved.items()}
 

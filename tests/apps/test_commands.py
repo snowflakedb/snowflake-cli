@@ -1649,11 +1649,16 @@ class TestSetupCommand:
                 assert "already exists" in result.output
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
-    def test_fails_on_all_missing_values(self, mock_mgr_cls, runner, tmp_path):
-        """Validation should report ALL missing values, not just the first."""
+    def test_fails_on_missing_compute_pool(self, mock_mgr_cls, runner, tmp_path):
+        """Setup should fail when compute pool cannot be resolved."""
         mock_mgr = mock_mgr_cls.return_value
-        mock_mgr.current_role.return_value = None
-        mock_mgr.fetch_snow_apps_parameters.return_value = {}
+        mock_mgr.current_role.return_value = "TEST_ROLE"
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "database": "PARAM_DB",
+            "query_warehouse": "PARAM_WH",
+            "build_eai": "PARAM_EAI",
+        }
+        mock_mgr.fetch_config_table_defaults.return_value = {}
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
             from tests_common import change_directory
@@ -1661,8 +1666,28 @@ class TestSetupCommand:
             with change_directory(tmp_path):
                 result = runner.invoke(["__app", "setup", "--app-name", "my_app"])
                 assert result.exit_code == 1
-                assert "compute_pool" in result.output
-                assert "build_eai" in result.output
+                assert "--compute-pool" in result.output
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_fails_on_missing_build_eai(self, mock_mgr_cls, runner, tmp_path):
+        """Setup should fail when build EAI cannot be resolved."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.current_role.return_value = "TEST_ROLE"
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "database": "PARAM_DB",
+            "query_warehouse": "PARAM_WH",
+            "build_compute_pool": "PARAM_POOL",
+            "service_compute_pool": "PARAM_POOL",
+        }
+        mock_mgr.fetch_config_table_defaults.return_value = {}
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "setup", "--app-name", "my_app"])
+                assert result.exit_code == 1
+                assert "--build-eai" in result.output
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_dry_run_does_not_create_file(self, mock_mgr_cls, runner, tmp_path):
