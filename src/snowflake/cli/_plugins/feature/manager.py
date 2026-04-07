@@ -91,8 +91,9 @@ class FeatureManager(SqlExecutionMixin):
             raw_show, raw_tables, describe_map
         )
 
-        # 2. Load specs
-        batch = decl_api.load_specs(list(input_files), config)
+        # 2. Load specs — also scan sibling directories for datasource YAMLs
+        all_files = self._expand_with_datasources(list(input_files))
+        batch = decl_api.load_specs(all_files, config)
 
         # 3. Validate + plan + generate SQL — all in decl
         from snowflake.ml.feature_store.decl.types import PlanOptions
@@ -331,6 +332,34 @@ class FeatureManager(SqlExecutionMixin):
                 except Exception:
                     continue
         return None
+
+    @staticmethod
+    def _expand_with_datasources(input_files: list[str]) -> list[str]:
+        """Expand input file list to include datasource YAMLs from sibling dirs.
+
+        For each input file, checks for ``datasources/``, ``sources/``, and
+        ``entities/`` directories alongside or one level up, and adds any YAML
+        files found there. This ensures the loader picks up datasource definitions
+        that feature views reference by name.
+        """
+        import glob as _glob
+        from pathlib import Path
+
+        result = list(input_files)
+        seen = set(result)
+
+        for f in input_files:
+            p = Path(f)
+            # Check sibling directories
+            for sibling_name in ("datasources", "sources", "entities"):
+                for parent in [p.parent, p.parent.parent]:
+                    sibling = parent / sibling_name
+                    if sibling.is_dir():
+                        for extra in _glob.glob(str(sibling / "*.yaml")) + _glob.glob(str(sibling / "*.yml")):
+                            if extra not in seen:
+                                result.append(extra)
+                                seen.add(extra)
+        return result
 
     # ------------------------------------------------------------------
     # drop
