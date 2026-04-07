@@ -243,8 +243,8 @@ def list_cmd(
 def describe(
     name: str = typer.Argument(
         ...,
-        help="Name of the feature-store object to describe. "
-        "Use --database/--schema connection flags to specify location.",
+        help="Feature view name (e.g. 'user_event_features'). "
+        "Also accepts the full OFT name (NAME$VERSION$ONLINE).",
         show_default=False,
     ),
     **options,
