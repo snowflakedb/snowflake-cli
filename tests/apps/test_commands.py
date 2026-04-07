@@ -2632,7 +2632,7 @@ class TestDeployCommand:
         "snowflake.cli._plugins.apps.commands._resolve_entity_id",
         return_value="my_app",
     )
-    def test_deploy_skip_build_skips_build_phase(
+    def test_deploy_only_skips_upload_and_build_phase(
         self,
         mock_resolve,
         mock_get_entity,
@@ -2667,7 +2667,7 @@ class TestDeployCommand:
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
 
             with change_directory(tmp_path):
-                result = runner.invoke(["__app", "deploy", "--skip-build"])
+                result = runner.invoke(["__app", "deploy", "--deploy-only"])
                 assert result.exit_code == 0, result.output
                 mock_mgr.get_image_repo_url.assert_called_once_with(
                     "IMAGE_REPO", database="TEST_DB", schema="TEST_SCHEMA"
@@ -2698,10 +2698,10 @@ class TestDeployCommand:
         "snowflake.cli._plugins.apps.commands._resolve_entity_id",
         return_value="my_app",
     )
-    def test_deploy_skip_build_allows_missing_build_compute_pool(
+    def test_deploy_only_allows_missing_build_compute_pool(
         self, mock_resolve, mock_get_entity, mock_defaults, runner, tmp_path
     ):
-        """--skip-build should not require build_compute_pool."""
+        """--deploy-only should not require build_compute_pool."""
         entity = Mock()
         entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP")
         entity.code_stage = None
@@ -2714,7 +2714,7 @@ class TestDeployCommand:
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
 
             with change_directory(tmp_path):
-                result = runner.invoke(["__app", "deploy", "--skip-build"])
+                result = runner.invoke(["__app", "deploy", "--deploy-only"])
                 assert result.exit_code == 1
                 assert "build_compute_pool is required" not in result.output
                 assert "service_compute_pool is required" in result.output
@@ -2930,12 +2930,6 @@ class TestDeployCommand:
 
                 result = runner.invoke(
                     ["__app", "deploy", "--build-only", "--deploy-only"]
-                )
-                assert result.exit_code == 1
-                assert "Only one of" in result.output
-
-                result = runner.invoke(
-                    ["__app", "deploy", "--upload-only", "--skip-build"]
                 )
                 assert result.exit_code == 1
                 assert "Only one of" in result.output

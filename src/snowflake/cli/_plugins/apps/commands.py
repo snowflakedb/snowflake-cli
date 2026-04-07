@@ -331,12 +331,6 @@ def deploy(
         help="Run only the deploy phase (assumes the container image has already been built). "
         "Skips the upload and build phases.",
     ),
-    skip_build: bool = typer.Option(
-        False,
-        "--skip-build",
-        hidden=True,
-        help="[Deprecated: use --deploy-only] Skip the build phase.",
-    ),
     **options,
 ) -> CommandResult:
     """
@@ -349,15 +343,12 @@ def deploy(
     If --entity-id is not specified and the project contains exactly one snowflake-app
     entity, that entity will be used automatically.
     """
-    phase_flags = sum([upload_only, build_only, deploy_only, skip_build])
+    phase_flags = sum([upload_only, build_only, deploy_only])
     if phase_flags > 1:
         raise ClickException(
-            "Only one of --upload-only, --build-only, --deploy-only "
-            "(or --skip-build) may be specified."
+            "Only one of --upload-only, --build-only, or --deploy-only "
+            "may be specified."
         )
-
-    if skip_build:
-        deploy_only = True
 
     run_upload = not build_only and not deploy_only
     run_build = not upload_only and not deploy_only
