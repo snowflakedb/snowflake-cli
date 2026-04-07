@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import logging
 import os
-import time
 from typing import Any, Optional, Sequence, Tuple
 
 from snowflake.cli.api.cli_global_context import get_cli_context

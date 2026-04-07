@@ -422,33 +422,61 @@ def online_service(
         if result.get("status") == "error":
             return _to_object(result)
 
-        # Poll with spinner until RUNNING or timeout
+        # Poll in background thread with spinner on stderr
         import itertools
+        import sys
+        import threading
         import time
 
-        spinner = itertools.cycle(["|", "/", "-", "\\"])
-        deadline = time.monotonic() + 600
-        elapsed = 0
-        typer.echo(
-            f"  {next(spinner)} Creating online service... [0s] status: CREATING   ",
-            nl=False,
-        )
-        while time.monotonic() < deadline:
-            time.sleep(5)
-            elapsed += 5
-            status = mgr.get_status()
-            current = status.get("status", "unknown")
-            typer.echo(
-                f"\r  {next(spinner)} Creating online service... "
-                f"[{elapsed}s] status: {current}   ",
-                nl=False,
-            )
-            if current == "RUNNING":
-                typer.echo("\r  Online service is RUNNING.                       ")
-                return _to_object({"status": "RUNNING", "message": "Service initialized successfully"})
+        stop_event = threading.Event()
+        final_status: dict = {}
 
-        typer.echo("\r  Timed out waiting for service to reach RUNNING.  ")
-        return _to_object({"status": "timeout", "error": "Timed out after 600s"})
+        def _poll():
+            """Background thread: poll status every 5s, update stderr spinner."""
+            chars = itertools.cycle(["|", "/", "-", "\\"])
+            elapsed = 0
+            deadline = time.monotonic() + 600
+            while not stop_event.is_set() and time.monotonic() < deadline:
+                c = next(chars)
+                msg = f"\r  {c} Creating online service... [{elapsed}s]   "
+                sys.stderr.write(msg)
+                sys.stderr.flush()
+                stop_event.wait(5)
+                if stop_event.is_set():
+                    break
+                elapsed += 5
+                try:
+                    st = mgr.get_status()
+                    current = st.get("status", "unknown")
+                    msg = f"\r  {c} Creating online service... [{elapsed}s] status: {current}   "
+                    sys.stderr.write(msg)
+                    sys.stderr.flush()
+                    if current == "RUNNING":
+                        final_status.update(st)
+                        stop_event.set()
+                        break
+                except Exception:
+                    pass
+            if not final_status:
+                final_status["status"] = "timeout"
+
+        t = threading.Thread(target=_poll, daemon=True)
+        t.start()
+        t.join(timeout=620)
+        stop_event.set()
+
+        # Clear the spinner line
+        sys.stderr.write("\r" + " " * 60 + "\r")
+        sys.stderr.flush()
+
+        if final_status.get("status") == "RUNNING":
+            sys.stderr.write("  Online service is RUNNING.\n")
+            sys.stderr.flush()
+            return _to_object({"status": "RUNNING", "message": "Service initialized successfully"})
+        else:
+            sys.stderr.write("  Timed out waiting for service to reach RUNNING.\n")
+            sys.stderr.flush()
+            return _to_object({"status": "timeout", "error": "Timed out after 600s"})
     elif drop:
         result = FeatureManager().destroy_service()
     else:
