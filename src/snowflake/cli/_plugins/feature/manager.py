@@ -200,10 +200,72 @@ class FeatureManager(SqlExecutionMixin):
                 oft_name, ctx.connection.database, ctx.connection.schema
             )
             rows = list(self.execute_query(sql, cursor_class=DictCursor))
-            return {"name": name, "rows": _rows_to_dicts(rows)}
+            desc_rows = _rows_to_dicts(rows)
         except Exception as exc:
             log.warning("describe raised %s: %s", type(exc).__name__, exc)
             return {"status": "error", "name": name, "error": str(exc)}
+
+        # Parse feature view name and entities from the OFT name / DESCRIBE
+        fv_name, version = _parse_oft_name(oft_name)
+
+        # Extract entity (primary key) columns
+        pk_cols = []
+        for col in desc_rows:
+            is_pk = False
+            for pk_key in ("primary key", "PRIMARY KEY", "primary_key"):
+                val = col.get(pk_key, "")
+                if val and str(val).upper() in ("Y", "YES", "TRUE", "1"):
+                    is_pk = True
+                    break
+            if is_pk:
+                pk_cols.append(col.get("name", col.get("NAME", "")))
+
+        # Build example curl commands if service is running
+        examples: list[str] = []
+        try:
+            status = self.get_status()
+            ingest_url = decl_api.get_service_endpoint(status, "ingest")
+            query_url = decl_api.get_service_endpoint(status, "query")
+
+            if ingest_url:
+                ingest_base = ingest_url.rstrip("/") + "/api/v1/ingest"
+                # Build example record with entity keys as placeholders
+                example_record = {col: f"<{col.lower()}_value>" for col in pk_cols}
+                import json
+                body = json.dumps({"records": {fv_name.lower(): [example_record]}}, indent=2)
+                examples.append(
+                    f"# Ingest example\n"
+                    f"curl -X POST '{ingest_base}' \\\n"
+                    f"  -H 'Authorization: Bearer $SNOWFLAKE_PAT' \\\n"
+                    f"  -H 'Content-Type: application/json' \\\n"
+                    f"  -d '{body}'"
+                )
+
+            if query_url:
+                query_base = query_url.rstrip("/") + "/api/v1/query"
+                example_keys = [{col: f"<{col.lower()}_value>" for col in pk_cols}]
+                import json
+                body = json.dumps({"feature_view_name": fv_name.lower(), "keys": example_keys}, indent=2)
+                examples.append(
+                    f"# Query example\n"
+                    f"curl -X POST '{query_base}' \\\n"
+                    f"  -H 'Authorization: Bearer $SNOWFLAKE_PAT' \\\n"
+                    f"  -H 'Content-Type: application/json' \\\n"
+                    f"  -d '{body}'"
+                )
+        except Exception as exc:
+            log.debug("Could not fetch service endpoints for examples: %s", exc)
+
+        result: dict[str, Any] = {
+            "name": name,
+            "feature_view": fv_name.lower(),
+            "version": version.lower(),
+            "entities": pk_cols,
+            "rows": desc_rows,
+        }
+        if examples:
+            result["examples"] = examples
+        return result
 
     # ------------------------------------------------------------------
     # drop

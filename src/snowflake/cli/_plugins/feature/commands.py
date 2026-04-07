@@ -251,6 +251,17 @@ def describe(
 ) -> CommandResult:
     """Describe a single feature-store object."""
     result = FeatureManager().describe(name=name)
+
+    # Print examples to stderr (not captured by CLI result rendering)
+    examples = result.get("examples", [])
+    if examples:
+        import sys
+
+        sys.stderr.write("\n")
+        for ex in examples:
+            sys.stderr.write(ex + "\n\n")
+        sys.stderr.flush()
+
     rows = result.get("rows", [])
     if isinstance(rows, list) and rows:
         return _to_collection(rows)
