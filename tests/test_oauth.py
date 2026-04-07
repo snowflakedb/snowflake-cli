@@ -46,8 +46,6 @@ def test_oauth_from_parameters(mock_connect, runner):
         oauth_enable_refresh_tokens=True,
         oauth_enable_single_use_refresh_tokens=True,
         client_store_temporary_credential=True,
-        client_session_keep_alive=True,
-        client_session_keep_alive_heartbeat_frequency=3600,
     )
 
 
@@ -89,8 +87,6 @@ def test_oauth_from_config(mock_connect, runner, config_file):
         oauth_enable_refresh_tokens=True,
         oauth_enable_single_use_refresh_tokens=True,
         client_store_temporary_credential=True,
-        client_session_keep_alive=True,
-        client_session_keep_alive_heartbeat_frequency=3600,
     )
 
 
@@ -139,8 +135,6 @@ def test_oauth_from_env_variables(mock_connect, runner, config_file):
         oauth_enable_refresh_tokens="True",
         oauth_enable_single_use_refresh_tokens="True",
         client_store_temporary_credential="True",
-        client_session_keep_alive=True,
-        client_session_keep_alive_heartbeat_frequency=3600,
     )
 
 
@@ -179,6 +173,4 @@ def test_oauth_from_env_variables_and_temporary_connection(mock_connect, runner)
         oauth_enable_refresh_tokens="True",
         oauth_enable_single_use_refresh_tokens="True",
         client_store_temporary_credential="True",
-        client_session_keep_alive=True,
-        client_session_keep_alive_heartbeat_frequency=3600,
     )
