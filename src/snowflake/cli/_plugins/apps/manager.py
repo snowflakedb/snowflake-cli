@@ -22,6 +22,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Set, TypeVar
 
+from snowflake.cli._plugins.apps.generate import IS_PERSONAL_DB_SUPPORTED
 from snowflake.cli._plugins.apps.snowflake_app_entity_model import DEFAULT_APP_PORT
 
 if TYPE_CHECKING:
@@ -138,12 +139,13 @@ def _resolve_deploy_defaults(
     entity: "SnowflakeAppEntityModel",
     manager: "SnowflakeAppManager",
 ) -> Dict[str, Optional[str]]:
-    """Resolve deploy defaults using a four-tier precedence:
+    """Resolve deploy defaults using a five-tier precedence:
 
     1. Values explicitly set in ``snowflake.yml`` (highest priority)
     2. SnowApps parameters (``SHOW PARAMETERS LIKE 'DEFAULT_SNOWFLAKE_APPS_%' IN USER``)
     3. Values from the ``APP_DEFAULTS_TABLE`` config table
-    4. Current session values (lowest priority)
+    4. Built-in defaults (personal DB for database, IMAGE_REPO for image repository)
+    5. Current session values (lowest priority)
 
     Returns a dict with keys ``query_warehouse``, ``build_compute_pool``,
     ``service_compute_pool``, ``build_eai``, ``image_repository``,
@@ -208,7 +210,16 @@ def _resolve_deploy_defaults(
             "schema": raw.get("schema"),
         }
 
-    # ── 4. Current session values ─────────────────────────────────────
+    # ── 4. Built-in defaults ────────────────────────────────────────────
+    from snowflake.cli.api.project.util import get_env_username
+
+    default_vals: Dict[str, Optional[str]] = {
+        "image_repository": DEFAULT_IMAGE_REPOSITORY,
+    }
+    if IS_PERSONAL_DB_SUPPORTED:
+        default_vals["database"] = f"USER${get_env_username().upper()}"
+
+    # ── 5. Current session values ─────────────────────────────────────
     ctx = get_cli_context()
     conn = ctx.connection_context
     curr_session_vals: Dict[str, Optional[str]] = {
@@ -220,11 +231,11 @@ def _resolve_deploy_defaults(
     # ── Merge (first non-None wins) ──────────────────────────────────
     all_keys = (
         set(yml_vals) | set(param_vals) | set(config_table_vals)
-        | set(curr_session_vals)
+        | set(default_vals) | set(curr_session_vals)
     )
     resolved: Dict[str, Optional[str]] = {}
     for key in all_keys:
-        for source in (yml_vals, param_vals, config_table_vals, curr_session_vals):
+        for source in (yml_vals, param_vals, config_table_vals, default_vals, curr_session_vals):
             val = source.get(key)
             if val is not None:
                 resolved[key] = val
