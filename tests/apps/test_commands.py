@@ -2908,3 +2908,310 @@ class TestDeployCommand:
         mock_mgr.alter_service_spec.assert_not_called()
         mock_mgr.execute_build_job.assert_not_called()
         assert mock_poll.call_count == 2
+
+    # ── Phase flag tests ──────────────────────────────────────────────
+
+    def test_mutually_exclusive_phase_flags(self, runner, tmp_path):
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(
+                    ["__app", "deploy", "--upload-only", "--build-only"]
+                )
+                assert result.exit_code == 1
+                assert "Only one of" in result.output
+
+                result = runner.invoke(
+                    ["__app", "deploy", "--upload-only", "--deploy-only"]
+                )
+                assert result.exit_code == 1
+                assert "Only one of" in result.output
+
+                result = runner.invoke(
+                    ["__app", "deploy", "--build-only", "--deploy-only"]
+                )
+                assert result.exit_code == 1
+                assert "Only one of" in result.output
+
+                result = runner.invoke(
+                    ["__app", "deploy", "--upload-only", "--skip-build"]
+                )
+                assert result.exit_code == 1
+                assert "Only one of" in result.output
+
+    @patch("snowflake.cli._plugins.apps.commands.StageManager")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "image_repository": "IMAGE_REPO",
+            "image_repo_database": "TEST_DB",
+            "image_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_upload_only_runs_upload_and_stops(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        mock_stage_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP")
+        entity.code_stage = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.artifact_repository = None
+        entity.image_repository = Mock(name="MY_REPO", database=None, schema_=None)
+        mock_get_entity.return_value = entity
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        project_paths = ProjectPaths(project_root=tmp_path)
+        mock_perform_bundle.return_value = project_paths
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.stage_exists.return_value = False
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "deploy", "--upload-only"])
+                assert result.exit_code == 0, result.output
+                assert "Artifacts uploaded" in result.output
+
+        mock_mgr.create_stage.assert_called_once()
+        mock_perform_bundle.assert_called_once()
+        mock_mgr.execute_build_job.assert_not_called()
+        mock_mgr.create_service.assert_not_called()
+        mock_mgr.get_image_repo_url.assert_not_called()
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "image_repository": "IMAGE_REPO",
+            "image_repo_database": "TEST_DB",
+            "image_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_build_only_runs_build_and_stops(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.artifact_repository = None
+        entity.image_repository = Mock(name="MY_REPO", database=None, schema_=None)
+        entity.build_image = None
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.get_image_repo_url.return_value = (
+            "host.registry-local.snowflakecomputing.com/TEST_DB/TEST_SCHEMA/IMAGE_REPO"
+        )
+        mock_poll.return_value = "DONE"
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "deploy", "--build-only"])
+                assert result.exit_code == 0, result.output
+                assert "Build completed successfully" in result.output
+
+        mock_mgr.execute_build_job.assert_called_once()
+        mock_mgr.create_service.assert_not_called()
+        mock_mgr.alter_service_spec.assert_not_called()
+        mock_mgr.resume_service.assert_not_called()
+        mock_mgr.stage_exists.assert_not_called()
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": None,
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": None,
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "image_repository": "IMAGE_REPO",
+            "image_repo_database": "TEST_DB",
+            "image_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_only_runs_deploy_and_stops(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.artifact_repository = None
+        entity.image_repository = Mock(name="MY_REPO", database=None, schema_=None)
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.get_image_repo_url.return_value = (
+            "host.registry-local.snowflakecomputing.com/TEST_DB/TEST_SCHEMA/IMAGE_REPO"
+        )
+        mock_poll.return_value = "https://my-app.snowflakecomputing.app"
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "deploy", "--deploy-only"])
+                assert result.exit_code == 0, result.output
+                assert "App ready at" in result.output
+
+        mock_mgr.create_service.assert_called_once()
+        mock_mgr.alter_service_spec.assert_called_once()
+        mock_mgr.resume_service.assert_called_once()
+        mock_mgr.execute_build_job.assert_not_called()
+        mock_mgr.stage_exists.assert_not_called()
+
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": None,
+            "build_compute_pool": None,
+            "service_compute_pool": None,
+            "build_eai": None,
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "image_repository": "IMAGE_REPO",
+            "image_repo_database": "TEST_DB",
+            "image_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_upload_only_skips_build_and_deploy_validation(
+        self, mock_resolve, mock_get_entity, mock_defaults, runner, tmp_path
+    ):
+        """--upload-only should not require build_compute_pool, service_compute_pool, or query_warehouse."""
+        entity = Mock()
+        entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP")
+        entity.code_stage = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.artifact_repository = None
+        entity.image_repository = None
+        mock_get_entity.return_value = entity
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "deploy", "--upload-only"])
+                assert "build_compute_pool is required" not in result.output
+                assert "service_compute_pool is required" not in result.output
+                assert "query_warehouse is required" not in result.output
+
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": None,
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": None,
+            "build_eai": None,
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "image_repository": "IMAGE_REPO",
+            "image_repo_database": "TEST_DB",
+            "image_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_build_only_skips_deploy_validation(
+        self, mock_resolve, mock_get_entity, mock_defaults, runner, tmp_path
+    ):
+        """--build-only should not require service_compute_pool or query_warehouse."""
+        entity = Mock()
+        entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP")
+        entity.code_stage = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.artifact_repository = None
+        entity.image_repository = None
+        mock_get_entity.return_value = entity
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "deploy", "--build-only"])
+                assert "service_compute_pool is required" not in result.output
+                assert "query_warehouse is required" not in result.output
