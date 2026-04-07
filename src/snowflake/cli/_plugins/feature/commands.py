@@ -429,6 +429,10 @@ def online_service(
         spinner = itertools.cycle(["|", "/", "-", "\\"])
         deadline = time.monotonic() + 600
         elapsed = 0
+        typer.echo(
+            f"  {next(spinner)} Creating online service... [0s] status: CREATING   ",
+            nl=False,
+        )
         while time.monotonic() < deadline:
             time.sleep(5)
             elapsed += 5
