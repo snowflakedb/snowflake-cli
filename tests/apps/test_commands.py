@@ -789,6 +789,29 @@ class TestSnowflakeAppManager:
         assert status == "IDLE"
 
     @patch(EXECUTE_QUERY)
+    def test_get_service_logs(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ("INFO: app started\nINFO: listening",)
+        mock_execute.return_value = cursor
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="MY_APP")
+        logs = SnowflakeAppManager().get_service_logs(fqn)
+        assert logs == "INFO: app started\nINFO: listening"
+        mock_execute.assert_called_once_with(
+            "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('DB.SCHEMA.MY_APP')"
+        )
+
+    @patch(EXECUTE_QUERY)
+    def test_get_service_logs_empty_result(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = None
+        mock_execute.return_value = cursor
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="MY_APP")
+        logs = SnowflakeAppManager().get_service_logs(fqn)
+        assert logs == ""
+
+    @patch(EXECUTE_QUERY)
     def test_get_service_endpoint_url(self, mock_execute):
         cursor = Mock()
         cursor.__iter__ = Mock(
@@ -1572,6 +1595,71 @@ class TestOpenCommand:
                 result = runner.invoke(["__app", "open"])
                 assert result.exit_code == 1
                 assert "No endpoint URL found" in result.output
+
+
+# ── Events CLI command tests ──────────────────────────────────────────
+
+
+class TestEventsCommand:
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_events_returns_logs(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        entity.fqn = Mock(database="DB", schema="SCHEMA", name="MY_APP")
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.get_service_logs.return_value = "INFO: app started\nINFO: listening"
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "events"])
+                assert result.exit_code == 0, result.output
+                assert "app started" in result.output
+
+        mock_mgr.get_service_logs.assert_called_once()
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_events_with_entity_id(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        entity.fqn = Mock(database="DB", schema="SCHEMA", name="MY_APP")
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.get_service_logs.return_value = ""
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "events", "--entity-id", "custom_app"])
+                assert result.exit_code == 0, result.output
+                mock_resolve.assert_called_once_with("custom_app")
 
 
 # ── Deploy CLI command tests ──────────────────────────────────────────
