@@ -413,61 +413,92 @@ def online_service(
         )
     if create:
         mgr = FeatureManager()
-        result = mgr.initialize_service(
-            producer_role=producer_role,
-            consumer_role=consumer_role,
-        )
-        if result.get("status") == "RUNNING":
-            return _to_object(result)
-        if result.get("status") == "error":
-            return _to_object(result)
 
-        # Poll in background thread with spinner on stderr
+        # Check if already running before doing anything
+        pre_status = mgr.get_status()
+        if pre_status.get("status") == "RUNNING":
+            return _to_object({
+                "status": "RUNNING",
+                "message": "Service already initialized",
+            })
+
         import itertools
         import sys
         import threading
         import time
 
         stop_event = threading.Event()
+        create_result: dict = {}
         final_status: dict = {}
 
-        def _poll():
-            """Background thread: poll status every 5s, update stderr spinner."""
-            chars = itertools.cycle(["|", "/", "-", "\\"])
-            elapsed = 0
+        def _create_and_poll():
+            """Background: send CREATE, then poll until RUNNING or timeout."""
+            # Send the CREATE command
+            try:
+                result = mgr.initialize_service(
+                    producer_role=producer_role,
+                    consumer_role=consumer_role,
+                )
+                create_result.update(result)
+            except Exception as exc:
+                create_result["status"] = "error"
+                create_result["error"] = str(exc)
+                stop_event.set()
+                return
+
+            if create_result.get("status") == "RUNNING":
+                final_status["status"] = "RUNNING"
+                stop_event.set()
+                return
+            if create_result.get("status") == "error":
+                stop_event.set()
+                return
+
+            # Poll until RUNNING or timeout
             deadline = time.monotonic() + 600
             while not stop_event.is_set() and time.monotonic() < deadline:
-                c = next(chars)
-                msg = f"\r  {c} Creating online service... [{elapsed}s]   "
-                sys.stderr.write(msg)
-                sys.stderr.flush()
                 stop_event.wait(5)
                 if stop_event.is_set():
                     break
-                elapsed += 5
                 try:
                     st = mgr.get_status()
                     current = st.get("status", "unknown")
-                    msg = f"\r  {c} Creating online service... [{elapsed}s] status: {current}   "
-                    sys.stderr.write(msg)
-                    sys.stderr.flush()
                     if current == "RUNNING":
                         final_status.update(st)
                         stop_event.set()
-                        break
+                        return
                 except Exception:
                     pass
             if not final_status:
                 final_status["status"] = "timeout"
+            stop_event.set()
 
-        t = threading.Thread(target=_poll, daemon=True)
+        # Start background thread for CREATE + poll
+        t = threading.Thread(target=_create_and_poll, daemon=True)
         t.start()
-        t.join(timeout=620)
-        stop_event.set()
+
+        # Spinner on main thread, writing to stderr
+        chars = itertools.cycle(["|", "/", "-", "\\"])
+        elapsed = 0
+        while not stop_event.is_set():
+            c = next(chars)
+            sys.stderr.write(
+                f"\r  {c} Creating online service... [{elapsed}s]   "
+            )
+            sys.stderr.flush()
+            stop_event.wait(1)
+            elapsed += 1
+
+        t.join(timeout=10)
 
         # Clear the spinner line
         sys.stderr.write("\r" + " " * 60 + "\r")
         sys.stderr.flush()
+
+        if create_result.get("status") == "error":
+            sys.stderr.write(f"  Error: {create_result.get('error', 'unknown')}\n")
+            sys.stderr.flush()
+            return _to_object(create_result)
 
         if final_status.get("status") == "RUNNING":
             sys.stderr.write("  Online service is RUNNING.\n")
