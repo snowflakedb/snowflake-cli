@@ -76,7 +76,21 @@ class FeatureManager(SqlExecutionMixin):
         raw_tables = _rows_to_dicts(
             self.execute_query(sqls["show_tables"], cursor_class=DictCursor)
         )
-        applied_state = decl_api.fetch_applied_state(raw_show, raw_tables)
+
+        # DESCRIBE each deployed OFT for structural fingerprinting
+        eq = decl_api.export_queries(ctx.connection.database, ctx.connection.schema)
+        describe_map: dict[str, list[dict[str, Any]]] = {}
+        for row in raw_show:
+            name = row.get("name", "")
+            if name:
+                desc_sql = eq["describe_template"].format(name=name)
+                describe_map[name] = _rows_to_dicts(
+                    self.execute_query(desc_sql, cursor_class=DictCursor)
+                )
+
+        applied_state = decl_api.fetch_applied_state(
+            raw_show, raw_tables, describe_map
+        )
 
         # 2. Load specs
         batch = decl_api.load_specs(list(input_files), config)
