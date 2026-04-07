@@ -25,6 +25,11 @@ import pytest
 from click import ClickException
 from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli._plugins.spcs.common import NoPropertiesProvidedError
+from snowflake.cli._plugins.spcs.services.build_image_utils import (
+    copy_filtered_build_context,
+    is_ignored,
+    load_dockerignore_patterns,
+)
 from snowflake.cli._plugins.spcs.services.commands import _service_name_callback
 from snowflake.cli._plugins.spcs.services.manager import ServiceManager
 from snowflake.cli.api.constants import ObjectType
@@ -2264,6 +2269,252 @@ def test_stream_logs_without_terminal_status_check(mock_sleep, mock_logs):
     assert len(generated_logs) == 2
     assert "log 1" in generated_logs[0]
     assert "log 2" in generated_logs[1]
+
+
+TEST_BUILD_IMAGE_DIRECTORIES = (
+    Path(__file__).parent.parent.parent
+    / "tests_integration"
+    / "tests_using_container_services"
+    / "spcs"
+    / "docker"
+    / "test_build_image_directories"
+)
+
+
+@patch("time.sleep")
+@patch(
+    "snowflake.cli._plugins.spcs.services.commands.ObjectManager",
+)
+@patch(
+    "snowflake.cli._plugins.spcs.services.commands.ServiceManager",
+)
+@patch(
+    "snowflake.cli._plugins.stage.manager.StageManager.execute_query",
+)
+def test_build_image_cli_recursive_upload_with_nested_dirs(
+    mock_stage_execute_query,
+    mock_service_manager_class,
+    mock_object_manager_class,
+    mock_sleep,
+    runner,
+):
+    """Test that build-image uploads nested directory structures correctly via put_recursive."""
+    build_context = TEST_BUILD_IMAGE_DIRECTORIES
+
+    mock_stage_execute_query.return_value = Mock(fetchall=lambda: [])
+
+    mock_service_manager = Mock()
+    mock_service_manager_class.return_value = mock_service_manager
+    mock_build_cursor = Mock(spec=SnowflakeCursor)
+    mock_build_cursor.__iter__ = Mock(return_value=iter([]))
+    mock_build_cursor.fetchone.return_value = {"status": "DONE"}
+    mock_build_cursor.description = []
+    mock_build_cursor.query = ""
+    mock_service_manager.build_image.return_value = mock_build_cursor
+    mock_service_manager.stream_logs.return_value = iter(
+        [("__TERMINAL_STATUS__", "DONE")]
+    )
+
+    mock_object_manager = Mock()
+    mock_object_manager_class.return_value = mock_object_manager
+    mock_describe_cursor = Mock()
+    mock_describe_cursor.fetchone.return_value = {"status": "RUNNING"}
+    mock_object_manager.describe.return_value = mock_describe_cursor
+
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "build-image",
+            "--compute-pool",
+            "test_pool",
+            "--image-repository",
+            "db.schema.repo",
+            "--image-name",
+            "my_image",
+            "--image-tag",
+            "v1.0",
+            "--build-context-dir",
+            str(build_context),
+            "--stage",
+            "test_stage",
+        ],
+        catch_exceptions=False,
+    )
+
+    put_calls = [
+        c
+        for c in mock_stage_execute_query.call_args_list
+        if str(c).startswith("call('put ")
+    ]
+
+    stage_paths = set()
+    for call_obj in put_calls:
+        sql = call_obj.args[0]
+        stage_path = sql.split("@")[1].split(" ")[0] if "@" in sql else ""
+        stage_paths.add(stage_path)
+
+    assert any("templates/partials" in sp for sp in stage_paths), (
+        f"Stage path does not preserve nested directory structure. Stage paths: {stage_paths}"
+    )
+    assert any("templates" in sp and "partials" not in sp for sp in stage_paths), (
+        f"Stage path missing 'templates' level. Stage paths: {stage_paths}"
+    )
+    assert any(sp.endswith("build_contexts/" + sp.split("build_contexts/")[1].split("/")[0]) for sp in stage_paths if "build_contexts/" in sp and "templates" not in sp), (
+        f"Root-level upload missing. Stage paths: {stage_paths}"
+    )
+
+
+def test_load_dockerignore_patterns(temporary_directory):
+    """Test loading patterns from .dockerignore file."""
+    tmp_dir = Path(temporary_directory)
+
+    assert load_dockerignore_patterns(tmp_dir) == []
+
+    dockerignore = tmp_dir / ".dockerignore"
+    dockerignore.write_text("__pycache__\n*.pyc\n# comment\n\n.git\nnode_modules\n")
+
+    patterns = load_dockerignore_patterns(tmp_dir)
+    assert patterns == ["__pycache__", "*.pyc", ".git", "node_modules"]
+
+
+def test_is_ignored():
+    """Test pattern matching for ignored paths."""
+    patterns = ["__pycache__", "*.pyc", ".git", "node_modules"]
+
+    assert is_ignored("__pycache__", patterns)
+    assert is_ignored("src/__pycache__", patterns)
+    assert is_ignored("app.pyc", patterns)
+    assert is_ignored("src/app.pyc", patterns)
+    assert is_ignored(".git", patterns)
+    assert is_ignored("node_modules", patterns)
+    assert is_ignored("node_modules/package/index.js", patterns)
+
+    assert not is_ignored("Dockerfile", patterns)
+    assert not is_ignored("app.py", patterns)
+    assert not is_ignored("templates/index.html", patterns)
+
+
+def test_copy_filtered_build_context(temporary_directory):
+    """Test that copy_filtered_build_context excludes ignored files but keeps .dockerignore."""
+    tmp_dir = Path(temporary_directory)
+    src = tmp_dir / "src"
+    src.mkdir()
+
+    (src / "Dockerfile").write_text("FROM alpine")
+    (src / "app.py").write_text("print('hello')")
+    (src / ".dockerignore").write_text("__pycache__\n*.pyc\n")
+    pycache = src / "__pycache__"
+    pycache.mkdir()
+    (pycache / "app.cpython-310.pyc").write_text("bytecode")
+    (src / "util.pyc").write_text("bytecode")
+    templates = src / "templates"
+    templates.mkdir()
+    (templates / "index.html").write_text("<h1>Hello</h1>")
+
+    dest = tmp_dir / "dest"
+    dest.mkdir()
+
+    copy_filtered_build_context(src, dest, ["__pycache__", "*.pyc"])
+
+    assert (dest / "Dockerfile").exists()
+    assert (dest / "app.py").exists()
+    assert (dest / ".dockerignore").exists()
+    assert (dest / "templates" / "index.html").exists()
+    assert not (dest / "__pycache__").exists()
+    assert not (dest / "util.pyc").exists()
+
+
+@patch("time.sleep")
+@patch(
+    "snowflake.cli._plugins.spcs.services.commands.ObjectManager",
+)
+@patch(
+    "snowflake.cli._plugins.spcs.services.commands.ServiceManager",
+)
+@patch(
+    "snowflake.cli._plugins.stage.manager.StageManager.execute_query",
+)
+def test_build_image_cli_dockerignore_excludes_files(
+    mock_stage_execute_query,
+    mock_service_manager_class,
+    mock_object_manager_class,
+    mock_sleep,
+    runner,
+    temporary_directory,
+):
+    """Test that build-image respects .dockerignore and excludes matching files from upload."""
+    tmp_dir = Path(temporary_directory)
+    build_context = tmp_dir / "build_context"
+    build_context.mkdir()
+
+    (build_context / "Dockerfile").write_text("FROM alpine")
+    (build_context / "app.py").write_text("print('hello')")
+    (build_context / ".dockerignore").write_text("__pycache__\n*.pyc\n")
+    pycache = build_context / "__pycache__"
+    pycache.mkdir()
+    (pycache / "app.cpython-310.pyc").write_text("bytecode")
+
+    mock_stage_execute_query.return_value = Mock(fetchall=lambda: [])
+
+    mock_service_manager = Mock()
+    mock_service_manager_class.return_value = mock_service_manager
+    mock_build_cursor = Mock(spec=SnowflakeCursor)
+    mock_build_cursor.__iter__ = Mock(return_value=iter([]))
+    mock_build_cursor.fetchone.return_value = {"status": "DONE"}
+    mock_build_cursor.description = []
+    mock_build_cursor.query = ""
+    mock_service_manager.build_image.return_value = mock_build_cursor
+    mock_service_manager.stream_logs.return_value = iter(
+        [("__TERMINAL_STATUS__", "DONE")]
+    )
+
+    mock_object_manager = Mock()
+    mock_object_manager_class.return_value = mock_object_manager
+    mock_describe_cursor = Mock()
+    mock_describe_cursor.fetchone.return_value = {"status": "RUNNING"}
+    mock_object_manager.describe.return_value = mock_describe_cursor
+
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "build-image",
+            "--compute-pool",
+            "test_pool",
+            "--image-repository",
+            "db.schema.repo",
+            "--image-name",
+            "my_image",
+            "--image-tag",
+            "v1.0",
+            "--build-context-dir",
+            str(build_context),
+            "--stage",
+            "test_stage",
+        ],
+        catch_exceptions=False,
+    )
+
+    put_calls = [
+        c
+        for c in mock_stage_execute_query.call_args_list
+        if str(c).startswith("call('put ")
+    ]
+
+    all_put_sql = " ".join(c.args[0] for c in put_calls)
+    assert "__pycache__" not in all_put_sql, (
+        f"__pycache__ should be excluded by .dockerignore. PUT calls: {put_calls}"
+    )
+    assert ".pyc" not in all_put_sql, (
+        f".pyc files should be excluded by .dockerignore. PUT calls: {put_calls}"
+    )
+
+    assert any(".dockerignore" in c.args[0] for c in put_calls), (
+        f".dockerignore should be uploaded explicitly. PUT calls: {put_calls}"
+    )
+
+    assert "Using .dockerignore" in result.output
 
 
 def test_build_image_hidden_by_default(runner):

@@ -1,0 +1,5 @@
+# Test .dockerignore file
+__pycache__
+*.pyc
+.git
+node_modules

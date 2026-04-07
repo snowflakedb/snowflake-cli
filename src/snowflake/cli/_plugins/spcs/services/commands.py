@@ -18,6 +18,7 @@ import itertools
 import time
 import uuid
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Generator, Iterable, List, Optional, cast
 
 import typer
@@ -29,6 +30,10 @@ from snowflake.cli._plugins.object.common import CommentOption, Tag, TagOption
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.spcs.common import (
     validate_and_set_instances,
+)
+from snowflake.cli._plugins.spcs.services.build_image_utils import (
+    copy_filtered_build_context,
+    load_dockerignore_patterns,
 )
 from snowflake.cli._plugins.spcs.services.manager import ServiceManager
 from snowflake.cli._plugins.spcs.services.service_entity_model import ServiceEntityModel
@@ -766,20 +771,52 @@ def build_image(
         stage_fqn = FQN.from_string(stage)
         cli_console.step(f"Using existing stage: {stage_fqn.identifier}")
 
-    # Upload build context to stage
+    # Upload build context to stage, respecting .dockerignore
     build_context_stage_path = f"build_contexts/{job_name}"
     cli_console.step(
         f"Uploading build context from {build_context_dir} to @{stage_fqn.identifier}/{build_context_stage_path}"
     )
 
+    ignore_patterns = load_dockerignore_patterns(build_context_dir)
+    if ignore_patterns:
+        cli_console.message(
+            f"Using .dockerignore ({len(ignore_patterns)} pattern(s))"
+        )
+
     stage_path = StagePath.from_stage_str(
         f"@{stage_fqn.identifier}/{build_context_stage_path}"
     )
-    stage_manager.put(
-        local_path=build_context_dir,
-        stage_path=str(stage_path),
-        overwrite=True,
-    )
+
+    if ignore_patterns:
+        with TemporaryDirectory() as tmp_dir:
+            filtered_dir = Path(tmp_dir)
+            copy_filtered_build_context(
+                build_context_dir, filtered_dir, ignore_patterns
+            )
+            for _ in stage_manager.put_recursive(
+                local_path=filtered_dir,
+                stage_path=str(stage_path),
+                overwrite=True,
+                temp_directory=filtered_dir,
+            ):
+                pass
+    else:
+        for _ in stage_manager.put_recursive(
+            local_path=build_context_dir,
+            stage_path=str(stage_path),
+            overwrite=True,
+        ):
+            pass
+
+    # put_recursive uses a * glob which skips hidden files (dotfiles).
+    # Upload .dockerignore explicitly so BuildKit can use it during the image build.
+    dockerignore_path = build_context_dir / ".dockerignore"
+    if dockerignore_path.is_file():
+        stage_manager.put(
+            local_path=dockerignore_path,
+            stage_path=str(stage_path),
+            overwrite=True,
+        )
 
     # Execute the build job asynchronously so we can stream logs
     cli_console.step(f"Starting image build job: {job_name}")
