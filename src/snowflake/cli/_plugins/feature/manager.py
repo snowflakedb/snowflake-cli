@@ -187,16 +187,37 @@ class FeatureManager(SqlExecutionMixin):
     # ------------------------------------------------------------------
 
     def drop(self, names: Sequence[str]) -> dict[str, Any]:
-        """Drop one or more named feature-store objects."""
+        """Drop feature views by name (resolves to OFT names via SHOW)."""
         ctx = get_cli_context()
-        sqls = decl_api.drop_queries(
-            list(names), ctx.connection.database, ctx.connection.schema
+
+        # Look up deployed OFTs to resolve feature view names to OFT names
+        sqls = decl_api.state_queries(ctx.connection.database, ctx.connection.schema)
+        raw_show = _rows_to_dicts(
+            self.execute_query(sqls["show_ofts"], cursor_class=DictCursor)
         )
+
+        # Build map: uppercase feature view name → OFT name
+        from snowflake.ml.feature_store.decl.state import _parse_oft_name
+
+        oft_map: dict[str, str] = {}
+        for row in raw_show:
+            oft_name = row.get("name", "")
+            base_name, _ = _parse_oft_name(oft_name)
+            oft_map[base_name.upper()] = oft_name
+
         dropped: list[str] = []
         errors: list[str] = []
-        for name, sql in zip(names, sqls):
+        for name in names:
+            oft_name = oft_map.get(name.upper())
+            if not oft_name:
+                errors.append(f"{name}: not found in deployed feature views")
+                continue
+            drop_sqls = decl_api.drop_queries(
+                [oft_name], ctx.connection.database, ctx.connection.schema
+            )
             try:
-                self.execute_query(sql)
+                for sql in drop_sqls:
+                    self.execute_query(sql)
                 dropped.append(name)
             except Exception as exc:
                 log.warning("drop %s raised %s: %s", name, type(exc).__name__, exc)
