@@ -51,6 +51,7 @@ from snowflake.cli.api.output.types import (
     ObjectResult,
 )
 from snowflake.cli.api.project.util import get_env_username, identifier_for_url
+from snowflake.connector.errors import ProgrammingError
 
 app = SnowTyperFactory(
     name=_APP_COMMAND_NAME,
@@ -556,8 +557,7 @@ def deploy(
                 known_pending_states={"PENDING", "RUNNING"},
                 timeout_message=(
                     f"Artifact repo build timed out. Check build logs:\n"
-                    f"  SELECT * FROM TABLE("
-                    f"{artifact_build_job_fqn.identifier}!SPCS_GET_LOGS())"
+                    f"  CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{app_name}')"
                 ),
             )
         else:
@@ -586,33 +586,85 @@ def deploy(
 
     # ── Deploy phase ──────────────────────────────────────────────────
 
+    comment_data = {"appId": app_name}
+    if app_title:
+        comment_data["appName"] = app_title
+    if app_description:
+        comment_data["appDescription"] = app_description
+    if app_icon:
+        comment_data["appIcon"] = app_icon
+    app_comment = json.dumps(comment_data)
+
     if use_artifact_repo:
-        cli_console.step("Deploying app using artifact repository...")
-        run_result = manager.run_app_artifact_repo(
-            artifact_repo_fqn=artifact_repo_fqn_str,
-            app_id=app_name,
-            version="LATEST",
-            service_name=app_name,
-            compute_pool=service_compute_pool,
-            database=database,
-            schema=schema,
-            runtime_image=entity.runtime_image,
-            query_warehouse=query_warehouse,
-            build_eai=build_eai,
-        )
-        cli_console.step(f"SPCS_TEST_RUN_APP_ARTIFACT_REPO output:\n{run_result}")
+        eai_list = [build_eai] if build_eai else None
+
+        did_upgrade = False
+        cli_console.step("Creating application service...")
+        try:
+            manager.create_app_service(
+                service_fqn=service_fqn,
+                artifact_repo_fqn=artifact_repo_fqn_str,
+                package_name=app_name,
+                compute_pool=service_compute_pool,
+                version="LATEST",
+                query_warehouse=query_warehouse,
+                external_access_integrations=eai_list,
+                comment=app_comment,
+            )
+        except ProgrammingError as e:
+            if e.errno == 2002 or "already exists" in str(e).lower():
+                cli_console.step(
+                    f"Application service {app_name} already exists. Upgrading..."
+                )
+                manager.upgrade_app_service(
+                    service_fqn=service_fqn,
+                    version="LATEST",
+                )
+                did_upgrade = True
+            else:
+                raise
+
+        def _svc_is_upgrading(d: dict) -> bool:
+            return str(d.get("is_upgrading", "")).lower() in ("true", "1", "yes")
+
+        def _svc_has_failed(d: dict) -> bool:
+            return d.get("status", "").upper() == "FAILED"
+
+        if did_upgrade:
+            cli_console.step("Waiting for upgrade to complete...")
+            desc = _poll_until(
+                poll_fn=lambda: manager.describe_app_service(service_fqn),
+                is_done=lambda d: not _svc_is_upgrading(d),
+                is_error=_svc_has_failed,
+                format_status=lambda d: (
+                    "upgrading" if _svc_is_upgrading(d) else "ready"
+                ),
+                timeout_message=(
+                    f"Upgrade timed out. Check logs:\n"
+                    f"  CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{app_name}')"
+                ),
+            )
+        else:
+            cli_console.step("Waiting for application service endpoint...")
+            desc = _poll_until(
+                poll_fn=lambda: manager.describe_app_service(service_fqn),
+                is_done=lambda d: bool(d.get("url")),
+                is_error=_svc_has_failed,
+                format_status=lambda d: d.get("url") or "url not yet available",
+                timeout_message=(
+                    f"Endpoint provisioning timed out. "
+                    f"Check: DESCRIBE APPLICATION SERVICE {app_name}"
+                ),
+            )
+
+        endpoint_url = desc.get("url", "")
+        if endpoint_url and not endpoint_url.startswith(("http://", "https://")):
+            endpoint_url = f"https://{endpoint_url}"
+        return MessageResult(f"App ready at {endpoint_url}")
+
     else:
         repo_path = "/" + "/".join(image_repo_url.split("/")[1:])
         image_url = f"{repo_path}/{app_name.lower()}:latest"
-
-        comment_data = {"appId": app_name}
-        if app_title:
-            comment_data["appName"] = app_title
-        if app_description:
-            comment_data["appDescription"] = app_description
-        if app_icon:
-            comment_data["appIcon"] = app_icon
-        app_comment = json.dumps(comment_data)
 
         cli_console.step(f"Creating service {service_fqn} if it doesn't exist")
         manager.create_service(
@@ -642,12 +694,11 @@ def deploy(
             timeout_message=f"Service timed out. Check service status: {service_fqn}",
         )
 
-    # ── Get endpoint URL ──────────────────────────────────────────────
+    # ── Get endpoint URL (non-artifact-repo path only) ────────────────
     cli_console.step("Getting endpoint URL")
-    ep_name = "web" if use_artifact_repo else "app-endpoint"
     endpoint_url = _poll_until(
         poll_fn=lambda: manager.get_service_endpoint_url(
-            service_fqn, endpoint_name=ep_name
+            service_fqn, endpoint_name="app-endpoint"
         ),
         is_done=lambda url: url is not None
         and "provisioning in progress" not in url.lower(),
