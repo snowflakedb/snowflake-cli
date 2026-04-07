@@ -226,33 +226,9 @@ class FeatureManager(SqlExecutionMixin):
             status = self.get_status()
             ingest_url = decl_api.get_service_endpoint(status, "ingest")
             query_url = decl_api.get_service_endpoint(status, "query")
-
-            if ingest_url:
-                ingest_base = ingest_url.rstrip("/") + "/api/v1/ingest"
-                # Build example record with entity keys as placeholders
-                example_record = {col: f"<{col.lower()}_value>" for col in pk_cols}
-                import json
-                body = json.dumps({"records": {fv_name.lower(): [example_record]}}, indent=2)
-                examples.append(
-                    f"# Ingest example\n"
-                    f"curl -X POST '{ingest_base}' \\\n"
-                    f"  -H 'Authorization: Bearer $SNOWFLAKE_PAT' \\\n"
-                    f"  -H 'Content-Type: application/json' \\\n"
-                    f"  -d '{body}'"
-                )
-
-            if query_url:
-                query_base = query_url.rstrip("/") + "/api/v1/query"
-                example_keys = [{col: f"<{col.lower()}_value>" for col in pk_cols}]
-                import json
-                body = json.dumps({"feature_view_name": fv_name.lower(), "keys": example_keys}, indent=2)
-                examples.append(
-                    f"# Query example\n"
-                    f"curl -X POST '{query_base}' \\\n"
-                    f"  -H 'Authorization: Bearer $SNOWFLAKE_PAT' \\\n"
-                    f"  -H 'Content-Type: application/json' \\\n"
-                    f"  -d '{body}'"
-                )
+            examples = decl_api.build_describe_examples(
+                fv_name.lower(), desc_rows, ingest_url, query_url
+            )
         except Exception as exc:
             log.debug("Could not fetch service endpoints for examples: %s", exc)
 
