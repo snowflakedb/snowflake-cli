@@ -428,86 +428,65 @@ def online_service(
         import time
 
         stop_event = threading.Event()
-        create_result: dict = {}
-        final_status: dict = {}
 
-        def _create_and_poll():
-            """Background: send CREATE, then poll until RUNNING or timeout."""
-            # Send the CREATE command
-            try:
-                result = mgr.initialize_service(
-                    producer_role=producer_role,
-                    consumer_role=consumer_role,
+        def _spin():
+            """Background thread: animate spinner on stderr."""
+            chars = itertools.cycle(["|", "/", "-", "\\"])
+            start = time.monotonic()
+            while not stop_event.is_set():
+                elapsed = int(time.monotonic() - start)
+                c = next(chars)
+                sys.stderr.write(
+                    f"\r  {c} Creating online service... [{elapsed}s]   "
                 )
-                create_result.update(result)
-            except Exception as exc:
-                create_result["status"] = "error"
-                create_result["error"] = str(exc)
-                stop_event.set()
-                return
+                sys.stderr.flush()
+                stop_event.wait(0.5)
 
-            if create_result.get("status") == "RUNNING":
-                final_status["status"] = "RUNNING"
-                stop_event.set()
-                return
-            if create_result.get("status") == "error":
-                stop_event.set()
-                return
+        # Start spinner immediately
+        spinner_thread = threading.Thread(target=_spin, daemon=True)
+        spinner_thread.start()
 
-            # Poll until RUNNING or timeout
-            deadline = time.monotonic() + 600
-            while not stop_event.is_set() and time.monotonic() < deadline:
-                stop_event.wait(5)
-                if stop_event.is_set():
-                    break
-                try:
-                    st = mgr.get_status()
-                    current = st.get("status", "unknown")
-                    if current == "RUNNING":
-                        final_status.update(st)
-                        stop_event.set()
-                        return
-                except Exception:
-                    pass
-            if not final_status:
-                final_status["status"] = "timeout"
+        # Send CREATE on main thread (has Click context)
+        result = mgr.initialize_service(
+            producer_role=producer_role,
+            consumer_role=consumer_role,
+        )
+
+        if result.get("status") == "error":
             stop_event.set()
-
-        # Start background thread for CREATE + poll
-        t = threading.Thread(target=_create_and_poll, daemon=True)
-        t.start()
-
-        # Spinner on main thread, writing to stderr
-        chars = itertools.cycle(["|", "/", "-", "\\"])
-        elapsed = 0
-        while not stop_event.is_set():
-            c = next(chars)
-            sys.stderr.write(
-                f"\r  {c} Creating online service... [{elapsed}s]   "
-            )
+            spinner_thread.join(timeout=2)
+            sys.stderr.write("\r" + " " * 60 + "\r")
             sys.stderr.flush()
-            stop_event.wait(1)
-            elapsed += 1
+            return _to_object(result)
 
-        t.join(timeout=10)
+        if result.get("status") == "RUNNING":
+            stop_event.set()
+            spinner_thread.join(timeout=2)
+            sys.stderr.write("\r  Online service is RUNNING." + " " * 30 + "\n")
+            sys.stderr.flush()
+            return _to_object(result)
 
-        # Clear the spinner line
-        sys.stderr.write("\r" + " " * 60 + "\r")
+        # Poll on main thread until RUNNING or timeout
+        deadline = time.monotonic() + 600
+        while time.monotonic() < deadline:
+            time.sleep(5)
+            try:
+                status = mgr.get_status()
+                current = status.get("status", "unknown")
+                if current == "RUNNING":
+                    stop_event.set()
+                    spinner_thread.join(timeout=2)
+                    sys.stderr.write("\r  Online service is RUNNING." + " " * 30 + "\n")
+                    sys.stderr.flush()
+                    return _to_object({"status": "RUNNING", "message": "Service initialized successfully"})
+            except Exception:
+                pass
+
+        stop_event.set()
+        spinner_thread.join(timeout=2)
+        sys.stderr.write("\r  Timed out waiting for RUNNING." + " " * 26 + "\n")
         sys.stderr.flush()
-
-        if create_result.get("status") == "error":
-            sys.stderr.write(f"  Error: {create_result.get('error', 'unknown')}\n")
-            sys.stderr.flush()
-            return _to_object(create_result)
-
-        if final_status.get("status") == "RUNNING":
-            sys.stderr.write("  Online service is RUNNING.\n")
-            sys.stderr.flush()
-            return _to_object({"status": "RUNNING", "message": "Service initialized successfully"})
-        else:
-            sys.stderr.write("  Timed out waiting for service to reach RUNNING.\n")
-            sys.stderr.flush()
-            return _to_object({"status": "timeout", "error": "Timed out after 600s"})
+        return _to_object({"status": "timeout", "error": "Timed out after 600s"})
     elif drop:
         result = FeatureManager().destroy_service()
     else:
