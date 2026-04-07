@@ -512,7 +512,21 @@ def online_service(
     elif drop:
         result = FeatureManager().destroy_service()
     else:
+        # Status mode: show rich formatted display
         result = FeatureManager().get_status()
+        if result.get("status") != "error":
+            import sys
+
+            from snowflake.ml.feature_store.decl import api as decl_api
+
+            display = decl_api.format_status_display(
+                result,
+                user=result.pop("_user", ""),
+                database=result.pop("_database", ""),
+                schema=result.pop("_schema", ""),
+            )
+            sys.stderr.write(display + "\n")
+            sys.stderr.flush()
     return _to_object(result)
 
 

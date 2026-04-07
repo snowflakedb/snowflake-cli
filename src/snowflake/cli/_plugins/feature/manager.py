@@ -371,7 +371,12 @@ class FeatureManager(SqlExecutionMixin):
             raw = list(rows[0])[0] if rows else None
             if not raw:
                 return {"status": "error", "error": "No response from system function"}
-            return decl_api.parse_service_status(raw)
+            result = decl_api.parse_service_status(raw)
+            # Add connection context for display
+            result["_user"] = ctx.connection.user or ""
+            result["_database"] = ctx.connection.database or ""
+            result["_schema"] = ctx.connection.schema or ""
+            return result
         except Exception as exc:
             log.warning("get_status raised %s: %s", type(exc).__name__, exc)
             return {"status": "error", "error": str(exc)}
