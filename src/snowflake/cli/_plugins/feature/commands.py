@@ -439,17 +439,24 @@ def online_service(
         import time
 
         stop_event = threading.Event()
+        # Shared state for spinner to display current stage
+        stage_info = {"status": "CREATING", "message": "Sending create request..."}
 
         def _spin():
-            """Background thread: animate spinner on stderr."""
+            """Background thread: animate spinner on stderr with current stage."""
             chars = itertools.cycle(["|", "/", "-", "\\"])
             start = time.monotonic()
             while not stop_event.is_set():
                 elapsed = int(time.monotonic() - start)
                 c = next(chars)
-                sys.stderr.write(
-                    f"\r  {c} Creating online service... [{elapsed}s]   "
-                )
+                st = stage_info.get("status", "")
+                msg = stage_info.get("message", "")
+                line = f"\r  {c} [{elapsed}s] {st}"
+                if msg:
+                    line += f": {msg}"
+                # Pad to overwrite previous longer lines
+                line = line.ljust(80)
+                sys.stderr.write(line)
                 sys.stderr.flush()
                 stop_event.wait(0.5)
 
@@ -466,28 +473,32 @@ def online_service(
         if result.get("status") == "error":
             stop_event.set()
             spinner_thread.join(timeout=2)
-            sys.stderr.write("\r" + " " * 60 + "\r")
+            sys.stderr.write("\r" + " " * 80 + "\r")
             sys.stderr.flush()
             return _to_object(result)
 
         if result.get("status") == "RUNNING":
             stop_event.set()
             spinner_thread.join(timeout=2)
-            sys.stderr.write("\r  Online service is RUNNING." + " " * 30 + "\n")
+            sys.stderr.write("\r  Online service is RUNNING." + " " * 52 + "\n")
             sys.stderr.flush()
             return _to_object(result)
 
         # Poll on main thread until RUNNING or timeout
+        stage_info["message"] = "Waiting for service to start..."
         deadline = time.monotonic() + 600
         while time.monotonic() < deadline:
             time.sleep(5)
             try:
                 status = mgr.get_status()
                 current = status.get("status", "unknown")
+                message = status.get("message", "")
+                stage_info["status"] = current
+                stage_info["message"] = message
                 if current == "RUNNING":
                     stop_event.set()
                     spinner_thread.join(timeout=2)
-                    sys.stderr.write("\r  Online service is RUNNING." + " " * 30 + "\n")
+                    sys.stderr.write("\r  Online service is RUNNING." + " " * 52 + "\n")
                     sys.stderr.flush()
                     return _to_object({"status": "RUNNING", "message": "Service initialized successfully"})
             except Exception:
@@ -495,7 +506,7 @@ def online_service(
 
         stop_event.set()
         spinner_thread.join(timeout=2)
-        sys.stderr.write("\r  Timed out waiting for RUNNING." + " " * 26 + "\n")
+        sys.stderr.write("\r  Timed out waiting for RUNNING." + " " * 48 + "\n")
         sys.stderr.flush()
         return _to_object({"status": "timeout", "error": "Timed out after 600s"})
     elif drop:
