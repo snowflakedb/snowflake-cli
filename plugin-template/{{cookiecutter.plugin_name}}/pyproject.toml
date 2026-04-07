@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "{{ cookiecutter.plugin_name }}"
+version = "0.1.0"
+description = "{{ cookiecutter.plugin_description }}"
+requires-python = "{{ cookiecutter.python_requires }}"
+authors = [
+    { name = "{{ cookiecutter.author_name }}", email = "{{ cookiecutter.author_email }}" },
+]
+dependencies = [
+    "snowflake-cli",
+]
+
+[project.entry-points."snowflake.cli.plugin.command"]
+{{ cookiecutter.plugin_module }} = "{{ cookiecutter.package_namespace }}.{{ cookiecutter.plugin_module }}.plugin_spec"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

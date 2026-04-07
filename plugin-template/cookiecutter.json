@@ -1,0 +1,13 @@
+{
+    "plugin_name": "my-snow-plugin",
+    "plugin_module": "{{ cookiecutter.plugin_name | replace('-', '_') }}",
+    "package_namespace": "snowflakecli_plugins",
+    "cli_command_name": "{{ cookiecutter.plugin_name }}",
+    "cli_parent_path": "",
+    "plugin_description": "A Snowflake CLI plugin.",
+    "author_name": "Your Name",
+    "author_email": "you@example.com",
+    "requires_connection": true,
+    "command_type": ["group", "single"],
+    "python_requires": ">=3.10"
+}
