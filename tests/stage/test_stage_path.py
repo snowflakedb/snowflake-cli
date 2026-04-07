@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import tempfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import pytest
 from snowflake.cli._plugins.stage.manager import DefaultStagePathParts, VStagePathParts
@@ -559,6 +559,17 @@ def test_vstage_paths(stage_str):
             "deep/nested/structure/",
             True,
         ),
+        (
+            "snow://project/DCM_DEMO.PROJECTS.DCM_PROJECT_DEV/deployments/DEPLOYMENT$3/",
+            "snow://project/DCM_DEMO.PROJECTS.DCM_PROJECT_DEV/deployments/DEPLOYMENT$3",
+            "snow://project/DCM_DEMO.PROJECTS.DCM_PROJECT_DEV/deployments/DEPLOYMENT$3",
+            "PROJECTS",
+            "snow://project/DCM_DEMO.PROJECTS.DCM_PROJECT_DEV",
+            "project/DCM_DEMO.PROJECTS.DCM_PROJECT_DEV",
+            "project",
+            "deployments/DEPLOYMENT$3/",
+            True,
+        ),
     ],
 )
 def test_vstage_path_parts_properties(
@@ -600,6 +611,153 @@ def test_vstage_path_parts_properties(
 def test_vstage_path_parts_invalid_paths(invalid_path):
     with pytest.raises(CliError, match="Invalid vstage path"):
         VStagePathParts(invalid_path)
+
+
+def test_vstage_file_path_reconstruction_from_ls_output():
+    vstage_root = StagePath.from_stage_str(
+        "snow://project/DCM_DEMO.PROJECTS.DCM_PROJECT_DEV/deployments/DEPLOYMENT$3/"
+    )
+
+    ls_file_name = "deployments/DEPLOYMENT$3/manifest.yml"
+
+    correct_path = vstage_root.root_path() / ls_file_name
+    assert correct_path.absolute_path() == (
+        "snow://project/DCM_DEMO.PROJECTS.DCM_PROJECT_DEV/" + ls_file_name
+    )
+    assert correct_path.path_for_sql() == (
+        "'snow://project/DCM_DEMO.PROJECTS.DCM_PROJECT_DEV/" + ls_file_name + "'"
+    )
+
+
+@pytest.mark.parametrize(
+    "file_path_str, stage_root_str, expected_relative",
+    [
+        # Snowflake lowercases unquoted identifiers in ls output
+        (
+            "snow://project/DCM_DEMO.PROJECTS.DCM_PROJECT_DEV/deployments/deployment$1/deploy_metadata.json",
+            "snow://project/DCM_DEMO.PROJECTS.DCM_PROJECT_DEV/deployments/DEPLOYMENT$1/",
+            "deploy_metadata.json",
+        ),
+        # Same case should still work
+        (
+            "snow://project/DCM_DEMO.PROJECTS.DCM_PROJECT_DEV/deployments/DEPLOYMENT$1/deploy_metadata.json",
+            "snow://project/DCM_DEMO.PROJECTS.DCM_PROJECT_DEV/deployments/DEPLOYMENT$1/",
+            "deploy_metadata.json",
+        ),
+        # Nested path with case mismatch
+        (
+            "snow://project/TEMP.DEV.PROJECT/deployments/deployment$1/scripts/setup.sql",
+            "snow://project/TEMP.DEV.PROJECT/deployments/DEPLOYMENT$1/",
+            "scripts/setup.sql",
+        ),
+        # Regular @stage (no case mismatch — should still work)
+        (
+            "@my_stage/data/file.csv",
+            "@my_stage/data/",
+            "file.csv",
+        ),
+    ],
+)
+def test_relative_to_case_insensitive(file_path_str, stage_root_str, expected_relative):
+    file_path = StagePath.from_stage_str(file_path_str)
+    stage_root = StagePath.from_stage_str(stage_root_str)
+    result = file_path.relative_to(stage_root)
+    assert result == PurePosixPath(expected_relative)
+
+
+@pytest.mark.parametrize(
+    "file_path_str, stage_root_str, target_dir, expected_local_path",
+    [
+        # Case mismatch — Snowflake returns lowercase, user specified uppercase
+        (
+            "snow://project/DCM_DEMO.PROJECTS.DCM_PROJECT_DEV/deployments/deployment$1/deploy_metadata.json",
+            "snow://project/DCM_DEMO.PROJECTS.DCM_PROJECT_DEV/deployments/DEPLOYMENT$1/",
+            "/tmp/download",
+            "/tmp/download",
+        ),
+        # Nested file with case mismatch
+        (
+            "snow://project/TEMP.DEV.PROJECT/deployments/deployment$1/scripts/setup.sql",
+            "snow://project/TEMP.DEV.PROJECT/deployments/DEPLOYMENT$1/",
+            "/tmp/download",
+            "/tmp/download/scripts",
+        ),
+        # Same case (no mismatch)
+        (
+            "snow://project/DCM_DEMO.PROJECTS.DCM_PROJECT_DEV/deployments/DEPLOYMENT$1/manifest.yml",
+            "snow://project/DCM_DEMO.PROJECTS.DCM_PROJECT_DEV/deployments/DEPLOYMENT$1/",
+            "/tmp/download",
+            "/tmp/download",
+        ),
+    ],
+)
+def test_get_local_target_path_case_insensitive(
+    file_path_str, stage_root_str, target_dir, expected_local_path
+):
+    file_path = StagePath.from_stage_str(file_path_str)
+    stage_root = StagePath.from_stage_str(stage_root_str)
+    result = file_path.get_local_target_path(Path(target_dir), stage_root)
+    assert result == Path(expected_local_path)
+
+
+@pytest.mark.parametrize(
+    "stage_str, expected",
+    [
+        ("@my_stage", False),
+        ("@db.schema.my_stage/path", False),
+        ("~", False),
+        ("snow://streamlit/db.schema.name/versions/live", True),
+        ("snow://project/MY_DB.MY_SCHEMA.MY_PROJECT/deployments/v1/", True),
+        ("snow://notebook/schema.name", True),
+    ],
+)
+def test_is_vstage(stage_str, expected):
+    assert StagePath.from_stage_str(stage_str).is_vstage() == expected
+
+
+def test_is_vstage_preserved_through_operations():
+    sp = StagePath.from_stage_str(
+        "snow://project/DCM_DEMO.PROJECTS.MY_PROJECT/deployments/v1/"
+    )
+    assert sp.is_vstage() is True
+    assert (sp / "subdir").is_vstage() is True
+    assert sp.parent.is_vstage() is True
+    assert sp.root_path().is_vstage() is True
+
+
+@pytest.mark.parametrize(
+    "file_path_str, stage_root_str, expected_relative",
+    [
+        # $ in unquoted identifier — case-insensitive
+        ("@s/deployment$1/file.sql", "@s/DEPLOYMENT$1/", "file.sql"),
+        # Plain alpha case mismatch — case-insensitive
+        ("@s/DATA_DIR/file.csv", "@s/data_dir/", "file.csv"),
+        # Component with dots — exact match succeeds
+        ("@s/My.Dir/file.sql", "@s/My.Dir/", "file.sql"),
+    ],
+)
+def test_relative_to_quoted_identifier_success(
+    file_path_str, stage_root_str, expected_relative
+):
+    fp = StagePath.from_stage_str(file_path_str)
+    root = StagePath.from_stage_str(stage_root_str)
+    assert fp.relative_to(root) == PurePosixPath(expected_relative)
+
+
+@pytest.mark.parametrize(
+    "file_path_str, stage_root_str",
+    [
+        # Component with dots and wrong case — exact match required, must raise
+        ("@s/My.Dir/file.sql", "@s/my.dir/"),
+        # Completely different paths
+        ("@s/foo/file.sql", "@s/bar/"),
+    ],
+)
+def test_relative_to_raises_for_non_subpath(file_path_str, stage_root_str):
+    fp = StagePath.from_stage_str(file_path_str)
+    root = StagePath.from_stage_str(stage_root_str)
+    with pytest.raises(ValueError, match="is not in the subpath of"):
+        fp.relative_to(root)
 
 
 def test_local_dir_with_dot_are_identified_as_dir_not_file():

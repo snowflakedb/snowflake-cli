@@ -11,6 +11,11 @@ from snowflake.cli.api.project.util import (
 USER_STAGE_PREFIX = "~"
 SNOW_PREFIX = "snow://"
 
+# Snowflake unquoted identifiers contain only [A-Za-z0-9_$] and are normalized
+# to lowercase in ls output.  Components outside this charset came from quoted
+# identifiers whose case Snowflake preserves — those must be compared exactly.
+_UNQUOTED_IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9_$]+$")
+
 
 class StagePath:
     def __init__(
@@ -69,6 +74,9 @@ class StagePath:
 
     def is_git_repo(self) -> bool:
         return self._is_git_repo
+
+    def is_vstage(self) -> bool:
+        return self._is_snow_prefixed_stage
 
     @property
     def git_ref(self) -> str | None:
@@ -287,7 +295,40 @@ class StagePath:
         return to_string_literal(self.absolute_path())
 
     def relative_to(self, stage_path: StagePath) -> PurePosixPath:
-        return self.path.relative_to(stage_path.path)
+        # Snowflake normalizes unquoted identifiers to lowercase in ls output,
+        # but the user-specified path may use uppercase (e.g. DEPLOYMENT$1 vs
+        # deployment$1). PurePosixPath.relative_to() is case-sensitive, so we
+        # do a prefix check and return the actual-cased tail.
+        #
+        # Case sensitivity rules:
+        # - Unquoted identifiers: only [A-Za-z0-9_$] chars, normalized to
+        #   lowercase by Snowflake — compare case-insensitively.
+        # - Quoted identifiers: may contain any char; Snowflake preserves their
+        #   case — compare exactly.  We detect them by the presence of characters
+        #   outside the unquoted charset (dots, spaces, etc.).
+        self_parts = self.path.parts
+        other_parts = stage_path.path.parts
+        if len(self_parts) < len(other_parts):
+            raise ValueError(
+                f"{self.path!r} is not in the subpath of {stage_path.path!r}"
+            )
+        for s, o in zip(self_parts[: len(other_parts)], other_parts):
+            if _UNQUOTED_IDENTIFIER_RE.match(s) and _UNQUOTED_IDENTIFIER_RE.match(o):
+                # Both are unquoted-style: case-insensitive comparison
+                if s.lower() != o.lower():
+                    raise ValueError(
+                        f"{self.path!r} is not in the subpath of {stage_path.path!r}"
+                    )
+            else:
+                # At least one component has special chars → quoted identifier → exact match
+                if s != o:
+                    raise ValueError(
+                        f"{self.path!r} is not in the subpath of {stage_path.path!r}"
+                    )
+        remainder = self_parts[len(other_parts) :]
+        if remainder:
+            return PurePosixPath(*remainder)
+        return PurePosixPath(".")
 
     def get_local_target_path(self, target_dir: Path, stage_root: StagePath):
         # Case for downloading @stage/aa/file.py with root @stage/aa
