@@ -70,6 +70,8 @@ _TABLE_DISPLAY_COLUMNS = [
     "feature_view",
     "version",
     "entities",
+    "database_name",
+    "schema_name",
     "created_on",
     "scheduling_state",
 ]
