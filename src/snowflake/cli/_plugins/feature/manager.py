@@ -234,6 +234,11 @@ class FeatureManager(SqlExecutionMixin):
                 sources = spec.get("sources", [])
                 if sources and isinstance(sources, list) and sources[0].get("name"):
                     source_name = sources[0]["name"]
+                    # If source has no columns, look for a datasource YAML
+                    if not sources[0].get("columns"):
+                        ds_spec = self._find_datasource(source_name)
+                        if ds_spec and ds_spec.get("columns"):
+                            spec["sources"][0]["columns"] = ds_spec["columns"]
 
             examples = decl_api.build_describe_examples(
                 fv_name.lower(),
@@ -288,6 +293,40 @@ class FeatureManager(SqlExecutionMixin):
                         continue
                     spec_name = spec.get("name", "")
                     if spec_name.lower() == fv_name.lower():
+                        return spec
+                except Exception:
+                    continue
+        return None
+
+    @staticmethod
+    def _find_datasource(source_name: str) -> Optional[dict[str, Any]]:
+        """Try to find a local datasource YAML by source name.
+
+        Searches YAML files in common datasource directories for a spec
+        whose ``name`` matches *source_name* (case-insensitive).
+
+        Returns the parsed datasource dict, or ``None`` if not found.
+        """
+        import glob as _glob
+
+        try:
+            import yaml
+        except ImportError:
+            return None
+
+        search_dirs = [
+            ".", "datasources", "sources",
+            "example_store/datasources", "example_store/sources",
+        ]
+        for d in search_dirs:
+            for path in _glob.glob(f"{d}/*.yaml") + _glob.glob(f"{d}/*.yml"):
+                try:
+                    with open(path) as f:
+                        spec = yaml.safe_load(f)
+                    if not isinstance(spec, dict):
+                        continue
+                    spec_name = spec.get("name", "")
+                    if spec_name.lower() == source_name.lower():
                         return spec
                 except Exception:
                     continue
