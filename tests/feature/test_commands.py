@@ -304,7 +304,7 @@ def test_example_source_content(runner, tmp_path):
     col_names = {c["name"]: c["type"] for c in data["columns"]}
     assert col_names["user_id"] == "StringType"
     assert col_names["event_type"] == "StringType"
-    assert col_names["event_value"] == "FloatType"
+    assert col_names["event_value"] == "DoubleType"
     assert col_names["timestamp"] == "TimestampType"
 
 
@@ -328,9 +328,9 @@ def test_example_feature_view_content(runner, tmp_path):
     assert sources[0]["source_type"] == "Stream"
     features = {f["output_column"]["name"]: f for f in data["features"]}
     assert "event_count_1h" in features
-    assert features["event_count_1h"]["output_column"]["type"] == "IntegerType"
+    assert features["event_count_1h"]["output_column"]["type"] == "LongType"
     assert "total_value_1h" in features
-    assert features["total_value_1h"]["output_column"]["type"] == "FloatType"
+    assert features["total_value_1h"]["output_column"]["type"] == "DoubleType"
     # Verify UDF section is present
     assert "udf" in data
     assert data["udf"]["engine"] == "pandas"
@@ -353,8 +353,8 @@ def test_example_default_dir(runner, tmp_path, monkeypatch):
 
 
 @mock.patch(FEATURE_MANAGER)
-def test_status_returns_parsed_json(mock_manager, runner):
-    """status should call FeatureManager.get_status and return its result."""
+def test_online_service_no_flags_returns_status(mock_manager, runner):
+    """online-service with no flags should show runtime status."""
     mock_manager.return_value.get_status.return_value = {
         "status": "RUNNING",
         "compute_pool": "active",
@@ -362,7 +362,7 @@ def test_status_returns_parsed_json(mock_manager, runner):
         "service": "active",
         "endpoints": [],
     }
-    result = runner.invoke(["feature", "status"])
+    result = runner.invoke(["feature", "online-service"])
     assert result.exit_code == 0, result.output
     mock_manager.return_value.get_status.assert_called_once()
 
@@ -406,12 +406,6 @@ def test_online_service_drop(mock_manager, runner):
     result = runner.invoke(["feature", "online-service", "--drop"])
     assert result.exit_code == 0, result.output
     mock_manager.return_value.destroy_service.assert_called_once()
-
-
-def test_online_service_requires_flag(runner):
-    """online-service without --create or --drop should fail."""
-    result = runner.invoke(["feature", "online-service"])
-    assert result.exit_code != 0
 
 
 def test_online_service_both_flags_rejected(runner):

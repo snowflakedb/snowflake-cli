@@ -376,20 +376,6 @@ def export(
 
 
 # ---------------------------------------------------------------------------
-# status
-# ---------------------------------------------------------------------------
-
-
-@app.command(requires_connection=True)
-def status(
-    **options,
-) -> CommandResult:
-    """Show the current feature store runtime status."""
-    result = FeatureManager().get_status()
-    return _to_object(result)
-
-
-# ---------------------------------------------------------------------------
 # online-service
 # ---------------------------------------------------------------------------
 
@@ -418,22 +404,20 @@ def online_service(
     ),
     **options,
 ) -> CommandResult:
-    """Manage the feature store online service (pass --create or --drop)."""
+    """Manage the feature store online service. Shows status by default."""
     if create and drop:
         raise typer.BadParameter(
             "Cannot use --create and --drop together.", param_hint="--create/--drop"
-        )
-    if not create and not drop:
-        raise typer.BadParameter(
-            "One of --create or --drop is required.", param_hint="--create/--drop"
         )
     if create:
         result = FeatureManager().initialize_service(
             producer_role=producer_role,
             consumer_role=consumer_role,
         )
-    else:
+    elif drop:
         result = FeatureManager().destroy_service()
+    else:
+        result = FeatureManager().get_status()
     return _to_object(result)
 
 
