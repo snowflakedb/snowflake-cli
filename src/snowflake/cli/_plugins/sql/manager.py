@@ -24,6 +24,7 @@ from snowflake.cli._app.printing import print_result
 from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_templates
 from snowflake.cli._plugins.sql.statement_reader import (
     CompiledStatement,
+    _protect_sql_comments,
     compile_statements,
     files_reader,
     query_reader,
@@ -67,22 +68,67 @@ class SqlManager(SqlExecutionMixin):
         query = sys.stdin.read() if std_in else query
 
         stmt_operators = []
-        if template_syntax_config.enable_legacy_syntax:
-            stmt_operators.append(transpile_snowsql_templates)
-        stmt_operators.append(
-            partial(
-                snowflake_sql_jinja_render,
-                template_syntax_config=template_syntax_config,
-                data=data,
+
+        # Jinja block rendering ({% if %}, {% for %}, etc.) must happen on the
+        # whole content BEFORE split_statements, because split_statements splits
+        # on `;` which breaks Jinja blocks containing SQL statements.
+        # When Jinja is enabled, ALL rendering (legacy transpile, standard/<% %>
+        # variables, Jinja blocks) is unified into a single pre-render pass so
+        # that the correct order (standard → Jinja) is preserved and sourced
+        # files (!source) receive the same treatment.
+        # See: https://github.com/snowflakedb/snowflake-cli/issues/2650
+        jinja_pre_render = None
+        if template_syntax_config.enable_jinja_syntax:
+
+            def _jinja_pre_render(content: str) -> str:
+                # Replace comments with inert placeholders before Jinja runs
+                # so that template-like syntax inside comments (e.g. -- {{ v }})
+                # is never evaluated.  Placeholders are restored afterwards;
+                # split_statements(remove_comments=…) then handles the actual
+                # comment stripping or retention decision.
+                content, _saved = _protect_sql_comments(content)
+                if template_syntax_config.enable_legacy_syntax:
+                    content = transpile_snowsql_templates(content)
+                content = snowflake_sql_jinja_render(
+                    content,
+                    template_syntax_config=SQLTemplateSyntaxConfig(
+                        enable_legacy_syntax=template_syntax_config.enable_legacy_syntax,
+                        enable_standard_syntax=template_syntax_config.enable_standard_syntax,
+                        enable_jinja_syntax=True,
+                    ),
+                    data=data,
+                )
+                return _saved.restore(content)
+
+            jinja_pre_render = _jinja_pre_render
+            # No per-statement operators needed — everything is done in pre-render.
+        else:
+            if template_syntax_config.enable_legacy_syntax:
+                stmt_operators.append(transpile_snowsql_templates)
+
+            per_stmt_config = SQLTemplateSyntaxConfig(
+                enable_legacy_syntax=template_syntax_config.enable_legacy_syntax,
+                enable_standard_syntax=template_syntax_config.enable_standard_syntax,
+                enable_jinja_syntax=False,
             )
-        )
+            stmt_operators.append(
+                partial(
+                    snowflake_sql_jinja_render,
+                    template_syntax_config=per_stmt_config,
+                    data=data,
+                )
+            )
         remove_comments = not retain_comments
 
         if query:
-            stmt_reader = query_reader(query, stmt_operators, remove_comments)
+            stmt_reader = query_reader(
+                query, stmt_operators, remove_comments, jinja_pre_render
+            )
         elif files:
             secured_files = [SecurePath(f) for f in files]
-            stmt_reader = files_reader(secured_files, stmt_operators, remove_comments)
+            stmt_reader = files_reader(
+                secured_files, stmt_operators, remove_comments, jinja_pre_render
+            )
         else:
             raise CliArgumentError("Use either query, filename or input option.")
 
@@ -90,7 +136,7 @@ class SqlManager(SqlExecutionMixin):
             stmt_reader
         )
         if not any((errors, expected_results_cnt, compiled_statements)):
-            raise CliArgumentError("Use either query, filename or input option.")
+            raise CliArgumentError("No SQL statements found to execute.")
 
         if errors:
             for error in errors:
