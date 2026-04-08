@@ -250,10 +250,16 @@ def events(
         "--entity-id",
         help="ID of the snowflake-app entity. Required if multiple snowflake-app entities exist.",
     ),
+    last: int = typer.Option(
+        500,
+        "--last",
+        help="Number of log lines to retrieve. Default: 500. Note: output is capped at 100KB.",
+    ),
     **options,
 ) -> CommandResult:
     """
     Fetches the recent log events from a deployed Snowflake App.
+    Output is capped at 100KB regardless of the number of lines requested.
     """
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
@@ -262,7 +268,7 @@ def events(
     service_fqn = FQN(database=fqn.database, schema=fqn.schema, name=fqn.name)
 
     manager = SnowflakeAppManager()
-    logs = manager.get_service_logs(service_fqn)
+    logs = manager.get_service_logs(service_fqn, last=last)
     return MessageResult(logs)
 
 

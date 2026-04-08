@@ -1072,7 +1072,20 @@ class TestSnowflakeAppManager:
         logs = SnowflakeAppManager().get_service_logs(fqn)
         assert logs == "INFO: app started\nINFO: listening"
         mock_execute.assert_called_once_with(
-            "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('DB.SCHEMA.MY_APP')"
+            "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('DB.SCHEMA.MY_APP', 500)"
+        )
+
+    @patch(EXECUTE_QUERY)
+    def test_get_service_logs_custom_last(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ("line1\nline2",)
+        mock_execute.return_value = cursor
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="MY_APP")
+        logs = SnowflakeAppManager().get_service_logs(fqn, last=100)
+        assert logs == "line1\nline2"
+        mock_execute.assert_called_once_with(
+            "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('DB.SCHEMA.MY_APP', 100)"
         )
 
     @patch(EXECUTE_QUERY)

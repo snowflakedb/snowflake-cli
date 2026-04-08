@@ -687,10 +687,10 @@ class SnowflakeAppManager(SqlExecutionMixin):
 
         return "IDLE"
 
-    def get_service_logs(self, service_fqn: FQN) -> str:
+    def get_service_logs(self, service_fqn: FQN, last: int = 500) -> str:
         """Fetch recent log output from an application service."""
         cursor = self.execute_query(
-            f"CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{service_fqn.identifier}')"
+            f"CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{service_fqn.identifier}', {last})"
         )
         row = cursor.fetchone()
         return row[0] if row else ""
