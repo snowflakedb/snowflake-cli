@@ -162,7 +162,7 @@ class CliAppFactory:
             if value:
                 result = CollectionResult(
                     [
-                        {"key": "version", "value": __about__.VERSION},
+                        {"key": "version", "value": __about__.get_display_version()},
                         {
                             "key": "default_config_file_path",
                             "value": str(get_config_manager().file_path),
