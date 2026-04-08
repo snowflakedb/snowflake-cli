@@ -33,6 +33,7 @@ from snowflake.cli._plugins.apps.manager import (
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
+from snowflake.connector.errors import ProgrammingError
 
 from tests_common import change_directory
 from tests_common.feature_flag_utils import with_feature_flags
@@ -2231,6 +2232,66 @@ class TestEventsCommand:
                 result = runner.invoke(["__app", "events", "--entity-id", "custom_app"])
                 assert result.exit_code == 0, result.output
                 mock_resolve.assert_called_once_with("custom_app")
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_events_last_flag(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        entity.fqn = Mock(database="DB", schema="SCHEMA", name="MY_APP")
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.get_service_logs.return_value = "line1"
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "events", "--last", "100"])
+                assert result.exit_code == 0, result.output
+
+        mock_mgr.get_service_logs.assert_called_once()
+        _, kwargs = mock_mgr.get_service_logs.call_args
+        assert kwargs["last"] == 100
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_events_service_not_found(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        entity.fqn = Mock(database="DB", schema="SCHEMA", name="MY_APP")
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.get_service_logs.side_effect = ProgrammingError("does not exist")
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "events"])
+                assert result.exit_code == 1
+                assert "Could not retrieve logs" in result.output
+                assert "Verify that the app is deployed" in result.output
 
 
 # ── Deploy CLI command tests ──────────────────────────────────────────

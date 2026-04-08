@@ -40,6 +40,7 @@ from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import CommandResult, MessageResult
+from snowflake.connector.errors import ProgrammingError
 
 app = SnowTyperFactory(
     name=_APP_COMMAND_NAME,
@@ -265,10 +266,17 @@ def events(
     entity = _get_entity(resolved_entity_id)
 
     fqn = entity.fqn
+    # Rebuild to a 3-part name; entity FQN may carry extra fields (e.g. prefix)
     service_fqn = FQN(database=fqn.database, schema=fqn.schema, name=fqn.name)
 
     manager = SnowflakeAppManager()
-    logs = manager.get_service_logs(service_fqn, last=last)
+    try:
+        logs = manager.get_service_logs(service_fqn, last=last)
+    except ProgrammingError:
+        raise ClickException(
+            f"Could not retrieve logs for '{service_fqn.identifier}'. "
+            "Verify that the app is deployed and the service is running."
+        )
     return MessageResult(logs)
 
 
