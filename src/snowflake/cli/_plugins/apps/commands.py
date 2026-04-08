@@ -343,7 +343,7 @@ def deploy(
     If --entity-id is not specified and the project contains exactly one snowflake-app
     entity, that entity will be used automatically.
     """
-    phase_flags = sum([upload_only, build_only, deploy_only])
+    phase_flags = sum((upload_only, build_only, deploy_only))
     if phase_flags > 1:
         raise ClickException(
             "Only one of --upload-only, --build-only, or --deploy-only "
@@ -433,6 +433,7 @@ def deploy(
     service_fqn = FQN(database=database, schema=schema, name=app_name)
 
     stage_manager = StageManager()
+    image_repo_url = None
 
     if (run_build or run_deploy) and not use_artifact_repo:
         cli_console.step(f"Getting image repository URL for {image_repository}")
@@ -554,6 +555,7 @@ def deploy(
         )
         cli_console.step(f"SPCS_TEST_RUN_APP_ARTIFACT_REPO output:\n{run_result}")
     else:
+        assert image_repo_url is not None
         repo_path = "/" + "/".join(image_repo_url.split("/")[1:])
         image_url = f"{repo_path}/{app_name.lower()}:latest"
 
