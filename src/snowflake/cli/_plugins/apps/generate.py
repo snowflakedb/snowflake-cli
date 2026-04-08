@@ -49,8 +49,7 @@ def _generate_snowflake_yml(
             f"\n            image_repository:\n              name: {image_repository}"
         )
 
-    return dedent(
-        f"""\
+    return dedent(f"""\
         definition_version: "2"
 
         entities:
@@ -83,5 +82,4 @@ def _generate_snowflake_yml(
               name: {build_eai}{repo_lines}
             code_stage:
               name: {code_stage}
-        """
-    )
+        """)

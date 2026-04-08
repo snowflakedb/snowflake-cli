@@ -230,12 +230,21 @@ def _resolve_deploy_defaults(
 
     # ── Merge (first non-None wins) ──────────────────────────────────
     all_keys = (
-        set(yml_vals) | set(param_vals) | set(config_table_vals)
-        | set(default_vals) | set(curr_session_vals)
+        set(yml_vals)
+        | set(param_vals)
+        | set(config_table_vals)
+        | set(default_vals)
+        | set(curr_session_vals)
     )
     resolved: Dict[str, Optional[str]] = {}
     for key in all_keys:
-        for source in (yml_vals, param_vals, config_table_vals, default_vals, curr_session_vals):
+        for source in (
+            yml_vals,
+            param_vals,
+            config_table_vals,
+            default_vals,
+            curr_session_vals,
+        ):
             val = source.get(key)
             if val is not None:
                 resolved[key] = val

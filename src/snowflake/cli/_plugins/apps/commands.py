@@ -207,15 +207,25 @@ def setup(
     # yet — they must come from account parameters, config table, or the
     # current session.
     if not resolved["database"][0]:
-        raise ClickException("Missing database. Set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE account parameter or check your connection.")
+        raise ClickException(
+            "Missing database. Set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE account parameter or check your connection."
+        )
     if not resolved["schema"][0]:
-        raise ClickException("Missing schema. Set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA account parameter or check your connection.")
+        raise ClickException(
+            "Missing schema. Set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA account parameter or check your connection."
+        )
     if not resolved["warehouse"][0]:
-        raise ClickException("Missing warehouse. Set the DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE account parameter or check your connection.")
+        raise ClickException(
+            "Missing warehouse. Set the DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE account parameter or check your connection."
+        )
     if not resolved["build_compute_pool"][0] or not resolved["service_compute_pool"][0]:
-        raise ClickException("Missing compute pool. Pass --compute-pool or set the DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL account parameter.")
+        raise ClickException(
+            "Missing compute pool. Pass --compute-pool or set the DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL account parameter."
+        )
     if not resolved["build_eai"][0]:
-        raise ClickException("Missing build EAI. Pass --build-eai or set the DEFAULT_SNOWFLAKE_APPS_BUILD_EXTERNAL_ACCESS_INTEGRATION account parameter.")
+        raise ClickException(
+            "Missing build EAI. Pass --build-eai or set the DEFAULT_SNOWFLAKE_APPS_BUILD_EXTERNAL_ACCESS_INTEGRATION account parameter."
+        )
 
     resolved_values = {k: v[0] for k, v in resolved.items()}
 

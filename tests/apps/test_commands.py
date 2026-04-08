@@ -1198,11 +1198,26 @@ class TestFetchSnowAppsParameters:
             return_value=iter(
                 [
                     {"key": "DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE", "value": "MY_WH"},
-                    {"key": "DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL", "value": "MY_POOL"},
-                    {"key": "DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL", "value": "SVC_POOL"},
-                    {"key": "DEFAULT_SNOWFLAKE_APPS_BUILD_EXTERNAL_ACCESS_INTEGRATION", "value": "MY_EAI"},
-                    {"key": "DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE", "value": "MY_DB"},
-                    {"key": "DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA", "value": "MY_SCHEMA"},
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL",
+                        "value": "MY_POOL",
+                    },
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL",
+                        "value": "SVC_POOL",
+                    },
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_BUILD_EXTERNAL_ACCESS_INTEGRATION",
+                        "value": "MY_EAI",
+                    },
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE",
+                        "value": "MY_DB",
+                    },
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA",
+                        "value": "MY_SCHEMA",
+                    },
                 ]
             )
         )
@@ -1389,9 +1404,7 @@ class TestResolveDeployDefaults:
     @patch(FETCH_CONFIG_DEFAULTS, return_value={})
     @patch(CURRENT_ROLE, return_value="ENGINEER")
     @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
-    def test_parameters_fill_gaps(
-        self, mock_ctx, mock_role, mock_fetch, mock_params
-    ):
+    def test_parameters_fill_gaps(self, mock_ctx, mock_role, mock_fetch, mock_params):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
         entity = self._make_entity(database=None, schema=None)
