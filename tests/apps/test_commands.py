@@ -33,7 +33,9 @@ from snowflake.cli._plugins.apps.manager import (
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
+from snowflake.connector.errors import ProgrammingError
 
+from tests_common import change_directory
 from tests_common.feature_flag_utils import with_feature_flags
 
 EXECUTE_QUERY = "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.execute_query"
@@ -1062,6 +1064,42 @@ class TestSnowflakeAppManager:
         assert status == "IDLE"
 
     @patch(EXECUTE_QUERY)
+    def test_get_service_logs(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ("INFO: app started\nINFO: listening",)
+        mock_execute.return_value = cursor
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="MY_APP")
+        logs = SnowflakeAppManager().get_service_logs(fqn)
+        assert logs == "INFO: app started\nINFO: listening"
+        mock_execute.assert_called_once_with(
+            "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('DB.SCHEMA.MY_APP', 500)"
+        )
+
+    @patch(EXECUTE_QUERY)
+    def test_get_service_logs_custom_last(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ("line1\nline2",)
+        mock_execute.return_value = cursor
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="MY_APP")
+        logs = SnowflakeAppManager().get_service_logs(fqn, last=100)
+        assert logs == "line1\nline2"
+        mock_execute.assert_called_once_with(
+            "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('DB.SCHEMA.MY_APP', 100)"
+        )
+
+    @patch(EXECUTE_QUERY)
+    def test_get_service_logs_empty_result(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = None
+        mock_execute.return_value = cursor
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="MY_APP")
+        logs = SnowflakeAppManager().get_service_logs(fqn)
+        assert logs == ""
+
+    @patch(EXECUTE_QUERY)
     def test_get_service_endpoint_url(self, mock_execute):
         cursor = Mock()
         cursor.__iter__ = Mock(
@@ -1455,7 +1493,6 @@ class TestSetupCommand:
         mock_mgr.fetch_config_table_defaults.return_value = {"database": "CFG_DB"}
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
 
             with change_directory(tmp_path):
                 result = runner.invoke(["__app", "setup", "--app-name", "my_app"])
@@ -1482,7 +1519,6 @@ class TestSetupCommand:
         mock_mgr.current_role.return_value = None
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
 
             with change_directory(tmp_path):
                 result = runner.invoke(["__app", "setup", "--app-name", "my_app"])
@@ -1492,7 +1528,6 @@ class TestSetupCommand:
 
     def test_init_skips_when_file_exists(self, runner, tmp_path):
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
 
             (tmp_path / "snowflake.yml").write_text("existing content")
             with change_directory(tmp_path):
@@ -1577,7 +1612,6 @@ class TestBundleCommand:
         mock_perform_bundle.return_value = project_paths
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
 
             with change_directory(tmp_path):
                 result = runner.invoke(["__app", "bundle"])
@@ -1606,7 +1640,6 @@ class TestBundleCommand:
         mock_perform_bundle.return_value = project_paths
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
 
             with change_directory(tmp_path):
                 result = runner.invoke(["__app", "bundle", "--entity-id", "custom_app"])
@@ -1726,7 +1759,6 @@ class TestValidateCommand:
         mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
 
             with change_directory(tmp_path):
                 result = runner.invoke(["__app", "validate"])
@@ -1752,7 +1784,6 @@ class TestValidateCommand:
         mock_mgr.database_exists.return_value = False
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
 
             with change_directory(tmp_path):
                 result = runner.invoke(["__app", "validate"])
@@ -1778,7 +1809,6 @@ class TestValidateCommand:
         mock_mgr.schema_exists.return_value = False
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
 
             with change_directory(tmp_path):
                 result = runner.invoke(["__app", "validate"])
@@ -1812,7 +1842,6 @@ class TestValidateCommand:
         mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
 
             with change_directory(tmp_path):
                 result = runner.invoke(["__app", "validate"])
@@ -1847,7 +1876,6 @@ class TestValidateCommand:
         mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
 
             with change_directory(tmp_path):
                 result = runner.invoke(["__app", "validate"])
@@ -1883,7 +1911,6 @@ class TestValidateCommand:
         mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
 
             with change_directory(tmp_path):
                 result = runner.invoke(["__app", "validate"])
@@ -1919,7 +1946,6 @@ class TestValidateCommand:
         mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
 
             with change_directory(tmp_path):
                 result = runner.invoke(["__app", "validate"])
@@ -1955,7 +1981,6 @@ class TestValidateCommand:
         mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
 
             with change_directory(tmp_path):
                 result = runner.invoke(["__app", "validate"])
@@ -1984,7 +2009,6 @@ class TestValidateCommand:
         mock_perform_bundle.side_effect = CliError("bundle failed")
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
 
             with change_directory(tmp_path):
                 result = runner.invoke(["__app", "validate"])
@@ -2076,7 +2100,6 @@ class TestOpenCommand:
         )
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
 
             with change_directory(tmp_path):
                 result = runner.invoke(["__app", "open"])
@@ -2112,7 +2135,6 @@ class TestOpenCommand:
         )
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
 
             with change_directory(tmp_path):
                 result = runner.invoke(["__app", "open", "--print-only"])
@@ -2142,12 +2164,134 @@ class TestOpenCommand:
         mock_mgr.get_service_endpoint_url.return_value = None
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
 
             with change_directory(tmp_path):
                 result = runner.invoke(["__app", "open"])
                 assert result.exit_code == 1
                 assert "No endpoint URL found" in result.output
+
+
+# ── Events CLI command tests ──────────────────────────────────────────
+
+
+class TestEventsCommand:
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_events_returns_logs(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        entity.fqn = Mock(database="DB", schema="SCHEMA", name="MY_APP")
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.get_service_logs.return_value = "INFO: app started\nINFO: listening"
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "events"])
+                assert result.exit_code == 0, result.output
+                assert "app started" in result.output
+
+        mock_mgr.get_service_logs.assert_called_once()
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_events_with_entity_id(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        entity.fqn = Mock(database="DB", schema="SCHEMA", name="MY_APP")
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.get_service_logs.return_value = ""
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "events", "--entity-id", "custom_app"])
+                assert result.exit_code == 0, result.output
+                mock_resolve.assert_called_once_with("custom_app")
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_events_last_flag(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        entity.fqn = Mock(database="DB", schema="SCHEMA", name="MY_APP")
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.get_service_logs.return_value = "line1"
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "events", "--last", "100"])
+                assert result.exit_code == 0, result.output
+
+        mock_mgr.get_service_logs.assert_called_once()
+        _, kwargs = mock_mgr.get_service_logs.call_args
+        assert kwargs["last"] == 100
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_events_service_not_found(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        entity.fqn = Mock(database="DB", schema="SCHEMA", name="MY_APP")
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.get_service_logs.side_effect = ProgrammingError("does not exist")
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "events"])
+                assert result.exit_code == 1
+                assert "Could not retrieve logs" in result.output
+                assert "Verify that the app is deployed" in result.output
 
 
 # ── Deploy CLI command tests ──────────────────────────────────────────
@@ -2194,7 +2338,6 @@ class TestDeployCommand:
         mock_get_entity.return_value = entity
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
 
             with change_directory(tmp_path):
                 result = runner.invoke(["__app", "deploy"])
@@ -2255,7 +2398,6 @@ class TestDeployCommand:
         mock_poll.return_value = "https://my-app.snowflakecomputing.app"
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
 
             with change_directory(tmp_path):
                 result = runner.invoke(["__app", "deploy", "--skip-build"])
@@ -2304,7 +2446,6 @@ class TestDeployCommand:
         mock_get_entity.return_value = entity
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
 
             with change_directory(tmp_path):
                 result = runner.invoke(["__app", "deploy", "--skip-build"])
@@ -2347,7 +2488,6 @@ class TestDeployCommand:
         mock_get_entity.return_value = entity
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
 
             with change_directory(tmp_path):
                 result = runner.invoke(["__app", "deploy"])
@@ -2389,7 +2529,6 @@ class TestDeployCommand:
         mock_get_entity.return_value = entity
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
 
             with change_directory(tmp_path):
                 result = runner.invoke(["__app", "deploy"])
@@ -2468,7 +2607,6 @@ class TestDeployCommand:
         mock_poll.return_value = "https://my-app.snowflakecomputing.app"
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
 
             with change_directory(tmp_path):
                 result = runner.invoke(["__app", "deploy"])

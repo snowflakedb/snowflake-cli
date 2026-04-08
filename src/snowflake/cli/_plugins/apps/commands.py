@@ -40,6 +40,7 @@ from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import CommandResult, MessageResult
+from snowflake.connector.errors import ProgrammingError
 
 app = SnowTyperFactory(
     name=_APP_COMMAND_NAME,
@@ -241,6 +242,42 @@ def open_app(
     if not print_only:
         typer.launch(endpoint_url)
     return MessageResult(endpoint_url)
+
+
+@app.command(requires_connection=True)
+def events(
+    entity_id: Optional[str] = typer.Option(
+        None,
+        "--entity-id",
+        help="ID of the snowflake-app entity. Required if multiple snowflake-app entities exist.",
+    ),
+    last: int = typer.Option(
+        500,
+        "--last",
+        help="Number of log lines to retrieve. Default: 500. Note: output is capped at 100KB.",
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Fetches the recent log events from a deployed Snowflake App.
+    Output is capped at 100KB regardless of the number of lines requested.
+    """
+    resolved_entity_id = _resolve_entity_id(entity_id)
+    entity = _get_entity(resolved_entity_id)
+
+    fqn = entity.fqn
+    # Rebuild to a 3-part name; entity FQN may carry extra fields (e.g. prefix)
+    service_fqn = FQN(database=fqn.database, schema=fqn.schema, name=fqn.name)
+
+    manager = SnowflakeAppManager()
+    try:
+        logs = manager.get_service_logs(service_fqn, last=last)
+    except ProgrammingError:
+        raise ClickException(
+            f"Could not retrieve logs for '{service_fqn.identifier}'. "
+            "Verify that the app is deployed and the service is running."
+        )
+    return MessageResult(logs)
 
 
 @app.command(requires_connection=True)
