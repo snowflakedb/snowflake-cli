@@ -488,6 +488,12 @@ def deploy(
         help="Run only the deploy phase (assumes the container image has already been built). "
         "Skips the upload and build phases.",
     ),
+    keep_code_stage: bool = typer.Option(
+        False,
+        "--keep-code-stage",
+        help="Keep the code stage after the build completes. "
+        "By default the stage is dropped once the build finishes.",
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -629,66 +635,73 @@ def deploy(
     # ── Build phase ───────────────────────────────────────────────────
 
     if run_build:
-        if use_artifact_repo:
-            cli_console.step("Building app using artifact repository...")
-            build_result = manager.build_app_artifact_repo(
-                stage_fqn=stage_fqn,
-                artifact_repo_fqn=artifact_repo_fqn_str,
-                app_id=app_name,
-                compute_pool=build_compute_pool,
-                database=database,
-                schema=schema,
-                runtime_image=entity.runtime_image,
-                query_warehouse=query_warehouse,
-                build_eai=build_eai,
-            )
-            cli_console.step(
-                f"SPCS_TEST_BUILD_APP_ARTIFACT_REPO output:\n{build_result}"
-            )
-
-            match = re.search(r"Build job submitted:\s*(\S+)", build_result)
-            if not match:
-                raise CliError(
-                    f"Could not parse build job name from output: {build_result}"
+        try:
+            if use_artifact_repo:
+                cli_console.step("Building app using artifact repository...")
+                build_result = manager.build_app_artifact_repo(
+                    stage_fqn=stage_fqn,
+                    artifact_repo_fqn=artifact_repo_fqn_str,
+                    app_id=app_name,
+                    compute_pool=build_compute_pool,
+                    database=database,
+                    schema=schema,
+                    runtime_image=entity.runtime_image,
+                    query_warehouse=query_warehouse,
+                    build_eai=build_eai,
                 )
-            artifact_build_job_fqn = FQN.from_string(match.group(1))
-            cli_console.step(
-                f"Waiting for artifact repo build to complete: "
-                f"{artifact_build_job_fqn}..."
-            )
-            _poll_until(
-                poll_fn=lambda: manager.get_build_status(artifact_build_job_fqn),
-                done_states={"DONE"},
-                error_states={"FAILED", "IDLE"},
-                known_pending_states={"PENDING", "RUNNING"},
-                timeout_message=(
-                    f"Artifact repo build timed out. Check build logs:\n"
-                    f"  CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{app_name}')"
-                ),
-            )
-        else:
-            cli_console.step(f"Dropping service if exists: {build_job_fqn}")
-            manager.drop_service_if_exists(build_job_fqn)
+                cli_console.step(
+                    f"SPCS_TEST_BUILD_APP_ARTIFACT_REPO output:\n{build_result}"
+                )
 
-            cli_console.step(f"Executing build job service: {build_job_fqn}")
-            manager.execute_build_job(
-                job_service_name=build_job_fqn,
-                compute_pool=build_compute_pool,
-                code_stage=stage_fqn,
-                image_repo_url=image_repo_url,
-                app_id=app_name,
-                external_access_integration=build_eai,
-                build_image=entity.build_image,
-            )
+                match = re.search(r"Build job submitted:\s*(\S+)", build_result)
+                if not match:
+                    raise CliError(
+                        f"Could not parse build job name from output: {build_result}"
+                    )
+                artifact_build_job_fqn = FQN.from_string(match.group(1))
+                cli_console.step(
+                    f"Waiting for artifact repo build to complete: "
+                    f"{artifact_build_job_fqn}..."
+                )
+                _poll_until(
+                    poll_fn=lambda: manager.get_build_status(artifact_build_job_fqn),
+                    done_states={"DONE"},
+                    error_states={"FAILED", "IDLE"},
+                    known_pending_states={"PENDING", "RUNNING"},
+                    timeout_message=(
+                        f"Artifact repo build timed out. Check build logs:\n"
+                        f"  CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{app_name}')"
+                    ),
+                )
+            else:
+                cli_console.step(f"Dropping service if exists: {build_job_fqn}")
+                manager.drop_service_if_exists(build_job_fqn)
 
-            cli_console.step("Waiting for build to complete...")
-            _poll_until(
-                poll_fn=lambda: manager.get_build_status(build_job_fqn),
-                done_states={"DONE"},
-                error_states={"FAILED", "IDLE"},
-                known_pending_states={"PENDING", "RUNNING"},
-                timeout_message=f"Build timed out. Check service logs: {build_job_fqn}",
-            )
+                cli_console.step(f"Executing build job service: {build_job_fqn}")
+                manager.execute_build_job(
+                    job_service_name=build_job_fqn,
+                    compute_pool=build_compute_pool,
+                    code_stage=stage_fqn,
+                    image_repo_url=image_repo_url,
+                    app_id=app_name,
+                    external_access_integration=build_eai,
+                    build_image=entity.build_image,
+                )
+
+                cli_console.step("Waiting for build to complete...")
+                _poll_until(
+                    poll_fn=lambda: manager.get_build_status(build_job_fqn),
+                    done_states={"DONE"},
+                    error_states={"FAILED", "IDLE"},
+                    known_pending_states={"PENDING", "RUNNING"},
+                    timeout_message=(
+                        f"Build timed out. Check service logs: {build_job_fqn}"
+                    ),
+                )
+        finally:
+            if not keep_code_stage:
+                cli_console.step(f"Dropping stage @{stage_fqn}")
+                manager.drop_stage(stage_fqn)
 
     if build_only:
         return MessageResult("Build completed successfully.")
