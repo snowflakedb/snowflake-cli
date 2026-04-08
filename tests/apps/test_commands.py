@@ -42,10 +42,6 @@ EXECUTE_QUERY = "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.execute
 OBJECT_EXISTS = "snowflake.cli._plugins.apps.manager._object_exists"
 GET_CLI_CONTEXT = "snowflake.cli._plugins.apps.manager.get_cli_context"
 GET_ENV_USERNAME = "snowflake.cli._plugins.apps.commands.get_env_username"
-COMMANDS_GET_COMPUTE_POOL = "snowflake.cli._plugins.apps.commands._get_compute_pool"
-COMMANDS_GET_EXTERNAL_ACCESS = (
-    "snowflake.cli._plugins.apps.commands._get_external_access"
-)
 
 
 # ── Feature flag tests ────────────────────────────────────────────────
