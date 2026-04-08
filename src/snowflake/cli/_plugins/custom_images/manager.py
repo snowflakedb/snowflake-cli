@@ -14,12 +14,14 @@
 
 import json
 import subprocess
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
 import yaml
 from click import ClickException
+from snowflake.cli.api.sql_execution import SqlExecutionMixin
 
 _FAIL_SEVERITIES = {"high", "critical"}
 
@@ -115,10 +117,11 @@ class ValidationReport:
         self.results.append(result)
 
 
-class CustomImageManager:
+class CustomImageManager(SqlExecutionMixin):
     """Manager for custom image validation operations."""
 
     def __init__(self, config_path: Path):
+        super().__init__()
         self.config_path = config_path
         self.config = self._load_config(self.config_path)
         # Config-driven checks (controlled by image_validation.yaml)
@@ -559,6 +562,79 @@ class CustomImageManager:
             check_name="vulnerability_scan",
             passed=False,
             message=msg,
+        )
+
+
+    def _parse_image_path(self, registry: str) -> str:
+        """Strip the hostname from a registry URL to get the image path for CRE.
+
+        Example: 'host.snowflakecomputing.com/db/schema/repo/image:tag'
+                 -> '/db/schema/repo/image:tag'
+        """
+        slash_idx = registry.find("/")
+        if slash_idx == -1:
+            return registry
+        return registry[slash_idx:]
+
+    def register(
+        self,
+        image: str,
+        registry: str,
+        skip_validation: bool = False,
+        base_image_type: Optional[str] = None,
+        cre_name: Optional[str] = None,
+    ) -> str:
+        """Tag and push a local Docker image to an image registry, optionally creating a CRE.
+
+        Args:
+            image: Local Docker image name or hash.
+            registry: Full destination registry reference (e.g., host/db/schema/repo/image:tag).
+            skip_validation: If True, only push the image without creating a CRE.
+            base_image_type: Required when skip_validation is False. Used for CRE creation.
+            cre_name: Optional CRE name. Defaults to 'mlruntimes_<8-char-uuid>'.
+
+        Returns:
+            A success message string.
+        """
+        if not skip_validation and not base_image_type:
+            raise ClickException(
+                "--base-image-type is required when not using --skip-validation."
+            )
+
+        # Tag the local image with the registry destination
+        returncode, _, stderr = self._run_docker_command(
+            ["docker", "tag", image, registry]
+        )
+        if returncode != 0:
+            raise ClickException(
+                f"Failed to tag image '{image}' as '{registry}': {stderr}"
+            )
+
+        # Push the tagged image to the registry
+        returncode, _, stderr = self._run_docker_command(
+            ["docker", "push", registry], timeout=600
+        )
+        if returncode != 0:
+            raise ClickException(f"Failed to push image to '{registry}': {stderr}")
+
+        if skip_validation:
+            return f"Successfully pushed '{image}' to '{registry}'."
+
+        # Create the Custom Runtime Environment
+        if not cre_name:
+            cre_name = f"mlruntimes_{uuid.uuid4().hex[:8]}"
+
+        image_path = self._parse_image_path(registry)
+        sql = (
+            f"CREATE CUSTOM RUNTIME ENVIRONMENT {cre_name} "
+            f"IMAGE_PATH = '{image_path}' "
+            f"BASE_IMAGE_TYPE = {base_image_type}"
+        )
+        self.execute_query(sql)
+
+        return (
+            f"Successfully pushed '{image}' to '{registry}' "
+            f"and created Custom Runtime Environment '{cre_name}'."
         )
 
 
