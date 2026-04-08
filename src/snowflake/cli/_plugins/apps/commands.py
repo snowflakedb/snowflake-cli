@@ -701,7 +701,13 @@ def deploy(
         finally:
             if not keep_code_stage:
                 cli_console.step(f"Dropping stage @{stage_fqn}")
-                manager.drop_stage(stage_fqn)
+                try:
+                    manager.drop_stage(stage_fqn)
+                except Exception:
+                    cli_console.warning(
+                        f"Failed to drop stage @{stage_fqn}. "
+                        f"You may want to drop it manually."
+                    )
 
     if build_only:
         return MessageResult("Build completed successfully.")
