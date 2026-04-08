@@ -18,8 +18,6 @@ from typing import Dict
 # Feature flags
 IS_PERSONAL_DB_SUPPORTED = False  # Will be enabled in the future
 
-DEFAULT_SCHEMA = "SNOW_APPS"
-
 
 def _generate_snowflake_yml(
     app_id: str,
