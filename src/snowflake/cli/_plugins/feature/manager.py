@@ -196,6 +196,13 @@ class FeatureManager(SqlExecutionMixin):
         if not oft_name:
             return {"status": "error", "name": name, "error": f"{name}: not found in deployed feature views"}
 
+        # Find the SHOW row for metadata
+        show_row = None
+        for row in raw_show:
+            if row.get("name", "") == oft_name:
+                show_row = row
+                break
+
         try:
             sql = decl_api.describe_query(
                 oft_name, ctx.connection.database, ctx.connection.schema
@@ -257,11 +264,29 @@ class FeatureManager(SqlExecutionMixin):
             "name": name,
             "feature_view": fv_name.lower(),
             "version": version.lower(),
+            "database": ctx.connection.database,
+            "schema": ctx.connection.schema,
+            "oft_name": oft_name,
             "entities": pk_cols,
             "rows": desc_rows,
         }
         if examples:
             result["examples"] = examples
+
+        # Build rich formatted display
+        result["_display"] = decl_api.format_describe_display(
+            fv_name=fv_name.lower(),
+            version=version.lower(),
+            database=ctx.connection.database or "",
+            schema=ctx.connection.schema or "",
+            oft_name=oft_name,
+            entities=pk_cols,
+            describe_rows=desc_rows,
+            show_row=show_row,
+            spec=spec,
+            examples=examples,
+        )
+
         return result
 
     # ------------------------------------------------------------------
