@@ -2,7 +2,8 @@ import enum
 import io
 import re
 import urllib.error
-from dataclasses import dataclass
+import uuid
+from dataclasses import dataclass, field
 from typing import Any, Callable, Generator, List, Literal, Sequence, Tuple
 from urllib.request import urlopen
 
@@ -22,6 +23,103 @@ COMMAND_PATTERN = re.compile(
 URL_PATTERN = re.compile(r"^(\w+?):\/(\/.*)", flags=re.IGNORECASE)
 
 ASYNC_SUFFIX = ";>"
+
+
+# Regex that recognises SQL tokens whose contents must not be scanned for
+# comment syntax.  Alternatives are tried left-to-right:
+#   1. single-quoted string  'text' with '' escaping
+#   2. $$-dollar-quoted string
+#   3. opening of a block comment  /*  (content handled by depth-counting loop)
+#   4. line comment  -- …  (everything up to but not including the newline)
+_SQL_TOKEN_RE = re.compile(
+    r"""
+      '[^']*(?:''[^']*)*'          # single-quoted string ('' escape, no backslash)
+    | \$\$.*?\$\$                  # $$-dollar-quoted string
+    | (?P<block_start> /\* )       # block comment opening → depth-counted below
+    | (?P<line_comment> --[^\n]* ) # line comment text (newline NOT consumed)
+    """,
+    re.VERBOSE | re.DOTALL,
+)
+
+
+@dataclass
+class _SavedComments:
+    """Stores SQL comment text replaced by inert placeholders.
+
+    Placeholders contain a random nonce so they cannot collide with user SQL.
+    """
+
+    _comments: list = field(default_factory=list)
+    _nonce: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
+
+    def save(self, text: str) -> str:
+        """Replace *text* with a placeholder and remember the original."""
+        idx = len(self._comments)
+        self._comments.append(text)
+        return f"__SQLC_{self._nonce}_{idx}__"
+
+    def restore(self, sql: str) -> str:
+        """Put all saved comment texts back into *sql*."""
+        for i, comment in enumerate(self._comments):
+            sql = sql.replace(f"__SQLC_{self._nonce}_{i}__", comment)
+        return sql
+
+
+def _protect_sql_comments(sql: str) -> tuple[str, _SavedComments]:
+    """Replace SQL comments in *sql* with inert placeholders.
+
+    Returns ``(placeholder_sql, saved)`` where ``saved.restore(rendered)``
+    puts the original comment text back after Jinja has run.
+
+    Handles:
+    - ``--`` line comments
+    - ``/* … */`` block comments, including Snowflake-style **nested** block
+      comments (e.g. ``/* outer /* inner */ … */``)
+    - Single-quoted strings and ``$$``-dollar-quoted strings are skipped so
+      that comment-like syntax inside string literals is never mis-classified.
+
+    Used inside ``_jinja_pre_render`` so that Jinja-like syntax inside comments
+    (e.g. ``-- {{ var }}``) is not evaluated by Jinja.  Comment removal or
+    retention is then left entirely to ``split_statements(remove_comments=…)``.
+    """
+    saved = _SavedComments()
+    result: list[str] = []
+    pos = 0
+
+    while pos < len(sql):
+        m = _SQL_TOKEN_RE.search(sql, pos)
+        if m is None:
+            break
+
+        if m.group("line_comment"):
+            result.append(sql[pos : m.start()])
+            result.append(saved.save(m.group()))
+            pos = m.end()
+
+        elif m.group("block_start"):
+            # Depth-count to find the matching */ for nested block comments.
+            depth = 1
+            j = m.end()
+            while j < len(sql) and depth > 0:
+                if sql[j : j + 2] == "/*":
+                    depth += 1
+                    j += 2
+                elif sql[j : j + 2] == "*/":
+                    depth -= 1
+                    j += 2
+                else:
+                    j += 1
+            result.append(sql[pos : m.start()])
+            result.append(saved.save(sql[m.start() : j]))
+            pos = j
+
+        else:
+            # String literal — emit as-is and advance past it.
+            result.append(sql[pos : m.end()])
+            pos = m.end()
+
+    result.append(sql[pos:])
+    return "".join(result), saved
 
 
 SplitedStatements = Generator[
@@ -186,6 +284,7 @@ def recursive_statement_reader(
     seen_files: list,
     operators: OperatorFunctions,
     remove_comments: bool,
+    pre_render: SqlTransformFunc | None = None,
 ) -> RecursiveStatementReader:
     """Based on detected source command reads content of the source and tracks for recursion cycles."""
     for stmt, _ in source:
@@ -203,11 +302,16 @@ def recursive_statement_reader(
 
                 seen_files.append(parsed_source.source_path)
 
+                content = parsed_source.statement.read()
+                if pre_render:
+                    content = pre_render(content)
+
                 yield from recursive_statement_reader(
-                    split_statements(parsed_source.statement, remove_comments),
+                    split_statements(io.StringIO(content), remove_comments),
                     seen_files,
                     operators,
                     remove_comments,
+                    pre_render,
                 )
 
                 seen_files.pop()
@@ -224,18 +328,23 @@ def files_reader(
     paths: Sequence[SecurePath],
     operators: OperatorFunctions,
     remove_comments: bool = False,
+    pre_render: SqlTransformFunc | None = None,
 ) -> RecursiveStatementReader:
     """Entry point for reading statements from files.
 
     Returns a generator with statements."""
     for path in paths:
         with path.open(read_file_limit_mb=UNLIMITED) as f:
-            stmts = split_statements(io.StringIO(f.read()), remove_comments)
+            content = f.read()
+            if pre_render:
+                content = pre_render(content)
+            stmts = split_statements(io.StringIO(content), remove_comments)
             yield from recursive_statement_reader(
                 stmts,
                 [path.as_posix()],
                 operators,
                 remove_comments,
+                pre_render,
             )
 
 
@@ -243,6 +352,7 @@ def query_reader(
     source: str,
     operators: OperatorFunctions,
     remove_comments: bool = False,
+    pre_render: SqlTransformFunc | None = None,
 ) -> RecursiveStatementReader:
     """Entry point for reading statements from query.
 
@@ -251,8 +361,13 @@ def query_reader(
     # when the line starts with a command:
     # '!queries amount=3; select 3;'
     # it is treated as a single statement
-    stmts = split_statements(io.StringIO(source), remove_comments)
-    yield from recursive_statement_reader(stmts, [], operators, remove_comments)
+    content = source
+    if pre_render:
+        content = pre_render(content)
+    stmts = split_statements(io.StringIO(content), remove_comments)
+    yield from recursive_statement_reader(
+        stmts, [], operators, remove_comments, pre_render
+    )
 
 
 @dataclass

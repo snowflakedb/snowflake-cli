@@ -44,6 +44,7 @@
 * Fixed a bug with `snow dbt deploy` where dbt project would have files uploaded first and project properties updated afterwards. This could lead to failed deploys if for example project lacked external access integrations and dependencies were specified.
 * Changed how the fully qualified name for temporary stages is established for `snow dbt deploy`. The database and schema from the DBT Project object's fully qualified name take precedence over those from the session.
 * Fixed `snow stage copy` and `snow stage put` failing when a local directory path contains glob special characters (e.g. square brackets in `[id]` or `[slug]`). The path is now escaped before glob expansion so literal directory names are matched correctly.
+* Fixed Jinja block statements (`{% if %}`, `{% for %}`) containing semicolons being incorrectly split before rendering, causing `TemplateSyntaxError` when using `--enable-templating jinja`.
 
 # v3.15.0
 
