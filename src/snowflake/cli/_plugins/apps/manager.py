@@ -824,7 +824,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         compute_pool: str,
         database: str,
         schema: str,
-        runtime_image: str,
+        runtime_image: str = "",
         query_warehouse: Optional[str] = None,
         build_eai: Optional[str] = None,
         project_type: str = "nodejs",

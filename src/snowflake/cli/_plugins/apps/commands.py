@@ -757,7 +757,8 @@ def deploy(
             cli_console.step("Waiting for application service endpoint...")
             desc = _poll_until(
                 poll_fn=lambda: manager.describe_app_service(service_fqn),
-                is_done=lambda d: bool(d.get("url")),
+                is_done=lambda d: bool(d.get("url"))
+                and "provisioning in progress" not in d["url"].lower(),
                 is_error=_svc_has_failed,
                 format_status=lambda d: d.get("url") or "url not yet available",
                 timeout_message=(
