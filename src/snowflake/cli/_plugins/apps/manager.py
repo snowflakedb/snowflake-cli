@@ -504,10 +504,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
         """Clear all files from a stage."""
         self.execute_query(f"REMOVE @{stage_fqn.identifier}")
 
-    def drop_stage(self, stage_fqn: FQN) -> None:
-        """Drop a stage if it exists."""
-        self.execute_query(f"DROP STAGE IF EXISTS {stage_fqn.sql_identifier}")
-
     def create_stage(
         self, stage_fqn: FQN, encryption_type: str = "SNOWFLAKE_SSE"
     ) -> None:
