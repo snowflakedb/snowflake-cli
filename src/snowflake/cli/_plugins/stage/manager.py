@@ -255,8 +255,8 @@ class UserStagePathParts(StagePathParts):
 
 
 class StageManager(SqlExecutionMixin):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, connection=None):
+        super().__init__(connection=connection)
         self._python_exe_procedure = None
 
     def build_path(self, stage_path: Union[str, StagePath]) -> StagePath:

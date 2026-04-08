@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Collection, Dict, List, Optional, Tuple
@@ -24,12 +25,15 @@ from snowflake.cli.api.exceptions import (
     SnowflakeSQLExecutionError,
 )
 from snowflake.cli.api.project.util import unquote_identifier
+from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import DictCursor
 
 from .manager import StageManager, StagePathParts
 from .md5 import UnknownMD5FormatError, file_matches_md5sum
 
 log = logging.getLogger(__name__)
+
+DEFAULT_UPLOAD_CONCURRENCY = 4
 
 StagePathType = PurePosixPath  # alias PurePosixPath as StagePath for clarity
 
@@ -197,17 +201,94 @@ def to_local_path(stage_path: StagePathType) -> Path:
     return Path(*stage_path.parts)
 
 
+def _create_new_connection() -> SnowflakeConnection:
+    """
+    Creates a new SnowflakeConnection by cloning the current CLI connection context.
+    Must be called from the main thread where the CLI context ContextVar is set.
+    """
+    from snowflake.cli.api.cli_global_context import get_cli_context
+
+    connection_context = get_cli_context().connection_context.clone()
+    connection_context.validate_and_complete()
+    return connection_context.build_connection()
+
+
+def _put_single_file(
+    connection: SnowflakeConnection,
+    stage_root: str,
+    deploy_root_path: Path,
+    stage_path: StagePathType,
+    role: Optional[str],
+    overwrite: bool,
+) -> None:
+    """Uploads a single file using the provided connection. Intended for worker threads."""
+    stage_sub_path = get_stage_subpath(stage_path)
+    full_stage_path = f"{stage_root}/{stage_sub_path}" if stage_sub_path else stage_root
+    stage_manager = StageManager(connection=connection)
+    stage_manager.put(
+        local_path=deploy_root_path / to_local_path(stage_path),
+        stage_path=full_stage_path,
+        role=role,
+        overwrite=overwrite,
+    )
+
+
+def _delete_single_file(
+    connection: SnowflakeConnection,
+    stage_root: str,
+    stage_path: StagePathType,
+    role: Optional[str],
+) -> None:
+    """Deletes a single file using the provided connection. Intended for worker threads."""
+    stage_manager = StageManager(connection=connection)
+    stage_manager.remove(stage_name=stage_root, path=str(stage_path), role=role)
+
+
 def delete_only_on_stage_files(
     stage_manager: StageManager,
     stage_root: str,
     only_on_stage: List[StagePathType],
     role: Optional[str] = None,
+    connections: Optional[List[SnowflakeConnection]] = None,
 ):
     """
     Deletes all files from a Snowflake stage according to the input list of filenames, using a custom role.
+    When connections are provided, deletes are parallelized across the connection pool.
     """
-    for _stage_path in only_on_stage:
-        stage_manager.remove(stage_name=stage_root, path=str(_stage_path), role=role)
+    if not only_on_stage:
+        return
+
+    if connections and len(connections) > 1 and len(only_on_stage) > 1:
+        num_workers = min(len(connections), len(only_on_stage))
+        errors: List[Tuple[str, Exception]] = []
+
+        with ThreadPoolExecutor(max_workers=num_workers) as executor:
+            futures = {
+                executor.submit(
+                    _delete_single_file,
+                    connections[i % num_workers],
+                    stage_root,
+                    sp,
+                    role,
+                ): sp
+                for i, sp in enumerate(only_on_stage)
+            }
+            for future in as_completed(futures):
+                sp = futures[future]
+                try:
+                    future.result()
+                except Exception as exc:
+                    errors.append((str(sp), exc))
+
+        if errors:
+            failed_paths = [p for p, _ in errors]
+            log.error("Failed to delete %d file(s): %s", len(errors), failed_paths)
+            raise SnowflakeSQLExecutionError()
+    else:
+        for _stage_path in only_on_stage:
+            stage_manager.remove(
+                stage_name=stage_root, path=str(_stage_path), role=role
+            )
 
 
 def put_files_on_stage(
@@ -217,21 +298,55 @@ def put_files_on_stage(
     stage_paths: List[StagePathType],
     role: Optional[str] = None,
     overwrite: bool = False,
+    connections: Optional[List[SnowflakeConnection]] = None,
 ):
     """
     Uploads all files given input list of filenames on your local filesystem, to a Snowflake stage, using a custom role.
+    When connections are provided, uploads are parallelized across the connection pool.
     """
-    for _stage_path in stage_paths:
-        stage_sub_path = get_stage_subpath(_stage_path)
-        full_stage_path = (
-            f"{stage_root}/{stage_sub_path}" if stage_sub_path else stage_root
-        )
-        stage_manager.put(
-            local_path=deploy_root_path / to_local_path(_stage_path),
-            stage_path=full_stage_path,
-            role=role,
-            overwrite=overwrite,
-        )
+    if not stage_paths:
+        return
+
+    if connections and len(connections) > 1 and len(stage_paths) > 1:
+        num_workers = min(len(connections), len(stage_paths))
+        errors: List[Tuple[str, Exception]] = []
+
+        with ThreadPoolExecutor(max_workers=num_workers) as executor:
+            futures = {
+                executor.submit(
+                    _put_single_file,
+                    connections[i % num_workers],
+                    stage_root,
+                    deploy_root_path,
+                    sp,
+                    role,
+                    overwrite,
+                ): sp
+                for i, sp in enumerate(stage_paths)
+            }
+            for future in as_completed(futures):
+                sp = futures[future]
+                try:
+                    future.result()
+                except Exception as exc:
+                    errors.append((str(sp), exc))
+
+        if errors:
+            failed_paths = [p for p, _ in errors]
+            log.error("Failed to upload %d file(s): %s", len(errors), failed_paths)
+            raise SnowflakeSQLExecutionError()
+    else:
+        for _stage_path in stage_paths:
+            stage_sub_path = get_stage_subpath(_stage_path)
+            full_stage_path = (
+                f"{stage_root}/{stage_sub_path}" if stage_sub_path else stage_root
+            )
+            stage_manager.put(
+                local_path=deploy_root_path / to_local_path(_stage_path),
+                stage_path=full_stage_path,
+                role=role,
+                overwrite=overwrite,
+            )
 
 
 def sync_local_diff_with_stage(
@@ -240,6 +355,7 @@ def sync_local_diff_with_stage(
     diff_result: DiffResult,
     stage_full_path: str,
     force_overwrite: bool = False,
+    concurrency: int = DEFAULT_UPLOAD_CONCURRENCY,
 ):
     """
     Syncs a given local directory's contents with a Snowflake stage, including removing old files, and re-uploading modified and new files.
@@ -250,9 +366,25 @@ def sync_local_diff_with_stage(
         deploy_root_path,
     )
 
+    total_ops = (
+        len(diff_result.only_on_stage)
+        + len(diff_result.different)
+        + len(diff_result.only_local)
+    )
+    use_parallel = concurrency > 1 and total_ops > 1
+
+    connections: Optional[List[SnowflakeConnection]] = None
     try:
+        if use_parallel:
+            num_workers = min(concurrency, total_ops)
+            connections = [_create_new_connection() for _ in range(num_workers)]
+
         delete_only_on_stage_files(
-            stage_manager, stage_full_path, diff_result.only_on_stage, role
+            stage_manager,
+            stage_full_path,
+            diff_result.only_on_stage,
+            role,
+            connections=connections,
         )
         put_files_on_stage(
             stage_manager=stage_manager,
@@ -261,6 +393,7 @@ def sync_local_diff_with_stage(
             stage_paths=diff_result.different,
             role=role,
             overwrite=True,
+            connections=connections,
         )
         put_files_on_stage(
             stage_manager=stage_manager,
@@ -269,11 +402,19 @@ def sync_local_diff_with_stage(
             stage_paths=diff_result.only_local,
             role=role,
             overwrite=force_overwrite,
+            connections=connections,
         )
     except Exception as err:
         # Could be ProgrammingError or IntegrityError from SnowflakeCursor
         log.error(err)
         raise SnowflakeSQLExecutionError()
+    finally:
+        if connections:
+            for conn in connections:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
 
 
 def _to_src_dest_pair(

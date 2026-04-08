@@ -15,6 +15,7 @@ from snowflake.cli._plugins.stage.diff import (
     DiffResult,
     StagePathType,
     compute_stage_diff,
+    enumerate_files,
     preserve_from_diff,
     sync_local_diff_with_stage,
     to_stage_path,
@@ -142,15 +143,23 @@ def sync_deploy_root_with_stage(
             sql_facade.create_stage(stage_fqn, temporary=use_temporary_stage)
 
     # Perform a diff operation and display results to the user for informational purposes
-    if print_diff and not use_temporary_stage:
-        console.step(
-            f"Performing a diff between the Snowflake stage: {stage_path_parts.path} and your local deploy_root: {deploy_root.resolve()}."
+    if use_temporary_stage:
+        # Temporary stage was just created and is empty - all local files are new.
+        # Skip the LS @stage + MD5 diff computation which would be a no-op.
+        local_files = enumerate_files(deploy_root)
+        diff = DiffResult(
+            only_local=[to_stage_path(f.relative_to(deploy_root)) for f in local_files]
         )
+    else:
+        if print_diff:
+            console.step(
+                f"Performing a diff between the Snowflake stage: {stage_path_parts.path} and your local deploy_root: {deploy_root.resolve()}."
+            )
 
-    diff: DiffResult = compute_stage_diff(
-        local_root=deploy_root,
-        stage_path=stage_path_parts,
-    )
+        diff = compute_stage_diff(
+            local_root=deploy_root,
+            stage_path=stage_path_parts,
+        )
 
     if local_paths_to_sync:
         # Deploying specific files/directories
