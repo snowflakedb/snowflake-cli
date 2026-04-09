@@ -459,3 +459,36 @@ def generate_jwt(
         return MessageResult(token)
     except (ValueError, TypeError) as err:
         raise ClickException(str(err))
+
+
+@app.command(requires_connection=True)
+def generate_workload_identity_token(
+    **options,
+) -> CommandResult:
+    """Generate a workload identity token, which will be printed out and displayed."""
+    from snowflake.connector.wif_util import AttestationProvider, create_attestation
+
+    connection_details = get_cli_context().connection_context.update_from_config()
+
+    if not connection_details.workload_identity_provider:
+        raise UsageError(
+            "Workload identity provider is not set in the connection context, "
+            "but required for workload identity token generation."
+        )
+
+    provider = AttestationProvider.from_string(
+        connection_details.workload_identity_provider
+    )
+
+    token = None
+    if provider == AttestationProvider.OIDC:
+        if connection_details.token:
+            token = connection_details.token
+        elif connection_details.token_file_path:
+            token = Path(connection_details.token_file_path).read_text().strip()
+
+    try:
+        attestation = create_attestation(provider=provider, token=token)
+        return MessageResult(attestation.credential)
+    except Exception as err:
+        raise ClickException(str(err))
