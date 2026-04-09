@@ -35,7 +35,7 @@ def _callback():
     pass
 
 
-@app.command(requires_connection=False)
+@app.command(requires_connection=True)
 def validate(
     image: str = typer.Argument(
         ...,

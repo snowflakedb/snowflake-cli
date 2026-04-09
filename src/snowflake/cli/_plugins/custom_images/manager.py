@@ -20,6 +20,8 @@ from typing import Any, Optional
 
 import yaml
 from click import ClickException
+from snowflake.cli._plugins.custom_images.metrics import CustomImageCounterField
+from snowflake.cli.api.cli_global_context import get_cli_context
 
 _FAIL_SEVERITIES = {"high", "critical"}
 
@@ -180,6 +182,38 @@ class CustomImageManager:
             pass
         return None
 
+    def _record_validate_metrics(self, report: ValidationReport) -> None:
+        """Record validation failure rate and failure reasons as CLI metrics."""
+        metrics = get_cli_context().metrics
+        metrics.set_counter(CustomImageCounterField.CUSTOM_IMAGE_VALIDATE, 1)
+
+        # Map check_name prefixes to their failure counter fields
+        check_counters = {
+            "image_exists": CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_IMAGE_NOT_FOUND,
+            "entrypoint": CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_ENTRYPOINT,
+            "env_": CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_ENV_VARS,
+            "pkg_": CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_PYTHON_PACKAGES,
+            "dependency_health": CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_DEPENDENCY_HEALTH,
+            "script_": CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_REQUIRED_SCRIPTS,
+        }
+
+        # Initialize all failure counters to 0 (check ran, no failure)
+        for counter in check_counters.values():
+            metrics.set_counter_default(counter, 0)
+
+        overall_failed = False
+        for result in report.results:
+            if not result.passed:
+                overall_failed = True
+                for prefix, counter in check_counters.items():
+                    if result.check_name.startswith(prefix):
+                        metrics.set_counter(counter, 1)
+                        break
+
+        metrics.set_counter(
+            CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAILED, int(overall_failed)
+        )
+
     def validate(
         self, image: str, scan_vulnerabilities: bool = False
     ) -> tuple[ValidationReport, str]:
@@ -203,6 +237,7 @@ class CustomImageManager:
                     message=f"Image '{image}' not found. Please ensure the image exists locally.",
                 )
             )
+            self._record_validate_metrics(report)
             return report, format_report(report)
 
         report.add_result(
@@ -225,6 +260,7 @@ class CustomImageManager:
             # Stop early if entrypoint check fails (file missing or mismatch)
             # Entrypoint is fundamental - other checks are irrelevant if it's wrong
             if not entrypoint_result.passed:
+                self._record_validate_metrics(report)
                 return report, format_report(report)
 
         for check_name, handler in self._check_handlers.items():
@@ -270,6 +306,7 @@ class CustomImageManager:
         if common_passed and notebook_all_passed:
             readiness.append("Notebooks")
 
+        self._record_validate_metrics(report)
         return report, format_report(report, readiness)
 
     def _check_entrypoint(
