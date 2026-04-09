@@ -5054,7 +5054,8 @@
                                                                                   
    Usage: root connection generate-workload-identity-token [OPTIONS]              
                                                                                   
-   Generate a workload identity token, which will be printed out and displayed.   
+   Generate a workload identity token for authenticating to Snowflake via a WIF   
+   provider (AWS, GCP, Azure, or OIDC). The token is printed to stdout.           
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -5468,8 +5469,10 @@
   | add                                Adds a connection to configuration file.  |
   | generate-jwt                       Generate a JWT token, which will be       |
   |                                    printed out and displayed..               |
-  | generate-workload-identity-token   Generate a workload identity token, which |
-  |                                    will be printed out and displayed.        |
+  | generate-workload-identity-token   Generate a workload identity token for    |
+  |                                    authenticating to Snowflake via a WIF     |
+  |                                    provider (AWS, GCP, Azure, or OIDC). The  |
+  |                                    token is printed to stdout.               |
   | list                               Lists configured connections.             |
   | remove                             Removes a connection from configuration   |
   |                                    file.                                     |
@@ -23988,8 +23991,10 @@
   | add                                Adds a connection to configuration file.  |
   | generate-jwt                       Generate a JWT token, which will be       |
   |                                    printed out and displayed..               |
-  | generate-workload-identity-token   Generate a workload identity token, which |
-  |                                    will be printed out and displayed.        |
+  | generate-workload-identity-token   Generate a workload identity token for    |
+  |                                    authenticating to Snowflake via a WIF     |
+  |                                    provider (AWS, GCP, Azure, or OIDC). The  |
+  |                                    token is printed to stdout.               |
   | list                               Lists configured connections.             |
   | remove                             Removes a connection from configuration   |
   |                                    file.                                     |
