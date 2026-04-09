@@ -177,6 +177,9 @@ def test_get_all_connections(test_snowcli_config):
             "private_key_file": "/private/key",
             "user": "jdoe",
         },
+        "wif": {
+            "workload_identity_provider": "GCP",
+        },
     }
 
 
