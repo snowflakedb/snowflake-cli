@@ -313,26 +313,46 @@ def deploy(
         "--entity-id",
         help="ID of the snowflake-app entity to deploy. Required if multiple snowflake-app entities exist.",
     ),
-    skip_build: bool = typer.Option(
+    upload_only: bool = typer.Option(
         False,
-        "--skip-build",
-        help="Skip the build phase and go straight to deploying the service. "
-        "Assumes the container image has already been built.",
+        "--upload-only",
+        help="Bundle and upload source artifacts to the stage, then stop. "
+        "Skips the build and deploy phases.",
+    ),
+    build_only: bool = typer.Option(
+        False,
+        "--build-only",
+        help="Run only the build phase (assumes artifacts have already been uploaded). "
+        "Skips the upload and deploy phases.",
+    ),
+    deploy_only: bool = typer.Option(
+        False,
+        "--deploy-only",
+        help="Run only the deploy phase (assumes the container image has already been built). "
+        "Skips the upload and build phases.",
     ),
     **options,
 ) -> CommandResult:
     """
     Builds and deploys a Snowflake App.
 
-    Uploads source artifacts, builds a container image, creates (or updates)
-    a service, and waits for it to become ready.
+    The deploy pipeline has three phases: upload, build, and deploy.
+    By default all three phases run in sequence. Use --upload-only,
+    --build-only, or --deploy-only to run a single phase.
 
     If --entity-id is not specified and the project contains exactly one snowflake-app
     entity, that entity will be used automatically.
-
-    Use --skip-build to skip the build phase and redeploy using the existing
-    container image (e.g. after a configuration-only change).
     """
+    phase_flags = sum((upload_only, build_only, deploy_only))
+    if phase_flags > 1:
+        raise ClickException(
+            "Only one of --upload-only, --build-only, or --deploy-only "
+            "may be specified."
+        )
+
+    run_upload = not build_only and not deploy_only
+    run_build = not upload_only and not deploy_only
+    run_deploy = not upload_only and not build_only
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 
@@ -388,21 +408,21 @@ def deploy(
         artifact_repo_fqn_str = f"{ar_database}.{ar_schema}.{ar.name}"
 
     # ── Validate required configuration ───────────────────────────────
-    if not skip_build and not build_compute_pool:
+    if run_build and not build_compute_pool:
         raise CliError(
-            "build_compute_pool is required for deploy. "
+            "build_compute_pool is required for the build phase. "
             "Please configure it in snowflake.yml."
         )
 
-    if not service_compute_pool:
+    if run_deploy and not service_compute_pool:
         raise CliError(
-            "service_compute_pool is required for deploy. "
+            "service_compute_pool is required for the deploy phase. "
             "Please configure it in snowflake.yml."
         )
 
-    if not use_artifact_repo and not query_warehouse:
+    if run_deploy and not use_artifact_repo and not query_warehouse:
         raise CliError(
-            "query_warehouse is required for deploy. "
+            "query_warehouse is required for the deploy phase. "
             "Please configure it in snowflake.yml."
         )
 
@@ -413,18 +433,17 @@ def deploy(
     service_fqn = FQN(database=database, schema=schema, name=app_name)
 
     stage_manager = StageManager()
+    image_repo_url = None
 
-    if not use_artifact_repo:
+    if (run_build or run_deploy) and not use_artifact_repo:
         cli_console.step(f"Getting image repository URL for {image_repository}")
         image_repo_url = manager.get_image_repo_url(
             image_repository, database=image_repo_database, schema=image_repo_schema
         )
 
-    # ── Build phase ───────────────────────────────────────────────────
+    # ── Upload phase ──────────────────────────────────────────────────
 
-    if skip_build:
-        cli_console.step("Skipping build phase (--skip-build)")
-    else:
+    if run_upload:
         if manager.stage_exists(stage_fqn):
             cli_console.step(f"Clearing existing stage @{stage_fqn}")
             manager.clear_stage(stage_fqn)
@@ -447,6 +466,12 @@ def deploy(
         finally:
             project_paths.clean_up_output()
 
+    if upload_only:
+        return MessageResult(f"Artifacts uploaded to @{stage_fqn}")
+
+    # ── Build phase ───────────────────────────────────────────────────
+
+    if run_build:
         if use_artifact_repo:
             cli_console.step("Building app using artifact repository...")
             build_result = manager.build_app_artifact_repo(
@@ -509,6 +534,9 @@ def deploy(
                 timeout_message=f"Build timed out. Check service logs: {build_job_fqn}",
             )
 
+    if build_only:
+        return MessageResult("Build completed successfully.")
+
     # ── Deploy phase ──────────────────────────────────────────────────
 
     if use_artifact_repo:
@@ -527,6 +555,7 @@ def deploy(
         )
         cli_console.step(f"SPCS_TEST_RUN_APP_ARTIFACT_REPO output:\n{run_result}")
     else:
+        assert image_repo_url is not None
         repo_path = "/" + "/".join(image_repo_url.split("/")[1:])
         image_url = f"{repo_path}/{app_name.lower()}:latest"
 

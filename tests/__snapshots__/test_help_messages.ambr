@@ -98,23 +98,27 @@
                                                                                   
    Builds and deploys a Snowflake App.                                            
                                                                                   
-   Uploads source artifacts, builds a container image, creates (or updates) a     
-   service, and waits for it to become ready.                                     
+   The deploy pipeline has three phases: upload, build, and deploy. By default    
+   all three phases run in sequence. Use --upload-only, --build-only, or          
+   --deploy-only to run a single phase.                                           
                                                                                   
    If --entity-id is not specified and the project contains exactly one           
    snowflake-app entity, that entity will be used automatically.                  
                                                                                   
-   Use --skip-build to skip the build phase and redeploy using the existing       
-   container image (e.g. after a configuration-only change).                      
-                                                                                  
   +- Options --------------------------------------------------------------------+
-  | --entity-id           TEXT  ID of the snowflake-app entity to deploy.        |
-  |                             Required if multiple snowflake-app entities      |
-  |                             exist.                                           |
-  | --skip-build                Skip the build phase and go straight to          |
-  |                             deploying the service. Assumes the container     |
-  |                             image has already been built.                    |
-  | --help        -h            Show this message and exit.                      |
+  | --entity-id            TEXT  ID of the snowflake-app entity to deploy.       |
+  |                              Required if multiple snowflake-app entities     |
+  |                              exist.                                          |
+  | --upload-only                Bundle and upload source artifacts to the       |
+  |                              stage, then stop. Skips the build and deploy    |
+  |                              phases.                                         |
+  | --build-only                 Run only the build phase (assumes artifacts     |
+  |                              have already been uploaded). Skips the upload   |
+  |                              and deploy phases.                              |
+  | --deploy-only                Run only the deploy phase (assumes the          |
+  |                              container image has already been built). Skips  |
+  |                              the upload and build phases.                    |
+  | --help         -h            Show this message and exit.                     |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
