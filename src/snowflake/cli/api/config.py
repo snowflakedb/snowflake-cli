@@ -552,7 +552,10 @@ def _enforce_strict_config_permissions() -> bool:
     env_var = get_env_variable_name(
         *FEATURE_FLAGS_SECTION_PATH, key="ENFORCE_STRICT_CONFIG_PERMISSIONS"
     )
-    return os.environ.get(env_var, "").lower() in ("true", "1", "yes", "on")
+    try:
+        return try_cast_to_bool(os.environ.get(env_var, "").lower())
+    except ValueError:
+        return False
 
 
 def get_feature_flags_section() -> Dict[str, bool | Literal["UNKNOWN"]]:
