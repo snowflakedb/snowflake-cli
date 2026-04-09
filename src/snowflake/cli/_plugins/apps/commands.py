@@ -19,7 +19,10 @@ from typing import Optional
 
 import typer
 from click import ClickException
-from snowflake.cli._plugins.apps.generate import _generate_snowflake_yml
+from snowflake.cli._plugins.apps.generate import (
+    IS_PERSONAL_DB_SUPPORTED,
+    _generate_snowflake_yml,
+)
 from snowflake.cli._plugins.apps.manager import (
     _APP_COMMAND_NAME,
     DEFINITION_FILENAME,
@@ -36,12 +39,18 @@ from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.config import get_connection_dict, get_default_connection_name
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.output.types import CommandResult, MessageResult
-from snowflake.cli.api.project.util import identifier_for_url
+from snowflake.cli.api.output.types import (
+    CommandResult,
+    EmptyResult,
+    MessageResult,
+    ObjectResult,
+)
+from snowflake.cli.api.project.util import get_env_username, identifier_for_url
 from snowflake.connector.errors import ProgrammingError
 
 app = SnowTyperFactory(
@@ -58,6 +67,21 @@ def setup(
         "--app-name",
         help="Name of the Snowflake App to initialize.",
     ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Only print the resolved configuration values without writing snowflake.yml.",
+    ),
+    compute_pool: Optional[str] = typer.Option(
+        None,
+        "--compute-pool",
+        help="Compute pool for building and running the app.",
+    ),
+    build_eai: Optional[str] = typer.Option(
+        None,
+        "--build-eai",
+        help="External access integration used during the app build.",
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -71,27 +95,92 @@ def setup(
         )
 
     project_file = Path.cwd() / DEFINITION_FILENAME
-    if project_file.exists():
+    if not dry_run and project_file.exists():
         return MessageResult(
             f"{DEFINITION_FILENAME} already exists. Skipping initialization."
         )
 
     ctx = get_cli_context()
-    ctx.connection_context.validate_and_complete()
-    ctx.connection_context.update_from_config()
-    warehouse = ctx.connection_context.warehouse
-    database = ctx.connection_context.database
+    connection_name = (
+        ctx.connection_context.connection_name or get_default_connection_name()
+    )
+    conn_config = get_connection_dict(connection_name)
 
     manager = SnowflakeAppManager()
-    config_overrides = {}
+    config_table = {}
     role = manager.current_role()
     if role:
-        config_overrides = manager.fetch_config_table_defaults(role)
+        config_table = manager.fetch_config_table_defaults(role)
 
-    project_file.write_text(
-        _generate_snowflake_yml(app_name, warehouse, database, config_overrides)
-    )
-    return MessageResult(f"Initialized Snowflake App project in {DEFINITION_FILENAME}.")
+    def _resolve(flag_val, config_key, conn_key=None, builtin=None):
+        """Return (value, source) using: flag > account default > connection config > builtin."""
+        if flag_val is not None:
+            return flag_val, "flag"
+        table_val = config_table.get(config_key)
+        if table_val:
+            return table_val, "account default"
+        if conn_key is not None:
+            # ctx.connection_context is only populated (without update_from_config) when
+            # the user explicitly passed the flag on the CLI, so this signals "flag" provenance.
+            ctx_val = getattr(ctx.connection_context, conn_key, None)
+            if ctx_val:
+                return ctx_val, "flag"
+            conn_val = conn_config.get(conn_key)
+            if conn_val:
+                return conn_val, "connection config"
+        if builtin is not None:
+            return builtin, "default"
+        return None, "missing"
+
+    if IS_PERSONAL_DB_SUPPORTED:
+        database_resolved = (f"USER${get_env_username().upper()}", "personal db")
+    else:
+        database_resolved = _resolve(None, "database", conn_key="database")
+
+    resolved = {
+        "database": database_resolved,
+        "schema": _resolve(None, "schema", conn_key="schema"),
+        "warehouse": _resolve(None, "warehouse", conn_key="warehouse"),
+        "compute_pool": _resolve(compute_pool, "compute_pool"),
+        "build_eai": _resolve(build_eai, "eai"),
+    }
+
+    img_repo = _resolve(None, "image_repository")
+    if img_repo[0]:
+        resolved["image_repository"] = img_repo
+
+    # Validate: fail on ALL missing required values at once
+    required_keys = ["database", "warehouse", "compute_pool", "build_eai"]
+    missing = [key for key in required_keys if not resolved[key][0]]
+    if missing:
+        flag_map = {
+            "database": "--database",
+            "warehouse": "--warehouse",
+            "compute_pool": "--compute-pool",
+            "build_eai": "--build-eai",
+        }
+        flags = ", ".join(flag_map[k] for k in missing)
+        raise ClickException(
+            f"Missing required value(s): {', '.join(missing)}. "
+            f"Pass them using: {flags}"
+        )
+
+    resolved_values = {k: v[0] for k, v in resolved.items()}
+
+    if not dry_run:
+        project_file.write_text(_generate_snowflake_yml(app_name, resolved_values))
+
+    is_json = get_cli_context().output_format.is_json
+    if is_json:
+        return ObjectResult({"success": not dry_run, **resolved_values})
+
+    if dry_run:
+        cli_console.step("Dry run — resolved configuration:")
+    else:
+        cli_console.step(f"Initialized Snowflake App project in {DEFINITION_FILENAME}.")
+    for key, (value, source) in resolved.items():
+        cli_console.step(f"  {key}: {value}  ({source})")
+    return EmptyResult()
 
 
 @app.command()

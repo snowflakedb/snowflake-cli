@@ -41,7 +41,7 @@ from tests_common.feature_flag_utils import with_feature_flags
 EXECUTE_QUERY = "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.execute_query"
 OBJECT_EXISTS = "snowflake.cli._plugins.apps.manager._object_exists"
 GET_CLI_CONTEXT = "snowflake.cli._plugins.apps.manager.get_cli_context"
-GET_ENV_USERNAME = "snowflake.cli._plugins.apps.generate.get_env_username"
+GET_ENV_USERNAME = "snowflake.cli._plugins.apps.commands.get_env_username"
 
 
 # ── Feature flag tests ────────────────────────────────────────────────
@@ -338,116 +338,53 @@ class TestPollUntilStateSetMode:
 
 
 class TestGenerateSnowflakeYml:
-    @patch(OBJECT_EXISTS, return_value=False)
-    @patch(GET_ENV_USERNAME, return_value="testuser")
-    def test_generates_yml_no_compute_pool_no_eai(self, mock_user, mock_exists):
-        result = _generate_snowflake_yml("my_app", "TEST_WH", "TEST_DB")
+    _BASE_RESOLVED = {
+        "database": "TEST_DB",
+        "schema": "SNOW_APPS",
+        "warehouse": "TEST_WH",
+        "compute_pool": "MY_POOL",
+        "build_eai": "MY_EAI",
+    }
+
+    def test_generates_yml_with_all_required_values(self):
+        result = _generate_snowflake_yml("my_app", self._BASE_RESOLVED)
         assert "type: snowflake-app" in result
         assert "name: MY_APP" in result
         assert "database: TEST_DB" in result
         assert "schema: SNOW_APPS" in result
         assert "query_warehouse: TEST_WH" in result
-        assert "build_compute_pool:" in result
-        assert "name: null" in result
+        assert "name: MY_POOL" in result
+        assert "name: MY_EAI" in result
         assert "name: MY_APP_CODE" in result
-        assert "artifact_repository" not in result
         assert "image_repository" not in result
 
-    @patch(OBJECT_EXISTS, return_value=True)
-    @patch(GET_ENV_USERNAME, return_value="testuser")
-    def test_generates_yml_with_compute_pool_and_eai(self, mock_user, mock_exists):
-        result = _generate_snowflake_yml("my_app", "TEST_WH", "TEST_DB")
-        assert "name: SNOW_APPS_DEFAULT_COMPUTE_POOL" in result
-        assert "name: SNOW_APPS_DEFAULT_EXTERNAL_ACCESS" in result
+    def test_no_null_values_in_output(self):
+        result = _generate_snowflake_yml("my_app", self._BASE_RESOLVED)
+        assert "null" not in result
 
-    @patch(OBJECT_EXISTS, return_value=False)
-    @patch(GET_ENV_USERNAME, return_value="testuser")
-    def test_generates_yml_default_database_template(self, mock_user, mock_exists):
-        result = _generate_snowflake_yml("my_app", "TEST_WH")
-        assert "database: null" in result
-
-    @patch(OBJECT_EXISTS, return_value=False)
-    @patch(GET_ENV_USERNAME, return_value="testuser")
-    def test_generates_yml_default_warehouse_none(self, mock_user, mock_exists):
-        result = _generate_snowflake_yml("my_app", None, "TEST_DB")
-        assert "query_warehouse: null" in result
-
-    @patch(OBJECT_EXISTS, return_value=False)
-    @patch(GET_ENV_USERNAME, return_value="testuser")
-    def test_config_overrides_fill_missing_database(self, mock_user, mock_exists):
-        result = _generate_snowflake_yml(
-            "my_app", "TEST_WH", config_overrides={"database": "CFG_DB"}
-        )
-        assert "database: CFG_DB" in result
-
-    @patch(OBJECT_EXISTS, return_value=False)
-    @patch(GET_ENV_USERNAME, return_value="testuser")
-    def test_config_overrides_fill_missing_warehouse(self, mock_user, mock_exists):
-        result = _generate_snowflake_yml(
-            "my_app", None, config_overrides={"warehouse": "CFG_WH"}
-        )
-        assert "query_warehouse: CFG_WH" in result
-
-    @patch(OBJECT_EXISTS, return_value=False)
-    @patch(GET_ENV_USERNAME, return_value="testuser")
-    def test_explicit_values_beat_config_overrides(self, mock_user, mock_exists):
-        result = _generate_snowflake_yml(
-            "my_app",
-            "EXPLICIT_WH",
-            "EXPLICIT_DB",
-            config_overrides={"warehouse": "CFG_WH", "database": "CFG_DB"},
-        )
-        assert "database: EXPLICIT_DB" in result
-        assert "query_warehouse: EXPLICIT_WH" in result
-
-    @patch(OBJECT_EXISTS, return_value=False)
-    @patch(GET_ENV_USERNAME, return_value="testuser")
-    def test_config_overrides_compute_pool_beats_builtin(self, mock_user, mock_exists):
-        result = _generate_snowflake_yml(
-            "my_app", "WH", "DB", config_overrides={"compute_pool": "CFG_POOL"}
-        )
-        assert "name: CFG_POOL" in result
-
-    @patch(OBJECT_EXISTS, return_value=False)
-    @patch(GET_ENV_USERNAME, return_value="testuser")
-    def test_config_overrides_schema(self, mock_user, mock_exists):
-        result = _generate_snowflake_yml(
-            "my_app", "WH", "DB", config_overrides={"schema": "CFG_SCHEMA"}
-        )
-        assert "schema: CFG_SCHEMA" in result
-
-    @patch(OBJECT_EXISTS, return_value=False)
-    @patch(GET_ENV_USERNAME, return_value="testuser")
-    def test_repos_omitted_without_config_overrides(self, mock_user, mock_exists):
-        result = _generate_snowflake_yml("my_app", "WH", "DB")
-        assert "artifact_repository" not in result
-        assert "image_repository" not in result
-
-    @patch(OBJECT_EXISTS, return_value=False)
-    @patch(GET_ENV_USERNAME, return_value="testuser")
-    def test_config_overrides_set_image_repo(self, mock_user, mock_exists):
-        result = _generate_snowflake_yml(
-            "my_app",
-            "WH",
-            "DB",
-            config_overrides={
-                "image_repository": "MY_IR",
-            },
-        )
+    def test_includes_image_repository_when_provided(self):
+        resolved = {**self._BASE_RESOLVED, "image_repository": "MY_IR"}
+        result = _generate_snowflake_yml("my_app", resolved)
         assert "image_repository:" in result
         assert "name: MY_IR" in result
 
-    @patch(OBJECT_EXISTS, return_value=False)
-    @patch(GET_ENV_USERNAME, return_value="testuser")
-    def test_generated_yml_is_valid_project_definition(self, mock_user, mock_exists):
+    def test_omits_image_repository_when_not_provided(self):
+        result = _generate_snowflake_yml("my_app", self._BASE_RESOLVED)
+        assert "image_repository" not in result
+
+    def test_custom_schema(self):
+        resolved = {**self._BASE_RESOLVED, "schema": "CFG_SCHEMA"}
+        result = _generate_snowflake_yml("my_app", resolved)
+        assert "schema: CFG_SCHEMA" in result
+
+    def test_generated_yml_is_valid_project_definition(self):
         """Generated YAML is parsable and produces a valid project definition."""
         import yaml
         from snowflake.cli.api.utils.definition_rendering import (
             render_definition_template,
         )
 
-        # Use concrete values (no template placeholders) so parsing succeeds
-        raw_yml = _generate_snowflake_yml("my_app", "TEST_WH", "TEST_DB")
+        raw_yml = _generate_snowflake_yml("my_app", self._BASE_RESOLVED)
         definition_input = yaml.safe_load(raw_yml)
 
         result = render_definition_template(definition_input, {})
@@ -1490,7 +1427,12 @@ class TestSetupCommand:
     def test_init_creates_file(self, mock_mgr_cls, mock_gen, runner, tmp_path):
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.current_role.return_value = "TEST_ROLE"
-        mock_mgr.fetch_config_table_defaults.return_value = {"database": "CFG_DB"}
+        mock_mgr.fetch_config_table_defaults.return_value = {
+            "database": "CFG_DB",
+            "warehouse": "CFG_WH",
+            "compute_pool": "CFG_POOL",
+            "eai": "CFG_EAI",
+        }
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
 
@@ -1502,10 +1444,40 @@ class TestSetupCommand:
 
         mock_mgr.current_role.assert_called_once()
         mock_mgr.fetch_config_table_defaults.assert_called_once_with("TEST_ROLE")
-        call_kwargs = mock_gen.call_args
-        assert call_kwargs[1].get("config_overrides") == {"database": "CFG_DB"} or (
-            len(call_kwargs[0]) >= 4 and call_kwargs[0][3] == {"database": "CFG_DB"}
-        )
+        resolved = mock_gen.call_args[0][1]
+        assert resolved["database"] == "CFG_DB"
+        assert resolved["warehouse"] == "CFG_WH"
+        assert resolved["compute_pool"] == "CFG_POOL"
+        assert resolved["build_eai"] == "CFG_EAI"
+
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
+        return_value="definition_version: '2'\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_config_table_beats_connection(
+        self, mock_mgr_cls, mock_gen, runner, tmp_path
+    ):
+        """Config table values should have higher priority than connection values."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.current_role.return_value = "TEST_ROLE"
+        mock_mgr.fetch_config_table_defaults.return_value = {
+            "database": "CFG_DB",
+            "warehouse": "CFG_WH",
+            "compute_pool": "CFG_POOL",
+            "eai": "CFG_EAI",
+        }
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "setup", "--app-name", "my_app"])
+                assert result.exit_code == 0, result.output
+
+        resolved = mock_gen.call_args[0][1]
+        assert resolved["database"] == "CFG_DB"
+        assert resolved["warehouse"] == "CFG_WH"
 
     @patch(
         "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
@@ -1521,7 +1493,18 @@ class TestSetupCommand:
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
 
             with change_directory(tmp_path):
-                result = runner.invoke(["__app", "setup", "--app-name", "my_app"])
+                result = runner.invoke(
+                    [
+                        "__app",
+                        "setup",
+                        "--app-name",
+                        "my_app",
+                        "--compute-pool",
+                        "MY_POOL",
+                        "--build-eai",
+                        "MY_EAI",
+                    ]
+                )
                 assert result.exit_code == 0, result.output
 
         mock_mgr.fetch_config_table_defaults.assert_not_called()
@@ -1534,6 +1517,146 @@ class TestSetupCommand:
                 result = runner.invoke(["__app", "setup", "--app-name", "my_app"])
                 assert result.exit_code == 0, result.output
                 assert "already exists" in result.output
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_fails_on_all_missing_values(self, mock_mgr_cls, runner, tmp_path):
+        """Validation should report ALL missing values, not just the first."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.current_role.return_value = None
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "setup", "--app-name", "my_app"])
+                assert result.exit_code == 1
+                assert "compute_pool" in result.output
+                assert "build_eai" in result.output
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_dry_run_does_not_create_file(self, mock_mgr_cls, runner, tmp_path):
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.current_role.return_value = "TEST_ROLE"
+        mock_mgr.fetch_config_table_defaults.return_value = {
+            "database": "CFG_DB",
+            "warehouse": "CFG_WH",
+            "compute_pool": "CFG_POOL",
+            "eai": "CFG_EAI",
+        }
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(
+                    ["__app", "setup", "--app-name", "my_app", "--dry-run"]
+                )
+                assert result.exit_code == 0, result.output
+                assert not (tmp_path / "snowflake.yml").exists()
+                assert "CFG_DB" in result.output
+                assert "CFG_WH" in result.output
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_dry_run_json_output(self, mock_mgr_cls, runner, tmp_path):
+        import json as json_mod
+
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.current_role.return_value = "TEST_ROLE"
+        mock_mgr.fetch_config_table_defaults.return_value = {
+            "database": "CFG_DB",
+            "warehouse": "CFG_WH",
+            "compute_pool": "CFG_POOL",
+            "eai": "CFG_EAI",
+        }
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(
+                    [
+                        "__app",
+                        "setup",
+                        "--app-name",
+                        "my_app",
+                        "--dry-run",
+                        "--format",
+                        "json",
+                    ]
+                )
+                assert result.exit_code == 0, result.output
+                parsed = json_mod.loads(result.output)
+                assert parsed["success"] is False
+                assert parsed["database"] == "CFG_DB"
+                assert parsed["warehouse"] == "CFG_WH"
+                assert parsed["compute_pool"] == "CFG_POOL"
+                assert parsed["build_eai"] == "CFG_EAI"
+
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
+        return_value="definition_version: '2'\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_success_json_includes_resolved_values(
+        self, mock_mgr_cls, mock_gen, runner, tmp_path
+    ):
+        import json as json_mod
+
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.current_role.return_value = "TEST_ROLE"
+        mock_mgr.fetch_config_table_defaults.return_value = {
+            "database": "CFG_DB",
+            "warehouse": "CFG_WH",
+            "compute_pool": "CFG_POOL",
+            "eai": "CFG_EAI",
+        }
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(
+                    [
+                        "__app",
+                        "setup",
+                        "--app-name",
+                        "my_app",
+                        "--format",
+                        "json",
+                    ]
+                )
+                assert result.exit_code == 0, result.output
+                parsed = json_mod.loads(result.output)
+                assert parsed["success"] is True
+                assert parsed["database"] == "CFG_DB"
+                assert parsed["warehouse"] == "CFG_WH"
+
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
+        return_value="definition_version: '2'\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_success_prints_resolved_values_in_default_format(
+        self, mock_mgr_cls, mock_gen, runner, tmp_path
+    ):
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.current_role.return_value = "TEST_ROLE"
+        mock_mgr.fetch_config_table_defaults.return_value = {
+            "database": "CFG_DB",
+            "warehouse": "CFG_WH",
+            "compute_pool": "CFG_POOL",
+            "eai": "CFG_EAI",
+        }
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "setup", "--app-name", "my_app"])
+                assert result.exit_code == 0, result.output
+                assert "database: CFG_DB" in result.output
+                assert "warehouse: CFG_WH" in result.output
+                assert "compute_pool: CFG_POOL" in result.output
 
 
 # ── perform_bundle tests ──────────────────────────────────────────────
