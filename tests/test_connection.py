@@ -372,6 +372,14 @@ def test_lists_connection_information(mock_get_default_conn_name, runner):
                 "workload_identity_provider": "GCP",
             },
         },
+        {
+            "connection_name": "wif_oidc",
+            "is_default": False,
+            "parameters": {
+                "workload_identity_provider": "OIDC",
+                "token": "****",
+            },
+        },
     ]
 
 
@@ -491,6 +499,14 @@ def test_connection_list_does_not_print_too_many_env_variables(
             "is_default": False,
             "parameters": {
                 "workload_identity_provider": "GCP",
+            },
+        },
+        {
+            "connection_name": "wif_oidc",
+            "is_default": False,
+            "parameters": {
+                "workload_identity_provider": "OIDC",
+                "token": "****",
             },
         },
     ]
@@ -1485,6 +1501,11 @@ def test_generate_workload_identity_token_uses_config(mock_create_attestation, r
 
     assert result.exit_code == 0, result.output
     assert "test-wif-token" in result.output
+    from snowflake.connector.wif_util import AttestationProvider
+
+    mock_create_attestation.assert_called_once_with(
+        provider=AttestationProvider.GCP, token=None
+    )
 
 
 def test_generate_workload_identity_token_missing_provider(runner):
@@ -1550,10 +1571,50 @@ def test_generate_workload_identity_token_oidc_with_token(
 
 
 @mock.patch("snowflake.connector.wif_util.create_attestation")
+def test_generate_workload_identity_token_oidc_with_config_token(
+    mock_create_attestation, runner
+):
+    mock_create_attestation.return_value = mock.MagicMock(
+        credential="oidc-config-token"
+    )
+
+    result = runner.invoke(
+        [
+            "connection",
+            "generate-workload-identity-token",
+            "--connection",
+            "wif_oidc",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "oidc-config-token" in result.output
+    from snowflake.connector.wif_util import AttestationProvider
+
+    mock_create_attestation.assert_called_once_with(
+        provider=AttestationProvider.OIDC, token="my-oidc-config-token"
+    )
+
+
+def test_generate_workload_identity_token_oidc_missing_token(runner):
+    result = runner.invoke(
+        [
+            "connection",
+            "generate-workload-identity-token",
+            "--workload-identity-provider",
+            "OIDC",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "OIDC provider requires a token" in result.output
+
+
+@mock.patch("snowflake.connector.wif_util.create_attestation")
 def test_generate_workload_identity_token_error_handling(
     mock_create_attestation, runner
 ):
-    mock_create_attestation.side_effect = Exception("No AWS credentials were found.")
+    mock_create_attestation.side_effect = ValueError("No AWS credentials were found.")
 
     result = runner.invoke(
         [

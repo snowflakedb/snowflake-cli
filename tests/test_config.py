@@ -180,6 +180,10 @@ def test_get_all_connections(test_snowcli_config):
         "wif": {
             "workload_identity_provider": "GCP",
         },
+        "wif_oidc": {
+            "workload_identity_provider": "OIDC",
+            "token": "my-oidc-config-token",
+        },
     }
 
 
