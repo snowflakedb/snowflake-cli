@@ -763,7 +763,7 @@ def deploy(
                 format_status=lambda d: d.get("url") or "url not yet available",
                 timeout_message=(
                     f"Endpoint provisioning timed out. "
-                    f"Check: DESCRIBE APPLICATION SERVICE {app_name}"
+                    f"Check: DESCRIBE APPLICATION SERVICE {service_fqn.identifier}"
                 ),
             )
 
