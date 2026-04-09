@@ -159,6 +159,11 @@ class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
 
     app_port: int = Field(title="Port the app listens on", default=DEFAULT_APP_PORT)
 
+    runtime_image: str = Field(
+        title="Runtime image used by SPCS artifact repo build/run",
+        default="/snowflake/images/snowflake_images/spcs-runtimes/app:1.0.2",
+    )
+
     build_image: Optional[str] = Field(
         title="Custom container image for building the app",
         default=None,
