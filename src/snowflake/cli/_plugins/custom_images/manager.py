@@ -564,7 +564,6 @@ class CustomImageManager(SqlExecutionMixin):
             message=msg,
         )
 
-
     def _parse_image_path(self, registry: str) -> str:
         """Strip the hostname from a registry URL to get the image path for CRE.
 
