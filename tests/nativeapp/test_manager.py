@@ -168,6 +168,7 @@ def test_sync_deploy_root_with_stage(
         diff_result=mock_diff_result,
         stage_full_path="app_pkg.app_src.stage",
         force_overwrite=False,
+        concurrency=4,
     )
 
 
@@ -233,6 +234,7 @@ def test_sync_deploy_root_with_stage_subdir(
         diff_result=mock_diff_result,
         stage_full_path=stage_full_path,
         force_overwrite=False,
+        concurrency=4,
     )
 
 

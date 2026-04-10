@@ -12,6 +12,7 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
 from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.utils import verify_exists, verify_no_directories
 from snowflake.cli._plugins.stage.diff import (
+    DEFAULT_UPLOAD_CONCURRENCY,
     DiffResult,
     StagePathType,
     compute_stage_diff,
@@ -221,6 +222,9 @@ def sync_deploy_root_with_stage(
             diff_result=diff,
             stage_full_path=stage_path_parts.full_path,
             force_overwrite=force_overwrite,
+            # Temporary stages are session-scoped, so parallel connections
+            # (which are separate sessions) cannot access them.
+            concurrency=1 if use_temporary_stage else DEFAULT_UPLOAD_CONCURRENCY,
         )
     return diff
 
