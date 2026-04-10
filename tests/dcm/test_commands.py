@@ -4,6 +4,10 @@ from typing import Any
 from unittest import mock
 
 import pytest
+from snowflake.cli._plugins.dcm.commands import (
+    _validate_account_identifier,
+    _validate_project_owner,
+)
 from snowflake.cli._plugins.dcm.models import DCMManifest
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.utils.path_utils import change_directory
@@ -77,6 +81,12 @@ def mock_project_exists():
         yield _fixture
 
 
+_DEFAULT_TARGET_FIELDS = {
+    "account_identifier": "MY_ORG-MY_ACCOUNT",
+    "project_owner": "MY_ROLE",
+}
+
+
 class TestDCMCreate:
     def test_create(
         self, mock_dcm_manager, mock_object_manager, runner, project_directory
@@ -127,7 +137,9 @@ class TestDCMCreate:
             {
                 "manifest_version": 2,
                 "type": "dcm_project",
-                "targets": {"dev": {"project_name": "my_project"}},
+                "targets": {
+                    "dev": {"project_name": "my_project", **_DEFAULT_TARGET_FIELDS}
+                },
             }
         )
 
@@ -140,6 +152,22 @@ class TestDCMCreate:
         )
 
 
+@pytest.fixture(autouse=True)
+def mock_validate_account_identifier():
+    with mock.patch(
+        "snowflake.cli._plugins.dcm.commands._validate_account_identifier"
+    ) as _fixture:
+        yield _fixture
+
+
+@pytest.fixture(autouse=True)
+def mock_validate_project_owner():
+    with mock.patch(
+        "snowflake.cli._plugins.dcm.commands._validate_project_owner"
+    ) as _fixture:
+        yield _fixture
+
+
 def _manifest_without_config():
     """Helper to create a manifest with target that has no templating_config."""
     return DCMManifest.from_dict(
@@ -147,7 +175,7 @@ def _manifest_without_config():
             "manifest_version": 2,
             "type": "dcm_project",
             "default_target": "dev",
-            "targets": {"dev": {"project_name": "ignored"}},
+            "targets": {"dev": {"project_name": "ignored", **_DEFAULT_TARGET_FIELDS}},
         }
     )
 
@@ -320,7 +348,9 @@ class TestDCMDeploy:
                 "manifest_version": 2,
                 "type": "dcm_project",
                 "default_target": "dev",
-                "targets": {"dev": {"project_name": "my_project"}},
+                "targets": {
+                    "dev": {"project_name": "my_project", **_DEFAULT_TARGET_FIELDS}
+                },
             }
         )
 
@@ -355,7 +385,9 @@ class TestDCMDeploy:
                 "manifest_version": 2,
                 "type": "dcm_project",
                 "default_target": "dev",
-                "targets": {"dev": {"project_name": "my_project"}},
+                "targets": {
+                    "dev": {"project_name": "my_project", **_DEFAULT_TARGET_FIELDS}
+                },
             }
         )
 
@@ -396,6 +428,7 @@ class TestDCMDeploy:
                     "dev": {
                         "project_name": "target_project",
                         "templating_config": "dev_config",
+                        **_DEFAULT_TARGET_FIELDS,
                     }
                 },
                 "templating": {"configurations": {"dev_config": {}}},
@@ -439,6 +472,7 @@ class TestDCMDeploy:
                     "dev": {
                         "project_name": "my_project",
                         "templating_config": "dev_config",
+                        **_DEFAULT_TARGET_FIELDS,
                     }
                 },
                 "templating": {"configurations": {"dev_config": {}}},
@@ -633,7 +667,9 @@ class TestDCMPurge:
                 "manifest_version": 2,
                 "type": "dcm_project",
                 "default_target": "dev",
-                "targets": {"dev": {"project_name": "my_project"}},
+                "targets": {
+                    "dev": {"project_name": "my_project", **_DEFAULT_TARGET_FIELDS}
+                },
             }
         )
 
@@ -1101,7 +1137,9 @@ class TestDCMRawAnalyze:
                 "manifest_version": 2,
                 "type": "dcm_project",
                 "default_target": "dev",
-                "targets": {"dev": {"project_name": "my_project"}},
+                "targets": {
+                    "dev": {"project_name": "my_project", **_DEFAULT_TARGET_FIELDS}
+                },
             }
         )
 
@@ -1135,7 +1173,9 @@ class TestDCMRawAnalyze:
                 "manifest_version": 2,
                 "type": "dcm_project",
                 "default_target": "dev",
-                "targets": {"dev": {"project_name": "my_project"}},
+                "targets": {
+                    "dev": {"project_name": "my_project", **_DEFAULT_TARGET_FIELDS}
+                },
             }
         )
 
@@ -1175,6 +1215,7 @@ class TestDCMRawAnalyze:
                     "dev": {
                         "project_name": "target_project",
                         "templating_config": "dev_config",
+                        **_DEFAULT_TARGET_FIELDS,
                     }
                 },
                 "templating": {"configurations": {"dev_config": {}}},
@@ -1473,7 +1514,9 @@ class TestDCMListDeployments:
             {
                 "manifest_version": 2,
                 "type": "dcm_project",
-                "targets": {"dev": {"project_name": "my_project"}},
+                "targets": {
+                    "dev": {"project_name": "my_project", **_DEFAULT_TARGET_FIELDS}
+                },
             }
         )
 
@@ -1579,7 +1622,9 @@ class TestDCMDrop:
             {
                 "manifest_version": 2,
                 "type": "dcm_project",
-                "targets": {"dev": {"project_name": "my_project"}},
+                "targets": {
+                    "dev": {"project_name": "my_project", **_DEFAULT_TARGET_FIELDS}
+                },
             }
         )
 
@@ -1636,7 +1681,9 @@ class TestDCMDescribe:
             {
                 "manifest_version": 2,
                 "type": "dcm_project",
-                "targets": {"dev": {"project_name": "my_project"}},
+                "targets": {
+                    "dev": {"project_name": "my_project", **_DEFAULT_TARGET_FIELDS}
+                },
             }
         )
 
@@ -1852,7 +1899,9 @@ class TestDCMRefresh:
             {
                 "manifest_version": 2,
                 "type": "dcm_project",
-                "targets": {"dev": {"project_name": "my_project"}},
+                "targets": {
+                    "dev": {"project_name": "my_project", **_DEFAULT_TARGET_FIELDS}
+                },
             }
         )
 
@@ -2008,7 +2057,9 @@ class TestDCMTest:
             {
                 "manifest_version": 2,
                 "type": "dcm_project",
-                "targets": {"dev": {"project_name": "my_project"}},
+                "targets": {
+                    "dev": {"project_name": "my_project", **_DEFAULT_TARGET_FIELDS}
+                },
             }
         )
 
@@ -2072,3 +2123,301 @@ class TestDCMTest:
         assert result.exit_code == 0, result.output
         payload = json.loads(result.output)
         _assert_format_result(payload, test_result, format_name)
+
+
+class TestDCMAccountIdentifierValidation:
+    def test_create_calls_validate_account_identifier(
+        self,
+        mock_dcm_manager,
+        mock_object_manager,
+        mock_validate_account_identifier,
+        runner,
+        project_directory,
+    ):
+        mock_object_manager().object_exists.return_value = False
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "create", "my_project"])
+
+        assert result.exit_code == 0, result.output
+        mock_validate_account_identifier.assert_called_once()
+
+    def test_deploy_calls_validate_account_identifier(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        mock_validate_account_identifier,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_dcm_manager().deploy.return_value = mock_cursor(
+            rows=[("[]",)], columns=("operations",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "deploy", "fooBar"])
+
+        assert result.exit_code == 0, result.output
+        mock_validate_account_identifier.assert_called_once()
+
+    def test_no_validation_without_manifest(
+        self,
+        mock_dcm_manager,
+        mock_object_manager,
+        mock_validate_account_identifier,
+        runner,
+    ):
+        mock_object_manager().object_exists.return_value = False
+        result = runner.invoke(["dcm", "create", "my_project"])
+
+        assert result.exit_code == 0, result.output
+        mock_validate_account_identifier.assert_not_called()
+
+
+class TestDCMProjectOwnerValidation:
+    def test_create_calls_validate_project_owner(
+        self,
+        mock_dcm_manager,
+        mock_object_manager,
+        mock_validate_project_owner,
+        runner,
+        project_directory,
+    ):
+        mock_object_manager().object_exists.return_value = False
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "create", "my_project"])
+
+        assert result.exit_code == 0, result.output
+        mock_validate_project_owner.assert_called_once()
+
+    def test_deploy_calls_validate_project_owner(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        mock_validate_project_owner,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_dcm_manager().deploy.return_value = mock_cursor(
+            rows=[("[]",)], columns=("operations",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "deploy", "fooBar"])
+
+        assert result.exit_code == 0, result.output
+        mock_validate_project_owner.assert_called_once()
+
+    def test_describe_does_not_call_validate_project_owner(
+        self,
+        mock_validate_project_owner,
+        mock_connect,
+        runner,
+    ):
+        runner.invoke(["dcm", "describe", "my_project"])
+
+        mock_validate_project_owner.assert_not_called()
+
+
+class TestValidateAccountIdentifierLogic:
+    @mock.patch(
+        "snowflake.cli._plugins.dcm.commands.get_account_identifier",
+        return_value="MY_ORG-MY_ACCOUNT",
+    )
+    @mock.patch("snowflake.cli._plugins.dcm.commands.get_cli_context")
+    def test_matching_account_passes(self, mock_ctx, mock_get_id):
+        from snowflake.cli._plugins.dcm.models import DCMTarget
+
+        target = DCMTarget(
+            name="DEV",
+            project_name="P1",
+            account_identifier="MY_ORG-MY_ACCOUNT",
+            project_owner="MY_ROLE",
+        )
+        _validate_account_identifier(target)
+
+    @mock.patch(
+        "snowflake.cli._plugins.dcm.commands.get_account_identifier",
+        return_value="OTHER_ORG-OTHER_ACCOUNT",
+    )
+    @mock.patch("snowflake.cli._plugins.dcm.commands.get_cli_context")
+    def test_mismatching_account_raises(self, mock_ctx, mock_get_id):
+        from snowflake.cli._plugins.dcm.models import DCMTarget
+        from snowflake.cli.api.exceptions import CliError
+
+        target = DCMTarget(
+            name="DEV",
+            project_name="P1",
+            account_identifier="MY_ORG-MY_ACCOUNT",
+            project_owner="MY_ROLE",
+        )
+        with pytest.raises(CliError, match="Account mismatch"):
+            _validate_account_identifier(target)
+
+
+class TestValidateProjectOwnerLogic:
+    @mock.patch(
+        "snowflake.cli._plugins.dcm.commands.SqlExecutor",
+    )
+    def test_matching_role_passes(self, mock_executor_cls):
+        from snowflake.cli._plugins.dcm.models import DCMTarget
+
+        mock_executor_cls().current_role.return_value = "MY_ROLE"
+        target = DCMTarget(
+            name="DEV",
+            project_name="P1",
+            account_identifier="MY_ORG-MY_ACCOUNT",
+            project_owner="MY_ROLE",
+        )
+        _validate_project_owner(target)
+
+    @mock.patch(
+        "snowflake.cli._plugins.dcm.commands.SqlExecutor",
+    )
+    def test_matching_role_case_insensitive(self, mock_executor_cls):
+        from snowflake.cli._plugins.dcm.models import DCMTarget
+
+        mock_executor_cls().current_role.return_value = "my_role"
+        target = DCMTarget(
+            name="DEV",
+            project_name="P1",
+            account_identifier="MY_ORG-MY_ACCOUNT",
+            project_owner="MY_ROLE",
+        )
+        _validate_project_owner(target)
+
+    @mock.patch(
+        "snowflake.cli._plugins.dcm.commands.SqlExecutor",
+    )
+    def test_mismatching_role_raises(self, mock_executor_cls):
+        from snowflake.cli._plugins.dcm.models import DCMTarget
+        from snowflake.cli.api.exceptions import CliError
+
+        mock_executor_cls().current_role.return_value = "ADMIN_ROLE"
+        target = DCMTarget(
+            name="DEV",
+            project_name="P1",
+            account_identifier="MY_ORG-MY_ACCOUNT",
+            project_owner="FINANCE_ROLE",
+        )
+        with pytest.raises(CliError, match="Role mismatch"):
+            _validate_project_owner(target)
+
+    @mock.patch(
+        "snowflake.cli._plugins.dcm.commands.SqlExecutor",
+    )
+    def test_current_role_none_does_not_raise(self, mock_executor_cls):
+        from snowflake.cli._plugins.dcm.models import DCMTarget
+
+        mock_executor_cls().current_role.return_value = None
+        target = DCMTarget(
+            name="DEV",
+            project_name="P1",
+            account_identifier="MY_ORG-MY_ACCOUNT",
+            project_owner="MY_ROLE",
+        )
+        _validate_project_owner(target)
+
+
+class TestProjectOwnerNotValidatedForReadCommands:
+    def test_raw_analyze_does_not_validate_project_owner(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        mock_validate_project_owner,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
+            rows=[('{"files": []}',)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            runner.invoke(["dcm", "raw-analyze", "my_project"])
+
+        mock_validate_project_owner.assert_not_called()
+
+    def test_preview_does_not_validate_project_owner(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        mock_validate_project_owner,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_dcm_manager().preview.return_value = mock_cursor(rows=[], columns=("col",))
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            runner.invoke(["dcm", "preview", "my_project", "--object", "MY_TABLE"])
+
+        mock_validate_project_owner.assert_not_called()
+
+    def test_drop_does_not_validate_project_owner(
+        self,
+        mock_validate_project_owner,
+        mock_connect,
+        runner,
+    ):
+        runner.invoke(["dcm", "drop", "my_project", "--if-exists"])
+
+        mock_validate_project_owner.assert_not_called()
+
+    def test_list_deployments_does_not_validate_project_owner(
+        self,
+        mock_dcm_manager,
+        mock_validate_project_owner,
+        mock_connect,
+        runner,
+    ):
+        mock_dcm_manager().list_deployments.return_value = mock.MagicMock()
+
+        runner.invoke(["dcm", "list-deployments", "my_project"])
+
+        mock_validate_project_owner.assert_not_called()
+
+    def test_refresh_does_not_validate_project_owner(
+        self,
+        mock_dcm_manager,
+        mock_validate_project_owner,
+        mock_cursor,
+        mock_connect,
+        runner,
+    ):
+        mock_dcm_manager().refresh.return_value = mock_cursor(
+            rows=[('{"tables": []}',)], columns=("result",)
+        )
+
+        runner.invoke(["dcm", "refresh", "my_project"])
+
+        mock_validate_project_owner.assert_not_called()
+
+    def test_test_does_not_validate_project_owner(
+        self,
+        mock_dcm_manager,
+        mock_validate_project_owner,
+        mock_cursor,
+        mock_connect,
+        runner,
+    ):
+        mock_dcm_manager().test.return_value = mock_cursor(
+            rows=[('{"expectations": []}',)], columns=("result",)
+        )
+
+        runner.invoke(["dcm", "test", "my_project"])
+
+        mock_validate_project_owner.assert_not_called()

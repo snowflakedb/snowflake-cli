@@ -193,6 +193,15 @@ def get_account(conn: SnowflakeConnection) -> str:
         raise MissingConnectionAccountError(conn)
 
 
+def get_account_identifier(conn: SnowflakeConnection) -> str:
+    *_, cursor = conn.execute_string(
+        "SELECT CURRENT_ORGANIZATION_NAME()", cursor_class=DictCursor
+    )
+    org_name = cursor.fetchone()["CURRENT_ORGANIZATION_NAME()"]
+    account_name = get_account(conn)
+    return f"{org_name}-{account_name}".upper()
+
+
 def get_snowsight_host(conn: SnowflakeConnection) -> str:
     try:
         *_, cursor = conn.execute_string(

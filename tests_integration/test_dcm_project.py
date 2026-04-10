@@ -16,6 +16,8 @@ import json
 import os
 from pathlib import Path
 
+import yaml
+
 import pytest
 
 from typing import Set, Optional, Tuple
@@ -922,3 +924,59 @@ def test_dcm_purge(
             f"SHOW TABLES LIKE 'PurgeTestTable' IN SCHEMA {test_database}.PUBLIC"
         )
         assert len(rows) == 0
+
+
+def _current_account_id(snowflake_session) -> str:
+    *_, cursor = snowflake_session.execute_string("SELECT CURRENT_ORGANIZATION_NAME()")
+    org_name = cursor.fetchone()[0]
+    *_, cursor = snowflake_session.execute_string("SELECT CURRENT_ACCOUNT_NAME()")
+    account_name = cursor.fetchone()[0]
+    return f"{org_name}-{account_name}".upper()
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_dcm_account_identifier_validation(runner, project_directory):
+    with project_directory("dcm_project") as project_root:
+        manifest = {
+            "manifest_version": 2,
+            "type": "dcm_project",
+            "default_target": "dev",
+            "targets": {
+                "dev": {
+                    "project_name": "my_project",
+                    "account_identifier": "WRONG_ORG-WRONG_ACCOUNT",
+                    "project_owner": "SYSADMIN",
+                }
+            },
+        }
+        (project_root / "manifest.yml").write_text(yaml.dump(manifest))
+
+        result = runner.invoke_with_connection(["dcm", "create", "--target", "dev"])
+        assert result.exit_code == 1
+        assert "Account mismatch" in result.output
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_dcm_project_owner_validation(runner, project_directory, snowflake_session):
+    with project_directory("dcm_project") as project_root:
+        account_id = _current_account_id(snowflake_session)
+
+        manifest = {
+            "manifest_version": 2,
+            "type": "dcm_project",
+            "default_target": "dev",
+            "targets": {
+                "dev": {
+                    "project_name": "my_project",
+                    "account_identifier": account_id,
+                    "project_owner": "NONEXISTENT_ROLE_XYZ",
+                }
+            },
+        }
+        (project_root / "manifest.yml").write_text(yaml.dump(manifest))
+
+        result = runner.invoke_with_connection(["dcm", "create", "--target", "dev"])
+        assert result.exit_code == 1
+        assert "Role mismatch" in result.output

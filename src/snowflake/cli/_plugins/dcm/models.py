@@ -56,14 +56,20 @@ class DCMTarget:
 
     name: str
     project_name: str
+    account_identifier: str
+    project_owner: str
     templating_config: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "DCMTarget":
         templating_config = data.get("templating_config")
+        account_identifier = data.get("account_identifier", "")
+        project_owner = data.get("project_owner", "")
         return cls(
             name=data.get("name", "").upper(),
             project_name=data.get("project_name", ""),
+            account_identifier=account_identifier.upper() if account_identifier else "",
+            project_owner=project_owner.upper() if project_owner else "",
             templating_config=templating_config.upper() if templating_config else None,
         )
 
@@ -170,6 +176,19 @@ class DCMManifest:
                 f"Target '{target.name}' references unknown configuration '{target.templating_config}'."
             )
 
+    def _validate_target_required_fields(self, target: DCMTarget):
+        missing = []
+        if not target.project_name:
+            missing.append("project_name")
+        if not target.account_identifier:
+            missing.append("account_identifier")
+        if not target.project_owner:
+            missing.append("project_owner")
+        if missing:
+            raise ManifestConfigurationError(
+                f"Target '{target.name}' is missing required field(s): {', '.join(missing)}."
+            )
+
     def get_target(self, target_name: str) -> DCMTarget:
         """Get a specific target by name."""
         target_name = target_name.upper()
@@ -183,6 +202,7 @@ class DCMManifest:
             )
         target = self.targets[target_name]
         self._validate_target_configuration_exists(target)
+        self._validate_target_required_fields(target)
         return target
 
     def get_effective_target(self, target_name: Optional[str] = None) -> DCMTarget:

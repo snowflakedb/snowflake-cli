@@ -16,13 +16,14 @@ import logging
 from typing import List, Optional
 
 import typer
+from snowflake.cli._plugins.connection.util import get_account_identifier
 from snowflake.cli._plugins.dcm.exceptions import (
     InvalidManifestError,
     ManifestConfigurationError,
     ManifestNotFoundError,
 )
 from snowflake.cli._plugins.dcm.manager import DCMProjectManager
-from snowflake.cli._plugins.dcm.models import DCMManifest, TargetContext
+from snowflake.cli._plugins.dcm.models import DCMManifest, DCMTarget, TargetContext
 from snowflake.cli._plugins.dcm.reporters import (
     AnalyzeReporter,
     PlanReporter,
@@ -38,6 +39,7 @@ from snowflake.cli._plugins.dcm.utils import (
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.object.manager import ObjectManager
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import (
     ForceOption,
     IdentifierType,
@@ -64,6 +66,7 @@ from snowflake.cli.api.output.types import (
     QueryResult,
 )
 from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.api.sql_execution import SqlExecutor
 from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__name__)
@@ -142,10 +145,29 @@ optional_dcm_identifier = typer.Argument(
 )
 
 
+def _validate_account_identifier(target: DCMTarget) -> None:
+    current_account = get_account_identifier(get_cli_context().connection)
+    if current_account != target.account_identifier:
+        raise CliError(
+            f"Account mismatch: manifest target specifies account_identifier '{target.account_identifier}', "
+            f"but the current session account is '{current_account}'."
+        )
+
+
+def _validate_project_owner(target: DCMTarget) -> None:
+    current_role = SqlExecutor().current_role()
+    if current_role and current_role.upper() != target.project_owner:
+        raise CliError(
+            f"Role mismatch: manifest target specifies project_owner '{target.project_owner}', "
+            f"but the current session role is '{current_role}'."
+        )
+
+
 def _resolve_target_context(
     identifier: Optional[FQN],
     target: Optional[str],
     source_path: SecurePath,
+    validate_owner: bool = False,
 ) -> TargetContext:
     """
     Resolve project identifier and configuration from manifest target.
@@ -177,26 +199,40 @@ def _resolve_target_context(
         project_id,
         bool(effective_target.templating_config),
     )
+    _validate_account_identifier(effective_target)
+    if validate_owner:
+        _validate_project_owner(effective_target)
     return TargetContext(
-        project_identifier=project_id, configuration=effective_target.templating_config
+        project_identifier=project_id,
+        configuration=effective_target.templating_config,
     )
 
 
 def _resolve_context_with_required_manifest(
-    from_location: SecurePath, identifier: FQN | None, target: str | None
+    from_location: SecurePath,
+    identifier: FQN | None,
+    target: str | None,
+    validate_owner: bool = False,
 ) -> TargetContext:
     try:
-        context = _resolve_target_context(identifier, target, from_location)
+        context = _resolve_target_context(
+            identifier, target, from_location, validate_owner=validate_owner
+        )
     except ManifestNotFoundError as e:
         raise CliError(str(e))
     return context
 
 
 def _resolve_context_with_optional_manifest(
-    from_location: SecurePath, identifier: FQN | None, target: str | None
+    from_location: SecurePath,
+    identifier: FQN | None,
+    target: str | None,
+    validate_owner: bool = False,
 ) -> TargetContext:
     try:
-        context = _resolve_target_context(identifier, target, from_location)
+        context = _resolve_target_context(
+            identifier, target, from_location, validate_owner=validate_owner
+        )
     except ManifestNotFoundError:
         if not identifier:
             raise CliError(
@@ -291,7 +327,9 @@ def deploy(
     """
     clear_command_artifacts("deploy")
 
-    context = _resolve_context_with_required_manifest(from_location, identifier, target)
+    context = _resolve_context_with_required_manifest(
+        from_location, identifier, target, validate_owner=True
+    )
     project_id = context.project_identifier
 
     manager = DCMProjectManager()
@@ -369,7 +407,9 @@ def purge(
     """
     clear_command_artifacts("purge")
 
-    context = _resolve_context_with_optional_manifest(from_location, identifier, target)
+    context = _resolve_context_with_optional_manifest(
+        from_location, identifier, target, validate_owner=True
+    )
     project_id = context.project_identifier
 
     if not force and not interactive:
@@ -407,7 +447,9 @@ def plan(
     """
     clear_command_artifacts("plan")
 
-    context = _resolve_context_with_required_manifest(from_location, identifier, target)
+    context = _resolve_context_with_required_manifest(
+        from_location, identifier, target, validate_owner=True
+    )
     project_id = context.project_identifier
 
     manager = DCMProjectManager()
@@ -477,7 +519,9 @@ def create(
     """
     Creates a DCM Project in Snowflake.
     """
-    context = _resolve_context_with_optional_manifest(from_location, identifier, target)
+    context = _resolve_context_with_optional_manifest(
+        from_location, identifier, target, validate_owner=True
+    )
     project_id = context.project_identifier
 
     om = ObjectManager()

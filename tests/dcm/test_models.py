@@ -24,8 +24,14 @@ from snowflake.cli._plugins.dcm.models import (
     DCM_PROJECT_TYPE,
     MANIFEST_FILE_NAME,
     DCMManifest,
+    DCMTarget,
 )
 from snowflake.cli.api.secure_path import SecurePath
+
+_DEFAULT_TARGET_FIELDS = {
+    "account_identifier": "MY_ORG-MY_ACCOUNT",
+    "project_owner": "MY_ROLE",
+}
 
 
 class TestDCMManifest:
@@ -49,10 +55,12 @@ class TestDCMManifest:
                 "DEV": {
                     "project_name": "DB.SCHEMA.PROJECT_DEV",
                     "templating_config": "dev",
+                    **_DEFAULT_TARGET_FIELDS,
                 },
                 "PROD": {
                     "project_name": "DB.SCHEMA.PROJECT_PROD",
                     "templating_config": "prod",
+                    **_DEFAULT_TARGET_FIELDS,
                 },
             },
             "templating": {
@@ -115,8 +123,8 @@ class TestDCMManifest:
             "type": "dcm_project",
             "default_target": "DEV",
             "targets": {
-                "DEV": {"project_name": "P1"},
-                "PROD": {"project_name": "P2"},
+                "DEV": {"project_name": "P1", **_DEFAULT_TARGET_FIELDS},
+                "PROD": {"project_name": "P2", **_DEFAULT_TARGET_FIELDS},
             },
         }
         manifest = DCMManifest.from_dict(data)
@@ -130,8 +138,8 @@ class TestDCMManifest:
             "type": "dcm_project",
             "default_target": "DEV",
             "targets": {
-                "DEV": {"project_name": "P1"},
-                "PROD": {"project_name": "P2"},
+                "DEV": {"project_name": "P1", **_DEFAULT_TARGET_FIELDS},
+                "PROD": {"project_name": "P2", **_DEFAULT_TARGET_FIELDS},
             },
         }
         manifest = DCMManifest.from_dict(data)
@@ -145,8 +153,8 @@ class TestDCMManifest:
             "manifest_version": 2,
             "type": "dcm_project",
             "targets": {
-                "DEV": {"project_name": "P1"},
-                "PROD": {"project_name": "P2"},
+                "DEV": {"project_name": "P1", **_DEFAULT_TARGET_FIELDS},
+                "PROD": {"project_name": "P2", **_DEFAULT_TARGET_FIELDS},
             },
         }
         manifest = DCMManifest.from_dict(data)
@@ -163,7 +171,7 @@ class TestDCMManifest:
             "manifest_version": 2,
             "type": "dcm_project",
             "targets": {
-                "DEV": {"project_name": "P1"},
+                "DEV": {"project_name": "P1", **_DEFAULT_TARGET_FIELDS},
             },
         }
         manifest = DCMManifest.from_dict(data)
@@ -181,7 +189,11 @@ class TestDCMManifest:
             "type": "dcm_project",
             "default_target": "DEV",
             "targets": {
-                "DEV": {"project_name": "P1", "templating_config": "dev"},
+                "DEV": {
+                    "project_name": "P1",
+                    "templating_config": "dev",
+                    **_DEFAULT_TARGET_FIELDS,
+                },
             },
             "templating": {"configurations": {"dev": {}}},
         }
@@ -193,7 +205,11 @@ class TestDCMManifest:
             "type": "dcm_project",
             "default_target": "Dev",
             "targets": {
-                "dEv": {"project_name": "P1", "templating_config": "DEV_config"},
+                "dEv": {
+                    "project_name": "P1",
+                    "templating_config": "DEV_config",
+                    **_DEFAULT_TARGET_FIELDS,
+                },
             },
             "templating": {"configurations": {"dev_CONFIG": {}}},
         }
@@ -240,7 +256,13 @@ class TestDCMManifest:
         data = {
             "manifest_version": 2,
             "type": "dcm_project",
-            "targets": {"DEV": {"project_name": "P1", "templating_config": "unknown"}},
+            "targets": {
+                "DEV": {
+                    "project_name": "P1",
+                    "templating_config": "unknown",
+                    **_DEFAULT_TARGET_FIELDS,
+                }
+            },
             "templating": {"configurations": {"dev": {}}},
         }
         manifest = DCMManifest.from_dict(data)
@@ -250,6 +272,88 @@ class TestDCMManifest:
             match="Target 'DEV' references unknown configuration 'UNKNOWN'",
         ):
             manifest.get_target("DEV")
+
+    def test_get_target_missing_project_name(self):
+        data = {
+            "manifest_version": 2,
+            "type": "dcm_project",
+            "targets": {
+                "DEV": {
+                    "account_identifier": "MY_ORG-MY_ACCOUNT",
+                    "project_owner": "MY_ROLE",
+                },
+            },
+        }
+        manifest = DCMManifest.from_dict(data)
+
+        with pytest.raises(
+            ManifestConfigurationError,
+            match="Target 'DEV' is missing required field\\(s\\): project_name",
+        ):
+            manifest.get_target("DEV")
+
+    def test_get_target_missing_account_identifier(self):
+        data = {
+            "manifest_version": 2,
+            "type": "dcm_project",
+            "targets": {
+                "DEV": {"project_name": "P1", "project_owner": "MY_ROLE"},
+            },
+        }
+        manifest = DCMManifest.from_dict(data)
+
+        with pytest.raises(
+            ManifestConfigurationError,
+            match="Target 'DEV' is missing required field\\(s\\): account_identifier",
+        ):
+            manifest.get_target("DEV")
+
+    def test_get_target_missing_project_owner(self):
+        data = {
+            "manifest_version": 2,
+            "type": "dcm_project",
+            "targets": {
+                "DEV": {
+                    "project_name": "P1",
+                    "account_identifier": "MY_ORG-MY_ACCOUNT",
+                },
+            },
+        }
+        manifest = DCMManifest.from_dict(data)
+
+        with pytest.raises(
+            ManifestConfigurationError,
+            match="Target 'DEV' is missing required field\\(s\\): project_owner",
+        ):
+            manifest.get_target("DEV")
+
+    def test_get_target_missing_all_required_fields(self):
+        data = {
+            "manifest_version": 2,
+            "type": "dcm_project",
+            "targets": {
+                "DEV": {},
+            },
+        }
+        manifest = DCMManifest.from_dict(data)
+
+        with pytest.raises(
+            ManifestConfigurationError,
+            match="Target 'DEV' is missing required field\\(s\\): project_name, account_identifier, project_owner",
+        ):
+            manifest.get_target("DEV")
+
+    def test_target_fields_normalized_to_uppercase(self):
+        target = DCMTarget.from_dict(
+            {
+                "name": "dev",
+                "project_name": "P1",
+                "account_identifier": "my_org-my_account",
+                "project_owner": "my_role",
+            }
+        )
+        assert target.account_identifier == "MY_ORG-MY_ACCOUNT"
+        assert target.project_owner == "MY_ROLE"
 
 
 class TestLoadManifest:
