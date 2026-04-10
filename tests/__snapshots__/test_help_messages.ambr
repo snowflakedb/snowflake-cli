@@ -10296,6 +10296,8 @@
   | plan               Shows what objects would be created, altered, or dropped  |
   |                    by the deploy command, without applying any changes.      |
   | preview            Returns rows from any table, view, dynamic table.         |
+  | purge              Drops all the objects managed by the DCM Project, but     |
+  |                    does not drop the project itself.                         |
   | refresh            Refreshes dynamic tables defined in DCM project. It       |
   |                    applies only to deployed objects.                         |
   | test               Tests all expectations defined in DCM project. It applies |
@@ -24098,6 +24100,8 @@
   | plan               Shows what objects would be created, altered, or dropped  |
   |                    by the deploy command, without applying any changes.      |
   | preview            Returns rows from any table, view, dynamic table.         |
+  | purge              Drops all the objects managed by the DCM Project, but     |
+  |                    does not drop the project itself.                         |
   | refresh            Refreshes dynamic tables defined in DCM project. It       |
   |                    applies only to deployed objects.                         |
   | test               Tests all expectations defined in DCM project. It applies |

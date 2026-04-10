@@ -345,7 +345,9 @@ def _confirm_purge(project_id: FQN) -> None:
             )
 
 
-@app.command(requires_connection=True, hidden=True)
+@app.command(
+    requires_connection=True, is_enabled=FeatureFlag.ENABLE_DCM_EARLY_ACCESS.is_enabled
+)
 def purge(
     identifier: Optional[FQN] = optional_dcm_identifier,
     alias: Optional[str] = alias_option,

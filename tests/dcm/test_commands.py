@@ -5,6 +5,7 @@ from unittest import mock
 
 import pytest
 from snowflake.cli._plugins.dcm.models import DCMManifest
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.utils.path_utils import change_directory
 
@@ -506,6 +507,11 @@ class TestDCMDeploy:
         _assert_format_result(payload, plan_response, format_name)
 
 
+class TestDCMEarlyAccessFeatureFlag:
+    def test_feature_flag_disabled_by_default(self):
+        assert FeatureFlag.ENABLE_DCM_EARLY_ACCESS.value.default is False
+
+
 class TestDCMPurge:
     @pytest.mark.parametrize(
         "project_identifier,user_inputs,expected_prompt_count",
@@ -643,10 +649,27 @@ class TestDCMPurge:
             skip_plan=False,
         )
 
-    def test_purge_hidden_from_help(self, runner):
+    @pytest.mark.parametrize(
+        "flag_value,expect_visible",
+        [
+            ("true", True),
+            ("false", False),
+        ],
+    )
+    def test_purge_visibility_depends_on_feature_flag(
+        self, runner, monkeypatch, flag_value, expect_visible
+    ):
+        monkeypatch.setenv(
+            FeatureFlag.ENABLE_DCM_EARLY_ACCESS.env_variable(), flag_value
+        )
+
         result = runner.invoke(["dcm", "--help"])
+
         assert result.exit_code == 0
-        assert "purge" not in result.output
+        if expect_visible:
+            assert "purge" in result.output
+        else:
+            assert "purge" not in result.output
 
     @mock.patch(
         "snowflake.cli._plugins.dcm.commands.typer.prompt",
