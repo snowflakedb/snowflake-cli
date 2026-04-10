@@ -21,9 +21,7 @@ from snowflake.cli._plugins.apps.generate import (
 from snowflake.cli._plugins.apps.manager import (
     SNOWFLAKE_APP_ENTITY_TYPE,
     SnowflakeAppManager,
-    _get_compute_pool,
     _get_entity,
-    _get_external_access,
     _get_snowflake_app_entities,
     _object_exists,
     _poll_until,
@@ -42,6 +40,10 @@ EXECUTE_QUERY = "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.execute
 OBJECT_EXISTS = "snowflake.cli._plugins.apps.manager._object_exists"
 GET_CLI_CONTEXT = "snowflake.cli._plugins.apps.manager.get_cli_context"
 GET_ENV_USERNAME = "snowflake.cli._plugins.apps.commands.get_env_username"
+FETCH_SNOW_APPS_PARAMS = (
+    "snowflake.cli._plugins.apps.manager.SnowflakeAppManager"
+    ".fetch_snow_apps_parameters"
+)
 
 
 # ── Feature flag tests ────────────────────────────────────────────────
@@ -75,40 +77,6 @@ class TestObjectExists:
     def test_returns_false_on_exception(self, mock_object_manager):
         mock_object_manager().object_exists.side_effect = Exception("error")
         assert _object_exists("compute-pool", "MY_POOL") is False
-
-
-class TestGetComputePool:
-    @patch(OBJECT_EXISTS)
-    def test_returns_default_pool_when_exists(self, mock_exists):
-        mock_exists.return_value = True
-        result = _get_compute_pool()
-        assert result == "SNOW_APPS_DEFAULT_COMPUTE_POOL"
-
-    @patch(OBJECT_EXISTS)
-    def test_returns_none_when_no_pool_exists(self, mock_exists):
-        mock_exists.return_value = False
-        result = _get_compute_pool()
-        assert result is None
-
-
-class TestGetExternalAccess:
-    @patch(OBJECT_EXISTS)
-    def test_returns_default_eai_when_exists(self, mock_exists):
-        mock_exists.return_value = True
-        result = _get_external_access("my_app")
-        assert result == "SNOW_APPS_DEFAULT_EXTERNAL_ACCESS"
-
-    @patch(OBJECT_EXISTS)
-    def test_returns_app_specific_eai_when_default_not_found(self, mock_exists):
-        mock_exists.side_effect = [False, True]
-        result = _get_external_access("my_app")
-        assert result == "SNOW_APPS_MY_APP_EXTERNAL_ACCESS"
-
-    @patch(OBJECT_EXISTS)
-    def test_returns_none_when_no_eai_exists(self, mock_exists):
-        mock_exists.return_value = False
-        result = _get_external_access("my_app")
-        assert result is None
 
 
 class TestGetSnowflakeAppEntities:
@@ -342,7 +310,8 @@ class TestGenerateSnowflakeYml:
         "database": "TEST_DB",
         "schema": "SNOW_APPS",
         "warehouse": "TEST_WH",
-        "compute_pool": "MY_POOL",
+        "build_compute_pool": "MY_POOL",
+        "service_compute_pool": "MY_POOL",
         "build_eai": "MY_EAI",
     }
 
@@ -1213,6 +1182,113 @@ class TestFetchConfigTableDefaults:
         assert "'ENGINEER'" in query
 
 
+# ── fetch_snow_apps_parameters tests ──────────────────────────────────
+
+
+class TestFetchSnowAppsParameters:
+    @patch(EXECUTE_QUERY)
+    def test_returns_mapped_parameters(self, mock_execute):
+        cursor = Mock()
+        cursor.__iter__ = Mock(
+            return_value=iter(
+                [
+                    {"key": "DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE", "value": "MY_WH"},
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL",
+                        "value": "MY_POOL",
+                    },
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL",
+                        "value": "SVC_POOL",
+                    },
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_BUILD_EXTERNAL_ACCESS_INTEGRATION",
+                        "value": "MY_EAI",
+                    },
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE",
+                        "value": "MY_DB",
+                    },
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA",
+                        "value": "MY_SCHEMA",
+                    },
+                ]
+            )
+        )
+        mock_execute.return_value = cursor
+        result = SnowflakeAppManager().fetch_snow_apps_parameters()
+        assert result == {
+            "query_warehouse": "MY_WH",
+            "build_compute_pool": "MY_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "MY_DB",
+            "schema": "MY_SCHEMA",
+        }
+        query = mock_execute.call_args[0][0]
+        assert "SHOW PARAMETERS LIKE 'DEFAULT_SNOWFLAKE_APPS_%' IN USER" in query
+
+    @patch(EXECUTE_QUERY)
+    def test_ignores_empty_string_values(self, mock_execute):
+        cursor = Mock()
+        cursor.__iter__ = Mock(
+            return_value=iter(
+                [
+                    {"key": "DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE", "value": "MY_WH"},
+                    {"key": "DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL", "value": ""},
+                ]
+            )
+        )
+        mock_execute.return_value = cursor
+        result = SnowflakeAppManager().fetch_snow_apps_parameters()
+        assert result == {"query_warehouse": "MY_WH"}
+        assert "build_compute_pool" not in result
+
+    @patch(EXECUTE_QUERY)
+    def test_ignores_unknown_parameters(self, mock_execute):
+        cursor = Mock()
+        cursor.__iter__ = Mock(
+            return_value=iter(
+                [
+                    {"key": "DEFAULT_SNOWFLAKE_APPS_UNKNOWN_PARAM", "value": "FOO"},
+                    {"key": "DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE", "value": "MY_WH"},
+                ]
+            )
+        )
+        mock_execute.return_value = cursor
+        result = SnowflakeAppManager().fetch_snow_apps_parameters()
+        assert result == {"query_warehouse": "MY_WH"}
+
+    @patch(
+        EXECUTE_QUERY,
+        side_effect=ProgrammingError("permission denied"),
+    )
+    def test_returns_empty_dict_on_error(self, mock_execute):
+        result = SnowflakeAppManager().fetch_snow_apps_parameters()
+        assert result == {}
+
+    @patch(EXECUTE_QUERY)
+    def test_returns_empty_dict_when_no_params_set(self, mock_execute):
+        cursor = Mock()
+        cursor.__iter__ = Mock(return_value=iter([]))
+        mock_execute.return_value = cursor
+        result = SnowflakeAppManager().fetch_snow_apps_parameters()
+        assert result == {}
+
+    @patch(EXECUTE_QUERY)
+    def test_handles_uppercase_column_names(self, mock_execute):
+        cursor = Mock()
+        cursor.__iter__ = Mock(
+            return_value=iter(
+                [{"KEY": "DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE", "VALUE": "MY_WH"}]
+            )
+        )
+        mock_execute.return_value = cursor
+        result = SnowflakeAppManager().fetch_snow_apps_parameters()
+        assert result == {"query_warehouse": "MY_WH"}
+
+
 # ── _resolve_deploy_defaults tests ────────────────────────────────────
 
 
@@ -1264,12 +1340,12 @@ class TestResolveDeployDefaults:
             entity.build_eai.name = build_eai
         return entity
 
-    @patch(OBJECT_EXISTS, return_value=False)
+    @patch(FETCH_SNOW_APPS_PARAMS, return_value={})
     @patch(FETCH_CONFIG_DEFAULTS, return_value={})
     @patch(CURRENT_ROLE, return_value="ENGINEER")
     @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
     def test_yml_values_take_precedence(
-        self, mock_ctx, mock_role, mock_fetch, mock_exists
+        self, mock_ctx, mock_role, mock_fetch, mock_params
     ):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
@@ -1285,7 +1361,7 @@ class TestResolveDeployDefaults:
         assert result["service_compute_pool"] == "YML_SVC_POOL"
         assert result["build_eai"] == "YML_EAI"
 
-    @patch(OBJECT_EXISTS, return_value=False)
+    @patch(FETCH_SNOW_APPS_PARAMS, return_value={})
     @patch(
         FETCH_CONFIG_DEFAULTS,
         return_value={
@@ -1299,7 +1375,7 @@ class TestResolveDeployDefaults:
     @patch(CURRENT_ROLE, return_value="ENGINEER")
     @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
     def test_config_table_fills_gaps(
-        self, mock_ctx, mock_role, mock_fetch, mock_exists
+        self, mock_ctx, mock_role, mock_fetch, mock_params
     ):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
@@ -1312,30 +1388,70 @@ class TestResolveDeployDefaults:
         assert result["database"] == "TABLE_DB"
         assert result["schema"] == "TABLE_SCHEMA"
 
-    @patch(OBJECT_EXISTS, return_value=True)
+    @patch(
+        FETCH_SNOW_APPS_PARAMS,
+        return_value={
+            "query_warehouse": "PARAM_WH",
+            "build_compute_pool": "PARAM_POOL",
+            "service_compute_pool": "PARAM_SVC_POOL",
+            "build_eai": "PARAM_EAI",
+            "database": "PARAM_DB",
+            "schema": "PARAM_SCHEMA",
+        },
+    )
     @patch(FETCH_CONFIG_DEFAULTS, return_value={})
     @patch(CURRENT_ROLE, return_value="ENGINEER")
     @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
-    def test_builtin_defaults_fill_remaining_gaps(
-        self, mock_ctx, mock_role, mock_fetch, mock_exists
-    ):
+    def test_parameters_fill_gaps(self, mock_ctx, mock_role, mock_fetch, mock_params):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
-        entity = self._make_entity()
+        entity = self._make_entity(database=None, schema=None)
         result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
-        assert result["build_compute_pool"] == "SNOW_APPS_DEFAULT_COMPUTE_POOL"
-        assert result["service_compute_pool"] == "SNOW_APPS_DEFAULT_COMPUTE_POOL"
-        assert result["build_eai"] == "SNOW_APPS_DEFAULT_EXTERNAL_ACCESS"
+        assert result["query_warehouse"] == "PARAM_WH"
+        assert result["build_compute_pool"] == "PARAM_POOL"
+        assert result["service_compute_pool"] == "PARAM_SVC_POOL"
+        assert result["build_eai"] == "PARAM_EAI"
+        assert result["database"] == "PARAM_DB"
+        assert result["schema"] == "PARAM_SCHEMA"
 
-    @patch(OBJECT_EXISTS, return_value=True)
+    @patch(
+        FETCH_SNOW_APPS_PARAMS,
+        return_value={
+            "query_warehouse": "PARAM_WH",
+            "build_compute_pool": "PARAM_POOL",
+            "service_compute_pool": "PARAM_SVC_POOL",
+            "build_eai": "PARAM_EAI",
+        },
+    )
     @patch(
         FETCH_CONFIG_DEFAULTS,
         return_value={"compute_pool": "TABLE_POOL", "warehouse": "TABLE_WH"},
     )
     @patch(CURRENT_ROLE, return_value="ENGINEER")
     @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
-    def test_yml_beats_conn_beats_table_beats_builtin(
-        self, mock_ctx, mock_role, mock_fetch, mock_exists
+    def test_parameters_beat_config_table(
+        self, mock_ctx, mock_role, mock_fetch, mock_params
+    ):
+        from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
+
+        entity = self._make_entity()
+        result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
+        assert result["query_warehouse"] == "PARAM_WH"
+        assert result["build_compute_pool"] == "PARAM_POOL"
+        assert result["build_eai"] == "PARAM_EAI"
+
+    @patch(
+        FETCH_SNOW_APPS_PARAMS,
+        return_value={"query_warehouse": "PARAM_WH", "build_eai": "PARAM_EAI"},
+    )
+    @patch(
+        FETCH_CONFIG_DEFAULTS,
+        return_value={"compute_pool": "TABLE_POOL", "warehouse": "TABLE_WH"},
+    )
+    @patch(CURRENT_ROLE, return_value="ENGINEER")
+    @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
+    def test_yml_beats_params_beats_table_beats_session(
+        self, mock_ctx, mock_role, mock_fetch, mock_params
     ):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
@@ -1343,17 +1459,16 @@ class TestResolveDeployDefaults:
             query_warehouse="YML_WH",
         )
         result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
-        assert result["query_warehouse"] == "YML_WH"
-        assert result["build_compute_pool"] == "TABLE_POOL"
-        assert result["service_compute_pool"] == "TABLE_POOL"
-        assert result["build_eai"] == "SNOW_APPS_DEFAULT_EXTERNAL_ACCESS"
+        assert result["query_warehouse"] == "YML_WH"  # yml wins over param
+        assert result["build_compute_pool"] == "TABLE_POOL"  # table fills gap
+        assert result["build_eai"] == "PARAM_EAI"  # param wins over missing table
 
-    @patch(OBJECT_EXISTS, return_value=False)
+    @patch(FETCH_SNOW_APPS_PARAMS, return_value={})
     @patch(FETCH_CONFIG_DEFAULTS, return_value={})
     @patch(CURRENT_ROLE, return_value=None)
     @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
     def test_no_role_skips_config_table(
-        self, mock_ctx, mock_role, mock_fetch, mock_exists
+        self, mock_ctx, mock_role, mock_fetch, mock_params
     ):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
@@ -1362,12 +1477,12 @@ class TestResolveDeployDefaults:
         mock_fetch.assert_not_called()
         assert result["query_warehouse"] is None
 
-    @patch(OBJECT_EXISTS, return_value=False)
+    @patch(FETCH_SNOW_APPS_PARAMS, return_value={})
     @patch(FETCH_CONFIG_DEFAULTS, return_value={})
     @patch(CURRENT_ROLE, return_value="ENGINEER")
     @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
     def test_preserves_yml_database_and_schema(
-        self, mock_ctx, mock_role, mock_fetch, mock_exists
+        self, mock_ctx, mock_role, mock_fetch, mock_params
     ):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
@@ -1376,7 +1491,7 @@ class TestResolveDeployDefaults:
         assert result["database"] == "MY_DB"
         assert result["schema"] == "MY_SCHEMA"
 
-    @patch(OBJECT_EXISTS, return_value=False)
+    @patch(FETCH_SNOW_APPS_PARAMS, return_value={})
     @patch(FETCH_CONFIG_DEFAULTS, return_value={})
     @patch(CURRENT_ROLE, return_value="ENGINEER")
     @patch(
@@ -1385,8 +1500,8 @@ class TestResolveDeployDefaults:
             warehouse="CONN_WH", database="CONN_DB", schema="CONN_SCHEMA"
         ),
     )
-    def test_connection_fills_gaps_before_table(
-        self, mock_ctx, mock_role, mock_fetch, mock_exists
+    def test_session_fills_gaps_after_params_and_table(
+        self, mock_ctx, mock_role, mock_fetch, mock_params
     ):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
@@ -1396,7 +1511,10 @@ class TestResolveDeployDefaults:
         assert result["database"] == "CONN_DB"
         assert result["schema"] == "CONN_SCHEMA"
 
-    @patch(OBJECT_EXISTS, return_value=False)
+    @patch(
+        FETCH_SNOW_APPS_PARAMS,
+        return_value={"query_warehouse": "PARAM_WH", "database": "PARAM_DB"},
+    )
     @patch(
         FETCH_CONFIG_DEFAULTS,
         return_value={"warehouse": "TABLE_WH", "database": "TABLE_DB"},
@@ -1406,13 +1524,30 @@ class TestResolveDeployDefaults:
         GET_CLI_CONTEXT,
         return_value=_mock_connection_context(warehouse="CONN_WH"),
     )
-    def test_connection_beats_table(self, mock_ctx, mock_role, mock_fetch, mock_exists):
+    def test_params_beat_table_beat_session(
+        self, mock_ctx, mock_role, mock_fetch, mock_params
+    ):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
         entity = self._make_entity(database=None, schema=None)
         result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
-        assert result["query_warehouse"] == "CONN_WH"
-        assert result["database"] == "TABLE_DB"
+        assert result["query_warehouse"] == "PARAM_WH"  # param beats table and session
+        assert result["database"] == "PARAM_DB"  # param beats table
+
+    @patch(FETCH_SNOW_APPS_PARAMS, return_value={})
+    @patch(FETCH_CONFIG_DEFAULTS, return_value={})
+    @patch(CURRENT_ROLE, return_value="ENGINEER")
+    @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
+    def test_returns_none_when_no_source_provides_value(
+        self, mock_ctx, mock_role, mock_fetch, mock_params
+    ):
+        from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
+
+        entity = self._make_entity()
+        result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
+        assert result["build_compute_pool"] is None
+        assert result["service_compute_pool"] is None
+        assert result["build_eai"] is None
 
 
 # ── CLI command tests ─────────────────────────────────────────────────
@@ -1427,6 +1562,7 @@ class TestSetupCommand:
     def test_init_creates_file(self, mock_mgr_cls, mock_gen, runner, tmp_path):
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.current_role.return_value = "TEST_ROLE"
+        mock_mgr.fetch_snow_apps_parameters.return_value = {}
         mock_mgr.fetch_config_table_defaults.return_value = {
             "database": "CFG_DB",
             "warehouse": "CFG_WH",
@@ -1447,7 +1583,7 @@ class TestSetupCommand:
         resolved = mock_gen.call_args[0][1]
         assert resolved["database"] == "CFG_DB"
         assert resolved["warehouse"] == "CFG_WH"
-        assert resolved["compute_pool"] == "CFG_POOL"
+        assert resolved["build_compute_pool"] == "CFG_POOL"
         assert resolved["build_eai"] == "CFG_EAI"
 
     @patch(
@@ -1461,6 +1597,7 @@ class TestSetupCommand:
         """Config table values should have higher priority than connection values."""
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.current_role.return_value = "TEST_ROLE"
+        mock_mgr.fetch_snow_apps_parameters.return_value = {}
         mock_mgr.fetch_config_table_defaults.return_value = {
             "database": "CFG_DB",
             "warehouse": "CFG_WH",
@@ -1489,6 +1626,7 @@ class TestSetupCommand:
     ):
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.current_role.return_value = None
+        mock_mgr.fetch_snow_apps_parameters.return_value = {}
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
 
@@ -1519,10 +1657,16 @@ class TestSetupCommand:
                 assert "already exists" in result.output
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
-    def test_fails_on_all_missing_values(self, mock_mgr_cls, runner, tmp_path):
-        """Validation should report ALL missing values, not just the first."""
+    def test_fails_on_missing_compute_pool(self, mock_mgr_cls, runner, tmp_path):
+        """Setup should fail when compute pool cannot be resolved."""
         mock_mgr = mock_mgr_cls.return_value
-        mock_mgr.current_role.return_value = None
+        mock_mgr.current_role.return_value = "TEST_ROLE"
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "database": "PARAM_DB",
+            "query_warehouse": "PARAM_WH",
+            "build_eai": "PARAM_EAI",
+        }
+        mock_mgr.fetch_config_table_defaults.return_value = {}
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
             from tests_common import change_directory
@@ -1530,13 +1674,34 @@ class TestSetupCommand:
             with change_directory(tmp_path):
                 result = runner.invoke(["__app", "setup", "--app-name", "my_app"])
                 assert result.exit_code == 1
-                assert "compute_pool" in result.output
-                assert "build_eai" in result.output
+                assert "--compute-pool" in result.output
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_fails_on_missing_build_eai(self, mock_mgr_cls, runner, tmp_path):
+        """Setup should fail when build EAI cannot be resolved."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.current_role.return_value = "TEST_ROLE"
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "database": "PARAM_DB",
+            "query_warehouse": "PARAM_WH",
+            "build_compute_pool": "PARAM_POOL",
+            "service_compute_pool": "PARAM_POOL",
+        }
+        mock_mgr.fetch_config_table_defaults.return_value = {}
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "setup", "--app-name", "my_app"])
+                assert result.exit_code == 1
+                assert "--build-eai" in result.output
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_dry_run_does_not_create_file(self, mock_mgr_cls, runner, tmp_path):
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.current_role.return_value = "TEST_ROLE"
+        mock_mgr.fetch_snow_apps_parameters.return_value = {}
         mock_mgr.fetch_config_table_defaults.return_value = {
             "database": "CFG_DB",
             "warehouse": "CFG_WH",
@@ -1562,6 +1727,7 @@ class TestSetupCommand:
 
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.current_role.return_value = "TEST_ROLE"
+        mock_mgr.fetch_snow_apps_parameters.return_value = {}
         mock_mgr.fetch_config_table_defaults.return_value = {
             "database": "CFG_DB",
             "warehouse": "CFG_WH",
@@ -1589,7 +1755,7 @@ class TestSetupCommand:
                 assert parsed["success"] is False
                 assert parsed["database"] == "CFG_DB"
                 assert parsed["warehouse"] == "CFG_WH"
-                assert parsed["compute_pool"] == "CFG_POOL"
+                assert parsed["build_compute_pool"] == "CFG_POOL"
                 assert parsed["build_eai"] == "CFG_EAI"
 
     @patch(
@@ -1604,6 +1770,7 @@ class TestSetupCommand:
 
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.current_role.return_value = "TEST_ROLE"
+        mock_mgr.fetch_snow_apps_parameters.return_value = {}
         mock_mgr.fetch_config_table_defaults.return_value = {
             "database": "CFG_DB",
             "warehouse": "CFG_WH",
@@ -1641,6 +1808,7 @@ class TestSetupCommand:
     ):
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.current_role.return_value = "TEST_ROLE"
+        mock_mgr.fetch_snow_apps_parameters.return_value = {}
         mock_mgr.fetch_config_table_defaults.return_value = {
             "database": "CFG_DB",
             "warehouse": "CFG_WH",
@@ -1656,7 +1824,116 @@ class TestSetupCommand:
                 assert result.exit_code == 0, result.output
                 assert "database: CFG_DB" in result.output
                 assert "warehouse: CFG_WH" in result.output
-                assert "compute_pool: CFG_POOL" in result.output
+                assert "build_compute_pool: CFG_POOL" in result.output
+
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
+        return_value="definition_version: '2'\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_parameters_beat_config_table(
+        self, mock_mgr_cls, mock_gen, runner, tmp_path
+    ):
+        """SnowApps parameters should override config table values."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.current_role.return_value = "TEST_ROLE"
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "query_warehouse": "PARAM_WH",
+            "build_compute_pool": "PARAM_POOL",
+            "service_compute_pool": "PARAM_SVC_POOL",
+            "build_eai": "PARAM_EAI",
+            "database": "PARAM_DB",
+        }
+        mock_mgr.fetch_config_table_defaults.return_value = {
+            "database": "CFG_DB",
+            "warehouse": "CFG_WH",
+            "compute_pool": "CFG_POOL",
+            "eai": "CFG_EAI",
+        }
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "setup", "--app-name", "my_app"])
+                assert result.exit_code == 0, result.output
+
+        resolved = mock_gen.call_args[0][1]
+        assert resolved["database"] == "PARAM_DB"
+        assert resolved["warehouse"] == "PARAM_WH"
+        assert resolved["build_compute_pool"] == "PARAM_POOL"
+        assert resolved["build_eai"] == "PARAM_EAI"
+
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
+        return_value="definition_version: '2'\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_flags_beat_parameters(self, mock_mgr_cls, mock_gen, runner, tmp_path):
+        """CLI flags should override SnowApps parameters."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.current_role.return_value = "TEST_ROLE"
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "build_compute_pool": "PARAM_POOL",
+            "service_compute_pool": "PARAM_SVC_POOL",
+            "build_eai": "PARAM_EAI",
+            "database": "PARAM_DB",
+            "query_warehouse": "PARAM_WH",
+        }
+        mock_mgr.fetch_config_table_defaults.return_value = {}
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(
+                    [
+                        "__app",
+                        "setup",
+                        "--app-name",
+                        "my_app",
+                        "--compute-pool",
+                        "FLAG_POOL",
+                        "--build-eai",
+                        "FLAG_EAI",
+                    ]
+                )
+                assert result.exit_code == 0, result.output
+
+        resolved = mock_gen.call_args[0][1]
+        assert resolved["build_compute_pool"] == "FLAG_POOL"
+        assert resolved["build_eai"] == "FLAG_EAI"
+        # These come from params since no flag overrides them
+        assert resolved["database"] == "PARAM_DB"
+        assert resolved["warehouse"] == "PARAM_WH"
+
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
+        return_value="definition_version: '2'\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_setup_shows_parameter_provenance(
+        self, mock_mgr_cls, mock_gen, runner, tmp_path
+    ):
+        """Resolved values from SnowApps parameters should show 'account parameter' provenance."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.current_role.return_value = "TEST_ROLE"
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "query_warehouse": "PARAM_WH",
+            "build_compute_pool": "PARAM_POOL",
+            "service_compute_pool": "PARAM_SVC_POOL",
+            "build_eai": "PARAM_EAI",
+            "database": "PARAM_DB",
+        }
+        mock_mgr.fetch_config_table_defaults.return_value = {}
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            from tests_common import change_directory
+
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "setup", "--app-name", "my_app"])
+                assert result.exit_code == 0, result.output
+                assert "account parameter" in result.output
 
 
 # ── perform_bundle tests ──────────────────────────────────────────────
