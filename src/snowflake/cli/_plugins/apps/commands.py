@@ -69,19 +69,6 @@ app = SnowTyperFactory(
 )
 
 
-def _fetch_and_print_failure_logs(
-    manager: SnowflakeAppManager, service_fqn: FQN, label: str
-) -> None:
-    """Fetch container logs from a failed service and print them."""
-    logs = manager.get_container_logs(service_fqn)
-    if logs and logs.strip():
-        cli_console.warning(f"{label} logs:")
-        for line in logs.strip().splitlines():
-            cli_console.step(f"  {line}")
-    else:
-        cli_console.warning(f"No {label.lower()} logs available.")
-
-
 @app.command("setup", requires_connection=True)
 def setup(
     app_name: str = typer.Option(
@@ -709,17 +696,13 @@ def deploy(
 
                 # Poll for build completion
                 cli_console.step("Waiting for build to complete...")
-                try:
-                    _poll_until(
-                        poll_fn=lambda: manager.get_build_status(build_job_fqn),
-                        done_states={"DONE"},
-                        error_states={"FAILED", "IDLE"},
-                        known_pending_states={"PENDING", "RUNNING"},
-                        timeout_message=f"Build timed out. Check service logs: {build_job_fqn}",
-                    )
-                except CliError:
-                    _fetch_and_print_failure_logs(manager, build_job_fqn, "Build job")
-                    raise
+                _poll_until(
+                    poll_fn=lambda: manager.get_build_status(build_job_fqn),
+                    done_states={"DONE"},
+                    error_states={"FAILED", "IDLE"},
+                    known_pending_states={"PENDING", "RUNNING"},
+                    timeout_message=f"Build timed out. Check service logs: {build_job_fqn}",
+                )
 
     if build_only:
         return MessageResult("Build completed successfully.")
@@ -836,17 +819,13 @@ def deploy(
 
             # Poll until service is RUNNING
             cli_console.step("Waiting for service to be ready...")
-            try:
-                _poll_until(
-                    poll_fn=lambda: manager.get_service_status(service_fqn),
-                    done_states={"RUNNING"},
-                    error_states={"FAILED", "IDLE"},
-                    known_pending_states={"PENDING", "SUSPENDING", "SUSPENDED"},
-                    timeout_message=f"Service timed out. Check service status: {service_fqn}",
-                )
-            except CliError:
-                _fetch_and_print_failure_logs(manager, service_fqn, "Service")
-                raise
+            _poll_until(
+                poll_fn=lambda: manager.get_service_status(service_fqn),
+                done_states={"RUNNING"},
+                error_states={"FAILED", "IDLE"},
+                known_pending_states={"PENDING", "SUSPENDING", "SUSPENDED"},
+                timeout_message=f"Service timed out. Check service status: {service_fqn}",
+            )
 
     # ── Get endpoint URL (non-artifact-repo path only) ────────────────
     with metrics.span("snowflake_app.endpoint_provision"):
