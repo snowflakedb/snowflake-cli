@@ -721,7 +721,7 @@ def deploy(
                 comment=app_comment,
             )
         except ProgrammingError as e:
-            if e.errno == 2002 or "already exists" in str(e).lower():
+            if e.errno == 2002 and "already exists" in str(e).lower():
                 cli_console.step(
                     f"Application service {app_name} already exists. Upgrading..."
                 )
