@@ -281,9 +281,13 @@ def delete_only_on_stage_files(
                     errors.append((str(sp), exc))
 
         if errors:
-            failed_paths = [p for p, _ in errors]
-            log.error("Failed to delete %d file(s): %s", len(errors), failed_paths)
-            raise SnowflakeSQLExecutionError()
+            error_details = "; ".join(
+                f"{p}: {exc}" for p, exc in errors
+            )
+            log.error(
+                "Failed to delete %d file(s): %s", len(errors), error_details
+            )
+            raise SnowflakeSQLExecutionError(error_details)
     else:
         for _stage_path in only_on_stage:
             stage_manager.remove(
@@ -332,9 +336,13 @@ def put_files_on_stage(
                     errors.append((str(sp), exc))
 
         if errors:
-            failed_paths = [p for p, _ in errors]
-            log.error("Failed to upload %d file(s): %s", len(errors), failed_paths)
-            raise SnowflakeSQLExecutionError()
+            error_details = "; ".join(
+                f"{p}: {exc}" for p, exc in errors
+            )
+            log.error(
+                "Failed to upload %d file(s): %s", len(errors), error_details
+            )
+            raise SnowflakeSQLExecutionError(error_details)
     else:
         for _stage_path in stage_paths:
             stage_sub_path = get_stage_subpath(_stage_path)
@@ -404,10 +412,12 @@ def sync_local_diff_with_stage(
             overwrite=force_overwrite,
             connections=connections,
         )
+    except SnowflakeSQLExecutionError:
+        raise
     except Exception as err:
         # Could be ProgrammingError or IntegrityError from SnowflakeCursor
         log.error(err)
-        raise SnowflakeSQLExecutionError()
+        raise SnowflakeSQLExecutionError(str(err))
     finally:
         if connections:
             for conn in connections:
