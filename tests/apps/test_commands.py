@@ -3734,3 +3734,274 @@ class TestDeployCommand:
                 result = runner.invoke(["__app", "deploy", "--build-only"])
                 assert "service_compute_pool is required" not in result.output
                 assert "query_warehouse is required" not in result.output
+
+    # ── Telemetry span tests ─────────────────────────────────────────
+
+    @staticmethod
+    def _make_deploy_mocks(
+        tmp_path,
+        mock_get_ctx,
+        mock_get_entity,
+        mock_manager_cls,
+        mock_perform_bundle,
+        *,
+        use_artifact_repo=False,
+    ):
+        """Wire up the common mocks for a deploy invocation and return (metrics, mock_mgr)."""
+        from snowflake.cli.api.metrics import CLIMetrics
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        metrics = CLIMetrics()
+        mock_ctx = Mock()
+        mock_ctx.metrics = metrics
+        mock_ctx.connection_context.database = "TEST_DB"
+        mock_ctx.connection_context.schema = "TEST_SCHEMA"
+        mock_ctx.connection_context.warehouse = "WH"
+        mock_get_ctx.return_value = mock_ctx
+
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.build_image = None
+        entity.execute_as_caller = False
+        entity.runtime_image = "runtime:latest"
+
+        if use_artifact_repo:
+            ar_mock = Mock(database="AR_DB", schema_="AR_SCHEMA")
+            ar_mock.name = "AR_REPO"
+            entity.artifact_repository = ar_mock
+            entity.image_repository = None
+            entity.build_compute_pool = None
+            entity.service_compute_pool = None
+            entity.build_eai = None
+            entity.query_warehouse = "WH"
+        else:
+            entity.artifact_repository = None
+            entity.image_repository = Mock(name="MY_REPO", database=None, schema_=None)
+
+        mock_get_entity.return_value = entity
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True, exist_ok=True)
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.stage_exists.return_value = False
+        mock_mgr.get_image_repo_url.return_value = (
+            "host.registry-local.snowflakecomputing.com/TEST_DB/TEST_SCHEMA/IMAGE_REPO"
+        )
+        mock_mgr.build_app_artifact_repo.return_value = (
+            "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
+        )
+
+        return metrics, mock_mgr
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.StageManager")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "image_repository": "IMAGE_REPO",
+            "image_repo_database": "TEST_DB",
+            "image_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.get_cli_context")
+    def test_deploy_image_repo_records_telemetry_spans(
+        self,
+        mock_get_ctx,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        mock_stage_manager_cls,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """Non-artifact-repo deploy records exactly the expected spans in order."""
+        from snowflake.cli.api.metrics import CLIMetricsSpan
+
+        mock_poll.return_value = "https://my-app.snowflakecomputing.app"
+        metrics, _ = self._make_deploy_mocks(
+            tmp_path,
+            mock_get_ctx,
+            mock_get_entity,
+            mock_manager_cls,
+            mock_perform_bundle,
+        )
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "deploy"])
+                assert result.exit_code == 0, result.output
+
+        span_names = [s[CLIMetricsSpan.NAME_KEY] for s in metrics.completed_spans]
+        assert span_names == [
+            "snowflake_app.bundle",
+            "snowflake_app.upload",
+            "snowflake_app.build",
+            "snowflake_app.deploy_service",
+            "snowflake_app.endpoint_provision",
+        ]
+        for span in metrics.completed_spans:
+            assert span[CLIMetricsSpan.ERROR_KEY] is None
+            assert span[CLIMetricsSpan.EXECUTION_TIME_KEY] > 0
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.StageManager")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "image_repository": "IMAGE_REPO",
+            "image_repo_database": "TEST_DB",
+            "image_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.get_cli_context")
+    def test_deploy_artifact_repo_records_telemetry_spans(
+        self,
+        mock_get_ctx,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        mock_stage_manager_cls,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """Artifact-repo deploy records exactly the expected spans in order."""
+        from snowflake.cli.api.metrics import CLIMetricsSpan
+
+        mock_poll.side_effect = [
+            "DONE",
+            {
+                "url": "https://my-app.snowflakecomputing.app",
+                "is_upgrading": "false",
+                "status": "READY",
+            },
+        ]
+        metrics, _ = self._make_deploy_mocks(
+            tmp_path,
+            mock_get_ctx,
+            mock_get_entity,
+            mock_manager_cls,
+            mock_perform_bundle,
+            use_artifact_repo=True,
+        )
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "deploy"])
+                assert result.exit_code == 0, result.output
+
+        span_names = [s[CLIMetricsSpan.NAME_KEY] for s in metrics.completed_spans]
+        assert span_names == [
+            "snowflake_app.bundle",
+            "snowflake_app.upload",
+            "snowflake_app.build",
+            "snowflake_app.deploy_service",
+            "snowflake_app.endpoint_provision",
+        ]
+        for span in metrics.completed_spans:
+            assert span[CLIMetricsSpan.ERROR_KEY] is None
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.StageManager")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "image_repository": "IMAGE_REPO",
+            "image_repo_database": "TEST_DB",
+            "image_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.get_cli_context")
+    def test_deploy_build_failure_records_error_in_span(
+        self,
+        mock_get_ctx,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        mock_stage_manager_cls,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """When build polling raises CliError, the build span records the error."""
+        from snowflake.cli.api.metrics import CLIMetricsSpan
+
+        def _poll_side_effect(**kwargs):
+            if kwargs.get("done_states") == {"DONE"}:
+                raise CliError("Build timed out.")
+            return "https://my-app.snowflakecomputing.app"
+
+        mock_poll.side_effect = _poll_side_effect
+        metrics, _ = self._make_deploy_mocks(
+            tmp_path,
+            mock_get_ctx,
+            mock_get_entity,
+            mock_manager_cls,
+            mock_perform_bundle,
+        )
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "deploy"])
+                assert result.exit_code == 1
+
+        span_map = {s[CLIMetricsSpan.NAME_KEY]: s for s in metrics.completed_spans}
+        assert "snowflake_app.build" in span_map
+        assert span_map["snowflake_app.build"][CLIMetricsSpan.ERROR_KEY] == "CliError"
+        assert "snowflake_app.bundle" in span_map
+        assert span_map["snowflake_app.bundle"][CLIMetricsSpan.ERROR_KEY] is None
