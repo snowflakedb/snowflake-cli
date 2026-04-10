@@ -651,42 +651,44 @@ def deploy(
 
     if run_build:
         if use_artifact_repo:
-            cli_console.step("Building app using artifact repository...")
-            build_result = manager.build_app_artifact_repo(
-                stage_fqn=stage_fqn,
-                artifact_repo_fqn=artifact_repo_fqn_str,
-                app_id=app_name,
-                compute_pool=build_compute_pool,
-                database=database,
-                schema=schema,
-                runtime_image=entity.runtime_image,
-                query_warehouse=query_warehouse,
-                build_eai=build_eai,
-            )
-            cli_console.step(
-                f"SPCS_TEST_BUILD_APP_ARTIFACT_REPO output:\n{build_result}"
-            )
-
-            match = re.search(r"Build job submitted:\s*(\S+)", build_result)
-            if not match:
-                raise CliError(
-                    f"Could not parse build job name from output: {build_result}"
+            with metrics.span("snowflake_app.build"):
+                cli_console.step("Building app using artifact repository...")
+                build_result = manager.build_app_artifact_repo(
+                    stage_fqn=stage_fqn,
+                    artifact_repo_fqn=artifact_repo_fqn_str,
+                    app_id=app_name,
+                    compute_pool=build_compute_pool,
+                    database=database,
+                    schema=schema,
+                    runtime_image=entity.runtime_image,
+                    query_warehouse=query_warehouse,
+                    build_eai=build_eai,
                 )
-            artifact_build_job_fqn = FQN.from_string(match.group(1))
-            cli_console.step(
-                f"Waiting for artifact repo build to complete: "
-                f"{artifact_build_job_fqn}..."
-            )
-            _poll_until(
-                poll_fn=lambda: manager.get_build_status(artifact_build_job_fqn),
-                done_states={"DONE"},
-                error_states={"FAILED", "IDLE"},
-                known_pending_states={"PENDING", "RUNNING"},
-                timeout_message=(
-                    f"Artifact repo build timed out. Check build logs:\n"
-                    f"  CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{app_name}')"
-                ),
-            )
+                cli_console.step(
+                    f"SPCS_TEST_BUILD_APP_ARTIFACT_REPO output:\n{build_result}"
+                )
+
+                match = re.search(r"Build job submitted:\s*(\S+)", build_result)
+                if not match:
+                    raise CliError(
+                        f"Could not parse build job name from output: {build_result}"
+                    )
+                artifact_build_job_fqn = FQN.from_string(match.group(1))
+                cli_console.step(
+                    f"Waiting for artifact repo build to complete: "
+                    f"{artifact_build_job_fqn}..."
+                )
+                _poll_until(
+                    poll_fn=lambda: manager.get_build_status(artifact_build_job_fqn),
+                    done_states={"DONE"},
+                    error_states={"FAILED", "IDLE"},
+                    known_pending_states={"PENDING", "RUNNING"},
+                    timeout_message=(
+                        f"Artifact repo build timed out. Check build logs:\n"
+                        f"  SELECT * FROM TABLE("
+                        f"{artifact_build_job_fqn.identifier}!SPCS_GET_LOGS())"
+                    ),
+                )
         else:
             with metrics.span("snowflake_app.build"):
                 # Drop existing build job if present
@@ -734,33 +736,34 @@ def deploy(
     app_comment = json.dumps(comment_data)
 
     if use_artifact_repo:
-        eai_list = [build_eai] if build_eai else None
+        with metrics.span("snowflake_app.deploy_service"):
+            eai_list = [build_eai] if build_eai else None
 
-        did_upgrade = False
-        cli_console.step("Creating application service...")
-        try:
-            manager.create_app_service(
-                service_fqn=service_fqn,
-                artifact_repo_fqn=artifact_repo_fqn_str,
-                package_name=app_name,
-                compute_pool=service_compute_pool,
-                version="LATEST",
-                query_warehouse=query_warehouse,
-                external_access_integrations=eai_list,
-                comment=app_comment,
-            )
-        except ProgrammingError as e:
-            if e.errno == 2002 and "already exists" in str(e).lower():
-                cli_console.step(
-                    f"Application service {app_name} already exists. Upgrading..."
-                )
-                manager.upgrade_app_service(
+            did_upgrade = False
+            cli_console.step("Creating application service...")
+            try:
+                manager.create_app_service(
                     service_fqn=service_fqn,
+                    artifact_repo_fqn=artifact_repo_fqn_str,
+                    package_name=app_name,
+                    compute_pool=service_compute_pool,
                     version="LATEST",
+                    query_warehouse=query_warehouse,
+                    external_access_integrations=eai_list,
+                    comment=app_comment,
                 )
-                did_upgrade = True
-            else:
-                raise
+            except ProgrammingError as e:
+                if e.errno == 2002 and "already exists" in str(e).lower():
+                    cli_console.step(
+                        f"Application service {app_name} already exists. Upgrading..."
+                    )
+                    manager.upgrade_app_service(
+                        service_fqn=service_fqn,
+                        version="LATEST",
+                    )
+                    did_upgrade = True
+                else:
+                    raise
 
         def _svc_is_upgrading(d: dict) -> bool:
             return str(d.get("is_upgrading", "")).lower() in ("true", "1", "yes")
@@ -772,38 +775,38 @@ def deploy(
             url = d.get("url", "")
             return bool(url) and "provisioning in progress" not in url.lower()
 
-        if did_upgrade:
-            cli_console.step("Waiting for upgrade to complete...")
-            desc = _poll_until(
-                poll_fn=lambda: manager.describe_app_service(service_fqn),
-                is_done=lambda d: not _svc_is_upgrading(d) and _url_is_ready(d),
-                is_error=_svc_has_failed,
-                format_status=lambda d: (
-                    "upgrading" if _svc_is_upgrading(d) else "ready"
-                ),
-                timeout_message=(
-                    f"Upgrade timed out. Check logs:\n"
-                    f"  CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{app_name}')"
-                ),
-            )
-        else:
-            cli_console.step("Waiting for application service endpoint...")
-            desc = _poll_until(
-                poll_fn=lambda: manager.describe_app_service(service_fqn),
-                is_done=_url_is_ready,
-                is_error=_svc_has_failed,
-                format_status=lambda d: d.get("url") or "url not yet available",
-                timeout_message=(
-                    f"Endpoint provisioning timed out. "
-                    f"Check: DESCRIBE APPLICATION SERVICE {service_fqn.identifier}"
-                ),
-            )
+        with metrics.span("snowflake_app.endpoint_provision"):
+            if did_upgrade:
+                cli_console.step("Waiting for upgrade to complete...")
+                desc = _poll_until(
+                    poll_fn=lambda: manager.describe_app_service(service_fqn),
+                    is_done=lambda d: not _svc_is_upgrading(d) and _url_is_ready(d),
+                    is_error=_svc_has_failed,
+                    format_status=lambda d: (
+                        "upgrading" if _svc_is_upgrading(d) else "ready"
+                    ),
+                    timeout_message=(
+                        f"Upgrade timed out. Check logs:\n"
+                        f"  CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{app_name}')"
+                    ),
+                )
+            else:
+                cli_console.step("Waiting for application service endpoint...")
+                desc = _poll_until(
+                    poll_fn=lambda: manager.describe_app_service(service_fqn),
+                    is_done=_url_is_ready,
+                    is_error=_svc_has_failed,
+                    format_status=lambda d: d.get("url") or "url not yet available",
+                    timeout_message=(
+                        f"Endpoint provisioning timed out. "
+                        f"Check: DESCRIBE APPLICATION SERVICE {service_fqn.identifier}"
+                    ),
+                )
 
         endpoint_url = desc.get("url", "")
         if endpoint_url and not endpoint_url.startswith(("http://", "https://")):
             endpoint_url = f"https://{endpoint_url}"
         return MessageResult(f"App ready at {endpoint_url}")
-
     else:
         assert image_repo_url is not None
         repo_path = "/" + "/".join(image_repo_url.split("/")[1:])
