@@ -116,11 +116,13 @@ def setup(
     conn_config = get_connection_dict(connection_name)
 
     manager = SnowflakeAppManager()
-    params = manager.fetch_snow_apps_parameters()
-    config_table = {}
-    role = manager.current_role()
-    if role:
-        config_table = manager.fetch_config_table_defaults(role)
+    metrics = ctx.metrics
+    with metrics.span("snowflake_app.setup.resolve_defaults"):
+        params = manager.fetch_snow_apps_parameters()
+        config_table = {}
+        role = manager.current_role()
+        if role:
+            config_table = manager.fetch_config_table_defaults(role)
 
     def _resolve(
         user_input=None,
