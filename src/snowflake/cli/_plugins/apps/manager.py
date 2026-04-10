@@ -453,7 +453,18 @@ serviceRoles:
 
 
 class SnowflakeAppManager(SqlExecutionMixin):
-    """Manager for Snowflake App operations."""
+    """Manager for Snowflake App operations.
+
+    NOTE: Many DDL-building methods (execute_build_job, create_service,
+    create_app_service, …) interpolate bare ``str`` arguments such as
+    *compute_pool*, *query_warehouse*, and EAI names directly into SQL
+    without identifier quoting.  This is safe as long as callers pass
+    simple unquoted identifiers, but it will break for names containing
+    spaces or special characters.  If that ever becomes a requirement,
+    wrap them with ``FQN.from_string(name).sql_identifier`` or
+    ``IDENTIFIER(to_string_literal(name))`` for consistency with the
+    ``FQN``-based parameters that already use ``.sql_identifier``.
+    """
 
     def database_exists(self, database: str) -> bool:
         """Return True if *database* exists and is visible to the current role."""

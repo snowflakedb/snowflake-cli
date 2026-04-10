@@ -739,11 +739,15 @@ def deploy(
         def _svc_has_failed(d: dict) -> bool:
             return d.get("status", "").upper() == "FAILED"
 
+        def _url_is_ready(d: dict) -> bool:
+            url = d.get("url", "")
+            return bool(url) and "provisioning in progress" not in url.lower()
+
         if did_upgrade:
             cli_console.step("Waiting for upgrade to complete...")
             desc = _poll_until(
                 poll_fn=lambda: manager.describe_app_service(service_fqn),
-                is_done=lambda d: not _svc_is_upgrading(d),
+                is_done=lambda d: not _svc_is_upgrading(d) and _url_is_ready(d),
                 is_error=_svc_has_failed,
                 format_status=lambda d: (
                     "upgrading" if _svc_is_upgrading(d) else "ready"
@@ -757,8 +761,7 @@ def deploy(
             cli_console.step("Waiting for application service endpoint...")
             desc = _poll_until(
                 poll_fn=lambda: manager.describe_app_service(service_fqn),
-                is_done=lambda d: bool(d.get("url"))
-                and "provisioning in progress" not in d["url"].lower(),
+                is_done=_url_is_ready,
                 is_error=_svc_has_failed,
                 format_status=lambda d: d.get("url") or "url not yet available",
                 timeout_message=(
