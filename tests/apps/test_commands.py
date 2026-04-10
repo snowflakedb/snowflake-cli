@@ -1096,40 +1096,40 @@ class TestSnowflakeAppManager:
         assert not url.startswith("https://")
 
     @patch(EXECUTE_QUERY)
-    def test_get_service_logs_returns_log_text(self, mock_execute):
+    def test_get_container_logs_returns_log_text(self, mock_execute):
         cursor = Mock()
         cursor.fetchone.return_value = ("Error: container crashed\nExit code 1",)
         mock_execute.return_value = cursor
 
         fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
-        logs = SnowflakeAppManager().get_service_logs(fqn)
+        logs = SnowflakeAppManager().get_container_logs(fqn)
         assert logs == "Error: container crashed\nExit code 1"
         mock_execute.assert_called_once_with(
             "CALL SYSTEM$GET_SERVICE_LOGS('DB.SCHEMA.SVC', '0', 'main', 50)"
         )
 
     @patch(EXECUTE_QUERY)
-    def test_get_service_logs_returns_none_on_empty(self, mock_execute):
+    def test_get_container_logs_returns_none_on_empty(self, mock_execute):
         cursor = Mock()
         cursor.fetchone.return_value = None
         mock_execute.return_value = cursor
 
         fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
-        assert SnowflakeAppManager().get_service_logs(fqn) is None
+        assert SnowflakeAppManager().get_container_logs(fqn) is None
 
     @patch(EXECUTE_QUERY, side_effect=Exception("service not found"))
-    def test_get_service_logs_returns_none_on_error(self, mock_execute):
+    def test_get_container_logs_returns_none_on_error(self, mock_execute):
         fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
-        assert SnowflakeAppManager().get_service_logs(fqn) is None
+        assert SnowflakeAppManager().get_container_logs(fqn) is None
 
     @patch(EXECUTE_QUERY)
-    def test_get_service_logs_custom_num_lines(self, mock_execute):
+    def test_get_container_logs_custom_num_lines(self, mock_execute):
         cursor = Mock()
         cursor.fetchone.return_value = ("some logs",)
         mock_execute.return_value = cursor
 
         fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
-        SnowflakeAppManager().get_service_logs(fqn, num_lines=100)
+        SnowflakeAppManager().get_container_logs(fqn, num_lines=100)
         mock_execute.assert_called_once_with(
             "CALL SYSTEM$GET_SERVICE_LOGS('DB.SCHEMA.SVC', '0', 'main', 100)"
         )
@@ -1141,30 +1141,30 @@ class TestSnowflakeAppManager:
 class TestFetchAndPrintFailureLogs:
     def test_prints_logs_when_available(self):
         manager = Mock()
-        manager.get_service_logs.return_value = "line1\nline2\nline3"
+        manager.get_container_logs.return_value = "line1\nline2\nline3"
         fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
 
         _fetch_and_print_failure_logs(manager, fqn, "Build job")
 
-        manager.get_service_logs.assert_called_once_with(fqn)
+        manager.get_container_logs.assert_called_once_with(fqn)
 
     def test_prints_warning_when_no_logs(self):
         manager = Mock()
-        manager.get_service_logs.return_value = None
+        manager.get_container_logs.return_value = None
         fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
 
         _fetch_and_print_failure_logs(manager, fqn, "Service")
 
-        manager.get_service_logs.assert_called_once_with(fqn)
+        manager.get_container_logs.assert_called_once_with(fqn)
 
     def test_prints_warning_when_empty_logs(self):
         manager = Mock()
-        manager.get_service_logs.return_value = "   \n  "
+        manager.get_container_logs.return_value = "   \n  "
         fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
 
         _fetch_and_print_failure_logs(manager, fqn, "Service")
 
-        manager.get_service_logs.assert_called_once_with(fqn)
+        manager.get_container_logs.assert_called_once_with(fqn)
 
 
 # ── fetch_config_table_defaults tests ─────────────────────────────────
