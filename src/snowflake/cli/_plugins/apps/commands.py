@@ -25,6 +25,7 @@ from snowflake.cli._plugins.apps.generate import (
 )
 from snowflake.cli._plugins.apps.manager import (
     _APP_COMMAND_NAME,
+    DEFAULT_IMAGE_REPOSITORY,
     DEFINITION_FILENAME,
     EXPOSE_UNSUPPORTED_SYNTAX,
     SnowflakeAppManager,
@@ -52,6 +53,14 @@ from snowflake.cli.api.output.types import (
 )
 from snowflake.cli.api.project.util import get_env_username, identifier_for_url
 from snowflake.connector.errors import ProgrammingError
+
+# ── Source provenance labels ──────────────────────────────────────────
+SOURCE_USER_INPUT = "user input"
+SOURCE_ACCOUNT_PARAM = "account parameter"
+SOURCE_CONFIG_TABLE = "config table"
+SOURCE_CURRENT_SESSION = "current session"
+SOURCE_DEFAULT = "default"
+SOURCE_MISSING = "missing"
 
 app = SnowTyperFactory(
     name=_APP_COMMAND_NAME,
@@ -107,62 +116,121 @@ def setup(
     conn_config = get_connection_dict(connection_name)
 
     manager = SnowflakeAppManager()
+    params = manager.fetch_snow_apps_parameters()
     config_table = {}
     role = manager.current_role()
     if role:
         config_table = manager.fetch_config_table_defaults(role)
 
-    def _resolve(flag_val, config_key, conn_key=None, builtin=None):
-        """Return (value, source) using: flag > account default > connection config > builtin."""
-        if flag_val is not None:
-            return flag_val, "flag"
-        table_val = config_table.get(config_key)
-        if table_val:
-            return table_val, "account default"
-        if conn_key is not None:
-            # ctx.connection_context is only populated (without update_from_config) when
-            # the user explicitly passed the flag on the CLI, so this signals "flag" provenance.
-            ctx_val = getattr(ctx.connection_context, conn_key, None)
-            if ctx_val:
-                return ctx_val, "flag"
-            conn_val = conn_config.get(conn_key)
-            if conn_val:
-                return conn_val, "connection config"
-        if builtin is not None:
-            return builtin, "default"
-        return None, "missing"
+    def _resolve(
+        user_input=None,
+        account_param=None,
+        config_table_val=None,
+        default_value=None,
+        current_session=None,
+    ):
+        """Return (value, source) using a fixed resolution order.
 
-    if IS_PERSONAL_DB_SUPPORTED:
-        database_resolved = (f"USER${get_env_username().upper()}", "personal db")
-    else:
-        database_resolved = _resolve(None, "database", conn_key="database")
+        Resolution: user_input > account_param > config_table > default_value > current_session.
+        """
+        if user_input is not None:
+            return user_input, SOURCE_USER_INPUT
+        if account_param is not None:
+            return account_param, SOURCE_ACCOUNT_PARAM
+        if config_table_val is not None:
+            return config_table_val, SOURCE_CONFIG_TABLE
+        if default_value is not None:
+            return default_value, SOURCE_DEFAULT
+        if current_session is not None:
+            return current_session, SOURCE_CURRENT_SESSION
+        return None, SOURCE_MISSING
 
+    # ── Pre-compute current session values ─────────────────────────────
+    conn = ctx.connection_context
+    session_wh = (
+        getattr(conn, "warehouse", None) or conn_config.get("warehouse") or None
+    )
+    session_db = getattr(conn, "database", None) or conn_config.get("database") or None
+    session_schema = getattr(conn, "schema", None) or conn_config.get("schema") or None
+
+    personal_db = (
+        f"USER${get_env_username().upper()}" if IS_PERSONAL_DB_SUPPORTED else None
+    )
+
+    # ── Resolve each field ────────────────────────────────────────────
     resolved = {
-        "database": database_resolved,
-        "schema": _resolve(None, "schema", conn_key="schema"),
-        "warehouse": _resolve(None, "warehouse", conn_key="warehouse"),
-        "compute_pool": _resolve(compute_pool, "compute_pool"),
-        "build_eai": _resolve(build_eai, "eai"),
+        "database": _resolve(
+            account_param=params.get("database"),
+            config_table_val=config_table.get("database"),
+            default_value=personal_db,
+            current_session=session_db,
+        ),
+        # TODO: Support per-app schema (e.g. APPS.APP_<app_id>) instead of
+        # a single shared schema for all apps.
+        "schema": _resolve(
+            account_param=params.get("schema"),
+            config_table_val=config_table.get("schema"),
+            current_session=session_schema,
+        ),
+        "warehouse": _resolve(
+            account_param=params.get("query_warehouse"),
+            config_table_val=config_table.get("warehouse"),
+            current_session=session_wh,
+        ),
+        # TODO: Consider removing --compute-pool argument once services can run
+        # in the system default compute pool (SYSTEM_COMPUTE_POOL_CPU).
+        "build_compute_pool": _resolve(
+            user_input=compute_pool,
+            account_param=params.get("build_compute_pool"),
+            config_table_val=config_table.get("compute_pool"),
+        ),
+        "service_compute_pool": _resolve(
+            user_input=compute_pool,
+            account_param=params.get("service_compute_pool"),
+            config_table_val=config_table.get("compute_pool"),
+        ),
+        # TODO: Remove --build-eai argument once the builder service no longer
+        # requires an external access integration.
+        "build_eai": _resolve(
+            user_input=build_eai,
+            account_param=params.get("build_eai"),
+            config_table_val=config_table.get("eai"),
+        ),
+        # TODO: Remove image_repository default once the artifact repo path
+        # replaces the image repo path.
+        "image_repository": _resolve(
+            config_table_val=config_table.get("image_repository"),
+            default_value=DEFAULT_IMAGE_REPOSITORY,
+        ),
     }
 
-    img_repo = _resolve(None, "image_repository")
-    if img_repo[0]:
-        resolved["image_repository"] = img_repo
-
-    # Validate: fail on ALL missing required values at once
-    required_keys = ["database", "warehouse", "compute_pool", "build_eai"]
-    missing = [key for key in required_keys if not resolved[key][0]]
-    if missing:
-        flag_map = {
-            "database": "--database",
-            "warehouse": "--warehouse",
-            "compute_pool": "--compute-pool",
-            "build_eai": "--build-eai",
-        }
-        flags = ", ".join(flag_map[k] for k in missing)
+    # ── Validate required values ─────────────────────────────────────
+    # TODO: database, warehouse, and schema cannot be passed as arguments
+    # yet — they must come from account parameters, config table, or the
+    # current session.
+    if not resolved["database"][0]:
         raise ClickException(
-            f"Missing required value(s): {', '.join(missing)}. "
-            f"Pass them using: {flags}"
+            "Missing database. Set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE account parameter or check your connection."
+        )
+    if not resolved["schema"][0]:
+        raise ClickException(
+            "Missing schema. Set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA account parameter or check your connection."
+        )
+    if not resolved["warehouse"][0]:
+        raise ClickException(
+            "Missing warehouse. Set the DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE account parameter or check your connection."
+        )
+    if not resolved["build_compute_pool"][0]:
+        raise ClickException(
+            "Missing build compute pool. Pass --compute-pool or set the DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL account parameter."
+        )
+    if not resolved["service_compute_pool"][0]:
+        raise ClickException(
+            "Missing service compute pool. Pass --compute-pool or set the DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL account parameter."
+        )
+    if not resolved["build_eai"][0]:
+        raise ClickException(
+            "Missing build EAI. Pass --build-eai or set the DEFAULT_SNOWFLAKE_APPS_BUILD_EXTERNAL_ACCESS_INTEGRATION account parameter."
         )
 
     resolved_values = {k: v[0] for k, v in resolved.items()}
