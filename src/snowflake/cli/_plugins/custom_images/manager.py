@@ -23,6 +23,7 @@ import yaml
 from click import ClickException
 from snowflake.cli._plugins.custom_images.metrics import CustomImageCounterField
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.project.util import to_identifier
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 
 _FAIL_SEVERITIES = {"high", "critical"}
@@ -609,7 +610,9 @@ class CustomImageManager(SqlExecutionMixin):
         """
         slash_idx = registry.find("/")
         if slash_idx == -1:
-            return registry
+            raise ClickException(
+                f"Invalid registry format '{registry}': expected '<host>/<path>'."
+            )
         return registry[slash_idx:]
 
     def register(
@@ -662,7 +665,7 @@ class CustomImageManager(SqlExecutionMixin):
 
         image_path = self._parse_image_path(registry)
         sql = (
-            f"CREATE CUSTOM RUNTIME ENVIRONMENT {cre_name} "
+            f"CREATE CUSTOM RUNTIME ENVIRONMENT {to_identifier(cre_name)} "
             f"IMAGE_PATH = '{image_path}' "
             f"BASE_IMAGE_TYPE = {base_image_type}"
         )

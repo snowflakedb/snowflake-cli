@@ -347,3 +347,61 @@ class TestRegisterCustomImageCommand:
 
         assert result.exit_code == 2
         assert "invalid" in result.output.lower()
+
+    def test_register_connection_flags_in_help(self, runner):
+        """requires_connection=True means --connection and friends appear in register --help."""
+        result = runner.invoke(["custom-image", "register", "--help"])
+
+        assert result.exit_code == 0
+        assert "--connection" in result.output
+
+    @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
+    @mock.patch(
+        "snowflake.cli._plugins.custom_images.manager.CustomImageManager.execute_query"
+    )
+    def test_register_cre_name_with_spaces_is_quoted(
+        self, mock_execute_query, mock_run, runner
+    ):
+        """CRE names containing spaces are double-quoted in the SQL statement."""
+        mock_run.side_effect = create_mock_side_effect()
+
+        result = runner.invoke(
+            [
+                "custom-image",
+                "register",
+                "test-image:latest",
+                self.REGISTRY,
+                "--base-image-type",
+                self.BASE_IMAGE_TYPE,
+                "--name",
+                "my cre name",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        sql = mock_execute_query.call_args[0][0]
+        assert '"my cre name"' in sql
+
+    @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
+    @mock.patch(
+        "snowflake.cli._plugins.custom_images.manager.CustomImageManager.execute_query"
+    )
+    def test_register_bare_registry_no_slash_fails(
+        self, mock_execute_query, mock_run, runner
+    ):
+        """A registry with no slash raises a clear error instead of producing bogus SQL."""
+        mock_run.return_value = mock.Mock(returncode=0, stdout="", stderr="")
+
+        result = runner.invoke(
+            [
+                "custom-image",
+                "register",
+                "test-image:latest",
+                "barehostname",
+                "--base-image-type",
+                self.BASE_IMAGE_TYPE,
+            ]
+        )
+
+        assert result.exit_code == 1
+        assert "Invalid registry format" in result.output

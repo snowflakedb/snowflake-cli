@@ -43,7 +43,7 @@ def _callback():
     pass
 
 
-@app.command(requires_connection=False)
+@app.command(requires_connection=True)
 def register(
     image: str = typer.Argument(
         ...,
