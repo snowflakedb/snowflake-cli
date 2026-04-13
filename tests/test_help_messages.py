@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from typing import List
 
@@ -22,7 +23,10 @@ from snowflake.cli._app.commands_registration.command_plugins_loader import (
     load_only_builtin_command_plugins,
 )
 from snowflake.cli.api.constants import PYTHON_3_12
+from snowflake.cli.api.feature_flags import FeatureFlag
 from typer.core import TyperGroup
+
+os.environ[FeatureFlag.ENABLE_DCM_EARLY_ACCESS.env_variable()] = "true"
 
 SNOW_CORTEX_SEARCH = "Performs query search using Cortex Search Services."
 SNOW_CORTEX_COMPLETE = "Given a prompt, the command generates"

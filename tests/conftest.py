@@ -156,16 +156,6 @@ def isolate_snowflake_home(snowflake_home):
 
 
 @pytest.fixture(autouse=True, scope="session")
-def enable_dcm_early_access_for_tests():
-    import os
-
-    from snowflake.cli.api.feature_flags import FeatureFlag
-
-    os.environ[FeatureFlag.ENABLE_DCM_EARLY_ACCESS.env_variable()] = "true"
-    yield
-
-
-@pytest.fixture(autouse=True, scope="session")
 def mocked_rich():
     from rich.panel import Panel
 
