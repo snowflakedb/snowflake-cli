@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import logging
 import re
 from pathlib import Path
 from typing import Callable, Optional
@@ -54,7 +55,7 @@ from snowflake.cli.api.output.types import (
 from snowflake.cli.api.project.util import get_env_username, identifier_for_url
 from snowflake.connector.errors import ProgrammingError
 
-log = __import__("logging").getLogger(__name__)
+log = logging.getLogger(__name__)
 
 # ── Source provenance labels ──────────────────────────────────────────
 SOURCE_USER_INPUT = "user input"
@@ -475,18 +476,19 @@ def _make_build_log_streamer(
     Each invocation of ``SPCS_GET_LOGS`` returns the *full* log history.
     We track how many lines were already printed and emit only the delta.
     """
-    seen_count: list[int] = [0]
+    seen_count = 0
 
     def _stream() -> None:
+        nonlocal seen_count
         try:
             logs = manager.get_build_job_logs(build_job_fqn)
         except Exception:
             log.debug("Failed to fetch build logs", exc_info=True)
             return
-        new_lines = logs[seen_count[0] :]
+        new_lines = logs[seen_count:]
         for line in new_lines:
             cli_console.step(line)
-        seen_count[0] = len(logs)
+        seen_count = len(logs)
 
     return _stream
 
@@ -500,9 +502,10 @@ def _make_deploy_log_streamer(
     containing all log output.  We split by newlines, track what has
     already been printed, and emit only new lines.
     """
-    seen_count: list[int] = [0]
+    seen_count = 0
 
     def _stream() -> None:
+        nonlocal seen_count
         try:
             raw = manager.get_app_service_logs(service_fqn.identifier)
         except Exception:
@@ -511,10 +514,10 @@ def _make_deploy_log_streamer(
         if not raw:
             return
         lines = raw.splitlines()
-        new_lines = lines[seen_count[0] :]
+        new_lines = lines[seen_count:]
         for line in new_lines:
             cli_console.step(line)
-        seen_count[0] = len(lines)
+        seen_count = len(lines)
 
     return _stream
 

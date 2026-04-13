@@ -951,16 +951,10 @@ class SnowflakeAppManager(SqlExecutionMixin):
     def get_build_job_logs(self, build_job_fqn: FQN) -> list[str]:
         """Fetch build logs via the build job's ``SPCS_GET_LOGS`` table function.
 
-        Runs ``SELECT * FROM TABLE(<build_job_fqn>!SPCS_GET_LOGS())`` and
+        Runs ``SELECT LOG FROM TABLE(<build_job_fqn>!SPCS_GET_LOGS())`` and
         returns the LOG column values as an ordered list of strings.
         """
         cursor = self.execute_query(
-            f"SELECT * FROM TABLE({build_job_fqn.identifier}!SPCS_GET_LOGS())",
-            cursor_class=DictCursor,
+            f"SELECT LOG FROM TABLE({build_job_fqn.identifier}!SPCS_GET_LOGS())",
         )
-        logs: list[str] = []
-        for row in cursor:
-            log_val = row.get("LOG") or row.get("log") or ""
-            if log_val:
-                logs.append(str(log_val))
-        return logs
+        return [str(row[0]) for row in cursor if row[0]]
