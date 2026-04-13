@@ -1,1 +1,5 @@
 * @snowflakedb/snowcli
+
+# Apps plugin
+/src/snowflake/cli/_plugins/apps/ @snowflakedb/native-apps
+/tests/apps/ @snowflakedb/native-apps
