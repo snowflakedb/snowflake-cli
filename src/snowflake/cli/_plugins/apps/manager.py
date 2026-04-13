@@ -20,7 +20,17 @@ import re
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Set, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    TypeVar,
+)
 
 from snowflake.cli._plugins.apps.generate import IS_PERSONAL_DB_SUPPORTED
 from snowflake.cli._plugins.apps.snowflake_app_entity_model import DEFAULT_APP_PORT
@@ -80,6 +90,7 @@ def _poll_until(
     is_done: Optional[Callable[[T], bool]] = None,
     is_error: Optional[Callable[[T], bool]] = None,
     format_status: Callable[[T], str] = str,
+    on_poll: Optional[Callable[[], None]] = None,
     max_attempts: int = 240,
     interval_seconds: int = 5,
     timeout_message: str = "Operation timed out.",
@@ -96,6 +107,10 @@ def _poll_until(
         Call *is_done(result)* each iteration.  Optionally supply *is_error*
         to detect error values.
 
+    If *on_poll* is provided it is called after each status check,
+    regardless of mode.  This is useful for side-effects such as
+    streaming logs while waiting.
+
     Raises ``CliError`` on error or timeout.  Returns the final value on
     success.
     """
@@ -103,6 +118,9 @@ def _poll_until(
         time.sleep(interval_seconds)
         result = poll_fn()
         cli_console.step(f"Status: {format_status(result)}")
+
+        if on_poll is not None:
+            on_poll()
 
         if is_done is not None:
             # ── Predicate mode ────────────────────────────────────
@@ -636,6 +654,44 @@ class SnowflakeAppManager(SqlExecutionMixin):
                 return row["status"]
 
         return "IDLE"
+
+    def get_build_logs(
+        self,
+        job_fqn: FQN,
+        since_timestamp: str = "",
+        num_lines: int = 500,
+    ) -> Tuple[List[str], str]:
+        """Fetch new log lines from the build job service since *since_timestamp*.
+
+        Returns ``(new_lines, updated_since_timestamp)`` so the caller can
+        pass the timestamp back on the next call for incremental fetching.
+        """
+        try:
+            cursor = self.execute_query(
+                f"CALL SYSTEM$GET_SERVICE_LOGS("
+                f"'{job_fqn.identifier}', '0', 'main', "
+                f"{num_lines}, FALSE, '{since_timestamp}', TRUE)"
+            )
+            row = cursor.fetchone()
+            raw = row[0] if row else ""
+        except Exception:  # noqa: BLE001
+            # Logs may not be available yet (e.g. container not started)
+            return [], since_timestamp
+
+        if not raw or not raw.strip():
+            return [], since_timestamp
+
+        lines = [line for line in raw.split("\n") if line.strip()]
+        if not lines:
+            return [], since_timestamp
+
+        # Each line with timestamps starts with an ISO timestamp followed by a space.
+        # Use the timestamp from the last line as the new since_timestamp.
+        last_line = lines[-1]
+        parts = last_line.split(" ", 1)
+        new_since = parts[0] if len(parts) > 1 else since_timestamp
+
+        return lines, new_since
 
     def create_service(
         self,
