@@ -466,7 +466,7 @@ def generate_jwt(
 def generate_workload_identity_token(
     **options,
 ) -> CommandResult:
-    """Generate a workload identity token for authenticating to Snowflake via a WIF provider (AWS, GCP, Azure, or OIDC). The token is printed to stdout."""
+    """Generate a workload identity token for authenticating to Snowflake via a Workload Identity Federation (WIF) provider (AWS, AZURE, GCP, or OIDC). The token is printed to stdout."""
     from snowflake.connector.wif_util import AttestationProvider, create_attestation
 
     connection_details = get_cli_context().connection_context.update_from_config()
@@ -502,5 +502,5 @@ def generate_workload_identity_token(
         return MessageResult(attestation.credential)
     except (UsageError, ClickException):
         raise
-    except (ValueError, TypeError) as err:
+    except (ValueError, TypeError, ProgrammingError) as err:
         raise ClickException(str(err))

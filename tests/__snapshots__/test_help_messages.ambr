@@ -5054,8 +5054,9 @@
                                                                                   
    Usage: root connection generate-workload-identity-token [OPTIONS]              
                                                                                   
-   Generate a workload identity token for authenticating to Snowflake via a WIF   
-   provider (AWS, GCP, Azure, or OIDC). The token is printed to stdout.           
+   Generate a workload identity token for authenticating to Snowflake via a       
+   Workload Identity Federation (WIF) provider (AWS, AZURE, GCP, or OIDC). The    
+   token is printed to stdout.                                                    
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |

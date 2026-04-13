@@ -1489,6 +1489,11 @@ def test_generate_workload_identity_token(mock_create_attestation, runner):
 
     assert result.exit_code == 0, result.output
     assert "test-wif-token" in result.output
+    from snowflake.connector.wif_util import AttestationProvider
+
+    mock_create_attestation.assert_called_once_with(
+        provider=AttestationProvider.GCP, token=None
+    )
 
 
 @mock.patch("snowflake.connector.wif_util.create_attestation")
@@ -1608,6 +1613,20 @@ def test_generate_workload_identity_token_oidc_missing_token(runner):
 
     assert result.exit_code != 0
     assert "OIDC provider requires a token" in result.output
+
+
+def test_generate_workload_identity_token_invalid_provider_string(runner):
+    result = runner.invoke(
+        [
+            "connection",
+            "generate-workload-identity-token",
+            "--workload-identity-provider",
+            "INVALID",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Error" in result.output
 
 
 @mock.patch("snowflake.connector.wif_util.create_attestation")
