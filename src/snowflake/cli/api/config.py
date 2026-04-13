@@ -552,9 +552,11 @@ def _enforce_strict_config_permissions() -> bool:
     env_var = get_env_variable_name(
         *FEATURE_FLAGS_SECTION_PATH, key="ENFORCE_STRICT_CONFIG_PERMISSIONS"
     )
+    value = os.environ.get(env_var, "")
     try:
-        return try_cast_to_bool(os.environ.get(env_var, "").lower())
+        return try_cast_to_bool(value.lower())
     except ValueError:
+        log.debug("Could not parse %s value %r, defaulting to False", env_var, value)
         return False
 
 
