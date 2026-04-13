@@ -15,7 +15,7 @@
 import json
 import re
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import typer
 from click import ClickException
@@ -53,6 +53,8 @@ from snowflake.cli.api.output.types import (
 )
 from snowflake.cli.api.project.util import get_env_username, identifier_for_url
 from snowflake.connector.errors import ProgrammingError
+
+log = __import__("logging").getLogger(__name__)
 
 # ── Source provenance labels ──────────────────────────────────────────
 SOURCE_USER_INPUT = "user input"
@@ -465,6 +467,58 @@ def events(
     return MessageResult(logs)
 
 
+def _make_build_log_streamer(
+    manager: SnowflakeAppManager, build_job_fqn: FQN
+) -> Callable:
+    """Return an ``on_poll`` callback that prints new build log lines.
+
+    Each invocation of ``SPCS_GET_LOGS`` returns the *full* log history.
+    We track how many lines were already printed and emit only the delta.
+    """
+    seen_count: list[int] = [0]
+
+    def _stream(_status) -> None:
+        try:
+            logs = manager.get_build_job_logs(build_job_fqn)
+        except Exception:
+            log.debug("Failed to fetch build logs", exc_info=True)
+            return
+        new_lines = logs[seen_count[0] :]
+        for line in new_lines:
+            cli_console.step(line)
+        seen_count[0] = len(logs)
+
+    return _stream
+
+
+def _make_deploy_log_streamer(
+    manager: SnowflakeAppManager, service_fqn: FQN
+) -> Callable:
+    """Return an ``on_poll`` callback that prints new deploy log lines.
+
+    ``SYSTEM$GET_APPLICATION_SERVICE_LOGS`` returns one long string
+    containing all log output.  We split by newlines, track what has
+    already been printed, and emit only new lines.
+    """
+    seen_count: list[int] = [0]
+
+    def _stream(_status) -> None:
+        try:
+            raw = manager.get_app_service_logs(service_fqn.identifier)
+        except Exception:
+            log.debug("Failed to fetch deploy logs", exc_info=True)
+            return
+        if not raw:
+            return
+        lines = raw.splitlines()
+        new_lines = lines[seen_count[0] :]
+        for line in new_lines:
+            cli_console.step(line)
+        seen_count[0] = len(lines)
+
+    return _stream
+
+
 @app.command(requires_connection=True)
 def deploy(
     entity_id: Optional[str] = typer.Option(
@@ -677,6 +731,7 @@ def deploy(
                         f"  SELECT * FROM TABLE("
                         f"{artifact_build_job_fqn.identifier}!SPCS_GET_LOGS())"
                     ),
+                    on_poll=_make_build_log_streamer(manager, artifact_build_job_fqn),
                 )
         else:
             with metrics.span("snowflake_app.build"):
@@ -760,6 +815,8 @@ def deploy(
             url = d.get("url", "")
             return bool(url) and "provisioning in progress" not in url.lower()
 
+        deploy_log_streamer = _make_deploy_log_streamer(manager, service_fqn)
+
         with metrics.span("snowflake_app.endpoint_provision"):
             if did_upgrade:
                 cli_console.step("Waiting for upgrade to complete...")
@@ -774,6 +831,7 @@ def deploy(
                         f"Upgrade timed out. Check logs:\n"
                         f"  CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{app_name}')"
                     ),
+                    on_poll=deploy_log_streamer,
                 )
             else:
                 cli_console.step("Waiting for application service endpoint...")
@@ -786,6 +844,7 @@ def deploy(
                         f"Endpoint provisioning timed out. "
                         f"Check: DESCRIBE APPLICATION SERVICE {service_fqn.identifier}"
                     ),
+                    on_poll=deploy_log_streamer,
                 )
 
         endpoint_url = desc.get("url", "")

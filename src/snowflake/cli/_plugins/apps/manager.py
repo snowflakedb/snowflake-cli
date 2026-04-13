@@ -83,6 +83,7 @@ def _poll_until(
     max_attempts: int = 240,
     interval_seconds: int = 5,
     timeout_message: str = "Operation timed out.",
+    on_poll: Optional[Callable[[T], None]] = None,
 ) -> T:
     """Poll *poll_fn* until the result satisfies a done condition.
 
@@ -96,6 +97,10 @@ def _poll_until(
         Call *is_done(result)* each iteration.  Optionally supply *is_error*
         to detect error values.
 
+    If *on_poll* is provided, it is called with the poll result after each
+    iteration.  Exceptions from *on_poll* are logged and swallowed so they
+    do not interrupt the polling loop.
+
     Raises ``CliError`` on error or timeout.  Returns the final value on
     success.
     """
@@ -103,6 +108,12 @@ def _poll_until(
         time.sleep(interval_seconds)
         result = poll_fn()
         cli_console.step(f"Status: {format_status(result)}")
+
+        if on_poll is not None:
+            try:
+                on_poll(result)
+            except Exception:
+                log.debug("on_poll callback failed", exc_info=True)
 
         if is_done is not None:
             # ── Predicate mode ────────────────────────────────────
@@ -932,3 +943,20 @@ class SnowflakeAppManager(SqlExecutionMixin):
         )
         row = cursor.fetchone()
         return row[0] if row else ""
+
+    def get_build_job_logs(self, build_job_fqn: FQN) -> list[str]:
+        """Fetch build logs via the build job's ``SPCS_GET_LOGS`` table function.
+
+        Runs ``SELECT * FROM TABLE(<build_job_fqn>!SPCS_GET_LOGS())`` and
+        returns the LOG column values as an ordered list of strings.
+        """
+        cursor = self.execute_query(
+            f"SELECT * FROM TABLE({build_job_fqn.identifier}!SPCS_GET_LOGS())",
+            cursor_class=DictCursor,
+        )
+        logs: list[str] = []
+        for row in cursor:
+            log_val = row.get("LOG") or row.get("log") or ""
+            if log_val:
+                logs.append(str(log_val))
+        return logs
