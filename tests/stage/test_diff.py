@@ -272,7 +272,8 @@ def test_put_files_on_stage(mock_put, overwrite_param):
                 overwrite=overwrite_param,
             ),
         ]
-        assert mock_put.mock_calls == expected
+        mock_put.assert_has_calls(expected, any_order=True)
+        assert mock_put.call_count == len(expected)
 
 
 def test_build_md5_map(mock_cursor):

@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Collection, Dict, List, Optional, Tuple
@@ -31,6 +32,7 @@ from .md5 import UnknownMD5FormatError, file_matches_md5sum
 
 log = logging.getLogger(__name__)
 
+DEFAULT_PUT_FILES_WORKERS = 16
 StagePathType = PurePosixPath  # alias PurePosixPath as StagePath for clarity
 
 
@@ -220,8 +222,12 @@ def put_files_on_stage(
 ):
     """
     Uploads all files given input list of filenames on your local filesystem, to a Snowflake stage, using a custom role.
+    Files are uploaded concurrently using a thread pool.
     """
-    for _stage_path in stage_paths:
+    if not stage_paths:
+        return
+
+    def _upload_file(_stage_path: StagePathType):
         stage_sub_path = get_stage_subpath(_stage_path)
         full_stage_path = (
             f"{stage_root}/{stage_sub_path}" if stage_sub_path else stage_root
@@ -232,6 +238,9 @@ def put_files_on_stage(
             role=role,
             overwrite=overwrite,
         )
+
+    with ThreadPoolExecutor(max_workers=DEFAULT_PUT_FILES_WORKERS) as executor:
+        list(executor.map(_upload_file, stage_paths))
 
 
 def sync_local_diff_with_stage(
