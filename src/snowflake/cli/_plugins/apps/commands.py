@@ -544,6 +544,11 @@ def deploy(
         help="Run only the deploy phase (assumes the container image has already been built). "
         "Skips the upload and build phases.",
     ),
+    hide_logs: bool = typer.Option(
+        False,
+        "--hide-logs",
+        help="Disable live log streaming during the build and deploy phases.",
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -731,7 +736,9 @@ def deploy(
                         f"  SELECT * FROM TABLE("
                         f"{artifact_build_job_fqn.identifier}!SPCS_GET_LOGS())"
                     ),
-                    on_poll=_make_build_log_streamer(manager, artifact_build_job_fqn),
+                    on_poll=None
+                    if hide_logs
+                    else _make_build_log_streamer(manager, artifact_build_job_fqn),
                 )
         else:
             with metrics.span("snowflake_app.build"):
@@ -815,7 +822,9 @@ def deploy(
             url = d.get("url", "")
             return bool(url) and "provisioning in progress" not in url.lower()
 
-        deploy_log_streamer = _make_deploy_log_streamer(manager, service_fqn)
+        deploy_log_streamer = (
+            None if hide_logs else _make_deploy_log_streamer(manager, service_fqn)
+        )
 
         with metrics.span("snowflake_app.endpoint_provision"):
             if did_upgrade:
