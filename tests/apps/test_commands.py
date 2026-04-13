@@ -473,6 +473,9 @@ class TestDeployLogStreamer:
 
         manager.get_app_service_logs.assert_called_with("DB.SCHEMA.MY_APP")
         assert mock_console.step.call_count == 3
+        mock_console.step.assert_any_call("line1")
+        mock_console.step.assert_any_call("line2")
+        mock_console.step.assert_any_call("line3")
 
     def test_subsequent_call_prints_only_new_lines(self):
         manager = Mock()
@@ -553,6 +556,9 @@ class TestDeployLogStreamer:
             manager.get_app_service_logs.return_value = "a\r\nb\nc"
             streamer()
             assert mock_console.step.call_count == 3
+            mock_console.step.assert_any_call("a")
+            mock_console.step.assert_any_call("b")
+            mock_console.step.assert_any_call("c")
 
 
 # ── _generate_snowflake_yml tests ─────────────────────────────────────
