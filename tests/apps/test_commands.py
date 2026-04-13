@@ -301,8 +301,29 @@ class TestPollUntilStateSetMode:
             )
         assert mock_sleep.call_count == 2
 
+    @patch("snowflake.cli._plugins.apps.manager.time.sleep")
+    def test_on_poll_called_each_iteration(self, mock_sleep):
+        values = iter(["PENDING", "DONE"])
+        on_poll = Mock()
+        _poll_until(
+            poll_fn=lambda: next(values),
+            done_states={"DONE"},
+            error_states={"FAILED"},
+            known_pending_states={"PENDING"},
+            on_poll=on_poll,
+            timeout_message="timed out",
+        )
+        assert on_poll.call_count == 2
 
-# ── _generate_snowflake_yml tests ─────────────────────────────────────
+    @patch("snowflake.cli._plugins.apps.manager.time.sleep")
+    def test_on_poll_not_called_when_none(self, mock_sleep):
+        """Verify backward compatibility: no on_poll means no extra calls."""
+        _poll_until(
+            poll_fn=lambda: "DONE",
+            done_states={"DONE"},
+            timeout_message="timed out",
+        )
+        # No error means it worked without on_poll
 
 
 class TestGenerateSnowflakeYml:
@@ -906,6 +927,59 @@ class TestSnowflakeAppManager:
         fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
         status = SnowflakeAppManager().get_build_status(fqn)
         assert status == "DONE"
+
+    @patch(EXECUTE_QUERY)
+    def test_get_build_logs_returns_lines_and_timestamp(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = (
+            "2024-01-01T00:00:01Z Building layer 1\n"
+            "2024-01-01T00:00:02Z Building layer 2\n",
+        )
+        mock_execute.return_value = cursor
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        lines, since = SnowflakeAppManager().get_build_logs(fqn)
+        assert len(lines) == 2
+        assert "Building layer 1" in lines[0]
+        assert "Building layer 2" in lines[1]
+        assert since == "2024-01-01T00:00:02Z"
+
+    @patch(EXECUTE_QUERY)
+    def test_get_build_logs_with_since_timestamp(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ("2024-01-01T00:00:03Z Building layer 3\n",)
+        mock_execute.return_value = cursor
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        lines, since = SnowflakeAppManager().get_build_logs(
+            fqn, since_timestamp="2024-01-01T00:00:02Z"
+        )
+        assert len(lines) == 1
+        assert "Building layer 3" in lines[0]
+        assert since == "2024-01-01T00:00:03Z"
+        # Verify since_timestamp was passed to the query
+        query = mock_execute.call_args[0][0]
+        assert "2024-01-01T00:00:02Z" in query
+
+    @patch(EXECUTE_QUERY)
+    def test_get_build_logs_empty_result(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ("",)
+        mock_execute.return_value = cursor
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        lines, since = SnowflakeAppManager().get_build_logs(fqn)
+        assert lines == []
+        assert since == ""
+
+    @patch(EXECUTE_QUERY)
+    def test_get_build_logs_handles_exception(self, mock_execute):
+        mock_execute.side_effect = Exception("container not ready")
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        lines, since = SnowflakeAppManager().get_build_logs(fqn)
+        assert lines == []
+        assert since == ""
 
     @patch(EXECUTE_QUERY)
     def test_create_service_basic(self, mock_execute):

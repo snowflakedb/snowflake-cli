@@ -54,6 +54,29 @@ from snowflake.cli.api.output.types import (
 from snowflake.cli.api.project.util import get_env_username, identifier_for_url
 from snowflake.connector.errors import ProgrammingError
 
+
+def _make_build_log_streamer(
+    manager: SnowflakeAppManager, job_fqn, label: str = "build"
+):
+    """Return a callback that streams new build logs each time it is called.
+
+    Meant to be passed as ``on_poll`` to :func:`_poll_until`.
+    """
+    state = {"since": ""}
+
+    def _stream():
+        lines, new_since = manager.get_build_logs(
+            job_fqn, since_timestamp=state["since"]
+        )
+        if lines:
+            cli_console.step(f"── {label} logs ──")
+            for line in lines:
+                cli_console.step(line)
+        state["since"] = new_since
+
+    return _stream
+
+
 # ── Source provenance labels ──────────────────────────────────────────
 SOURCE_USER_INPUT = "user input"
 SOURCE_ACCOUNT_PARAM = "account parameter"
@@ -661,6 +684,9 @@ def deploy(
                 done_states={"DONE"},
                 error_states={"FAILED", "IDLE"},
                 known_pending_states={"PENDING", "RUNNING"},
+                on_poll=_make_build_log_streamer(
+                    manager, artifact_build_job_fqn, label="artifact build"
+                ),
                 timeout_message=(
                     f"Artifact repo build timed out. Check build logs:\n"
                     f"  CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{app_name}')"
@@ -687,6 +713,7 @@ def deploy(
                 done_states={"DONE"},
                 error_states={"FAILED", "IDLE"},
                 known_pending_states={"PENDING", "RUNNING"},
+                on_poll=_make_build_log_streamer(manager, build_job_fqn),
                 timeout_message=f"Build timed out. Check service logs: {build_job_fqn}",
             )
 
