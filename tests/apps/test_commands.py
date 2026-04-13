@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 import pytest
 from snowflake.cli._plugins.apps.commands import (
@@ -322,7 +322,7 @@ class TestPollUntilOnPoll:
         )
         assert on_poll.call_count == 3
         assert mock_sleep.call_count == 3
-        mock_sleep.assert_called_with(1)
+        assert all(c == call(1) for c in mock_sleep.call_args_list)
 
     @patch("snowflake.cli._plugins.apps.manager.time.sleep")
     def test_on_poll_exception_does_not_interrupt_polling(self, mock_sleep):
