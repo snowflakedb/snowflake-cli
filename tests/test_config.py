@@ -522,8 +522,16 @@ def test_too_wide_permissions_on_custom_config_file_causes_warning(
     with NamedTemporaryFile(suffix=".toml") as tmp:
         config_path = Path(tmp.name)
         config_path.chmod(chmod)
-        with pytest.warns(UserWarning, match="Bad owner or permissions on"):
+        with pytest.warns(UserWarning) as warning_list:
             config_init(config_file=config_path)
+        warning_text = str(warning_list[0].message)
+        assert f"Bad owner or permissions on {config_path}" in warning_text
+        assert "chown" in warning_text
+        assert "chmod 0600" in warning_text
+        assert (
+            "SNOWFLAKE_CLI_FEATURES_ENFORCE_STRICT_CONFIG_PERMISSIONS" in warning_text
+        )
+        assert "future versions" in warning_text
 
 
 @parametrize_icacls

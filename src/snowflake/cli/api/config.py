@@ -317,6 +317,13 @@ def _handle_windows_permission_warning(config_path: Path) -> None:
 def _handle_unix_custom_config_permissions(config_path: Path) -> bool:
     """
     Handle permission checks for custom config files on Unix.
+
+    This runs after _check_custom_config_permissions has already passed, so it only
+    deals with the non-error path: either strict mode is on (permissions are known-good,
+    let the connector also check) or strict mode is off (warn the user and skip the
+    connector's check to preserve backwards-compatible behaviour).
+
+    Returns True if the connector should enforce permissions, False to skip its check.
     """
     if _enforce_strict_config_permissions():
         return True
@@ -536,6 +543,10 @@ def _check_custom_config_permissions(config_file: Path) -> None:
 
     This allows users to opt-in to strict permission checking on custom config files.
     The flag can be set via environment variable SNOWFLAKE_CLI_FEATURES_ENFORCE_STRICT_CONFIG_PERMISSIONS.
+
+    This is the early-exit gate: if strict mode is on and permissions are bad, we raise here
+    before the config file is ever read. _handle_unix_custom_config_permissions (called later
+    during _read_config_file) only runs when this check passes, i.e. permissions are acceptable.
     """
     if IS_WINDOWS:
         return
@@ -549,6 +560,10 @@ def _check_custom_config_permissions(config_file: Path) -> None:
 
 
 def _enforce_strict_config_permissions() -> bool:
+    # This intentionally reads only from the environment, not from the config file.
+    # The flag controls whether the config file's own permissions are checked before
+    # reading it — so reading the (potentially insecure) config file first to discover
+    # the flag would defeat the purpose.
     env_var = get_env_variable_name(
         *FEATURE_FLAGS_SECTION_PATH, key="ENFORCE_STRICT_CONFIG_PERMISSIONS"
     )
