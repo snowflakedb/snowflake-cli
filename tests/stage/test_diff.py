@@ -22,6 +22,7 @@ from unittest import mock
 
 import pytest
 from snowflake.cli._plugins.stage.diff import (
+    DEFAULT_UPLOAD_CONCURRENCY,
     DiffResult,
     StagePathType,
     build_md5_map,
@@ -667,11 +668,11 @@ def test_sync_local_diff_with_stage_parallel(
         deploy_root_path=temp_dir,
         diff_result=diff,
         stage_full_path="stage_name",
-        concurrency=4,
+        concurrency=DEFAULT_UPLOAD_CONCURRENCY,
     )
 
     # Connections should have been created
-    assert mock_create_conn.call_count == 2  # min(4, 2 total ops)
+    assert mock_create_conn.call_count == 2  # min(16, 2 total ops)
     # Connections should be closed
     assert mock_conn.close.call_count == 2
 
@@ -696,7 +697,7 @@ def test_sync_local_diff_with_stage_connections_closed_on_error(
             deploy_root_path=temp_dir,
             diff_result=diff,
             stage_full_path="stage_name",
-            concurrency=4,
+            concurrency=DEFAULT_UPLOAD_CONCURRENCY,
         )
 
     # Connections must still be closed despite the error
@@ -719,7 +720,7 @@ def test_sync_local_diff_with_stage_sequential_for_single_file(
             deploy_root_path=temp_dir,
             diff_result=diff,
             stage_full_path="stage_name",
-            concurrency=4,
+            concurrency=DEFAULT_UPLOAD_CONCURRENCY,
         )
         # No connections created for single file
         mock_create_conn.assert_not_called()

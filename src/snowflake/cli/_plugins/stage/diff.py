@@ -33,7 +33,7 @@ from .md5 import UnknownMD5FormatError, file_matches_md5sum
 
 log = logging.getLogger(__name__)
 
-DEFAULT_UPLOAD_CONCURRENCY = 4
+DEFAULT_UPLOAD_CONCURRENCY = 16
 
 StagePathType = PurePosixPath  # alias PurePosixPath as StagePath for clarity
 
