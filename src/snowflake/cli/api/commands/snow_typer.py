@@ -270,9 +270,12 @@ class SnowTyperFactory:
         )
         # register commands
         for command in self.commands_to_register:
-            if self.preview and "preview" not in command.kwargs:
-                command.kwargs["preview"] = True
-            app.command(*command.args, **command.kwargs)(command.func)
+            kwargs = dict(command.kwargs)
+            if self.preview and "preview" not in kwargs:
+                kwargs["preview"] = True
+            if callable(kwargs.get("hidden")):
+                kwargs["hidden"] = kwargs["hidden"]()
+            app.command(*command.args, **kwargs)(command.func)
         # register callbacks
         for callback in self.callbacks_to_register:
             app.callback()(callback)
