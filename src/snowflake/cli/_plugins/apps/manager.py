@@ -554,7 +554,19 @@ class SnowflakeAppManager(SqlExecutionMixin):
         cursor = self.execute_query(show_obj_query, cursor_class=DictCursor)
 
         if cursor.rowcount is None or cursor.rowcount == 0:
-            raise CliError(f"Image repository '{repo_name}' not found")
+            # Auto-create the image repository if it doesn't exist
+            create_repo_fqn = repo_name
+            if database and schema:
+                create_repo_fqn = f"{database}.{schema}.{repo_name}"
+            elif database:
+                create_repo_fqn = f"{database}..{repo_name}"
+            cli_console.step(f"Image repository '{repo_name}' not found. Creating it.")
+            self.execute_query(
+                f"CREATE IMAGE REPOSITORY IF NOT EXISTS {create_repo_fqn}"
+            )
+            cursor = self.execute_query(show_obj_query, cursor_class=DictCursor)
+            if cursor.rowcount is None or cursor.rowcount == 0:
+                raise CliError(f"Image repository '{repo_name}' could not be created")
 
         unqualified_name = unquote_identifier(repo_name)
         rows = cursor.fetchall()

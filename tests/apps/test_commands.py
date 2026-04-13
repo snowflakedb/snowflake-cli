@@ -513,22 +513,72 @@ class TestSnowflakeAppManager:
         assert result == "host.registry-local.snowflakecomputing.com/db/schema/my_repo"
 
     @patch(EXECUTE_QUERY)
-    def test_get_image_repo_url_not_found_empty(self, mock_execute):
-        cursor = Mock()
-        cursor.rowcount = 0
-        mock_execute.return_value = cursor
+    def test_get_image_repo_url_not_found_creates_repo(self, mock_execute):
+        empty_cursor = Mock()
+        empty_cursor.rowcount = 0
 
-        with pytest.raises(CliError, match="Image repository 'MY_REPO' not found"):
+        create_cursor = Mock()
+
+        found_cursor = Mock()
+        found_cursor.rowcount = 1
+        found_cursor.fetchall.return_value = [
+            {
+                "name": "MY_REPO",
+                "repository_url": "host.registry.snowflakecomputing.com/db/schema/my_repo",
+            }
+        ]
+
+        mock_execute.side_effect = [empty_cursor, create_cursor, found_cursor]
+
+        result = SnowflakeAppManager().get_image_repo_url("MY_REPO")
+        assert result == "host.registry-local.snowflakecomputing.com/db/schema/my_repo"
+
+        assert mock_execute.call_count == 3
+        # Second call should be the CREATE statement
+        create_call_args = mock_execute.call_args_list[1]
+        assert "CREATE IMAGE REPOSITORY IF NOT EXISTS MY_REPO" in create_call_args[0][0]
+
+    @patch(EXECUTE_QUERY)
+    def test_get_image_repo_url_not_found_create_fails(self, mock_execute):
+        empty_cursor = Mock()
+        empty_cursor.rowcount = 0
+
+        create_cursor = Mock()
+
+        still_empty_cursor = Mock()
+        still_empty_cursor.rowcount = 0
+
+        mock_execute.side_effect = [empty_cursor, create_cursor, still_empty_cursor]
+
+        with pytest.raises(
+            CliError, match="Image repository 'MY_REPO' could not be created"
+        ):
             SnowflakeAppManager().get_image_repo_url("MY_REPO")
 
     @patch(EXECUTE_QUERY)
-    def test_get_image_repo_url_not_found_none_rowcount(self, mock_execute):
-        cursor = Mock()
-        cursor.rowcount = None
-        mock_execute.return_value = cursor
+    def test_get_image_repo_url_not_found_none_rowcount_creates_repo(
+        self, mock_execute
+    ):
+        none_cursor = Mock()
+        none_cursor.rowcount = None
 
-        with pytest.raises(CliError, match="Image repository 'MY_REPO' not found"):
-            SnowflakeAppManager().get_image_repo_url("MY_REPO")
+        create_cursor = Mock()
+
+        found_cursor = Mock()
+        found_cursor.rowcount = 1
+        found_cursor.fetchall.return_value = [
+            {
+                "name": "MY_REPO",
+                "repository_url": "host.registry.snowflakecomputing.com/db/schema/my_repo",
+            }
+        ]
+
+        mock_execute.side_effect = [none_cursor, create_cursor, found_cursor]
+
+        result = SnowflakeAppManager().get_image_repo_url("MY_REPO")
+        assert result == "host.registry-local.snowflakecomputing.com/db/schema/my_repo"
+
+        assert mock_execute.call_count == 3
 
     @patch(EXECUTE_QUERY)
     def test_get_image_repo_url_with_database_and_schema(self, mock_execute):
