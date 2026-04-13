@@ -477,7 +477,7 @@ def _make_build_log_streamer(
     """
     seen_count: list[int] = [0]
 
-    def _stream(_status) -> None:
+    def _stream() -> None:
         try:
             logs = manager.get_build_job_logs(build_job_fqn)
         except Exception:
@@ -502,7 +502,7 @@ def _make_deploy_log_streamer(
     """
     seen_count: list[int] = [0]
 
-    def _stream(_status) -> None:
+    def _stream() -> None:
         try:
             raw = manager.get_app_service_logs(service_fqn.identifier)
         except Exception:

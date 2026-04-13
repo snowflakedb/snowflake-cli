@@ -83,7 +83,7 @@ def _poll_until(
     max_attempts: int = 240,
     interval_seconds: int = 5,
     timeout_message: str = "Operation timed out.",
-    on_poll: Optional[Callable[[T], None]] = None,
+    on_poll: Optional[Callable[[], None]] = None,
 ) -> T:
     """Poll *poll_fn* until the result satisfies a done condition.
 
@@ -97,23 +97,27 @@ def _poll_until(
         Call *is_done(result)* each iteration.  Optionally supply *is_error*
         to detect error values.
 
-    If *on_poll* is provided, it is called with the poll result after each
-    iteration.  Exceptions from *on_poll* are logged and swallowed so they
-    do not interrupt the polling loop.
+    If *on_poll* is provided it is called every second between status
+    checks, so log output streams continuously rather than in bursts
+    every *interval_seconds*.  Exceptions from *on_poll* are logged and
+    swallowed so they never interrupt the polling loop.
 
     Raises ``CliError`` on error or timeout.  Returns the final value on
     success.
     """
     for _attempt in range(max_attempts):
-        time.sleep(interval_seconds)
+        if on_poll is not None:
+            for _ in range(interval_seconds):
+                time.sleep(1)
+                try:
+                    on_poll()
+                except Exception:
+                    log.debug("on_poll callback failed", exc_info=True)
+        else:
+            time.sleep(interval_seconds)
+
         result = poll_fn()
         cli_console.step(f"Status: {format_status(result)}")
-
-        if on_poll is not None:
-            try:
-                on_poll(result)
-            except Exception:
-                log.debug("on_poll callback failed", exc_info=True)
 
         if is_done is not None:
             # ── Predicate mode ────────────────────────────────────

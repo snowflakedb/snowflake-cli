@@ -15,6 +15,10 @@
 from unittest.mock import Mock, patch
 
 import pytest
+from snowflake.cli._plugins.apps.commands import (
+    _make_build_log_streamer,
+    _make_deploy_log_streamer,
+)
 from snowflake.cli._plugins.apps.generate import (
     _generate_snowflake_yml,
 )
@@ -300,6 +304,255 @@ class TestPollUntilStateSetMode:
                 timeout_message="timed out",
             )
         assert mock_sleep.call_count == 2
+
+
+class TestPollUntilOnPoll:
+    """Tests for the on_poll callback that streams logs between status checks."""
+
+    @patch("snowflake.cli._plugins.apps.manager.time.sleep")
+    def test_on_poll_called_every_second_between_status_checks(self, mock_sleep):
+        on_poll = Mock()
+        _poll_until(
+            poll_fn=lambda: "DONE",
+            done_states={"DONE"},
+            known_pending_states={"PENDING"},
+            timeout_message="timed out",
+            interval_seconds=3,
+            on_poll=on_poll,
+        )
+        assert on_poll.call_count == 3
+        assert mock_sleep.call_count == 3
+        mock_sleep.assert_called_with(1)
+
+    @patch("snowflake.cli._plugins.apps.manager.time.sleep")
+    def test_on_poll_exception_does_not_interrupt_polling(self, mock_sleep):
+        on_poll = Mock(side_effect=RuntimeError("log fetch failed"))
+        result = _poll_until(
+            poll_fn=lambda: "DONE",
+            done_states={"DONE"},
+            known_pending_states={"PENDING"},
+            timeout_message="timed out",
+            interval_seconds=2,
+            on_poll=on_poll,
+        )
+        assert result == "DONE"
+        assert on_poll.call_count == 2
+
+    @patch("snowflake.cli._plugins.apps.manager.time.sleep")
+    def test_on_poll_called_across_multiple_iterations(self, mock_sleep):
+        values = iter(["PENDING", "DONE"])
+        on_poll = Mock()
+        _poll_until(
+            poll_fn=lambda: next(values),
+            done_states={"DONE"},
+            known_pending_states={"PENDING"},
+            timeout_message="timed out",
+            interval_seconds=5,
+            on_poll=on_poll,
+        )
+        assert on_poll.call_count == 10
+
+    @patch("snowflake.cli._plugins.apps.manager.time.sleep")
+    def test_no_on_poll_uses_single_sleep(self, mock_sleep):
+        _poll_until(
+            poll_fn=lambda: "DONE",
+            done_states={"DONE"},
+            timeout_message="timed out",
+            interval_seconds=5,
+        )
+        mock_sleep.assert_called_once_with(5)
+
+
+# ── Log streamer tests ────────────────────────────────────────────────
+
+
+class TestBuildLogStreamer:
+    """Tests for _make_build_log_streamer incremental log diffing."""
+
+    def test_first_call_prints_all_lines(self):
+        manager = Mock()
+        manager.get_build_job_logs.return_value = ["line1", "line2", "line3"]
+        fqn = FQN.from_string("DB.SCHEMA.BUILD_JOB")
+
+        streamer = _make_build_log_streamer(manager, fqn)
+        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_console:
+            streamer()
+
+        assert mock_console.step.call_count == 3
+        mock_console.step.assert_any_call("line1")
+        mock_console.step.assert_any_call("line2")
+        mock_console.step.assert_any_call("line3")
+
+    def test_subsequent_call_prints_only_new_lines(self):
+        manager = Mock()
+        fqn = FQN.from_string("DB.SCHEMA.BUILD_JOB")
+        streamer = _make_build_log_streamer(manager, fqn)
+
+        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_console:
+            manager.get_build_job_logs.return_value = ["line1", "line2"]
+            streamer()
+            assert mock_console.step.call_count == 2
+
+            mock_console.step.reset_mock()
+            manager.get_build_job_logs.return_value = [
+                "line1",
+                "line2",
+                "line3",
+                "line4",
+            ]
+            streamer()
+            assert mock_console.step.call_count == 2
+            mock_console.step.assert_any_call("line3")
+            mock_console.step.assert_any_call("line4")
+
+    def test_no_new_lines_prints_nothing(self):
+        manager = Mock()
+        fqn = FQN.from_string("DB.SCHEMA.BUILD_JOB")
+        streamer = _make_build_log_streamer(manager, fqn)
+
+        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_console:
+            manager.get_build_job_logs.return_value = ["line1"]
+            streamer()
+            mock_console.step.reset_mock()
+
+            manager.get_build_job_logs.return_value = ["line1"]
+            streamer()
+            mock_console.step.assert_not_called()
+
+    def test_empty_logs_prints_nothing(self):
+        manager = Mock()
+        manager.get_build_job_logs.return_value = []
+        fqn = FQN.from_string("DB.SCHEMA.BUILD_JOB")
+        streamer = _make_build_log_streamer(manager, fqn)
+
+        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_console:
+            streamer()
+            mock_console.step.assert_not_called()
+
+    def test_exception_is_swallowed(self):
+        manager = Mock()
+        manager.get_build_job_logs.side_effect = RuntimeError("connection lost")
+        fqn = FQN.from_string("DB.SCHEMA.BUILD_JOB")
+        streamer = _make_build_log_streamer(manager, fqn)
+
+        streamer()  # should not raise
+
+    def test_exception_does_not_reset_seen_count(self):
+        manager = Mock()
+        fqn = FQN.from_string("DB.SCHEMA.BUILD_JOB")
+        streamer = _make_build_log_streamer(manager, fqn)
+
+        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_console:
+            manager.get_build_job_logs.return_value = ["line1", "line2"]
+            streamer()
+            assert mock_console.step.call_count == 2
+
+            mock_console.step.reset_mock()
+            manager.get_build_job_logs.side_effect = RuntimeError("transient")
+            streamer()
+            mock_console.step.assert_not_called()
+
+            manager.get_build_job_logs.side_effect = None
+            manager.get_build_job_logs.return_value = ["line1", "line2", "line3"]
+            streamer()
+            assert mock_console.step.call_count == 1
+            mock_console.step.assert_called_with("line3")
+
+
+class TestDeployLogStreamer:
+    """Tests for _make_deploy_log_streamer incremental log diffing."""
+
+    def test_first_call_prints_all_lines(self):
+        manager = Mock()
+        manager.get_app_service_logs.return_value = "line1\nline2\nline3"
+        fqn = FQN.from_string("DB.SCHEMA.MY_APP")
+
+        streamer = _make_deploy_log_streamer(manager, fqn)
+        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_console:
+            streamer()
+
+        manager.get_app_service_logs.assert_called_with("DB.SCHEMA.MY_APP")
+        assert mock_console.step.call_count == 3
+
+    def test_subsequent_call_prints_only_new_lines(self):
+        manager = Mock()
+        fqn = FQN.from_string("DB.SCHEMA.MY_APP")
+        streamer = _make_deploy_log_streamer(manager, fqn)
+
+        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_console:
+            manager.get_app_service_logs.return_value = "a\nb"
+            streamer()
+            assert mock_console.step.call_count == 2
+
+            mock_console.step.reset_mock()
+            manager.get_app_service_logs.return_value = "a\nb\nc\nd"
+            streamer()
+            assert mock_console.step.call_count == 2
+            mock_console.step.assert_any_call("c")
+            mock_console.step.assert_any_call("d")
+
+    def test_no_new_lines_prints_nothing(self):
+        manager = Mock()
+        fqn = FQN.from_string("DB.SCHEMA.MY_APP")
+        streamer = _make_deploy_log_streamer(manager, fqn)
+
+        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_console:
+            manager.get_app_service_logs.return_value = "line1"
+            streamer()
+            mock_console.step.reset_mock()
+
+            manager.get_app_service_logs.return_value = "line1"
+            streamer()
+            mock_console.step.assert_not_called()
+
+    def test_empty_string_prints_nothing(self):
+        manager = Mock()
+        manager.get_app_service_logs.return_value = ""
+        fqn = FQN.from_string("DB.SCHEMA.MY_APP")
+        streamer = _make_deploy_log_streamer(manager, fqn)
+
+        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_console:
+            streamer()
+            mock_console.step.assert_not_called()
+
+    def test_exception_is_swallowed(self):
+        manager = Mock()
+        manager.get_app_service_logs.side_effect = RuntimeError("connection lost")
+        fqn = FQN.from_string("DB.SCHEMA.MY_APP")
+        streamer = _make_deploy_log_streamer(manager, fqn)
+
+        streamer()  # should not raise
+
+    def test_exception_does_not_reset_seen_count(self):
+        manager = Mock()
+        fqn = FQN.from_string("DB.SCHEMA.MY_APP")
+        streamer = _make_deploy_log_streamer(manager, fqn)
+
+        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_console:
+            manager.get_app_service_logs.return_value = "a\nb"
+            streamer()
+            assert mock_console.step.call_count == 2
+
+            mock_console.step.reset_mock()
+            manager.get_app_service_logs.side_effect = RuntimeError("transient")
+            streamer()
+            mock_console.step.assert_not_called()
+
+            manager.get_app_service_logs.side_effect = None
+            manager.get_app_service_logs.return_value = "a\nb\nc"
+            streamer()
+            assert mock_console.step.call_count == 1
+            mock_console.step.assert_called_with("c")
+
+    def test_multiline_with_various_line_endings(self):
+        manager = Mock()
+        fqn = FQN.from_string("DB.SCHEMA.MY_APP")
+        streamer = _make_deploy_log_streamer(manager, fqn)
+
+        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_console:
+            manager.get_app_service_logs.return_value = "a\r\nb\nc"
+            streamer()
+            assert mock_console.step.call_count == 3
 
 
 # ── _generate_snowflake_yml tests ─────────────────────────────────────
