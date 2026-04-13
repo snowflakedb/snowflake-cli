@@ -244,6 +244,8 @@ def test_delete_only_on_stage_files(mock_remove):
 @pytest.mark.parametrize("overwrite_param", [True, False])
 def test_put_files_on_stage(mock_put, overwrite_param):
     stage_name = "some_stage_name"
+    sm = StageManager()
+    sm._connection = mock.MagicMock()
     with temp_local_dir(
         {
             "ui/nested/environment.yml": "# this is a environment file\n",
@@ -251,7 +253,7 @@ def test_put_files_on_stage(mock_put, overwrite_param):
         }
     ) as local_path:
         put_files_on_stage(
-            stage_manager=StageManager(),
+            stage_manager=sm,
             stage_root=stage_name,
             deploy_root_path=local_path,
             stage_paths=as_stage_paths(["ui/nested/environment.yml", "README.md"]),

@@ -227,6 +227,13 @@ def put_files_on_stage(
     if not stage_paths:
         return
 
+    # Eagerly resolve the connection in the main thread where Click context is
+    # available. Worker threads don't have access to Click's thread-local context,
+    # which is needed during lazy connection creation. Pinning the resolved
+    # connection on the manager makes _conn return it directly.
+    if stage_manager._connection is None:
+        stage_manager._connection = stage_manager._conn
+
     def _upload_file(_stage_path: StagePathType):
         stage_sub_path = get_stage_subpath(_stage_path)
         full_stage_path = (
