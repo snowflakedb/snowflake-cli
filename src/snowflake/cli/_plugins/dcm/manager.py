@@ -18,7 +18,7 @@ from typing import List
 from snowflake.cli._plugins.dcm.models import MANIFEST_FILE_NAME, SOURCES_FOLDER
 from snowflake.cli._plugins.dcm.utils import collect_output
 from snowflake.cli._plugins.stage.manager import StageManager
-from snowflake.cli.api.artifacts.upload import sync_artifacts_with_stage
+from snowflake.cli.api.artifacts.utils import bundle_artifacts
 from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import (
@@ -258,13 +258,30 @@ class DCMProjectManager(SqlExecutionMixin):
             stage_fqn = FQN.from_resource(
                 ObjectType.DCM_PROJECT, project_identifier, "TMP_STAGE"
             )
-            sync_artifacts_with_stage(
-                project_paths=ProjectPaths(project_root=source_path.path),
-                stage_root=stage_fqn.identifier,
-                use_temporary_stage=True,
-                artifacts=artifacts,
-                pattern_type=PatternMatchingType.GLOB,
+            project_paths = ProjectPaths(project_root=source_path.path)
+            project_paths.remove_up_bundle_root()
+            SecurePath(project_paths.bundle_root).mkdir(parents=True, exist_ok=True)
+            bundle_artifacts(
+                project_paths, artifacts, pattern_type=PatternMatchingType.GLOB
             )
+
+            try:
+                stage_manager = StageManager()
+                stage_manager.create(
+                    fqn=FQN.from_stage(stage_fqn.identifier), temporary=True
+                )
+                for result in stage_manager.put_recursive(
+                    local_path=project_paths.bundle_root,
+                    stage_path=stage_fqn.identifier,
+                    temp_directory=project_paths.bundle_root,
+                ):
+                    log.info(
+                        "Uploaded %s to %s",
+                        result["source"],
+                        result["target"],
+                    )
+            finally:
+                project_paths.clean_up_output()
 
         log.info(
             "Finished syncing DCM files (project_identifier=%s, stage=%s).",
@@ -282,9 +299,6 @@ class DCMProjectManager(SqlExecutionMixin):
 
         sources_path = source_path / SOURCES_FOLDER
         if sources_path.exists() and sources_path.is_dir():
-            for file in sources_path.rglob("*"):
-                if file.is_file():
-                    relative_path = file.relative_to(source_path)
-                    artifacts.append(PathMapping(src=str(relative_path)))
+            artifacts.append(PathMapping(src=SOURCES_FOLDER))
 
         return artifacts
