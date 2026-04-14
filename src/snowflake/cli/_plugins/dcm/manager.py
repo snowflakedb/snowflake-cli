@@ -261,11 +261,12 @@ class DCMProjectManager(SqlExecutionMixin):
             project_paths = ProjectPaths(project_root=source_path.path)
             project_paths.remove_up_bundle_root()
             SecurePath(project_paths.bundle_root).mkdir(parents=True, exist_ok=True)
-            bundle_artifacts(
-                project_paths, artifacts, pattern_type=PatternMatchingType.GLOB
-            )
 
             try:
+                bundle_artifacts(
+                    project_paths, artifacts, pattern_type=PatternMatchingType.GLOB
+                )
+
                 stage_manager = StageManager()
                 stage_manager.create(
                     fqn=FQN.from_stage(stage_fqn.identifier), temporary=True
