@@ -4,5 +4,5 @@
 /src/snowflake/cli/_plugins/apps/ @snowflakedb/native-apps
 /tests/apps/ @snowflakedb/native-apps
 /tests_integration/apps/ @snowflakedb/native-apps
-/tests/nativeapp/__snapshots__/ @snowflakedb/native-apps
-/tests_integration/nativeapp/__snapshots__/ @snowflakedb/native-apps
+/tests/__snapshots__/ @snowflakedb/native-apps
+/tests_integration/__snapshots__/ @snowflakedb/native-apps
