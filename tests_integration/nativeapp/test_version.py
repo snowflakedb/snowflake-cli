@@ -570,7 +570,12 @@ def test_nativeapp_version_create_and_drop_from_manifest(
 @pytest.mark.integration
 @pytest.mark.parametrize("temporary_role", ["version_manager"], indirect=True)
 def test_version_create_with_manage_versions_only(
-    temporary_directory, snowflake_session, runner, temporary_role, resource_suffix
+    temporary_directory,
+    snowflake_session,
+    runner,
+    temporary_role,
+    resource_suffix,
+    nativeapp_teardown,
 ):
     package_name = "myapp_pkg"
     stage_schema = "app_src"
@@ -590,35 +595,36 @@ def test_version_create_with_manage_versions_only(
         },
     )
 
-    # As a more privileged user, create a version, which will create the package and schema
-    result = runner.invoke_with_connection_json(
-        ["app", "version", "create", "--force", "--skip-git-check"]
-    )
-    assert result.exit_code == 0, result.output
+    with nativeapp_teardown():
+        # As a more privileged user, create a version, which will create the package and schema
+        result = runner.invoke_with_connection_json(
+            ["app", "version", "create", "--force", "--skip-git-check"]
+        )
+        assert result.exit_code == 0, result.output
 
-    # As a less privileged role, create a version (this is the minimal set of privileges required)
-    suffixed_package_name = f"{package_name}{resource_suffix}"
-    snowflake_session.execute_string(
-        f"grant monitor, manage versions on application package {suffixed_package_name} to role {temporary_role}"
-    )
-    snowflake_session.execute_string(
-        f"grant usage on schema {suffixed_package_name}.{stage_schema} to role {temporary_role}"
-    )
-    snowflake_session.execute_string(
-        f"grant read on stage {suffixed_package_name}.{stage_schema}.{stage_name} to role {temporary_role}"
-    )
-    result = runner.invoke_with_connection_json(
-        [
-            "app",
-            "version",
-            "create",
-            "--force",
-            "--skip-git-check",
-            "--role",
-            temporary_role,
-        ]
-    )
-    assert result.exit_code == 0, result.output
+        # As a less privileged role, create a version (this is the minimal set of privileges required)
+        suffixed_package_name = f"{package_name}{resource_suffix}"
+        snowflake_session.execute_string(
+            f"grant monitor, manage versions on application package {suffixed_package_name} to role {temporary_role}"
+        )
+        snowflake_session.execute_string(
+            f"grant usage on schema {suffixed_package_name}.{stage_schema} to role {temporary_role}"
+        )
+        snowflake_session.execute_string(
+            f"grant read on stage {suffixed_package_name}.{stage_schema}.{stage_name} to role {temporary_role}"
+        )
+        result = runner.invoke_with_connection_json(
+            [
+                "app",
+                "version",
+                "create",
+                "--force",
+                "--skip-git-check",
+                "--role",
+                temporary_role,
+            ]
+        )
+        assert result.exit_code == 0, result.output
 
 
 @pytest.mark.integration
