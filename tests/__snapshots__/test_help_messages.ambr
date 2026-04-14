@@ -5471,8 +5471,9 @@
   | generate-jwt                       Generate a JWT token, which will be       |
   |                                    printed out and displayed..               |
   | generate-workload-identity-token   Generate a workload identity token for    |
-  |                                    authenticating to Snowflake via a WIF     |
-  |                                    provider (AWS, GCP, Azure, or OIDC). The  |
+  |                                    authenticating to Snowflake via a         |
+  |                                    Workload Identity Federation (WIF)        |
+  |                                    provider (AWS, AZURE, GCP, or OIDC). The  |
   |                                    token is printed to stdout.               |
   | list                               Lists configured connections.             |
   | remove                             Removes a connection from configuration   |
@@ -23993,8 +23994,9 @@
   | generate-jwt                       Generate a JWT token, which will be       |
   |                                    printed out and displayed..               |
   | generate-workload-identity-token   Generate a workload identity token for    |
-  |                                    authenticating to Snowflake via a WIF     |
-  |                                    provider (AWS, GCP, Azure, or OIDC). The  |
+  |                                    authenticating to Snowflake via a         |
+  |                                    Workload Identity Federation (WIF)        |
+  |                                    provider (AWS, AZURE, GCP, or OIDC). The  |
   |                                    token is printed to stdout.               |
   | list                               Lists configured connections.             |
   | remove                             Removes a connection from configuration   |
