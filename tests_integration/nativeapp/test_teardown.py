@@ -144,6 +144,16 @@ def test_nativeapp_teardown_cascade(
         # Run the teardown command
         result = runner.invoke_with_connection_json(command.split())
         if expected_error is not None:
+            if orphan_app:
+                # The package was already dropped manually, so the fixture-level
+                # `app teardown --force --cascade` won't reach the orphaned app
+                # or its owned database. Drop the app explicitly to cascade-drop
+                # db_name and prevent database leaks.
+                # This runs before assertions so cleanup is guaranteed even if
+                # the assertions below fail.
+                snowflake_session.execute_string(
+                    f"DROP APPLICATION IF EXISTS {app_name} CASCADE"
+                )
             assert result.exit_code == 1
             assert expected_error in result.output
             return

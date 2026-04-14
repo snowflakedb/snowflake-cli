@@ -48,13 +48,13 @@ def test_nativeapp_project_templating_use_env_from_os(
     local_test_env = {"INTERMEDIATE_CI_ENV": test_ci_env, "APP_DIR": "app"}
 
     with change_directory(project_dir):
-        result = runner.invoke_with_connection_json(
-            ["app", "run"],
-            env=local_test_env,
-        )
-        assert result.exit_code == 0
-
         with nativeapp_teardown(env=local_test_env):
+            result = runner.invoke_with_connection_json(
+                ["app", "run"],
+                env=local_test_env,
+            )
+            assert result.exit_code == 0
+
             # app + package exist
             package_name = f"{project_name}_{test_ci_env}_pkg_{default_username}{resource_suffix}".upper()
             app_name = f"{project_name}_{test_ci_env}_{default_username}{resource_suffix}".upper()
@@ -117,13 +117,13 @@ def test_nativeapp_project_templating_use_env_from_os_through_intermediate_var(
     local_test_env = {"CI_ENV": test_ci_env, "APP_DIR": "app"}
 
     with change_directory(project_dir):
-        result = runner.invoke_with_connection_json(
-            ["app", "run"],
-            env=local_test_env,
-        )
-        assert result.exit_code == 0
-
         with nativeapp_teardown(env=local_test_env):
+            result = runner.invoke_with_connection_json(
+                ["app", "run"],
+                env=local_test_env,
+            )
+            assert result.exit_code == 0
+
             # app + package exist
             package_name = f"{project_name}_{test_ci_env}_pkg_{default_username}{resource_suffix}".upper()
             app_name = f"{project_name}_{test_ci_env}_{default_username}{resource_suffix}".upper()
@@ -186,13 +186,13 @@ def test_nativeapp_project_templating_use_default_env_from_project(
     local_test_env = {"APP_DIR": "app"}
 
     with change_directory(project_dir):
-        result = runner.invoke_with_connection_json(
-            ["app", "run"],
-            env=local_test_env,
-        )
-        assert result.exit_code == 0
-
         with nativeapp_teardown(env=local_test_env):
+            result = runner.invoke_with_connection_json(
+                ["app", "run"],
+                env=local_test_env,
+            )
+            assert result.exit_code == 0
+
             # app + package exist
             package_name = f"{project_name}_{default_ci_env}_pkg_{default_username}{resource_suffix}".upper()
             app_name = f"{project_name}_{default_ci_env}_{default_username}{resource_suffix}".upper()
@@ -257,13 +257,13 @@ def test_nativeapp_project_templating_use_env_from_cli_as_highest_priority(
     local_test_env["APP_DIR"] = "app"
 
     with change_directory(project_dir):
-        result = runner.invoke_with_connection_json(
-            ["app", "run", "--env", f"CI_ENV={expected_value}"],
-            env=local_test_env,
-        )
-        assert result.exit_code == 0
-
         with nativeapp_teardown(env=local_test_env):
+            result = runner.invoke_with_connection_json(
+                ["app", "run", "--env", f"CI_ENV={expected_value}"],
+                env=local_test_env,
+            )
+            assert result.exit_code == 0
+
             # app + package exist
             package_name = f"{project_name}_{expected_value}_pkg_{default_username}{resource_suffix}".upper()
             app_name = f"{project_name}_{expected_value}_{default_username}{resource_suffix}".upper()

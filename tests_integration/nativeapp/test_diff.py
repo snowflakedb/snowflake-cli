@@ -8,7 +8,7 @@ from tests.nativeapp.factories import (
 
 @pytest.mark.integration
 @pytest.mark.parametrize("package_identifier", ["myapp_pkg", dict(name="myapp_pkg")])
-def test_app_diff(temporary_directory, runner, package_identifier):
+def test_app_diff(temporary_directory, runner, nativeapp_teardown, package_identifier):
     ProjectV2Factory(
         pdf__entities=dict(
             pkg=ApplicationPackageEntityModelFactory(
@@ -18,12 +18,13 @@ def test_app_diff(temporary_directory, runner, package_identifier):
         ),
         files={"setup.sql": ""},
     )
-    result = runner.invoke_with_connection(["app", "deploy", "--no-validate"])
-    assert result.exit_code == 0
+    with nativeapp_teardown():
+        result = runner.invoke_with_connection(["app", "deploy", "--no-validate"])
+        assert result.exit_code == 0
 
-    with open("README.md", "w") as f:
-        f.write("Hello world!")
+        with open("README.md", "w") as f:
+            f.write("Hello world!")
 
-    result = runner.invoke_with_connection(["app", "diff"])
-    assert result.exit_code == 0
-    assert "README.md" in result.output
+        result = runner.invoke_with_connection(["app", "diff"])
+        assert result.exit_code == 0
+        assert "README.md" in result.output
