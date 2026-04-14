@@ -487,7 +487,7 @@ def _make_build_log_streamer(
             return
         new_lines = logs[seen_count:]
         for line in new_lines:
-            log.info(line)
+            cli_console.step(line)
         seen_count = len(logs)
 
     return _stream
@@ -516,7 +516,7 @@ def _make_deploy_log_streamer(
         lines = raw.splitlines()
         new_lines = lines[seen_count:]
         for line in new_lines:
-            log.info(line)
+            cli_console.step(line)
         seen_count = len(lines)
 
     return _stream
