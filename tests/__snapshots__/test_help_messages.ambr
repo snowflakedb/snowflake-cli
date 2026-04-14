@@ -118,8 +118,6 @@
   | --deploy-only                Run only the deploy phase (assumes the          |
   |                              container image has already been built). Skips  |
   |                              the upload and build phases.                    |
-  | --hide-logs                  Disable live log streaming during the build and |
-  |                              deploy phases.                                  |
   | --help         -h            Show this message and exit.                     |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
