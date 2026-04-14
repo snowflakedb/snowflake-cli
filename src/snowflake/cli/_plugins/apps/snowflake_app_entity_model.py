@@ -161,7 +161,7 @@ class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
 
     runtime_image: str = Field(
         title="Runtime image used by SPCS artifact repo build/run",
-        default="/snowflake/images/snowflake_images/spcs-runtimes/app:1.0.2",
+        default="",
     )
 
     build_image: Optional[str] = Field(
