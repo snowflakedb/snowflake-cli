@@ -59,6 +59,7 @@ class CLITelemetryField(Enum):
     COMMAND_OUTPUT_TYPE = "command_output_type"
     COMMAND_EXECUTION_TIME = "command_execution_time"
     COMMAND_CI_ENVIRONMENT = "command_ci_environment"
+    COMMAND_CI_INTEGRATION_VERSION = "command_ci_integration_version"
     COMMAND_AGENT_ENVIRONMENT = "command_agent_environment"
     # Configuration
     CONFIG_FEATURE_FLAGS = "config_feature_flags"
@@ -215,6 +216,10 @@ def _get_ci_environment_type() -> str:
     """Detect CI/CD environment type based on environment variables."""
     if "SF_GITHUB_ACTION" in os.environ:
         return "SF_GITHUB_ACTION"
+    if "SF_GITLAB_COMPONENT" in os.environ:
+        return "SF_GITLAB_COMPONENT"
+    if "SF_ADO_EXTENSION" in os.environ:
+        return "SF_ADO_EXTENSION"
     if "GITHUB_ACTIONS" in os.environ:
         return "GITHUB_ACTIONS"
     if "GITLAB_CI" in os.environ:
@@ -242,6 +247,11 @@ def _get_ci_environment_type() -> str:
     if _is_interactive_terminal():
         return "LOCAL"
     return "UNKNOWN"
+
+
+def _get_ci_integration_version() -> str:
+    """Get the version of the official Snowflake CI/CD integration, if any."""
+    return os.environ.get("SF_CICD_INTEGRATION_VERSION", "")
 
 
 def _detect_agent_environment() -> str:
@@ -333,6 +343,7 @@ class CLITelemetryClient:
             CLITelemetryField.VERSION_OS: platform.platform(),
             CLITelemetryField.VERSION_PYTHON: python_version(),
             CLITelemetryField.COMMAND_CI_ENVIRONMENT: _get_ci_environment_type(),
+            CLITelemetryField.COMMAND_CI_INTEGRATION_VERSION: _get_ci_integration_version(),
             CLITelemetryField.COMMAND_AGENT_ENVIRONMENT: _detect_agent_environment(),
             CLITelemetryField.CONFIG_FEATURE_FLAGS: {
                 k: str(v) for k, v in get_feature_flags_section().items()
