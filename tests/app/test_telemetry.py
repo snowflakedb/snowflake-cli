@@ -74,6 +74,9 @@ def test_executing_command_sends_telemetry_usage_data_legacy_config(
             "command_ci_environment"
         ]  # to avoid side effect from CI
         del usage_command_event["message"][
+            "command_ci_integration_version"
+        ]  # to avoid side effect from CI
+        del usage_command_event["message"][
             "command_agent_environment"
         ]  # to avoid side effect from agent environment
         assert usage_command_event == {
@@ -141,6 +144,9 @@ def test_executing_command_sends_telemetry_usage_data_ng_config(
             "command_ci_environment"
         ]  # to avoid side effect from CI
         del usage_command_event["message"][
+            "command_ci_integration_version"
+        ]  # to avoid side effect from CI
+        del usage_command_event["message"][
             "command_agent_environment"
         ]  # to avoid side effect from agent environment
 
@@ -173,6 +179,8 @@ def test_executing_command_sends_telemetry_usage_data_ng_config(
     "ci_type, env_var",
     [
         ("SF_GITHUB_ACTION", "SF_GITHUB_ACTION"),
+        ("SF_GITLAB_COMPONENT", "SF_GITLAB_COMPONENT"),
+        ("SF_ADO_EXTENSION", "SF_ADO_EXTENSION"),
         ("GITHUB_ACTIONS", "GITHUB_ACTIONS"),
         ("GITLAB_CI", "GITLAB_CI"),
         ("CIRCLECI", "CIRCLECI"),
@@ -431,6 +439,74 @@ def test_cli_exception_classification(error: Exception, is_cli: bool):
     from snowflake.cli._app.telemetry import _is_cli_exception
 
     assert _is_cli_exception(error) == is_cli
+
+
+def test_get_ci_integration_version_returns_value_when_set():
+    """Test that integration version is returned when env var is set."""
+    from snowflake.cli._app.telemetry import _get_ci_integration_version
+
+    with mock.patch.dict(
+        os.environ, {"SF_CICD_INTEGRATION_VERSION": "v2.0.2"}, clear=True
+    ):
+        assert _get_ci_integration_version() == "v2.0.2"
+
+
+def test_get_ci_integration_version_returns_empty_when_unset():
+    """Test that empty string is returned when env var is not set."""
+    from snowflake.cli._app.telemetry import _get_ci_integration_version
+
+    with mock.patch.dict(os.environ, {}, clear=True):
+        assert _get_ci_integration_version() == ""
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+def test_ci_integration_version_appears_in_telemetry(_, mock_conn, runner):
+    """Test that integration version is included in telemetry payload."""
+    with mock.patch.dict(
+        os.environ,
+        {"SF_GITHUB_ACTION": "true", "SF_CICD_INTEGRATION_VERSION": "v2.0.2"},
+        clear=True,
+    ):
+        result = runner.invoke(["connection", "test"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    usage_command_event = (
+        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
+            0
+        ]
+        .args[0]
+        .to_dict()
+    )
+
+    assert (
+        usage_command_event["message"]["command_ci_environment"] == "SF_GITHUB_ACTION"
+    )
+    assert usage_command_event["message"]["command_ci_integration_version"] == "v2.0.2"
+
+
+def test_sf_gitlab_component_takes_priority_over_gitlab_ci():
+    """Test that SF_GITLAB_COMPONENT is detected before generic GITLAB_CI."""
+    from snowflake.cli._app.telemetry import _get_ci_environment_type
+
+    with mock.patch.dict(
+        os.environ,
+        {"SF_GITLAB_COMPONENT": "true", "GITLAB_CI": "true"},
+        clear=True,
+    ):
+        assert _get_ci_environment_type() == "SF_GITLAB_COMPONENT"
+
+
+def test_sf_ado_extension_takes_priority_over_azure_devops():
+    """Test that SF_ADO_EXTENSION is detected before generic AZURE_DEVOPS."""
+    from snowflake.cli._app.telemetry import _get_ci_environment_type
+
+    with mock.patch.dict(
+        os.environ,
+        {"SF_ADO_EXTENSION": "true", "TF_BUILD": "true"},
+        clear=True,
+    ):
+        assert _get_ci_environment_type() == "SF_ADO_EXTENSION"
 
 
 @mock.patch("uuid.uuid4")
