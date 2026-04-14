@@ -375,25 +375,25 @@ class TestBuildLogStreamer:
         fqn = FQN.from_string("DB.SCHEMA.BUILD_JOB")
 
         streamer = _make_build_log_streamer(manager, fqn)
-        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_console:
+        with patch("snowflake.cli._plugins.apps.commands.log") as mock_log:
             streamer()
 
-        assert mock_console.step.call_count == 3
-        mock_console.step.assert_any_call("line1")
-        mock_console.step.assert_any_call("line2")
-        mock_console.step.assert_any_call("line3")
+        assert mock_log.info.call_count == 3
+        mock_log.info.assert_any_call("line1")
+        mock_log.info.assert_any_call("line2")
+        mock_log.info.assert_any_call("line3")
 
     def test_subsequent_call_prints_only_new_lines(self):
         manager = Mock()
         fqn = FQN.from_string("DB.SCHEMA.BUILD_JOB")
         streamer = _make_build_log_streamer(manager, fqn)
 
-        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_console:
+        with patch("snowflake.cli._plugins.apps.commands.log") as mock_log:
             manager.get_build_job_logs.return_value = ["line1", "line2"]
             streamer()
-            assert mock_console.step.call_count == 2
+            assert mock_log.info.call_count == 2
 
-            mock_console.step.reset_mock()
+            mock_log.info.reset_mock()
             manager.get_build_job_logs.return_value = [
                 "line1",
                 "line2",
@@ -401,23 +401,23 @@ class TestBuildLogStreamer:
                 "line4",
             ]
             streamer()
-            assert mock_console.step.call_count == 2
-            mock_console.step.assert_any_call("line3")
-            mock_console.step.assert_any_call("line4")
+            assert mock_log.info.call_count == 2
+            mock_log.info.assert_any_call("line3")
+            mock_log.info.assert_any_call("line4")
 
     def test_no_new_lines_prints_nothing(self):
         manager = Mock()
         fqn = FQN.from_string("DB.SCHEMA.BUILD_JOB")
         streamer = _make_build_log_streamer(manager, fqn)
 
-        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_console:
+        with patch("snowflake.cli._plugins.apps.commands.log") as mock_log:
             manager.get_build_job_logs.return_value = ["line1"]
             streamer()
-            mock_console.step.reset_mock()
+            mock_log.info.reset_mock()
 
             manager.get_build_job_logs.return_value = ["line1"]
             streamer()
-            mock_console.step.assert_not_called()
+            mock_log.info.assert_not_called()
 
     def test_empty_logs_prints_nothing(self):
         manager = Mock()
@@ -425,9 +425,9 @@ class TestBuildLogStreamer:
         fqn = FQN.from_string("DB.SCHEMA.BUILD_JOB")
         streamer = _make_build_log_streamer(manager, fqn)
 
-        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_console:
+        with patch("snowflake.cli._plugins.apps.commands.log") as mock_log:
             streamer()
-            mock_console.step.assert_not_called()
+            mock_log.info.assert_not_called()
 
     def test_exception_is_swallowed(self):
         manager = Mock()
@@ -442,21 +442,21 @@ class TestBuildLogStreamer:
         fqn = FQN.from_string("DB.SCHEMA.BUILD_JOB")
         streamer = _make_build_log_streamer(manager, fqn)
 
-        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_console:
+        with patch("snowflake.cli._plugins.apps.commands.log") as mock_log:
             manager.get_build_job_logs.return_value = ["line1", "line2"]
             streamer()
-            assert mock_console.step.call_count == 2
+            assert mock_log.info.call_count == 2
 
-            mock_console.step.reset_mock()
+            mock_log.info.reset_mock()
             manager.get_build_job_logs.side_effect = RuntimeError("transient")
             streamer()
-            mock_console.step.assert_not_called()
+            mock_log.info.assert_not_called()
 
             manager.get_build_job_logs.side_effect = None
             manager.get_build_job_logs.return_value = ["line1", "line2", "line3"]
             streamer()
-            assert mock_console.step.call_count == 1
-            mock_console.step.assert_called_with("line3")
+            assert mock_log.info.call_count == 1
+            mock_log.info.assert_called_with("line3")
 
 
 class TestDeployLogStreamer:
@@ -468,45 +468,45 @@ class TestDeployLogStreamer:
         fqn = FQN.from_string("DB.SCHEMA.MY_APP")
 
         streamer = _make_deploy_log_streamer(manager, fqn)
-        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_console:
+        with patch("snowflake.cli._plugins.apps.commands.log") as mock_log:
             streamer()
 
         manager.get_app_service_logs.assert_called_with("DB.SCHEMA.MY_APP")
-        assert mock_console.step.call_count == 3
-        mock_console.step.assert_any_call("line1")
-        mock_console.step.assert_any_call("line2")
-        mock_console.step.assert_any_call("line3")
+        assert mock_log.info.call_count == 3
+        mock_log.info.assert_any_call("line1")
+        mock_log.info.assert_any_call("line2")
+        mock_log.info.assert_any_call("line3")
 
     def test_subsequent_call_prints_only_new_lines(self):
         manager = Mock()
         fqn = FQN.from_string("DB.SCHEMA.MY_APP")
         streamer = _make_deploy_log_streamer(manager, fqn)
 
-        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_console:
+        with patch("snowflake.cli._plugins.apps.commands.log") as mock_log:
             manager.get_app_service_logs.return_value = "a\nb"
             streamer()
-            assert mock_console.step.call_count == 2
+            assert mock_log.info.call_count == 2
 
-            mock_console.step.reset_mock()
+            mock_log.info.reset_mock()
             manager.get_app_service_logs.return_value = "a\nb\nc\nd"
             streamer()
-            assert mock_console.step.call_count == 2
-            mock_console.step.assert_any_call("c")
-            mock_console.step.assert_any_call("d")
+            assert mock_log.info.call_count == 2
+            mock_log.info.assert_any_call("c")
+            mock_log.info.assert_any_call("d")
 
     def test_no_new_lines_prints_nothing(self):
         manager = Mock()
         fqn = FQN.from_string("DB.SCHEMA.MY_APP")
         streamer = _make_deploy_log_streamer(manager, fqn)
 
-        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_console:
+        with patch("snowflake.cli._plugins.apps.commands.log") as mock_log:
             manager.get_app_service_logs.return_value = "line1"
             streamer()
-            mock_console.step.reset_mock()
+            mock_log.info.reset_mock()
 
             manager.get_app_service_logs.return_value = "line1"
             streamer()
-            mock_console.step.assert_not_called()
+            mock_log.info.assert_not_called()
 
     def test_empty_string_prints_nothing(self):
         manager = Mock()
@@ -514,9 +514,9 @@ class TestDeployLogStreamer:
         fqn = FQN.from_string("DB.SCHEMA.MY_APP")
         streamer = _make_deploy_log_streamer(manager, fqn)
 
-        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_console:
+        with patch("snowflake.cli._plugins.apps.commands.log") as mock_log:
             streamer()
-            mock_console.step.assert_not_called()
+            mock_log.info.assert_not_called()
 
     def test_exception_is_swallowed(self):
         manager = Mock()
@@ -531,34 +531,34 @@ class TestDeployLogStreamer:
         fqn = FQN.from_string("DB.SCHEMA.MY_APP")
         streamer = _make_deploy_log_streamer(manager, fqn)
 
-        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_console:
+        with patch("snowflake.cli._plugins.apps.commands.log") as mock_log:
             manager.get_app_service_logs.return_value = "a\nb"
             streamer()
-            assert mock_console.step.call_count == 2
+            assert mock_log.info.call_count == 2
 
-            mock_console.step.reset_mock()
+            mock_log.info.reset_mock()
             manager.get_app_service_logs.side_effect = RuntimeError("transient")
             streamer()
-            mock_console.step.assert_not_called()
+            mock_log.info.assert_not_called()
 
             manager.get_app_service_logs.side_effect = None
             manager.get_app_service_logs.return_value = "a\nb\nc"
             streamer()
-            assert mock_console.step.call_count == 1
-            mock_console.step.assert_called_with("c")
+            assert mock_log.info.call_count == 1
+            mock_log.info.assert_called_with("c")
 
     def test_multiline_with_various_line_endings(self):
         manager = Mock()
         fqn = FQN.from_string("DB.SCHEMA.MY_APP")
         streamer = _make_deploy_log_streamer(manager, fqn)
 
-        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_console:
+        with patch("snowflake.cli._plugins.apps.commands.log") as mock_log:
             manager.get_app_service_logs.return_value = "a\r\nb\nc"
             streamer()
-            assert mock_console.step.call_count == 3
-            mock_console.step.assert_any_call("a")
-            mock_console.step.assert_any_call("b")
-            mock_console.step.assert_any_call("c")
+            assert mock_log.info.call_count == 3
+            mock_log.info.assert_any_call("a")
+            mock_log.info.assert_any_call("b")
+            mock_log.info.assert_any_call("c")
 
 
 # ── _generate_snowflake_yml tests ─────────────────────────────────────
