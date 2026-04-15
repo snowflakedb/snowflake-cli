@@ -727,6 +727,22 @@ class TestSnowflakeAppManager:
         )
 
     @patch(EXECUTE_QUERY)
+    def test_drop_app_service_if_exists(self, mock_execute):
+        fqn = FQN(database="DB", schema="SCHEMA", name="MY_APP")
+        SnowflakeAppManager().drop_app_service_if_exists(fqn)
+        mock_execute.assert_called_once_with(
+            "DROP APPLICATION SERVICE IF EXISTS IDENTIFIER('DB.SCHEMA.MY_APP')"
+        )
+
+    @patch(EXECUTE_QUERY)
+    def test_drop_stage_if_exists(self, mock_execute):
+        fqn = FQN(database="DB", schema="SCHEMA", name="MY_STAGE")
+        SnowflakeAppManager().drop_stage_if_exists(fqn)
+        mock_execute.assert_called_once_with(
+            "DROP STAGE IF EXISTS IDENTIFIER('DB.SCHEMA.MY_STAGE')"
+        )
+
+    @patch(EXECUTE_QUERY)
     def test_get_image_repo_url(self, mock_execute):
         cursor = Mock()
         cursor.rowcount = 1
@@ -4264,3 +4280,256 @@ class TestDeployCommand:
         assert span_map["snowflake_app.build"][CLIMetricsSpan.ERROR_KEY] == "CliError"
         assert "snowflake_app.bundle" in span_map
         assert span_map["snowflake_app.bundle"][CLIMetricsSpan.ERROR_KEY] is None
+
+
+TEARDOWN_DEFAULTS = {
+    "database": "TEST_DB",
+    "schema": "TEST_SCHEMA",
+}
+
+
+class TestTeardownCommand:
+    @staticmethod
+    def _make_entity(
+        name="MY_APP",
+        artifact_repository=None,
+        code_stage=None,
+    ):
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = name
+        entity.fqn = fqn
+        entity.artifact_repository = artifact_repository
+        entity.code_stage = code_stage
+        return entity
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(RESOLVE_DEPLOY_DEFAULTS, return_value=TEARDOWN_DEFAULTS)
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_teardown_drops_service_stage_and_build_job(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        mock_get_entity.return_value = self._make_entity()
+        mock_mgr = mock_manager_cls.return_value
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "teardown", "--force"])
+                assert result.exit_code == 0, result.output
+                assert "Successfully dropped service" in result.output
+
+        assert mock_mgr.drop_service_if_exists.call_count == 2
+        dropped_fqns = [
+            c.args[0].identifier for c in mock_mgr.drop_service_if_exists.call_args_list
+        ]
+        assert "TEST_DB.TEST_SCHEMA.MY_APP" in dropped_fqns
+        assert "TEST_DB.TEST_SCHEMA.MY_APP_BUILD_JOB" in dropped_fqns
+        mock_mgr.drop_stage_if_exists.assert_called_once()
+        mock_mgr.drop_app_service_if_exists.assert_not_called()
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(RESOLVE_DEPLOY_DEFAULTS, return_value=TEARDOWN_DEFAULTS)
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_teardown_drops_app_service_and_stage_for_artifact_repo(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        mock_get_entity.return_value = self._make_entity(
+            artifact_repository=Mock(name="MY_REPO"),
+        )
+        mock_mgr = mock_manager_cls.return_value
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "teardown", "--force"])
+                assert result.exit_code == 0, result.output
+                assert "Successfully dropped application service" in result.output
+
+        mock_mgr.drop_app_service_if_exists.assert_called_once()
+        mock_mgr.drop_stage_if_exists.assert_called_once()
+        mock_mgr.drop_service_if_exists.assert_not_called()
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(RESOLVE_DEPLOY_DEFAULTS, return_value=TEARDOWN_DEFAULTS)
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_teardown_uses_custom_stage_name(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        code_stage = Mock()
+        code_stage.name = "CUSTOM_STAGE"
+        mock_get_entity.return_value = self._make_entity(code_stage=code_stage)
+        mock_mgr = mock_manager_cls.return_value
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "teardown", "--force"])
+                assert result.exit_code == 0, result.output
+
+        stage_fqn = mock_mgr.drop_stage_if_exists.call_args.args[0]
+        assert stage_fqn.identifier == "TEST_DB.TEST_SCHEMA.CUSTOM_STAGE"
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(RESOLVE_DEPLOY_DEFAULTS, return_value=TEARDOWN_DEFAULTS)
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_teardown_passes_entity_id(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        mock_get_entity.return_value = self._make_entity()
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            with change_directory(tmp_path):
+                result = runner.invoke(
+                    ["__app", "teardown", "--entity-id", "custom_app", "--force"]
+                )
+                assert result.exit_code == 0, result.output
+                mock_resolve.assert_called_once_with("custom_app")
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(RESOLVE_DEPLOY_DEFAULTS, return_value=TEARDOWN_DEFAULTS)
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_teardown_cancelled_without_force(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        mock_get_entity.return_value = self._make_entity()
+        mock_mgr = mock_manager_cls.return_value
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "teardown"], input="n\n")
+                assert result.exit_code == 0, result.output
+                assert "Teardown cancelled" in result.output
+
+        mock_mgr.drop_service_if_exists.assert_not_called()
+        mock_mgr.drop_app_service_if_exists.assert_not_called()
+        mock_mgr.drop_stage_if_exists.assert_not_called()
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(RESOLVE_DEPLOY_DEFAULTS, return_value=TEARDOWN_DEFAULTS)
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_teardown_confirmed_without_force(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        mock_get_entity.return_value = self._make_entity()
+        mock_mgr = mock_manager_cls.return_value
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "teardown"], input="y\n")
+                assert result.exit_code == 0, result.output
+                assert "Successfully dropped service" in result.output
+
+        assert mock_mgr.drop_service_if_exists.call_count == 2
+        mock_mgr.drop_stage_if_exists.assert_called_once()
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={"database": "PARAM_DB", "schema": "PARAM_SCHEMA"},
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_teardown_uses_resolved_defaults_for_db_schema(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        mock_get_entity.return_value = self._make_entity()
+        mock_mgr = mock_manager_cls.return_value
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "teardown", "--force"])
+                assert result.exit_code == 0, result.output
+                assert "PARAM_DB.PARAM_SCHEMA.MY_APP" in result.output
+
+        mock_defaults.assert_called_once()
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(RESOLVE_DEPLOY_DEFAULTS, return_value={})
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_teardown_errors_when_database_missing(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        mock_get_entity.return_value = self._make_entity()
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "teardown", "--force"])
+                assert result.exit_code == 1
+                assert "Cannot resolve" in result.output

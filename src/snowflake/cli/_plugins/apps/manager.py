@@ -542,6 +542,16 @@ class SnowflakeAppManager(SqlExecutionMixin):
         """Drop a service if it exists."""
         self.execute_query(f"DROP SERVICE IF EXISTS {service_fqn.sql_identifier}")
 
+    def drop_app_service_if_exists(self, service_fqn: FQN) -> None:
+        """Drop an application service if it exists."""
+        self.execute_query(
+            f"DROP APPLICATION SERVICE IF EXISTS {service_fqn.sql_identifier}"
+        )
+
+    def drop_stage_if_exists(self, stage_fqn: FQN) -> None:
+        """Drop a stage if it exists."""
+        self.execute_query(f"DROP STAGE IF EXISTS {stage_fqn.sql_identifier}")
+
     def get_image_repo_url(
         self,
         repo_name: str,
