@@ -227,19 +227,19 @@ def test_get_account_identifier(mock_get_account):
     from snowflake.cli._plugins.connection.util import get_account_identifier
     from snowflake.connector.cursor import DictCursor
 
-    mock_get_account.return_value = "my_account"
     mock_conn = MagicMock()
     mock_cursor = MagicMock()
-    mock_cursor.fetchone.return_value = {"CURRENT_ORGANIZATION_NAME()": "My_Org"}
+    mock_cursor.fetchone.return_value = {"ORG": "My_Org", "ACCT": "my_account"}
     mock_conn.execute_string.return_value = (None, mock_cursor)
 
     result = get_account_identifier(mock_conn)
 
     assert result == "MY_ORG-MY_ACCOUNT"
     mock_conn.execute_string.assert_called_once_with(
-        "SELECT CURRENT_ORGANIZATION_NAME()", cursor_class=DictCursor
+        "SELECT CURRENT_ORGANIZATION_NAME() AS org, CURRENT_ACCOUNT_NAME() AS acct",
+        cursor_class=DictCursor,
     )
-    mock_get_account.assert_called_once_with(mock_conn)
+    mock_get_account.assert_not_called()
 
 
 @pytest.mark.parametrize(

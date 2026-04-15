@@ -195,10 +195,12 @@ def get_account(conn: SnowflakeConnection) -> str:
 
 def get_account_identifier(conn: SnowflakeConnection) -> str:
     *_, cursor = conn.execute_string(
-        "SELECT CURRENT_ORGANIZATION_NAME()", cursor_class=DictCursor
+        "SELECT CURRENT_ORGANIZATION_NAME() AS org, CURRENT_ACCOUNT_NAME() AS acct",
+        cursor_class=DictCursor,
     )
-    org_name = cursor.fetchone()["CURRENT_ORGANIZATION_NAME()"]
-    account_name = get_account(conn)
+    result = cursor.fetchone()
+    org_name = result["ORG"]
+    account_name = result["ACCT"]
     return f"{org_name}-{account_name}".upper()
 
 
