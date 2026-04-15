@@ -44,7 +44,7 @@ class LoggerConfig:
 @dataclass
 class DefaultLoggingConfig:
     version: int = 1
-    disable_existing_loggers: bool = False
+    disable_existing_loggers: bool = True
     formatters: Dict[str, LogFormatterConfig] = field(
         default_factory=lambda: {
             "default_formatter": LogFormatterConfig(
