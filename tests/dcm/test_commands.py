@@ -2313,17 +2313,26 @@ class TestValidateProjectOwnerLogic:
     @mock.patch(
         "snowflake.cli._plugins.dcm.commands.SqlExecutor",
     )
-    def test_current_role_none_does_not_raise(self, mock_executor_cls):
+    def test_current_role_none_raises(self, mock_executor_cls):
         from snowflake.cli._plugins.dcm.models import DCMTarget
+        from snowflake.cli.api.exceptions import CliError
 
         mock_executor_cls().current_role.return_value = None
-        target = DCMTarget(
-            name="DEV",
-            project_name="P1",
-            account_identifier="MY_ORG-MY_ACCOUNT",
-            project_owner="MY_ROLE",
-        )
-        _validate_project_owner(target)
+        target = DCMTarget(name="DEV", project_name="P1", **_DEFAULT_TARGET_FIELDS)
+        with pytest.raises(CliError, match="Cannot validate project owner"):
+            _validate_project_owner(target)
+
+    @mock.patch(
+        "snowflake.cli._plugins.dcm.commands.SqlExecutor",
+    )
+    def test_current_role_query_failure_raises(self, mock_executor_cls):
+        from snowflake.cli._plugins.dcm.models import DCMTarget
+        from snowflake.cli.api.exceptions import CliError
+
+        mock_executor_cls().current_role.side_effect = Exception("Connection timeout")
+        target = DCMTarget(name="DEV", project_name="P1", **_DEFAULT_TARGET_FIELDS)
+        with pytest.raises(CliError, match="Failed to determine current role"):
+            _validate_project_owner(target)
 
 
 class TestProjectOwnerNotValidatedForReadCommands:

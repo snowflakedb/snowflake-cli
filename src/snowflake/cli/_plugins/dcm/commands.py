@@ -155,8 +155,20 @@ def _validate_account_identifier(target: DCMTarget) -> None:
 
 
 def _validate_project_owner(target: DCMTarget) -> None:
-    current_role = SqlExecutor().current_role()
-    if current_role and current_role.upper() != target.project_owner:
+    try:
+        current_role = SqlExecutor().current_role()
+    except Exception as e:
+        raise CliError(
+            f"Failed to determine current role for project owner validation: {str(e)}"
+        )
+
+    if not current_role:
+        raise CliError(
+            "Cannot validate project owner: current role could not be determined. "
+            "The current session role is required to match the manifest target's project_owner."
+        )
+
+    if current_role.upper() != target.project_owner:
         raise CliError(
             f"Role mismatch: manifest target specifies project_owner '{target.project_owner}', "
             f"but the current session role is '{current_role}'."
