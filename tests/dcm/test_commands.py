@@ -2177,8 +2177,10 @@ class TestDCMAccountIdentifierValidation:
         mock_validate_account_identifier.assert_not_called()
 
 
-class TestDCMProjectOwnerValidation:
-    def test_create_calls_validate_project_owner(
+class TestOwnershipRequiredCommands:
+    """Tests for commands that require project owner validation."""
+
+    def test_create_validates_ownership(
         self,
         mock_dcm_manager,
         mock_object_manager,
@@ -2193,7 +2195,7 @@ class TestDCMProjectOwnerValidation:
         assert result.exit_code == 0, result.output
         mock_validate_project_owner.assert_called_once()
 
-    def test_deploy_calls_validate_project_owner(
+    def test_deploy_validates_ownership(
         self,
         mock_dcm_manager,
         mock_manifest_load,
@@ -2215,15 +2217,69 @@ class TestDCMProjectOwnerValidation:
         assert result.exit_code == 0, result.output
         mock_validate_project_owner.assert_called_once()
 
-    def test_describe_does_not_call_validate_project_owner(
+    @pytest.mark.parametrize(
+        "command_name,cli_args",
+        [
+            ("drop", ["dcm", "drop", "my_project", "--if-exists"]),
+            (
+                "drop_deployment",
+                ["dcm", "drop-deployment", "my_project", "--deployment", "v1"],
+            ),
+            ("refresh", ["dcm", "refresh", "my_project"]),
+            ("test", ["dcm", "test", "my_project"]),
+        ],
+        ids=["drop", "drop_deployment", "refresh", "test"],
+    )
+    def test_state_changing_commands_validate_ownership(
         self,
+        command_name,
+        cli_args,
+        mock_dcm_manager,
         mock_validate_project_owner,
-        mock_connect,
+        mock_manifest_load,
+        mock_cursor,
         runner,
+        project_directory,
     ):
-        runner.invoke(["dcm", "describe", "my_project"])
+        mock_manifest_load.return_value = _manifest_without_config()
 
-        mock_validate_project_owner.assert_not_called()
+        if command_name == "refresh":
+            mock_dcm_manager().refresh.return_value = mock_cursor(
+                rows=[('{"tables": []}',)], columns=("result",)
+            )
+        elif command_name == "test":
+            mock_dcm_manager().test.return_value = mock_cursor(
+                rows=[('{"expectations": []}',)], columns=("result",)
+            )
+
+        with project_directory("dcm_project"):
+            runner.invoke(cli_args)
+
+        mock_validate_project_owner.assert_called_once()
+
+    def test_purge_validates_ownership(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        mock_validate_project_owner,
+        runner,
+        project_directory,
+        mock_cursor,
+    ):
+        mock_dcm_manager().purge.return_value = mock_cursor(
+            rows=[("[]",)], columns=("operations",)
+        )
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with mock.patch(
+            "snowflake.cli._plugins.dcm.commands.typer.prompt"
+        ) as mock_prompt:
+            mock_prompt.return_value = "purge my_project"
+            with project_directory("dcm_project"):
+                result = runner.invoke(["dcm", "purge", "my_project"])
+
+        assert result.exit_code == 0, result.output
+        mock_validate_project_owner.assert_called_once()
 
 
 class TestValidateAccountIdentifierLogic:
@@ -2335,8 +2391,20 @@ class TestValidateProjectOwnerLogic:
             _validate_project_owner(target)
 
 
-class TestProjectOwnerNotValidatedForReadCommands:
-    def test_raw_analyze_does_not_validate_project_owner(
+class TestOwnershipNotRequiredCommands:
+    """Tests for commands that do not require project owner validation."""
+
+    def test_describe_no_ownership_validated(
+        self,
+        mock_validate_project_owner,
+        mock_connect,
+        runner,
+    ):
+        runner.invoke(["dcm", "describe", "my_project"])
+
+        mock_validate_project_owner.assert_not_called()
+
+    def test_raw_analyze_no_ownership_validated(
         self,
         mock_dcm_manager,
         mock_manifest_load,
@@ -2357,7 +2425,7 @@ class TestProjectOwnerNotValidatedForReadCommands:
 
         mock_validate_project_owner.assert_not_called()
 
-    def test_preview_does_not_validate_project_owner(
+    def test_preview_no_ownership_validated(
         self,
         mock_dcm_manager,
         mock_manifest_load,
@@ -2376,17 +2444,27 @@ class TestProjectOwnerNotValidatedForReadCommands:
 
         mock_validate_project_owner.assert_not_called()
 
-    def test_drop_does_not_validate_project_owner(
+    def test_plan_no_ownership_validated(
         self,
+        mock_dcm_manager,
+        mock_manifest_load,
         mock_validate_project_owner,
-        mock_connect,
+        mock_cursor,
         runner,
+        project_directory,
     ):
-        runner.invoke(["dcm", "drop", "my_project", "--if-exists"])
+        mock_dcm_manager().plan.return_value = mock_cursor(
+            rows=[("[]",)], columns=("operations",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            runner.invoke(["dcm", "plan", "my_project"])
 
         mock_validate_project_owner.assert_not_called()
 
-    def test_list_deployments_does_not_validate_project_owner(
+    def test_list_deployments_no_ownership_validated(
         self,
         mock_dcm_manager,
         mock_validate_project_owner,
@@ -2396,37 +2474,5 @@ class TestProjectOwnerNotValidatedForReadCommands:
         mock_dcm_manager().list_deployments.return_value = mock.MagicMock()
 
         runner.invoke(["dcm", "list-deployments", "my_project"])
-
-        mock_validate_project_owner.assert_not_called()
-
-    def test_refresh_does_not_validate_project_owner(
-        self,
-        mock_dcm_manager,
-        mock_validate_project_owner,
-        mock_cursor,
-        mock_connect,
-        runner,
-    ):
-        mock_dcm_manager().refresh.return_value = mock_cursor(
-            rows=[('{"tables": []}',)], columns=("result",)
-        )
-
-        runner.invoke(["dcm", "refresh", "my_project"])
-
-        mock_validate_project_owner.assert_not_called()
-
-    def test_test_does_not_validate_project_owner(
-        self,
-        mock_dcm_manager,
-        mock_validate_project_owner,
-        mock_cursor,
-        mock_connect,
-        runner,
-    ):
-        mock_dcm_manager().test.return_value = mock_cursor(
-            rows=[('{"expectations": []}',)], columns=("result",)
-        )
-
-        runner.invoke(["dcm", "test", "my_project"])
 
         mock_validate_project_owner.assert_not_called()
