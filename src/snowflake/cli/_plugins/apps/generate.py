@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 from textwrap import dedent
 from typing import Dict
+
+log = logging.getLogger(__name__)
 
 # Feature flags
 IS_PERSONAL_DB_SUPPORTED = False  # Will be enabled in the future
@@ -27,9 +30,17 @@ def _generate_snowflake_yml(
 
     All required keys (``database``, ``schema``, ``warehouse``,
     ``build_compute_pool``, ``service_compute_pool``, ``build_eai``) must
-    be present and non-empty in *resolved*.  The optional key
-    ``image_repository`` is included only when provided.
+    be present and non-empty in *resolved*.  The artifact repository is
+    omitted from the generated YAML; the CLI will default to
+    ``<app-id>_REPO`` at deploy time.
     """
+
+    if resolved.get("image_repository"):
+        log.warning(
+            "image_repository is configured but is no longer included in "
+            "generated snowflake.yml. The CLI defaults to <app-id>_REPO at "
+            "deploy time. You can remove the image_repository setting."
+        )
 
     database = resolved["database"]
     schema = resolved["schema"]
@@ -37,15 +48,8 @@ def _generate_snowflake_yml(
     build_compute_pool = resolved["build_compute_pool"]
     service_compute_pool = resolved["service_compute_pool"]
     build_eai = resolved["build_eai"]
-    image_repository = resolved.get("image_repository")
 
     code_stage = f"{app_id.upper()}_CODE"
-
-    repo_lines = ""
-    if image_repository:
-        repo_lines = (
-            f"\n            image_repository:\n              name: {image_repository}"
-        )
 
     return dedent(
         f"""\
@@ -78,7 +82,7 @@ def _generate_snowflake_yml(
             service_compute_pool:
               name: {service_compute_pool}
             build_eai:
-              name: {build_eai}{repo_lines}
+              name: {build_eai}
             code_stage:
               name: {code_stage}
         """
