@@ -83,6 +83,7 @@ def _poll_until(
     max_attempts: int = 240,
     interval_seconds: int = 5,
     timeout_message: str = "Operation timed out.",
+    on_poll: Optional[Callable[[], None]] = None,
 ) -> T:
     """Poll *poll_fn* until the result satisfies a done condition.
 
@@ -96,11 +97,25 @@ def _poll_until(
         Call *is_done(result)* each iteration.  Optionally supply *is_error*
         to detect error values.
 
+    If *on_poll* is provided it is called every second between status
+    checks, so log output streams continuously rather than in bursts
+    every *interval_seconds*.  Exceptions from *on_poll* are logged and
+    swallowed so they never interrupt the polling loop.
+
     Raises ``CliError`` on error or timeout.  Returns the final value on
     success.
     """
     for _attempt in range(max_attempts):
-        time.sleep(interval_seconds)
+        if on_poll is not None:
+            for _ in range(interval_seconds):
+                time.sleep(1)
+                try:
+                    on_poll()
+                except Exception:
+                    log.debug("on_poll callback failed", exc_info=True)
+        else:
+            time.sleep(interval_seconds)
+
         result = poll_fn()
         cli_console.step(f"Status: {format_status(result)}")
 
@@ -932,3 +947,10 @@ class SnowflakeAppManager(SqlExecutionMixin):
         )
         row = cursor.fetchone()
         return row[0] if row else ""
+
+    def get_build_job_logs(self, build_job_fqn: FQN) -> list[str]:
+        """Fetch build logs for a build job service."""
+        cursor = self.execute_query(
+            f"SELECT LOG FROM TABLE({build_job_fqn.identifier}!SPCS_GET_LOGS())",
+        )
+        return [str(row[0]) for row in cursor if row[0]]
