@@ -589,19 +589,24 @@ def get_feature_flags_section() -> Dict[str, bool | Literal["UNKNOWN"]]:
 
 
 def _read_config_file_toml() -> dict:
+    # TOML files are always UTF-8 by spec; don't apply user's file_io encoding
     return tomlkit.loads(
         SecurePath(get_config_manager().file_path).read_text(
-            file_size_limit_mb=UNLIMITED
+            file_size_limit_mb=UNLIMITED, encoding="utf-8"
         )
     ).unwrap()
 
 
 def _read_connections_toml() -> dict:
+    # TOML files are always UTF-8 by spec; don't apply user's file_io encoding
     return tomlkit.loads(
-        SecurePath(get_connections_file()).read_text(file_size_limit_mb=UNLIMITED)
+        SecurePath(get_connections_file()).read_text(
+            file_size_limit_mb=UNLIMITED, encoding="utf-8"
+        )
     ).unwrap()
 
 
 def _update_connections_toml(connections: dict):
-    with SecurePath(get_connections_file()).open("w") as f:
+    # TOML files are always UTF-8 by spec; don't apply user's file_io encoding
+    with SecurePath(get_connections_file()).open("w", encoding="utf-8") as f:
         f.write(tomlkit.dumps(connections))
