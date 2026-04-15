@@ -471,11 +471,7 @@ def events(
 def _make_build_log_streamer(
     manager: SnowflakeAppManager, build_job_fqn: FQN
 ) -> Callable:
-    """Return an ``on_poll`` callback that prints new build log lines.
-
-    Each invocation of ``SPCS_GET_LOGS`` returns the *full* log history.
-    We track how many lines were already printed and emit only the delta.
-    """
+    """Return an ``on_poll`` callback that streams new build log lines."""
     seen_count = 0
 
     def _stream() -> None:
@@ -496,12 +492,7 @@ def _make_build_log_streamer(
 def _make_deploy_log_streamer(
     manager: SnowflakeAppManager, service_fqn: FQN
 ) -> Callable:
-    """Return an ``on_poll`` callback that prints new deploy log lines.
-
-    ``SYSTEM$GET_APPLICATION_SERVICE_LOGS`` returns one long string
-    containing all log output.  We split by newlines, track what has
-    already been printed, and emit only new lines.
-    """
+    """Return an ``on_poll`` callback that streams new deploy log lines."""
     seen_count = 0
 
     def _stream() -> None:

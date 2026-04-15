@@ -949,11 +949,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         return row[0] if row else ""
 
     def get_build_job_logs(self, build_job_fqn: FQN) -> list[str]:
-        """Fetch build logs via the build job's ``SPCS_GET_LOGS`` table function.
-
-        Runs ``SELECT LOG FROM TABLE(<build_job_fqn>!SPCS_GET_LOGS())`` and
-        returns the LOG column values as an ordered list of strings.
-        """
+        """Fetch build logs for a build job service."""
         cursor = self.execute_query(
             f"SELECT LOG FROM TABLE({build_job_fqn.identifier}!SPCS_GET_LOGS())",
         )
