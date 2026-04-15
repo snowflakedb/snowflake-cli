@@ -40,7 +40,7 @@ pydantic==2.12.5
 pydantic-core==2.41.5
 pygments==2.19.2
 pyjwt==2.10.1
-pyopenssl==25.1.0
+pyopenssl==25.3.0
 python-dateutil==2.9.0.post0
 pytz==2025.2
 pywin32-ctypes==0.2.3 ; sys_platform == 'win32'
