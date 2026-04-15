@@ -19,9 +19,13 @@ from typing import Optional
 
 import typer
 from click import ClickException
-from snowflake.cli._plugins.apps.generate import _generate_snowflake_yml
+from snowflake.cli._plugins.apps.generate import (
+    IS_PERSONAL_DB_SUPPORTED,
+    _generate_snowflake_yml,
+)
 from snowflake.cli._plugins.apps.manager import (
     _APP_COMMAND_NAME,
+    DEFAULT_IMAGE_REPOSITORY,
     DEFINITION_FILENAME,
     EXPOSE_UNSUPPORTED_SYNTAX,
     SnowflakeAppManager,
@@ -36,13 +40,27 @@ from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.config import get_connection_dict, get_default_connection_name
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.output.types import CommandResult, MessageResult
-from snowflake.cli.api.project.util import identifier_for_url
+from snowflake.cli.api.output.types import (
+    CommandResult,
+    EmptyResult,
+    MessageResult,
+    ObjectResult,
+)
+from snowflake.cli.api.project.util import get_env_username, identifier_for_url
 from snowflake.connector.errors import ProgrammingError
+
+# ── Source provenance labels ──────────────────────────────────────────
+SOURCE_USER_INPUT = "user input"
+SOURCE_ACCOUNT_PARAM = "account parameter"
+SOURCE_CONFIG_TABLE = "config table"
+SOURCE_CURRENT_SESSION = "current session"
+SOURCE_DEFAULT = "default"
+SOURCE_MISSING = "missing"
 
 app = SnowTyperFactory(
     name=_APP_COMMAND_NAME,
@@ -58,6 +76,21 @@ def setup(
         "--app-name",
         help="Name of the Snowflake App to initialize.",
     ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Only print the resolved configuration values without writing snowflake.yml.",
+    ),
+    compute_pool: Optional[str] = typer.Option(
+        None,
+        "--compute-pool",
+        help="Compute pool for building and running the app.",
+    ),
+    build_eai: Optional[str] = typer.Option(
+        None,
+        "--build-eai",
+        help="External access integration used during the app build.",
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -71,27 +104,151 @@ def setup(
         )
 
     project_file = Path.cwd() / DEFINITION_FILENAME
-    if project_file.exists():
+    if not dry_run and project_file.exists():
         return MessageResult(
             f"{DEFINITION_FILENAME} already exists. Skipping initialization."
         )
 
     ctx = get_cli_context()
-    ctx.connection_context.validate_and_complete()
-    ctx.connection_context.update_from_config()
-    warehouse = ctx.connection_context.warehouse
-    database = ctx.connection_context.database
+    connection_name = (
+        ctx.connection_context.connection_name or get_default_connection_name()
+    )
+    conn_config = get_connection_dict(connection_name)
 
     manager = SnowflakeAppManager()
-    config_overrides = {}
+    params = manager.fetch_snow_apps_parameters()
+    config_table = {}
     role = manager.current_role()
     if role:
-        config_overrides = manager.fetch_config_table_defaults(role)
+        config_table = manager.fetch_config_table_defaults(role)
 
-    project_file.write_text(
-        _generate_snowflake_yml(app_name, warehouse, database, config_overrides)
+    def _resolve(
+        user_input=None,
+        account_param=None,
+        config_table_val=None,
+        default_value=None,
+        current_session=None,
+    ):
+        """Return (value, source) using a fixed resolution order.
+
+        Resolution: user_input > account_param > config_table > default_value > current_session.
+        """
+        if user_input is not None:
+            return user_input, SOURCE_USER_INPUT
+        if account_param is not None:
+            return account_param, SOURCE_ACCOUNT_PARAM
+        if config_table_val is not None:
+            return config_table_val, SOURCE_CONFIG_TABLE
+        if default_value is not None:
+            return default_value, SOURCE_DEFAULT
+        if current_session is not None:
+            return current_session, SOURCE_CURRENT_SESSION
+        return None, SOURCE_MISSING
+
+    # ── Pre-compute current session values ─────────────────────────────
+    conn = ctx.connection_context
+    session_wh = (
+        getattr(conn, "warehouse", None) or conn_config.get("warehouse") or None
     )
-    return MessageResult(f"Initialized Snowflake App project in {DEFINITION_FILENAME}.")
+    session_db = getattr(conn, "database", None) or conn_config.get("database") or None
+    session_schema = getattr(conn, "schema", None) or conn_config.get("schema") or None
+
+    personal_db = (
+        f"USER${get_env_username().upper()}" if IS_PERSONAL_DB_SUPPORTED else None
+    )
+
+    # ── Resolve each field ────────────────────────────────────────────
+    resolved = {
+        "database": _resolve(
+            account_param=params.get("database"),
+            config_table_val=config_table.get("database"),
+            default_value=personal_db,
+            current_session=session_db,
+        ),
+        # TODO: Support per-app schema (e.g. APPS.APP_<app_id>) instead of
+        # a single shared schema for all apps.
+        "schema": _resolve(
+            account_param=params.get("schema"),
+            config_table_val=config_table.get("schema"),
+            current_session=session_schema,
+        ),
+        "warehouse": _resolve(
+            account_param=params.get("query_warehouse"),
+            config_table_val=config_table.get("warehouse"),
+            current_session=session_wh,
+        ),
+        # TODO: Consider removing --compute-pool argument once services can run
+        # in the system default compute pool (SYSTEM_COMPUTE_POOL_CPU).
+        "build_compute_pool": _resolve(
+            user_input=compute_pool,
+            account_param=params.get("build_compute_pool"),
+            config_table_val=config_table.get("compute_pool"),
+        ),
+        "service_compute_pool": _resolve(
+            user_input=compute_pool,
+            account_param=params.get("service_compute_pool"),
+            config_table_val=config_table.get("compute_pool"),
+        ),
+        # TODO: Remove --build-eai argument once the builder service no longer
+        # requires an external access integration.
+        "build_eai": _resolve(
+            user_input=build_eai,
+            account_param=params.get("build_eai"),
+            config_table_val=config_table.get("eai"),
+        ),
+        # TODO: Remove image_repository default once the artifact repo path
+        # replaces the image repo path.
+        "image_repository": _resolve(
+            config_table_val=config_table.get("image_repository"),
+            default_value=DEFAULT_IMAGE_REPOSITORY,
+        ),
+    }
+
+    # ── Validate required values ─────────────────────────────────────
+    # TODO: database, warehouse, and schema cannot be passed as arguments
+    # yet — they must come from account parameters, config table, or the
+    # current session.
+    if not resolved["database"][0]:
+        raise ClickException(
+            "Missing database. Set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE account parameter or check your connection."
+        )
+    if not resolved["schema"][0]:
+        raise ClickException(
+            "Missing schema. Set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA account parameter or check your connection."
+        )
+    if not resolved["warehouse"][0]:
+        raise ClickException(
+            "Missing warehouse. Set the DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE account parameter or check your connection."
+        )
+    if not resolved["build_compute_pool"][0]:
+        raise ClickException(
+            "Missing build compute pool. Pass --compute-pool or set the DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL account parameter."
+        )
+    if not resolved["service_compute_pool"][0]:
+        raise ClickException(
+            "Missing service compute pool. Pass --compute-pool or set the DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL account parameter."
+        )
+    if not resolved["build_eai"][0]:
+        raise ClickException(
+            "Missing build EAI. Pass --build-eai or set the DEFAULT_SNOWFLAKE_APPS_BUILD_EXTERNAL_ACCESS_INTEGRATION account parameter."
+        )
+
+    resolved_values = {k: v[0] for k, v in resolved.items()}
+
+    if not dry_run:
+        project_file.write_text(_generate_snowflake_yml(app_name, resolved_values))
+
+    is_json = get_cli_context().output_format.is_json
+    if is_json:
+        return ObjectResult({"success": not dry_run, **resolved_values})
+
+    if dry_run:
+        cli_console.step("Dry run — resolved configuration:")
+    else:
+        cli_console.step(f"Initialized Snowflake App project in {DEFINITION_FILENAME}.")
+    for key, (value, source) in resolved.items():
+        cli_console.step(f"  {key}: {value}  ({source})")
+    return EmptyResult()
 
 
 @app.command()
@@ -506,8 +663,7 @@ def deploy(
                 known_pending_states={"PENDING", "RUNNING"},
                 timeout_message=(
                     f"Artifact repo build timed out. Check build logs:\n"
-                    f"  SELECT * FROM TABLE("
-                    f"{artifact_build_job_fqn.identifier}!SPCS_GET_LOGS())"
+                    f"  CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{app_name}')"
                 ),
             )
         else:
@@ -539,34 +695,90 @@ def deploy(
 
     # ── Deploy phase ──────────────────────────────────────────────────
 
+    comment_data = {"appId": app_name}
+    if app_title:
+        comment_data["appName"] = app_title
+    if app_description:
+        comment_data["appDescription"] = app_description
+    if app_icon:
+        comment_data["appIcon"] = app_icon
+    app_comment = json.dumps(comment_data)
+
     if use_artifact_repo:
-        cli_console.step("Deploying app using artifact repository...")
-        run_result = manager.run_app_artifact_repo(
-            artifact_repo_fqn=artifact_repo_fqn_str,
-            app_id=app_name,
-            version="LATEST",
-            service_name=app_name,
-            compute_pool=service_compute_pool,
-            database=database,
-            schema=schema,
-            runtime_image=entity.runtime_image,
-            query_warehouse=query_warehouse,
-            build_eai=build_eai,
-        )
-        cli_console.step(f"SPCS_TEST_RUN_APP_ARTIFACT_REPO output:\n{run_result}")
+        eai_list = [build_eai] if build_eai else None
+
+        did_upgrade = False
+        cli_console.step("Creating application service...")
+        try:
+            manager.create_app_service(
+                service_fqn=service_fqn,
+                artifact_repo_fqn=artifact_repo_fqn_str,
+                package_name=app_name,
+                compute_pool=service_compute_pool,
+                version="LATEST",
+                query_warehouse=query_warehouse,
+                external_access_integrations=eai_list,
+                comment=app_comment,
+            )
+        except ProgrammingError as e:
+            if e.errno == 2002 and "already exists" in str(e).lower():
+                cli_console.step(
+                    f"Application service {app_name} already exists. Upgrading..."
+                )
+                manager.upgrade_app_service(
+                    service_fqn=service_fqn,
+                    version="LATEST",
+                )
+                did_upgrade = True
+            else:
+                raise
+
+        def _svc_is_upgrading(d: dict) -> bool:
+            return str(d.get("is_upgrading", "")).lower() in ("true", "1", "yes")
+
+        def _svc_has_failed(d: dict) -> bool:
+            return d.get("status", "").upper() == "FAILED"
+
+        def _url_is_ready(d: dict) -> bool:
+            url = d.get("url", "")
+            return bool(url) and "provisioning in progress" not in url.lower()
+
+        if did_upgrade:
+            cli_console.step("Waiting for upgrade to complete...")
+            desc = _poll_until(
+                poll_fn=lambda: manager.describe_app_service(service_fqn),
+                is_done=lambda d: not _svc_is_upgrading(d) and _url_is_ready(d),
+                is_error=_svc_has_failed,
+                format_status=lambda d: (
+                    "upgrading" if _svc_is_upgrading(d) else "ready"
+                ),
+                timeout_message=(
+                    f"Upgrade timed out. Check logs:\n"
+                    f"  CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{app_name}')"
+                ),
+            )
+        else:
+            cli_console.step("Waiting for application service endpoint...")
+            desc = _poll_until(
+                poll_fn=lambda: manager.describe_app_service(service_fqn),
+                is_done=_url_is_ready,
+                is_error=_svc_has_failed,
+                format_status=lambda d: d.get("url") or "url not yet available",
+                timeout_message=(
+                    f"Endpoint provisioning timed out. "
+                    f"Check: DESCRIBE APPLICATION SERVICE {service_fqn.identifier}"
+                ),
+            )
+
+        endpoint_url = desc.get("url", "")
+        if endpoint_url and not endpoint_url.startswith(("http://", "https://")):
+            endpoint_url = f"https://{endpoint_url}"
+        return MessageResult(f"App ready at {endpoint_url}")
+
     else:
         assert image_repo_url is not None
         repo_path = "/" + "/".join(image_repo_url.split("/")[1:])
         image_url = f"{repo_path}/{app_name.lower()}:latest"
-
-        comment_data = {"appId": app_name}
-        if app_title:
-            comment_data["appName"] = app_title
-        if app_description:
-            comment_data["appDescription"] = app_description
-        if app_icon:
-            comment_data["appIcon"] = app_icon
-        app_comment = json.dumps(comment_data)
 
         cli_console.step(f"Creating service {service_fqn} if it doesn't exist")
         manager.create_service(
@@ -596,12 +808,11 @@ def deploy(
             timeout_message=f"Service timed out. Check service status: {service_fqn}",
         )
 
-    # ── Get endpoint URL ──────────────────────────────────────────────
+    # ── Get endpoint URL (non-artifact-repo path only) ────────────────
     cli_console.step("Getting endpoint URL")
-    ep_name = "web" if use_artifact_repo else "app-endpoint"
     endpoint_url = _poll_until(
         poll_fn=lambda: manager.get_service_endpoint_url(
-            service_fqn, endpoint_name=ep_name
+            service_fqn, endpoint_name="app-endpoint"
         ),
         is_done=lambda url: url is not None
         and "provisioning in progress" not in url.lower(),
