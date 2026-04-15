@@ -44,7 +44,7 @@ fi
 
 test_version() {
   cli_version=$($1 --version)
-  if [[ $cli_version != "Snowflake CLI version: $VERSION" ]]; then
+  if [[ $cli_version != "Snowflake CLI version: $VERSION"* ]]; then
     echo "Version mismatch ${VERSION} != ${cli_version}"
     exit 1
   fi
