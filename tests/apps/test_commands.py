@@ -1108,12 +1108,8 @@ class TestResolveDeployDefaults:
         assert result["build_eai"] is None
 
     @patch(FETCH_SNOW_APPS_PARAMS, return_value={})
-    @patch(FETCH_CONFIG_DEFAULTS, return_value={})
-    @patch(CURRENT_ROLE, return_value="ENGINEER")
     @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
-    def test_artifact_repository_defaults_to_app_name_repo(
-        self, mock_ctx, mock_role, mock_fetch, mock_params
-    ):
+    def test_artifact_repository_defaults_to_app_name_repo(self, mock_ctx, mock_params):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
         entity = self._make_entity(app_name="MY_APP")
@@ -1121,12 +1117,8 @@ class TestResolveDeployDefaults:
         assert result["artifact_repository"] == "MY_APP_REPO"
 
     @patch(FETCH_SNOW_APPS_PARAMS, return_value={})
-    @patch(FETCH_CONFIG_DEFAULTS, return_value={})
-    @patch(CURRENT_ROLE, return_value="ENGINEER")
     @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
-    def test_explicit_artifact_repository_takes_precedence(
-        self, mock_ctx, mock_role, mock_fetch, mock_params
-    ):
+    def test_explicit_artifact_repository_takes_precedence(self, mock_ctx, mock_params):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
         entity = self._make_entity(artifact_repository="CUSTOM_REPO")
@@ -1134,11 +1126,9 @@ class TestResolveDeployDefaults:
         assert result["artifact_repository"] == "CUSTOM_REPO"
 
     @patch(FETCH_SNOW_APPS_PARAMS, return_value={})
-    @patch(FETCH_CONFIG_DEFAULTS, return_value={})
-    @patch(CURRENT_ROLE, return_value="ENGINEER")
     @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
     def test_explicit_app_name_overrides_fqn_for_default_repo(
-        self, mock_ctx, mock_role, mock_fetch, mock_params
+        self, mock_ctx, mock_params
     ):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 

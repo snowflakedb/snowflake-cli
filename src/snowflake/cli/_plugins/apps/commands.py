@@ -627,7 +627,8 @@ def deploy(
             known_pending_states={"PENDING", "RUNNING"},
             timeout_message=(
                 f"Artifact repo build timed out. Check build logs:\n"
-                f"  CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{app_name}')"
+                f"  SELECT * FROM TABLE("
+                f"{artifact_build_job_fqn.identifier}!SPCS_GET_LOGS())"
             ),
         )
 
@@ -712,3 +713,79 @@ def deploy(
     if endpoint_url and not endpoint_url.startswith(("http://", "https://")):
         endpoint_url = f"https://{endpoint_url}"
     return MessageResult(f"App ready at {endpoint_url}")
+
+
+@app.command(requires_connection=True)
+def teardown(
+    entity_id: Optional[str] = typer.Option(
+        None,
+        "--entity-id",
+        help="ID of the snowflake-app entity to tear down. Required if multiple snowflake-app entities exist.",
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="Drop without confirmation prompt.",
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Drops a deployed Snowflake App and its associated objects.
+
+    Reads the entity from snowflake.yml and drops the application service
+    (or SPCS service), the code stage, and the build job service.
+    Unless --force is provided, prompts for confirmation before dropping.
+    """
+    resolved_entity_id = _resolve_entity_id(entity_id)
+    entity = _get_entity(resolved_entity_id)
+
+    fqn = entity.fqn
+    manager = SnowflakeAppManager()
+    defaults = _resolve_deploy_defaults(entity, manager, app_name=fqn.name)
+
+    db = defaults.get("database")
+    schema = defaults.get("schema")
+
+    if not db or not schema:
+        missing = [k for k, v in {"database": db, "schema": schema}.items() if not v]
+        raise CliError(
+            f"Cannot resolve {' or '.join(missing)} for the app. "
+            "Set them in snowflake.yml or in your connection configuration."
+        )
+
+    app_name = fqn.name
+    service_fqn = FQN(database=db, schema=schema, name=app_name)
+    use_artifact_repo = entity.artifact_repository is not None
+
+    stage_name = (
+        entity.code_stage.name if entity.code_stage else f"{app_name}_CODE_STAGE"
+    )
+    stage_fqn = FQN(database=db, schema=schema, name=stage_name)
+    build_job_fqn = FQN(database=db, schema=schema, name=f"{app_name}_BUILD_JOB")
+
+    object_kind = "application service" if use_artifact_repo else "service"
+
+    if not force:
+        should_continue = typer.confirm(
+            f"Are you sure you want to drop {object_kind} {service_fqn.identifier}"
+            f" and its associated objects?"
+        )
+        if not should_continue:
+            return MessageResult("Teardown cancelled.")
+
+    cli_console.step(f"Dropping {object_kind} {service_fqn.identifier}")
+    if use_artifact_repo:
+        manager.drop_app_service_if_exists(service_fqn)
+    else:
+        manager.drop_service_if_exists(service_fqn)
+
+    cli_console.step(f"Dropping stage {stage_fqn.identifier}")
+    manager.drop_stage_if_exists(stage_fqn)
+
+    if not use_artifact_repo:
+        cli_console.step(f"Dropping build job service {build_job_fqn.identifier}")
+        manager.drop_service_if_exists(build_job_fqn)
+
+    return MessageResult(
+        f"Successfully dropped {object_kind} {service_fqn.identifier}."
+    )
