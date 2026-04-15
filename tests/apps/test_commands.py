@@ -1133,6 +1133,47 @@ class TestSnowflakeAppManager:
         assert status == "DONE"
 
     @patch(EXECUTE_QUERY)
+    def test_artifact_repo_exists_returns_true(self, mock_execute):
+        mock_cursor = Mock()
+        mock_cursor.__iter__ = Mock(return_value=iter([{"name": "MY_REPO"}]))
+        mock_execute.return_value = mock_cursor
+        assert (
+            SnowflakeAppManager().artifact_repo_exists(
+                database="DB", schema="SCHEMA", repo_name="MY_REPO"
+            )
+            is True
+        )
+        query = mock_execute.call_args[0][0]
+        assert "SHOW ARTIFACT REPOSITORIES LIKE" in query
+        assert "IN SCHEMA" in query
+        assert "DB.SCHEMA" in query
+
+    @patch(EXECUTE_QUERY)
+    def test_artifact_repo_exists_returns_false(self, mock_execute):
+        mock_cursor = Mock()
+        mock_cursor.__iter__ = Mock(return_value=iter([]))
+        mock_execute.return_value = mock_cursor
+        assert (
+            SnowflakeAppManager().artifact_repo_exists(
+                database="DB", schema="SCHEMA", repo_name="MY_REPO"
+            )
+            is False
+        )
+        query = mock_execute.call_args[0][0]
+        assert "SHOW ARTIFACT REPOSITORIES LIKE" in query
+        assert "IN SCHEMA" in query
+        assert "DB.SCHEMA" in query
+
+    @patch(EXECUTE_QUERY)
+    def test_create_artifact_repo(self, mock_execute):
+        SnowflakeAppManager().create_artifact_repo(
+            database="DB", schema="SCHEMA", repo_name="MY_REPO"
+        )
+        mock_execute.assert_called_once_with(
+            "CREATE ARTIFACT REPOSITORY IF NOT EXISTS IDENTIFIER('DB.SCHEMA.MY_REPO') TYPE=APPLICATION"
+        )
+
+    @patch(EXECUTE_QUERY)
     def test_create_service_basic(self, mock_execute):
         fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
         SnowflakeAppManager().create_service(
@@ -3562,6 +3603,7 @@ class TestDeployCommand:
         mock_perform_bundle.return_value = project_paths
 
         mock_mgr = mock_manager_cls.return_value
+        mock_mgr.artifact_repo_exists.return_value = False
         mock_mgr.build_app_artifact_repo.return_value = (
             "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
         )
@@ -3580,6 +3622,12 @@ class TestDeployCommand:
                 assert result.exit_code == 0, result.output
                 assert "my-app.snowflakecomputing.app" in result.output
 
+        mock_mgr.artifact_repo_exists.assert_called_once_with(
+            database="AR_DB", schema="AR_SCHEMA", repo_name="AR_REPO"
+        )
+        mock_mgr.create_artifact_repo.assert_called_once_with(
+            database="AR_DB", schema="AR_SCHEMA", repo_name="AR_REPO"
+        )
         mock_mgr.build_app_artifact_repo.assert_called_once_with(
             stage_fqn=FQN(
                 database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP_CODE_STAGE"
@@ -3609,6 +3657,91 @@ class TestDeployCommand:
         mock_mgr.execute_build_job.assert_not_called()
         # 2 polls: build status + describe for endpoint URL
         assert mock_poll.call_count == 2
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.StageManager")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "image_repository": "IMAGE_REPO",
+            "image_repo_database": "TEST_DB",
+            "image_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_skips_create_when_artifact_repo_exists(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        mock_stage_manager_cls,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """When the artifact repo already exists, skip CREATE."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.runtime_image = "runtime:latest"
+        entity.query_warehouse = "WH"
+        entity.build_image = None
+        entity.execute_as_caller = False
+        ar_mock = Mock(database="AR_DB", schema_="AR_SCHEMA")
+        ar_mock.name = "AR_REPO"
+        entity.artifact_repository = ar_mock
+        entity.image_repository = None
+        entity.build_compute_pool = None
+        entity.service_compute_pool = None
+        entity.build_eai = None
+        mock_get_entity.return_value = entity
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        project_paths = ProjectPaths(project_root=tmp_path)
+        mock_perform_bundle.return_value = project_paths
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.artifact_repo_exists.return_value = True
+        mock_mgr.build_app_artifact_repo.return_value = (
+            "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
+        )
+        mock_poll.side_effect = [
+            "DONE",
+            {"url": "my-app.snowflakecomputing.app", "is_upgrading": "false"},
+        ]
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "deploy"])
+                assert result.exit_code == 0, result.output
+
+        mock_mgr.artifact_repo_exists.assert_called_once_with(
+            database="AR_DB", schema="AR_SCHEMA", repo_name="AR_REPO"
+        )
+        mock_mgr.create_artifact_repo.assert_not_called()
 
     # ── Phase flag tests ──────────────────────────────────────────────
 

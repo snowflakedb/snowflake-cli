@@ -688,6 +688,16 @@ def deploy(
 
     if run_build:
         if use_artifact_repo:
+            if not manager.artifact_repo_exists(
+                database=ar_database, schema=ar_schema, repo_name=ar.name
+            ):
+                cli_console.step(
+                    f"Creating artifact repository: {artifact_repo_fqn_str}"
+                )
+                manager.create_artifact_repo(
+                    database=ar_database, schema=ar_schema, repo_name=ar.name
+                )
+
             with metrics.span("snowflake_app.build"):
                 cli_console.step("Building app using artifact repository...")
                 build_result = manager.build_app_artifact_repo(
