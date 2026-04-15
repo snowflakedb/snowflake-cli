@@ -632,6 +632,33 @@ class SnowflakeAppManager(SqlExecutionMixin):
         query = "\n".join(query_lines)
         self.execute_query(query)
 
+    def artifact_repo_exists(self, database: str, schema: str, repo_name: str) -> bool:
+        """Return True if the artifact repository already exists."""
+        from snowflake.cli.api.project.util import (
+            identifier_to_show_like_pattern,
+            unquote_identifier,
+        )
+
+        schema_fqn = FQN(database=None, schema=database, name=schema)
+        cursor = self.execute_query(
+            f"SHOW ARTIFACT REPOSITORIES LIKE {identifier_to_show_like_pattern(repo_name)}"
+            f" IN SCHEMA {schema_fqn.sql_identifier}",
+            cursor_class=DictCursor,
+        )
+        unqualified = unquote_identifier(repo_name).upper()
+        return any(row["name"].upper() == unqualified for row in cursor)
+
+    def create_artifact_repo(self, database: str, schema: str, repo_name: str) -> None:
+        """Create an artifact repository.
+
+        Uses IF NOT EXISTS so concurrent invocations (e.g. parallel CI
+        jobs) don't race on the CREATE after both pass the existence check.
+        """
+        fqn = FQN(database=database, schema=schema, name=repo_name)
+        self.execute_query(
+            f"CREATE ARTIFACT REPOSITORY IF NOT EXISTS {fqn.sql_identifier} TYPE=APPLICATION"
+        )
+
     def get_build_status(self, job_fqn: FQN) -> str:
         """
         Get the status of the build job service.
