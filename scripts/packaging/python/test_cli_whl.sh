@@ -43,8 +43,9 @@ if [[ ! -f $CLI_LABS_WHL_FILE ]]; then
 fi
 
 test_version() {
-  cli_version=$($1 --version)
-  if [[ $cli_version != "Snowflake CLI version: $VERSION"* ]]; then
+  local cli_version=$($1 --version)
+  local version_pattern="^Snowflake CLI version: ${VERSION}( \([0-9a-f]+\))?$"
+  if [[ ! $cli_version =~ $version_pattern ]]; then
     echo "Version mismatch ${VERSION} != ${cli_version}"
     exit 1
   fi
