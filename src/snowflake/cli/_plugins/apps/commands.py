@@ -72,15 +72,27 @@ app = SnowTyperFactory(
 )
 
 
-@app.command("version")
-def version(**options) -> CommandResult:
-    """
-    Prints the Snowflake Apps plugin version.
-    """
+def _version_callback(value: bool) -> None:
+    if not value:
+        return
     version_file = Path(__file__).parent / "version.json"
     with open(version_file) as f:
         data = json.load(f)
-    return ObjectResult(data)
+    cli_console.message(json.dumps(data, indent=2))
+    raise typer.Exit()
+
+
+@app.callback()
+def _app_callback(
+    version: bool = typer.Option(
+        False,
+        "--version",
+        help="Print the Snowflake Apps plugin version and exit.",
+        callback=_version_callback,
+        is_eager=True,
+    ),
+) -> None:
+    pass
 
 
 @app.command("setup", requires_connection=True)
