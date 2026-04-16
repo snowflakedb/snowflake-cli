@@ -967,7 +967,8 @@
    Manages Snowflake Apps.                                                        
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
+  | --version            Print the Snowflake Apps plugin version and exit.       |
+  | --help     -h        Show this message and exit.                             |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | bundle     Bundles a Snowflake App by resolving artifacts defined in         |
@@ -23967,7 +23968,8 @@
    Manages Snowflake Apps.                                                        
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
+  | --version            Print the Snowflake Apps plugin version and exit.       |
+  | --help     -h        Show this message and exit.                             |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | bundle     Bundles a Snowflake App by resolving artifacts defined in         |
