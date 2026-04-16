@@ -107,10 +107,10 @@ def test_nativeapp_controlled_debug_mode(
             is_debug_mode(snowflake_session, app_name)
 
         # deploy the application
-        result = runner.invoke_with_connection_json(["app", "run"])
-        assert result.exit_code == 0
-
         with nativeapp_teardown():
+            result = runner.invoke_with_connection_json(["app", "run"])
+            assert result.exit_code == 0
+
             # debug mode should be true by default on first app deploy,
             # because snowflake.yml doesn't set it explicitly either way ("uncontrolled")
             assert is_debug_mode(snowflake_session, app_name)

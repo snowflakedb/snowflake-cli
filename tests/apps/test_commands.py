@@ -12,9 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 import pytest
+from snowflake.cli._plugins.apps.commands import (
+    _make_build_log_streamer,
+    _make_deploy_log_streamer,
+)
 from snowflake.cli._plugins.apps.generate import (
     _generate_snowflake_yml,
 )
@@ -301,29 +305,263 @@ class TestPollUntilStateSetMode:
             )
         assert mock_sleep.call_count == 2
 
+
+class TestPollUntilOnPoll:
+    """Tests for the on_poll callback that streams logs between status checks."""
+
     @patch("snowflake.cli._plugins.apps.manager.time.sleep")
-    def test_on_poll_called_each_iteration(self, mock_sleep):
+    def test_on_poll_called_every_second_between_status_checks(self, mock_sleep):
+        on_poll = Mock()
+        _poll_until(
+            poll_fn=lambda: "DONE",
+            done_states={"DONE"},
+            known_pending_states={"PENDING"},
+            timeout_message="timed out",
+            interval_seconds=3,
+            on_poll=on_poll,
+        )
+        assert on_poll.call_count == 3
+        assert mock_sleep.call_count == 3
+        assert all(c == call(1) for c in mock_sleep.call_args_list)
+
+    @patch("snowflake.cli._plugins.apps.manager.time.sleep")
+    def test_on_poll_exception_does_not_interrupt_polling(self, mock_sleep):
+        on_poll = Mock(side_effect=RuntimeError("log fetch failed"))
+        result = _poll_until(
+            poll_fn=lambda: "DONE",
+            done_states={"DONE"},
+            known_pending_states={"PENDING"},
+            timeout_message="timed out",
+            interval_seconds=2,
+            on_poll=on_poll,
+        )
+        assert result == "DONE"
+        assert on_poll.call_count == 2
+
+    @patch("snowflake.cli._plugins.apps.manager.time.sleep")
+    def test_on_poll_called_across_multiple_iterations(self, mock_sleep):
         values = iter(["PENDING", "DONE"])
         on_poll = Mock()
         _poll_until(
             poll_fn=lambda: next(values),
             done_states={"DONE"},
-            error_states={"FAILED"},
             known_pending_states={"PENDING"},
-            on_poll=on_poll,
             timeout_message="timed out",
+            interval_seconds=5,
+            on_poll=on_poll,
         )
-        assert on_poll.call_count == 2
+        assert on_poll.call_count == 10
 
     @patch("snowflake.cli._plugins.apps.manager.time.sleep")
-    def test_on_poll_not_called_when_none(self, mock_sleep):
-        """Verify backward compatibility: no on_poll means no extra calls."""
+    def test_no_on_poll_uses_single_sleep(self, mock_sleep):
         _poll_until(
             poll_fn=lambda: "DONE",
             done_states={"DONE"},
             timeout_message="timed out",
+            interval_seconds=5,
         )
-        # No error means it worked without on_poll
+        mock_sleep.assert_called_once_with(5)
+
+
+# ── Log streamer tests ────────────────────────────────────────────────
+
+
+class TestBuildLogStreamer:
+    """Tests for _make_build_log_streamer incremental log diffing."""
+
+    def test_first_call_prints_all_lines(self):
+        manager = Mock()
+        manager.get_build_job_logs.return_value = ["line1", "line2", "line3"]
+        fqn = FQN.from_string("DB.SCHEMA.BUILD_JOB")
+
+        streamer = _make_build_log_streamer(manager, fqn)
+        with patch("snowflake.cli._plugins.apps.commands.log") as mock_log:
+            streamer()
+
+        assert mock_log.info.call_count == 3
+        mock_log.info.assert_any_call("line1")
+        mock_log.info.assert_any_call("line2")
+        mock_log.info.assert_any_call("line3")
+
+    def test_subsequent_call_prints_only_new_lines(self):
+        manager = Mock()
+        fqn = FQN.from_string("DB.SCHEMA.BUILD_JOB")
+        streamer = _make_build_log_streamer(manager, fqn)
+
+        with patch("snowflake.cli._plugins.apps.commands.log") as mock_log:
+            manager.get_build_job_logs.return_value = ["line1", "line2"]
+            streamer()
+            assert mock_log.info.call_count == 2
+
+            mock_log.info.reset_mock()
+            manager.get_build_job_logs.return_value = [
+                "line1",
+                "line2",
+                "line3",
+                "line4",
+            ]
+            streamer()
+            assert mock_log.info.call_count == 2
+            mock_log.info.assert_any_call("line3")
+            mock_log.info.assert_any_call("line4")
+
+    def test_no_new_lines_prints_nothing(self):
+        manager = Mock()
+        fqn = FQN.from_string("DB.SCHEMA.BUILD_JOB")
+        streamer = _make_build_log_streamer(manager, fqn)
+
+        with patch("snowflake.cli._plugins.apps.commands.log") as mock_log:
+            manager.get_build_job_logs.return_value = ["line1"]
+            streamer()
+            mock_log.info.reset_mock()
+
+            manager.get_build_job_logs.return_value = ["line1"]
+            streamer()
+            mock_log.info.assert_not_called()
+
+    def test_empty_logs_prints_nothing(self):
+        manager = Mock()
+        manager.get_build_job_logs.return_value = []
+        fqn = FQN.from_string("DB.SCHEMA.BUILD_JOB")
+        streamer = _make_build_log_streamer(manager, fqn)
+
+        with patch("snowflake.cli._plugins.apps.commands.log") as mock_log:
+            streamer()
+            mock_log.info.assert_not_called()
+
+    def test_exception_is_swallowed(self):
+        manager = Mock()
+        manager.get_build_job_logs.side_effect = RuntimeError("connection lost")
+        fqn = FQN.from_string("DB.SCHEMA.BUILD_JOB")
+        streamer = _make_build_log_streamer(manager, fqn)
+
+        streamer()  # should not raise
+
+    def test_exception_does_not_reset_seen_count(self):
+        manager = Mock()
+        fqn = FQN.from_string("DB.SCHEMA.BUILD_JOB")
+        streamer = _make_build_log_streamer(manager, fqn)
+
+        with patch("snowflake.cli._plugins.apps.commands.log") as mock_log:
+            manager.get_build_job_logs.return_value = ["line1", "line2"]
+            streamer()
+            assert mock_log.info.call_count == 2
+
+            mock_log.info.reset_mock()
+            manager.get_build_job_logs.side_effect = RuntimeError("transient")
+            streamer()
+            mock_log.info.assert_not_called()
+
+            manager.get_build_job_logs.side_effect = None
+            manager.get_build_job_logs.return_value = ["line1", "line2", "line3"]
+            streamer()
+            assert mock_log.info.call_count == 1
+            mock_log.info.assert_called_with("line3")
+
+
+class TestDeployLogStreamer:
+    """Tests for _make_deploy_log_streamer incremental log diffing."""
+
+    def test_first_call_prints_all_lines(self):
+        manager = Mock()
+        manager.get_app_service_logs.return_value = "line1\nline2\nline3"
+        fqn = FQN.from_string("DB.SCHEMA.MY_APP")
+
+        streamer = _make_deploy_log_streamer(manager, fqn)
+        with patch("snowflake.cli._plugins.apps.commands.log") as mock_log:
+            streamer()
+
+        manager.get_app_service_logs.assert_called_with("DB.SCHEMA.MY_APP")
+        assert mock_log.info.call_count == 3
+        mock_log.info.assert_any_call("line1")
+        mock_log.info.assert_any_call("line2")
+        mock_log.info.assert_any_call("line3")
+
+    def test_subsequent_call_prints_only_new_lines(self):
+        manager = Mock()
+        fqn = FQN.from_string("DB.SCHEMA.MY_APP")
+        streamer = _make_deploy_log_streamer(manager, fqn)
+
+        with patch("snowflake.cli._plugins.apps.commands.log") as mock_log:
+            manager.get_app_service_logs.return_value = "a\nb"
+            streamer()
+            assert mock_log.info.call_count == 2
+
+            mock_log.info.reset_mock()
+            manager.get_app_service_logs.return_value = "a\nb\nc\nd"
+            streamer()
+            assert mock_log.info.call_count == 2
+            mock_log.info.assert_any_call("c")
+            mock_log.info.assert_any_call("d")
+
+    def test_no_new_lines_prints_nothing(self):
+        manager = Mock()
+        fqn = FQN.from_string("DB.SCHEMA.MY_APP")
+        streamer = _make_deploy_log_streamer(manager, fqn)
+
+        with patch("snowflake.cli._plugins.apps.commands.log") as mock_log:
+            manager.get_app_service_logs.return_value = "line1"
+            streamer()
+            mock_log.info.reset_mock()
+
+            manager.get_app_service_logs.return_value = "line1"
+            streamer()
+            mock_log.info.assert_not_called()
+
+    def test_empty_string_prints_nothing(self):
+        manager = Mock()
+        manager.get_app_service_logs.return_value = ""
+        fqn = FQN.from_string("DB.SCHEMA.MY_APP")
+        streamer = _make_deploy_log_streamer(manager, fqn)
+
+        with patch("snowflake.cli._plugins.apps.commands.log") as mock_log:
+            streamer()
+            mock_log.info.assert_not_called()
+
+    def test_exception_is_swallowed(self):
+        manager = Mock()
+        manager.get_app_service_logs.side_effect = RuntimeError("connection lost")
+        fqn = FQN.from_string("DB.SCHEMA.MY_APP")
+        streamer = _make_deploy_log_streamer(manager, fqn)
+
+        streamer()  # should not raise
+
+    def test_exception_does_not_reset_seen_count(self):
+        manager = Mock()
+        fqn = FQN.from_string("DB.SCHEMA.MY_APP")
+        streamer = _make_deploy_log_streamer(manager, fqn)
+
+        with patch("snowflake.cli._plugins.apps.commands.log") as mock_log:
+            manager.get_app_service_logs.return_value = "a\nb"
+            streamer()
+            assert mock_log.info.call_count == 2
+
+            mock_log.info.reset_mock()
+            manager.get_app_service_logs.side_effect = RuntimeError("transient")
+            streamer()
+            mock_log.info.assert_not_called()
+
+            manager.get_app_service_logs.side_effect = None
+            manager.get_app_service_logs.return_value = "a\nb\nc"
+            streamer()
+            assert mock_log.info.call_count == 1
+            mock_log.info.assert_called_with("c")
+
+    def test_multiline_with_various_line_endings(self):
+        manager = Mock()
+        fqn = FQN.from_string("DB.SCHEMA.MY_APP")
+        streamer = _make_deploy_log_streamer(manager, fqn)
+
+        with patch("snowflake.cli._plugins.apps.commands.log") as mock_log:
+            manager.get_app_service_logs.return_value = "a\r\nb\nc"
+            streamer()
+            assert mock_log.info.call_count == 3
+            mock_log.info.assert_any_call("a")
+            mock_log.info.assert_any_call("b")
+            mock_log.info.assert_any_call("c")
+
+
+# ── _generate_snowflake_yml tests ─────────────────────────────────────
 
 
 class TestGenerateSnowflakeYml:
@@ -489,6 +727,22 @@ class TestSnowflakeAppManager:
         )
 
     @patch(EXECUTE_QUERY)
+    def test_drop_app_service_if_exists(self, mock_execute):
+        fqn = FQN(database="DB", schema="SCHEMA", name="MY_APP")
+        SnowflakeAppManager().drop_app_service_if_exists(fqn)
+        mock_execute.assert_called_once_with(
+            "DROP APPLICATION SERVICE IF EXISTS IDENTIFIER('DB.SCHEMA.MY_APP')"
+        )
+
+    @patch(EXECUTE_QUERY)
+    def test_drop_stage_if_exists(self, mock_execute):
+        fqn = FQN(database="DB", schema="SCHEMA", name="MY_STAGE")
+        SnowflakeAppManager().drop_stage_if_exists(fqn)
+        mock_execute.assert_called_once_with(
+            "DROP STAGE IF EXISTS IDENTIFIER('DB.SCHEMA.MY_STAGE')"
+        )
+
+    @patch(EXECUTE_QUERY)
     def test_get_image_repo_url(self, mock_execute):
         cursor = Mock()
         cursor.rowcount = 1
@@ -534,72 +788,22 @@ class TestSnowflakeAppManager:
         assert result == "host.registry-local.snowflakecomputing.com/db/schema/my_repo"
 
     @patch(EXECUTE_QUERY)
-    def test_get_image_repo_url_not_found_creates_repo(self, mock_execute):
-        empty_cursor = Mock()
-        empty_cursor.rowcount = 0
+    def test_get_image_repo_url_not_found_empty(self, mock_execute):
+        cursor = Mock()
+        cursor.rowcount = 0
+        mock_execute.return_value = cursor
 
-        create_cursor = Mock()
-
-        found_cursor = Mock()
-        found_cursor.rowcount = 1
-        found_cursor.fetchall.return_value = [
-            {
-                "name": "MY_REPO",
-                "repository_url": "host.registry.snowflakecomputing.com/db/schema/my_repo",
-            }
-        ]
-
-        mock_execute.side_effect = [empty_cursor, create_cursor, found_cursor]
-
-        result = SnowflakeAppManager().get_image_repo_url("MY_REPO")
-        assert result == "host.registry-local.snowflakecomputing.com/db/schema/my_repo"
-
-        assert mock_execute.call_count == 3
-        # Second call should be the CREATE statement
-        create_call_args = mock_execute.call_args_list[1]
-        assert "CREATE IMAGE REPOSITORY IF NOT EXISTS MY_REPO" in create_call_args[0][0]
-
-    @patch(EXECUTE_QUERY)
-    def test_get_image_repo_url_not_found_create_fails(self, mock_execute):
-        empty_cursor = Mock()
-        empty_cursor.rowcount = 0
-
-        create_cursor = Mock()
-
-        still_empty_cursor = Mock()
-        still_empty_cursor.rowcount = 0
-
-        mock_execute.side_effect = [empty_cursor, create_cursor, still_empty_cursor]
-
-        with pytest.raises(
-            CliError, match="Image repository 'MY_REPO' could not be created"
-        ):
+        with pytest.raises(CliError, match="Image repository 'MY_REPO' not found"):
             SnowflakeAppManager().get_image_repo_url("MY_REPO")
 
     @patch(EXECUTE_QUERY)
-    def test_get_image_repo_url_not_found_none_rowcount_creates_repo(
-        self, mock_execute
-    ):
-        none_cursor = Mock()
-        none_cursor.rowcount = None
+    def test_get_image_repo_url_not_found_none_rowcount(self, mock_execute):
+        cursor = Mock()
+        cursor.rowcount = None
+        mock_execute.return_value = cursor
 
-        create_cursor = Mock()
-
-        found_cursor = Mock()
-        found_cursor.rowcount = 1
-        found_cursor.fetchall.return_value = [
-            {
-                "name": "MY_REPO",
-                "repository_url": "host.registry.snowflakecomputing.com/db/schema/my_repo",
-            }
-        ]
-
-        mock_execute.side_effect = [none_cursor, create_cursor, found_cursor]
-
-        result = SnowflakeAppManager().get_image_repo_url("MY_REPO")
-        assert result == "host.registry-local.snowflakecomputing.com/db/schema/my_repo"
-
-        assert mock_execute.call_count == 3
+        with pytest.raises(CliError, match="Image repository 'MY_REPO' not found"):
+            SnowflakeAppManager().get_image_repo_url("MY_REPO")
 
     @patch(EXECUTE_QUERY)
     def test_get_image_repo_url_with_database_and_schema(self, mock_execute):
@@ -929,57 +1133,45 @@ class TestSnowflakeAppManager:
         assert status == "DONE"
 
     @patch(EXECUTE_QUERY)
-    def test_get_build_logs_returns_lines_and_timestamp(self, mock_execute):
-        cursor = Mock()
-        cursor.fetchone.return_value = (
-            "2024-01-01T00:00:01Z Building layer 1\n"
-            "2024-01-01T00:00:02Z Building layer 2\n",
+    def test_artifact_repo_exists_returns_true(self, mock_execute):
+        mock_cursor = Mock()
+        mock_cursor.__iter__ = Mock(return_value=iter([{"name": "MY_REPO"}]))
+        mock_execute.return_value = mock_cursor
+        assert (
+            SnowflakeAppManager().artifact_repo_exists(
+                database="DB", schema="SCHEMA", repo_name="MY_REPO"
+            )
+            is True
         )
-        mock_execute.return_value = cursor
-
-        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
-        lines, since = SnowflakeAppManager().get_build_logs(fqn)
-        assert len(lines) == 2
-        assert "Building layer 1" in lines[0]
-        assert "Building layer 2" in lines[1]
-        assert since == "2024-01-01T00:00:02Z"
-
-    @patch(EXECUTE_QUERY)
-    def test_get_build_logs_with_since_timestamp(self, mock_execute):
-        cursor = Mock()
-        cursor.fetchone.return_value = ("2024-01-01T00:00:03Z Building layer 3\n",)
-        mock_execute.return_value = cursor
-
-        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
-        lines, since = SnowflakeAppManager().get_build_logs(
-            fqn, since_timestamp="2024-01-01T00:00:02Z"
-        )
-        assert len(lines) == 1
-        assert "Building layer 3" in lines[0]
-        assert since == "2024-01-01T00:00:03Z"
-        # Verify since_timestamp was passed to the query
         query = mock_execute.call_args[0][0]
-        assert "2024-01-01T00:00:02Z" in query
+        assert "SHOW ARTIFACT REPOSITORIES LIKE" in query
+        assert "IN SCHEMA" in query
+        assert "DB.SCHEMA" in query
 
     @patch(EXECUTE_QUERY)
-    def test_get_build_logs_empty_result(self, mock_execute):
-        cursor = Mock()
-        cursor.fetchone.return_value = ("",)
-        mock_execute.return_value = cursor
-
-        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
-        lines, since = SnowflakeAppManager().get_build_logs(fqn)
-        assert lines == []
-        assert since == ""
+    def test_artifact_repo_exists_returns_false(self, mock_execute):
+        mock_cursor = Mock()
+        mock_cursor.__iter__ = Mock(return_value=iter([]))
+        mock_execute.return_value = mock_cursor
+        assert (
+            SnowflakeAppManager().artifact_repo_exists(
+                database="DB", schema="SCHEMA", repo_name="MY_REPO"
+            )
+            is False
+        )
+        query = mock_execute.call_args[0][0]
+        assert "SHOW ARTIFACT REPOSITORIES LIKE" in query
+        assert "IN SCHEMA" in query
+        assert "DB.SCHEMA" in query
 
     @patch(EXECUTE_QUERY)
-    def test_get_build_logs_handles_exception(self, mock_execute):
-        mock_execute.side_effect = Exception("container not ready")
-
-        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
-        lines, since = SnowflakeAppManager().get_build_logs(fqn)
-        assert lines == []
-        assert since == ""
+    def test_create_artifact_repo(self, mock_execute):
+        SnowflakeAppManager().create_artifact_repo(
+            database="DB", schema="SCHEMA", repo_name="MY_REPO"
+        )
+        mock_execute.assert_called_once_with(
+            "CREATE ARTIFACT REPOSITORY IF NOT EXISTS IDENTIFIER('DB.SCHEMA.MY_REPO') TYPE=APPLICATION"
+        )
 
     @patch(EXECUTE_QUERY)
     def test_create_service_basic(self, mock_execute):
@@ -3411,6 +3603,7 @@ class TestDeployCommand:
         mock_perform_bundle.return_value = project_paths
 
         mock_mgr = mock_manager_cls.return_value
+        mock_mgr.artifact_repo_exists.return_value = False
         mock_mgr.build_app_artifact_repo.return_value = (
             "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
         )
@@ -3429,6 +3622,12 @@ class TestDeployCommand:
                 assert result.exit_code == 0, result.output
                 assert "my-app.snowflakecomputing.app" in result.output
 
+        mock_mgr.artifact_repo_exists.assert_called_once_with(
+            database="AR_DB", schema="AR_SCHEMA", repo_name="AR_REPO"
+        )
+        mock_mgr.create_artifact_repo.assert_called_once_with(
+            database="AR_DB", schema="AR_SCHEMA", repo_name="AR_REPO"
+        )
         mock_mgr.build_app_artifact_repo.assert_called_once_with(
             stage_fqn=FQN(
                 database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP_CODE_STAGE"
@@ -3458,6 +3657,91 @@ class TestDeployCommand:
         mock_mgr.execute_build_job.assert_not_called()
         # 2 polls: build status + describe for endpoint URL
         assert mock_poll.call_count == 2
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.StageManager")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "image_repository": "IMAGE_REPO",
+            "image_repo_database": "TEST_DB",
+            "image_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_skips_create_when_artifact_repo_exists(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        mock_stage_manager_cls,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """When the artifact repo already exists, skip CREATE."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.runtime_image = "runtime:latest"
+        entity.query_warehouse = "WH"
+        entity.build_image = None
+        entity.execute_as_caller = False
+        ar_mock = Mock(database="AR_DB", schema_="AR_SCHEMA")
+        ar_mock.name = "AR_REPO"
+        entity.artifact_repository = ar_mock
+        entity.image_repository = None
+        entity.build_compute_pool = None
+        entity.service_compute_pool = None
+        entity.build_eai = None
+        mock_get_entity.return_value = entity
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        project_paths = ProjectPaths(project_root=tmp_path)
+        mock_perform_bundle.return_value = project_paths
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.artifact_repo_exists.return_value = True
+        mock_mgr.build_app_artifact_repo.return_value = (
+            "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
+        )
+        mock_poll.side_effect = [
+            "DONE",
+            {"url": "my-app.snowflakecomputing.app", "is_upgrading": "false"},
+        ]
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "deploy"])
+                assert result.exit_code == 0, result.output
+
+        mock_mgr.artifact_repo_exists.assert_called_once_with(
+            database="AR_DB", schema="AR_SCHEMA", repo_name="AR_REPO"
+        )
+        mock_mgr.create_artifact_repo.assert_not_called()
 
     # ── Phase flag tests ──────────────────────────────────────────────
 
@@ -3858,3 +4142,527 @@ class TestDeployCommand:
                 result = runner.invoke(["__app", "deploy", "--build-only"])
                 assert "service_compute_pool is required" not in result.output
                 assert "query_warehouse is required" not in result.output
+
+    # ── Telemetry span tests ─────────────────────────────────────────
+
+    @staticmethod
+    def _make_deploy_mocks(
+        tmp_path,
+        mock_get_ctx,
+        mock_get_entity,
+        mock_manager_cls,
+        mock_perform_bundle,
+        *,
+        use_artifact_repo=False,
+    ):
+        """Wire up the common mocks for a deploy invocation and return (metrics, mock_mgr)."""
+        from snowflake.cli.api.metrics import CLIMetrics
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        metrics = CLIMetrics()
+        mock_ctx = Mock()
+        mock_ctx.metrics = metrics
+        mock_ctx.connection_context.database = "TEST_DB"
+        mock_ctx.connection_context.schema = "TEST_SCHEMA"
+        mock_ctx.connection_context.warehouse = "WH"
+        mock_get_ctx.return_value = mock_ctx
+
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.build_image = None
+        entity.execute_as_caller = False
+        entity.runtime_image = "runtime:latest"
+
+        if use_artifact_repo:
+            ar_mock = Mock(database="AR_DB", schema_="AR_SCHEMA")
+            ar_mock.name = "AR_REPO"
+            entity.artifact_repository = ar_mock
+            entity.image_repository = None
+            entity.build_compute_pool = None
+            entity.service_compute_pool = None
+            entity.build_eai = None
+            entity.query_warehouse = "WH"
+        else:
+            entity.artifact_repository = None
+            entity.image_repository = Mock(name="MY_REPO", database=None, schema_=None)
+
+        mock_get_entity.return_value = entity
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True, exist_ok=True)
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.stage_exists.return_value = False
+        mock_mgr.get_image_repo_url.return_value = (
+            "host.registry-local.snowflakecomputing.com/TEST_DB/TEST_SCHEMA/IMAGE_REPO"
+        )
+        mock_mgr.build_app_artifact_repo.return_value = (
+            "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
+        )
+
+        return metrics, mock_mgr
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.StageManager")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "image_repository": "IMAGE_REPO",
+            "image_repo_database": "TEST_DB",
+            "image_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.get_cli_context")
+    def test_deploy_image_repo_records_telemetry_spans(
+        self,
+        mock_get_ctx,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        mock_stage_manager_cls,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """Non-artifact-repo deploy records exactly the expected spans in order."""
+        from snowflake.cli.api.metrics import CLIMetricsSpan
+
+        mock_poll.return_value = "https://my-app.snowflakecomputing.app"
+        metrics, _ = self._make_deploy_mocks(
+            tmp_path,
+            mock_get_ctx,
+            mock_get_entity,
+            mock_manager_cls,
+            mock_perform_bundle,
+        )
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "deploy"])
+                assert result.exit_code == 0, result.output
+
+        span_names = [s[CLIMetricsSpan.NAME_KEY] for s in metrics.completed_spans]
+        assert span_names == [
+            "snowflake_app.bundle",
+            "snowflake_app.upload",
+            "snowflake_app.build",
+            "snowflake_app.deploy_service",
+            "snowflake_app.endpoint_provision",
+        ]
+        for span in metrics.completed_spans:
+            assert span[CLIMetricsSpan.ERROR_KEY] is None
+            assert span[CLIMetricsSpan.EXECUTION_TIME_KEY] > 0
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.StageManager")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "image_repository": "IMAGE_REPO",
+            "image_repo_database": "TEST_DB",
+            "image_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.get_cli_context")
+    def test_deploy_artifact_repo_records_telemetry_spans(
+        self,
+        mock_get_ctx,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        mock_stage_manager_cls,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """Artifact-repo deploy records exactly the expected spans in order."""
+        from snowflake.cli.api.metrics import CLIMetricsSpan
+
+        mock_poll.side_effect = [
+            "DONE",
+            {
+                "url": "https://my-app.snowflakecomputing.app",
+                "is_upgrading": "false",
+                "status": "READY",
+            },
+        ]
+        metrics, _ = self._make_deploy_mocks(
+            tmp_path,
+            mock_get_ctx,
+            mock_get_entity,
+            mock_manager_cls,
+            mock_perform_bundle,
+            use_artifact_repo=True,
+        )
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "deploy"])
+                assert result.exit_code == 0, result.output
+
+        span_names = [s[CLIMetricsSpan.NAME_KEY] for s in metrics.completed_spans]
+        assert span_names == [
+            "snowflake_app.bundle",
+            "snowflake_app.upload",
+            "snowflake_app.build",
+            "snowflake_app.deploy_service",
+            "snowflake_app.endpoint_provision",
+        ]
+        for span in metrics.completed_spans:
+            assert span[CLIMetricsSpan.ERROR_KEY] is None
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.StageManager")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "image_repository": "IMAGE_REPO",
+            "image_repo_database": "TEST_DB",
+            "image_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.get_cli_context")
+    def test_deploy_build_failure_records_error_in_span(
+        self,
+        mock_get_ctx,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        mock_stage_manager_cls,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """When build polling raises CliError, the build span records the error."""
+        from snowflake.cli.api.metrics import CLIMetricsSpan
+
+        def _poll_side_effect(**kwargs):
+            if kwargs.get("done_states") == {"DONE"}:
+                raise CliError("Build timed out.")
+            return "https://my-app.snowflakecomputing.app"
+
+        mock_poll.side_effect = _poll_side_effect
+        metrics, _ = self._make_deploy_mocks(
+            tmp_path,
+            mock_get_ctx,
+            mock_get_entity,
+            mock_manager_cls,
+            mock_perform_bundle,
+        )
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "deploy"])
+                assert result.exit_code == 1
+
+        span_map = {s[CLIMetricsSpan.NAME_KEY]: s for s in metrics.completed_spans}
+        assert "snowflake_app.build" in span_map
+        assert span_map["snowflake_app.build"][CLIMetricsSpan.ERROR_KEY] == "CliError"
+        assert "snowflake_app.bundle" in span_map
+        assert span_map["snowflake_app.bundle"][CLIMetricsSpan.ERROR_KEY] is None
+
+
+TEARDOWN_DEFAULTS = {
+    "database": "TEST_DB",
+    "schema": "TEST_SCHEMA",
+}
+
+
+class TestTeardownCommand:
+    @staticmethod
+    def _make_entity(
+        name="MY_APP",
+        artifact_repository=None,
+        code_stage=None,
+    ):
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = name
+        entity.fqn = fqn
+        entity.artifact_repository = artifact_repository
+        entity.code_stage = code_stage
+        return entity
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(RESOLVE_DEPLOY_DEFAULTS, return_value=TEARDOWN_DEFAULTS)
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_teardown_drops_service_stage_and_build_job(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        mock_get_entity.return_value = self._make_entity()
+        mock_mgr = mock_manager_cls.return_value
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "teardown", "--force"])
+                assert result.exit_code == 0, result.output
+                assert "Successfully dropped service" in result.output
+
+        assert mock_mgr.drop_service_if_exists.call_count == 2
+        dropped_fqns = [
+            c.args[0].identifier for c in mock_mgr.drop_service_if_exists.call_args_list
+        ]
+        assert "TEST_DB.TEST_SCHEMA.MY_APP" in dropped_fqns
+        assert "TEST_DB.TEST_SCHEMA.MY_APP_BUILD_JOB" in dropped_fqns
+        mock_mgr.drop_stage_if_exists.assert_called_once()
+        mock_mgr.drop_app_service_if_exists.assert_not_called()
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(RESOLVE_DEPLOY_DEFAULTS, return_value=TEARDOWN_DEFAULTS)
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_teardown_drops_app_service_and_stage_for_artifact_repo(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        mock_get_entity.return_value = self._make_entity(
+            artifact_repository=Mock(name="MY_REPO"),
+        )
+        mock_mgr = mock_manager_cls.return_value
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "teardown", "--force"])
+                assert result.exit_code == 0, result.output
+                assert "Successfully dropped application service" in result.output
+
+        mock_mgr.drop_app_service_if_exists.assert_called_once()
+        mock_mgr.drop_stage_if_exists.assert_called_once()
+        mock_mgr.drop_service_if_exists.assert_not_called()
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(RESOLVE_DEPLOY_DEFAULTS, return_value=TEARDOWN_DEFAULTS)
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_teardown_uses_custom_stage_name(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        code_stage = Mock()
+        code_stage.name = "CUSTOM_STAGE"
+        mock_get_entity.return_value = self._make_entity(code_stage=code_stage)
+        mock_mgr = mock_manager_cls.return_value
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "teardown", "--force"])
+                assert result.exit_code == 0, result.output
+
+        stage_fqn = mock_mgr.drop_stage_if_exists.call_args.args[0]
+        assert stage_fqn.identifier == "TEST_DB.TEST_SCHEMA.CUSTOM_STAGE"
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(RESOLVE_DEPLOY_DEFAULTS, return_value=TEARDOWN_DEFAULTS)
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_teardown_passes_entity_id(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        mock_get_entity.return_value = self._make_entity()
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            with change_directory(tmp_path):
+                result = runner.invoke(
+                    ["__app", "teardown", "--entity-id", "custom_app", "--force"]
+                )
+                assert result.exit_code == 0, result.output
+                mock_resolve.assert_called_once_with("custom_app")
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(RESOLVE_DEPLOY_DEFAULTS, return_value=TEARDOWN_DEFAULTS)
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_teardown_cancelled_without_force(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        mock_get_entity.return_value = self._make_entity()
+        mock_mgr = mock_manager_cls.return_value
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "teardown"], input="n\n")
+                assert result.exit_code == 0, result.output
+                assert "Teardown cancelled" in result.output
+
+        mock_mgr.drop_service_if_exists.assert_not_called()
+        mock_mgr.drop_app_service_if_exists.assert_not_called()
+        mock_mgr.drop_stage_if_exists.assert_not_called()
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(RESOLVE_DEPLOY_DEFAULTS, return_value=TEARDOWN_DEFAULTS)
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_teardown_confirmed_without_force(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        mock_get_entity.return_value = self._make_entity()
+        mock_mgr = mock_manager_cls.return_value
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "teardown"], input="y\n")
+                assert result.exit_code == 0, result.output
+                assert "Successfully dropped service" in result.output
+
+        assert mock_mgr.drop_service_if_exists.call_count == 2
+        mock_mgr.drop_stage_if_exists.assert_called_once()
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={"database": "PARAM_DB", "schema": "PARAM_SCHEMA"},
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_teardown_uses_resolved_defaults_for_db_schema(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        mock_get_entity.return_value = self._make_entity()
+        mock_mgr = mock_manager_cls.return_value
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "teardown", "--force"])
+                assert result.exit_code == 0, result.output
+                assert "PARAM_DB.PARAM_SCHEMA.MY_APP" in result.output
+
+        mock_defaults.assert_called_once()
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(RESOLVE_DEPLOY_DEFAULTS, return_value={})
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_teardown_errors_when_database_missing(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        mock_get_entity.return_value = self._make_entity()
+
+        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
+            with change_directory(tmp_path):
+                result = runner.invoke(["__app", "teardown", "--force"])
+                assert result.exit_code == 1
+                assert "Cannot resolve" in result.output

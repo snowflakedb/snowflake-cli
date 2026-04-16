@@ -20,17 +20,7 @@ import re
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    TypeVar,
-)
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Set, TypeVar
 
 from snowflake.cli._plugins.apps.generate import IS_PERSONAL_DB_SUPPORTED
 from snowflake.cli._plugins.apps.snowflake_app_entity_model import DEFAULT_APP_PORT
@@ -90,10 +80,10 @@ def _poll_until(
     is_done: Optional[Callable[[T], bool]] = None,
     is_error: Optional[Callable[[T], bool]] = None,
     format_status: Callable[[T], str] = str,
-    on_poll: Optional[Callable[[], None]] = None,
     max_attempts: int = 240,
     interval_seconds: int = 5,
     timeout_message: str = "Operation timed out.",
+    on_poll: Optional[Callable[[], None]] = None,
 ) -> T:
     """Poll *poll_fn* until the result satisfies a done condition.
 
@@ -107,20 +97,27 @@ def _poll_until(
         Call *is_done(result)* each iteration.  Optionally supply *is_error*
         to detect error values.
 
-    If *on_poll* is provided it is called after each status check,
-    regardless of mode.  This is useful for side-effects such as
-    streaming logs while waiting.
+    If *on_poll* is provided it is called every second between status
+    checks, so log output streams continuously rather than in bursts
+    every *interval_seconds*.  Exceptions from *on_poll* are logged and
+    swallowed so they never interrupt the polling loop.
 
     Raises ``CliError`` on error or timeout.  Returns the final value on
     success.
     """
     for _attempt in range(max_attempts):
-        time.sleep(interval_seconds)
+        if on_poll is not None:
+            for _ in range(interval_seconds):
+                time.sleep(1)
+                try:
+                    on_poll()
+                except Exception:
+                    log.debug("on_poll callback failed", exc_info=True)
+        else:
+            time.sleep(interval_seconds)
+
         result = poll_fn()
         cli_console.step(f"Status: {format_status(result)}")
-
-        if on_poll is not None:
-            on_poll()
 
         if is_done is not None:
             # ── Predicate mode ────────────────────────────────────
@@ -545,6 +542,16 @@ class SnowflakeAppManager(SqlExecutionMixin):
         """Drop a service if it exists."""
         self.execute_query(f"DROP SERVICE IF EXISTS {service_fqn.sql_identifier}")
 
+    def drop_app_service_if_exists(self, service_fqn: FQN) -> None:
+        """Drop an application service if it exists."""
+        self.execute_query(
+            f"DROP APPLICATION SERVICE IF EXISTS {service_fqn.sql_identifier}"
+        )
+
+    def drop_stage_if_exists(self, stage_fqn: FQN) -> None:
+        """Drop a stage if it exists."""
+        self.execute_query(f"DROP STAGE IF EXISTS {stage_fqn.sql_identifier}")
+
     def get_image_repo_url(
         self,
         repo_name: str,
@@ -572,19 +579,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         cursor = self.execute_query(show_obj_query, cursor_class=DictCursor)
 
         if cursor.rowcount is None or cursor.rowcount == 0:
-            # Auto-create the image repository if it doesn't exist
-            create_repo_fqn = repo_name
-            if database and schema:
-                create_repo_fqn = f"{database}.{schema}.{repo_name}"
-            elif database:
-                create_repo_fqn = f"{database}..{repo_name}"
-            cli_console.step(f"Image repository '{repo_name}' not found. Creating it.")
-            self.execute_query(
-                f"CREATE IMAGE REPOSITORY IF NOT EXISTS {create_repo_fqn}"
-            )
-            cursor = self.execute_query(show_obj_query, cursor_class=DictCursor)
-            if cursor.rowcount is None or cursor.rowcount == 0:
-                raise CliError(f"Image repository '{repo_name}' could not be created")
+            raise CliError(f"Image repository '{repo_name}' not found")
 
         unqualified_name = unquote_identifier(repo_name)
         rows = cursor.fetchall()
@@ -637,6 +632,33 @@ class SnowflakeAppManager(SqlExecutionMixin):
         query = "\n".join(query_lines)
         self.execute_query(query)
 
+    def artifact_repo_exists(self, database: str, schema: str, repo_name: str) -> bool:
+        """Return True if the artifact repository already exists."""
+        from snowflake.cli.api.project.util import (
+            identifier_to_show_like_pattern,
+            unquote_identifier,
+        )
+
+        schema_fqn = FQN(database=None, schema=database, name=schema)
+        cursor = self.execute_query(
+            f"SHOW ARTIFACT REPOSITORIES LIKE {identifier_to_show_like_pattern(repo_name)}"
+            f" IN SCHEMA {schema_fqn.sql_identifier}",
+            cursor_class=DictCursor,
+        )
+        unqualified = unquote_identifier(repo_name).upper()
+        return any(row["name"].upper() == unqualified for row in cursor)
+
+    def create_artifact_repo(self, database: str, schema: str, repo_name: str) -> None:
+        """Create an artifact repository.
+
+        Uses IF NOT EXISTS so concurrent invocations (e.g. parallel CI
+        jobs) don't race on the CREATE after both pass the existence check.
+        """
+        fqn = FQN(database=database, schema=schema, name=repo_name)
+        self.execute_query(
+            f"CREATE ARTIFACT REPOSITORY IF NOT EXISTS {fqn.sql_identifier} TYPE=APPLICATION"
+        )
+
     def get_build_status(self, job_fqn: FQN) -> str:
         """
         Get the status of the build job service.
@@ -654,44 +676,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
                 return row["status"]
 
         return "IDLE"
-
-    def get_build_logs(
-        self,
-        job_fqn: FQN,
-        since_timestamp: str = "",
-        num_lines: int = 500,
-    ) -> Tuple[List[str], str]:
-        """Fetch new log lines from the build job service since *since_timestamp*.
-
-        Returns ``(new_lines, updated_since_timestamp)`` so the caller can
-        pass the timestamp back on the next call for incremental fetching.
-        """
-        try:
-            cursor = self.execute_query(
-                f"CALL SYSTEM$GET_SERVICE_LOGS("
-                f"'{job_fqn.identifier}', '0', 'main', "
-                f"{num_lines}, FALSE, '{since_timestamp}', TRUE)"
-            )
-            row = cursor.fetchone()
-            raw = row[0] if row else ""
-        except Exception:  # noqa: BLE001
-            # Logs may not be available yet (e.g. container not started)
-            return [], since_timestamp
-
-        if not raw or not raw.strip():
-            return [], since_timestamp
-
-        lines = [line for line in raw.split("\n") if line.strip()]
-        if not lines:
-            return [], since_timestamp
-
-        # Each line with timestamps starts with an ISO timestamp followed by a space.
-        # Use the timestamp from the last line as the new since_timestamp.
-        last_line = lines[-1]
-        parts = last_line.split(" ", 1)
-        new_since = parts[0] if len(parts) > 1 else since_timestamp
-
-        return lines, new_since
 
     def create_service(
         self,
@@ -1000,3 +984,10 @@ class SnowflakeAppManager(SqlExecutionMixin):
         )
         row = cursor.fetchone()
         return row[0] if row else ""
+
+    def get_build_job_logs(self, build_job_fqn: FQN) -> list[str]:
+        """Fetch build logs for a build job service."""
+        cursor = self.execute_query(
+            f"SELECT LOG FROM TABLE({build_job_fqn.identifier}!SPCS_GET_LOGS())",
+        )
+        return [str(row[0]) for row in cursor if row[0]]
