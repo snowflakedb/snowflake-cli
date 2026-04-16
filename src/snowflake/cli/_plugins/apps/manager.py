@@ -50,11 +50,6 @@ _APP_COMMAND_NAME = "__app"
 
 DEFAULT_IMAGE_REPOSITORY = "IMAGE_REPO"
 
-# TODO: Remove config table once DEFAULT_SNOWFLAKE_APPS_* account parameters
-# are rolled out to production and configurable in Snowsight (week of 2026-04-06).
-APP_DEFAULTS_TABLE = "APPS.PUBLIC.SNOW_APP_DEFAULTS"
-APP_DEFAULTS_INTEGRATION = "snowflake-apps"
-
 # Mapping from SHOW PARAMETERS result names to internal resolution keys.
 _SNOW_APPS_PARAM_MAP = {
     "DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE": "query_warehouse",
@@ -155,13 +150,12 @@ def _resolve_deploy_defaults(
     entity: "SnowflakeAppEntityModel",
     manager: "SnowflakeAppManager",
 ) -> Dict[str, Optional[str]]:
-    """Resolve deploy defaults using a five-tier precedence:
+    """Resolve deploy defaults using a four-tier precedence:
 
     1. Values explicitly set in ``snowflake.yml`` (highest priority)
     2. SnowApps parameters (``SHOW PARAMETERS LIKE 'DEFAULT_SNOWFLAKE_APPS_%' IN USER``)
-    3. Values from the ``APP_DEFAULTS_TABLE`` config table
-    4. Built-in defaults (personal DB for database, IMAGE_REPO for image repository)
-    5. Current session values (lowest priority)
+    3. Built-in defaults (personal DB for database, IMAGE_REPO for image repository)
+    4. Current session values (lowest priority)
 
     Returns a dict with keys ``query_warehouse``, ``build_compute_pool``,
     ``service_compute_pool``, ``build_eai``, ``image_repository``,
@@ -204,29 +198,7 @@ def _resolve_deploy_defaults(
         )
         param_vals = dict(raw_params)
 
-    # ── 3. Config-table values ────────────────────────────────────────
-    config_table_vals: Dict[str, Optional[str]] = {}
-    role = manager.current_role()
-    if role:
-        raw = manager.fetch_config_table_defaults(role)
-        if raw:
-            cli_console.step(
-                f"Loaded config-table defaults for role {role}: "
-                + ", ".join(f"{k}={v}" for k, v in raw.items())
-            )
-        config_table_vals = {
-            "query_warehouse": raw.get("warehouse"),
-            "build_compute_pool": raw.get("compute_pool"),
-            "service_compute_pool": raw.get("compute_pool"),
-            "build_eai": raw.get("eai"),
-            "image_repository": raw.get("image_repository"),
-            "image_repo_database": raw.get("image_repo_database"),
-            "image_repo_schema": raw.get("image_repo_schema"),
-            "database": raw.get("database"),
-            "schema": raw.get("schema"),
-        }
-
-    # ── 4. Built-in defaults ────────────────────────────────────────────
+    # ── 3. Built-in defaults ────────────────────────────────────────────
     from snowflake.cli.api.project.util import get_env_username
 
     default_vals: Dict[str, Optional[str]] = {
@@ -235,7 +207,7 @@ def _resolve_deploy_defaults(
     if IS_PERSONAL_DB_SUPPORTED:
         default_vals["database"] = f"USER${get_env_username().upper()}"
 
-    # ── 5. Current session values ─────────────────────────────────────
+    # ── 4. Current session values ─────────────────────────────────────
     ctx = get_cli_context()
     conn = ctx.connection_context
     curr_session_vals: Dict[str, Optional[str]] = {
@@ -246,18 +218,13 @@ def _resolve_deploy_defaults(
 
     # ── Merge (first non-None wins) ──────────────────────────────────
     all_keys = (
-        set(yml_vals)
-        | set(param_vals)
-        | set(config_table_vals)
-        | set(default_vals)
-        | set(curr_session_vals)
+        set(yml_vals) | set(param_vals) | set(default_vals) | set(curr_session_vals)
     )
     resolved: Dict[str, Optional[str]] = {}
     for key in all_keys:
         for source in (
             yml_vals,
             param_vals,
-            config_table_vals,
             default_vals,
             curr_session_vals,
         ):
@@ -803,50 +770,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
         except ProgrammingError:
             log.warning(
                 "Could not fetch SnowApps user parameters – skipping.",
-                exc_info=True,
-            )
-            return {}
-
-    def fetch_config_table_defaults(
-        self, role: str, integration: str = APP_DEFAULTS_INTEGRATION
-    ) -> Dict[str, str]:
-        """Fetch defaults from the APP_DEFAULTS_TABLE for the given role.
-
-        Returns a dict that may contain keys such as ``warehouse``,
-        ``compute_pool``, ``eai``, ``database``, ``schema``.  Returns an empty
-        dict when the table does not exist, the role lacks permissions, the
-        query returns no rows, or any other error occurs.
-        """
-        from snowflake.cli.api.project.util import to_string_literal
-
-        try:
-            safe_integration = to_string_literal(integration)
-            safe_role = to_string_literal(role.upper())
-
-            cursor = self.execute_query(
-                f"SELECT defaults FROM {APP_DEFAULTS_TABLE} "
-                f"WHERE integration = {safe_integration} AND role = {safe_role} "
-                f"ORDER BY updated_at DESC LIMIT 1",
-                cursor_class=DictCursor,
-            )
-            row = cursor.fetchone()
-            if row is None:
-                return {}
-
-            raw = row.get("DEFAULTS") or row.get("defaults")
-            if raw is None:
-                return {}
-
-            defaults = json.loads(raw) if isinstance(raw, str) else raw
-            if not isinstance(defaults, dict):
-                return {}
-
-            return {k: str(v) for k, v in defaults.items() if v is not None and v != ""}
-        except Exception:
-            log.debug(
-                "Could not read %s (table may not "
-                "exist or role lacks permissions) – skipping config-table defaults.",
-                APP_DEFAULTS_TABLE,
                 exc_info=True,
             )
             return {}

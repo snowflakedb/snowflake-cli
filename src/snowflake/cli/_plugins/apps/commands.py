@@ -60,7 +60,6 @@ log = logging.getLogger(__name__)
 # ── Source provenance labels ──────────────────────────────────────────
 SOURCE_USER_INPUT = "user input"
 SOURCE_ACCOUNT_PARAM = "account parameter"
-SOURCE_CONFIG_TABLE = "config table"
 SOURCE_CURRENT_SESSION = "current session"
 SOURCE_DEFAULT = "default"
 SOURCE_MISSING = "missing"
@@ -122,28 +121,21 @@ def setup(
     metrics = ctx.metrics
     with metrics.span("snowflake_app.setup.resolve_defaults"):
         params = manager.fetch_snow_apps_parameters()
-        config_table = {}
-        role = manager.current_role()
-        if role:
-            config_table = manager.fetch_config_table_defaults(role)
 
     def _resolve(
         user_input=None,
         account_param=None,
-        config_table_val=None,
         default_value=None,
         current_session=None,
     ):
         """Return (value, source) using a fixed resolution order.
 
-        Resolution: user_input > account_param > config_table > default_value > current_session.
+        Resolution: user_input > account_param > default_value > current_session.
         """
         if user_input is not None:
             return user_input, SOURCE_USER_INPUT
         if account_param is not None:
             return account_param, SOURCE_ACCOUNT_PARAM
-        if config_table_val is not None:
-            return config_table_val, SOURCE_CONFIG_TABLE
         if default_value is not None:
             return default_value, SOURCE_DEFAULT
         if current_session is not None:
@@ -166,7 +158,6 @@ def setup(
     resolved = {
         "database": _resolve(
             account_param=params.get("database"),
-            config_table_val=config_table.get("database"),
             default_value=personal_db,
             current_session=session_db,
         ),
@@ -174,12 +165,10 @@ def setup(
         # a single shared schema for all apps.
         "schema": _resolve(
             account_param=params.get("schema"),
-            config_table_val=config_table.get("schema"),
             current_session=session_schema,
         ),
         "warehouse": _resolve(
             account_param=params.get("query_warehouse"),
-            config_table_val=config_table.get("warehouse"),
             current_session=session_wh,
         ),
         # TODO: Consider removing --compute-pool argument once services can run
@@ -187,32 +176,27 @@ def setup(
         "build_compute_pool": _resolve(
             user_input=compute_pool,
             account_param=params.get("build_compute_pool"),
-            config_table_val=config_table.get("compute_pool"),
         ),
         "service_compute_pool": _resolve(
             user_input=compute_pool,
             account_param=params.get("service_compute_pool"),
-            config_table_val=config_table.get("compute_pool"),
         ),
         # TODO: Remove --build-eai argument once the builder service no longer
         # requires an external access integration.
         "build_eai": _resolve(
             user_input=build_eai,
             account_param=params.get("build_eai"),
-            config_table_val=config_table.get("eai"),
         ),
         # TODO: Remove image_repository default once the artifact repo path
         # replaces the image repo path.
         "image_repository": _resolve(
-            config_table_val=config_table.get("image_repository"),
             default_value=DEFAULT_IMAGE_REPOSITORY,
         ),
     }
 
     # ── Validate required values ─────────────────────────────────────
     # TODO: database, warehouse, and schema cannot be passed as arguments
-    # yet — they must come from account parameters, config table, or the
-    # current session.
+    # yet — they must come from account parameters or the current session.
     if not resolved["database"][0]:
         raise ClickException(
             "Missing database. Set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE account parameter or check your connection."
@@ -592,7 +576,7 @@ def deploy(
     app_description = entity.meta.description if entity.meta else None
     app_icon = entity.meta.icon if entity.meta else None
 
-    # ── Resolve defaults (snowflake.yml > config table > built-in) ────
+    # ── Resolve defaults (snowflake.yml > account parameters > built-in) ──
     manager = SnowflakeAppManager()
     defaults = _resolve_deploy_defaults(entity, manager)
 
