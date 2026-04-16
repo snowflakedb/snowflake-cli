@@ -72,6 +72,17 @@ app = SnowTyperFactory(
 )
 
 
+@app.command("version")
+def version(**options) -> CommandResult:
+    """
+    Prints the Snowflake Apps plugin version.
+    """
+    version_file = Path(__file__).parent / "version.json"
+    with open(version_file) as f:
+        data = json.load(f)
+    return ObjectResult(data)
+
+
 @app.command("setup", requires_connection=True)
 def setup(
     app_name: str = typer.Option(
