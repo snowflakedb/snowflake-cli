@@ -19,6 +19,15 @@ from typing import Optional
 
 import typer
 from click import ClickException
+from snowflake.cli._plugins.apps.defaults import (
+    SOURCE_ACCOUNT_PARAM,
+    SOURCE_CURRENT_SESSION,
+    SOURCE_DEFAULT,
+    SOURCE_MISSING,
+    SOURCE_USER_INPUT,
+    AppDefaults,
+    resolve_defaults,
+)
 from snowflake.cli._plugins.apps.generate import (
     IS_PERSONAL_DB_SUPPORTED,
     _generate_snowflake_yml,
@@ -52,13 +61,6 @@ from snowflake.cli.api.output.types import (
 )
 from snowflake.cli.api.project.util import get_env_username, identifier_for_url
 from snowflake.connector.errors import ProgrammingError
-
-# ── Source provenance labels ──────────────────────────────────────────
-SOURCE_USER_INPUT = "user input"
-SOURCE_ACCOUNT_PARAM = "account parameter"
-SOURCE_CURRENT_SESSION = "current session"
-SOURCE_DEFAULT = "default"
-SOURCE_MISSING = "missing"
 
 app = SnowTyperFactory(
     name=_APP_COMMAND_NAME,
@@ -116,27 +118,7 @@ def setup(
     manager = SnowflakeAppManager()
     metrics = ctx.metrics
     with metrics.span("snowflake_app.setup.resolve_defaults"):
-        params = manager.fetch_snow_apps_parameters()
-
-    def _resolve(
-        user_input=None,
-        account_param=None,
-        default_value=None,
-        current_session=None,
-    ):
-        """Return (value, source) using a fixed resolution order.
-
-        Resolution: user_input > account_param > default_value > current_session.
-        """
-        if user_input is not None:
-            return user_input, SOURCE_USER_INPUT
-        if account_param is not None:
-            return account_param, SOURCE_ACCOUNT_PARAM
-        if default_value is not None:
-            return default_value, SOURCE_DEFAULT
-        if current_session is not None:
-            return current_session, SOURCE_CURRENT_SESSION
-        return None, SOURCE_MISSING
+        param_defaults = manager.fetch_snow_apps_parameters()
 
     # ── Pre-compute current session values ─────────────────────────────
     conn = ctx.connection_context
@@ -150,58 +132,53 @@ def setup(
         f"USER${get_env_username().upper()}" if IS_PERSONAL_DB_SUPPORTED else None
     )
 
-    # ── Resolve each field ────────────────────────────────────────────
-    resolved = {
-        "database": _resolve(
-            account_param=params.get("database"),
-            default_value=personal_db,
-            current_session=session_db,
-        ),
+    # ── Build AppDefaults for each tier ──────────────────────────────
+    # TODO: Consider removing --compute-pool argument once services can run
+    # in the system default compute pool (SYSTEM_COMPUTE_POOL_CPU).
+    # TODO: Remove --build-eai argument once the builder service no longer
+    # requires an external access integration.
+    user_input_defaults = AppDefaults(
+        source=SOURCE_USER_INPUT,
+        build_compute_pool=compute_pool,
+        service_compute_pool=compute_pool,
+        build_eai=build_eai,
+    )
+
+    default_defaults = AppDefaults(
+        source=SOURCE_DEFAULT,
+        database=personal_db,
+    )
+
+    session_defaults = AppDefaults(
+        source=SOURCE_CURRENT_SESSION,
+        warehouse=session_wh,
+        database=session_db,
         # TODO: Support per-app schema (e.g. APPS.APP_<app_id>) instead of
         # a single shared schema for all apps.
-        "schema": _resolve(
-            account_param=params.get("schema"),
-            current_session=session_schema,
-        ),
-        "warehouse": _resolve(
-            account_param=params.get("query_warehouse"),
-            current_session=session_wh,
-        ),
-        # TODO: Consider removing --compute-pool argument once services can run
-        # in the system default compute pool (SYSTEM_COMPUTE_POOL_CPU).
-        "build_compute_pool": _resolve(
-            user_input=compute_pool,
-            account_param=params.get("build_compute_pool"),
-        ),
-        "service_compute_pool": _resolve(
-            user_input=compute_pool,
-            account_param=params.get("service_compute_pool"),
-        ),
-        # TODO: Remove --build-eai argument once the builder service no longer
-        # requires an external access integration.
-        "build_eai": _resolve(
-            user_input=build_eai,
-            account_param=params.get("build_eai"),
-        ),
-    }
+        schema=session_schema,
+    )
+
+    resolved, provenance_summary = resolve_defaults(
+        [user_input_defaults, param_defaults, default_defaults, session_defaults]
+    )
 
     # ── Validate required values ─────────────────────────────────────
     # TODO: database, warehouse, and schema cannot be passed as arguments
     # yet — they must come from account parameters or the current session.
-    if not resolved["database"][0]:
+    if not resolved.database:
         raise ClickException(
             "Missing database. Set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE account parameter or check your connection."
         )
-    if not resolved["schema"][0]:
+    if not resolved.schema:
         raise ClickException(
             "Missing schema. Set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA account parameter or check your connection."
         )
-    if not resolved["warehouse"][0]:
+    if not resolved.warehouse:
         raise ClickException(
             "Missing warehouse. Set the DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE account parameter or check your connection."
         )
 
-    resolved_values = {k: v[0] for k, v in resolved.items()}
+    resolved_values = resolved.to_dict()
 
     if not dry_run:
         project_file.write_text(_generate_snowflake_yml(app_name, resolved_values))
@@ -214,8 +191,7 @@ def setup(
         cli_console.step("Dry run — resolved configuration:")
     else:
         cli_console.step(f"Initialized Snowflake App project in {DEFINITION_FILENAME}.")
-    for key, (value, source) in resolved.items():
-        cli_console.step(f"  {key}: {value}  ({source})")
+    cli_console.step(provenance_summary)
     return EmptyResult()
 
 
@@ -512,18 +488,16 @@ def deploy(
 
     # ── Resolve defaults (snowflake.yml > account parameters > built-in) ──
     manager = SnowflakeAppManager()
-    defaults = _resolve_deploy_defaults(entity, manager, app_name=app_name)
+    defaults, ar_name, ar_database, ar_schema = _resolve_deploy_defaults(
+        entity, manager, app_name=app_name
+    )
 
-    database = defaults["database"]
-    schema = defaults["schema"]
-    build_compute_pool = defaults["build_compute_pool"]
-    service_compute_pool = defaults["service_compute_pool"]
-    query_warehouse = defaults["query_warehouse"]
-    build_eai = defaults["build_eai"]
-
-    ar_name = defaults["artifact_repository"]
-    ar_database = defaults["artifact_repo_database"]
-    ar_schema = defaults["artifact_repo_schema"]
+    database = defaults.database
+    schema = defaults.schema
+    build_compute_pool = defaults.build_compute_pool
+    service_compute_pool = defaults.service_compute_pool
+    query_warehouse = defaults.warehouse
+    build_eai = defaults.build_eai
     artifact_repo_fqn_str = f"{ar_database}.{ar_schema}.{ar_name}"
 
     # ── Derived names ─────────────────────────────────────────────────
@@ -715,10 +689,10 @@ def teardown(
 
     fqn = entity.fqn
     manager = SnowflakeAppManager()
-    defaults = _resolve_deploy_defaults(entity, manager, app_name=fqn.name)
+    defaults, _, _, _ = _resolve_deploy_defaults(entity, manager, app_name=fqn.name)
 
-    db = defaults.get("database")
-    schema = defaults.get("schema")
+    db = defaults.database
+    schema = defaults.schema
 
     if not db or not schema:
         missing = [k for k, v in {"database": db, "schema": schema}.items() if not v]
