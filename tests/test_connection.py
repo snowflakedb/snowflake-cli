@@ -877,6 +877,47 @@ def test_key_pair_authentication_from_config(
     )
 
 
+@mock.patch.dict(os.environ, {"PRIVATE_KEY_PASSPHRASE": ""}, clear=True)
+def test_key_pair_authentication_empty_passphrase_error(
+    mock_ctx, temporary_directory, runner
+):
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    encrypted_pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.BestAvailableEncryption(b"notempty"),
+    )
+
+    with NamedTemporaryFile("wb", suffix=".p8") as tmp_file:
+        tmp_file.write(encrypted_pem)
+        tmp_file.flush()
+
+        result = runner.invoke(
+            [
+                "object",
+                "list",
+                "warehouse",
+                "--temporary-connection",
+                "--account",
+                "test_account",
+                "--user",
+                "snowcli_test",
+                "--authenticator",
+                "SNOWFLAKE_JWT",
+                "--private-key-file",
+                tmp_file.name,
+            ]
+        )
+
+    assert result.exit_code == 1
+    assert (
+        "PRIVATE_KEY_PASSPHRASE environment variable is set but empty" in result.output
+    )
+
+
 @pytest.mark.parametrize(
     "command",
     [
