@@ -30,6 +30,15 @@ from typing import Callable, Optional
 
 import typer
 from click import ClickException
+from snowflake.cli._plugins.apps.defaults import (
+    SOURCE_ACCOUNT_PARAM,
+    SOURCE_CURRENT_SESSION,
+    SOURCE_DEFAULT,
+    SOURCE_MISSING,
+    SOURCE_USER_INPUT,
+    AppDefaults,
+    resolve_defaults,
+)
 from snowflake.cli._plugins.apps.generate import _generate_snowflake_yml
 from snowflake.cli._plugins.apps.manager import (
     DEFAULT_PERSONAL_SCHEMA,
@@ -59,19 +68,7 @@ from snowflake.connector.errors import ProgrammingError
 
 log = logging.getLogger(__name__)
 
-# Default number of log lines returned by ``snow app events`` for the
-# Snowflake Apps Deploy flow. The unified command accepts ``--last`` with a ``None``
-# default; each flow applies its own default when the user does not provide
-# a value (Native App uses ``-1``, Snowflake Apps Deploy uses this constant).
 DEFAULT_SNOWFLAKE_APP_EVENTS_LAST = 500
-
-# ── Source provenance labels ──────────────────────────────────────────
-SOURCE_USER_INPUT = "user input"
-SOURCE_ACCOUNT_PARAM = "account parameter"
-SOURCE_CURRENT_SESSION = "current session"
-SOURCE_DEFAULT = "default"
-SOURCE_MISSING = "missing"
-
 
 def snowflake_app_setup(
     app_name: Optional[str],
@@ -121,28 +118,8 @@ def snowflake_app_setup(
     manager = SnowflakeAppManager()
     metrics = ctx.metrics
     with metrics.span("snowflake_app.setup.resolve_defaults"):
-        params = manager.fetch_snow_apps_parameters()
+        param_defaults = manager.fetch_snow_apps_parameters()
         managed_compute_pool_enabled = manager.is_managed_compute_pool_enabled()
-
-    def _resolve(
-        user_input=None,
-        account_param=None,
-        default_value=None,
-        current_session=None,
-    ):
-        """Return (value, source) using a fixed resolution order.
-
-        Resolution: user_input > account_param > default_value > current_session.
-        """
-        if user_input is not None:
-            return user_input, SOURCE_USER_INPUT
-        if account_param is not None:
-            return account_param, SOURCE_ACCOUNT_PARAM
-        if default_value is not None:
-            return default_value, SOURCE_DEFAULT
-        if current_session is not None:
-            return current_session, SOURCE_CURRENT_SESSION
-        return None, SOURCE_MISSING
 
     # ── Pre-compute current session values ─────────────────────────────
     conn = ctx.connection_context
@@ -155,75 +132,63 @@ def snowflake_app_setup(
     personal_db = manager.get_personal_database()
     personal_schema = DEFAULT_PERSONAL_SCHEMA if personal_db else None
 
-    # ── Resolve each field ────────────────────────────────────────────
-    resolved = {
-        "database": _resolve(
-            account_param=params.get("database"),
-            default_value=personal_db,
-            current_session=session_db,
-        ),
-        # TODO: Support per-app schema (e.g. APPS.APP_<app_id>) instead of
-        # a single shared schema for all apps.
-        "schema": _resolve(
-            account_param=params.get("schema"),
-            default_value=personal_schema,
-            current_session=session_schema,
-        ),
-        "warehouse": _resolve(
-            account_param=params.get("query_warehouse"),
-            current_session=session_wh,
-        ),
-        # TODO: Consider removing --compute-pool argument once services can run
-        # in the system default compute pool (SYSTEM_COMPUTE_POOL_CPU).
-        # When the backend opts the account into managed compute pools we
-        # deliberately skip resolving both ``build_compute_pool`` and
-        # ``service_compute_pool`` so the fields are omitted from the
-        # generated ``snowflake.yml`` and the server picks the pools at
-        # deploy time.
-        "build_compute_pool": (
-            (None, SOURCE_MISSING)
-            if managed_compute_pool_enabled
-            else _resolve(
-                user_input=compute_pool,
-                account_param=params.get("build_compute_pool"),
-            )
-        ),
-        "service_compute_pool": (
-            (None, SOURCE_MISSING)
-            if managed_compute_pool_enabled
-            else _resolve(
-                user_input=compute_pool,
-                account_param=params.get("service_compute_pool"),
-            )
-        ),
-        # TODO: Remove --build-eai argument once the builder service no longer
-        # requires an external access integration.
-        "build_eai": _resolve(
-            user_input=build_eai,
-            account_param=params.get("build_eai"),
-        ),
-    }
+    # ── Build AppDefaults for each tier ──────────────────────────────
+    # TODO: Consider removing --compute-pool argument once services can run
+    # in the system default compute pool (SYSTEM_COMPUTE_POOL_CPU).
+    # TODO: Remove --build-eai argument once the builder service no longer
+    # requires an external access integration.
+    user_input_defaults = AppDefaults(
+        source=SOURCE_USER_INPUT,
+        build_compute_pool=compute_pool,
+        service_compute_pool=compute_pool,
+        build_eai=build_eai,
+    )
+
+    default_defaults = AppDefaults(
+        source=SOURCE_DEFAULT,
+        database=personal_db,
+    )
+
+    session_defaults = AppDefaults(
+        source=SOURCE_CURRENT_SESSION,
+        warehouse=session_wh,
+        database=session_db,
+        schema=session_schema,
+    )
+
+    resolved, provenance_summary, provenance = resolve_defaults(
+        [user_input_defaults, param_defaults, default_defaults, session_defaults]
+    )
+
+    # When the backend opts the account into managed compute pools we
+    # clear both ``build_compute_pool`` and ``service_compute_pool`` so
+    # they are omitted from the generated ``snowflake.yml`` and the
+    # server picks the pools at deploy time.
+    if managed_compute_pool_enabled:
+        resolved = resolved._replace(
+            build_compute_pool=None, service_compute_pool=None
+        )
 
     # ── Validate required values ─────────────────────────────────────
     # TODO: database, warehouse, and schema cannot be passed as arguments
     # yet — they must come from account parameters or the current session.
-    if not resolved["database"][0]:
+    if not resolved.database:
         raise ClickException(
             "Missing database. Set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE account parameter or check your connection."
         )
-    if not resolved["schema"][0]:
+    if not resolved.schema:
         raise ClickException(
             "Missing schema. Set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA account parameter or check your connection."
         )
-    if not resolved["warehouse"][0]:
+    if not resolved.warehouse:
         raise ClickException(
             "Missing warehouse. Set the DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE account parameter or check your connection."
         )
 
-    resolved_values = {k: v[0] for k, v in resolved.items()}
+    resolved_values = resolved.to_dict()
 
     if not dry_run:
-        use_workspace = resolved["database"][1] == SOURCE_DEFAULT
+        use_workspace = provenance.get("database") == SOURCE_DEFAULT
         project_file.write_text(
             _generate_snowflake_yml(
                 resolved_app_name,
@@ -242,14 +207,8 @@ def snowflake_app_setup(
         cli_console.step(
             f"Initialized Snowflake Apps Deploy project in {DEFINITION_FILENAME}."
         )
-    for key, (value, source) in resolved.items():
-        # Skip optional fields that could not be resolved (e.g. ``build_eai``
-        # when no value was provided and no account parameter is set).
-        # Emitting ``build_eai: None  (missing)`` is noisy and implies the
-        # field is required when it is not.
-        if value is None and source == SOURCE_MISSING:
-            continue
-        cli_console.step(f"  {key}: {value}  ({source})")
+    if provenance_summary:
+        cli_console.step(provenance_summary)
     return EmptyResult()
 
 
@@ -476,24 +435,20 @@ def snowflake_app_deploy(
 
     # ── Resolve defaults (snowflake.yml > account parameters > built-in) ──
     manager = SnowflakeAppManager()
-    defaults = _resolve_deploy_defaults(entity, manager, app_name=app_name)
+    defaults, ar_name, ar_database, ar_schema = _resolve_deploy_defaults(
+        entity, manager, app_name=app_name
+    )
 
-    database = defaults["database"]
-    schema = defaults["schema"]
-    build_compute_pool = defaults["build_compute_pool"]
-    service_compute_pool = defaults["service_compute_pool"]
-    query_warehouse = defaults["query_warehouse"]
-    build_eai = defaults["build_eai"]
+    database = defaults.database
+    schema = defaults.schema
+    build_compute_pool = defaults.build_compute_pool
+    service_compute_pool = defaults.service_compute_pool
+    query_warehouse = defaults.warehouse
+    build_eai = defaults.build_eai
 
-    # User-supplied compute pools are always passed through to the server
-    # (forwarded as the 4th argument to
-    # ``SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO`` and emitted as
-    # ``IN COMPUTE POOL`` in ``CREATE APPLICATION SERVICE``).  However, when
-    # the account has managed compute pools enforced
-    # (``ENABLE_APPLICATION_SERVICE_MANAGED_COMPUTE_POOL`` is true and the
-    # companion ``..._FALLBACK`` parameter is false), the server may
-    # reject or override those values.  In that case we warn the user up
-    # front so they know why the deploy might not behave as configured.
+    # When the account has managed compute pools enforced and the
+    # fallback parameter is off, the server may reject user-specified
+    # pools. Warn early so the user understands unexpected behaviour.
     if (
         (build_compute_pool or service_compute_pool)
         and manager.is_managed_compute_pool_enabled()
@@ -511,10 +466,6 @@ def snowflake_app_deploy(
                 "but managed compute pools are enforced for this account; "
                 "the server may not honor this value."
             )
-
-    ar_name = defaults["artifact_repository"]
-    ar_database = defaults["artifact_repo_database"]
-    ar_schema = defaults["artifact_repo_schema"]
     artifact_repo_fqn_str = f"{ar_database}.{ar_schema}.{ar_name}"
 
     # ── Derived names ─────────────────────────────────────────────────
@@ -767,10 +718,10 @@ def snowflake_app_teardown(
 
     fqn = entity.fqn
     manager = SnowflakeAppManager()
-    defaults = _resolve_deploy_defaults(entity, manager, app_name=fqn.name)
+    defaults, _, _, _ = _resolve_deploy_defaults(entity, manager, app_name=fqn.name)
 
-    db = defaults.get("database")
-    schema = defaults.get("schema")
+    db = defaults.database
+    schema = defaults.schema
 
     if not db or not schema:
         missing = [k for k, v in {"database": db, "schema": schema}.items() if not v]
