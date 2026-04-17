@@ -666,6 +666,64 @@ class StageManager(SqlExecutionMixin):
 
         return results
 
+    def execute_from_local_path(
+        self,
+        local_path_str: str,
+        on_error: OnErrorType,
+        variables: Optional[List[str]] = None,
+    ) -> list:
+        """
+        Uploads local file(s) to a temporary stage and executes them on Snowflake.
+        Accepts a plain file path, a directory, or a glob pattern (e.g. ./scripts/*.py).
+        Only .sql and .py files are executed.
+        """
+        local_path = Path(local_path_str)
+
+        if glob.has_magic(local_path_str):
+            matched_files = [Path(f) for f in glob.glob(local_path_str, recursive=True)]
+        elif local_path.is_dir():
+            matched_files = [f for f in local_path.rglob("*") if f.is_file()]
+        else:
+            matched_files = [local_path]
+
+        supported_files = [
+            f
+            for f in matched_files
+            if f.is_file() and f.suffix in EXECUTE_SUPPORTED_FILES_FORMATS
+        ]
+
+        if not supported_files:
+            raise CliError(
+                f"No supported files found at '{local_path_str}'. "
+                f"Only {', '.join(EXECUTE_SUPPORTED_FILES_FORMATS)} files are supported."
+            )
+
+        if glob.has_magic(local_path_str):
+            idx = next(i for i, c in enumerate(local_path_str) if c in "*?[")
+            base_dir = Path(local_path_str[:idx]).parent
+        elif local_path.is_dir():
+            base_dir = local_path
+        else:
+            base_dir = local_path.parent
+
+        tmp_stage_name = f"snowflake_cli_tmp_stage_{int(time.time())}"
+        tmp_stage_fqn = FQN.from_stage(tmp_stage_name).using_connection(conn=self._conn)
+        tmp_stage = tmp_stage_fqn.identifier
+        self.create(tmp_stage_fqn, temporary=True)
+
+        for file in supported_files:
+            self.put(local_path=file, stage_path=f"@{tmp_stage}/")
+
+        requirements_file = base_dir / "requirements.txt"
+        if requirements_file.is_file():
+            self.put(local_path=requirements_file, stage_path=f"@{tmp_stage}/")
+
+        return self.execute(
+            stage_path_str=f"@{tmp_stage}/",
+            on_error=on_error,
+            variables=variables,
+        )
+
     def _create_temporary_copy_of_stage(
         self, stage_path: str
     ) -> tuple[StagePathParts, StagePathParts]:
