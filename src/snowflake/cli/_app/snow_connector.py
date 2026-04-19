@@ -351,33 +351,34 @@ def _load_pem_from_parameters(private_key_raw: str) -> SecretType:
     return SecretType(private_key_raw.encode("utf-8"))
 
 
+def _validate_passphrase(passphrase: SecretType) -> None:
+    if passphrase.value is None:
+        raise CliError(
+            "Encrypted private key, you must provide the "
+            "passphrase in the environment variable PRIVATE_KEY_PASSPHRASE."
+        )
+    if passphrase.value == "":
+        raise CliError(
+            "PRIVATE_KEY_PASSPHRASE environment variable is set but empty. "
+            "Provide a non-empty passphrase or use an unencrypted private key."
+        )
+
+
 def _load_pem_to_der(private_key_pem: SecretType) -> SecretType:
     """
     Given a private key file path (in PEM format), decode key data into DER
     format
     """
     private_key_passphrase = SecretType(os.getenv("PRIVATE_KEY_PASSPHRASE", None))
-    if private_key_pem.value.startswith(ENCRYPTED_PKCS8_PK_HEADER):
-        if private_key_passphrase.value is None:
-            raise ClickException(
-                "Encrypted private key, you must provide the "
-                "passphrase in the environment variable PRIVATE_KEY_PASSPHRASE"
-            )
-        if private_key_passphrase.value == "":
-            raise ClickException(
-                "PRIVATE_KEY_PASSPHRASE environment variable is set but empty. "
-                "Provide a non-empty passphrase or use an unencrypted private key."
-            )
 
-    if not private_key_pem.value.startswith(
-        ENCRYPTED_PKCS8_PK_HEADER
-    ) and not private_key_pem.value.startswith(UNENCRYPTED_PKCS8_PK_HEADER):
-        raise ClickException(
+    if private_key_pem.value.startswith(ENCRYPTED_PKCS8_PK_HEADER):
+        _validate_passphrase(private_key_passphrase)
+    elif private_key_pem.value.startswith(UNENCRYPTED_PKCS8_PK_HEADER):
+        private_key_passphrase = SecretType(None)
+    else:
+        raise CliError(
             "Private key provided is not in PKCS#8 format. Please use correct format."
         )
-
-    if private_key_pem.value.startswith(UNENCRYPTED_PKCS8_PK_HEADER):
-        private_key_passphrase = SecretType(None)
 
     return prepare_private_key(private_key_pem, private_key_passphrase)
 
