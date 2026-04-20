@@ -606,6 +606,7 @@ def deploy(
         entity.build_compute_pool.name if entity.build_compute_pool else None
     )
     build_eai = entity.build_eai.name if entity.build_eai else None
+    yml_build_eai = build_eai
     service_compute_pool = (
         entity.service_compute_pool.name if entity.service_compute_pool else None
     )
@@ -638,7 +639,7 @@ def deploy(
         artifact_repo_fqn_str = f"{ar_database}.{ar_schema}.{ar.name}"
 
     # ── Validate required configuration ───────────────────────────────
-    if run_build and not build_compute_pool:
+    if run_build and not build_compute_pool and not use_artifact_repo:
         raise CliError(
             "build_compute_pool is required for the build phase. "
             "Please configure it in snowflake.yml."
@@ -731,8 +732,7 @@ def deploy(
                     database=database,
                     schema=schema,
                     runtime_image=entity.runtime_image,
-                    query_warehouse=query_warehouse,
-                    build_eai=build_eai,
+                    build_eai=yml_build_eai,
                 )
                 cli_console.step(
                     f"SPCS_TEST_BUILD_APP_ARTIFACT_REPO output:\n{build_result}"

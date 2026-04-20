@@ -868,13 +868,10 @@ class SnowflakeAppManager(SqlExecutionMixin):
 
     @staticmethod
     def _build_artifact_repo_config(
-        query_warehouse: Optional[str] = None,
         build_eai: Optional[str] = None,
     ) -> str:
         """Build the JSON config blob accepted by the artifact-repo system functions."""
         cfg: Dict[str, Any] = {}
-        if query_warehouse:
-            cfg["query_warehouse"] = query_warehouse
         if build_eai:
             cfg["external_access_integrations"] = [build_eai]
         return json.dumps(cfg)
@@ -884,11 +881,10 @@ class SnowflakeAppManager(SqlExecutionMixin):
         stage_fqn: FQN,
         artifact_repo_fqn: str,
         app_id: str,
-        compute_pool: str,
-        database: str,
-        schema: str,
+        compute_pool: Optional[str] = None,
+        database: str = "",
+        schema: str = "",
         runtime_image: str = "",
-        query_warehouse: Optional[str] = None,
         build_eai: Optional[str] = None,
         project_type: str = "nodejs",
     ) -> str:
@@ -896,13 +892,13 @@ class SnowflakeAppManager(SqlExecutionMixin):
         from snowflake.cli.api.project.util import to_string_literal
 
         with self._use_database_and_schema(database, schema):
-            config = self._build_artifact_repo_config(query_warehouse, build_eai)
+            config = self._build_artifact_repo_config(build_eai)
             query = (
                 f"SELECT SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO("
                 f"'@{stage_fqn.identifier}', "
                 f"{to_string_literal(artifact_repo_fqn)}, "
                 f"{to_string_literal(app_id)}, "
-                f"{to_string_literal(compute_pool)}, "
+                f"{to_string_literal(compute_pool or '')}, "
                 f"{to_string_literal(runtime_image)}, "
                 f"{to_string_literal(project_type)}, "
                 f"{to_string_literal(config)}"

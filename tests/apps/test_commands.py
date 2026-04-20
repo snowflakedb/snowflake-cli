@@ -3638,8 +3638,7 @@ class TestDeployCommand:
             database="TEST_DB",
             schema="TEST_SCHEMA",
             runtime_image="runtime:latest",
-            query_warehouse="WH",
-            build_eai="MY_EAI",
+            build_eai=None,
         )
         mock_mgr.create_app_service.assert_called_once_with(
             service_fqn=FQN(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP"),
