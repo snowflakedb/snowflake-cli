@@ -21,7 +21,7 @@ import pytest
 from click import ClickException
 from snowflake.cli._plugins.custom_images.manager import CustomImageManager
 from snowflake.cli._plugins.custom_images.metrics import CustomImageCounterField
-from snowflake.cli.api.cli_global_context import _CLI_CONTEXT_MANAGER, get_cli_context
+from snowflake.cli.api.cli_global_context import fork_cli_context, get_cli_context
 
 from tests.custom_images.test_helpers import (
     create_mock_side_effect,
@@ -36,9 +36,8 @@ class TestCustomImageManager:
     @pytest.fixture(autouse=True)
     def reset_cli_context(self):
         """Reset the CLI context before each test to get fresh metrics."""
-        token = _CLI_CONTEXT_MANAGER.set(None)
-        yield
-        _CLI_CONTEXT_MANAGER.reset(token)
+        with fork_cli_context():
+            yield
 
     @pytest.fixture
     def config_path(self, tmp_path) -> Path:

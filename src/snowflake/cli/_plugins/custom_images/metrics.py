@@ -24,3 +24,4 @@ class CustomImageCounterField:
     CUSTOM_IMAGE_VALIDATE_FAIL_PYTHON_PACKAGES = f"{_CIV}_fail_python_packages"
     CUSTOM_IMAGE_VALIDATE_FAIL_DEPENDENCY_HEALTH = f"{_CIV}_fail_dependency_health"
     CUSTOM_IMAGE_VALIDATE_FAIL_REQUIRED_SCRIPTS = f"{_CIV}_fail_required_scripts"
+    CUSTOM_IMAGE_VALIDATE_FAIL_VULNERABILITY_SCAN = f"{_CIV}_fail_vulnerability_scan"
