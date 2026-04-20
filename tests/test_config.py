@@ -29,9 +29,11 @@ from snowflake.cli.api.config import (
     set_config_value,
 )
 from snowflake.cli.api.exceptions import MissingConfigurationError
+from snowflake.cli.api.feature_flags import FeatureFlag
 
 from tests.testing_utils.files_and_dirs import assert_file_permissions_are_strict
 from tests_common import IS_WINDOWS
+from tests_common.feature_flag_utils import with_feature_flags
 
 
 def test_empty_config_file_is_created_if_not_present():
@@ -498,27 +500,38 @@ def test_too_wide_permissions_on_default_config_file_causes_error_windows(
 @pytest.mark.parametrize(
     "chmod",
     [
-        0o777,
-        0o770,
-        0o744,
-        0o740,
-        0o704,
-        0o677,
-        0o670,
-        0o644,
-        0o640,
-        0o604,
+        # Permissions that allow WRITE by group or others
+        0o777,  # rwxrwxrwx
+        0o770,  # rwxrwx---
+        0o677,  # rw-rwxrwx
+        0o670,  # rw-rwx---
+        # Permissions that allow READ but not WRITE by group or others
+        0o744,  # rwxr--r--
+        0o740,  # rwxr-----
+        0o704,  # rwx---r--
+        0o644,  # rw-r--r--
+        0o640,  # rw-r-----
+        0o604,  # rw----r--
     ],
 )
 @pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
 def test_too_wide_permissions_on_custom_config_file_causes_warning(
     snowflake_home: Path, chmod
 ):
+    """Custom config files with wide permissions should issue a warning for backwards compatibility."""
     with NamedTemporaryFile(suffix=".toml") as tmp:
         config_path = Path(tmp.name)
         config_path.chmod(chmod)
-        with pytest.warns(UserWarning, match="Bad owner or permissions on"):
+        with pytest.warns(UserWarning) as warning_list:
             config_init(config_file=config_path)
+        warning_text = str(warning_list[0].message)
+        assert f"Bad owner or permissions on {config_path}" in warning_text
+        assert "chown" in warning_text
+        assert "chmod 0600" in warning_text
+        assert (
+            "SNOWFLAKE_CLI_FEATURES_ENFORCE_STRICT_CONFIG_PERMISSIONS" in warning_text
+        )
+        assert "future versions" in warning_text
 
 
 @parametrize_icacls
@@ -595,6 +608,45 @@ def test_no_error_when_init_from_non_default_config(
     connections_path.chmod(0o777)
 
     config_init(test_snowcli_config)
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+@with_feature_flags({FeatureFlag.ENFORCE_STRICT_CONFIG_PERMISSIONS: True})
+def test_strict_permissions_flag_enabled_rejects_wide_permissions(snowflake_home: Path):
+    """When ENFORCE_STRICT_CONFIG_PERMISSIONS is enabled, any group/other access causes error."""
+    with NamedTemporaryFile(suffix=".toml") as tmp:
+        config_path = Path(tmp.name)
+        config_path.chmod(0o644)  # Readable by group/others
+        with pytest.raises(ConfigFileTooWidePermissionsError) as error:
+            config_init(config_file=config_path)
+        assert "too wide permissions" in error.value.message
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+@with_feature_flags({FeatureFlag.ENFORCE_STRICT_CONFIG_PERMISSIONS: True})
+def test_strict_permissions_flag_enabled_allows_strict_permissions(
+    snowflake_home: Path,
+):
+    """When ENFORCE_STRICT_CONFIG_PERMISSIONS is enabled, strict permissions still work."""
+    with NamedTemporaryFile(suffix=".toml") as tmp:
+        config_path = Path(tmp.name)
+        config_path.chmod(0o600)  # Only owner can read/write
+        config_init(config_file=config_path)  # Should not raise
+
+
+@pytest.mark.parametrize("invalid_value", ["notabool", "yesplease", "2", ""])
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+def test_invalid_strict_permissions_flag_defaults_to_false(
+    snowflake_home: Path, invalid_value
+):
+    """When ENFORCE_STRICT_CONFIG_PERMISSIONS has a non-boolean value, it defaults to False."""
+    env_var = FeatureFlag.ENFORCE_STRICT_CONFIG_PERMISSIONS.env_variable()
+    with mock.patch.dict("os.environ", {env_var: invalid_value}):
+        with NamedTemporaryFile(suffix=".toml") as tmp:
+            config_path = Path(tmp.name)
+            config_path.chmod(0o644)  # Wide permissions
+            with pytest.warns(UserWarning, match="Bad owner or permissions"):
+                config_init(config_file=config_path)
 
 
 @pytest.mark.parametrize(
