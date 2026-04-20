@@ -256,7 +256,7 @@ def _config_file():
         raise
 
 
-def _warn_about_wide_permissions_on_custom_config(config_path: Path) -> None:
+def _issue_unix_custom_permissions_warnings(config_path: Path) -> None:
     """Issue a warning for custom config files with wide permissions (Unix only)."""
     if file_permissions_are_strict(config_path):
         return
@@ -275,15 +275,17 @@ def _read_config_file():
 
     config_manager = get_config_manager()
     is_custom_config = get_cli_context_manager().config_file_override is not None
-    skip_permissions_check = is_custom_config
+    enforce_strict = _should_enforce_strict_config_permissions()
 
     with warnings.catch_warnings():
-        if IS_WINDOWS:
-            _handle_windows_permission_warning(config_manager.file_path)
-        elif is_custom_config:
-            skip_permissions_check = not _handle_unix_custom_config_permissions(
-                config_manager.file_path
-            )
+        _issue_permission_warnings(
+            config_path=config_manager.file_path,
+            is_custom_config=is_custom_config,
+            enforce_strict=enforce_strict,
+        )
+        skip_permissions_check = _should_skip_connector_permissions_check(
+            is_custom_config=is_custom_config, enforce_strict=enforce_strict
+        )
 
         try:
             config_manager.read_config(
@@ -298,8 +300,20 @@ def _read_config_file():
             )
 
 
-def _handle_windows_permission_warning(config_path: Path) -> None:
-    """Handle permission warnings for Windows."""
+def _issue_permission_warnings(
+    config_path: Path, is_custom_config: bool, enforce_strict: bool
+) -> None:
+    """Set up platform- and context-specific permission warnings."""
+    if IS_WINDOWS:
+        _issue_windows_permission_warnings(config_path)
+        return
+
+    if is_custom_config and not enforce_strict:
+        _issue_unix_custom_permissions_warnings(config_path)
+
+
+def _issue_windows_permission_warnings(config_path: Path) -> None:
+    """Set up permission warnings for Windows."""
     warnings.filterwarnings(
         action="ignore",
         message="Bad owner or permissions.*",
@@ -314,22 +328,23 @@ def _handle_windows_permission_warning(config_path: Path) -> None:
         )
 
 
-def _handle_unix_custom_config_permissions(config_path: Path) -> bool:
+def _should_skip_connector_permissions_check(
+    is_custom_config: bool, enforce_strict: bool
+) -> bool:
     """
-    Handle permission checks for custom config files on Unix.
+    Determine whether the connector should skip file permission checks.
 
-    This runs after _check_custom_config_permissions has already passed, so it only
-    deals with the non-error path: either strict mode is on (permissions are known-good,
-    let the connector also check) or strict mode is off (warn the user and skip the
-    connector's check to preserve backwards-compatible behaviour).
-
-    Returns True if the connector should enforce permissions, False to skip its check.
+    On Unix custom config files, strict mode controls whether connector checks are
+    skipped to preserve backwards-compatible behavior when strict mode is off.
     """
-    if _enforce_strict_config_permissions():
+    if IS_WINDOWS:
+        return False
+
+    # If custom config is provided, we assume that it's a trusted file
+    if is_custom_config:
         return True
 
-    _warn_about_wide_permissions_on_custom_config(config_path)
-    return False
+    return not enforce_strict
 
 
 def _initialise_logs_section():
@@ -552,14 +567,14 @@ def _check_custom_config_permissions(config_file: Path) -> None:
         return
 
     if (
-        _enforce_strict_config_permissions()
+        _should_enforce_strict_config_permissions()
         and config_file.exists()
         and not file_permissions_are_strict(config_file)
     ):
         raise ConfigFileTooWidePermissionsError(config_file)
 
 
-def _enforce_strict_config_permissions() -> bool:
+def _should_enforce_strict_config_permissions() -> bool:
     # This intentionally reads only from the environment, not from the config file.
     # The flag controls whether the config file's own permissions are checked before
     # reading it — so reading the (potentially insecure) config file first to discover
@@ -571,7 +586,11 @@ def _enforce_strict_config_permissions() -> bool:
     try:
         return try_cast_to_bool(value.lower())
     except ValueError:
-        log.debug("Could not parse %s value %r, defaulting to False", env_var, value)
+        log.debug(
+            "Could not parse %s value %r as boolean, defaulting to False",
+            env_var,
+            value,
+        )
         return False
 
 

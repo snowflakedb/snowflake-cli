@@ -634,6 +634,21 @@ def test_strict_permissions_flag_enabled_allows_strict_permissions(
         config_init(config_file=config_path)  # Should not raise
 
 
+@pytest.mark.parametrize("invalid_value", ["notabool", "yesplease", "2", ""])
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+def test_invalid_strict_permissions_flag_defaults_to_false(
+    snowflake_home: Path, invalid_value
+):
+    """When ENFORCE_STRICT_CONFIG_PERMISSIONS has a non-boolean value, it defaults to False."""
+    env_var = FeatureFlag.ENFORCE_STRICT_CONFIG_PERMISSIONS.env_variable()
+    with mock.patch.dict("os.environ", {env_var: invalid_value}):
+        with NamedTemporaryFile(suffix=".toml") as tmp:
+            config_path = Path(tmp.name)
+            config_path.chmod(0o644)  # Wide permissions
+            with pytest.warns(UserWarning, match="Bad owner or permissions"):
+                config_init(config_file=config_path)
+
+
 @pytest.mark.parametrize(
     "content", ["[corrupted", "[connections.foo]\n[connections.foo]"]
 )
