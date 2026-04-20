@@ -12,6 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Snowflake App (``snowflake-app``) implementation functions.
+
+These functions are called from the unified ``snow app`` command group in
+``_plugins/nativeapp/commands.py`` when the detected flow is
+:class:`~snowflake.cli._plugins.nativeapp.v2_conversions.compat.AppFlow.SNOWFLAKE_APP`.
+
+They are plain Python functions (no Typer decorators) so they can be
+dispatched to from the unified handlers without CLI-framework coupling.
+"""
+
 import json
 import re
 from pathlib import Path
@@ -24,7 +34,6 @@ from snowflake.cli._plugins.apps.generate import (
     _generate_snowflake_yml,
 )
 from snowflake.cli._plugins.apps.manager import (
-    _APP_COMMAND_NAME,
     DEFINITION_FILENAME,
     EXPOSE_UNSUPPORTED_SYNTAX,
     SnowflakeAppManager,
@@ -38,11 +47,9 @@ from snowflake.cli._plugins.apps.manager import (
 from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.cli_global_context import get_cli_context
-from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.config import get_connection_dict, get_default_connection_name
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliError
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CommandResult,
@@ -53,6 +60,12 @@ from snowflake.cli.api.output.types import (
 from snowflake.cli.api.project.util import get_env_username, identifier_for_url
 from snowflake.connector.errors import ProgrammingError
 
+# Default number of log lines returned by ``snow app events`` for the
+# Snowflake App flow. The unified command accepts ``--last`` with a ``None``
+# default; each flow applies its own default when the user does not provide
+# a value (Native App uses ``-1``, Snowflake App uses this constant).
+DEFAULT_SNOWFLAKE_APP_EVENTS_LAST = 500
+
 # ── Source provenance labels ──────────────────────────────────────────
 SOURCE_USER_INPUT = "user input"
 SOURCE_ACCOUNT_PARAM = "account parameter"
@@ -60,41 +73,18 @@ SOURCE_CURRENT_SESSION = "current session"
 SOURCE_DEFAULT = "default"
 SOURCE_MISSING = "missing"
 
-app = SnowTyperFactory(
-    name=_APP_COMMAND_NAME,
-    help="Manages Snowflake Apps.",
-    is_hidden=FeatureFlag.ENABLE_SNOWFLAKE_APPS.is_disabled,
-)
 
-
-@app.command("setup", requires_connection=True)
-def setup(
-    app_name: str = typer.Option(
-        ...,
-        "--app-name",
-        help="Name of the Snowflake App to initialize.",
-    ),
-    dry_run: bool = typer.Option(
-        False,
-        "--dry-run",
-        help="Only print the resolved configuration values without writing snowflake.yml.",
-    ),
-    compute_pool: Optional[str] = typer.Option(
-        None,
-        "--compute-pool",
-        help="Compute pool for building and running the app.",
-    ),
-    build_eai: Optional[str] = typer.Option(
-        None,
-        "--build-eai",
-        help="External access integration used during the app build.",
-    ),
-    **options,
+def snowflake_app_setup(
+    app_name: str,
+    dry_run: bool,
+    compute_pool: Optional[str],
+    build_eai: Optional[str],
 ) -> CommandResult:
-    """
-    Initializes a snowflake.yml file for a Snowflake App project.
-    """
+    """Initialize a ``snowflake.yml`` for a Snowflake App project.
 
+    See the ``snow app setup`` command in
+    :mod:`snowflake.cli._plugins.nativeapp.commands` for the CLI surface.
+    """
     if not re.fullmatch(r"[a-zA-Z0-9_]+", app_name):
         raise ClickException(
             f"Invalid app name '{app_name}'. "
@@ -219,21 +209,8 @@ def setup(
     return EmptyResult()
 
 
-@app.command()
-def bundle(
-    entity_id: Optional[str] = typer.Option(
-        None,
-        "--entity-id",
-        help="ID of the snowflake-app entity to bundle. Required if multiple snowflake-app entities exist.",
-    ),
-    **options,
-) -> CommandResult:
-    """
-    Bundles a Snowflake App by resolving artifacts defined in snowflake.yml.
-
-    Copies (or symlinks) the matched source files into a local output directory
-    (output/bundle) so you can inspect exactly what would be uploaded during deploy.
-    """
+def snowflake_app_bundle(entity_id: Optional[str]) -> CommandResult:
+    """Bundle a Snowflake App by resolving artifacts defined in ``snowflake.yml``."""
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 
@@ -241,22 +218,8 @@ def bundle(
     return MessageResult(f"Bundle generated at {project_paths.bundle_root}")
 
 
-@app.command(requires_connection=True)
-def validate(
-    entity_id: Optional[str] = typer.Option(
-        None,
-        "--entity-id",
-        help="ID of the snowflake-app entity to validate. Required if multiple snowflake-app entities exist.",
-    ),
-    **options,
-) -> CommandResult:
-    """
-    Validates a local Snowflake App project.
-
-    Bundles the project, checks that a Dockerfile with an EXPOSE directive
-    exists, and verifies that the current role has the BIND SERVICE ENDPOINT
-    privilege required for deployment.
-    """
+def snowflake_app_validate(entity_id: Optional[str]) -> CommandResult:
+    """Validate a local Snowflake App project (Dockerfile + stage privileges)."""
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 
@@ -286,7 +249,6 @@ def validate(
     try:
         project_paths = perform_bundle(resolved_entity_id, entity)
 
-        # Validate Dockerfile has an EXPOSE directive
         bundle_root = project_paths.bundle_root
         dockerfile = bundle_root / "Dockerfile"
         if not dockerfile.exists():
@@ -325,32 +287,12 @@ def validate(
     return MessageResult("Valid Snowflake App project.")
 
 
-@app.command("open", requires_connection=True)
-def open_app(
-    entity_id: Optional[str] = typer.Option(
-        None,
-        "--entity-id",
-        help="ID of the snowflake-app entity to open. Required if multiple snowflake-app entities exist.",
-    ),
-    print_only: bool = typer.Option(
-        False,
-        "--print-only",
-        help="Print the app URL without opening it in the browser.",
-    ),
-    settings: bool = typer.Option(
-        False,
-        "--settings",
-        help="Open the app settings page in Snowsight instead of the app itself.",
-    ),
-    **options,
+def snowflake_app_open(
+    entity_id: Optional[str],
+    print_only: bool,
+    settings: bool,
 ) -> CommandResult:
-    """
-    Opens a deployed Snowflake App in the browser.
-
-    Looks up the service endpoint URL for the app and opens it.  Use
-    --print-only to print the URL without launching a browser.
-    Use --settings to open the Snowsight settings page for the app.
-    """
+    """Open a deployed Snowflake App (or its settings page) in the browser."""
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 
@@ -387,7 +329,7 @@ def open_app(
         if not url:
             raise CliError(
                 f"No endpoint URL found for service {service_fqn}. "
-                f"Is the app deployed? Run 'snow {_APP_COMMAND_NAME} deploy' first."
+                f"Is the app deployed? Run 'snow app deploy' first."
             )
 
     if not print_only:
@@ -395,24 +337,11 @@ def open_app(
     return MessageResult(url)
 
 
-@app.command(requires_connection=True)
-def events(
-    entity_id: Optional[str] = typer.Option(
-        None,
-        "--entity-id",
-        help="ID of the snowflake-app entity. Required if multiple snowflake-app entities exist.",
-    ),
-    last: int = typer.Option(
-        500,
-        "--last",
-        help="Number of log lines to retrieve. Default: 500. Note: output is capped at 100KB.",
-    ),
-    **options,
+def snowflake_app_events(
+    entity_id: Optional[str],
+    last: Optional[int],
 ) -> CommandResult:
-    """
-    Fetches the recent log events from a deployed Snowflake App.
-    Output is capped at 100KB regardless of the number of lines requested.
-    """
+    """Fetch recent log events from a deployed Snowflake App."""
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 
@@ -420,9 +349,11 @@ def events(
     # Rebuild to a 3-part name; entity FQN may carry extra fields (e.g. prefix)
     service_fqn = FQN(database=fqn.database, schema=fqn.schema, name=fqn.name)
 
+    effective_last = last if last is not None else DEFAULT_SNOWFLAKE_APP_EVENTS_LAST
+
     manager = SnowflakeAppManager()
     try:
-        logs = manager.get_service_logs(service_fqn, last=last)
+        logs = manager.get_service_logs(service_fqn, last=effective_last)
     except ProgrammingError:
         raise ClickException(
             f"Could not retrieve logs for '{service_fqn.identifier}'. "
@@ -431,43 +362,13 @@ def events(
     return MessageResult(logs)
 
 
-@app.command(requires_connection=True)
-def deploy(
-    entity_id: Optional[str] = typer.Option(
-        None,
-        "--entity-id",
-        help="ID of the snowflake-app entity to deploy. Required if multiple snowflake-app entities exist.",
-    ),
-    upload_only: bool = typer.Option(
-        False,
-        "--upload-only",
-        help="Bundle and upload source artifacts to the stage, then stop. "
-        "Skips the build and deploy phases.",
-    ),
-    build_only: bool = typer.Option(
-        False,
-        "--build-only",
-        help="Run only the build phase (assumes artifacts have already been uploaded). "
-        "Skips the upload and deploy phases.",
-    ),
-    deploy_only: bool = typer.Option(
-        False,
-        "--deploy-only",
-        help="Run only the deploy phase (assumes the container image has already been built). "
-        "Skips the upload and build phases.",
-    ),
-    **options,
+def snowflake_app_deploy(
+    entity_id: Optional[str],
+    upload_only: bool,
+    build_only: bool,
+    deploy_only: bool,
 ) -> CommandResult:
-    """
-    Builds and deploys a Snowflake App.
-
-    The deploy pipeline has three phases: upload, build, and deploy.
-    By default all three phases run in sequence. Use --upload-only,
-    --build-only, or --deploy-only to run a single phase.
-
-    If --entity-id is not specified and the project contains exactly one snowflake-app
-    entity, that entity will be used automatically.
-    """
+    """Build and deploy a Snowflake App through upload, build, and deploy phases."""
     phase_flags = sum((upload_only, build_only, deploy_only))
     if phase_flags > 1:
         raise ClickException(
@@ -689,27 +590,11 @@ def deploy(
     return MessageResult(f"App ready at {endpoint_url}")
 
 
-@app.command(requires_connection=True)
-def teardown(
-    entity_id: Optional[str] = typer.Option(
-        None,
-        "--entity-id",
-        help="ID of the snowflake-app entity to tear down. Required if multiple snowflake-app entities exist.",
-    ),
-    force: bool = typer.Option(
-        False,
-        "--force",
-        help="Drop without confirmation prompt.",
-    ),
-    **options,
+def snowflake_app_teardown(
+    entity_id: Optional[str],
+    force: bool,
 ) -> CommandResult:
-    """
-    Drops a deployed Snowflake App and its associated objects.
-
-    Reads the entity from snowflake.yml and drops the application service
-    (or SPCS service), the code stage, and the build job service.
-    Unless --force is provided, prompts for confirmation before dropping.
-    """
+    """Drop a deployed Snowflake App and its associated objects."""
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 

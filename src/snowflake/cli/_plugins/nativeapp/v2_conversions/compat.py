@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import inspect
+from enum import Enum
 from functools import wraps
 from typing import Optional, Type, TypeVar
 
@@ -39,6 +40,23 @@ from snowflake.cli.api.project.schemas.project_definition import (
     ProjectDefinitionV1,
 )
 
+
+class AppFlow(str, Enum):
+    """Identifies which app-family flow a shared ``snow app`` command should run.
+
+    ``NATIVE_APP`` covers the Native App flow (``application`` /
+    ``application package`` entities); ``SNOWFLAKE_APP`` covers the newer
+    container-based Snowflake App flow (``snowflake-app`` entities).
+    """
+
+    NATIVE_APP = "native_app"
+    SNOWFLAKE_APP = "snowflake_app"
+
+
+NATIVE_APP_ENTITY_TYPES = {"application", "application package"}
+SNOWFLAKE_APP_ENTITY_TYPES = {"snowflake-app"}
+
+
 APP_AND_PACKAGE_OPTIONS = [
     inspect.Parameter(
         "package_entity_id",
@@ -46,7 +64,7 @@ APP_AND_PACKAGE_OPTIONS = [
         annotation=Optional[str],
         default=typer.Option(
             default="",
-            help="The ID of the package entity on which to operate when the definition_version is 2 or higher.",
+            help="(Native App only) The ID of the package entity on which to operate when the definition_version is 2 or higher.",
         ),
     ),
     inspect.Parameter(
@@ -55,7 +73,20 @@ APP_AND_PACKAGE_OPTIONS = [
         annotation=Optional[str],
         default=typer.Option(
             default="",
-            help="The ID of the application entity on which to operate when the definition_version is 2 or higher.",
+            help="(Native App only) The ID of the application entity on which to operate when the definition_version is 2 or higher.",
+        ),
+    ),
+]
+
+
+APP_FLOW_ROUTING_OPTIONS = APP_AND_PACKAGE_OPTIONS + [
+    inspect.Parameter(
+        "entity_id",
+        inspect.Parameter.KEYWORD_ONLY,
+        annotation=Optional[str],
+        default=typer.Option(
+            default="",
+            help="(Snowflake App only) The ID of the snowflake-app entity on which to operate. Required if multiple snowflake-app entities exist.",
         ),
     ),
 ]
@@ -233,5 +264,207 @@ def force_project_definition_v2(
                 wrapper, additional_options=APP_AND_PACKAGE_OPTIONS
             )
         return wrapper
+
+    return decorator
+
+
+def _project_entity_types(project_definition: ProjectDefinition) -> set[str]:
+    """Return the set of entity ``type`` strings present in the project definition."""
+    if not hasattr(project_definition, "entities"):
+        return set()
+    return {
+        str(getattr(entity, "type", "")).lower()
+        for entity in project_definition.entities.values()
+        if getattr(entity, "type", None) is not None
+    }
+
+
+def has_snowflake_app_entities_only(
+    project_definition: Optional[ProjectDefinition],
+) -> bool:
+    """Return True when the project contains only ``snowflake-app`` entities.
+
+    Used by Native-App-only commands to produce clear errors when invoked
+    against a Snowflake App project.
+    """
+    if project_definition is None:
+        return False
+    types = _project_entity_types(project_definition)
+    if not types:
+        return False
+    return types.issubset(SNOWFLAKE_APP_ENTITY_TYPES)
+
+
+def native_app_only(command: str):
+    """Decorator that raises a clear error when a Native-App-only command is
+    invoked against a project that contains only ``snowflake-app`` entities.
+
+    Must be applied **above** ``force_project_definition_v2()`` so the guard
+    runs before entity resolution complains about missing application /
+    application package entities.
+
+    Assumes ``with_project_definition()`` has already been applied.
+    """
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            project = get_cli_context().project_definition
+            if has_snowflake_app_entities_only(project):
+                raise ClickException(
+                    f"'snow app {command}' is only available for Native App "
+                    f"projects (entity types: application, application "
+                    f"package). Your project contains snowflake-app entities."
+                )
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+def _detect_flow_from_project(
+    project_definition: DefinitionV20,
+    *,
+    entity_id: str,
+    package_entity_id: str,
+    app_entity_id: str,
+) -> AppFlow:
+    """Decide which AppFlow a command should run for this project.
+
+    Resolution order (matches the plan's hybrid strategy):
+      1. ``--package-entity-id`` or ``--app-entity-id`` provided -> Native App.
+      2. ``--entity-id`` provided -> look up that entity's type to decide.
+      3. Otherwise scan all entities; a single flow type wins. Mixed flows
+         raise a :class:`ClickException` asking the user to disambiguate.
+    """
+    if package_entity_id or app_entity_id:
+        return AppFlow.NATIVE_APP
+
+    entities = getattr(project_definition, "entities", {}) or {}
+
+    if entity_id:
+        entity = entities.get(entity_id)
+        if entity is not None:
+            entity_type = str(getattr(entity, "type", "")).lower()
+            if entity_type in NATIVE_APP_ENTITY_TYPES:
+                return AppFlow.NATIVE_APP
+            if entity_type in SNOWFLAKE_APP_ENTITY_TYPES:
+                return AppFlow.SNOWFLAKE_APP
+            raise ClickException(
+                f"Entity '{entity_id}' has type '{entity_type}', which is not "
+                f"supported by 'snow app' commands."
+            )
+        # Entity id was passed but does not exist -- let the per-flow handler
+        # produce a more specific error. Fall through to type scanning to
+        # decide which flow to route to.
+
+    types = _project_entity_types(project_definition)
+    has_native = bool(types & NATIVE_APP_ENTITY_TYPES)
+    has_snowflake = bool(types & SNOWFLAKE_APP_ENTITY_TYPES)
+
+    if has_native and has_snowflake:
+        raise ClickException(
+            "Project contains both Native App entities "
+            "(application / application package) and Snowflake App entities "
+            "(snowflake-app). Specify --entity-id (for a Snowflake App entity) "
+            "or --package-entity-id / --app-entity-id (for a Native App entity) "
+            "to select which entity to operate on."
+        )
+    if has_snowflake:
+        return AppFlow.SNOWFLAKE_APP
+    # Default (including "no entities", which the Native App resolver will
+    # turn into its own clearer error) is the Native App flow.
+    return AppFlow.NATIVE_APP
+
+
+def with_app_flow_routing(
+    *, single_app_and_package: bool = True, app_required: bool = False
+):
+    """Command decorator that routes between Native App and Snowflake App flows.
+
+    Used by shared ``snow app`` subcommands (bundle, deploy, validate, open,
+    events, teardown) that need to accept entity IDs for both flows and
+    dispatch at runtime based on the entity types in ``snowflake.yml``.
+
+    At decoration time it injects the ``--package-entity-id``,
+    ``--app-entity-id``, and ``--entity-id`` CLI options onto the command.
+
+    At runtime it:
+      - Converts v1 project definitions to v2 (always Native App flow).
+      - Detects which flow to run using the hybrid strategy in
+        :func:`_detect_flow_from_project`.
+      - For the Native App flow, runs the same entity resolution as
+        :func:`force_project_definition_v2` (pruning non-selected
+        application / application package entities).
+      - Injects ``app_flow`` into kwargs so the handler can branch.
+
+    Assumes ``with_project_definition()`` has already been applied.
+    """
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            cli_context = get_cli_context()
+            original_pdf: Optional[ProjectDefinition] = cli_context.project_definition
+            if not original_pdf:
+                raise ValueError(
+                    "Project definition could not be found. "
+                    "with_app_flow_routing() assumes with_project_definition() "
+                    "was called before it."
+                )
+
+            entity_id = kwargs.get("entity_id", "") or ""
+            package_entity_id = kwargs.get("package_entity_id", "") or ""
+            app_entity_id = kwargs.get("app_entity_id", "") or ""
+
+            if isinstance(original_pdf, ProjectDefinitionV1):
+                # V1 definitions are always Native App -- convert in-place.
+                pdfv2 = convert_project_definition_to_v2(
+                    cli_context.project_root,
+                    original_pdf,
+                    accept_templates=False,
+                    template_context=None,
+                    in_memory=True,
+                )
+                for entity_id_, entity in pdfv2.entities.items():
+                    is_package = isinstance(entity, ApplicationPackageEntityModel)
+                    key = "package_entity_id" if is_package else "app_entity_id"
+                    kwargs[key] = entity_id_
+
+                get_cli_context_manager().override_project_definition = pdfv2
+                kwargs["app_flow"] = AppFlow.NATIVE_APP
+                return func(*args, **kwargs)
+
+            flow = _detect_flow_from_project(
+                original_pdf,
+                entity_id=entity_id,
+                package_entity_id=package_entity_id,
+                app_entity_id=app_entity_id,
+            )
+
+            if flow == AppFlow.NATIVE_APP and single_app_and_package:
+                app_definition, app_package_definition = _find_app_and_package_entities(
+                    original_pdf, package_entity_id, app_entity_id, app_required
+                )
+                entities_to_keep = {app_package_definition.entity_id}
+                kwargs["package_entity_id"] = app_package_definition.entity_id
+                if app_definition:
+                    entities_to_keep.add(app_definition.entity_id)
+                    kwargs["app_entity_id"] = app_definition.entity_id
+                for eid in list(original_pdf.entities):
+                    entity_type = original_pdf.entities[eid].type.lower()
+                    if (
+                        entity_type in NATIVE_APP_ENTITY_TYPES
+                        and eid not in entities_to_keep
+                    ):
+                        del original_pdf.entities[eid]
+
+            kwargs["app_flow"] = flow
+            return func(*args, **kwargs)
+
+        return _options_decorator_factory(
+            wrapper, additional_options=APP_FLOW_ROUTING_OPTIONS
+        )
 
     return decorator

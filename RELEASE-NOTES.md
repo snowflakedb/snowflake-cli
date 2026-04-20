@@ -20,6 +20,8 @@
 ## Deprecations
 
 ## New additions
+* `snow app` now supports both Snowflake Native Apps (`application` / `application package` entities) and Snowflake Apps (`snowflake-app` entities). The entity type in `snowflake.yml` determines which flow is used, so shared subcommands like `bundle`, `deploy`, `validate`, `open`, `events`, and `teardown` automatically pick the correct behavior. The experimental hidden `snow __app` command group and the `ENABLE_SNOWFLAKE_APPS` feature flag have been removed.
+* Added `snow app setup` command for initializing a `snowflake.yml` for a Snowflake App project.
 * Added `snow connection generate-workload-identity-token` command to generate a workload identity token for the current environment. Supports AWS, GCP, Azure, and OIDC providers via `--workload-identity-provider` flag or connection configuration.
 * Added `snow custom-image validate` command to validate custom Docker images against configured rules (entrypoint, environment variables, Python packages, dependency health). Supports an optional `--scan-vulnerabilities` flag to run Grype vulnerability scanning.
 

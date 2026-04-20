@@ -22,6 +22,16 @@ from textwrap import dedent
 from typing import Generator, Iterable, List, Optional, cast
 
 import typer
+from click import ClickException
+from snowflake.cli._plugins.apps.commands import (
+    snowflake_app_bundle,
+    snowflake_app_deploy,
+    snowflake_app_events,
+    snowflake_app_open,
+    snowflake_app_setup,
+    snowflake_app_teardown,
+    snowflake_app_validate,
+)
 from snowflake.cli._plugins.nativeapp.artifacts import VersionInfo
 from snowflake.cli._plugins.nativeapp.common_flags import (
     ForceOption,
@@ -40,8 +50,11 @@ from snowflake.cli._plugins.nativeapp.release_directive.commands import (
 )
 from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
+    AppFlow,
     find_entity,
     force_project_definition_v2,
+    native_app_only,
+    with_app_flow_routing,
 )
 from snowflake.cli._plugins.nativeapp.version.commands import app as versions_app
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
@@ -66,7 +79,7 @@ from typing_extensions import Annotated
 
 app = SnowTyperFactory(
     name="app",
-    help="Manages a Snowflake Native App",
+    help="Manages Snowflake Native Apps and Snowflake Apps.",
 )
 app.add_typer(versions_app)
 app.add_typer(release_directives_app)
@@ -75,15 +88,98 @@ app.add_typer(release_channels_app)
 log = logging.getLogger(__name__)
 
 
+# Sentinel used on events --last to tell "user didn't pass --last" apart
+# from "user explicitly asked for 0". The merged command shares --last across
+# both flows, which have different defaults when the user doesn't set it
+# (Native App: -1, Snowflake App: 500).
+_EVENTS_LAST_UNSET = -1
+
+
+def _reject_native_app_options(command: str, **options: object) -> None:
+    """Raise a clear error if the user passed Native-App-only options while
+    running the command against a ``snowflake-app`` entity.
+
+    ``options`` maps CLI flag name -> explicitly-provided value (or ``None``
+    if the option was left at its default).
+    """
+    set_options = [name for name, value in options.items() if value is not None]
+    if set_options:
+        joined = ", ".join(sorted(set_options))
+        raise ClickException(
+            f"'snow app {command}' was invoked against a Snowflake App "
+            f"entity (type: snowflake-app), but the following Native App "
+            f"options were provided: {joined}. Remove them and try again."
+        )
+
+
+def _reject_snowflake_app_options(command: str, **options: object) -> None:
+    """Raise a clear error if the user passed Snowflake-App-only options
+    while running the command against a Native App entity."""
+    set_options = [name for name, value in options.items() if value is not None]
+    if set_options:
+        joined = ", ".join(sorted(set_options))
+        raise ClickException(
+            f"'snow app {command}' was invoked against a Native App entity "
+            f"(application / application package), but the following "
+            f"Snowflake App options were provided: {joined}. "
+            f"Remove them and try again."
+        )
+
+
+@app.command("setup", requires_connection=True)
+def app_setup(
+    app_name: str = typer.Option(
+        ...,
+        "--app-name",
+        help="Name of the Snowflake App to initialize.",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Only print the resolved configuration values without writing snowflake.yml.",
+    ),
+    compute_pool: Optional[str] = typer.Option(
+        None,
+        "--compute-pool",
+        help="Compute pool for building and running the app.",
+    ),
+    build_eai: Optional[str] = typer.Option(
+        None,
+        "--build-eai",
+        help="External access integration used during the app build.",
+    ),
+    **options,
+) -> CommandResult:
+    """
+    (Snowflake App only) Initializes a snowflake.yml for a Snowflake App project.
+
+    Creates a ``snowflake.yml`` in the current directory with a
+    ``snowflake-app`` entity preconfigured from account parameters and the
+    current connection. This command does not apply to Native App projects.
+    """
+    return snowflake_app_setup(app_name, dry_run, compute_pool, build_eai)
+
+
 @app.command("bundle")
 @with_project_definition()
-@force_project_definition_v2()
+@with_app_flow_routing()
 def app_bundle(
     **options,
 ) -> CommandResult:
     """
     Prepares a local folder with configured app artifacts.
+
+    For Native App projects (application / application package entities):
+      Bundles the application package artifacts defined in snowflake.yml.
+
+    For Snowflake App projects (snowflake-app entities):
+      Resolves artifacts defined in snowflake.yml and copies them to
+      ``output/bundle`` so you can inspect what would be uploaded on deploy.
     """
+    app_flow: AppFlow = options["app_flow"]
+    if app_flow == AppFlow.SNOWFLAKE_APP:
+        return snowflake_app_bundle(options.get("entity_id") or None)
+
     cli_context = get_cli_context()
     ws = WorkspaceManager(
         project_definition=cli_context.project_definition,
@@ -100,12 +196,13 @@ def app_bundle(
 
 @app.command("diff", requires_connection=True, hidden=True)
 @with_project_definition()
+@native_app_only("diff")
 @force_project_definition_v2()
 def app_diff(
     **options,
 ) -> CommandResult | None:
     """
-    Performs a diff between the app's source stage and the local deploy root.
+    (Native App only) Performs a diff between the app's source stage and the local deploy root.
     """
     cli_context = get_cli_context()
     ws = WorkspaceManager(
@@ -126,6 +223,7 @@ def app_diff(
 
 @app.command("run", requires_connection=True)
 @with_project_definition()
+@native_app_only("run")
 @force_project_definition_v2(app_required=True)
 def app_run(
     version: Optional[str] = typer.Option(
@@ -158,7 +256,7 @@ def app_run(
     **options,
 ) -> CommandResult:
     """
-    Creates an application package in your Snowflake account, uploads code files to its stage,
+    (Native App only) Creates an application package in your Snowflake account, uploads code files to its stage,
     then creates or upgrades an application object from the application package.
     """
     cli_context = get_cli_context()
@@ -190,23 +288,54 @@ def app_run(
 
 @app.command("open", requires_connection=True)
 @with_project_definition()
-@force_project_definition_v2(app_required=True)
+@with_app_flow_routing(app_required=True)
 def app_open(
+    print_only: bool = typer.Option(
+        False,
+        "--print-only",
+        help="(Snowflake App only) Print the app URL without opening it in the browser.",
+    ),
+    settings: bool = typer.Option(
+        False,
+        "--settings",
+        help="(Snowflake App only) Open the app settings page in Snowsight instead of the app itself.",
+    ),
     **options,
 ) -> CommandResult:
     """
-    Opens the Snowflake Native App inside of your browser,
-    once it has been installed in your account.
+    Opens the deployed app in the browser.
+
+    For Native App projects (application / application package entities):
+      Opens the Snowflake Native App's Snowsight URL if the app is installed.
+
+    For Snowflake App projects (snowflake-app entities):
+      Resolves the service endpoint URL and launches the browser. Use
+      ``--print-only`` to print the URL, or ``--settings`` to open the
+      Snowsight app-settings page instead.
     """
+    app_flow: AppFlow = options["app_flow"]
+    if app_flow == AppFlow.SNOWFLAKE_APP:
+        return snowflake_app_open(
+            options.get("entity_id") or None, print_only, settings
+        )
+
+    _reject_snowflake_app_options(
+        "open",
+        **{
+            "--print-only": True if print_only else None,
+            "--settings": True if settings else None,
+        },
+    )
+
     cli_context = get_cli_context()
     ws = WorkspaceManager(
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
     app_id = options["app_entity_id"]
-    app = ws.get_entity(app_id)
-    if get_snowflake_facade().get_existing_app_info(app.name, app.role):
-        typer.launch(app.get_snowsight_url())
+    native_app = ws.get_entity(app_id)
+    if get_snowflake_facade().get_existing_app_info(native_app.name, native_app.role):
+        typer.launch(native_app.get_snowsight_url())
         return MessageResult(f"Snowflake Native App opened in browser.")
     else:
         return MessageResult(
@@ -216,29 +345,44 @@ def app_open(
 
 @app.command("teardown", requires_connection=True)
 @with_project_definition()
-@force_project_definition_v2(single_app_and_package=False)
+@with_app_flow_routing(single_app_and_package=False)
 def app_teardown(
     force: Optional[bool] = ForceOption,
     cascade: Optional[bool] = typer.Option(
         None,
-        help=f"""Whether to drop all application objects owned by the application within the account. Default: false.""",
+        help="(Native App only) Whether to drop all application objects owned by the application within the account. Default: false.",
         show_default=False,
     ),
     interactive: bool = InteractiveOption,
-    # Same as the param auto-added by @force_project_definition_v2 if single_app_and_package were true
-    package_entity_id: Optional[str] = typer.Option(
-        default="",
-        help="The ID of the package entity on which to operate when the definition_version is 2 or higher.",
-    ),
     **options,
 ) -> CommandResult:
     """
-    Attempts to drop both the application object and application package as defined in the project definition file.
+    Drops the deployed app and its associated objects.
+
+    For Native App projects (application / application package entities):
+      Attempts to drop both the application object and application package
+      as defined in the project definition file.
+
+    For Snowflake App projects (snowflake-app entities):
+      Drops the application service (or SPCS service), the code stage,
+      and the build job service.
+
+    Unless ``--force`` is provided, prompts for confirmation before dropping.
     """
+    app_flow: AppFlow = options["app_flow"]
+    if app_flow == AppFlow.SNOWFLAKE_APP:
+        _reject_native_app_options(
+            "teardown",
+            **{
+                "--cascade": cascade,
+            },
+        )
+        return snowflake_app_teardown(options.get("entity_id") or None, bool(force))
+
     cli_context = get_cli_context()
     project = cli_context.project_definition
+    package_entity_id = options.get("package_entity_id", "")
 
-    # Determine the package entity to drop, there must be one
     app_package_entity = find_entity(
         project,
         ApplicationPackageEntityModel,
@@ -248,7 +392,6 @@ def app_teardown(
     )
     assert app_package_entity is not None  # satisfy mypy
 
-    # Same implementation as `snow ws drop`
     ws = WorkspaceManager(
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
@@ -264,19 +407,17 @@ def app_teardown(
         if same_identifiers(package_entity.fqn.name, app_package_entity.fqn.name)
     ]
 
-    for app_entity in project.get_entities_by_type(
+    for native_app_entity in project.get_entities_by_type(
         ApplicationEntityModel.get_type()
     ).values():
-        # Drop each app
-        if app_entity.from_.target in all_packages_with_id:
+        if native_app_entity.from_.target in all_packages_with_id:
             ws.perform_action(
-                app_entity.entity_id,
+                native_app_entity.entity_id,
                 EntityActions.DROP,
                 force_drop=force,
                 interactive=interactive,
                 cascade=cascade,
             )
-    # Then drop the package
     ws.perform_action(
         app_package_entity.entity_id,
         EntityActions.DROP,
@@ -290,24 +431,24 @@ def app_teardown(
 
 @app.command("deploy", requires_connection=True)
 @with_project_definition()
-@force_project_definition_v2()
+@with_app_flow_routing()
 def app_deploy(
     prune: Optional[bool] = typer.Option(
         default=None,
-        help=f"""Whether to delete specified files from the stage if they don't exist locally. If set, the command deletes files that exist in the stage, but not in the local filesystem. This option cannot be used when paths are specified.""",
+        help=f"""(Native App only) Whether to delete specified files from the stage if they don't exist locally. If set, the command deletes files that exist in the stage, but not in the local filesystem. This option cannot be used when paths are specified.""",
     ),
     recursive: Optional[bool] = typer.Option(
         None,
         "--recursive/--no-recursive",
         "-r",
-        help=f"""Whether to traverse and deploy files from subdirectories. If set, the command deploys all files and subdirectories; otherwise, only files in the current directory are deployed.""",
+        help=f"""(Native App only) Whether to traverse and deploy files from subdirectories. If set, the command deploys all files and subdirectories; otherwise, only files in the current directory are deployed.""",
     ),
     paths: Optional[List[Path]] = typer.Argument(
         default=None,
         show_default=False,
         help=dedent(
             f"""
-            Paths, relative to the project root, of files or directories you want to upload to a stage. If a file is
+            (Native App only) Paths, relative to the project root, of files or directories you want to upload to a stage. If a file is
             specified, it must match one of the artifacts src pattern entries in snowflake.yml. If a directory is
             specified, it will be searched for subfolders or files to deploy based on artifacts src pattern entries. If
             unspecified, the command syncs all local changes to the stage."""
@@ -316,12 +457,64 @@ def app_deploy(
     interactive: bool = InteractiveOption,
     force: Optional[bool] = ForceOption,
     validate: bool = ValidateOption,
+    upload_only: bool = typer.Option(
+        False,
+        "--upload-only",
+        help="(Snowflake App only) Bundle and upload source artifacts to the stage, then stop. "
+        "Skips the build and deploy phases.",
+    ),
+    build_only: bool = typer.Option(
+        False,
+        "--build-only",
+        help="(Snowflake App only) Run only the build phase (assumes artifacts have already been uploaded). "
+        "Skips the upload and deploy phases.",
+    ),
+    deploy_only: bool = typer.Option(
+        False,
+        "--deploy-only",
+        help="(Snowflake App only) Run only the deploy phase (assumes the container image has already been built). "
+        "Skips the upload and build phases.",
+    ),
     **options,
 ) -> CommandResult:
     """
-    Creates an application package in your Snowflake account and syncs the local changes to the stage without creating or updating the application.
-    Running this command with no arguments at all, as in `snow app deploy`, is a shorthand for `snow app deploy --prune --recursive`.
+    Deploys the app.
+
+    For Native App projects (application / application package entities):
+      Creates an application package in your Snowflake account and syncs
+      the local changes to the stage without creating or updating the
+      application. Running this command with no arguments is a shorthand
+      for ``snow app deploy --prune --recursive``.
+
+    For Snowflake App projects (snowflake-app entities):
+      Builds and deploys a containerized Snowflake App. The pipeline has
+      three phases (upload, build, deploy). By default all three run in
+      sequence; use ``--upload-only`` / ``--build-only`` / ``--deploy-only``
+      to run a single phase.
     """
+    app_flow: AppFlow = options["app_flow"]
+    if app_flow == AppFlow.SNOWFLAKE_APP:
+        _reject_native_app_options(
+            "deploy",
+            **{
+                "--prune": prune,
+                "--recursive": recursive,
+                "paths": paths if paths else None,
+            },
+        )
+        return snowflake_app_deploy(
+            options.get("entity_id") or None, upload_only, build_only, deploy_only
+        )
+
+    _reject_snowflake_app_options(
+        "deploy",
+        **{
+            "--upload-only": True if upload_only else None,
+            "--build-only": True if build_only else None,
+            "--deploy-only": True if deploy_only else None,
+        },
+    )
+
     has_paths = paths is not None and len(paths) > 0
     if prune is None and recursive is None and not has_paths:
         prune = True
@@ -358,13 +551,25 @@ def app_deploy(
 
 @app.command("validate", requires_connection=True)
 @with_project_definition()
-@force_project_definition_v2()
+@with_app_flow_routing()
 def app_validate(
     **options,
 ):
     """
-    Validates a deployed Snowflake Native App's setup script.
+    Validates the app.
+
+    For Native App projects (application / application package entities):
+      Validates a deployed Snowflake Native App's setup script.
+
+    For Snowflake App projects (snowflake-app entities):
+      Bundles the project, checks that a Dockerfile with an EXPOSE
+      directive exists, and verifies that the current role has the BIND
+      SERVICE ENDPOINT privilege required for deployment.
     """
+    app_flow: AppFlow = options["app_flow"]
+    if app_flow == AppFlow.SNOWFLAKE_APP:
+        return snowflake_app_validate(options.get("entity_id") or None)
+
     cli_context = get_cli_context()
     ws = WorkspaceManager(
         project_definition=cli_context.project_definition,
@@ -404,73 +609,109 @@ DEFAULT_EVENT_FOLLOW_LAST = 20
 
 @app.command("events", requires_connection=True)
 @with_project_definition()
-@force_project_definition_v2(app_required=True)
+@with_app_flow_routing(app_required=True)
 def app_events(
     since: str = typer.Option(
         default="",
-        help="Fetch events that are newer than this time ago, in Snowflake interval syntax.",
+        help="(Native App only) Fetch events that are newer than this time ago, in Snowflake interval syntax.",
     ),
     until: str = typer.Option(
         default="",
-        help="Fetch events that are older than this time ago, in Snowflake interval syntax.",
+        help="(Native App only) Fetch events that are older than this time ago, in Snowflake interval syntax.",
     ),
     record_types: Annotated[
         list[RecordType], typer.Option(case_sensitive=False)
     ] = typer.Option(
         [],
         "--type",
-        help="Restrict results to specific record type. Can be specified multiple times.",
+        help="(Native App only) Restrict results to specific record type. Can be specified multiple times.",
     ),
     scopes: Annotated[list[str], typer.Option()] = typer.Option(
         [],
         "--scope",
-        help="Restrict results to a specific scope name. Can be specified multiple times.",
+        help="(Native App only) Restrict results to a specific scope name. Can be specified multiple times.",
     ),
     consumer_org: str = typer.Option(
-        default="", help="The name of the consumer organization."
+        default="", help="(Native App only) The name of the consumer organization."
     ),
     consumer_account: str = typer.Option(
         default="",
-        help="The name of the consumer account in the organization.",
+        help="(Native App only) The name of the consumer account in the organization.",
     ),
     consumer_app_hash: str = typer.Option(
         default="",
-        help="The SHA-1 hash of the consumer application name",
+        help="(Native App only) The SHA-1 hash of the consumer application name",
     ),
     first: int = typer.Option(
         default=-1,
         show_default=False,
-        help="Fetch only the first N events. Cannot be used with --last.",
+        help="(Native App only) Fetch only the first N events. Cannot be used with --last.",
     ),
     last: int = typer.Option(
-        default=-1,
+        default=_EVENTS_LAST_UNSET,
         show_default=False,
-        help="Fetch only the last N events. Cannot be used with --first.",
+        help=(
+            "Maximum number of events to fetch. "
+            "Native App: cannot be used with --first. "
+            "Snowflake App: number of log lines to retrieve (default: 500, capped at 100KB)."
+        ),
     ),
     follow: bool = typer.Option(
         False,
         "--follow",
         "-f",
         help=(
-            f"Continue polling for events. Implies --last {DEFAULT_EVENT_FOLLOW_LAST} "
+            f"(Native App only) Continue polling for events. Implies --last {DEFAULT_EVENT_FOLLOW_LAST} "
             f"unless overridden or the --since flag is used."
         ),
     ),
     follow_interval: int = typer.Option(
         10,
-        help=f"Polling interval in seconds when using the --follow flag.",
+        help=f"(Native App only) Polling interval in seconds when using the --follow flag.",
     ),
     **options,
 ):
-    """Fetches events for this app from the event table configured in Snowflake.
-
-    By default, this command will fetch events generated by an app installed in the
-    current connection's account. To fetch events generated by an app installed
-    in a consumer account, use the --consumer-org and --consumer-account options.
-    This requires event sharing to be set up to route events to the provider account:
-    https://docs.snowflake.com/en/developer-guide/native-apps/setting-up-logging-and-events
     """
-    if first >= 0 and last >= 0:
+    Fetches recent event / log output from the app.
+
+    For Native App projects (application / application package entities):
+      Fetches events for the app from the event table configured in Snowflake.
+
+      By default this fetches events generated by an app installed in the
+      current connection's account. To fetch events generated by an app
+      installed in a consumer account, use ``--consumer-org`` and
+      ``--consumer-account``. This requires event sharing to be set up:
+      https://docs.snowflake.com/en/developer-guide/native-apps/setting-up-logging-and-events
+
+    For Snowflake App projects (snowflake-app entities):
+      Fetches recent log lines from the deployed application service.
+      Output is capped at 100KB regardless of the number of lines requested.
+    """
+    app_flow: AppFlow = options["app_flow"]
+    if app_flow == AppFlow.SNOWFLAKE_APP:
+        _reject_native_app_options(
+            "events",
+            **{
+                "--since": since or None,
+                "--until": until or None,
+                "--type": record_types if record_types else None,
+                "--scope": scopes if scopes else None,
+                "--consumer-org": consumer_org or None,
+                "--consumer-account": consumer_account or None,
+                "--consumer-app-hash": consumer_app_hash or None,
+                "--first": first if first >= 0 else None,
+                "--follow": True if follow else None,
+                "--follow-interval": (
+                    follow_interval if follow_interval != 10 else None
+                ),
+            },
+        )
+        effective_last = last if last != _EVENTS_LAST_UNSET else None
+        return snowflake_app_events(options.get("entity_id") or None, effective_last)
+
+    native_last = last if last != _EVENTS_LAST_UNSET else -1
+
+    if first >= 0 and native_last >= 0:
         raise IncompatibleParametersError(["--first", "--last"])
 
     if (consumer_org and not consumer_account) or (
@@ -493,10 +734,10 @@ def app_events(
 
     record_type_names = [r.name for r in record_types]
 
-    if follow and last == -1 and not since:
+    if follow and native_last == -1 and not since:
         # If we don't have a value for --last or --since, assume a value
         # for --last so we at least print something before starting the stream
-        last = DEFAULT_EVENT_FOLLOW_LAST
+        native_last = DEFAULT_EVENT_FOLLOW_LAST
     stream: Iterable[CommandResult] = (
         EventResult(event)
         for event in ws.perform_action(
@@ -510,7 +751,7 @@ def app_events(
             consumer_account=consumer_account,
             consumer_app_hash=consumer_app_hash,
             first=first,
-            last=last,
+            last=native_last,
             follow=follow,
             interval_seconds=follow_interval,
         )
@@ -538,6 +779,7 @@ class EventResult(ObjectResult, MessageResult):
 
 @app.command("publish", requires_connection=True)
 @with_project_definition()
+@native_app_only("publish")
 @force_project_definition_v2()
 def app_publish(
     version: Optional[str] = typer.Option(
@@ -580,7 +822,7 @@ def app_publish(
     **options,
 ) -> CommandResult:
     """
-    Adds the version to the release channel and updates the release directive with the new version and patch.
+    (Native App only) Adds the version to the release channel and updates the release directive with the new version and patch.
     """
     cli_context = get_cli_context()
     ws = WorkspaceManager(

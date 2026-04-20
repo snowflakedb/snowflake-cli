@@ -12,14 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Integration tests for ``snow __app setup`` and ``snow __app deploy``."""
+"""Integration tests for ``snow app setup`` and ``snow app deploy``
+against ``snowflake-app`` (Snowflake App) entities."""
 
 from __future__ import annotations
 
 import os
 import uuid
 from pathlib import Path
-from unittest import mock
 
 import pytest
 import yaml
@@ -32,22 +32,6 @@ IMAGE_REPO_NAME = "SNOW_APPS_DEFAULT_IMAGE_REPOSITORY"
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
-
-
-@pytest.fixture()
-def enable_snowflake_apps_feature_flag():
-    """Enable the ENABLE_SNOWFLAKE_APPS feature flag for the duration of a test."""
-    with (
-        mock.patch(
-            "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SNOWFLAKE_APPS.is_enabled",
-            return_value=True,
-        ),
-        mock.patch(
-            "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SNOWFLAKE_APPS.is_disabled",
-            return_value=False,
-        ),
-    ):
-        yield
 
 
 @pytest.fixture()
@@ -101,7 +85,6 @@ def test_snowflake_apps_setup_and_deploy(
     snowflake_session,
     project_directory,
     alter_snowflake_yml,
-    enable_snowflake_apps_feature_flag,
     snowflake_apps_setup,
 ):
     """End-to-end: init a project, patch it, deploy, verify the service exists."""
@@ -134,7 +117,7 @@ def test_snowflake_apps_setup_and_deploy(
 
         # ── Deploy ────────────────────────────────────────────────────
         result = runner.invoke_with_connection(
-            ["__app", "deploy", "--entity-id", "test_app"]
+            ["app", "deploy", "--entity-id", "test_app"]
         )
         assert (
             result.exit_code == 0
@@ -155,12 +138,11 @@ def test_snowflake_apps_setup_and_deploy(
 def test_snowflake_apps_setup_creates_valid_yml(
     runner,
     temporary_working_directory,
-    enable_snowflake_apps_feature_flag,
 ):
-    """``snow __app setup`` should produce a valid snowflake.yml."""
+    """``snow app setup`` should produce a valid snowflake.yml."""
 
     result = runner.invoke_with_connection(
-        ["__app", "setup", "--app-name", "my_test_app"]
+        ["app", "setup", "--app-name", "my_test_app"]
     )
     assert result.exit_code == 0, result.output
     assert "Initialized Snowflake App project" in result.output

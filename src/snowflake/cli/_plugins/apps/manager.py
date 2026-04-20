@@ -44,8 +44,6 @@ log = logging.getLogger(__name__)
 
 DEFINITION_FILENAME = "snowflake.yml"
 SNOWFLAKE_APP_ENTITY_TYPE = "snowflake-app"
-# TODO: Update to "app" after migration from __app
-_APP_COMMAND_NAME = "__app"
 
 
 # Mapping from SHOW PARAMETERS result names to internal resolution keys.
@@ -233,10 +231,7 @@ def _get_snowflake_app_entities() -> Dict[str, Any]:
     project_def = ctx.project_definition
 
     if project_def is None:
-        raise CliError(
-            f"No {DEFINITION_FILENAME} found. "
-            f"Run 'snow {_APP_COMMAND_NAME} setup' first."
-        )
+        raise CliError(f"No {DEFINITION_FILENAME} found. Run 'snow app setup' first.")
 
     # Get entities with type "snowflake-app"
     snowflake_apps = {}
@@ -263,7 +258,7 @@ def _resolve_entity_id(entity_id: Optional[str]) -> str:
     if len(snowflake_apps) == 0:
         raise CliError(
             f"No snowflake-app entities found in {DEFINITION_FILENAME}. "
-            f"Add a snowflake-app entity or run 'snow {_APP_COMMAND_NAME} setup' first."
+            f"Add a snowflake-app entity or run 'snow app setup' first."
         )
     elif len(snowflake_apps) == 1:
         return list(snowflake_apps.keys())[0]
@@ -300,7 +295,8 @@ def perform_bundle(
     temporary *bundle root* directory under ``<project_root>/output/bundle``.
 
     This function is the shared implementation behind both
-    ``snow <__app> bundle`` and the bundling step of ``snow <__app> deploy``.
+    ``snow app bundle`` and the bundling step of ``snow app deploy`` for
+    ``snowflake-app`` entities.
 
     Returns the :class:`ProjectPaths` instance so callers can inspect or
     upload the bundle root, and are responsible for cleanup via
