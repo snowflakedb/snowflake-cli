@@ -223,18 +223,6 @@ def setup(
         raise ClickException(
             "Missing warehouse. Set the DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE account parameter or check your connection."
         )
-    if not resolved["build_compute_pool"][0]:
-        raise ClickException(
-            "Missing build compute pool. Pass --compute-pool or set the DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL account parameter."
-        )
-    if not resolved["service_compute_pool"][0]:
-        raise ClickException(
-            "Missing service compute pool. Pass --compute-pool or set the DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL account parameter."
-        )
-    if not resolved["build_eai"][0]:
-        raise ClickException(
-            "Missing build EAI. Pass --build-eai or set the DEFAULT_SNOWFLAKE_APPS_BUILD_EXTERNAL_ACCESS_INTEGRATION account parameter."
-        )
 
     resolved_values = {k: v[0] for k, v in resolved.items()}
 
@@ -561,19 +549,6 @@ def deploy(
     ar_schema = defaults["artifact_repo_schema"]
     artifact_repo_fqn_str = f"{ar_database}.{ar_schema}.{ar_name}"
 
-    # ── Validate required configuration ───────────────────────────────
-    if run_build and not build_compute_pool:
-        raise CliError(
-            "build_compute_pool is required for the build phase. "
-            "Please configure it in snowflake.yml."
-        )
-
-    if run_deploy and not service_compute_pool:
-        raise CliError(
-            "service_compute_pool is required for the deploy phase. "
-            "Please configure it in snowflake.yml."
-        )
-
     # ── Derived names ─────────────────────────────────────────────────
     stage_fqn = FQN(database=database, schema=schema, name=stage_name)
     service_fqn = FQN(database=database, schema=schema, name=app_name)
@@ -628,7 +603,6 @@ def deploy(
             database=database,
             schema=schema,
             runtime_image=entity.runtime_image,
-            query_warehouse=query_warehouse,
             build_eai=build_eai,
         )
         cli_console.step(f"SPCS_TEST_BUILD_APP_ARTIFACT_REPO output:\n{build_result}")
