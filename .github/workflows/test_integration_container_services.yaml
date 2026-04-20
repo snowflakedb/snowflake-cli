@@ -70,4 +70,5 @@ jobs:
       python-version: ${{ matrix.python-version }}
       python-env: integration
       hatch-run: integration:test_container_services
+      job-name: spcs-integration-fork
     secrets: inherit
