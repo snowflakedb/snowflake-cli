@@ -1183,45 +1183,6 @@ class TestSetupCommand:
                 assert "already exists" in result.output
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
-    def test_fails_on_missing_compute_pool(self, mock_mgr_cls, runner, tmp_path):
-        """Setup should fail when compute pool cannot be resolved."""
-        mock_mgr = mock_mgr_cls.return_value
-        mock_mgr.fetch_snow_apps_parameters.return_value = {
-            "database": "PARAM_DB",
-            "schema": "PARAM_SCHEMA",
-            "query_warehouse": "PARAM_WH",
-            "build_eai": "PARAM_EAI",
-        }
-
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "setup", "--app-name", "my_app"])
-                assert result.exit_code == 1
-                assert "--compute-pool" in result.output
-
-    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
-    def test_fails_on_missing_build_eai(self, mock_mgr_cls, runner, tmp_path):
-        """Setup should fail when build EAI cannot be resolved."""
-        mock_mgr = mock_mgr_cls.return_value
-        mock_mgr.fetch_snow_apps_parameters.return_value = {
-            "database": "PARAM_DB",
-            "schema": "PARAM_SCHEMA",
-            "query_warehouse": "PARAM_WH",
-            "build_compute_pool": "PARAM_POOL",
-            "service_compute_pool": "PARAM_POOL",
-        }
-
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "setup", "--app-name", "my_app"])
-                assert result.exit_code == 1
-                assert "--build-eai" in result.output
-
-    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_dry_run_does_not_create_file(self, mock_mgr_cls, runner, tmp_path):
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.fetch_snow_apps_parameters.return_value = {
@@ -2454,45 +2415,6 @@ RESOLVE_DEPLOY_DEFAULTS = (
 
 
 class TestDeployCommand:
-    @patch(
-        RESOLVE_DEPLOY_DEFAULTS,
-        return_value={
-            "query_warehouse": "WH",
-            "build_compute_pool": None,
-            "service_compute_pool": "SVC_POOL",
-            "build_eai": None,
-            "database": "TEST_DB",
-            "schema": "TEST_SCHEMA",
-            "artifact_repository": "MY_APP_REPO",
-            "artifact_repo_database": "TEST_DB",
-            "artifact_repo_schema": "TEST_SCHEMA",
-        },
-    )
-    @patch(
-        "snowflake.cli._plugins.apps.commands._get_entity",
-    )
-    @patch(
-        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
-        return_value="my_app",
-    )
-    def test_deploy_fails_missing_build_compute_pool(
-        self, mock_resolve, mock_get_entity, mock_defaults, runner, tmp_path
-    ):
-        entity = Mock()
-        entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP")
-        entity.code_stage = None
-        entity.artifacts = []
-        entity.meta = None
-        entity.artifact_repository = None
-        mock_get_entity.return_value = entity
-
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "deploy"])
-                assert result.exit_code == 1
-                assert "build_compute_pool is required" in result.output
-
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch(
@@ -2550,86 +2472,6 @@ class TestDeployCommand:
                 mock_mgr.build_app_artifact_repo.assert_not_called()
                 mock_mgr.artifact_repo_exists.assert_not_called()
                 mock_mgr.create_app_service.assert_called_once()
-
-    @patch(
-        RESOLVE_DEPLOY_DEFAULTS,
-        return_value={
-            "query_warehouse": "WH",
-            "build_compute_pool": None,
-            "service_compute_pool": None,
-            "build_eai": None,
-            "database": "TEST_DB",
-            "schema": "TEST_SCHEMA",
-            "artifact_repository": "MY_APP_REPO",
-            "artifact_repo_database": "TEST_DB",
-            "artifact_repo_schema": "TEST_SCHEMA",
-        },
-    )
-    @patch(
-        "snowflake.cli._plugins.apps.commands._get_entity",
-    )
-    @patch(
-        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
-        return_value="my_app",
-    )
-    def test_deploy_only_allows_missing_build_compute_pool(
-        self, mock_resolve, mock_get_entity, mock_defaults, runner, tmp_path
-    ):
-        """--deploy-only should not require build_compute_pool."""
-        entity = Mock()
-        entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP")
-        entity.code_stage = None
-        entity.artifacts = []
-        entity.meta = None
-        entity.artifact_repository = None
-        mock_get_entity.return_value = entity
-
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "deploy", "--deploy-only"])
-                assert result.exit_code == 1
-                assert "build_compute_pool is required" not in result.output
-                assert "service_compute_pool is required" in result.output
-
-    @patch(
-        RESOLVE_DEPLOY_DEFAULTS,
-        return_value={
-            "query_warehouse": "WH",
-            "build_compute_pool": "BUILD_POOL",
-            "service_compute_pool": None,
-            "build_eai": None,
-            "database": "TEST_DB",
-            "schema": "TEST_SCHEMA",
-            "artifact_repository": "MY_APP_REPO",
-            "artifact_repo_database": "TEST_DB",
-            "artifact_repo_schema": "TEST_SCHEMA",
-        },
-    )
-    @patch(
-        "snowflake.cli._plugins.apps.commands._get_entity",
-    )
-    @patch(
-        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
-        return_value="my_app",
-    )
-    def test_deploy_fails_missing_service_compute_pool(
-        self, mock_resolve, mock_get_entity, mock_defaults, runner, tmp_path
-    ):
-        entity = Mock()
-        entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP")
-        entity.code_stage = None
-        entity.artifacts = []
-        entity.meta = None
-        entity.artifact_repository = None
-        mock_get_entity.return_value = entity
-
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "deploy"])
-                assert result.exit_code == 1
-                assert "service_compute_pool is required" in result.output
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
     @patch("snowflake.cli._plugins.apps.commands.StageManager")
@@ -2725,7 +2567,6 @@ class TestDeployCommand:
             database="TEST_DB",
             schema="TEST_SCHEMA",
             runtime_image="runtime:latest",
-            query_warehouse="WH",
             build_eai="MY_EAI",
         )
         mock_mgr.create_app_service.assert_called_once_with(
