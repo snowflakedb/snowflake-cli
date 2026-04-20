@@ -1931,7 +1931,7 @@ class TestOpenCommand:
             _write_snowflake_app_yml(tmp_path)
             result = runner.invoke(["app", "open"])
             assert result.exit_code == 0, result.output
-            assert "https://my-app.snowflakecomputing.app" in result.output
+            assert result.output.strip() == "https://my-app.snowflakecomputing.app"
             mock_launch.assert_called_once_with("https://my-app.snowflakecomputing.app")
 
     @patch("snowflake.cli._plugins.apps.commands.typer.launch")
@@ -1963,7 +1963,7 @@ class TestOpenCommand:
             _write_snowflake_app_yml(tmp_path)
             result = runner.invoke(["app", "open", "--print-only"])
             assert result.exit_code == 0, result.output
-            assert "https://my-app.snowflakecomputing.app" in result.output
+            assert result.output.strip() == "https://my-app.snowflakecomputing.app"
             mock_launch.assert_not_called()
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
