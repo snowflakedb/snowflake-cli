@@ -36,6 +36,7 @@ def mock_decl():
         m.fetch_applied_state.return_value = mock.MagicMock(name="state")
         m.validate_specs.return_value = []
         m.generate_plan.return_value = mock.MagicMock(name="plan", ops=[], warnings=[])
+        m.serialize_plan.return_value = '{"version": "1", "plan": {"ops": [], "warnings": []}, "summary": {}, "created_at": "", "target_database": "TEST_DB", "target_schema": "TEST_SCHEMA", "source_files": []}'
         m.state_queries.return_value = {
             "show_ofts": "SHOW ONLINE FEATURE TABLES IN SCHEMA TEST_DB.TEST_SCHEMA",
             "show_tables": "SHOW TABLES LIKE '%' IN SCHEMA TEST_DB.TEST_SCHEMA",
