@@ -490,3 +490,151 @@ class TestApplySqlUsesConnectionContext:
                 call_kwargs.kwargs.get("database") == "MY_DB"
                 or call_kwargs[0][2] == "MY_DB"
             )
+
+
+# ---------------------------------------------------------------------------
+# write_plan + apply with plan_file
+# ---------------------------------------------------------------------------
+
+
+class TestWritePlanIntegration:
+    """Integration tests: write_plan() uses real decl library, mocked SQL."""
+
+    def test_write_plan_creates_json_file(self, spec_dir, mock_execute_query, tmp_path):
+        """write_plan() produces a valid JSON plan file on disk."""
+        import json
+
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        out_path = str(tmp_path / "plan.json")
+        mgr = FeatureManager()
+        mgr.write_plan(
+            input_files=[f"{spec_dir}/*.yaml"],
+            config=None,
+            dev_mode=True,
+            out_path=out_path,
+        )
+        content = (tmp_path / "plan.json").read_text()
+        parsed = json.loads(content)
+        assert parsed["version"] == "1"
+        assert "plan" in parsed
+        assert "ops" in parsed["plan"]
+        assert "summary" in parsed
+
+    def test_write_plan_records_source_files(
+        self, spec_dir, mock_execute_query, tmp_path
+    ):
+        """write_plan() records the input file paths in source_files."""
+        import json
+
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        out_path = str(tmp_path / "plan.json")
+        mgr = FeatureManager()
+        mgr.write_plan(
+            input_files=[f"{spec_dir}/*.yaml"],
+            config=None,
+            dev_mode=True,
+            out_path=out_path,
+        )
+        parsed = json.loads((tmp_path / "plan.json").read_text())
+        assert isinstance(parsed["source_files"], list)
+
+    def test_write_plan_records_target_info(
+        self, spec_dir, mock_execute_query, mock_cli_context, tmp_path
+    ):
+        """write_plan() records target_database and target_schema from connection."""
+        import json
+
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        out_path = str(tmp_path / "plan.json")
+        mgr = FeatureManager()
+        mgr.write_plan(
+            input_files=[f"{spec_dir}/*.yaml"],
+            config=None,
+            dev_mode=True,
+            out_path=out_path,
+        )
+        parsed = json.loads((tmp_path / "plan.json").read_text())
+        assert parsed["target_database"] == "TEST_DB"
+        assert parsed["target_schema"] == "TEST_SCHEMA"
+
+
+class TestApplyWithPlanFileIntegration:
+    """Integration tests: apply(plan_file=...) reads JSON and executes the plan."""
+
+    def test_apply_from_plan_file_returns_dict(
+        self, spec_dir, mock_execute_query, mock_cli_context, tmp_path
+    ):
+        """apply(plan_file=...) with a real plan file returns a result dict."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.ml.feature_store.decl.types import ApplyResult
+
+        # First generate a plan file via write_plan
+        plan_path = str(tmp_path / "plan.json")
+        mgr = FeatureManager()
+        mgr.write_plan(
+            input_files=[f"{spec_dir}/*.yaml"],
+            config=None,
+            dev_mode=True,
+            out_path=plan_path,
+        )
+
+        # Now apply from the plan file
+        mock_result = ApplyResult(status="applied", ops=[])
+        with mock.patch(
+            "snowflake.ml.feature_store.decl.api.execute_plan",
+            return_value=mock_result,
+        ), mock.patch.object(mgr, "_build_session", return_value=mock.MagicMock()):
+            result = mgr.apply(
+                input_files=[],
+                config=None,
+                dry_run=False,
+                dev_mode=False,
+                overwrite=False,
+                allow_recreate=False,
+                plan_file=plan_path,
+            )
+        assert isinstance(result, dict)
+
+    def test_apply_from_plan_file_skips_state_queries(
+        self, spec_dir, mock_execute_query, mock_cli_context, tmp_path
+    ):
+        """apply(plan_file=...) skips SHOW queries since state is pre-computed."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.ml.feature_store.decl.types import ApplyResult
+
+        plan_path = str(tmp_path / "plan.json")
+        mgr = FeatureManager()
+        mgr.write_plan(
+            input_files=[f"{spec_dir}/*.yaml"],
+            config=None,
+            dev_mode=True,
+            out_path=plan_path,
+        )
+
+        # Reset call count after write_plan
+        mock_execute_query.reset_mock()
+
+        mock_result = ApplyResult(status="applied", ops=[])
+        with mock.patch(
+            "snowflake.ml.feature_store.decl.api.execute_plan",
+            return_value=mock_result,
+        ), mock.patch.object(mgr, "_build_session", return_value=mock.MagicMock()):
+            mgr.apply(
+                input_files=[],
+                config=None,
+                dry_run=False,
+                dev_mode=False,
+                overwrite=False,
+                allow_recreate=False,
+                plan_file=plan_path,
+            )
+
+        # No SHOW queries should be run when using a pre-computed plan
+        for call in mock_execute_query.call_args_list:
+            sql = str(call[0][0]) if call[0] else ""
+            assert (
+                "SHOW ONLINE FEATURE TABLES" not in sql
+            ), f"State query executed unnecessarily: {sql}"
