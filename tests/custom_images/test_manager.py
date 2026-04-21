@@ -20,6 +20,8 @@ from unittest import mock
 import pytest
 from click import ClickException
 from snowflake.cli._plugins.custom_images.manager import CustomImageManager
+from snowflake.cli._plugins.custom_images.metrics import CustomImageCounterField
+from snowflake.cli.api.cli_global_context import _CLI_CONTEXT_MANAGER, get_cli_context
 
 from tests.custom_images.test_helpers import (
     create_mock_side_effect,
@@ -30,6 +32,13 @@ from tests.custom_images.test_helpers import (
 
 class TestCustomImageManager:
     """Tests for CustomImageManager validation."""
+
+    @pytest.fixture(autouse=True)
+    def reset_cli_context(self):
+        """Reset the CLI context before each test to get fresh metrics."""
+        token = _CLI_CONTEXT_MANAGER.set(None)
+        yield
+        _CLI_CONTEXT_MANAGER.reset(token)
 
     @pytest.fixture
     def config_path(self, tmp_path) -> Path:
@@ -82,6 +91,18 @@ notebook_checks:
         assert not report.all_passed
         assert any(
             r.check_name == "image_exists" and not r.passed for r in report.results
+        )
+        metrics = get_cli_context().metrics
+        assert metrics.get_counter(CustomImageCounterField.CUSTOM_IMAGE_VALIDATE) == 1
+        assert (
+            metrics.get_counter(CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAILED)
+            == 1
+        )
+        assert (
+            metrics.get_counter(
+                CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_IMAGE_NOT_FOUND
+            )
+            == 1
         )
 
     @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
@@ -174,6 +195,11 @@ notebook_checks:
         report, _ = manager.validate("test-image:latest")
 
         assert report.all_passed == expected_pass
+        m = get_cli_context().metrics
+        assert m.get_counter(CustomImageCounterField.CUSTOM_IMAGE_VALIDATE) == 1
+        assert m.get_counter(
+            CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAILED
+        ) == int(not expected_pass)
 
     @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
     def test_grype_not_installed(self, mock_run, config_path):
@@ -226,6 +252,9 @@ checks:
         assert "entrypoint" in check_names
         assert "dependency_health" not in check_names
         assert "vulnerability_scan" not in check_names
+        m = get_cli_context().metrics
+        assert m.get_counter(CustomImageCounterField.CUSTOM_IMAGE_VALIDATE) == 1
+        assert m.get_counter(CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAILED) == 0
 
     @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
     def test_notebook_ready_when_script_present(self, mock_run, config_path):
@@ -253,6 +282,9 @@ checks:
         )
         assert script_result.passed
         assert "Ready for: ML Jobs, Notebooks" in output
+        m = get_cli_context().metrics
+        assert m.get_counter(CustomImageCounterField.CUSTOM_IMAGE_VALIDATE) == 1
+        assert m.get_counter(CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAILED) == 0
 
     @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
     def test_ml_job_only_when_script_missing(self, mock_run, config_path):
@@ -282,6 +314,15 @@ checks:
         assert not script_result.passed
         assert "Ready for: ML Jobs" in output
         assert "Notebooks" not in output
+        m = get_cli_context().metrics
+        assert m.get_counter(CustomImageCounterField.CUSTOM_IMAGE_VALIDATE) == 1
+        assert m.get_counter(CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAILED) == 1
+        assert (
+            m.get_counter(
+                CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_REQUIRED_SCRIPTS
+            )
+            == 1
+        )
 
     @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
     def test_required_scripts_empty_list(self, mock_run, tmp_path):
@@ -325,6 +366,127 @@ notebook_checks:
         check_names = [r.check_name for r in report.results]
         assert not any(name.startswith("script_") for name in check_names)
         assert "Ready for: ML Jobs, Notebooks" in output
+
+    @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
+    def test_metrics_entrypoint_failure(self, mock_run, config_path):
+        """Entrypoint mismatch: failed=1, fail_entrypoint=1."""
+        inspect_response = make_docker_inspect_response(
+            entrypoint=["/wrong/entrypoint.sh"],
+            env_vars=["DASHBOARD_PORT=12003"],
+        )
+        mock_run.side_effect = create_mock_side_effect(
+            inspect_response=inspect_response
+        )
+        manager = CustomImageManager(config_path=config_path)
+        manager.validate("test-image:latest")
+
+        m = get_cli_context().metrics
+        assert m.get_counter(CustomImageCounterField.CUSTOM_IMAGE_VALIDATE) == 1
+        assert m.get_counter(CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAILED) == 1
+        assert (
+            m.get_counter(CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_ENTRYPOINT)
+            == 1
+        )
+
+    @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
+    def test_metrics_env_var_failure(self, mock_run, config_path):
+        """Missing env var: failed=1, fail_env_vars=1."""
+        inspect_response = make_docker_inspect_response(
+            entrypoint=["/usr/local/bin/entrypoint.sh"],
+            env_vars=[],
+        )
+        pip_list = make_pip_list_response(
+            [
+                {"name": "snowflake-ml-python", "version": "1.0"},
+                {"name": "ray", "version": "2.0"},
+            ]
+        )
+        mock_run.side_effect = create_mock_side_effect(
+            inspect_response=inspect_response,
+            pip_list_response=pip_list,
+        )
+        manager = CustomImageManager(config_path=config_path)
+        manager.validate("test-image:latest")
+
+        m = get_cli_context().metrics
+        assert m.get_counter(CustomImageCounterField.CUSTOM_IMAGE_VALIDATE) == 1
+        assert m.get_counter(CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAILED) == 1
+        assert (
+            m.get_counter(CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_ENV_VARS)
+            == 1
+        )
+        assert (
+            m.get_counter(CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_ENTRYPOINT)
+            == 0
+        )
+
+    @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
+    def test_metrics_python_package_failure(self, mock_run, config_path):
+        """Missing package: failed=1, fail_python_packages=1."""
+        inspect_response = make_docker_inspect_response(
+            entrypoint=["/usr/local/bin/entrypoint.sh"],
+            env_vars=["DASHBOARD_PORT=12003"],
+        )
+        pip_list = make_pip_list_response(
+            [{"name": "snowflake-ml-python", "version": "1.0"}]  # ray missing
+        )
+        mock_run.side_effect = create_mock_side_effect(
+            inspect_response=inspect_response,
+            pip_list_response=pip_list,
+        )
+        manager = CustomImageManager(config_path=config_path)
+        manager.validate("test-image:latest")
+
+        m = get_cli_context().metrics
+        assert m.get_counter(CustomImageCounterField.CUSTOM_IMAGE_VALIDATE) == 1
+        assert m.get_counter(CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAILED) == 1
+        assert (
+            m.get_counter(
+                CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_PYTHON_PACKAGES
+            )
+            == 1
+        )
+        assert (
+            m.get_counter(CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_ENV_VARS)
+            == 0
+        )
+
+    @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
+    def test_metrics_dependency_health_failure(self, mock_run, config_path):
+        """Broken dependencies: failed=1, fail_dependency_health=1."""
+        inspect_response = make_docker_inspect_response(
+            entrypoint=["/usr/local/bin/entrypoint.sh"],
+            env_vars=["DASHBOARD_PORT=12003"],
+        )
+        pip_list = make_pip_list_response(
+            [
+                {"name": "snowflake-ml-python", "version": "1.0"},
+                {"name": "ray", "version": "2.0"},
+            ]
+        )
+        mock_run.side_effect = create_mock_side_effect(
+            inspect_response=inspect_response,
+            pip_list_response=pip_list,
+            pip_check_result=(1, "broken-pkg 1.0 requires missing-pkg"),
+        )
+        manager = CustomImageManager(config_path=config_path)
+        manager.validate("test-image:latest")
+
+        m = get_cli_context().metrics
+        assert m.get_counter(CustomImageCounterField.CUSTOM_IMAGE_VALIDATE) == 1
+        assert m.get_counter(CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAILED) == 1
+        assert (
+            m.get_counter(
+                CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_DEPENDENCY_HEALTH
+            )
+            == 1
+        )
+        assert (
+            m.get_counter(
+                CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_PYTHON_PACKAGES
+            )
+            == 0
+        )
 
 
 @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")

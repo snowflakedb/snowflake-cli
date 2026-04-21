@@ -12,13 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from enum import Enum
 from pathlib import Path
+from typing import Optional
 
 import typer
 from click import ClickException
 from snowflake.cli._plugins.custom_images.manager import CustomImageManager
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import CommandResult, MessageResult
+
+
+class BaseImageType(str, Enum):
+    cpu = "cpu"
+    gpu = "gpu"
+
 
 CONFIG_DIR = Path(__file__).parent / "config"
 DEFAULT_CONFIG_PATH = CONFIG_DIR / "image_validation.yaml"
@@ -35,7 +43,50 @@ def _callback():
     pass
 
 
-@app.command(requires_connection=False)
+@app.command(requires_connection=True)
+def register(
+    image: str = typer.Argument(
+        ...,
+        help="Local Docker image to push. Accepts image name (e.g., 'myimage:latest') or image ID/hash.",
+    ),
+    registry: str = typer.Argument(
+        ...,
+        help="Full destination registry reference including host (e.g., 'org-acct.registry.snowflakecomputing.com/db/schema/repo/image:tag').",
+    ),
+    skip_validation: bool = typer.Option(
+        False,
+        "--skip-validation",
+        help="Skip custom image validation and only push the image to the registry.",
+    ),
+    base_image_type: Optional[BaseImageType] = typer.Option(
+        None,
+        "--base-image-type",
+        help="Base image type for CRE creation (cpu or gpu). Required when --skip-validation is not set.",
+    ),
+    cre_name: Optional[str] = typer.Option(
+        None,
+        "--name",
+        help="Name for the Custom Runtime Environment. Defaults to 'mlruntimes_<uuid8>' if not provided.",
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Pushes a local Docker image to an image registry.
+
+    Without --skip-validation, also validates the image by creating a Custom Runtime Environment (CRE) in Snowflake.
+    """
+    manager = CustomImageManager(config_path=DEFAULT_CONFIG_PATH)
+    message = manager.register(
+        image=image,
+        registry=registry,
+        skip_validation=skip_validation,
+        base_image_type=base_image_type.value if base_image_type else None,
+        cre_name=cre_name,
+    )
+    return MessageResult(message)
+
+
+@app.command(requires_connection=True)
 def validate(
     image: str = typer.Argument(
         ...,

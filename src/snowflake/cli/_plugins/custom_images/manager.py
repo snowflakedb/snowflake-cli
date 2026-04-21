@@ -14,12 +14,17 @@
 
 import json
 import subprocess
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
 import yaml
 from click import ClickException
+from snowflake.cli._plugins.custom_images.metrics import CustomImageCounterField
+from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.project.util import to_identifier
+from snowflake.cli.api.sql_execution import SqlExecutionMixin
 
 _FAIL_SEVERITIES = {"high", "critical"}
 
@@ -115,10 +120,11 @@ class ValidationReport:
         self.results.append(result)
 
 
-class CustomImageManager:
+class CustomImageManager(SqlExecutionMixin):
     """Manager for custom image validation operations."""
 
     def __init__(self, config_path: Path):
+        super().__init__()
         self.config_path = config_path
         self.config = self._load_config(self.config_path)
         # Config-driven checks (controlled by image_validation.yaml)
@@ -180,6 +186,38 @@ class CustomImageManager:
             pass
         return None
 
+    def _record_validate_metrics(self, report: ValidationReport) -> None:
+        """Record validation failure rate and failure reasons as CLI metrics."""
+        metrics = get_cli_context().metrics
+        metrics.set_counter(CustomImageCounterField.CUSTOM_IMAGE_VALIDATE, 1)
+
+        # Map check_name prefixes to their failure counter fields
+        check_counters = {
+            "image_exists": CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_IMAGE_NOT_FOUND,
+            "entrypoint": CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_ENTRYPOINT,
+            "env_": CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_ENV_VARS,
+            "pkg_": CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_PYTHON_PACKAGES,
+            "dependency_health": CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_DEPENDENCY_HEALTH,
+            "script_": CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_REQUIRED_SCRIPTS,
+        }
+
+        # Initialize all failure counters to 0 (check ran, no failure)
+        for counter in check_counters.values():
+            metrics.set_counter_default(counter, 0)
+
+        overall_failed = False
+        for result in report.results:
+            if not result.passed:
+                overall_failed = True
+                for prefix, counter in check_counters.items():
+                    if result.check_name.startswith(prefix):
+                        metrics.set_counter(counter, 1)
+                        break
+
+        metrics.set_counter(
+            CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAILED, int(overall_failed)
+        )
+
     def validate(
         self, image: str, scan_vulnerabilities: bool = False
     ) -> tuple[ValidationReport, str]:
@@ -203,6 +241,7 @@ class CustomImageManager:
                     message=f"Image '{image}' not found. Please ensure the image exists locally.",
                 )
             )
+            self._record_validate_metrics(report)
             return report, format_report(report)
 
         report.add_result(
@@ -225,6 +264,7 @@ class CustomImageManager:
             # Stop early if entrypoint check fails (file missing or mismatch)
             # Entrypoint is fundamental - other checks are irrelevant if it's wrong
             if not entrypoint_result.passed:
+                self._record_validate_metrics(report)
                 return report, format_report(report)
 
         for check_name, handler in self._check_handlers.items():
@@ -270,6 +310,7 @@ class CustomImageManager:
         if common_passed and notebook_all_passed:
             readiness.append("Notebooks")
 
+        self._record_validate_metrics(report)
         return report, format_report(report, readiness)
 
     def _check_entrypoint(
@@ -559,6 +600,80 @@ class CustomImageManager:
             check_name="vulnerability_scan",
             passed=False,
             message=msg,
+        )
+
+    def _parse_image_path(self, registry: str) -> str:
+        """Strip the hostname from a registry URL to get the image path for CRE.
+
+        Example: 'host.snowflakecomputing.com/db/schema/repo/image:tag'
+                 -> '/db/schema/repo/image:tag'
+        """
+        slash_idx = registry.find("/")
+        if slash_idx == -1:
+            raise ClickException(
+                f"Invalid registry format '{registry}': expected '<host>/<path>'."
+            )
+        return registry[slash_idx:]
+
+    def register(
+        self,
+        image: str,
+        registry: str,
+        skip_validation: bool = False,
+        base_image_type: Optional[str] = None,
+        cre_name: Optional[str] = None,
+    ) -> str:
+        """Tag and push a local Docker image to an image registry, optionally creating a CRE.
+
+        Args:
+            image: Local Docker image name or hash.
+            registry: Full destination registry reference (e.g., host/db/schema/repo/image:tag).
+            skip_validation: If True, only push the image without creating a CRE.
+            base_image_type: Required when skip_validation is False. Used for CRE creation.
+            cre_name: Optional CRE name. Defaults to 'mlruntimes_<8-char-uuid>'.
+
+        Returns:
+            A success message string.
+        """
+        if not skip_validation and not base_image_type:
+            raise ClickException(
+                "--base-image-type is required when not using --skip-validation."
+            )
+
+        # Tag the local image with the registry destination
+        returncode, _, stderr = self._run_docker_command(
+            ["docker", "tag", image, registry]
+        )
+        if returncode != 0:
+            raise ClickException(
+                f"Failed to tag image '{image}' as '{registry}': {stderr}"
+            )
+
+        # Push the tagged image to the registry
+        returncode, _, stderr = self._run_docker_command(
+            ["docker", "push", registry], timeout=600
+        )
+        if returncode != 0:
+            raise ClickException(f"Failed to push image to '{registry}': {stderr}")
+
+        if skip_validation:
+            return f"Successfully pushed '{image}' to '{registry}'."
+
+        # Create the Custom Runtime Environment
+        if not cre_name:
+            cre_name = f"mlruntimes_{uuid.uuid4().hex[:8]}"
+
+        image_path = self._parse_image_path(registry)
+        sql = (
+            f"CREATE CUSTOM RUNTIME ENVIRONMENT {to_identifier(cre_name)} "
+            f"IMAGE_PATH = '{image_path}' "
+            f"BASE_IMAGE_TYPE = {base_image_type}"
+        )
+        self.execute_query(sql)
+
+        return (
+            f"Successfully pushed '{image}' to '{registry}' "
+            f"and created Custom Runtime Environment '{cre_name}'."
         )
 
 
