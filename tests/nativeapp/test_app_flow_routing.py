@@ -25,6 +25,8 @@ from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
     has_snowflake_app_entities_only,
 )
 
+from tests_common import change_directory
+
 
 def _make_project(entity_types_by_id):
     """Build a fake project definition whose ``entities`` dict maps id -> Mock
@@ -207,7 +209,6 @@ class TestCrossFlowOptionValidation:
 
     def test_snowflake_app_rejects_native_app_deploy_options(self, runner, tmp_path):
         self._write_yml(tmp_path, _SNOWFLAKE_APP_YML)
-        from tests_common import change_directory
 
         with change_directory(tmp_path):
             result = runner.invoke(["app", "deploy", "--prune"])
@@ -218,7 +219,6 @@ class TestCrossFlowOptionValidation:
 
     def test_native_app_rejects_snowflake_app_deploy_options(self, runner, tmp_path):
         self._write_yml(tmp_path, _NATIVE_APP_YML)
-        from tests_common import change_directory
 
         with change_directory(tmp_path):
             result = runner.invoke(["app", "deploy", "--upload-only"])
@@ -229,7 +229,6 @@ class TestCrossFlowOptionValidation:
 
     def test_snowflake_app_rejects_native_app_events_options(self, runner, tmp_path):
         self._write_yml(tmp_path, _SNOWFLAKE_APP_YML)
-        from tests_common import change_directory
 
         with change_directory(tmp_path):
             result = runner.invoke(["app", "events", "--follow"])
@@ -246,7 +245,6 @@ class TestNativeAppOnlyGuards:
 
     def test_run_on_snowflake_app_project_errors(self, runner, tmp_path):
         (tmp_path / "snowflake.yml").write_text(_SNOWFLAKE_APP_YML)
-        from tests_common import change_directory
 
         with change_directory(tmp_path):
             result = runner.invoke(["app", "run"])
@@ -256,10 +254,18 @@ class TestNativeAppOnlyGuards:
 
     def test_publish_on_snowflake_app_project_errors(self, runner, tmp_path):
         (tmp_path / "snowflake.yml").write_text(_SNOWFLAKE_APP_YML)
-        from tests_common import change_directory
 
         with change_directory(tmp_path):
             result = runner.invoke(["app", "publish"])
+
+        assert result.exit_code != 0
+        assert "only available for Native App" in result.output
+
+    def test_diff_on_snowflake_app_project_errors(self, runner, tmp_path):
+        (tmp_path / "snowflake.yml").write_text(_SNOWFLAKE_APP_YML)
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "diff"])
 
         assert result.exit_code != 0
         assert "only available for Native App" in result.output

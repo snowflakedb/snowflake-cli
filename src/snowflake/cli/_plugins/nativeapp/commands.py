@@ -709,7 +709,9 @@ def app_events(
         effective_last = last if last != _EVENTS_LAST_UNSET else None
         return snowflake_app_events(options.get("entity_id") or None, effective_last)
 
-    native_last = last if last != _EVENTS_LAST_UNSET else -1
+    # The Native App flow already treats -1 as "not set", which is exactly
+    # the value of _EVENTS_LAST_UNSET, so forward the CLI value unchanged.
+    native_last = last
 
     if first >= 0 and native_last >= 0:
         raise IncompatibleParametersError(["--first", "--last"])
