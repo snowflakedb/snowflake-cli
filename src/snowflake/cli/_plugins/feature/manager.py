@@ -43,6 +43,59 @@ def _rows_to_dicts(rows) -> list[dict[str, Any]]:
 class FeatureManager(SqlExecutionMixin):
     """Thin CLI adapter — delegates all business logic to decl_api."""
 
+    def _target_info(self) -> dict[str, str]:
+        """Return connection target db/schema/warehouse for result dicts."""
+        ctx = get_cli_context()
+        return {
+            "target_database": ctx.connection.database or "",
+            "target_schema": ctx.connection.schema or "",
+            "target_warehouse": ctx.connection.warehouse or "",
+        }
+
+    # ------------------------------------------------------------------
+    # init
+    # ------------------------------------------------------------------
+
+    def init(self, no_scaffold: bool = False) -> dict[str, Any]:
+        """Initialize a feature store: create schema, tags, metadata tables.
+
+        If *no_scaffold* is False, also creates local project directories
+        ``entities/``, ``datasources/``, and ``feature_views/`` in the
+        current working directory.
+        """
+        ctx = get_cli_context()
+        db = ctx.connection.database
+        schema = ctx.connection.schema
+        wh = ctx.connection.warehouse or ""
+
+        session = self._build_session()
+        # Lazy import to avoid heavy deps at module level
+        from snowflake.ml.feature_store.feature_store import (
+            CreationMode,
+            FeatureStore,
+        )
+
+        FeatureStore(
+            session,
+            db,
+            schema,
+            wh,
+            creation_mode=CreationMode.CREATE_IF_NOT_EXIST,
+        )
+
+        dirs_created: list[str] = []
+        if not no_scaffold:
+            for d in ["entities", "datasources", "feature_views"]:
+                os.makedirs(d, exist_ok=True)
+                dirs_created.append(d)
+
+        return {
+            "status": "initialized",
+            "database": db,
+            "schema": schema,
+            "directories": dirs_created,
+        }
+
     # ------------------------------------------------------------------
     # generate_example
     # ------------------------------------------------------------------
@@ -118,6 +171,7 @@ class FeatureManager(SqlExecutionMixin):
                 else "dry_run"
             )
             return {
+                **self._target_info(),
                 "status": status,
                 "ops": result.ops,
                 "executed": 0,
@@ -132,6 +186,7 @@ class FeatureManager(SqlExecutionMixin):
         ]
         if errors:
             return {
+                **self._target_info(),
                 "status": "validation_failed",
                 "ops": [],
                 "executed": 0,
@@ -151,6 +206,7 @@ class FeatureManager(SqlExecutionMixin):
         )
 
         return {
+            **self._target_info(),
             "status": result.status,
             "ops": result.ops,
             "executed": len([o for o in result.ops if o.get("status") == "success"]),
@@ -188,7 +244,7 @@ class FeatureManager(SqlExecutionMixin):
                     self.execute_query(desc_sql, cursor_class=DictCursor)
                 )
             enriched = decl_api.enrich_list_results(rows, describe_map)
-            return {"source": "snowflake", "specs": enriched}
+            return {**self._target_info(), "source": "snowflake", "specs": enriched}
         except Exception as exc:
             log.warning("list query raised %s: %s", type(exc).__name__, exc)
             return {"status": "error", "error": str(exc)}
