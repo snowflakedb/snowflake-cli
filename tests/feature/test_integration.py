@@ -345,8 +345,74 @@ class TestValidationErrorPath:
 
 
 # ---------------------------------------------------------------------------
-# apply — SQL uses connection db/schema when specs omit them
+# init — end-to-end with mocked Session/FeatureStore
 # ---------------------------------------------------------------------------
+
+
+class TestInitIntegration:
+    def test_init_returns_initialized_status(
+        self, mock_execute_query, tmp_path, monkeypatch
+    ):
+        """init() end-to-end returns status='initialized' with mocked FeatureStore."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        monkeypatch.chdir(tmp_path)
+        mgr = FeatureManager()
+        with mock.patch.object(
+            mgr, "_build_session", return_value=mock.MagicMock()
+        ), mock.patch(
+            "snowflake.ml.feature_store.feature_store.FeatureStore"
+        ), mock.patch(
+            "snowflake.ml.feature_store.feature_store.CreationMode"
+        ) as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            result = mgr.init(no_scaffold=True)
+        assert result["status"] == "initialized"
+
+    def test_init_scaffold_creates_directories(
+        self, mock_execute_query, tmp_path, monkeypatch
+    ):
+        """init() creates the 3 scaffold directories when no_scaffold=False."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        monkeypatch.chdir(tmp_path)
+        mgr = FeatureManager()
+        with mock.patch.object(
+            mgr, "_build_session", return_value=mock.MagicMock()
+        ), mock.patch(
+            "snowflake.ml.feature_store.feature_store.FeatureStore"
+        ), mock.patch(
+            "snowflake.ml.feature_store.feature_store.CreationMode"
+        ) as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            result = mgr.init(no_scaffold=False)
+        assert set(result["directories"]) == {
+            "entities",
+            "datasources",
+            "feature_views",
+        }
+        for d in ("entities", "datasources", "feature_views"):
+            assert (tmp_path / d).is_dir()
+
+    def test_init_no_scaffold_skips_directories(
+        self, mock_execute_query, tmp_path, monkeypatch
+    ):
+        """init(no_scaffold=True) returns empty directories list."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        monkeypatch.chdir(tmp_path)
+        mgr = FeatureManager()
+        with mock.patch.object(
+            mgr, "_build_session", return_value=mock.MagicMock()
+        ), mock.patch(
+            "snowflake.ml.feature_store.feature_store.FeatureStore"
+        ), mock.patch(
+            "snowflake.ml.feature_store.feature_store.CreationMode"
+        ) as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            result = mgr.init(no_scaffold=True)
+        assert result["directories"] == []
+
 
 _FV_NO_DB_YAML = textwrap.dedent(
     """\
