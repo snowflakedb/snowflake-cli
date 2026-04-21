@@ -19,7 +19,7 @@ from typing import Dict
 log = logging.getLogger(__name__)
 
 # Feature flags
-IS_PERSONAL_DB_SUPPORTED = False  # Will be enabled in the future
+IS_PERSONAL_DB_SUPPORTED = True
 
 
 def _generate_snowflake_yml(

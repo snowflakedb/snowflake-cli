@@ -50,7 +50,7 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     ObjectResult,
 )
-from snowflake.cli.api.project.util import get_env_username, identifier_for_url
+from snowflake.cli.api.project.util import identifier_for_url
 from snowflake.connector.errors import ProgrammingError
 
 # ── Source provenance labels ──────────────────────────────────────────
@@ -146,21 +146,23 @@ def setup(
     session_db = getattr(conn, "database", None) or conn_config.get("database") or None
     session_schema = getattr(conn, "schema", None) or conn_config.get("schema") or None
 
-    personal_db = (
-        f"USER${get_env_username().upper()}" if IS_PERSONAL_DB_SUPPORTED else None
-    )
+    personal_db = "USER$" if IS_PERSONAL_DB_SUPPORTED else None
 
     # ── Resolve each field ────────────────────────────────────────────
+    db_result = _resolve(
+        account_param=params.get("database"),
+        default_value=personal_db,
+        current_session=session_db,
+    )
+    default_schema = "APPS" if db_result[0] == personal_db else None
+
     resolved = {
-        "database": _resolve(
-            account_param=params.get("database"),
-            default_value=personal_db,
-            current_session=session_db,
-        ),
+        "database": db_result,
         # TODO: Support per-app schema (e.g. APPS.APP_<app_id>) instead of
         # a single shared schema for all apps.
         "schema": _resolve(
             account_param=params.get("schema"),
+            default_value=default_schema,
             current_session=session_schema,
         ),
         "warehouse": _resolve(
@@ -215,6 +217,8 @@ def setup(
     else:
         cli_console.step(f"Initialized Snowflake App project in {DEFINITION_FILENAME}.")
     for key, (value, source) in resolved.items():
+        if source == SOURCE_MISSING:
+            continue
         cli_console.step(f"  {key}: {value}  ({source})")
     return EmptyResult()
 

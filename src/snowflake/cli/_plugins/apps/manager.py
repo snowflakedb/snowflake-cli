@@ -182,13 +182,11 @@ def _resolve_deploy_defaults(
         param_vals = dict(raw_params)
 
     # ── 3. Built-in defaults ────────────────────────────────────────────
-    from snowflake.cli.api.project.util import get_env_username
-
     default_vals: Dict[str, Optional[str]] = {
         "artifact_repository": f"{app_name}_REPO",
     }
     if IS_PERSONAL_DB_SUPPORTED:
-        default_vals["database"] = f"USER${get_env_username().upper()}"
+        default_vals["database"] = "USER$"
 
     # ── 4. Current session values ─────────────────────────────────────
     ctx = get_cli_context()
@@ -217,6 +215,10 @@ def _resolve_deploy_defaults(
                 break
         else:
             resolved[key] = None
+
+    # If database resolved to personal db and schema is still unset, default to APPS.
+    if resolved.get("database") == "USER$" and not resolved.get("schema"):
+        resolved["schema"] = "APPS"
 
     # Artifact repo db/schema default to the resolved database/schema.
     if not resolved.get("artifact_repo_database"):
