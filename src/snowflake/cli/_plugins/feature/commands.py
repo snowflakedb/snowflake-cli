@@ -134,6 +134,24 @@ def _print_target_header(result: dict) -> None:
     sys.stderr.flush()
 
 
+def _print_mode_header(input_files: list) -> None:
+    """Print directory vs file mode message to stderr."""
+    import os
+
+    is_dir_mode = (not input_files) or (
+        len(input_files) == 1 and os.path.isdir(input_files[0])
+    )
+    if is_dir_mode:
+        sys.stderr.write("Mode: full directory (deletion detection enabled)\n")
+    else:
+        sys.stderr.write(
+            "Warning: Operating on individual files — deletion detection is disabled.\n"
+            "Objects in Snowflake not represented in these files will NOT be dropped.\n"
+            "Use directory mode for full desired-state management.\n"
+        )
+    sys.stderr.flush()
+
+
 # ---------------------------------------------------------------------------
 # init
 # ---------------------------------------------------------------------------
@@ -191,6 +209,8 @@ def apply(
             "At least one file is required (or --plan <path>).",
             param_hint="INPUT_FILES",
         )
+    if plan is None:
+        _print_mode_header(input_files or [])
     result = FeatureManager().apply(
         input_files=input_files or [],
         config=config,
@@ -241,6 +261,9 @@ def plan(
         )
 
     import os
+
+    _print_mode_header(input_files or [])
+
     from datetime import datetime as _dt
 
     if out is None:
