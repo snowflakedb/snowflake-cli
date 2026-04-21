@@ -479,7 +479,6 @@ class TestStreamlitCommands(StreamlitTestClass):
     ):
         with project_directory("example_streamlit") as tmp_dir:
             (tmp_dir / "environment.yml").unlink()
-            import shutil
             shutil.rmtree(tmp_dir / "pages")
             with mock.patch(
                 "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists",
