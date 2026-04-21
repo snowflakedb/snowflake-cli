@@ -525,6 +525,64 @@ def test_query_help_shows_keys_option(mock_manager, runner):
 
 
 # ---------------------------------------------------------------------------
+# init
+# ---------------------------------------------------------------------------
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_init_help_shows_command(mock_manager, runner):
+    """init --help should show the init command with --no-scaffold option."""
+    result = runner.invoke(["feature", "init", "--help"])
+    assert result.exit_code == 0, result.output
+    output = result.output.lower()
+    assert "--no-scaffold" in output
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_init_calls_manager_init(mock_manager, runner):
+    """init should call FeatureManager.init()."""
+    mock_manager.return_value.init.return_value = {
+        "status": "initialized",
+        "database": "DB",
+        "schema": "SCH",
+        "directories": ["entities", "datasources", "feature_views"],
+    }
+    result = runner.invoke(["feature", "init"])
+    assert result.exit_code == 0, result.output
+    mock_manager.return_value.init.assert_called_once()
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_init_no_scaffold_flag(mock_manager, runner):
+    """init --no-scaffold should pass no_scaffold=True to FeatureManager.init."""
+    mock_manager.return_value.init.return_value = {
+        "status": "initialized",
+        "database": "DB",
+        "schema": "SCH",
+        "directories": [],
+    }
+    result = runner.invoke(["feature", "init", "--no-scaffold"])
+    assert result.exit_code == 0, result.output
+    call_kwargs = mock_manager.return_value.init.call_args[1]
+    assert call_kwargs["no_scaffold"] is True
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_init_default_no_scaffold_is_false(mock_manager, runner):
+    """init without --no-scaffold should pass no_scaffold=False."""
+    mock_manager.return_value.init.return_value = {
+        "status": "initialized",
+        "database": "DB",
+        "schema": "SCH",
+        "directories": ["entities", "datasources", "feature_views"],
+    }
+    result = runner.invoke(["feature", "init"])
+    assert result.exit_code == 0, result.output
+    call_kwargs = mock_manager.return_value.init.call_args[1]
+    assert call_kwargs["no_scaffold"] is False
+
+
+# ---------------------------------------------------------------------------
 # export
 # ---------------------------------------------------------------------------
 

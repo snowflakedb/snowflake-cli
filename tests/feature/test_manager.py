@@ -383,6 +383,206 @@ def _make_describe_rows(entity_col="USER_ID"):
     ]
 
 
+# ---------------------------------------------------------------------------
+# target_info
+# ---------------------------------------------------------------------------
+
+
+class TestTargetInfo:
+    def test_apply_result_contains_target_database(self, mock_execute_query, mock_decl):
+        """apply() result includes target_database from the CLI connection context."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        result = mgr.apply(
+            input_files=["specs.yaml"],
+            config=None,
+            dry_run=True,
+            dev_mode=False,
+            overwrite=False,
+            allow_recreate=False,
+        )
+        assert "target_database" in result
+        assert result["target_database"] == "TEST_DB"
+
+    def test_apply_result_contains_target_schema(self, mock_execute_query, mock_decl):
+        """apply() result includes target_schema from the CLI connection context."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        result = mgr.apply(
+            input_files=["specs.yaml"],
+            config=None,
+            dry_run=True,
+            dev_mode=False,
+            overwrite=False,
+            allow_recreate=False,
+        )
+        assert "target_schema" in result
+        assert result["target_schema"] == "TEST_SCHEMA"
+
+    def test_apply_result_contains_target_warehouse(
+        self, mock_execute_query, mock_decl
+    ):
+        """apply() result includes target_warehouse from the CLI connection context."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        result = mgr.apply(
+            input_files=["specs.yaml"],
+            config=None,
+            dry_run=True,
+            dev_mode=False,
+            overwrite=False,
+            allow_recreate=False,
+        )
+        assert "target_warehouse" in result
+        assert result["target_warehouse"] == "TEST_WH"
+
+    def test_apply_wet_run_result_contains_target_info(
+        self, mock_execute_query, mock_decl
+    ):
+        """apply() wet run also returns target info."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        result = mgr.apply(
+            input_files=["specs.yaml"],
+            config=None,
+            dry_run=False,
+            dev_mode=False,
+            overwrite=False,
+            allow_recreate=False,
+        )
+        assert result.get("target_database") == "TEST_DB"
+        assert result.get("target_schema") == "TEST_SCHEMA"
+
+    def test_list_specs_from_snowflake_contains_target_info(
+        self, mock_execute_query, mock_decl
+    ):
+        """list_specs() from Snowflake returns target info."""
+        mock_decl.enrich_list_results.return_value = []
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        result = mgr.list_specs(input_files=(), config=None)
+        assert "target_database" in result
+        assert result["target_database"] == "TEST_DB"
+        assert "target_schema" in result
+        assert result["target_schema"] == "TEST_SCHEMA"
+
+    def test_target_info_empty_when_connection_has_no_warehouse(
+        self, mock_execute_query, mock_decl, mock_cli_context
+    ):
+        """target_warehouse is empty string when connection warehouse is None."""
+        mock_cli_context.return_value.connection.warehouse = None
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        result = mgr.apply(
+            input_files=["specs.yaml"],
+            config=None,
+            dry_run=True,
+            dev_mode=False,
+            overwrite=False,
+            allow_recreate=False,
+        )
+        assert result.get("target_warehouse") == ""
+
+
+# ---------------------------------------------------------------------------
+# init
+# ---------------------------------------------------------------------------
+
+
+class TestFeatureManagerInit:
+    def test_init_calls_feature_store_with_create_if_not_exist(
+        self, mock_execute_query, mock_cli_context
+    ):
+        """init() constructs FeatureStore with CreationMode.CREATE_IF_NOT_EXIST."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        with mock.patch(
+            "snowflake.ml.feature_store.feature_store.FeatureStore"
+        ) as mock_fs_cls, mock.patch(
+            "snowflake.ml.feature_store.feature_store.CreationMode"
+        ) as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            mgr.init(no_scaffold=True)
+            mock_fs_cls.assert_called_once()
+            call_kwargs = mock_fs_cls.call_args[1]
+            assert call_kwargs["creation_mode"] == mock_cm.CREATE_IF_NOT_EXIST
+
+    def test_init_no_scaffold_skips_directory_creation(
+        self, mock_execute_query, mock_cli_context, tmp_path, monkeypatch
+    ):
+        """init(no_scaffold=True) should not create any local directories."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        monkeypatch.chdir(tmp_path)
+        mgr = FeatureManager()
+        with mock.patch(
+            "snowflake.ml.feature_store.feature_store.FeatureStore"
+        ), mock.patch(
+            "snowflake.ml.feature_store.feature_store.CreationMode"
+        ) as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            result = mgr.init(no_scaffold=True)
+        assert result["directories"] == []
+        assert not (tmp_path / "entities").exists()
+        assert not (tmp_path / "datasources").exists()
+        assert not (tmp_path / "feature_views").exists()
+
+    def test_init_creates_three_directories(
+        self, mock_execute_query, mock_cli_context, tmp_path, monkeypatch
+    ):
+        """init() (scaffold=True default) creates entities/, datasources/, feature_views/."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        monkeypatch.chdir(tmp_path)
+        mgr = FeatureManager()
+        with mock.patch(
+            "snowflake.ml.feature_store.feature_store.FeatureStore"
+        ), mock.patch(
+            "snowflake.ml.feature_store.feature_store.CreationMode"
+        ) as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            result = mgr.init(no_scaffold=False)
+        assert set(result["directories"]) == {
+            "entities",
+            "datasources",
+            "feature_views",
+        }
+        assert (tmp_path / "entities").is_dir()
+        assert (tmp_path / "datasources").is_dir()
+        assert (tmp_path / "feature_views").is_dir()
+
+    def test_init_returns_status_initialized(
+        self, mock_execute_query, mock_cli_context, tmp_path, monkeypatch
+    ):
+        """init() returns a dict with status='initialized'."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        monkeypatch.chdir(tmp_path)
+        mgr = FeatureManager()
+        with mock.patch(
+            "snowflake.ml.feature_store.feature_store.FeatureStore"
+        ), mock.patch(
+            "snowflake.ml.feature_store.feature_store.CreationMode"
+        ) as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            result = mgr.init(no_scaffold=True)
+        assert result["status"] == "initialized"
+        assert result["database"] == "TEST_DB"
+        assert result["schema"] == "TEST_SCHEMA"
+
+
+# ---------------------------------------------------------------------------
+# export_specs
+# ---------------------------------------------------------------------------
+
+
 class TestFeatureManagerExportSpecs:
     """Tests for export_specs — verifies SQL execution and decl_api delegation."""
 
