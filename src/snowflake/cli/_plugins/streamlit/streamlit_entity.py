@@ -1,6 +1,6 @@
+import json
 import logging
 from pathlib import Path
-import json
 from typing import Any, Dict, Optional
 
 from click import ClickException
@@ -142,11 +142,17 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
 
         if legacy:
             self._deploy_legacy(
-                bundle_map=bundle_map, replace=replace, prune=prune, object_exists=object_exists
+                bundle_map=bundle_map,
+                replace=replace,
+                prune=prune,
+                object_exists=object_exists,
             )
         else:
             self._deploy_versioned(
-                bundle_map=bundle_map, replace=replace, prune=prune, object_exists=object_exists
+                bundle_map=bundle_map,
+                replace=replace,
+                prune=prune,
+                object_exists=object_exists,
             )
 
         return self.perform(EntityActions.GET_URL, action_context, *args, **kwargs)
@@ -163,7 +169,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         self, schema: Optional[str] = None, database: Optional[str] = None
     ):
         # this query unlike most others doesn't accept fqn wrapped in `IDENTIFIER('')`
-        return f"ALTER STREAMLIT {self._get_identifier(schema,database)} ADD LIVE VERSION FROM LAST;"
+        return f"ALTER STREAMLIT {self._get_identifier(schema, database)} ADD LIVE VERSION FROM LAST;"
 
     def get_alter_sql(
         self,
@@ -218,11 +224,16 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             clauses.append(f"TITLE = '{desired_title}'")
 
         desired_comment = _str(self.model.comment)
-        if desired_comment and (not current or _str(cur.get("comment")) != desired_comment):
+        if desired_comment and (
+            not current or _str(cur.get("comment")) != desired_comment
+        ):
             clauses.append(f"COMMENT = '{desired_comment}'")
 
         desired_eais = _list(self.model.external_access_integrations)
-        if desired_eais and (not current or _list(cur.get("external_access_integrations")) != desired_eais):
+        if desired_eais and (
+            not current
+            or _list(cur.get("external_access_integrations")) != desired_eais
+        ):
             clauses.append(self.model.get_external_access_integrations_sql())
 
         if not legacy:
@@ -237,15 +248,23 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 clauses.append(self.model.get_secrets_sql())
 
         if not from_stage_name and not legacy and self._is_spcs_runtime_v2_mode():
-            if not current or _id(cur.get("runtime_name")) != _id(self.model.runtime_name):
+            if not current or _id(cur.get("runtime_name")) != _id(
+                self.model.runtime_name
+            ):
                 clauses.append(f"RUNTIME_NAME = '{self.model.runtime_name}'")
-            if not current or _id(cur.get("compute_pool")) != _id(self.model.compute_pool):
+            if not current or _id(cur.get("compute_pool")) != _id(
+                self.model.compute_pool
+            ):
                 clauses.append(f"COMPUTE_POOL = '{self.model.compute_pool}'")
 
         if not clauses:
             return None
 
-        return f"ALTER STREAMLIT {self._get_sql_identifier(schema, database)} SET\n" + "\n".join(clauses) + ";"
+        return (
+            f"ALTER STREAMLIT {self._get_sql_identifier(schema, database)} SET\n"
+            + "\n".join(clauses)
+            + ";"
+        )
 
     def get_deploy_sql(
         self,
@@ -259,7 +278,6 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         *args,
         **kwargs,
     ) -> str:
-
         if replace:
             query = "CREATE OR REPLACE STREAMLIT"
         elif if_not_exists:
@@ -343,7 +361,11 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             return False
 
     def _deploy_legacy(
-        self, bundle_map: BundleMap, replace: bool = False, prune: bool = False, object_exists: bool = False
+        self,
+        bundle_map: BundleMap,
+        replace: bool = False,
+        prune: bool = False,
+        object_exists: bool = False,
     ):
         console = self._workspace_ctx.console
         console.step(f"Uploading artifacts to stage {self.model.stage}")
@@ -388,7 +410,11 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         StreamlitManager(connection=self._conn).grant_privileges(self.model)
 
     def _deploy_versioned(
-        self, bundle_map: BundleMap, replace: bool = False, prune: bool = False, object_exists: bool = False
+        self,
+        bundle_map: BundleMap,
+        replace: bool = False,
+        prune: bool = False,
+        object_exists: bool = False,
     ):
         if object_exists:
             current = self.describe().fetchone()
