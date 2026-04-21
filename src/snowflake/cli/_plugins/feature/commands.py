@@ -176,20 +176,29 @@ def apply(
     config: Optional[str] = typer.Option(
         None, "--config", help="Path to Jinja2 config file.", show_default=False
     ),
+    plan: Optional[str] = typer.Option(
+        None,
+        "--plan",
+        help="Path to a pre-computed plan JSON file (from 'snow feature plan'). "
+        "When provided, spec files are not re-loaded and state is not re-queried.",
+        show_default=False,
+    ),
     **options,
 ) -> CommandResult:
     """Apply spec files to Snowflake, creating or updating feature-store objects."""
-    if not input_files:
+    if plan is None and not input_files:
         raise typer.BadParameter(
-            "At least one file is required.", param_hint="INPUT_FILES"
+            "At least one file is required (or --plan <path>).",
+            param_hint="INPUT_FILES",
         )
     result = FeatureManager().apply(
-        input_files=input_files,
+        input_files=input_files or [],
         config=config,
         dry_run=dry,
         dev_mode=dev,
         overwrite=overwrite,
         allow_recreate=allow_recreate,
+        plan_file=plan,
     )
     if result.get("status") == "validation_failed":
         return _to_object(result)
@@ -212,13 +221,40 @@ def plan(
     config: Optional[str] = typer.Option(
         None, "--config", help="Path to Jinja2 config file.", show_default=False
     ),
+    out: Optional[str] = typer.Option(
+        None,
+        "--out",
+        help="Path to write the plan JSON file. Defaults to "
+        ".snowflake/plans/feature_plan_<timestamp>.json.",
+        show_default=False,
+    ),
     **options,
 ) -> CommandResult:
-    """Show what would change if the spec files were applied (dry-run of apply)."""
+    """Show what would change if the spec files were applied (dry-run of apply).
+
+    The plan is also written to a JSON file so it can be applied later with
+    'snow feature apply --plan <path>'.
+    """
     if not input_files:
         raise typer.BadParameter(
             "At least one file is required.", param_hint="INPUT_FILES"
         )
+
+    import os
+    from datetime import datetime as _dt
+
+    if out is None:
+        ts = _dt.now().strftime("%Y%m%dT%H%M%S")
+        out = os.path.join(".snowflake", "plans", f"feature_plan_{ts}.json")
+
+    plan_path = FeatureManager().write_plan(
+        input_files=input_files,
+        config=config,
+        dev_mode=dev,
+        out_path=out,
+    )
+
+    # Also run a dry-run apply for the display result
     result = FeatureManager().apply(
         input_files=input_files,
         config=config,
@@ -229,6 +265,9 @@ def plan(
     )
     if result.get("status") == "validation_failed":
         return _to_object(result)
+
+    # Append plan file path to result for display
+    result["plan_file"] = plan_path
     return _ops_result(result)
 
 
