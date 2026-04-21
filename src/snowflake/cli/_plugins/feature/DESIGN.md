@@ -56,6 +56,7 @@ under the key `"feature"`.
 
 | CLI command             | Manager method       | Notes                                |
 |-------------------------|----------------------|--------------------------------------|
+| `snow feature init`     | `init()`             | Creates schema/tags, scaffolds dirs  |
 | `snow feature apply`    | `apply()`            | Orchestrates full load→plan→execute  |
 | `snow feature plan`     | `apply(dry_run=True)`| Alias for apply in dry-run mode      |
 | `snow feature list`     | `list_specs()`       | Files → from file; no args → Snowflake |
