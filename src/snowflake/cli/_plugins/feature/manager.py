@@ -40,6 +40,25 @@ def _rows_to_dicts(rows) -> list[dict[str, Any]]:
     return [dict(r) for r in rows]
 
 
+def _is_directory_mode(input_files: Sequence[str]) -> bool:
+    """Return True when input represents a full directory (deletion detection enabled).
+
+    Directory mode is active when:
+    - ``input_files`` is empty (implies cwd), or
+    - ``input_files`` contains exactly one entry that is an existing directory.
+
+    All other cases (multiple entries, or a single non-directory path) are
+    treated as explicit file mode — deletion detection is disabled.
+    """
+    import os
+
+    if not input_files:
+        return True
+    if len(input_files) == 1 and os.path.isdir(input_files[0]):
+        return True
+    return False
+
+
 class FeatureManager(SqlExecutionMixin):
     """Thin CLI adapter — delegates all business logic to decl_api."""
 
@@ -136,6 +155,16 @@ class FeatureManager(SqlExecutionMixin):
 
         # 1. Fetch state via decl_api query strings
         sqls = decl_api.state_queries(ctx.connection.database, ctx.connection.schema)
+
+        # Determine directory vs explicit-file mode for deletion detection
+        dir_mode = _is_directory_mode(list(input_files))
+        if not dir_mode:
+            log.warning(
+                "Operating on individual files — deletion detection is disabled. "
+                "Objects in Snowflake not represented in these files will NOT be "
+                "dropped. Use directory mode for full desired-state management."
+            )
+
         raw_show = _rows_to_dicts(
             self.execute_query(sqls["show_ofts"], cursor_class=DictCursor)
         )
@@ -167,6 +196,7 @@ class FeatureManager(SqlExecutionMixin):
             dev_mode=dev_mode,
             overwrite=overwrite,
             allow_recreate=allow_recreate,
+            full_directory_mode=dir_mode,
         )
 
         if dry_run:
