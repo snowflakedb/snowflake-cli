@@ -697,3 +697,265 @@ class TestFeatureManagerExportSpecs:
         assert result["status"] == "exported"
         assert result["files"] == []
         mock_decl.export_specs.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# write_plan
+# ---------------------------------------------------------------------------
+
+
+class TestWritePlan:
+    def test_write_plan_creates_file(self, mock_execute_query, mock_decl, tmp_path):
+        """write_plan() writes a JSON file to the given path."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        out_path = str(tmp_path / "plan.json")
+        mgr = FeatureManager()
+        mgr.write_plan(
+            input_files=["specs.yaml"],
+            config=None,
+            dev_mode=False,
+            out_path=out_path,
+        )
+        assert (tmp_path / "plan.json").exists()
+
+    def test_write_plan_file_is_valid_json(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """File written by write_plan() is valid JSON."""
+        import json
+
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        out_path = str(tmp_path / "plan.json")
+        mgr = FeatureManager()
+        mgr.write_plan(
+            input_files=["specs.yaml"],
+            config=None,
+            dev_mode=False,
+            out_path=out_path,
+        )
+        content = (tmp_path / "plan.json").read_text()
+        parsed = json.loads(content)
+        assert isinstance(parsed, dict)
+        assert parsed["version"] == "1"
+
+    def test_write_plan_returns_path(self, mock_execute_query, mock_decl, tmp_path):
+        """write_plan() returns the path to the written file."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        out_path = str(tmp_path / "plan.json")
+        mgr = FeatureManager()
+        result = mgr.write_plan(
+            input_files=["specs.yaml"],
+            config=None,
+            dev_mode=False,
+            out_path=out_path,
+        )
+        assert result == out_path
+
+    def test_write_plan_creates_parent_dirs(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """write_plan() creates parent directories if they don't exist."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        out_path = str(tmp_path / "plans" / "subdir" / "plan.json")
+        mgr = FeatureManager()
+        mgr.write_plan(
+            input_files=["specs.yaml"],
+            config=None,
+            dev_mode=False,
+            out_path=out_path,
+        )
+        assert (tmp_path / "plans" / "subdir" / "plan.json").exists()
+
+    def test_write_plan_calls_load_specs(self, mock_execute_query, mock_decl, tmp_path):
+        """write_plan() calls decl_api.load_specs with the provided files."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        out_path = str(tmp_path / "plan.json")
+        mgr = FeatureManager()
+        mgr.write_plan(
+            input_files=["specs.yaml"],
+            config=None,
+            dev_mode=False,
+            out_path=out_path,
+        )
+        mock_decl.load_specs.assert_called_once()
+
+    def test_write_plan_calls_generate_plan(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """write_plan() calls decl_api.generate_plan."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        out_path = str(tmp_path / "plan.json")
+        mgr = FeatureManager()
+        mgr.write_plan(
+            input_files=["specs.yaml"],
+            config=None,
+            dev_mode=False,
+            out_path=out_path,
+        )
+        mock_decl.generate_plan.assert_called_once()
+
+    def test_write_plan_calls_serialize_plan(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """write_plan() calls decl_api.serialize_plan."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mock_decl.serialize_plan.return_value = '{"version": "1", "plan": {"ops": [], "warnings": []}, "summary": {}, "created_at": "", "target_database": "TEST_DB", "target_schema": "TEST_SCHEMA", "source_files": []}'
+        out_path = str(tmp_path / "plan.json")
+        mgr = FeatureManager()
+        mgr.write_plan(
+            input_files=["specs.yaml"],
+            config=None,
+            dev_mode=False,
+            out_path=out_path,
+        )
+        mock_decl.serialize_plan.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# apply with plan_file
+# ---------------------------------------------------------------------------
+
+
+class TestApplyWithPlanFile:
+    def _write_plan_file(self, path: str) -> None:
+        """Write a minimal plan JSON file for testing apply(plan_file=...)."""
+        import json
+
+        plan_data = {
+            "version": "1",
+            "created_at": "2024-01-01T00:00:00",
+            "target_database": "TEST_DB",
+            "target_schema": "TEST_SCHEMA",
+            "source_files": ["specs.yaml"],
+            "plan": {"ops": [], "warnings": []},
+            "summary": {},
+        }
+        with open(path, "w") as f:
+            json.dump(plan_data, f)
+
+    def test_apply_with_plan_file_returns_dict(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """apply(plan_file=...) returns a dict."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        plan_path = str(tmp_path / "plan.json")
+        self._write_plan_file(plan_path)
+
+        plan_file_obj = mock_decl.deserialize_plan.return_value
+        plan_file_obj.plan = mock_decl.generate_plan.return_value
+        plan_file_obj.target_database = "TEST_DB"
+        plan_file_obj.target_schema = "TEST_SCHEMA"
+
+        mgr = FeatureManager()
+        result = mgr.apply(
+            input_files=[],
+            config=None,
+            dry_run=False,
+            dev_mode=False,
+            overwrite=False,
+            allow_recreate=False,
+            plan_file=plan_path,
+        )
+        assert isinstance(result, dict)
+
+    def test_apply_with_plan_file_calls_deserialize(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """apply(plan_file=...) calls decl_api.deserialize_plan with the file content."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        plan_path = str(tmp_path / "plan.json")
+        self._write_plan_file(plan_path)
+
+        plan_file_obj = mock_decl.deserialize_plan.return_value
+        plan_file_obj.plan = mock_decl.generate_plan.return_value
+        plan_file_obj.target_database = "TEST_DB"
+        plan_file_obj.target_schema = "TEST_SCHEMA"
+
+        mgr = FeatureManager()
+        mgr.apply(
+            input_files=[],
+            config=None,
+            dry_run=False,
+            dev_mode=False,
+            overwrite=False,
+            allow_recreate=False,
+            plan_file=plan_path,
+        )
+        mock_decl.deserialize_plan.assert_called_once()
+
+    def test_apply_with_plan_file_skips_load_specs(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """apply(plan_file=...) does not call load_specs (plan is pre-computed)."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        plan_path = str(tmp_path / "plan.json")
+        self._write_plan_file(plan_path)
+
+        plan_file_obj = mock_decl.deserialize_plan.return_value
+        plan_file_obj.plan = mock_decl.generate_plan.return_value
+        plan_file_obj.target_database = "TEST_DB"
+        plan_file_obj.target_schema = "TEST_SCHEMA"
+
+        mgr = FeatureManager()
+        mgr.apply(
+            input_files=[],
+            config=None,
+            dry_run=False,
+            dev_mode=False,
+            overwrite=False,
+            allow_recreate=False,
+            plan_file=plan_path,
+        )
+        mock_decl.load_specs.assert_not_called()
+
+    def test_apply_with_plan_file_skips_generate_plan(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """apply(plan_file=...) does not call generate_plan (plan is pre-computed)."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        plan_path = str(tmp_path / "plan.json")
+        self._write_plan_file(plan_path)
+
+        plan_file_obj = mock_decl.deserialize_plan.return_value
+        plan_file_obj.plan = mock_decl.generate_plan.return_value
+        plan_file_obj.target_database = "TEST_DB"
+        plan_file_obj.target_schema = "TEST_SCHEMA"
+
+        mgr = FeatureManager()
+        mgr.apply(
+            input_files=[],
+            config=None,
+            dry_run=False,
+            dev_mode=False,
+            overwrite=False,
+            allow_recreate=False,
+            plan_file=plan_path,
+        )
+        mock_decl.generate_plan.assert_not_called()
+
+    def test_apply_without_plan_file_still_works(self, mock_execute_query, mock_decl):
+        """apply() with no plan_file uses the normal code path."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        result = mgr.apply(
+            input_files=["specs.yaml"],
+            config=None,
+            dry_run=True,
+            dev_mode=False,
+            overwrite=False,
+            allow_recreate=False,
+        )
+        assert isinstance(result, dict)
+        mock_decl.load_specs.assert_called_once()
