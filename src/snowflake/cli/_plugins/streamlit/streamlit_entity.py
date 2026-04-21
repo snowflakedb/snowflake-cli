@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
-from typing import Optional
+import json
+from typing import Any, Dict, Optional
 
 from click import ClickException
 from snowflake.cli._plugins.connection.util import make_snowsight_url
@@ -170,43 +171,81 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         schema: Optional[str] = None,
         database: Optional[str] = None,
         legacy: bool = False,
-    ) -> str:
-        query = f"ALTER STREAMLIT {self._get_sql_identifier(schema, database)} SET"
+        current: Optional[Dict[str, Any]] = None,
+    ) -> Optional[str]:
+        def _str(v: Any) -> str:
+            return (v or "").strip()
+
+        def _id(v: Any) -> str:
+            return (v or "").strip().upper()
+
+        def _list(v: Any) -> list:
+            if not v:
+                return []
+            if isinstance(v, str):
+                try:
+                    v = json.loads(v)
+                except (ValueError, TypeError):
+                    return []
+            return sorted(s.upper() for s in v)
+
+        cur = current or {}
+        clauses = []
 
         if from_stage_name:
-            query += f"\nROOT_LOCATION = '{from_stage_name}'"
+            clauses.append(f"ROOT_LOCATION = '{from_stage_name}'")
 
         if legacy:
-            query += f"\nMAIN_FILE = '{self._entity_model.main_file}'"
+            desired = _str(self._entity_model.main_file)
+            if not current or _str(cur.get("main_file")) != desired:
+                clauses.append(f"MAIN_FILE = '{desired}'")
 
-        if self.model.imports:
-            query += "\n" + self.model.get_imports_sql()
+        if _list(self.model.imports) != _list(cur.get("import_urls")) or not current:
+            if self.model.imports:
+                clauses.append(self.model.get_imports_sql())
 
-        if self.model.query_warehouse:
-            query += f"\nQUERY_WAREHOUSE = {self.model.query_warehouse}"
-        else:
+        desired_wh = self.model.query_warehouse
+        if not desired_wh:
             self._workspace_ctx.console.warning(
                 "[Deprecation] In next major version we will remove default query_warehouse='streamlit'."
             )
-            query += f"\nQUERY_WAREHOUSE = 'streamlit'"
+            desired_wh = "streamlit"
+        if not current or _id(cur.get("query_warehouse")) != _id(desired_wh):
+            clauses.append(f"QUERY_WAREHOUSE = {desired_wh}")
 
-        if self.model.title:
-            query += f"\nTITLE = '{self.model.title}'"
+        desired_title = _str(self.model.title)
+        if desired_title and (not current or _str(cur.get("title")) != desired_title):
+            clauses.append(f"TITLE = '{desired_title}'")
 
-        if self.model.comment:
-            query += f"\nCOMMENT = '{self.model.comment}'"
+        desired_comment = _str(self.model.comment)
+        if desired_comment and (not current or _str(cur.get("comment")) != desired_comment):
+            clauses.append(f"COMMENT = '{desired_comment}'")
 
-        if self.model.external_access_integrations:
-            query += "\n" + self.model.get_external_access_integrations_sql()
+        desired_eais = _list(self.model.external_access_integrations)
+        if desired_eais and (not current or _list(cur.get("external_access_integrations")) != desired_eais):
+            clauses.append(self.model.get_external_access_integrations_sql())
 
-        if self.model.secrets and not legacy:
-            query += "\n" + self.model.get_secrets_sql()
+        if not legacy:
+            desired_secrets = self.model.secrets or {}
+            cur_secrets = cur.get("external_access_secrets") or {}
+            if isinstance(cur_secrets, str):
+                try:
+                    cur_secrets = json.loads(cur_secrets)
+                except (ValueError, TypeError):
+                    cur_secrets = {}
+            if desired_secrets and (not current or cur_secrets != desired_secrets):
+                clauses.append(self.model.get_secrets_sql())
 
         if not from_stage_name and not legacy and self._is_spcs_runtime_v2_mode():
-            query += f"\nRUNTIME_NAME = '{self.model.runtime_name}'"
-            query += f"\nCOMPUTE_POOL = '{self.model.compute_pool}'"
+            if not current or _id(cur.get("runtime_name")) != _id(self.model.runtime_name):
+                clauses.append(f"RUNTIME_NAME = '{self.model.runtime_name}'")
+            if not current or _id(cur.get("compute_pool")) != _id(self.model.compute_pool):
+                clauses.append(f"COMPUTE_POOL = '{self.model.compute_pool}'")
 
-        return query + ";"
+        if not clauses:
+            return None
+
+        return f"ALTER STREAMLIT {self._get_sql_identifier(schema, database)} SET\n" + "\n".join(clauses) + ";"
 
     def get_deploy_sql(
         self,
@@ -331,9 +370,12 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         console.step(f"Creating Streamlit object {self.model.fqn.sql_identifier}")
 
         if object_exists:
-            self._execute_query(
-                self.get_alter_sql(from_stage_name=stage_root, legacy=True)
+            current = self.describe().fetchone()
+            alter_sql = self.get_alter_sql(
+                from_stage_name=stage_root, legacy=True, current=current
             )
+            if alter_sql:
+                self._execute_query(alter_sql)
         else:
             self._execute_query(
                 self.get_deploy_sql(
@@ -349,7 +391,10 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         self, bundle_map: BundleMap, replace: bool = False, prune: bool = False, object_exists: bool = False
     ):
         if object_exists:
-            self._execute_query(self.get_alter_sql())
+            current = self.describe().fetchone()
+            alter_sql = self.get_alter_sql(current=current)
+            if alter_sql:
+                self._execute_query(alter_sql)
         else:
             self._execute_query(
                 self.get_deploy_sql(
@@ -366,7 +411,11 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             else:
                 raise
 
-        stage_root = self.describe().fetchone()["live_version_location_uri"]
+        stage_root = (
+            current["live_version_location_uri"]
+            if object_exists
+            else self.describe().fetchone()["live_version_location_uri"]
+        )
         stage_path_parts = StageManager().stage_path_parts_from_str(stage_root)
 
         sync_deploy_root_with_stage(
