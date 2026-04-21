@@ -116,8 +116,22 @@ class FeatureManager(SqlExecutionMixin):
         dev_mode: bool,
         overwrite: bool,
         allow_recreate: bool,
+        plan_file: Optional[str] = None,
     ) -> dict[str, Any]:
-        """Load → validate → plan → generate SQL → (execute if not dry_run)."""
+        """Load → validate → plan → generate SQL → (execute if not dry_run).
+
+        If *plan_file* is provided, skip spec loading and plan generation —
+        deserialize the pre-computed plan from the file and execute it.
+        """
+        if plan_file is not None:
+            return self._apply_from_plan_file(
+                plan_file=plan_file,
+                dry_run=dry_run,
+                dev_mode=dev_mode,
+                overwrite=overwrite,
+                allow_recreate=allow_recreate,
+            )
+
         ctx = get_cli_context()
 
         # 1. Fetch state via decl_api query strings
@@ -213,6 +227,139 @@ class FeatureManager(SqlExecutionMixin):
             "warnings": result.warnings,
             "errors": result.errors,
         }
+
+    # ------------------------------------------------------------------
+    # _apply_from_plan_file (private helper)
+    # ------------------------------------------------------------------
+
+    def _apply_from_plan_file(
+        self,
+        plan_file: str,
+        dry_run: bool,
+        dev_mode: bool,
+        overwrite: bool,
+        allow_recreate: bool,
+    ) -> dict[str, Any]:
+        """Execute a pre-computed plan loaded from a JSON plan file."""
+        from pathlib import Path
+
+        from snowflake.ml.feature_store.decl.types import PlanOptions
+
+        json_str = Path(plan_file).read_text()
+        pf = decl_api.deserialize_plan(json_str)
+        plan = pf.plan
+        database = pf.target_database
+        schema = pf.target_schema
+
+        options = PlanOptions(
+            dev_mode=dev_mode,
+            overwrite=overwrite,
+            allow_recreate=allow_recreate,
+        )
+
+        if dry_run:
+            ops = getattr(plan, "ops", [])
+            return {
+                "status": "dry_run",
+                "ops": [
+                    {
+                        "operation": op.kind.value,
+                        "name": op.name.lower(),
+                        "reason": op.reason,
+                        "destructive": op.destructive,
+                    }
+                    for op in ops
+                ],
+                "executed": 0,
+                "warnings": list(getattr(plan, "warnings", [])),
+                "errors": [],
+                "plan_file": plan_file,
+            }
+
+        session = self._build_session()
+        result = decl_api.execute_plan(
+            plan,
+            session,
+            database=database,
+            schema=schema,
+            warehouse="",
+            options=options,
+        )
+        return {
+            "status": result.status,
+            "ops": result.ops,
+            "executed": len([o for o in result.ops if o.get("status") == "success"]),
+            "warnings": result.warnings,
+            "errors": result.errors,
+            "plan_file": plan_file,
+        }
+
+    # ------------------------------------------------------------------
+    # write_plan
+    # ------------------------------------------------------------------
+
+    def write_plan(
+        self,
+        input_files: Sequence[str],
+        config: Optional[dict[str, Any]],
+        dev_mode: bool,
+        out_path: str,
+    ) -> str:
+        """Generate a plan and write it as JSON to *out_path*.
+
+        Args:
+            input_files: Spec file paths or glob patterns.
+            config: Jinja2 template variables, or ``None``.
+            dev_mode: Apply dev-mode relaxed validation.
+            out_path: Destination path for the JSON plan file.  Parent
+                directories are created automatically.
+
+        Returns:
+            The absolute path to the written plan file.
+        """
+        from pathlib import Path
+
+        from snowflake.ml.feature_store.decl.types import PlanOptions
+
+        ctx = get_cli_context()
+
+        # Fetch applied state
+        sqls = decl_api.state_queries(ctx.connection.database, ctx.connection.schema)
+        raw_show = _rows_to_dicts(
+            self.execute_query(sqls["show_ofts"], cursor_class=DictCursor)
+        )
+        raw_tables = _rows_to_dicts(
+            self.execute_query(sqls["show_tables"], cursor_class=DictCursor)
+        )
+        eq = decl_api.export_queries(ctx.connection.database, ctx.connection.schema)
+        describe_map: dict[str, list[dict[str, Any]]] = {}
+        for row in raw_show:
+            name = row.get("name", "")
+            if name:
+                desc_sql = eq["describe_template"].format(name=name)
+                describe_map[name] = _rows_to_dicts(
+                    self.execute_query(desc_sql, cursor_class=DictCursor)
+                )
+        applied_state = decl_api.fetch_applied_state(raw_show, raw_tables, describe_map)
+
+        # Load and expand specs
+        all_files = self._expand_with_datasources(list(input_files))
+        batch = decl_api.load_specs(all_files, config)
+
+        options = PlanOptions(dev_mode=dev_mode)
+        plan = decl_api.generate_plan(batch, applied_state, options)
+
+        json_str = decl_api.serialize_plan(
+            plan,
+            ctx.connection.database,
+            ctx.connection.schema,
+            all_files,
+        )
+
+        dest = Path(out_path)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(json_str)
+        return str(dest)
 
     # ------------------------------------------------------------------
     # list_specs
