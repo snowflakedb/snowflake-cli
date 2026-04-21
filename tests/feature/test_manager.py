@@ -960,3 +960,76 @@ class TestApplyWithPlanFile:
         )
         assert isinstance(result, dict)
         mock_decl.load_specs.assert_called_once()
+
+
+class TestDirectoryMode:
+    """Tests that apply() sets full_directory_mode based on directory vs file input."""
+
+    def test_apply_with_directory_sets_full_directory_mode(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """apply() with a directory path passes full_directory_mode=True to generate_plan."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        mgr.apply(
+            input_files=[str(tmp_path)],
+            config=None,
+            dry_run=False,
+            dev_mode=False,
+            overwrite=False,
+            allow_recreate=False,
+        )
+        call_args = mock_decl.generate_plan.call_args
+        assert call_args is not None
+        options = (
+            call_args[0][2] if len(call_args[0]) >= 3 else call_args[1].get("options")
+        )
+        assert options is not None
+        assert options.full_directory_mode is True
+
+    def test_apply_with_file_list_sets_full_directory_mode_false(
+        self, mock_execute_query, mock_decl
+    ):
+        """apply() with individual file paths passes full_directory_mode=False to generate_plan."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        mgr.apply(
+            input_files=["entities/user.yaml", "feature_views/click_fv.yaml"],
+            config=None,
+            dry_run=False,
+            dev_mode=False,
+            overwrite=False,
+            allow_recreate=False,
+        )
+        call_args = mock_decl.generate_plan.call_args
+        assert call_args is not None
+        options = (
+            call_args[0][2] if len(call_args[0]) >= 3 else call_args[1].get("options")
+        )
+        assert options is not None
+        assert options.full_directory_mode is False
+
+    def test_apply_with_single_file_sets_full_directory_mode_false(
+        self, mock_execute_query, mock_decl
+    ):
+        """apply() with a single file path (not a directory) uses full_directory_mode=False."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        mgr.apply(
+            input_files=["specs.yaml"],
+            config=None,
+            dry_run=False,
+            dev_mode=False,
+            overwrite=False,
+            allow_recreate=False,
+        )
+        call_args = mock_decl.generate_plan.call_args
+        assert call_args is not None
+        options = (
+            call_args[0][2] if len(call_args[0]) >= 3 else call_args[1].get("options")
+        )
+        assert options is not None
+        assert options.full_directory_mode is False
