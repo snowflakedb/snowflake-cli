@@ -125,6 +125,32 @@ def _ops_result(result: dict) -> CommandResult:
     return _to_message("\n".join(parts))
 
 
+def _print_target_header(result: dict) -> None:
+    """Print the target database.schema and warehouse header to stderr."""
+    db = result.get("target_database", "")
+    schema = result.get("target_schema", "")
+    wh = result.get("target_warehouse", "")
+    sys.stderr.write(f"\nTarget: {db}.{schema} (warehouse: {wh})\n\n")
+    sys.stderr.flush()
+
+
+# ---------------------------------------------------------------------------
+# init
+# ---------------------------------------------------------------------------
+
+
+@app.command(requires_connection=True)
+def init(
+    no_scaffold: bool = typer.Option(
+        False, "--no-scaffold", help="Skip local directory creation."
+    ),
+    **options,
+) -> CommandResult:
+    """Initialize a feature store in the current database and schema."""
+    result = FeatureManager().init(no_scaffold=no_scaffold)
+    return _to_object(result)
+
+
 # ---------------------------------------------------------------------------
 # apply
 # ---------------------------------------------------------------------------
@@ -429,10 +455,12 @@ def online_service(
         # Check if already running before doing anything
         pre_status = mgr.get_status()
         if pre_status.get("status") == "RUNNING":
-            return _to_object({
-                "status": "RUNNING",
-                "message": "Service already initialized",
-            })
+            return _to_object(
+                {
+                    "status": "RUNNING",
+                    "message": "Service already initialized",
+                }
+            )
 
         import itertools
         import sys
@@ -501,7 +529,12 @@ def online_service(
                     spinner_thread.join(timeout=2)
                     sys.stderr.write("\r  Online service is RUNNING." + " " * 52 + "\n")
                     sys.stderr.flush()
-                    return _to_object({"status": "RUNNING", "message": "Service initialized successfully"})
+                    return _to_object(
+                        {
+                            "status": "RUNNING",
+                            "message": "Service initialized successfully",
+                        }
+                    )
             except Exception:
                 pass
 
