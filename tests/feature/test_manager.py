@@ -35,12 +35,12 @@ def mock_decl():
         m.load_specs.return_value = mock.MagicMock(name="batch")
         m.fetch_applied_state.return_value = mock.MagicMock(name="state")
         m.validate_specs.return_value = []
-        m.generate_plan.return_value = mock.MagicMock(name="plan", ops=[])
+        m.generate_plan.return_value = mock.MagicMock(name="plan", ops=[], warnings=[])
         m.state_queries.return_value = {
             "show_ofts": "SHOW ONLINE FEATURE TABLES IN SCHEMA TEST_DB.TEST_SCHEMA",
             "show_tables": "SHOW TABLES LIKE '%' IN SCHEMA TEST_DB.TEST_SCHEMA",
         }
-        # generate_apply_sql returns an ApplyResult-like mock
+        # generate_apply_sql returns an ApplyResult-like mock (used for dry_run)
         apply_result = mock.MagicMock()
         apply_result.status = "ready"
         apply_result.ops = []
@@ -48,9 +48,22 @@ def mock_decl():
         apply_result.warnings = []
         apply_result.errors = []
         m.generate_apply_sql.return_value = apply_result
-        m.list_query.return_value = "SHOW ONLINE FEATURE TABLES IN SCHEMA TEST_DB.TEST_SCHEMA"
-        m.describe_query.return_value = "SHOW ONLINE FEATURE TABLES LIKE 'test' IN SCHEMA TEST_DB.TEST_SCHEMA"
-        m.drop_queries.return_value = ['DROP ONLINE FEATURE TABLE IF EXISTS "TEST_DB"."TEST_SCHEMA"."test"']
+        # execute_plan returns an ApplyResult-like mock (used for wet_run)
+        exec_result = mock.MagicMock()
+        exec_result.status = "applied"
+        exec_result.ops = []
+        exec_result.warnings = []
+        exec_result.errors = []
+        m.execute_plan.return_value = exec_result
+        m.list_query.return_value = (
+            "SHOW ONLINE FEATURE TABLES IN SCHEMA TEST_DB.TEST_SCHEMA"
+        )
+        m.describe_query.return_value = (
+            "SHOW ONLINE FEATURE TABLES LIKE 'test' IN SCHEMA TEST_DB.TEST_SCHEMA"
+        )
+        m.drop_queries.return_value = [
+            'DROP ONLINE FEATURE TABLE IF EXISTS "TEST_DB"."TEST_SCHEMA"."test"'
+        ]
         m.export_queries.return_value = {
             "show_ofts": "SHOW ONLINE FEATURE TABLES IN SCHEMA TEST_DB.TEST_SCHEMA",
             "describe_template": 'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}"',
@@ -63,12 +76,23 @@ def mock_cli_context():
     """Patch get_cli_context for all manager tests."""
     with mock.patch("snowflake.cli._plugins.feature.manager.get_cli_context") as m:
         ctx = mock.MagicMock()
+
         ctx.connection.database = "TEST_DB"
         ctx.connection.schema = "TEST_SCHEMA"
         ctx.connection.warehouse = "TEST_WH"
         ctx.connection.role = "TEST_ROLE"
         m.return_value = ctx
         yield m
+
+
+@pytest.fixture(autouse=True)
+def mock_build_session():
+    """Patch _build_session so wet-run apply tests don't need a real connection."""
+    with mock.patch(
+        "snowflake.cli._plugins.feature.manager.FeatureManager._build_session",
+        return_value=mock.MagicMock(name="session"),
+    ):
+        yield
 
 
 class TestFeatureManagerApply:

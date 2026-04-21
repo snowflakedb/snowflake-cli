@@ -87,15 +87,13 @@ class FeatureManager(SqlExecutionMixin):
                     self.execute_query(desc_sql, cursor_class=DictCursor)
                 )
 
-        applied_state = decl_api.fetch_applied_state(
-            raw_show, raw_tables, describe_map
-        )
+        applied_state = decl_api.fetch_applied_state(raw_show, raw_tables, describe_map)
 
         # 2. Load specs — also scan sibling directories for datasource YAMLs
         all_files = self._expand_with_datasources(list(input_files))
         batch = decl_api.load_specs(all_files, config)
 
-        # 3. Validate + plan + generate SQL — all in decl
+        # 3. Validate + plan + execute via imperative API
         from snowflake.ml.feature_store.decl.types import PlanOptions
 
         options = PlanOptions(
@@ -103,29 +101,59 @@ class FeatureManager(SqlExecutionMixin):
             overwrite=overwrite,
             allow_recreate=allow_recreate,
         )
-        result = decl_api.generate_apply_sql(
-            batch,
-            applied_state,
-            options,
+
+        if dry_run:
+            # Dry run: generate plan + SQL for display only (no execution)
+            result = decl_api.generate_apply_sql(
+                batch,
+                applied_state,
+                options,
+                database=ctx.connection.database,
+                schema=ctx.connection.schema,
+                warehouse=ctx.connection.warehouse or "",
+            )
+            status = (
+                "validation_failed"
+                if result.status == "validation_failed"
+                else "dry_run"
+            )
+            return {
+                "status": status,
+                "ops": result.ops,
+                "executed": 0,
+                "warnings": result.warnings,
+                "errors": result.errors,
+            }
+
+        # Wet run: validate → plan → execute via FeatureStore objects
+        validation_results = decl_api.validate_specs(batch, applied_state)
+        errors = [
+            r for r in validation_results if getattr(r, "severity", "") == "ERROR"
+        ]
+        if errors:
+            return {
+                "status": "validation_failed",
+                "ops": [],
+                "executed": 0,
+                "warnings": [],
+                "errors": [str(e) for e in errors],
+            }
+
+        plan = decl_api.generate_plan(batch, applied_state, options)
+        session = self._build_session()
+        result = decl_api.execute_plan(
+            plan,
+            session,
             database=ctx.connection.database,
             schema=ctx.connection.schema,
             warehouse=ctx.connection.warehouse or "",
+            options=options,
         )
 
-        # 4. Execute SQL (CLI's only job)
-        executed = 0
-        if result.status != "validation_failed" and not dry_run:
-            for sql in result.sql_statements:
-                self.execute_query(sql)
-                executed += 1
-
-        status = "validation_failed" if result.status == "validation_failed" else (
-            "dry_run" if dry_run else "applied"
-        )
         return {
-            "status": status,
+            "status": result.status,
             "ops": result.ops,
-            "executed": executed,
+            "executed": len([o for o in result.ops if o.get("status") == "success"]),
             "warnings": result.warnings,
             "errors": result.errors,
         }
@@ -194,7 +222,11 @@ class FeatureManager(SqlExecutionMixin):
                 break
 
         if not oft_name:
-            return {"status": "error", "name": name, "error": f"{name}: not found in deployed feature views"}
+            return {
+                "status": "error",
+                "name": name,
+                "error": f"{name}: not found in deployed feature views",
+            }
 
         # Find the SHOW row for metadata
         show_row = None
@@ -341,8 +373,11 @@ class FeatureManager(SqlExecutionMixin):
             return None
 
         search_dirs = [
-            ".", "datasources", "sources",
-            "example_store/datasources", "example_store/sources",
+            ".",
+            "datasources",
+            "sources",
+            "example_store/datasources",
+            "example_store/sources",
         ]
         for d in search_dirs:
             for path in _glob.glob(f"{d}/*.yaml") + _glob.glob(f"{d}/*.yml"):
@@ -357,6 +392,16 @@ class FeatureManager(SqlExecutionMixin):
                 except Exception:
                     continue
         return None
+
+    def _build_session(self) -> Any:
+        """Construct a Snowpark Session from the CLI's existing connection.
+
+        The Session wraps the snowflake-connector connection already managed
+        by ``SqlExecutionMixin``, so no new connection is created.
+        """
+        from snowflake.snowpark import Session
+
+        return Session.builder.configs({"connection": self._conn}).create()
 
     @staticmethod
     def _expand_with_datasources(input_files: list[str]) -> list[str]:
@@ -380,7 +425,9 @@ class FeatureManager(SqlExecutionMixin):
                 for parent in [p.parent, p.parent.parent]:
                     sibling = parent / sibling_name
                     if sibling.is_dir():
-                        for extra in _glob.glob(str(sibling / "*.yaml")) + _glob.glob(str(sibling / "*.yml")):
+                        for extra in _glob.glob(str(sibling / "*.yaml")) + _glob.glob(
+                            str(sibling / "*.yml")
+                        ):
                             if extra not in seen:
                                 result.append(extra)
                                 seen.add(extra)
