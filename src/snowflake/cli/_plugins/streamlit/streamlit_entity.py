@@ -140,9 +140,13 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 )
 
         if legacy:
-            self._deploy_legacy(bundle_map=bundle_map, replace=replace, prune=prune)
+            self._deploy_legacy(
+                bundle_map=bundle_map, replace=replace, prune=prune, object_exists=object_exists
+            )
         else:
-            self._deploy_versioned(bundle_map=bundle_map, replace=replace, prune=prune)
+            self._deploy_versioned(
+                bundle_map=bundle_map, replace=replace, prune=prune, object_exists=object_exists
+            )
 
         return self.perform(EntityActions.GET_URL, action_context, *args, **kwargs)
 
@@ -159,6 +163,49 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
     ):
         # this query unlike most others doesn't accept fqn wrapped in `IDENTIFIER('')`
         return f"ALTER STREAMLIT {self._get_identifier(schema,database)} ADD LIVE VERSION FROM LAST;"
+
+    def get_alter_sql(
+        self,
+        from_stage_name: Optional[str] = None,
+        schema: Optional[str] = None,
+        database: Optional[str] = None,
+        legacy: bool = False,
+    ) -> str:
+        query = f"ALTER STREAMLIT {self._get_sql_identifier(schema, database)} SET"
+
+        if from_stage_name:
+            query += f"\nROOT_LOCATION = '{from_stage_name}'"
+
+        query += f"\nMAIN_FILE = '{self._entity_model.main_file}'"
+
+        if self.model.imports:
+            query += "\n" + self.model.get_imports_sql()
+
+        if self.model.query_warehouse:
+            query += f"\nQUERY_WAREHOUSE = {self.model.query_warehouse}"
+        else:
+            self._workspace_ctx.console.warning(
+                "[Deprecation] In next major version we will remove default query_warehouse='streamlit'."
+            )
+            query += f"\nQUERY_WAREHOUSE = 'streamlit'"
+
+        if self.model.title:
+            query += f"\nTITLE = '{self.model.title}'"
+
+        if self.model.comment:
+            query += f"\nCOMMENT = '{self.model.comment}'"
+
+        if self.model.external_access_integrations:
+            query += "\n" + self.model.get_external_access_integrations_sql()
+
+        if self.model.secrets and not legacy:
+            query += "\n" + self.model.get_secrets_sql()
+
+        if not from_stage_name and not legacy and self._is_spcs_runtime_v2_mode():
+            query += f"\nRUNTIME_NAME = '{self.model.runtime_name}'"
+            query += f"\nCOMPUTE_POOL = '{self.model.compute_pool}'"
+
+        return query + ";"
 
     def get_deploy_sql(
         self,
@@ -256,7 +303,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             return False
 
     def _deploy_legacy(
-        self, bundle_map: BundleMap, replace: bool = False, prune: bool = False
+        self, bundle_map: BundleMap, replace: bool = False, prune: bool = False, object_exists: bool = False
     ):
         console = self._workspace_ctx.console
         console.step(f"Uploading artifacts to stage {self.model.stage}")
@@ -282,26 +329,34 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
 
         console.step(f"Creating Streamlit object {self.model.fqn.sql_identifier}")
 
-        self._execute_query(
-            self.get_deploy_sql(
-                replace=replace,
-                from_stage_name=stage_root,
-                legacy=True,
+        if object_exists:
+            self._execute_query(
+                self.get_alter_sql(from_stage_name=stage_root, legacy=True)
             )
-        )
+        else:
+            self._execute_query(
+                self.get_deploy_sql(
+                    replace=replace,
+                    from_stage_name=stage_root,
+                    legacy=True,
+                )
+            )
 
         StreamlitManager(connection=self._conn).grant_privileges(self.model)
 
     def _deploy_versioned(
-        self, bundle_map: BundleMap, replace: bool = False, prune: bool = False
+        self, bundle_map: BundleMap, replace: bool = False, prune: bool = False, object_exists: bool = False
     ):
-        self._execute_query(
-            self.get_deploy_sql(
-                if_not_exists=True,
-                replace=replace,
-                legacy=False,
+        if object_exists:
+            self._execute_query(self.get_alter_sql())
+        else:
+            self._execute_query(
+                self.get_deploy_sql(
+                    if_not_exists=True,
+                    replace=replace,
+                    legacy=False,
+                )
             )
-        )
         try:
             self._execute_query(self.get_add_live_version_sql())
         except ProgrammingError as e:
