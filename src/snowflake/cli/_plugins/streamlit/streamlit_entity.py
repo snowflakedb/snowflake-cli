@@ -176,7 +176,8 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         if from_stage_name:
             query += f"\nROOT_LOCATION = '{from_stage_name}'"
 
-        query += f"\nMAIN_FILE = '{self._entity_model.main_file}'"
+        if legacy:
+            query += f"\nMAIN_FILE = '{self._entity_model.main_file}'"
 
         if self.model.imports:
             query += "\n" + self.model.get_imports_sql()

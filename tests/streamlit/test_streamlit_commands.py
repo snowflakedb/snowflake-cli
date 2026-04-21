@@ -462,7 +462,6 @@ class TestStreamlitCommands(StreamlitTestClass):
         expected_query = dedent(
             f"""
                 ALTER STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') SET
-                MAIN_FILE = 'streamlit_app.py'
                 QUERY_WAREHOUSE = test_warehouse
                 TITLE = 'My Fancy Streamlit';
                 """
