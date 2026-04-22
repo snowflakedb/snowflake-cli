@@ -2307,9 +2307,8 @@ class TestValidateProjectOwnerLogic:
     )
     def test_current_role_query_failure_raises(self, mock_executor_cls):
         from snowflake.cli._plugins.dcm.models import DCMTarget
-        from snowflake.cli.api.exceptions import CliError
 
         mock_executor_cls().current_role.side_effect = Exception("Connection timeout")
         target = DCMTarget(name="DEV", project_name="P1", **_DEFAULT_TARGET_FIELDS)
-        with pytest.raises(CliError, match="Failed to determine current role"):
+        with pytest.raises(Exception, match="Connection timeout"):
             _validate_project_owner(target)
