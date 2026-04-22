@@ -134,22 +134,20 @@ def _print_target_header(result: dict) -> None:
     sys.stderr.flush()
 
 
-def _print_mode_header(input_files: list) -> None:
-    """Print directory vs file mode message to stderr."""
-    import os
-
-    is_dir_mode = (not input_files) or (
-        len(input_files) == 1 and os.path.isdir(input_files[0])
-    )
-    if is_dir_mode:
-        sys.stderr.write("Mode: full directory (deletion detection enabled)\n")
+def _print_mode_header(full_sync: bool) -> None:
+    """Print deletion detection mode to stderr."""
+    if full_sync:
+        sys.stderr.write("Mode: full sync (./...) — orphaned objects will be dropped\n")
     else:
-        sys.stderr.write(
-            "Warning: Operating on individual files — deletion detection is disabled.\n"
-            "Objects in Snowflake not represented in these files will NOT be dropped.\n"
-            "Use directory mode for full desired-state management.\n"
-        )
+        sys.stderr.write("Mode: incremental — only changes will be applied\n")
     sys.stderr.flush()
+
+
+def _is_full_sync(input_files: list) -> bool:
+    """Return True if input_files indicates full-sync mode (./... pattern)."""
+    if not input_files:
+        return False
+    return any(f.rstrip("/").endswith("/...") or f == "./..." for f in input_files)
 
 
 # ---------------------------------------------------------------------------
@@ -203,14 +201,20 @@ def apply(
     ),
     **options,
 ) -> CommandResult:
-    """Apply spec files to Snowflake, creating or updating feature-store objects."""
+    """Apply spec files to Snowflake, creating or updating feature-store objects.
+
+    Use './...' as the path to enable full-sync mode: objects deployed in Snowflake
+    but not present in local spec files will be dropped. Any other path (specific
+    files, directories, or globs) runs in incremental mode — only changes are applied.
+    """
     if plan is None and not input_files:
         raise typer.BadParameter(
             "At least one file is required (or --plan <path>).",
             param_hint="INPUT_FILES",
         )
+    full_sync = _is_full_sync(input_files or [])
     if plan is None:
-        _print_mode_header(input_files or [])
+        _print_mode_header(full_sync)
     result = FeatureManager().apply(
         input_files=input_files or [],
         config=config,
@@ -219,6 +223,7 @@ def apply(
         overwrite=overwrite,
         allow_recreate=allow_recreate,
         plan_file=plan,
+        no_delete=not full_sync,
     )
     if result.get("status") == "validation_failed":
         return _to_object(result)
@@ -252,6 +257,7 @@ def plan(
 ) -> CommandResult:
     """Show what would change if the spec files were applied (dry-run of apply).
 
+    Use './...' as the path to enable full-sync mode (deletion detection).
     The plan is also written to a JSON file so it can be applied later with
     'snow feature apply --plan <path>'.
     """
@@ -262,7 +268,9 @@ def plan(
 
     import os
 
-    _print_mode_header(input_files or [])
+    full_sync = _is_full_sync(input_files or [])
+    _print_mode_header(full_sync)
+    no_delete = not full_sync
 
     from datetime import datetime as _dt
 
@@ -275,6 +283,7 @@ def plan(
         config=config,
         dev_mode=dev,
         out_path=out,
+        no_delete=no_delete,
     )
 
     # Also run a dry-run apply for the display result
@@ -285,6 +294,7 @@ def plan(
         dev_mode=dev,
         overwrite=False,
         allow_recreate=False,
+        no_delete=no_delete,
     )
     if result.get("status") == "validation_failed":
         return _to_object(result)
@@ -360,23 +370,6 @@ def describe(
 # ---------------------------------------------------------------------------
 # drop
 # ---------------------------------------------------------------------------
-
-
-@app.command(requires_connection=True)
-def drop(
-    names: Optional[List[str]] = typer.Argument(
-        None,
-        help="Names of feature-store objects to drop. "
-        "Use --database/--schema connection flags to specify location.",
-        show_default=False,
-    ),
-    **options,
-) -> CommandResult:
-    """Drop one or more feature-store objects."""
-    if not names:
-        raise typer.BadParameter("At least one name is required.", param_hint="NAMES")
-    result = FeatureManager().drop(names=names)
-    return _to_object(result)
 
 
 # ---------------------------------------------------------------------------

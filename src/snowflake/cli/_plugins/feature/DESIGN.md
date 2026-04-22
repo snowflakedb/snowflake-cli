@@ -61,7 +61,6 @@ under the key `"feature"`.
 | `snow feature plan`     | `apply(dry_run=True)`| Alias for apply in dry-run mode      |
 | `snow feature list`     | `list_specs()`       | Files → from file; no args → Snowflake |
 | `snow feature describe` | `describe()`         | Single-object metadata lookup        |
-| `snow feature drop`     | `drop()`             | Drops one or more objects            |
 | `snow feature convert`  | `convert()`          | Python DSL → YAML or JSON            |
 
 ---
@@ -125,8 +124,8 @@ define parameters with these names:
 - **GLOBAL_OPTIONS**: `format`, `verbose`, `debug`, `silent`,
   `enhanced_exit_codes`.
 
-The `describe` and `drop` commands accept `--database`/`--schema` via the
-global connection flags (not as custom parameters). The `convert` command uses
+The `describe` command accepts `--database`/`--schema` via the global
+connection flags (not as custom parameters). The `convert` command uses
 `--file-format` (not `--format`) to avoid conflicting with the global output
 format flag.
 
