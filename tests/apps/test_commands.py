@@ -57,7 +57,7 @@ entities:
 
 def _write_snowflake_app_yml(path):
     """Write a minimal ``snowflake.yml`` containing a single ``snowflake-app``
-    entity so that ``@with_app_flow_routing()`` can detect the Snowflake App
+    entity so that ``@with_app_flow_routing()`` can detect the Snowflake Apps Deploy
     flow when the CLI is invoked from ``path``.
     """
     (path / "snowflake.yml").write_text(_SNOWFLAKE_APP_YML)
@@ -1166,7 +1166,7 @@ class TestSetupCommand:
         with change_directory(tmp_path):
             result = runner.invoke(["app", "setup", "--app-name", "my_app"])
             assert result.exit_code == 0, result.output
-            assert "Initialized Snowflake App project" in result.output
+            assert "Initialized Snowflake Apps Deploy project" in result.output
             assert (tmp_path / "snowflake.yml").exists()
 
         resolved = mock_gen.call_args[0][1]
@@ -1599,7 +1599,7 @@ class TestValidateCommand:
             _write_snowflake_app_yml(tmp_path)
             result = runner.invoke(["app", "validate"])
             assert result.exit_code == 0, result.output
-            assert "Valid Snowflake App project" in result.output
+            assert "Valid Snowflake Apps Deploy project" in result.output
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands._get_entity")

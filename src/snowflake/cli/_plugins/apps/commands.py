@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Snowflake App (``snowflake-app``) implementation functions.
+"""Snowflake Apps Deploy (``snowflake-app``) implementation functions.
 
 These functions are called from the unified ``snow app`` command group in
 ``_plugins/nativeapp/commands.py`` when the detected flow is
@@ -61,9 +61,9 @@ from snowflake.cli.api.project.util import get_env_username, identifier_for_url
 from snowflake.connector.errors import ProgrammingError
 
 # Default number of log lines returned by ``snow app events`` for the
-# Snowflake App flow. The unified command accepts ``--last`` with a ``None``
+# Snowflake Apps Deploy flow. The unified command accepts ``--last`` with a ``None``
 # default; each flow applies its own default when the user does not provide
-# a value (Native App uses ``-1``, Snowflake App uses this constant).
+# a value (Native App uses ``-1``, Snowflake Apps Deploy uses this constant).
 DEFAULT_SNOWFLAKE_APP_EVENTS_LAST = 500
 
 # ── Source provenance labels ──────────────────────────────────────────
@@ -80,7 +80,7 @@ def snowflake_app_setup(
     compute_pool: Optional[str],
     build_eai: Optional[str],
 ) -> CommandResult:
-    """Initialize a ``snowflake.yml`` for a Snowflake App project.
+    """Initialize a ``snowflake.yml`` for a Snowflake Apps Deploy project.
 
     See the ``snow app setup`` command in
     :mod:`snowflake.cli._plugins.nativeapp.commands` for the CLI surface.
@@ -203,14 +203,16 @@ def snowflake_app_setup(
     if dry_run:
         cli_console.step("Dry run — resolved configuration:")
     else:
-        cli_console.step(f"Initialized Snowflake App project in {DEFINITION_FILENAME}.")
+        cli_console.step(
+            f"Initialized Snowflake Apps Deploy project in {DEFINITION_FILENAME}."
+        )
     for key, (value, source) in resolved.items():
         cli_console.step(f"  {key}: {value}  ({source})")
     return EmptyResult()
 
 
 def snowflake_app_bundle(entity_id: Optional[str]) -> CommandResult:
-    """Bundle a Snowflake App by resolving artifacts defined in ``snowflake.yml``."""
+    """Bundle a Snowflake Apps Deploy by resolving artifacts defined in ``snowflake.yml``."""
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 
@@ -219,7 +221,7 @@ def snowflake_app_bundle(entity_id: Optional[str]) -> CommandResult:
 
 
 def snowflake_app_validate(entity_id: Optional[str]) -> CommandResult:
-    """Validate a local Snowflake App project (Dockerfile + stage privileges)."""
+    """Validate a local Snowflake Apps Deploy project (Dockerfile + stage privileges)."""
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 
@@ -254,7 +256,7 @@ def snowflake_app_validate(entity_id: Optional[str]) -> CommandResult:
         if not dockerfile.exists():
             raise CliError(
                 f"No Dockerfile found in bundled artifacts. "
-                f"A Dockerfile is required for Snowflake App projects."
+                f"A Dockerfile is required for Snowflake Apps Deploy projects."
             )
 
         exposed_port = _find_dockerfile_expose_port(bundle_root)
@@ -284,7 +286,7 @@ def snowflake_app_validate(entity_id: Optional[str]) -> CommandResult:
 
     if warnings:
         return MessageResult(f"Validation passed with {len(warnings)} warning(s).")
-    return MessageResult("Valid Snowflake App project.")
+    return MessageResult("Valid Snowflake Apps Deploy project.")
 
 
 def snowflake_app_open(
@@ -292,7 +294,7 @@ def snowflake_app_open(
     print_only: bool,
     settings: bool,
 ) -> CommandResult:
-    """Open a deployed Snowflake App (or its settings page) in the browser."""
+    """Open a deployed Snowflake Apps Deploy (or its settings page) in the browser."""
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 
@@ -341,7 +343,7 @@ def snowflake_app_events(
     entity_id: Optional[str],
     last: Optional[int],
 ) -> CommandResult:
-    """Fetch recent log events from a deployed Snowflake App."""
+    """Fetch recent log events from a deployed Snowflake Apps Deploy."""
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 
@@ -368,7 +370,7 @@ def snowflake_app_deploy(
     build_only: bool,
     deploy_only: bool,
 ) -> CommandResult:
-    """Build and deploy a Snowflake App through upload, build, and deploy phases."""
+    """Build and deploy a Snowflake Apps Deploy through upload, build, and deploy phases."""
     phase_flags = sum((upload_only, build_only, deploy_only))
     if phase_flags > 1:
         raise ClickException(
@@ -594,7 +596,7 @@ def snowflake_app_teardown(
     entity_id: Optional[str],
     force: bool,
 ) -> CommandResult:
-    """Drop a deployed Snowflake App and its associated objects."""
+    """Drop a deployed Snowflake Apps Deploy and its associated objects."""
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 

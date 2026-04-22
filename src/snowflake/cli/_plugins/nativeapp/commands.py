@@ -79,7 +79,7 @@ from typing_extensions import Annotated
 
 app = SnowTyperFactory(
     name="app",
-    help="Manages Snowflake Native Apps and Snowflake Apps.",
+    help="Manages Snowflake Native Apps and Snowflake Apps Deploy.",
 )
 app.add_typer(versions_app)
 app.add_typer(release_directives_app)
@@ -91,13 +91,13 @@ log = logging.getLogger(__name__)
 # Sentinel used on events --last to tell "user didn't pass --last" apart
 # from "user explicitly asked for 0". The merged command shares --last across
 # both flows, which have different defaults when the user doesn't set it
-# (Native App: -1, Snowflake App: 500).
+# (Native App: -1, Snowflake Apps Deploy: 500).
 _EVENTS_LAST_UNSET = -1
 
 # Native-App polling interval default when ``--follow`` is used. The
 # ``--follow-interval`` Typer option defaults to ``None`` so that we can
 # tell an explicit ``--follow-interval 10`` apart from "user didn't pass
-# the flag" when rejecting wrong-flow options in the Snowflake App flow.
+# the flag" when rejecting wrong-flow options in the Snowflake Apps Deploy flow.
 _DEFAULT_FOLLOW_INTERVAL_SECONDS = 10
 
 
@@ -112,7 +112,7 @@ def _reject_native_app_options(command: str, **options: object) -> None:
     if set_options:
         joined = ", ".join(sorted(set_options))
         raise ClickException(
-            f"'snow app {command}' was invoked against a Snowflake App "
+            f"'snow app {command}' was invoked against a Snowflake Apps Deploy "
             f"entity (type: snowflake-app), but the following Native App "
             f"options were provided: {joined}. Remove them and try again."
         )
@@ -127,7 +127,7 @@ def _reject_snowflake_app_options(command: str, **options: object) -> None:
         raise ClickException(
             f"'snow app {command}' was invoked against a Native App entity "
             f"(application / application package), but the following "
-            f"Snowflake App options were provided: {joined}. "
+            f"Snowflake Apps Deploy options were provided: {joined}. "
             f"Remove them and try again."
         )
 
@@ -137,7 +137,7 @@ def app_setup(
     app_name: str = typer.Option(
         ...,
         "--app-name",
-        help="Name of the Snowflake App to initialize.",
+        help="Name of the Snowflake Apps Deploy to initialize.",
     ),
     dry_run: bool = typer.Option(
         False,
@@ -157,7 +157,7 @@ def app_setup(
     **options,
 ) -> CommandResult:
     """
-    (Snowflake App only) Initializes a snowflake.yml for a Snowflake App project.
+    (Snowflake Apps Deploy only) Initializes a snowflake.yml for a Snowflake Apps Deploy project.
 
     Creates a ``snowflake.yml`` in the current directory with a
     ``snowflake-app`` entity preconfigured from account parameters and the
@@ -178,7 +178,7 @@ def app_bundle(
     For Native App projects (application / application package entities):
       Bundles the application package artifacts defined in snowflake.yml.
 
-    For Snowflake App projects (snowflake-app entities):
+    For Snowflake Apps Deploy projects (snowflake-app entities):
       Resolves artifacts defined in snowflake.yml and copies them to
       ``output/bundle`` so you can inspect what would be uploaded on deploy.
     """
@@ -299,12 +299,12 @@ def app_open(
     print_only: bool = typer.Option(
         False,
         "--print-only",
-        help="(Snowflake App only) Print the app URL without opening it in the browser.",
+        help="(Snowflake Apps Deploy only) Print the app URL without opening it in the browser.",
     ),
     settings: bool = typer.Option(
         False,
         "--settings",
-        help="(Snowflake App only) Open the app settings page in Snowsight instead of the app itself.",
+        help="(Snowflake Apps Deploy only) Open the app settings page in Snowsight instead of the app itself.",
     ),
     **options,
 ) -> CommandResult:
@@ -314,7 +314,7 @@ def app_open(
     For Native App projects (application / application package entities):
       Opens the Snowflake Native App's Snowsight URL if the app is installed.
 
-    For Snowflake App projects (snowflake-app entities):
+    For Snowflake Apps Deploy projects (snowflake-app entities):
       Resolves the service endpoint URL and launches the browser. Use
       ``--print-only`` to print the URL, or ``--settings`` to open the
       Snowsight app-settings page instead.
@@ -369,7 +369,7 @@ def app_teardown(
       Attempts to drop both the application object and application package
       as defined in the project definition file.
 
-    For Snowflake App projects (snowflake-app entities):
+    For Snowflake Apps Deploy projects (snowflake-app entities):
       Drops the application service (or SPCS service), the code stage,
       and the build job service.
 
@@ -466,19 +466,19 @@ def app_deploy(
     upload_only: bool = typer.Option(
         False,
         "--upload-only",
-        help="(Snowflake App only) Bundle and upload source artifacts to the stage, then stop. "
+        help="(Snowflake Apps Deploy only) Bundle and upload source artifacts to the stage, then stop. "
         "Skips the build and deploy phases.",
     ),
     build_only: bool = typer.Option(
         False,
         "--build-only",
-        help="(Snowflake App only) Run only the build phase (assumes artifacts have already been uploaded). "
+        help="(Snowflake Apps Deploy only) Run only the build phase (assumes artifacts have already been uploaded). "
         "Skips the upload and deploy phases.",
     ),
     deploy_only: bool = typer.Option(
         False,
         "--deploy-only",
-        help="(Snowflake App only) Run only the deploy phase (assumes the container image has already been built). "
+        help="(Snowflake Apps Deploy only) Run only the deploy phase (assumes the container image has already been built). "
         "Skips the upload and build phases.",
     ),
     **options,
@@ -492,8 +492,8 @@ def app_deploy(
       application. Running this command with no arguments is a shorthand
       for ``snow app deploy --prune --recursive``.
 
-    For Snowflake App projects (snowflake-app entities):
-      Builds and deploys a containerized Snowflake App. The pipeline has
+    For Snowflake Apps Deploy projects (snowflake-app entities):
+      Builds and deploys a containerized Snowflake Apps Deploy. The pipeline has
       three phases (upload, build, deploy). By default all three run in
       sequence; use ``--upload-only`` / ``--build-only`` / ``--deploy-only``
       to run a single phase.
@@ -567,7 +567,7 @@ def app_validate(
     For Native App projects (application / application package entities):
       Validates a deployed Snowflake Native App's setup script.
 
-    For Snowflake App projects (snowflake-app entities):
+    For Snowflake Apps Deploy projects (snowflake-app entities):
       Bundles the project, checks that a Dockerfile with an EXPOSE
       directive exists, and verifies that the current role has the BIND
       SERVICE ENDPOINT privilege required for deployment.
@@ -659,7 +659,7 @@ def app_events(
         help=(
             "Maximum number of events to fetch. "
             "Native App: cannot be used with --first. "
-            "Snowflake App: number of log lines to retrieve (default: 500, capped at 100KB)."
+            "Snowflake Apps Deploy: number of log lines to retrieve (default: 500, capped at 100KB)."
         ),
     ),
     follow: bool = typer.Option(
@@ -693,7 +693,7 @@ def app_events(
       ``--consumer-account``. This requires event sharing to be set up:
       https://docs.snowflake.com/en/developer-guide/native-apps/setting-up-logging-and-events
 
-    For Snowflake App projects (snowflake-app entities):
+    For Snowflake Apps Deploy projects (snowflake-app entities):
       Fetches recent log lines from the deployed application service.
       Output is capped at 100KB regardless of the number of lines requested.
     """

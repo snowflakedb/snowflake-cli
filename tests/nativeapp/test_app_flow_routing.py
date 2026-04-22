@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for the Native App / Snowflake App flow-routing decorator and its
+"""Tests for the Native App / Snowflake Apps Deploy flow-routing decorator and its
 flow-detection helper used by the shared ``snow app`` subcommands."""
 
 from unittest.mock import Mock
@@ -243,7 +243,7 @@ class TestCrossFlowOptionValidation:
             result = runner.invoke(["app", "deploy", "--prune"])
 
         assert result.exit_code != 0
-        assert "Snowflake App entity" in result.output
+        assert "Snowflake Apps Deploy entity" in result.output
         assert "--prune" in result.output
 
     def test_native_app_rejects_snowflake_app_deploy_options(self, runner, tmp_path):
@@ -263,7 +263,7 @@ class TestCrossFlowOptionValidation:
             result = runner.invoke(["app", "events", "--follow"])
 
         assert result.exit_code != 0
-        assert "Snowflake App entity" in result.output
+        assert "Snowflake Apps Deploy entity" in result.output
         assert "--follow" in result.output
 
     def test_snowflake_app_rejects_explicit_native_app_follow_interval(
@@ -279,7 +279,7 @@ class TestCrossFlowOptionValidation:
             result = runner.invoke(["app", "events", "--follow-interval", "10"])
 
         assert result.exit_code != 0
-        assert "Snowflake App entity" in result.output
+        assert "Snowflake Apps Deploy entity" in result.output
         assert "--follow-interval" in result.output
 
 

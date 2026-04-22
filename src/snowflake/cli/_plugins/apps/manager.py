@@ -355,7 +355,7 @@ def _find_dockerfile_expose_port(bundle_root: Path) -> Optional[int]:
 
 
 class SnowflakeAppManager(SqlExecutionMixin):
-    """Manager for Snowflake App operations.
+    """Manager for Snowflake Apps Deploy operations.
 
     NOTE: DDL-building methods (create_app_service, build_app_artifact_repo, …)
     interpolate bare ``str`` arguments such as *compute_pool*,

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """Integration tests for ``snow app setup`` and ``snow app deploy``
-against ``snowflake-app`` (Snowflake App) entities."""
+against ``snowflake-app`` (Snowflake Apps Deploy) entities."""
 
 from __future__ import annotations
 
@@ -145,7 +145,7 @@ def test_snowflake_apps_setup_creates_valid_yml(
         ["app", "setup", "--app-name", "my_test_app"]
     )
     assert result.exit_code == 0, result.output
-    assert "Initialized Snowflake App project" in result.output
+    assert "Initialized Snowflake Apps Deploy project" in result.output
 
     yml_path = Path(temporary_working_directory) / "snowflake.yml"
     assert yml_path.exists(), "snowflake.yml was not created"
