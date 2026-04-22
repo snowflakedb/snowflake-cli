@@ -643,11 +643,6 @@ class TestDCMPurge:
             skip_plan=False,
         )
 
-    def test_purge_hidden_from_help(self, runner):
-        result = runner.invoke(["dcm", "--help"])
-        assert result.exit_code == 0
-        assert "purge" not in result.output
-
     @mock.patch(
         "snowflake.cli._plugins.dcm.commands.typer.prompt",
         side_effect=["purge wrong_project", "purge fooBar"],
