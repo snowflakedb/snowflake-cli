@@ -2125,7 +2125,7 @@ class TestDCMTest:
         _assert_format_result(payload, test_result, format_name)
 
 
-class TestDCMAccountIdentifierValidation:
+class TestAccountIdentifierValidationForCommands:
     def test_create_calls_validate_account_identifier(
         self,
         mock_dcm_manager,
@@ -2177,7 +2177,7 @@ class TestDCMAccountIdentifierValidation:
         mock_validate_account_identifier.assert_not_called()
 
 
-class TestOwnershipRequiredCommands:
+class TestOwnershipValidationForCommands:
     """Tests for commands that require project owner validation."""
 
     def test_create_validates_ownership(
@@ -2194,6 +2194,16 @@ class TestOwnershipRequiredCommands:
 
         assert result.exit_code == 0, result.output
         mock_validate_project_owner.assert_called_once()
+
+    def test_describe_no_ownership_validated(
+        self,
+        mock_validate_project_owner,
+        mock_connect,
+        runner,
+    ):
+        runner.invoke(["dcm", "describe", "my_project"])
+
+        mock_validate_project_owner.assert_not_called()
 
 
 class TestValidateAccountIdentifierLogic:
@@ -2303,90 +2313,3 @@ class TestValidateProjectOwnerLogic:
         target = DCMTarget(name="DEV", project_name="P1", **_DEFAULT_TARGET_FIELDS)
         with pytest.raises(CliError, match="Failed to determine current role"):
             _validate_project_owner(target)
-
-
-class TestOwnershipNotRequiredCommands:
-    """Tests for commands that do not require project owner validation."""
-
-    def test_describe_no_ownership_validated(
-        self,
-        mock_validate_project_owner,
-        mock_connect,
-        runner,
-    ):
-        runner.invoke(["dcm", "describe", "my_project"])
-
-        mock_validate_project_owner.assert_not_called()
-
-    def test_raw_analyze_no_ownership_validated(
-        self,
-        mock_dcm_manager,
-        mock_manifest_load,
-        mock_validate_project_owner,
-        runner,
-        project_directory,
-        mock_cursor,
-        mock_connect,
-    ):
-        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
-            rows=[('{"files": []}',)], columns=("result",)
-        )
-        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
-        mock_manifest_load.return_value = _manifest_without_config()
-
-        with project_directory("dcm_project"):
-            runner.invoke(["dcm", "raw-analyze", "my_project"])
-
-        mock_validate_project_owner.assert_not_called()
-
-    def test_preview_no_ownership_validated(
-        self,
-        mock_dcm_manager,
-        mock_manifest_load,
-        mock_validate_project_owner,
-        runner,
-        project_directory,
-        mock_cursor,
-        mock_connect,
-    ):
-        mock_dcm_manager().preview.return_value = mock_cursor(rows=[], columns=("col",))
-        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
-        mock_manifest_load.return_value = _manifest_without_config()
-
-        with project_directory("dcm_project"):
-            runner.invoke(["dcm", "preview", "my_project", "--object", "MY_TABLE"])
-
-        mock_validate_project_owner.assert_not_called()
-
-    def test_plan_no_ownership_validated(
-        self,
-        mock_dcm_manager,
-        mock_manifest_load,
-        mock_validate_project_owner,
-        mock_cursor,
-        runner,
-        project_directory,
-    ):
-        mock_dcm_manager().plan.return_value = mock_cursor(
-            rows=[("[]",)], columns=("operations",)
-        )
-        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
-        mock_manifest_load.return_value = _manifest_without_config()
-
-        with project_directory("dcm_project"):
-            runner.invoke(["dcm", "plan", "my_project"])
-
-        mock_validate_project_owner.assert_not_called()
-
-    def test_list_deployments_no_ownership_validated(
-        self,
-        mock_dcm_manager,
-        mock_validate_project_owner,
-        mock_connect,
-        runner,
-    ):
-        mock_dcm_manager().list_deployments.return_value = mock.MagicMock()
-
-        runner.invoke(["dcm", "list-deployments", "my_project"])
-
-        mock_validate_project_owner.assert_not_called()

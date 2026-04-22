@@ -159,7 +159,7 @@ def _validate_project_owner(target: DCMTarget) -> None:
         current_role = SqlExecutor().current_role()
     except Exception as e:
         raise CliError(
-            f"Failed to determine current role for project owner validation: {str(e)}"
+            "Failed to determine current role for project owner validation"
         ) from e
 
     if not current_role:
