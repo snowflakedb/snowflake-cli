@@ -41,6 +41,7 @@
   * `project_owner` is checked for `snow dcm create`
 * Added a `--secondary-roles` option (plus matching `SNOWFLAKE_SECONDARY_ROLES` env var and `secondary_roles` config key) to `snow connection add` and the global connection overrides. The value is forwarded to `snowflake-connector-python` and accepts `ALL` or `NONE`, so sessions can be pinned to the primary role without running an extra `USE SECONDARY ROLES` statement.
 * Added `--force` flag to `snow spcs service drop` to allow dropping services that contain block storage volumes.
+* Added `snow streamlit logs` command to stream live logs from a Streamlit-in-Snowflake app running on the SPCSv2 container runtime. Supports `--tail` for historical lines, `--name` to target apps without a project definition, and honors the global `--format` flag (plain / JSON / CSV) for downstream piping.
 
 ## Fixes and improvements
 * Significantly improved DCM files upload performance

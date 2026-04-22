@@ -1,3 +1,10 @@
+// Source proto for the Streamlit developer log streaming protocol.
+//
+// Regenerate generated/developer/v1/logs_service_pb2.py whenever this file
+// changes. See ../../README.md for the exact command and required
+// post-generation patch (try/except around ValidateProtobufRuntimeVersion
+// for protobuf<5 compatibility).
+
 syntax = "proto3";
 
 package developer.v1;

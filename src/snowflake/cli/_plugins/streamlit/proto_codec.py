@@ -1,4 +1,4 @@
-# Copyright (c) 2026 Snowflake Inc.
+# Copyright (c) 2024 Snowflake Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ from datetime import datetime, timezone
 from snowflake.cli._plugins.streamlit.proto.generated.developer.v1 import (
     logs_service_pb2 as pb2,
 )
+from snowflake.cli.api.sanitizers import sanitize_for_terminal
 
 # Re-export enum values for convenience
 LOG_SOURCE_APP = pb2.LOG_SOURCE_APP
@@ -72,7 +73,10 @@ class LogEntry:
 
     def format_line(self) -> str:
         ts = self.timestamp.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-        return f"[{ts}] [{self.level_label}] [{self.source_label}] [seq:{self.sequence}] {self.content}"
+        # Strip ANSI/terminal control sequences so a malicious app log line
+        # cannot manipulate the user's terminal.
+        safe_content = sanitize_for_terminal(self.content) or ""
+        return f"[{ts}] [{self.level_label}] [{self.source_label}] [seq:{self.sequence}] {safe_content}"
 
     def to_dict(self) -> dict[str, str | int]:
         return {
@@ -80,7 +84,7 @@ class LogEntry:
             "level": self.level_label,
             "source": self.source_label,
             "sequence": self.sequence,
-            "content": self.content,
+            "content": sanitize_for_terminal(self.content) or "",
         }
 
 

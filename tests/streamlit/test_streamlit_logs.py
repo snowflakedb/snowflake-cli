@@ -1,4 +1,4 @@
-# Copyright (c) 2026 Snowflake Inc.
+# Copyright (c) 2024 Snowflake Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,13 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 from datetime import datetime, timezone
 from unittest import mock
 
 import pytest
 import websocket as ws_lib
-from click import ClickException
 from snowflake.cli._plugins.streamlit.commands import streamlit_logs
 from snowflake.cli._plugins.streamlit.log_streaming import (
     DeveloperApiToken,
@@ -39,7 +37,14 @@ from snowflake.cli._plugins.streamlit.proto_codec import (
     decode_log_entry,
     encode_stream_logs_request,
 )
+from snowflake.cli.api.exceptions import (
+    CliArgumentError,
+    CliConnectionError,
+    CliError,
+    CliSqlError,
+)
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.output.types import MessageResult, ObjectResult, StreamResult
 
 
 class TestBuildWsUrl:
@@ -77,7 +82,10 @@ class TestGetDeveloperApiToken:
         result = get_developer_api_token(mock_conn, "DB.SCHEMA.APP")
 
         assert isinstance(result, DeveloperApiToken)
-        assert result.token == "abc123"
+        assert result.token.value == "abc123"
+        # Token must never render its plaintext value via repr() / str().
+        assert "abc123" not in repr(result.token)
+        assert "abc123" not in str(result.token)
         assert result.resource_uri == "https://my-app.snowflakecomputing.com"
         mock_cursor.execute.assert_called_once_with(
             "CALL SYSTEM$GET_STREAMLIT_DEVELOPER_API_TOKEN('DB.SCHEMA.APP', false);"
@@ -91,7 +99,7 @@ class TestGetDeveloperApiToken:
         mock_conn = mock.Mock()
         mock_conn.cursor.return_value = mock_cursor
 
-        with pytest.raises(ClickException, match="Empty response"):
+        with pytest.raises(CliSqlError, match="Empty response"):
             get_developer_api_token(mock_conn, "DB.SCHEMA.APP")
 
     def test_empty_token_raises(self):
@@ -103,7 +111,7 @@ class TestGetDeveloperApiToken:
         mock_conn = mock.Mock()
         mock_conn.cursor.return_value = mock_cursor
 
-        with pytest.raises(ClickException, match="Empty token"):
+        with pytest.raises(CliSqlError, match="Empty token"):
             get_developer_api_token(mock_conn, "DB.SCHEMA.APP")
 
     def test_empty_resource_uri_raises(self):
@@ -113,13 +121,13 @@ class TestGetDeveloperApiToken:
         mock_conn = mock.Mock()
         mock_conn.cursor.return_value = mock_cursor
 
-        with pytest.raises(ClickException, match="Empty resourceUri"):
+        with pytest.raises(CliSqlError, match="Empty resourceUri"):
             get_developer_api_token(mock_conn, "DB.SCHEMA.APP")
 
     def test_single_quote_in_fqn_raises(self):
         mock_conn = mock.Mock()
 
-        with pytest.raises(ClickException, match="single quotes"):
+        with pytest.raises(CliArgumentError, match="single quotes"):
             get_developer_api_token(mock_conn, "DB.SCHEMA.APP'; DROP TABLE --")
 
     def test_cursor_closed_on_error(self):
@@ -238,6 +246,24 @@ class TestDecodeLogEntry:
             "content": "some content",
         }
 
+    def test_ansi_escape_sequences_are_stripped(self):
+        # Terminal colour / cursor-movement escape sequences embedded in a
+        # log message by the server must not reach stdout unmodified.
+        payload = "\x1b[31mred\x1b[0m and \x1b[2Jcleared"
+        entry = LogEntry(
+            log_source=LOG_SOURCE_APP,
+            content=payload,
+            timestamp=datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
+            sequence=1,
+            level=LOG_LEVEL_INFO,
+        )
+        assert "\x1b" not in entry.format_line()
+        assert "red and cleared" in entry.format_line()
+
+        d = entry.to_dict()
+        assert "\x1b" not in d["content"]
+        assert d["content"] == "red and cleared"
+
 
 def _make_entry_bytes(log_source, content, seconds, sequence, level):
     """Serialize a protobuf LogEntry for use in tests."""
@@ -285,8 +311,37 @@ def mock_console():
         yield console
 
 
+@pytest.fixture
+def table_output():
+    """Force plain/TABLE output format so stream_logs yields MessageResults."""
+    with mock.patch(
+        "snowflake.cli._plugins.streamlit.log_streaming.get_cli_context"
+    ) as mock_ctx:
+        mock_ctx.return_value.output_format = None  # defaults to TABLE
+        yield mock_ctx
+
+
+@pytest.fixture
+def json_output():
+    """Force JSON output format so stream_logs yields ObjectResults."""
+    from snowflake.cli.api.output.formats import OutputFormat
+
+    with mock.patch(
+        "snowflake.cli._plugins.streamlit.log_streaming.get_cli_context"
+    ) as mock_ctx:
+        mock_ctx.return_value.output_format = OutputFormat.JSON
+        yield mock_ctx
+
+
+def _drain(gen):
+    """Run a stream_logs generator to completion and collect its results."""
+    return list(gen)
+
+
 class TestStreamLogs:
-    def test_streams_log_entries_to_stdout(self, mock_ws, mock_console, capsys):
+    def test_streams_log_entries_as_messages_for_table(
+        self, mock_ws, mock_console, table_output
+    ):
         entry1 = _make_entry_bytes(1, "line one", 1700000000, 1, 2)
         entry2 = _make_entry_bytes(2, "line two", 1700000001, 2, 3)
 
@@ -296,16 +351,20 @@ class TestStreamLogs:
             (ws_lib.ABNF.OPCODE_CLOSE, b""),
         ]
 
-        conn = _mock_conn_with_token()
-        stream_logs(conn=conn, fqn="DB.SCHEMA.APP", tail_lines=100)
+        results = _drain(
+            stream_logs(
+                conn=_mock_conn_with_token(), fqn="DB.SCHEMA.APP", tail_lines=100
+            )
+        )
 
-        captured = capsys.readouterr()
-        assert "line one" in captured.out
-        assert "line two" in captured.out
-        assert "[APP]" in captured.out
-        assert "[MGR]" in captured.out
+        assert len(results) == 2
+        assert all(isinstance(r, MessageResult) for r in results)
+        assert "line one" in results[0].message
+        assert "[APP]" in results[0].message
+        assert "line two" in results[1].message
+        assert "[MGR]" in results[1].message
 
-    def test_json_output(self, mock_ws, mock_console, capsys):
+    def test_yields_object_results_for_json(self, mock_ws, mock_console, json_output):
         entry_bytes = _make_entry_bytes(1, "json test", 1700000000, 1, 2)
 
         mock_ws.recv_data.side_effect = [
@@ -313,30 +372,32 @@ class TestStreamLogs:
             (ws_lib.ABNF.OPCODE_CLOSE, b""),
         ]
 
-        conn = _mock_conn_with_token()
-        stream_logs(conn=conn, fqn="DB.SCHEMA.APP", tail_lines=50, json_output=True)
+        results = _drain(
+            stream_logs(
+                conn=_mock_conn_with_token(), fqn="DB.SCHEMA.APP", tail_lines=50
+            )
+        )
 
-        captured = capsys.readouterr()
-        # Skip the "---" header line and the trailing "--- Log streaming stopped."
-        json_lines = [
-            line for line in captured.out.strip().split("\n") if line.startswith("{")
-        ]
-        assert len(json_lines) == 1
-        parsed = json.loads(json_lines[0])
-        assert parsed["content"] == "json test"
-        assert parsed["source"] == "APP"
-        assert parsed["level"] == "INFO"
+        assert len(results) == 1
+        assert isinstance(results[0], ObjectResult)
+        payload = results[0].result
+        assert payload["content"] == "json test"
+        assert payload["source"] == "APP"
+        assert payload["level"] == "INFO"
 
-    def test_handles_connection_closed(self, mock_ws, mock_console, capsys):
+    def test_handles_connection_closed(self, mock_ws, mock_console, table_output):
         mock_ws.recv_data.side_effect = ws_lib.WebSocketConnectionClosedException()
 
-        conn = _mock_conn_with_token()
-        stream_logs(conn=conn, fqn="DB.SCHEMA.APP", tail_lines=100)
+        results = _drain(
+            stream_logs(
+                conn=_mock_conn_with_token(), fqn="DB.SCHEMA.APP", tail_lines=100
+            )
+        )
 
-        captured = capsys.readouterr()
-        assert "Log streaming stopped" in captured.out
+        assert results == []
+        mock_console.step.assert_any_call("Log streaming stopped.")
 
-    def test_timeout_continues_loop(self, mock_ws, mock_console, capsys):
+    def test_timeout_continues_loop(self, mock_ws, mock_console, table_output):
         entry_bytes = _make_entry_bytes(1, "after timeout", 1700000000, 1, 2)
 
         # Timeout once, then get a message, then close
@@ -346,23 +407,29 @@ class TestStreamLogs:
             (ws_lib.ABNF.OPCODE_CLOSE, b""),
         ]
 
-        conn = _mock_conn_with_token()
-        stream_logs(conn=conn, fqn="DB.SCHEMA.APP", tail_lines=100)
+        results = _drain(
+            stream_logs(
+                conn=_mock_conn_with_token(), fqn="DB.SCHEMA.APP", tail_lines=100
+            )
+        )
 
-        captured = capsys.readouterr()
-        assert "after timeout" in captured.out
+        assert len(results) == 1
+        assert "after timeout" in results[0].message
 
-    def test_graceful_close(self, mock_ws, mock_console):
+    def test_graceful_close(self, mock_ws, mock_console, table_output):
         mock_ws.recv_data.side_effect = [
             (ws_lib.ABNF.OPCODE_CLOSE, b""),
         ]
 
-        conn = _mock_conn_with_token()
-        stream_logs(conn=conn, fqn="DB.SCHEMA.APP", tail_lines=100)
+        _drain(
+            stream_logs(
+                conn=_mock_conn_with_token(), fqn="DB.SCHEMA.APP", tail_lines=100
+            )
+        )
 
         mock_ws.close.assert_called_once_with(status=ws_lib.STATUS_NORMAL)
 
-    def test_skips_malformed_protobuf(self, mock_ws, mock_console, capsys):
+    def test_skips_malformed_protobuf(self, mock_ws, mock_console, table_output):
         good_entry = _make_entry_bytes(1, "good line", 1700000000, 1, 2)
 
         mock_ws.recv_data.side_effect = [
@@ -371,51 +438,69 @@ class TestStreamLogs:
             (ws_lib.ABNF.OPCODE_CLOSE, b""),
         ]
 
-        conn = _mock_conn_with_token()
-        stream_logs(conn=conn, fqn="DB.SCHEMA.APP", tail_lines=100)
+        results = _drain(
+            stream_logs(
+                conn=_mock_conn_with_token(), fqn="DB.SCHEMA.APP", tail_lines=100
+            )
+        )
 
-        captured = capsys.readouterr()
         # The malformed entry is skipped but the good entry still shows
-        assert "good line" in captured.out
+        assert len(results) == 1
+        assert "good line" in results[0].message
 
-    def test_responds_to_ping(self, mock_ws, mock_console):
+    def test_responds_to_ping(self, mock_ws, mock_console, table_output):
         mock_ws.recv_data.side_effect = [
             (ws_lib.ABNF.OPCODE_PING, b"ping-data"),
             (ws_lib.ABNF.OPCODE_CLOSE, b""),
         ]
 
-        conn = _mock_conn_with_token()
-        stream_logs(conn=conn, fqn="DB.SCHEMA.APP", tail_lines=100)
+        _drain(
+            stream_logs(
+                conn=_mock_conn_with_token(), fqn="DB.SCHEMA.APP", tail_lines=100
+            )
+        )
 
         mock_ws.pong.assert_called_once_with(b"ping-data")
 
-    def test_keyboard_interrupt_prints_stopped(self, mock_ws, mock_console, capsys):
+    def test_keyboard_interrupt_reports_stopped(
+        self, mock_ws, mock_console, table_output
+    ):
         mock_ws.recv_data.side_effect = KeyboardInterrupt()
 
-        conn = _mock_conn_with_token()
-        stream_logs(conn=conn, fqn="DB.SCHEMA.APP", tail_lines=100)
+        _drain(
+            stream_logs(
+                conn=_mock_conn_with_token(), fqn="DB.SCHEMA.APP", tail_lines=100
+            )
+        )
 
-        captured = capsys.readouterr()
-        assert "Log streaming stopped" in captured.out
+        mock_console.step.assert_any_call("Log streaming stopped.")
         mock_ws.close.assert_called_once_with(status=ws_lib.STATUS_NORMAL)
 
-    def test_connect_failure_raises(self, mock_ws, mock_console):
+    def test_connect_failure_raises(self, mock_ws, mock_console, table_output):
         mock_ws.connect.side_effect = ConnectionRefusedError("Connection refused")
 
-        conn = _mock_conn_with_token()
-        with pytest.raises(ClickException, match="Failed to connect"):
-            stream_logs(conn=conn, fqn="DB.SCHEMA.APP", tail_lines=100)
+        with pytest.raises(CliConnectionError, match="Failed to connect"):
+            _drain(
+                stream_logs(
+                    conn=_mock_conn_with_token(),
+                    fqn="DB.SCHEMA.APP",
+                    tail_lines=100,
+                )
+            )
 
         # WebSocket should still be closed in the finally block
         mock_ws.close.assert_called_once_with(status=ws_lib.STATUS_NORMAL)
 
-    def test_sends_stream_logs_request(self, mock_ws, mock_console):
+    def test_sends_stream_logs_request(self, mock_ws, mock_console, table_output):
         mock_ws.recv_data.side_effect = [
             (ws_lib.ABNF.OPCODE_CLOSE, b""),
         ]
 
-        conn = _mock_conn_with_token()
-        stream_logs(conn=conn, fqn="DB.SCHEMA.APP", tail_lines=42)
+        _drain(
+            stream_logs(
+                conn=_mock_conn_with_token(), fqn="DB.SCHEMA.APP", tail_lines=42
+            )
+        )
 
         mock_ws.send_binary.assert_called_once()
         sent_bytes = mock_ws.send_binary.call_args[0][0]
@@ -428,6 +513,7 @@ class TestStreamLogs:
 
 class TestValidateSpcsV2Runtime:
     SPCS_V2 = "SYSTEM$ST_CONTAINER_RUNTIME_PY3_11"
+    FQN = FQN.from_string("DB.SCHEMA.MY_APP")
 
     def _mock_describe_cursor(self, runtime_name):
         """Return a mock cursor whose DESCRIBE STREAMLIT result has the given runtime_name."""
@@ -451,59 +537,71 @@ class TestValidateSpcsV2Runtime:
         )
         return mock_cursor
 
+    def _patch_object_manager(self, mock_cursor):
+        """Patch ObjectManager so describe(...) returns the given cursor."""
+        patcher = mock.patch(
+            "snowflake.cli._plugins.streamlit.log_streaming.ObjectManager"
+        )
+        mock_cls = patcher.start()
+        mock_cls.return_value.describe.return_value = mock_cursor
+        return patcher, mock_cls
+
     def test_passes_for_spcs_v2_runtime(self):
         mock_cursor = self._mock_describe_cursor(self.SPCS_V2)
-        mock_conn = mock.Mock()
-        mock_conn.cursor.return_value = mock_cursor
+        patcher, mock_cls = self._patch_object_manager(mock_cursor)
+        try:
+            validate_spcs_v2_runtime(mock.Mock(), self.FQN)
+        finally:
+            patcher.stop()
 
-        # Should not raise
-        validate_spcs_v2_runtime(mock_conn, "DB.SCHEMA.MY_APP")
-
-        mock_cursor.execute.assert_called_once_with(
-            "DESCRIBE STREAMLIT DB.SCHEMA.MY_APP"
-        )
+        mock_cls.return_value.describe.assert_called_once()
+        call_kwargs = mock_cls.return_value.describe.call_args.kwargs
+        assert call_kwargs["object_type"] == "streamlit"
+        assert call_kwargs["fqn"] == self.FQN
         mock_cursor.close.assert_called_once()
 
     def test_raises_for_non_spcs_v2_runtime(self):
         mock_cursor = self._mock_describe_cursor(None)
-        mock_conn = mock.Mock()
-        mock_conn.cursor.return_value = mock_cursor
-
-        with pytest.raises(ClickException, match="only supported for Streamlit apps"):
-            validate_spcs_v2_runtime(mock_conn, "DB.SCHEMA.MY_APP")
+        patcher, _ = self._patch_object_manager(mock_cursor)
+        try:
+            with pytest.raises(CliError, match="only supported for Streamlit apps"):
+                validate_spcs_v2_runtime(mock.Mock(), self.FQN)
+        finally:
+            patcher.stop()
 
         mock_cursor.close.assert_called_once()
 
     def test_raises_for_wrong_runtime_name(self):
         mock_cursor = self._mock_describe_cursor("SOME_OTHER_RUNTIME")
-        mock_conn = mock.Mock()
-        mock_conn.cursor.return_value = mock_cursor
-
-        with pytest.raises(ClickException, match="SOME_OTHER_RUNTIME"):
-            validate_spcs_v2_runtime(mock_conn, "DB.SCHEMA.MY_APP")
+        patcher, _ = self._patch_object_manager(mock_cursor)
+        try:
+            with pytest.raises(CliError, match="SOME_OTHER_RUNTIME"):
+                validate_spcs_v2_runtime(mock.Mock(), self.FQN)
+        finally:
+            patcher.stop()
 
     def test_raises_for_empty_describe_result(self):
         mock_cursor = mock.Mock()
         mock_cursor.fetchone.return_value = None
         mock_cursor.description = None
-        mock_conn = mock.Mock()
-        mock_conn.cursor.return_value = mock_cursor
-
-        with pytest.raises(ClickException, match="Could not describe"):
-            validate_spcs_v2_runtime(mock_conn, "DB.SCHEMA.MY_APP")
+        patcher, _ = self._patch_object_manager(mock_cursor)
+        try:
+            with pytest.raises(CliSqlError, match="Could not describe"):
+                validate_spcs_v2_runtime(mock.Mock(), self.FQN)
+        finally:
+            patcher.stop()
 
         mock_cursor.close.assert_called_once()
 
     def test_cursor_closed_on_sql_error(self):
-        mock_cursor = mock.Mock()
-        mock_cursor.execute.side_effect = Exception("SQL error")
-        mock_conn = mock.Mock()
-        mock_conn.cursor.return_value = mock_cursor
-
-        with pytest.raises(Exception, match="SQL error"):
-            validate_spcs_v2_runtime(mock_conn, "DB.SCHEMA.MY_APP")
-
-        mock_cursor.close.assert_called_once()
+        # If ObjectManager.describe raises, it never returns a cursor, so no
+        # cursor needs closing here — we just verify the exception propagates.
+        with mock.patch(
+            "snowflake.cli._plugins.streamlit.log_streaming.ObjectManager"
+        ) as mock_cls:
+            mock_cls.return_value.describe.side_effect = Exception("SQL error")
+            with pytest.raises(Exception, match="SQL error"):
+                validate_spcs_v2_runtime(mock.Mock(), self.FQN)
 
 
 SPCS_V2_NAME = "SYSTEM$ST_CONTAINER_RUNTIME_PY3_11"
@@ -525,22 +623,24 @@ class TestStreamlitLogsCommand:
 
         mock_ctx = mock.Mock()
         mock_ctx.connection = mock_conn
-        mock_ctx.output_format.is_json = False
         mock_get_ctx.return_value = mock_ctx
 
         fqn = FQN.from_string("MY_APP")
         resolved = fqn.using_connection(mock_conn)
 
+        sentinel_gen = iter(())
+        mock_stream_logs.return_value = sentinel_gen
+
         result = streamlit_logs(entity_id=None, name=fqn, tail=100)
 
-        mock_validate.assert_called_once_with(mock_conn, str(resolved))
+        mock_validate.assert_called_once_with(mock_conn, resolved)
         mock_stream_logs.assert_called_once_with(
             conn=mock_conn,
             fqn=str(resolved),
             tail_lines=100,
-            json_output=False,
         )
-        assert result.message == "Log streaming ended."
+        assert isinstance(result, StreamResult)
+        assert result.result is sentinel_gen
 
     @mock.patch("snowflake.cli._plugins.streamlit.commands.get_cli_context")
     def test_name_and_entity_id_raises(self, mock_get_ctx):
@@ -549,7 +649,7 @@ class TestStreamlitLogsCommand:
         mock_ctx.connection = mock.Mock()
         mock_get_ctx.return_value = mock_ctx
 
-        with pytest.raises(ClickException, match="Cannot specify both"):
+        with pytest.raises(CliArgumentError, match="Cannot specify both"):
             streamlit_logs(
                 entity_id="my_entity", name=FQN.from_string("MY_APP"), tail=100
             )
@@ -562,7 +662,7 @@ class TestStreamlitLogsCommand:
         mock_ctx.project_definition = None
         mock_get_ctx.return_value = mock_ctx
 
-        with pytest.raises(ClickException, match="No Streamlit app specified"):
+        with pytest.raises(CliArgumentError, match="No Streamlit app specified"):
             streamlit_logs(entity_id=None, name=None, tail=100)
 
     @mock.patch("snowflake.cli._plugins.streamlit.commands.get_cli_context")
@@ -583,16 +683,19 @@ class TestStreamlitLogsCommand:
         mock_ctx = mock.Mock()
         mock_ctx.connection = mock_conn
         mock_ctx.project_definition = mock_pd
-        mock_ctx.output_format.is_json = False
         mock_get_ctx.return_value = mock_ctx
 
         mock_entity = mock.Mock()
         mock_entity.fqn = FQN.from_string("DB.PUBLIC.MY_STREAMLIT")
         mock_get_entity.return_value = mock_entity
 
+        sentinel_gen = iter(())
+        mock_stream_logs.return_value = sentinel_gen
+
         result = streamlit_logs(entity_id=None, name=None, tail=50)
 
         mock_validate.assert_called_once()
         mock_stream_logs.assert_called_once()
         assert mock_stream_logs.call_args.kwargs["tail_lines"] == 50
-        assert result.message == "Log streaming ended."
+        assert isinstance(result, StreamResult)
+        assert result.result is sentinel_gen

@@ -1,4 +1,4 @@
-# Copyright (c) 2026 Snowflake Inc.
+# Copyright (c) 2024 Snowflake Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -49,12 +49,13 @@ from snowflake.cli.api.commands.utils import get_entity_for_operation
 from snowflake.cli.api.console.console import CliConsole
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.entities.utils import EntityActions
-from snowflake.cli.api.exceptions import NoProjectDefinitionError
+from snowflake.cli.api.exceptions import CliArgumentError, NoProjectDefinitionError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CommandResult,
     MessageResult,
     SingleQueryResult,
+    StreamResult,
 )
 from snowflake.cli.api.project.definition_conversion import (
     convert_project_definition_to_v2,
@@ -255,19 +256,18 @@ def streamlit_logs(
 
     if name is not None:
         if entity_id is not None:
-            raise ClickException(
+            raise CliArgumentError(
                 "Cannot specify both --name and an entity ID. "
                 "Use --name to identify the app directly, or use an "
                 "entity ID to reference a snowflake.yml definition."
             )
-        # --name flag provided: resolve FQN and validate via server-side DESCRIBE
+        log.debug("Resolving Streamlit FQN from --name flag: %s", name)
         fqn = name.using_connection(conn)
-        validate_spcs_v2_runtime(conn, str(fqn))
     else:
-        # No --name: require project definition
+        log.debug("No --name provided; resolving Streamlit from project definition")
         pd = cli_context.project_definition
         if pd is None:
-            raise ClickException(
+            raise CliArgumentError(
                 "No Streamlit app specified. Provide --name or run from a "
                 "directory with a snowflake.yml project definition."
             )
@@ -286,16 +286,11 @@ def streamlit_logs(
         )
 
         fqn = entity_model.fqn.using_connection(conn)
-        # Validate SPCSv2 runtime via server-side DESCRIBE (same path as --name)
-        validate_spcs_v2_runtime(conn, str(fqn))
 
-    stream_logs(
-        conn=conn,
-        fqn=str(fqn),
-        tail_lines=tail,
-        json_output=cli_context.output_format.is_json,
-    )
-    return MessageResult("Log streaming ended.")
+    log.debug("Validating SPCSv2 runtime for %s via DESCRIBE STREAMLIT", fqn)
+    validate_spcs_v2_runtime(conn, fqn)
+
+    return StreamResult(stream_logs(conn=conn, fqn=str(fqn), tail_lines=tail))
 
 
 def _get_current_workspace_context():
