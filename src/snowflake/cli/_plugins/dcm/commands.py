@@ -160,7 +160,7 @@ def _validate_project_owner(target: DCMTarget) -> None:
     except Exception as e:
         raise CliError(
             f"Failed to determine current role for project owner validation: {str(e)}"
-        )
+        ) from e
 
     if not current_role:
         raise CliError(
@@ -339,9 +339,7 @@ def deploy(
     """
     clear_command_artifacts("deploy")
 
-    context = _resolve_context_with_required_manifest(
-        from_location, identifier, target, validate_owner=True
-    )
+    context = _resolve_context_with_required_manifest(from_location, identifier, target)
     project_id = context.project_identifier
 
     manager = DCMProjectManager()
@@ -419,9 +417,7 @@ def purge(
     """
     clear_command_artifacts("purge")
 
-    context = _resolve_context_with_optional_manifest(
-        from_location, identifier, target, validate_owner=True
-    )
+    context = _resolve_context_with_optional_manifest(from_location, identifier, target)
     project_id = context.project_identifier
 
     if not force and not interactive:
@@ -563,9 +559,7 @@ def drop(
     """
     Drops a DCM Project. All the objects deployed and managed by this project won't be dropped.
     """
-    context = _resolve_context_with_optional_manifest(
-        from_location, identifier, target, validate_owner=True
-    )
+    context = _resolve_context_with_optional_manifest(from_location, identifier, target)
     project_id = context.project_identifier
 
     result = QueryResult(
@@ -631,9 +625,7 @@ def drop_deployment(
     """
     Drops a deployment from the DCM Project.
     """
-    context = _resolve_context_with_optional_manifest(
-        from_location, identifier, target, validate_owner=True
-    )
+    context = _resolve_context_with_optional_manifest(from_location, identifier, target)
     project_id = context.project_identifier
 
     # Detect potential shell expansion issues
@@ -723,9 +715,7 @@ def refresh(
     """
     clear_command_artifacts("refresh")
 
-    context = _resolve_context_with_optional_manifest(
-        from_location, identifier, target, validate_owner=True
-    )
+    context = _resolve_context_with_optional_manifest(from_location, identifier, target)
     project_id = context.project_identifier
 
     with cli_console.spinner() as spinner:
@@ -750,9 +740,7 @@ def test(
     """
     clear_command_artifacts("test")
 
-    context = _resolve_context_with_optional_manifest(
-        from_location, identifier, target, validate_owner=True
-    )
+    context = _resolve_context_with_optional_manifest(from_location, identifier, target)
     project_id = context.project_identifier
 
     with cli_console.spinner() as spinner:
