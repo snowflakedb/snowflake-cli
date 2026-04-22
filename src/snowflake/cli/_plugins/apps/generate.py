@@ -14,7 +14,7 @@
 
 import logging
 from textwrap import dedent
-from typing import Dict
+from typing import Dict, Optional
 
 log = logging.getLogger(__name__)
 
@@ -24,15 +24,19 @@ IS_PERSONAL_DB_SUPPORTED = False  # Will be enabled in the future
 
 def _generate_snowflake_yml(
     app_id: str,
-    resolved: Dict[str, str],
+    resolved: Dict[str, Optional[str]],
 ) -> str:
     """Generate snowflake.yml content from pre-resolved configuration values.
 
-    All required keys (``database``, ``schema``, ``warehouse``,
-    ``build_compute_pool``, ``service_compute_pool``, ``build_eai``) must
-    be present and non-empty in *resolved*.  The artifact repository is
-    omitted from the generated YAML; the CLI will default to
-    ``<app-id>_REPO`` at deploy time.
+    Required keys: ``database``, ``schema``, ``warehouse``,
+    ``build_compute_pool``, ``service_compute_pool``.
+
+    Optional keys: ``build_eai``.  When not provided (``None``) the
+    ``build_eai`` block is omitted from the generated YAML — the builder
+    service will run without an external access integration.
+
+    The artifact repository is omitted from the generated YAML; the CLI
+    will default to ``<app-id>_REPO`` at deploy time.
     """
 
     if resolved.get("image_repository"):
@@ -47,11 +51,21 @@ def _generate_snowflake_yml(
     warehouse = resolved["warehouse"]
     build_compute_pool = resolved["build_compute_pool"]
     service_compute_pool = resolved["service_compute_pool"]
-    build_eai = resolved["build_eai"]
+    build_eai = resolved.get("build_eai")
 
-    code_stage = f"{app_id.upper()}_CODE"
+    # code_stage is emitted as an identifier (``DB.SCHEMA.STAGE``) so it is
+    # self-contained and does not implicitly depend on the app's database
+    # and schema at deploy time.
+    code_stage_name = f"{app_id.upper()}_CODE"
+    code_stage_identifier = f"{database}.{schema}.{code_stage_name}"
 
-    return dedent(
+    build_eai_block = (
+        f"\n            build_eai:\n              name: {build_eai}"
+        if build_eai
+        else ""
+    )
+
+    raw = (
         f"""\
         definition_version: "2"
 
@@ -80,10 +94,8 @@ def _generate_snowflake_yml(
             build_compute_pool:
               name: {build_compute_pool}
             service_compute_pool:
-              name: {service_compute_pool}
-            build_eai:
-              name: {build_eai}
-            code_stage:
-              name: {code_stage}
-        """
+              name: {service_compute_pool}"""
+        + build_eai_block
+        + f"\n            code_stage: {code_stage_identifier}\n"
     )
+    return dedent(raw)

@@ -164,6 +164,60 @@ class TestSnowflakeAppEntityModel:
         )
         assert model.code_stage.encryption_type == "SNOWFLAKE_SSE"
 
+    def test_code_stage_as_bare_name_string(self):
+        """``code_stage: MY_STAGE`` (bare string) is accepted for
+        backwards-compatibility — db/schema are resolved to the app's
+        db/schema at deploy time."""
+        model = SnowflakeAppEntityModel(
+            type="snowflake-app",
+            identifier="my_app",
+            artifacts=["app/*"],
+            code_stage="MY_STAGE",
+        )
+        assert model.code_stage.name == "MY_STAGE"
+        assert model.code_stage.database is None
+        assert model.code_stage.schema_ is None
+
+    def test_code_stage_as_fully_qualified_identifier(self):
+        """``code_stage: DB.SCHEMA.STAGE`` is parsed into its components."""
+        model = SnowflakeAppEntityModel(
+            type="snowflake-app",
+            identifier="my_app",
+            artifacts=["app/*"],
+            code_stage="MY_DB.MY_SCHEMA.MY_STAGE",
+        )
+        assert model.code_stage.name == "MY_STAGE"
+        assert model.code_stage.schema_ == "MY_SCHEMA"
+        assert model.code_stage.database == "MY_DB"
+
+    def test_code_stage_as_schema_qualified_identifier(self):
+        """``code_stage: SCHEMA.STAGE`` fills schema_ only."""
+        model = SnowflakeAppEntityModel(
+            type="snowflake-app",
+            identifier="my_app",
+            artifacts=["app/*"],
+            code_stage="MY_SCHEMA.MY_STAGE",
+        )
+        assert model.code_stage.name == "MY_STAGE"
+        assert model.code_stage.schema_ == "MY_SCHEMA"
+        assert model.code_stage.database is None
+
+    def test_code_stage_dict_with_db_and_schema(self):
+        """Dict form with explicit database/schema is supported."""
+        model = SnowflakeAppEntityModel(
+            type="snowflake-app",
+            identifier="my_app",
+            artifacts=["app/*"],
+            code_stage={
+                "name": "MY_STAGE",
+                "database": "MY_DB",
+                "schema": "MY_SCHEMA",
+            },
+        )
+        assert model.code_stage.name == "MY_STAGE"
+        assert model.code_stage.database == "MY_DB"
+        assert model.code_stage.schema_ == "MY_SCHEMA"
+
     def test_meta_field_defaults(self):
         """Meta field sub-fields default to None."""
         model = SnowflakeAppEntityModel(

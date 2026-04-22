@@ -26,6 +26,8 @@
 * Added `snow custom-image validate` command to validate custom Docker images against configured rules (entrypoint, environment variables, Python packages, dependency health). Supports an optional `--scan-vulnerabilities` flag to run Grype vulnerability scanning.
 
 ## Fixes and improvements
+* `snow app setup` / `snow app deploy` (Snowflake Apps Deploy flow): `--build-eai` is now fully optional. When no value is provided and no account parameter is set, the generated `snowflake.yml` omits the `build_eai` block, `--dry-run` no longer prints a `build_eai: None (missing)` line, and the deploy pipeline runs the artifact-repo build without an external access integration.
+* `code_stage` in `snowflake.yml` (Snowflake Apps Deploy flow) now accepts a fully-qualified identifier (`DB.SCHEMA.STAGE`) in addition to the existing dict form. A bare string (`code_stage: MY_STAGE`) is still accepted for backwards compatibility and resolves to the app's database/schema at deploy time. Generated `snowflake.yml` files now emit the identifier form.
 * Fixed `snow streamlit deploy` failing with a collision error when `pages/*.py` glob in `additional_source_files` overlaps with the automatically-included `pages/` directory. Overlapping glob patterns are now deduplicated during v1-to-v2 definition conversion.
 * Updated `snowflake-connector-python` to version 4.4.0. Connector python 4.x series introduced stricter permission checks. In future versions of Snowflake CLI strict configuration file permissions will become mandatory. To test if your files have correct permissions set SNOWFLAKE_CLI_FEATURES_ENFORCE_STRICT_CONFIG_PERMISSIONS=1 before running CLI commands.
 
