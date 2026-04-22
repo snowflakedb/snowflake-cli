@@ -37,7 +37,7 @@ dependencies = [
   "prompt-toolkit==3.0.51",
   "protobuf>=5.29.6,<6",
   "pydantic==2.12.5",
-  "requests==2.32.4",
+  "requests==2.33.0",
   "requirements-parser==0.13.0",
   "rich==14.0.0",
   "setuptools==80.8.0",
