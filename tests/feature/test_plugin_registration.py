@@ -22,7 +22,7 @@ def test_feature_group_is_registered(runner):
 
 
 def test_feature_group_help_lists_all_commands(runner):
-    """'snow feature --help' should list all 6 sub-commands."""
+    """'snow feature --help' should list key sub-commands (drop removed)."""
     result = runner.invoke(["feature", "--help"])
     assert result.exit_code == 0, result.output
     output = result.output.lower()
@@ -30,5 +30,4 @@ def test_feature_group_help_lists_all_commands(runner):
     assert "plan" in output
     assert "list" in output
     assert "describe" in output
-    assert "drop" in output
     assert "convert" in output

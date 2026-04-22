@@ -180,24 +180,6 @@ def test_describe_passes_name(mock_manager, runner):
 # ---------------------------------------------------------------------------
 
 
-@mock.patch(FEATURE_MANAGER)
-def test_drop_requires_at_least_one_name(mock_manager, runner):
-    """drop with no names should exit with usage error."""
-    result = runner.invoke(["feature", "drop"])
-    assert result.exit_code == 2, result.output
-
-
-@mock.patch(FEATURE_MANAGER)
-def test_drop_passes_names(mock_manager, runner):
-    """drop ENTITY_A ENTITY_B should pass both names to FeatureManager.drop."""
-    mock_manager.return_value.drop.return_value = {}
-    result = runner.invoke(["feature", "drop", "ENTITY_A", "ENTITY_B"])
-    assert result.exit_code == 0, result.output
-    call_kwargs = mock_manager.return_value.drop.call_args[1]
-    assert "ENTITY_A" in call_kwargs["names"]
-    assert "ENTITY_B" in call_kwargs["names"]
-
-
 # ---------------------------------------------------------------------------
 # convert
 # ---------------------------------------------------------------------------

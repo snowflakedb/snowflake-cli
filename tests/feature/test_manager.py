@@ -189,15 +189,6 @@ class TestFeatureManagerDescribe:
         assert isinstance(result, dict)
 
 
-class TestFeatureManagerDrop:
-    def test_drop_returns_dict(self, mock_execute_query):
-        from snowflake.cli._plugins.feature.manager import FeatureManager
-
-        mgr = FeatureManager()
-        result = mgr.drop(names=("MY_ENTITY",))
-        assert isinstance(result, dict)
-
-
 class TestFeatureManagerConvert:
     def test_convert_returns_dict(self, mock_execute_query, mock_decl):
         from snowflake.cli._plugins.feature.manager import FeatureManager
@@ -963,22 +954,26 @@ class TestApplyWithPlanFile:
 
 
 class TestDirectoryMode:
-    """Tests that apply() sets full_directory_mode based on directory vs file input."""
+    """Tests that apply() sets full_directory_mode based on ./... pattern."""
 
-    def test_apply_with_directory_sets_full_directory_mode(
-        self, mock_execute_query, mock_decl, tmp_path
+    def test_apply_with_dot_slash_ellipsis_enables_deletion(
+        self, mock_execute_query, mock_decl
     ):
-        """apply() with a directory path passes full_directory_mode=True to generate_plan."""
+        """apply() with no_delete=False passes full_directory_mode=True to generate_plan.
+
+        The commands layer detects './...' and passes no_delete=False.
+        """
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         mgr = FeatureManager()
         mgr.apply(
-            input_files=[str(tmp_path)],
+            input_files=["./..."],
             config=None,
             dry_run=False,
             dev_mode=False,
             overwrite=False,
             allow_recreate=False,
+            no_delete=False,  # ./... triggers this in commands.py
         )
         call_args = mock_decl.generate_plan.call_args
         assert call_args is not None
@@ -988,33 +983,10 @@ class TestDirectoryMode:
         assert options is not None
         assert options.full_directory_mode is True
 
-    def test_apply_with_file_list_sets_full_directory_mode_false(
+    def test_apply_with_specific_files_disables_deletion(
         self, mock_execute_query, mock_decl
     ):
-        """apply() with individual file paths passes full_directory_mode=False to generate_plan."""
-        from snowflake.cli._plugins.feature.manager import FeatureManager
-
-        mgr = FeatureManager()
-        mgr.apply(
-            input_files=["entities/user.yaml", "feature_views/click_fv.yaml"],
-            config=None,
-            dry_run=False,
-            dev_mode=False,
-            overwrite=False,
-            allow_recreate=False,
-        )
-        call_args = mock_decl.generate_plan.call_args
-        assert call_args is not None
-        options = (
-            call_args[0][2] if len(call_args[0]) >= 3 else call_args[1].get("options")
-        )
-        assert options is not None
-        assert options.full_directory_mode is False
-
-    def test_apply_with_single_file_sets_full_directory_mode_false(
-        self, mock_execute_query, mock_decl
-    ):
-        """apply() with a single file path (not a directory) uses full_directory_mode=False."""
+        """apply() with specific file paths passes full_directory_mode=False."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         mgr = FeatureManager()
@@ -1033,3 +1005,53 @@ class TestDirectoryMode:
         )
         assert options is not None
         assert options.full_directory_mode is False
+
+    def test_apply_with_directory_disables_deletion(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """apply() with a directory path (not ./...) passes full_directory_mode=False."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        mgr.apply(
+            input_files=[str(tmp_path)],
+            config=None,
+            dry_run=False,
+            dev_mode=False,
+            overwrite=False,
+            allow_recreate=False,
+        )
+        call_args = mock_decl.generate_plan.call_args
+        assert call_args is not None
+        options = (
+            call_args[0][2] if len(call_args[0]) >= 3 else call_args[1].get("options")
+        )
+        assert options is not None
+        assert options.full_directory_mode is False
+
+    def test_apply_with_subdir_ellipsis_enables_deletion(
+        self, mock_execute_query, mock_decl
+    ):
+        """apply() with no_delete=False passes full_directory_mode=True.
+
+        The commands layer detects 'mydir/...' and passes no_delete=False.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        mgr.apply(
+            input_files=["mydir/..."],
+            config=None,
+            dry_run=False,
+            dev_mode=False,
+            overwrite=False,
+            allow_recreate=False,
+            no_delete=False,  # mydir/... triggers this in commands.py
+        )
+        call_args = mock_decl.generate_plan.call_args
+        assert call_args is not None
+        options = (
+            call_args[0][2] if len(call_args[0]) >= 3 else call_args[1].get("options")
+        )
+        assert options is not None
+        assert options.full_directory_mode is True

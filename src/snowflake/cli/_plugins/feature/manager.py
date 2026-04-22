@@ -40,25 +40,6 @@ def _rows_to_dicts(rows) -> list[dict[str, Any]]:
     return [dict(r) for r in rows]
 
 
-def _is_directory_mode(input_files: Sequence[str]) -> bool:
-    """Return True when input represents a full directory (deletion detection enabled).
-
-    Directory mode is active when:
-    - ``input_files`` is empty (implies cwd), or
-    - ``input_files`` contains exactly one entry that is an existing directory.
-
-    All other cases (multiple entries, or a single non-directory path) are
-    treated as explicit file mode — deletion detection is disabled.
-    """
-    import os
-
-    if not input_files:
-        return True
-    if len(input_files) == 1 and os.path.isdir(input_files[0]):
-        return True
-    return False
-
-
 class FeatureManager(SqlExecutionMixin):
     """Thin CLI adapter — delegates all business logic to decl_api."""
 
@@ -136,11 +117,15 @@ class FeatureManager(SqlExecutionMixin):
         overwrite: bool,
         allow_recreate: bool,
         plan_file: Optional[str] = None,
+        no_delete: bool = True,
     ) -> dict[str, Any]:
         """Load → validate → plan → generate SQL → (execute if not dry_run).
 
         If *plan_file* is provided, skip spec loading and plan generation —
         deserialize the pre-computed plan from the file and execute it.
+
+        If *no_delete* is True, deletion detection is disabled — objects in
+        Snowflake not represented in the local spec files will NOT be dropped.
         """
         if plan_file is not None:
             return self._apply_from_plan_file(
@@ -155,16 +140,6 @@ class FeatureManager(SqlExecutionMixin):
 
         # 1. Fetch state via decl_api query strings
         sqls = decl_api.state_queries(ctx.connection.database, ctx.connection.schema)
-
-        # Determine directory vs explicit-file mode for deletion detection
-        dir_mode = _is_directory_mode(list(input_files))
-        if not dir_mode:
-            log.warning(
-                "Operating on individual files — deletion detection is disabled. "
-                "Objects in Snowflake not represented in these files will NOT be "
-                "dropped. Use directory mode for full desired-state management."
-            )
-
         raw_show = _rows_to_dicts(
             self.execute_query(sqls["show_ofts"], cursor_class=DictCursor)
         )
@@ -196,7 +171,7 @@ class FeatureManager(SqlExecutionMixin):
             dev_mode=dev_mode,
             overwrite=overwrite,
             allow_recreate=allow_recreate,
-            full_directory_mode=dir_mode,
+            full_directory_mode=not no_delete,
         )
 
         if dry_run:
@@ -334,6 +309,7 @@ class FeatureManager(SqlExecutionMixin):
         config: Optional[dict[str, Any]],
         dev_mode: bool,
         out_path: str,
+        no_delete: bool = True,
     ) -> str:
         """Generate a plan and write it as JSON to *out_path*.
 
@@ -343,6 +319,7 @@ class FeatureManager(SqlExecutionMixin):
             dev_mode: Apply dev-mode relaxed validation.
             out_path: Destination path for the JSON plan file.  Parent
                 directories are created automatically.
+            no_delete: When True, disable deletion detection.
 
         Returns:
             The absolute path to the written plan file.
@@ -376,7 +353,7 @@ class FeatureManager(SqlExecutionMixin):
         all_files = self._expand_with_datasources(list(input_files))
         batch = decl_api.load_specs(all_files, config)
 
-        options = PlanOptions(dev_mode=dev_mode)
+        options = PlanOptions(dev_mode=dev_mode, full_directory_mode=not no_delete)
         plan = decl_api.generate_plan(batch, applied_state, options)
 
         json_str = decl_api.serialize_plan(
@@ -665,48 +642,6 @@ class FeatureManager(SqlExecutionMixin):
                                 result.append(extra)
                                 seen.add(extra)
         return result
-
-    # ------------------------------------------------------------------
-    # drop
-    # ------------------------------------------------------------------
-
-    def drop(self, names: Sequence[str]) -> dict[str, Any]:
-        """Drop feature views by name (resolves to OFT names via SHOW)."""
-        ctx = get_cli_context()
-
-        # Look up deployed OFTs to resolve feature view names to OFT names
-        sqls = decl_api.state_queries(ctx.connection.database, ctx.connection.schema)
-        raw_show = _rows_to_dicts(
-            self.execute_query(sqls["show_ofts"], cursor_class=DictCursor)
-        )
-
-        # Build map: uppercase feature view name → OFT name
-        from snowflake.ml.feature_store.decl.state import _parse_oft_name
-
-        oft_map: dict[str, str] = {}
-        for row in raw_show:
-            oft_name = row.get("name", "")
-            base_name, _ = _parse_oft_name(oft_name)
-            oft_map[base_name.upper()] = oft_name
-
-        dropped: list[str] = []
-        errors: list[str] = []
-        for name in names:
-            oft_name = oft_map.get(name.upper())
-            if not oft_name:
-                errors.append(f"{name}: not found in deployed feature views")
-                continue
-            drop_sqls = decl_api.drop_queries(
-                [oft_name], ctx.connection.database, ctx.connection.schema
-            )
-            try:
-                for sql in drop_sqls:
-                    self.execute_query(sql)
-                dropped.append(name)
-            except Exception as exc:
-                log.warning("drop %s raised %s: %s", name, type(exc).__name__, exc)
-                errors.append(f"{name}: {exc}")
-        return {"dropped": dropped, "errors": errors}
 
     # ------------------------------------------------------------------
     # convert
