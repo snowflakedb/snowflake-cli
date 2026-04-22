@@ -15,6 +15,16 @@
 from unittest.mock import Mock, patch
 
 import pytest
+from snowflake.cli._plugins.apps.defaults import (
+    SOURCE_ACCOUNT_PARAM,
+    SOURCE_CURRENT_SESSION,
+    SOURCE_DEFAULT,
+    SOURCE_MISSING,
+    SOURCE_USER_INPUT,
+    AppDefaults,
+    _VALUE_FIELDS,
+    resolve_defaults,
+)
 from snowflake.cli._plugins.apps.generate import (
     _generate_snowflake_yml,
 )
@@ -877,14 +887,14 @@ class TestFetchSnowAppsParameters:
         )
         mock_execute.return_value = cursor
         result = SnowflakeAppManager().fetch_snow_apps_parameters()
-        assert result == {
-            "query_warehouse": "MY_WH",
-            "build_compute_pool": "MY_POOL",
-            "service_compute_pool": "SVC_POOL",
-            "build_eai": "MY_EAI",
-            "database": "MY_DB",
-            "schema": "MY_SCHEMA",
-        }
+        assert isinstance(result, AppDefaults)
+        assert result.source == SOURCE_ACCOUNT_PARAM
+        assert result.warehouse == "MY_WH"
+        assert result.build_compute_pool == "MY_POOL"
+        assert result.service_compute_pool == "SVC_POOL"
+        assert result.build_eai == "MY_EAI"
+        assert result.database == "MY_DB"
+        assert result.schema == "MY_SCHEMA"
         query = mock_execute.call_args[0][0]
         assert "SHOW PARAMETERS LIKE 'DEFAULT_SNOWFLAKE_APPS_%' IN USER" in query
 
@@ -901,8 +911,9 @@ class TestFetchSnowAppsParameters:
         )
         mock_execute.return_value = cursor
         result = SnowflakeAppManager().fetch_snow_apps_parameters()
-        assert result == {"query_warehouse": "MY_WH"}
-        assert "build_compute_pool" not in result
+        assert isinstance(result, AppDefaults)
+        assert result.warehouse == "MY_WH"
+        assert result.build_compute_pool is None
 
     @patch(EXECUTE_QUERY)
     def test_ignores_unknown_parameters(self, mock_execute):
@@ -917,23 +928,27 @@ class TestFetchSnowAppsParameters:
         )
         mock_execute.return_value = cursor
         result = SnowflakeAppManager().fetch_snow_apps_parameters()
-        assert result == {"query_warehouse": "MY_WH"}
+        assert isinstance(result, AppDefaults)
+        assert result.warehouse == "MY_WH"
 
     @patch(
         EXECUTE_QUERY,
         side_effect=ProgrammingError("permission denied"),
     )
-    def test_returns_empty_dict_on_error(self, mock_execute):
+    def test_returns_empty_app_defaults_on_error(self, mock_execute):
         result = SnowflakeAppManager().fetch_snow_apps_parameters()
-        assert result == {}
+        assert isinstance(result, AppDefaults)
+        assert result.source == SOURCE_ACCOUNT_PARAM
+        assert not result.has_values()
 
     @patch(EXECUTE_QUERY)
-    def test_returns_empty_dict_when_no_params_set(self, mock_execute):
+    def test_returns_empty_app_defaults_when_no_params_set(self, mock_execute):
         cursor = Mock()
         cursor.__iter__ = Mock(return_value=iter([]))
         mock_execute.return_value = cursor
         result = SnowflakeAppManager().fetch_snow_apps_parameters()
-        assert result == {}
+        assert isinstance(result, AppDefaults)
+        assert not result.has_values()
 
     @patch(EXECUTE_QUERY)
     def test_handles_uppercase_column_names(self, mock_execute):
@@ -945,7 +960,8 @@ class TestFetchSnowAppsParameters:
         )
         mock_execute.return_value = cursor
         result = SnowflakeAppManager().fetch_snow_apps_parameters()
-        assert result == {"query_warehouse": "MY_WH"}
+        assert isinstance(result, AppDefaults)
+        assert result.warehouse == "MY_WH"
 
 
 # ── _resolve_deploy_defaults tests ────────────────────────────────────
@@ -998,7 +1014,10 @@ class TestResolveDeployDefaults:
             entity.artifact_repository.schema_ = None
         return entity
 
-    @patch(FETCH_SNOW_APPS_PARAMS, return_value={})
+    @patch(
+        FETCH_SNOW_APPS_PARAMS,
+        return_value=AppDefaults(source=SOURCE_ACCOUNT_PARAM),
+    )
     @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
     def test_yml_values_take_precedence(self, mock_ctx, mock_params):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
@@ -1009,39 +1028,48 @@ class TestResolveDeployDefaults:
             service_compute_pool="YML_SVC_POOL",
             build_eai="YML_EAI",
         )
-        result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
-        assert result["query_warehouse"] == "YML_WH"
-        assert result["build_compute_pool"] == "YML_POOL"
-        assert result["service_compute_pool"] == "YML_SVC_POOL"
-        assert result["build_eai"] == "YML_EAI"
+        defaults, ar_name, ar_database, ar_schema = _resolve_deploy_defaults(
+            entity, SnowflakeAppManager()
+        )
+        assert defaults.warehouse == "YML_WH"
+        assert defaults.build_compute_pool == "YML_POOL"
+        assert defaults.service_compute_pool == "YML_SVC_POOL"
+        assert defaults.build_eai == "YML_EAI"
 
     @patch(
         FETCH_SNOW_APPS_PARAMS,
-        return_value={
-            "query_warehouse": "PARAM_WH",
-            "build_compute_pool": "PARAM_POOL",
-            "service_compute_pool": "PARAM_SVC_POOL",
-            "build_eai": "PARAM_EAI",
-            "database": "PARAM_DB",
-            "schema": "PARAM_SCHEMA",
-        },
+        return_value=AppDefaults(
+            source=SOURCE_ACCOUNT_PARAM,
+            warehouse="PARAM_WH",
+            build_compute_pool="PARAM_POOL",
+            service_compute_pool="PARAM_SVC_POOL",
+            build_eai="PARAM_EAI",
+            database="PARAM_DB",
+            schema="PARAM_SCHEMA",
+        ),
     )
     @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
     def test_parameters_fill_gaps(self, mock_ctx, mock_params):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
         entity = self._make_entity(database=None, schema=None)
-        result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
-        assert result["query_warehouse"] == "PARAM_WH"
-        assert result["build_compute_pool"] == "PARAM_POOL"
-        assert result["service_compute_pool"] == "PARAM_SVC_POOL"
-        assert result["build_eai"] == "PARAM_EAI"
-        assert result["database"] == "PARAM_DB"
-        assert result["schema"] == "PARAM_SCHEMA"
+        defaults, ar_name, ar_database, ar_schema = _resolve_deploy_defaults(
+            entity, SnowflakeAppManager()
+        )
+        assert defaults.warehouse == "PARAM_WH"
+        assert defaults.build_compute_pool == "PARAM_POOL"
+        assert defaults.service_compute_pool == "PARAM_SVC_POOL"
+        assert defaults.build_eai == "PARAM_EAI"
+        assert defaults.database == "PARAM_DB"
+        assert defaults.schema == "PARAM_SCHEMA"
 
     @patch(
         FETCH_SNOW_APPS_PARAMS,
-        return_value={"query_warehouse": "PARAM_WH", "build_eai": "PARAM_EAI"},
+        return_value=AppDefaults(
+            source=SOURCE_ACCOUNT_PARAM,
+            warehouse="PARAM_WH",
+            build_eai="PARAM_EAI",
+        ),
     )
     @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
     def test_yml_beats_params_beats_session(self, mock_ctx, mock_params):
@@ -1050,21 +1078,31 @@ class TestResolveDeployDefaults:
         entity = self._make_entity(
             query_warehouse="YML_WH",
         )
-        result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
-        assert result["query_warehouse"] == "YML_WH"  # yml wins over param
-        assert result["build_eai"] == "PARAM_EAI"  # param fills gap
+        defaults, ar_name, ar_database, ar_schema = _resolve_deploy_defaults(
+            entity, SnowflakeAppManager()
+        )
+        assert defaults.warehouse == "YML_WH"  # yml wins over param
+        assert defaults.build_eai == "PARAM_EAI"  # param fills gap
 
-    @patch(FETCH_SNOW_APPS_PARAMS, return_value={})
+    @patch(
+        FETCH_SNOW_APPS_PARAMS,
+        return_value=AppDefaults(source=SOURCE_ACCOUNT_PARAM),
+    )
     @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
     def test_preserves_yml_database_and_schema(self, mock_ctx, mock_params):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
         entity = self._make_entity(database="MY_DB", schema="MY_SCHEMA")
-        result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
-        assert result["database"] == "MY_DB"
-        assert result["schema"] == "MY_SCHEMA"
+        defaults, ar_name, ar_database, ar_schema = _resolve_deploy_defaults(
+            entity, SnowflakeAppManager()
+        )
+        assert defaults.database == "MY_DB"
+        assert defaults.schema == "MY_SCHEMA"
 
-    @patch(FETCH_SNOW_APPS_PARAMS, return_value={})
+    @patch(
+        FETCH_SNOW_APPS_PARAMS,
+        return_value=AppDefaults(source=SOURCE_ACCOUNT_PARAM),
+    )
     @patch(
         GET_CLI_CONTEXT,
         return_value=_mock_connection_context(
@@ -1075,14 +1113,20 @@ class TestResolveDeployDefaults:
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
         entity = self._make_entity(database=None, schema=None)
-        result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
-        assert result["query_warehouse"] == "CONN_WH"
-        assert result["database"] == "CONN_DB"
-        assert result["schema"] == "CONN_SCHEMA"
+        defaults, ar_name, ar_database, ar_schema = _resolve_deploy_defaults(
+            entity, SnowflakeAppManager()
+        )
+        assert defaults.warehouse == "CONN_WH"
+        assert defaults.database == "CONN_DB"
+        assert defaults.schema == "CONN_SCHEMA"
 
     @patch(
         FETCH_SNOW_APPS_PARAMS,
-        return_value={"query_warehouse": "PARAM_WH", "database": "PARAM_DB"},
+        return_value=AppDefaults(
+            source=SOURCE_ACCOUNT_PARAM,
+            warehouse="PARAM_WH",
+            database="PARAM_DB",
+        ),
     )
     @patch(
         GET_CLI_CONTEXT,
@@ -1092,40 +1136,60 @@ class TestResolveDeployDefaults:
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
         entity = self._make_entity(database=None, schema=None)
-        result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
-        assert result["query_warehouse"] == "PARAM_WH"  # param beats session
-        assert result["database"] == "PARAM_DB"
+        defaults, ar_name, ar_database, ar_schema = _resolve_deploy_defaults(
+            entity, SnowflakeAppManager()
+        )
+        assert defaults.warehouse == "PARAM_WH"  # param beats session
+        assert defaults.database == "PARAM_DB"
 
-    @patch(FETCH_SNOW_APPS_PARAMS, return_value={})
+    @patch(
+        FETCH_SNOW_APPS_PARAMS,
+        return_value=AppDefaults(source=SOURCE_ACCOUNT_PARAM),
+    )
     @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
     def test_returns_none_when_no_source_provides_value(self, mock_ctx, mock_params):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
         entity = self._make_entity()
-        result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
-        assert result["build_compute_pool"] is None
-        assert result["service_compute_pool"] is None
-        assert result["build_eai"] is None
+        defaults, ar_name, ar_database, ar_schema = _resolve_deploy_defaults(
+            entity, SnowflakeAppManager()
+        )
+        assert defaults.build_compute_pool is None
+        assert defaults.service_compute_pool is None
+        assert defaults.build_eai is None
 
-    @patch(FETCH_SNOW_APPS_PARAMS, return_value={})
+    @patch(
+        FETCH_SNOW_APPS_PARAMS,
+        return_value=AppDefaults(source=SOURCE_ACCOUNT_PARAM),
+    )
     @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
     def test_artifact_repository_defaults_to_app_name_repo(self, mock_ctx, mock_params):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
         entity = self._make_entity(app_name="MY_APP")
-        result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
-        assert result["artifact_repository"] == "MY_APP_REPO"
+        defaults, ar_name, ar_database, ar_schema = _resolve_deploy_defaults(
+            entity, SnowflakeAppManager()
+        )
+        assert ar_name == "MY_APP_REPO"
 
-    @patch(FETCH_SNOW_APPS_PARAMS, return_value={})
+    @patch(
+        FETCH_SNOW_APPS_PARAMS,
+        return_value=AppDefaults(source=SOURCE_ACCOUNT_PARAM),
+    )
     @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
     def test_explicit_artifact_repository_takes_precedence(self, mock_ctx, mock_params):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
         entity = self._make_entity(artifact_repository="CUSTOM_REPO")
-        result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
-        assert result["artifact_repository"] == "CUSTOM_REPO"
+        defaults, ar_name, ar_database, ar_schema = _resolve_deploy_defaults(
+            entity, SnowflakeAppManager()
+        )
+        assert ar_name == "CUSTOM_REPO"
 
-    @patch(FETCH_SNOW_APPS_PARAMS, return_value={})
+    @patch(
+        FETCH_SNOW_APPS_PARAMS,
+        return_value=AppDefaults(source=SOURCE_ACCOUNT_PARAM),
+    )
     @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
     def test_explicit_app_name_overrides_fqn_for_default_repo(
         self, mock_ctx, mock_params
@@ -1133,13 +1197,122 @@ class TestResolveDeployDefaults:
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
         entity = self._make_entity(app_name="ENTITY_NAME")
-        result = _resolve_deploy_defaults(
+        defaults, ar_name, ar_database, ar_schema = _resolve_deploy_defaults(
             entity, SnowflakeAppManager(), app_name="OVERRIDE_NAME"
         )
-        assert result["artifact_repository"] == "OVERRIDE_NAME_REPO"
+        assert ar_name == "OVERRIDE_NAME_REPO"
 
 
 # ── CLI command tests ─────────────────────────────────────────────────
+
+
+# ── AppDefaults & resolve_defaults tests ─────────────────────────────
+
+
+class TestAppDefaults:
+    def test_to_dict_excludes_source_and_nones(self):
+        ad = AppDefaults(source=SOURCE_ACCOUNT_PARAM, warehouse="WH", database="DB")
+        d = ad.to_dict()
+        assert "source" not in d
+        assert d["warehouse"] == "WH"
+        assert d["database"] == "DB"
+        assert "build_compute_pool" not in d
+
+    def test_has_values_true(self):
+        ad = AppDefaults(source=SOURCE_DEFAULT, warehouse="WH")
+        assert ad.has_values() is True
+
+    def test_has_values_false(self):
+        ad = AppDefaults(source=SOURCE_DEFAULT)
+        assert ad.has_values() is False
+
+    def test_summary_non_empty(self):
+        ad = AppDefaults(source=SOURCE_ACCOUNT_PARAM, warehouse="WH", database="DB")
+        s = ad.summary()
+        assert s.startswith("account parameter:")
+        assert "warehouse=WH" in s
+        assert "database=DB" in s
+
+    def test_summary_empty(self):
+        ad = AppDefaults(source=SOURCE_MISSING)
+        assert "(empty)" in ad.summary()
+
+
+class TestResolveDefaults:
+    def test_user_input_beats_account_param(self):
+        user = AppDefaults(source=SOURCE_USER_INPUT, warehouse="USER_WH")
+        param = AppDefaults(source=SOURCE_ACCOUNT_PARAM, warehouse="PARAM_WH")
+        resolved, summary = resolve_defaults([user, param])
+        assert resolved.warehouse == "USER_WH"
+        assert "user input" in summary
+
+    def test_account_param_beats_default(self):
+        param = AppDefaults(source=SOURCE_ACCOUNT_PARAM, database="PARAM_DB")
+        default = AppDefaults(source=SOURCE_DEFAULT, database="DEFAULT_DB")
+        resolved, _ = resolve_defaults([param, default])
+        assert resolved.database == "PARAM_DB"
+
+    def test_default_beats_session(self):
+        default = AppDefaults(source=SOURCE_DEFAULT, database="DEFAULT_DB")
+        session = AppDefaults(source=SOURCE_CURRENT_SESSION, database="SESSION_DB")
+        resolved, _ = resolve_defaults([default, session])
+        assert resolved.database == "DEFAULT_DB"
+
+    def test_session_used_as_last_resort(self):
+        session = AppDefaults(
+            source=SOURCE_CURRENT_SESSION, warehouse="SESS_WH", database="SESS_DB"
+        )
+        resolved, summary = resolve_defaults([session])
+        assert resolved.warehouse == "SESS_WH"
+        assert resolved.database == "SESS_DB"
+        assert "current session" in summary
+
+    def test_missing_when_no_source(self):
+        resolved, summary = resolve_defaults([])
+        assert resolved.warehouse is None
+        assert "missing" in summary
+
+    def test_mixed_sources(self):
+        user = AppDefaults(
+            source=SOURCE_USER_INPUT,
+            build_compute_pool="USER_POOL",
+            build_eai="USER_EAI",
+        )
+        param = AppDefaults(
+            source=SOURCE_ACCOUNT_PARAM,
+            warehouse="PARAM_WH",
+            build_compute_pool="PARAM_POOL",
+            database="PARAM_DB",
+            schema="PARAM_SCHEMA",
+        )
+        session = AppDefaults(
+            source=SOURCE_CURRENT_SESSION,
+            warehouse="SESS_WH",
+        )
+        resolved, _ = resolve_defaults([user, param, session])
+        assert resolved.build_compute_pool == "USER_POOL"
+        assert resolved.build_eai == "USER_EAI"
+        assert resolved.warehouse == "PARAM_WH"
+        assert resolved.database == "PARAM_DB"
+        assert resolved.schema == "PARAM_SCHEMA"
+        assert resolved.service_compute_pool is None
+
+    def test_resolved_source_label(self):
+        resolved, _ = resolve_defaults(
+            [AppDefaults(source=SOURCE_USER_INPUT, warehouse="WH")]
+        )
+        assert resolved.source == "resolved"
+
+    def test_provenance_summary_format(self):
+        param = AppDefaults(
+            source=SOURCE_ACCOUNT_PARAM,
+            warehouse="PARAM_WH",
+            database="PARAM_DB",
+        )
+        _, summary = resolve_defaults([param])
+        assert "warehouse: PARAM_WH  (account parameter)" in summary
+        assert "database: PARAM_DB  (account parameter)" in summary
+        assert "(missing)" in summary  # fields with no value
 
 
 class TestSetupCommand:
@@ -1150,14 +1323,15 @@ class TestSetupCommand:
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_init_creates_file(self, mock_mgr_cls, mock_gen, runner, tmp_path):
         mock_mgr = mock_mgr_cls.return_value
-        mock_mgr.fetch_snow_apps_parameters.return_value = {
-            "database": "PARAM_DB",
-            "schema": "PARAM_SCHEMA",
-            "query_warehouse": "PARAM_WH",
-            "build_compute_pool": "PARAM_POOL",
-            "service_compute_pool": "PARAM_SVC_POOL",
-            "build_eai": "PARAM_EAI",
-        }
+        mock_mgr.fetch_snow_apps_parameters.return_value = AppDefaults(
+            source=SOURCE_ACCOUNT_PARAM,
+            database="PARAM_DB",
+            schema="PARAM_SCHEMA",
+            warehouse="PARAM_WH",
+            build_compute_pool="PARAM_POOL",
+            service_compute_pool="PARAM_SVC_POOL",
+            build_eai="PARAM_EAI",
+        )
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
 
@@ -1185,14 +1359,15 @@ class TestSetupCommand:
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_dry_run_does_not_create_file(self, mock_mgr_cls, runner, tmp_path):
         mock_mgr = mock_mgr_cls.return_value
-        mock_mgr.fetch_snow_apps_parameters.return_value = {
-            "database": "PARAM_DB",
-            "schema": "PARAM_SCHEMA",
-            "query_warehouse": "PARAM_WH",
-            "build_compute_pool": "PARAM_POOL",
-            "service_compute_pool": "PARAM_SVC_POOL",
-            "build_eai": "PARAM_EAI",
-        }
+        mock_mgr.fetch_snow_apps_parameters.return_value = AppDefaults(
+            source=SOURCE_ACCOUNT_PARAM,
+            database="PARAM_DB",
+            schema="PARAM_SCHEMA",
+            warehouse="PARAM_WH",
+            build_compute_pool="PARAM_POOL",
+            service_compute_pool="PARAM_SVC_POOL",
+            build_eai="PARAM_EAI",
+        )
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
             from tests_common import change_directory
@@ -1211,14 +1386,15 @@ class TestSetupCommand:
         import json as json_mod
 
         mock_mgr = mock_mgr_cls.return_value
-        mock_mgr.fetch_snow_apps_parameters.return_value = {
-            "database": "PARAM_DB",
-            "schema": "PARAM_SCHEMA",
-            "query_warehouse": "PARAM_WH",
-            "build_compute_pool": "PARAM_POOL",
-            "service_compute_pool": "PARAM_SVC_POOL",
-            "build_eai": "PARAM_EAI",
-        }
+        mock_mgr.fetch_snow_apps_parameters.return_value = AppDefaults(
+            source=SOURCE_ACCOUNT_PARAM,
+            database="PARAM_DB",
+            schema="PARAM_SCHEMA",
+            warehouse="PARAM_WH",
+            build_compute_pool="PARAM_POOL",
+            service_compute_pool="PARAM_SVC_POOL",
+            build_eai="PARAM_EAI",
+        )
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
             from tests_common import change_directory
@@ -1254,14 +1430,15 @@ class TestSetupCommand:
         import json as json_mod
 
         mock_mgr = mock_mgr_cls.return_value
-        mock_mgr.fetch_snow_apps_parameters.return_value = {
-            "database": "PARAM_DB",
-            "schema": "PARAM_SCHEMA",
-            "query_warehouse": "PARAM_WH",
-            "build_compute_pool": "PARAM_POOL",
-            "service_compute_pool": "PARAM_SVC_POOL",
-            "build_eai": "PARAM_EAI",
-        }
+        mock_mgr.fetch_snow_apps_parameters.return_value = AppDefaults(
+            source=SOURCE_ACCOUNT_PARAM,
+            database="PARAM_DB",
+            schema="PARAM_SCHEMA",
+            warehouse="PARAM_WH",
+            build_compute_pool="PARAM_POOL",
+            service_compute_pool="PARAM_SVC_POOL",
+            build_eai="PARAM_EAI",
+        )
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
             from tests_common import change_directory
@@ -1292,14 +1469,15 @@ class TestSetupCommand:
         self, mock_mgr_cls, mock_gen, runner, tmp_path
     ):
         mock_mgr = mock_mgr_cls.return_value
-        mock_mgr.fetch_snow_apps_parameters.return_value = {
-            "database": "PARAM_DB",
-            "schema": "PARAM_SCHEMA",
-            "query_warehouse": "PARAM_WH",
-            "build_compute_pool": "PARAM_POOL",
-            "service_compute_pool": "PARAM_SVC_POOL",
-            "build_eai": "PARAM_EAI",
-        }
+        mock_mgr.fetch_snow_apps_parameters.return_value = AppDefaults(
+            source=SOURCE_ACCOUNT_PARAM,
+            database="PARAM_DB",
+            schema="PARAM_SCHEMA",
+            warehouse="PARAM_WH",
+            build_compute_pool="PARAM_POOL",
+            service_compute_pool="PARAM_SVC_POOL",
+            build_eai="PARAM_EAI",
+        )
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
             from tests_common import change_directory
@@ -1319,14 +1497,15 @@ class TestSetupCommand:
     def test_flags_beat_parameters(self, mock_mgr_cls, mock_gen, runner, tmp_path):
         """CLI flags should override SnowApps parameters."""
         mock_mgr = mock_mgr_cls.return_value
-        mock_mgr.fetch_snow_apps_parameters.return_value = {
-            "build_compute_pool": "PARAM_POOL",
-            "service_compute_pool": "PARAM_SVC_POOL",
-            "build_eai": "PARAM_EAI",
-            "database": "PARAM_DB",
-            "schema": "PARAM_SCHEMA",
-            "query_warehouse": "PARAM_WH",
-        }
+        mock_mgr.fetch_snow_apps_parameters.return_value = AppDefaults(
+            source=SOURCE_ACCOUNT_PARAM,
+            build_compute_pool="PARAM_POOL",
+            service_compute_pool="PARAM_SVC_POOL",
+            build_eai="PARAM_EAI",
+            database="PARAM_DB",
+            schema="PARAM_SCHEMA",
+            warehouse="PARAM_WH",
+        )
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
             from tests_common import change_directory
@@ -1363,14 +1542,15 @@ class TestSetupCommand:
     ):
         """Resolved values from SnowApps parameters should show 'account parameter' provenance."""
         mock_mgr = mock_mgr_cls.return_value
-        mock_mgr.fetch_snow_apps_parameters.return_value = {
-            "query_warehouse": "PARAM_WH",
-            "build_compute_pool": "PARAM_POOL",
-            "service_compute_pool": "PARAM_SVC_POOL",
-            "build_eai": "PARAM_EAI",
-            "database": "PARAM_DB",
-            "schema": "PARAM_SCHEMA",
-        }
+        mock_mgr.fetch_snow_apps_parameters.return_value = AppDefaults(
+            source=SOURCE_ACCOUNT_PARAM,
+            warehouse="PARAM_WH",
+            build_compute_pool="PARAM_POOL",
+            service_compute_pool="PARAM_SVC_POOL",
+            build_eai="PARAM_EAI",
+            database="PARAM_DB",
+            schema="PARAM_SCHEMA",
+        )
 
         with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
             from tests_common import change_directory
@@ -2419,17 +2599,20 @@ class TestDeployCommand:
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch(
         RESOLVE_DEPLOY_DEFAULTS,
-        return_value={
-            "query_warehouse": "WH",
-            "build_compute_pool": None,
-            "service_compute_pool": "SVC_POOL",
-            "build_eai": None,
-            "database": "TEST_DB",
-            "schema": "TEST_SCHEMA",
-            "artifact_repository": "MY_APP_REPO",
-            "artifact_repo_database": "TEST_DB",
-            "artifact_repo_schema": "TEST_SCHEMA",
-        },
+        return_value=(
+            AppDefaults(
+                source="resolved",
+                warehouse="WH",
+                build_compute_pool=None,
+                service_compute_pool="SVC_POOL",
+                build_eai=None,
+                database="TEST_DB",
+                schema="TEST_SCHEMA",
+            ),
+            "MY_APP_REPO",
+            "TEST_DB",
+            "TEST_SCHEMA",
+        ),
     )
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
     @patch(
@@ -2479,17 +2662,20 @@ class TestDeployCommand:
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch(
         RESOLVE_DEPLOY_DEFAULTS,
-        return_value={
-            "query_warehouse": "WH",
-            "build_compute_pool": "BUILD_POOL",
-            "service_compute_pool": "SVC_POOL",
-            "build_eai": "MY_EAI",
-            "database": "TEST_DB",
-            "schema": "TEST_SCHEMA",
-            "artifact_repository": "MY_APP_REPO",
-            "artifact_repo_database": "TEST_DB",
-            "artifact_repo_schema": "TEST_SCHEMA",
-        },
+        return_value=(
+            AppDefaults(
+                source="resolved",
+                warehouse="WH",
+                build_compute_pool="BUILD_POOL",
+                service_compute_pool="SVC_POOL",
+                build_eai="MY_EAI",
+                database="TEST_DB",
+                schema="TEST_SCHEMA",
+            ),
+            "MY_APP_REPO",
+            "TEST_DB",
+            "TEST_SCHEMA",
+        ),
     )
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
     @patch(
@@ -2587,17 +2773,20 @@ class TestDeployCommand:
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch(
         RESOLVE_DEPLOY_DEFAULTS,
-        return_value={
-            "query_warehouse": "WH",
-            "build_compute_pool": "BUILD_POOL",
-            "service_compute_pool": "SVC_POOL",
-            "build_eai": "MY_EAI",
-            "database": "TEST_DB",
-            "schema": "TEST_SCHEMA",
-            "artifact_repository": "MY_APP_REPO",
-            "artifact_repo_database": "TEST_DB",
-            "artifact_repo_schema": "TEST_SCHEMA",
-        },
+        return_value=(
+            AppDefaults(
+                source="resolved",
+                warehouse="WH",
+                build_compute_pool="BUILD_POOL",
+                service_compute_pool="SVC_POOL",
+                build_eai="MY_EAI",
+                database="TEST_DB",
+                schema="TEST_SCHEMA",
+            ),
+            "MY_APP_REPO",
+            "TEST_DB",
+            "TEST_SCHEMA",
+        ),
     )
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
     @patch(
@@ -2697,17 +2886,20 @@ class TestDeployCommand:
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch(
         RESOLVE_DEPLOY_DEFAULTS,
-        return_value={
-            "query_warehouse": "WH",
-            "build_compute_pool": "BUILD_POOL",
-            "service_compute_pool": "SVC_POOL",
-            "build_eai": "MY_EAI",
-            "database": "TEST_DB",
-            "schema": "TEST_SCHEMA",
-            "artifact_repository": "MY_APP_REPO",
-            "artifact_repo_database": "TEST_DB",
-            "artifact_repo_schema": "TEST_SCHEMA",
-        },
+        return_value=(
+            AppDefaults(
+                source="resolved",
+                warehouse="WH",
+                build_compute_pool="BUILD_POOL",
+                service_compute_pool="SVC_POOL",
+                build_eai="MY_EAI",
+                database="TEST_DB",
+                schema="TEST_SCHEMA",
+            ),
+            "MY_APP_REPO",
+            "TEST_DB",
+            "TEST_SCHEMA",
+        ),
     )
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
     @patch(
@@ -2781,17 +2973,20 @@ class TestDeployCommand:
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch(
         RESOLVE_DEPLOY_DEFAULTS,
-        return_value={
-            "query_warehouse": "WH",
-            "build_compute_pool": "BUILD_POOL",
-            "service_compute_pool": "SVC_POOL",
-            "build_eai": "MY_EAI",
-            "database": "TEST_DB",
-            "schema": "TEST_SCHEMA",
-            "artifact_repository": "MY_APP_REPO",
-            "artifact_repo_database": "TEST_DB",
-            "artifact_repo_schema": "TEST_SCHEMA",
-        },
+        return_value=(
+            AppDefaults(
+                source="resolved",
+                warehouse="WH",
+                build_compute_pool="BUILD_POOL",
+                service_compute_pool="SVC_POOL",
+                build_eai="MY_EAI",
+                database="TEST_DB",
+                schema="TEST_SCHEMA",
+            ),
+            "MY_APP_REPO",
+            "TEST_DB",
+            "TEST_SCHEMA",
+        ),
     )
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
     @patch(
@@ -2844,17 +3039,20 @@ class TestDeployCommand:
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch(
         RESOLVE_DEPLOY_DEFAULTS,
-        return_value={
-            "query_warehouse": "WH",
-            "build_compute_pool": "BUILD_POOL",
-            "service_compute_pool": "SVC_POOL",
-            "build_eai": "MY_EAI",
-            "database": "TEST_DB",
-            "schema": "TEST_SCHEMA",
-            "artifact_repository": "MY_APP_REPO",
-            "artifact_repo_database": "TEST_DB",
-            "artifact_repo_schema": "TEST_SCHEMA",
-        },
+        return_value=(
+            AppDefaults(
+                source="resolved",
+                warehouse="WH",
+                build_compute_pool="BUILD_POOL",
+                service_compute_pool="SVC_POOL",
+                build_eai="MY_EAI",
+                database="TEST_DB",
+                schema="TEST_SCHEMA",
+            ),
+            "MY_APP_REPO",
+            "TEST_DB",
+            "TEST_SCHEMA",
+        ),
     )
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
     @patch(
@@ -2909,17 +3107,20 @@ class TestDeployCommand:
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch(
         RESOLVE_DEPLOY_DEFAULTS,
-        return_value={
-            "query_warehouse": "WH",
-            "build_compute_pool": None,
-            "service_compute_pool": "SVC_POOL",
-            "build_eai": None,
-            "database": "TEST_DB",
-            "schema": "TEST_SCHEMA",
-            "artifact_repository": "MY_APP_REPO",
-            "artifact_repo_database": "TEST_DB",
-            "artifact_repo_schema": "TEST_SCHEMA",
-        },
+        return_value=(
+            AppDefaults(
+                source="resolved",
+                warehouse="WH",
+                build_compute_pool=None,
+                service_compute_pool="SVC_POOL",
+                build_eai=None,
+                database="TEST_DB",
+                schema="TEST_SCHEMA",
+            ),
+            "MY_APP_REPO",
+            "TEST_DB",
+            "TEST_SCHEMA",
+        ),
     )
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
     @patch(
@@ -2971,17 +3172,20 @@ class TestDeployCommand:
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch(
         RESOLVE_DEPLOY_DEFAULTS,
-        return_value={
-            "query_warehouse": None,
-            "build_compute_pool": None,
-            "service_compute_pool": None,
-            "build_eai": None,
-            "database": "TEST_DB",
-            "schema": "TEST_SCHEMA",
-            "artifact_repository": "MY_APP_REPO",
-            "artifact_repo_database": "TEST_DB",
-            "artifact_repo_schema": "TEST_SCHEMA",
-        },
+        return_value=(
+            AppDefaults(
+                source="resolved",
+                warehouse=None,
+                build_compute_pool=None,
+                service_compute_pool=None,
+                build_eai=None,
+                database="TEST_DB",
+                schema="TEST_SCHEMA",
+            ),
+            "MY_APP_REPO",
+            "TEST_DB",
+            "TEST_SCHEMA",
+        ),
     )
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
     @patch(
@@ -3027,17 +3231,20 @@ class TestDeployCommand:
 
     @patch(
         RESOLVE_DEPLOY_DEFAULTS,
-        return_value={
-            "query_warehouse": None,
-            "build_compute_pool": "BUILD_POOL",
-            "service_compute_pool": None,
-            "build_eai": None,
-            "database": "TEST_DB",
-            "schema": "TEST_SCHEMA",
-            "artifact_repository": "MY_APP_REPO",
-            "artifact_repo_database": "TEST_DB",
-            "artifact_repo_schema": "TEST_SCHEMA",
-        },
+        return_value=(
+            AppDefaults(
+                source="resolved",
+                warehouse=None,
+                build_compute_pool="BUILD_POOL",
+                service_compute_pool=None,
+                build_eai=None,
+                database="TEST_DB",
+                schema="TEST_SCHEMA",
+            ),
+            "MY_APP_REPO",
+            "TEST_DB",
+            "TEST_SCHEMA",
+        ),
     )
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
     @patch(

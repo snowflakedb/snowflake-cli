@@ -20,8 +20,15 @@ import re
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Set, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Set, Tuple, TypeVar
 
+from snowflake.cli._plugins.apps.defaults import (
+    SOURCE_ACCOUNT_PARAM,
+    SOURCE_CURRENT_SESSION,
+    SOURCE_DEFAULT,
+    AppDefaults,
+    resolve_defaults,
+)
 from snowflake.cli._plugins.apps.generate import IS_PERSONAL_DB_SUPPORTED
 
 if TYPE_CHECKING:
@@ -130,7 +137,7 @@ def _resolve_deploy_defaults(
     entity: "SnowflakeAppEntityModel",
     manager: "SnowflakeAppManager",
     app_name: Optional[str] = None,
-) -> Dict[str, Optional[str]]:
+) -> Tuple[AppDefaults, str, Optional[str], Optional[str]]:
     """Resolve deploy defaults using a four-tier precedence:
 
     1. Values explicitly set in ``snowflake.yml`` (highest priority)
@@ -144,87 +151,77 @@ def _resolve_deploy_defaults(
     and ``schema``.  Any of them may still be ``None`` if no source
     provides a value.
     """
+    from snowflake.cli._plugins.apps.defaults import SOURCE_USER_INPUT
+    from snowflake.cli.api.project.util import get_env_username
 
-    # ── 1. snowflake.yml values ───────────────────────────────────────
     fqn = entity.fqn
     if app_name is None:
         app_name = fqn.name
-    yml_vals: Dict[str, Optional[str]] = {
-        "query_warehouse": entity.query_warehouse,
-        "build_compute_pool": (
+
+    # ── 1. snowflake.yml values (treated as "user input") ────────────
+    yml_defaults = AppDefaults(
+        source=SOURCE_USER_INPUT,
+        warehouse=entity.query_warehouse,
+        build_compute_pool=(
             entity.build_compute_pool.name if entity.build_compute_pool else None
         ),
-        "service_compute_pool": (
+        service_compute_pool=(
             entity.service_compute_pool.name if entity.service_compute_pool else None
         ),
-        "build_eai": entity.build_eai.name if entity.build_eai else None,
-        "artifact_repository": (
-            entity.artifact_repository.name if entity.artifact_repository else None
-        ),
-        "artifact_repo_database": (
-            entity.artifact_repository.database if entity.artifact_repository else None
-        ),
-        "artifact_repo_schema": (
-            entity.artifact_repository.schema_ if entity.artifact_repository else None
-        ),
-        "database": fqn.database,
-        "schema": fqn.schema,
-    }
+        build_eai=entity.build_eai.name if entity.build_eai else None,
+        database=fqn.database,
+        schema=fqn.schema,
+    )
 
     # ── 2. SnowApps parameters (user-level) ──────────────────────────
-    param_vals: Dict[str, Optional[str]] = {}
-    raw_params = manager.fetch_snow_apps_parameters()
-    if raw_params:
+    param_defaults = manager.fetch_snow_apps_parameters()
+    if param_defaults.has_values():
         cli_console.step(
             "Loaded SnowApps parameters: "
-            + ", ".join(f"{k}={v}" for k, v in raw_params.items())
+            + ", ".join(
+                f"{k}={v}" for k, v in param_defaults.to_dict().items() if v is not None
+            )
         )
-        param_vals = dict(raw_params)
 
-    # ── 3. Built-in defaults ────────────────────────────────────────────
-    from snowflake.cli.api.project.util import get_env_username
-
-    default_vals: Dict[str, Optional[str]] = {
-        "artifact_repository": f"{app_name}_REPO",
-    }
-    if IS_PERSONAL_DB_SUPPORTED:
-        default_vals["database"] = f"USER${get_env_username().upper()}"
+    # ── 3. Built-in defaults ─────────────────────────────────────────
+    default_defaults = AppDefaults(
+        source=SOURCE_DEFAULT,
+        database=(
+            f"USER${get_env_username().upper()}" if IS_PERSONAL_DB_SUPPORTED else None
+        ),
+    )
 
     # ── 4. Current session values ─────────────────────────────────────
     ctx = get_cli_context()
     conn = ctx.connection_context
-    curr_session_vals: Dict[str, Optional[str]] = {
-        "query_warehouse": conn.warehouse,
-        "database": conn.database,
-        "schema": conn.schema,
-    }
-
-    # ── Merge (first non-None wins) ──────────────────────────────────
-    all_keys = (
-        set(yml_vals) | set(param_vals) | set(default_vals) | set(curr_session_vals)
+    session_defaults = AppDefaults(
+        source=SOURCE_CURRENT_SESSION,
+        warehouse=conn.warehouse,
+        database=conn.database,
+        schema=conn.schema,
     )
-    resolved: Dict[str, Optional[str]] = {}
-    for key in all_keys:
-        for source in (
-            yml_vals,
-            param_vals,
-            default_vals,
-            curr_session_vals,
-        ):
-            val = source.get(key)
-            if val is not None:
-                resolved[key] = val
-                break
-        else:
-            resolved[key] = None
 
-    # Artifact repo db/schema default to the resolved database/schema.
-    if not resolved.get("artifact_repo_database"):
-        resolved["artifact_repo_database"] = resolved.get("database")
-    if not resolved.get("artifact_repo_schema"):
-        resolved["artifact_repo_schema"] = resolved.get("schema")
+    # ── Resolve via AppDefaults ──────────────────────────────────────
+    resolved, _ = resolve_defaults(
+        [yml_defaults, param_defaults, default_defaults, session_defaults]
+    )
 
-    return resolved
+    # ── Artifact repository (not in AppDefaults — deploy-only) ───────
+    yml_ar_name = (
+        entity.artifact_repository.name if entity.artifact_repository else None
+    )
+    yml_ar_database = (
+        entity.artifact_repository.database if entity.artifact_repository else None
+    )
+    yml_ar_schema = (
+        entity.artifact_repository.schema_ if entity.artifact_repository else None
+    )
+
+    ar_name = yml_ar_name or f"{app_name}_REPO"
+    ar_database = yml_ar_database or resolved.database
+    ar_schema = yml_ar_schema or resolved.schema
+
+    return resolved, ar_name, ar_database, ar_schema
 
 
 def _get_snowflake_app_entities() -> Dict[str, Any]:
@@ -507,35 +504,44 @@ class SnowflakeAppManager(SqlExecutionMixin):
                 return url
         return None
 
-    def fetch_snow_apps_parameters(self) -> Dict[str, str]:
+    def fetch_snow_apps_parameters(self) -> AppDefaults:
         """Fetch SnowApps default parameters for the current user.
 
         Runs ``SHOW PARAMETERS LIKE 'DEFAULT_SNOWFLAKE_APPS_%' IN USER``
-        and returns a dict whose keys match the internal resolution names
-        (``query_warehouse``, ``build_compute_pool``, etc.).
+        and returns an :class:`AppDefaults` instance with
+        ``source=SOURCE_ACCOUNT_PARAM``.
 
-        Empty-string parameter values are treated as "not set" and omitted.
-        Returns an empty dict on any error (e.g. insufficient privileges).
+        Empty-string parameter values are treated as "not set" and left
+        as ``None``.  Returns an empty ``AppDefaults`` on any error
+        (e.g. insufficient privileges).
         """
         try:
             cursor = self.execute_query(
                 "SHOW PARAMETERS LIKE 'DEFAULT_SNOWFLAKE_APPS_%' IN USER",
                 cursor_class=DictCursor,
             )
-            result: Dict[str, str] = {}
+            raw: Dict[str, str] = {}
             for row in cursor:
                 param_name = (row.get("key") or row.get("KEY") or "").upper()
                 param_value = row.get("value") or row.get("VALUE") or ""
                 mapped_key = _SNOW_APPS_PARAM_MAP.get(param_name)
                 if mapped_key and param_value:
-                    result[mapped_key] = param_value
-            return result
+                    raw[mapped_key] = param_value
+            return AppDefaults(
+                source=SOURCE_ACCOUNT_PARAM,
+                warehouse=raw.get("query_warehouse"),
+                build_compute_pool=raw.get("build_compute_pool"),
+                service_compute_pool=raw.get("service_compute_pool"),
+                build_eai=raw.get("build_eai"),
+                database=raw.get("database"),
+                schema=raw.get("schema"),
+            )
         except ProgrammingError:
             log.warning(
                 "Could not fetch SnowApps user parameters – skipping.",
                 exc_info=True,
             )
-            return {}
+            return AppDefaults(source=SOURCE_ACCOUNT_PARAM)
 
     @contextmanager
     def _use_database_and_schema(self, database: str, schema: str):
