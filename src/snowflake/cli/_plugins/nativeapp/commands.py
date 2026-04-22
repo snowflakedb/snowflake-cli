@@ -94,6 +94,12 @@ log = logging.getLogger(__name__)
 # (Native App: -1, Snowflake App: 500).
 _EVENTS_LAST_UNSET = -1
 
+# Native-App polling interval default when ``--follow`` is used. The
+# ``--follow-interval`` Typer option defaults to ``None`` so that we can
+# tell an explicit ``--follow-interval 10`` apart from "user didn't pass
+# the flag" when rejecting wrong-flow options in the Snowflake App flow.
+_DEFAULT_FOLLOW_INTERVAL_SECONDS = 10
+
 
 def _reject_native_app_options(command: str, **options: object) -> None:
     """Raise a clear error if the user passed Native-App-only options while
@@ -665,9 +671,13 @@ def app_events(
             f"unless overridden or the --since flag is used."
         ),
     ),
-    follow_interval: int = typer.Option(
-        10,
-        help=f"(Native App only) Polling interval in seconds when using the --follow flag.",
+    follow_interval: Optional[int] = typer.Option(
+        None,
+        show_default=False,
+        help=(
+            "(Native App only) Polling interval in seconds when using the "
+            f"--follow flag. Default: {_DEFAULT_FOLLOW_INTERVAL_SECONDS}."
+        ),
     ),
     **options,
 ):
@@ -701,9 +711,7 @@ def app_events(
                 "--consumer-app-hash": consumer_app_hash or None,
                 "--first": first if first >= 0 else None,
                 "--follow": True if follow else None,
-                "--follow-interval": (
-                    follow_interval if follow_interval != 10 else None
-                ),
+                "--follow-interval": follow_interval,
             },
         )
         effective_last = last if last != _EVENTS_LAST_UNSET else None
@@ -740,6 +748,11 @@ def app_events(
         # If we don't have a value for --last or --since, assume a value
         # for --last so we at least print something before starting the stream
         native_last = DEFAULT_EVENT_FOLLOW_LAST
+    effective_follow_interval = (
+        follow_interval
+        if follow_interval is not None
+        else _DEFAULT_FOLLOW_INTERVAL_SECONDS
+    )
     stream: Iterable[CommandResult] = (
         EventResult(event)
         for event in ws.perform_action(
@@ -755,7 +768,7 @@ def app_events(
             first=first,
             last=native_last,
             follow=follow,
-            interval_seconds=follow_interval,
+            interval_seconds=effective_follow_interval,
         )
     )
     if follow:

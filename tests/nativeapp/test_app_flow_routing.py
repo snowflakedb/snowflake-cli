@@ -87,9 +87,10 @@ class TestDetectFlowFromProject:
         )
         assert flow == AppFlow.SNOWFLAKE_APP
 
-    def test_entity_id_unknown_falls_back_to_scanning(self):
-        # Entity ID does not exist in project; scanning should decide the flow
-        # based on what entity types are present.
+    def test_entity_id_unknown_falls_back_to_scanning_snowflake_only(self):
+        # Mistyped --entity-id in a snowflake-app-only project must still
+        # route to SNOWFLAKE_APP so the per-flow handler produces the
+        # specific "entity X not found" error in the right flow.
         project = _make_project({"my_app": "snowflake-app"})
         flow = _detect_flow_from_project(
             project,
@@ -98,6 +99,34 @@ class TestDetectFlowFromProject:
             app_entity_id="",
         )
         assert flow == AppFlow.SNOWFLAKE_APP
+
+    def test_entity_id_unknown_falls_back_to_scanning_native_only(self):
+        # Symmetric case: mistyped --entity-id in a native-app-only project
+        # stays in the NATIVE_APP flow.
+        project = _make_project(
+            {"pkg": "application package", "native_app": "application"}
+        )
+        flow = _detect_flow_from_project(
+            project,
+            entity_id="missing",
+            package_entity_id="",
+            app_entity_id="",
+        )
+        assert flow == AppFlow.NATIVE_APP
+
+    def test_entity_id_unknown_in_mixed_project_errors(self):
+        # When both flow types exist and the user's --entity-id is wrong,
+        # we cannot pick a flow by scan alone -- ask the user to disambiguate.
+        project = _make_project(
+            {"pkg": "application package", "my_app": "snowflake-app"}
+        )
+        with pytest.raises(ClickException, match="both Native App"):
+            _detect_flow_from_project(
+                project,
+                entity_id="missing",
+                package_entity_id="",
+                app_entity_id="",
+            )
 
     def test_only_snowflake_app_entities_routes_snowflake(self):
         project = _make_project({"my_app": "snowflake-app"})
@@ -236,6 +265,22 @@ class TestCrossFlowOptionValidation:
         assert result.exit_code != 0
         assert "Snowflake App entity" in result.output
         assert "--follow" in result.output
+
+    def test_snowflake_app_rejects_explicit_native_app_follow_interval(
+        self, runner, tmp_path
+    ):
+        # Regression: ``--follow-interval 10`` matched the old Typer default
+        # of 10, so the sentinel check treated it as "not set" and the
+        # Native-App-only option was silently accepted. Now that the option
+        # defaults to None, an explicit value of any kind is rejected.
+        self._write_yml(tmp_path, _SNOWFLAKE_APP_YML)
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "events", "--follow-interval", "10"])
+
+        assert result.exit_code != 0
+        assert "Snowflake App entity" in result.output
+        assert "--follow-interval" in result.output
 
 
 class TestNativeAppOnlyGuards:

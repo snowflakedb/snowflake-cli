@@ -355,9 +355,12 @@ def _detect_flow_from_project(
                 f"Entity '{entity_id}' has type '{entity_type}', which is not "
                 f"supported by 'snow app' commands."
             )
-        # Entity id was passed but does not exist -- let the per-flow handler
-        # produce a more specific error. Fall through to type scanning to
-        # decide which flow to route to.
+        # Entity id was passed but does not exist in the project. Fall
+        # through to the project-wide entity-type scan below so we can
+        # still route to the flow whose entity types are actually present
+        # (e.g. a mistyped --entity-id in a snowflake-app-only project
+        # routes to SNOWFLAKE_APP, whose per-flow handler then produces
+        # a specific "entity X not found" error in the right flow).
 
     types = _project_entity_types(project_definition)
     has_native = bool(types & NATIVE_APP_ENTITY_TYPES)

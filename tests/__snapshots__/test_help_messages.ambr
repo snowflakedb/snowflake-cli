@@ -571,8 +571,8 @@
   | --follow-interval            INTEGER                (Native App only)        |
   |                                                     Polling interval in      |
   |                                                     seconds when using the   |
-  |                                                     --follow flag.           |
-  |                                                     [default: 10]            |
+  |                                                     --follow flag. Default:  |
+  |                                                     10.                      |
   | --package-entity-id          TEXT                   (Native App only) The ID |
   |                                                     of the package entity on |
   |                                                     which to operate when    |
