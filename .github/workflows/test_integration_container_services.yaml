@@ -37,7 +37,8 @@ jobs:
         python-version: ["3.10"]
     if: |
       (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      github.event_name == 'workflow_dispatch'
     uses: ./.github/workflows/test_trusted.yaml
     with:
       runs-on: ${{ matrix.os }}
@@ -70,4 +71,5 @@ jobs:
       python-version: ${{ matrix.python-version }}
       python-env: integration
       hatch-run: integration:test_container_services
+      job-name: spcs-integration-fork
     secrets: inherit
