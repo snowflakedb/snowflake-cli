@@ -103,6 +103,18 @@ class CodeStageReference(UpdatableModel):
     )
 
 
+class CodeWorkspaceReference(UpdatableModel):
+    """Reference to a code workspace."""
+
+    name: str = IdentifierField(title="Name of the code workspace")
+    schema_: Optional[str] = IdentifierField(
+        title="Schema of the code workspace", alias="schema", default=None
+    )
+    database: Optional[str] = IdentifierField(
+        title="Database of the code workspace", default=None
+    )
+
+
 class SnowflakeAppMetaField(MetaField):
     """Extended meta field for Snowflake Apps Deploy with title, description, icon."""
 
@@ -172,10 +184,14 @@ class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
         title="Stage for storing code artifacts", default=None
     )
 
-    @field_validator("code_stage", mode="before")
+    code_workspace: Optional[CodeWorkspaceReference] = Field(
+        title="Workspace for storing code artifacts", default=None
+    )
+
+    @field_validator("code_stage", "code_workspace", mode="before")
     @classmethod
-    def _validate_code_stage(cls, value):
-        """Accept either a dict, a plain stage name, or a ``DB.SCHEMA.STAGE`` identifier.
+    def _validate_code_storage(cls, value):
+        """Accept either a dict, a plain name, or a ``DB.SCHEMA.NAME`` identifier.
 
         When a string is provided it is parsed as an FQN.  Any missing
         database/schema components are left as ``None`` and resolved to the
