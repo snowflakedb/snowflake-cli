@@ -5,11 +5,10 @@ from unittest import mock
 
 import pytest
 from snowflake.cli._plugins.dcm.commands import (
-    _validate_account_identifier,
-    _validate_project_owner,
+    _check_account_identifier,
+    _check_project_owner,
 )
 from snowflake.cli._plugins.dcm.models import DCMManifest, DCMTarget
-from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN, AccountIdentifier
 from snowflake.cli.api.utils.path_utils import change_directory
 
@@ -154,17 +153,17 @@ class TestDCMCreate:
 
 
 @pytest.fixture(autouse=True)
-def mock_validate_account_identifier():
+def mock_check_account_identifier():
     with mock.patch(
-        "snowflake.cli._plugins.dcm.commands._validate_account_identifier"
+        "snowflake.cli._plugins.dcm.commands._check_account_identifier"
     ) as _fixture:
         yield _fixture
 
 
 @pytest.fixture(autouse=True)
-def mock_validate_project_owner():
+def mock_check_project_owner():
     with mock.patch(
-        "snowflake.cli._plugins.dcm.commands._validate_project_owner"
+        "snowflake.cli._plugins.dcm.commands._check_project_owner"
     ) as _fixture:
         yield _fixture
 
@@ -2127,11 +2126,11 @@ class TestDCMTest:
 
 
 class TestAccountIdentifierValidationForCommands:
-    def test_create_calls_validate_account_identifier(
+    def test_create_calls_check_account_identifier(
         self,
         mock_dcm_manager,
         mock_object_manager,
-        mock_validate_account_identifier,
+        mock_check_account_identifier,
         runner,
         project_directory,
     ):
@@ -2140,13 +2139,13 @@ class TestAccountIdentifierValidationForCommands:
             result = runner.invoke(["dcm", "create", "my_project"])
 
         assert result.exit_code == 0, result.output
-        mock_validate_account_identifier.assert_called_once()
+        mock_check_account_identifier.assert_called_once()
 
-    def test_deploy_calls_validate_account_identifier(
+    def test_deploy_calls_check_account_identifier(
         self,
         mock_dcm_manager,
         mock_manifest_load,
-        mock_validate_account_identifier,
+        mock_check_account_identifier,
         runner,
         project_directory,
         mock_cursor,
@@ -2162,20 +2161,20 @@ class TestAccountIdentifierValidationForCommands:
             result = runner.invoke(["dcm", "deploy", "fooBar"])
 
         assert result.exit_code == 0, result.output
-        mock_validate_account_identifier.assert_called_once()
+        mock_check_account_identifier.assert_called_once()
 
     def test_no_validation_without_manifest(
         self,
         mock_dcm_manager,
         mock_object_manager,
-        mock_validate_account_identifier,
+        mock_check_account_identifier,
         runner,
     ):
         mock_object_manager().object_exists.return_value = False
         result = runner.invoke(["dcm", "create", "my_project"])
 
         assert result.exit_code == 0, result.output
-        mock_validate_account_identifier.assert_not_called()
+        mock_check_account_identifier.assert_not_called()
 
 
 class TestOwnershipValidationForCommands:
@@ -2185,7 +2184,7 @@ class TestOwnershipValidationForCommands:
         self,
         mock_dcm_manager,
         mock_object_manager,
-        mock_validate_project_owner,
+        mock_check_project_owner,
         runner,
         project_directory,
     ):
@@ -2194,51 +2193,51 @@ class TestOwnershipValidationForCommands:
             result = runner.invoke(["dcm", "create", "my_project"])
 
         assert result.exit_code == 0, result.output
-        mock_validate_project_owner.assert_called_once()
+        mock_check_project_owner.assert_called_once()
 
     def test_describe_no_ownership_validated(
         self,
-        mock_validate_project_owner,
+        mock_check_project_owner,
         mock_connect,
         runner,
     ):
         runner.invoke(["dcm", "describe", "my_project"])
 
-        mock_validate_project_owner.assert_not_called()
+        mock_check_project_owner.assert_not_called()
 
 
 @pytest.mark.parametrize(
-    "manifest_account_identifier,session_account,should_pass",
+    "manifest_account_identifier,session_account,should_warn",
     [
         (
             "MY_ORG-MY_ACCOUNT",
             AccountIdentifier("MY_ORG", "MY_ACCOUNT"),
-            True,
+            False,
         ),
         (
             "MY_ORG-MY_ACCOUNT",
             AccountIdentifier("OTHER_ORG", "OTHER_ACCOUNT"),
-            False,
+            True,
         ),
         (
             "MY_ORG.MY_ACCOUNT",
             AccountIdentifier("MY_ORG", "MY_ACCOUNT"),
-            True,
+            False,
         ),
         (
             "MY_ORG.MY_ACCOUNT",
             AccountIdentifier("OTHER_ORG", "OTHER_ACCOUNT"),
-            False,
+            True,
         ),
         (
             "my_org-my_account",
             AccountIdentifier("MY_ORG", "MY_ACCOUNT"),
-            True,
+            False,
         ),
         (
             "NO_SEPARATOR",
             AccountIdentifier("MY_ORG", "MY_ACCOUNT"),
-            False,
+            True,
         ),
     ],
     ids=[
@@ -2250,14 +2249,16 @@ class TestOwnershipValidationForCommands:
         "no_separator",
     ],
 )
+@mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
 @mock.patch("snowflake.cli._plugins.dcm.commands.get_account_identifier")
 @mock.patch("snowflake.cli._plugins.dcm.commands.get_cli_context")
-def test_validate_account_identifier(
+def test_check_account_identifier(
     mock_ctx,
     mock_get_id,
+    mock_console,
     manifest_account_identifier,
     session_account,
-    should_pass,
+    should_warn,
 ):
     mock_get_id.return_value = session_account
     target = DCMTarget(
@@ -2266,20 +2267,20 @@ def test_validate_account_identifier(
         account_identifier=manifest_account_identifier,
         project_owner="MY_ROLE",
     )
-    if should_pass:
-        _validate_account_identifier(target)
+    _check_account_identifier(target)
+    if should_warn:
+        mock_console.warning.assert_called_once()
+        assert "Account mismatch" in mock_console.warning.call_args[0][0]
     else:
-        with pytest.raises(CliError, match="Account mismatch"):
-            _validate_account_identifier(target)
+        mock_console.warning.assert_not_called()
 
 
-class TestValidateProjectOwnerLogic:
+class TestCheckProjectOwner:
+    @mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
     @mock.patch(
         "snowflake.cli._plugins.dcm.commands.SqlExecutor",
     )
-    def test_matching_role_passes(self, mock_executor_cls):
-        from snowflake.cli._plugins.dcm.models import DCMTarget
-
+    def test_matching_role_no_warning(self, mock_executor_cls, mock_console):
         mock_executor_cls().current_role.return_value = "MY_ROLE"
         target = DCMTarget(
             name="DEV",
@@ -2287,14 +2288,16 @@ class TestValidateProjectOwnerLogic:
             account_identifier="MY_ORG-MY_ACCOUNT",
             project_owner="MY_ROLE",
         )
-        _validate_project_owner(target)
+        _check_project_owner(target)
+        mock_console.warning.assert_not_called()
 
+    @mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
     @mock.patch(
         "snowflake.cli._plugins.dcm.commands.SqlExecutor",
     )
-    def test_matching_role_case_insensitive(self, mock_executor_cls):
-        from snowflake.cli._plugins.dcm.models import DCMTarget
-
+    def test_matching_role_case_insensitive_no_warning(
+        self, mock_executor_cls, mock_console
+    ):
         mock_executor_cls().current_role.return_value = "my_role"
         target = DCMTarget(
             name="DEV",
@@ -2302,15 +2305,14 @@ class TestValidateProjectOwnerLogic:
             account_identifier="MY_ORG-MY_ACCOUNT",
             project_owner="MY_ROLE",
         )
-        _validate_project_owner(target)
+        _check_project_owner(target)
+        mock_console.warning.assert_not_called()
 
+    @mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
     @mock.patch(
         "snowflake.cli._plugins.dcm.commands.SqlExecutor",
     )
-    def test_mismatching_role_raises(self, mock_executor_cls):
-        from snowflake.cli._plugins.dcm.models import DCMTarget
-        from snowflake.cli.api.exceptions import CliError
-
+    def test_mismatching_role_warns(self, mock_executor_cls, mock_console):
         mock_executor_cls().current_role.return_value = "ADMIN_ROLE"
         target = DCMTarget(
             name="DEV",
@@ -2318,28 +2320,26 @@ class TestValidateProjectOwnerLogic:
             account_identifier="MY_ORG-MY_ACCOUNT",
             project_owner="FINANCE_ROLE",
         )
-        with pytest.raises(CliError, match="Role mismatch"):
-            _validate_project_owner(target)
+        _check_project_owner(target)
+        mock_console.warning.assert_called_once()
+        assert "Role mismatch" in mock_console.warning.call_args[0][0]
 
+    @mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
     @mock.patch(
         "snowflake.cli._plugins.dcm.commands.SqlExecutor",
     )
-    def test_current_role_none_raises(self, mock_executor_cls):
-        from snowflake.cli._plugins.dcm.models import DCMTarget
-        from snowflake.cli.api.exceptions import CliError
-
+    def test_current_role_none_warns(self, mock_executor_cls, mock_console):
         mock_executor_cls().current_role.return_value = None
         target = DCMTarget(name="DEV", project_name="P1", **_DEFAULT_TARGET_FIELDS)
-        with pytest.raises(CliError, match="Cannot validate project owner"):
-            _validate_project_owner(target)
+        _check_project_owner(target)
+        mock_console.warning.assert_called_once()
+        assert "Cannot validate project owner" in mock_console.warning.call_args[0][0]
 
     @mock.patch(
         "snowflake.cli._plugins.dcm.commands.SqlExecutor",
     )
     def test_current_role_query_failure_raises(self, mock_executor_cls):
-        from snowflake.cli._plugins.dcm.models import DCMTarget
-
         mock_executor_cls().current_role.side_effect = Exception("Connection timeout")
         target = DCMTarget(name="DEV", project_name="P1", **_DEFAULT_TARGET_FIELDS)
         with pytest.raises(Exception, match="Connection timeout"):
-            _validate_project_owner(target)
+            _check_project_owner(target)

@@ -145,27 +145,28 @@ optional_dcm_identifier = typer.Argument(
 )
 
 
-def _validate_account_identifier(target: DCMTarget) -> None:
+def _check_account_identifier(target: DCMTarget) -> None:
     current_account = get_account_identifier(get_cli_context().connection)
     if not current_account.matches(target.account_identifier):
-        raise CliError(
-            f"Account mismatch: manifest target specifies account_identifier '{target.account_identifier}', "
+        cli_console.warning(
+            f"⚠️  Account mismatch: manifest target specifies account_identifier '{target.account_identifier}', "
             f"but the current session account is '{current_account}'."
         )
 
 
-def _validate_project_owner(target: DCMTarget) -> None:
+def _check_project_owner(target: DCMTarget) -> None:
     current_role = SqlExecutor().current_role()
 
     if not current_role:
-        raise CliError(
-            "Cannot validate project owner: current role could not be determined. "
+        cli_console.warning(
+            "⚠️  Cannot validate project owner: current role could not be determined. "
             "The current session role is required to match the manifest target's project_owner."
         )
+        return
 
     if current_role.upper() != target.project_owner:
-        raise CliError(
-            f"Role mismatch: manifest target specifies project_owner '{target.project_owner}', "
+        cli_console.warning(
+            f"⚠️  Role mismatch: manifest target specifies project_owner '{target.project_owner}', "
             f"but the current session role is '{current_role}'."
         )
 
@@ -206,9 +207,9 @@ def _resolve_target_context(
         project_id,
         bool(effective_target.templating_config),
     )
-    _validate_account_identifier(effective_target)
+    _check_account_identifier(effective_target)
     if validate_owner:
-        _validate_project_owner(effective_target)
+        _check_project_owner(effective_target)
     return TargetContext(
         project_identifier=project_id,
         configuration=effective_target.templating_config,
