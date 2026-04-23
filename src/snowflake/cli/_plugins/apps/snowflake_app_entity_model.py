@@ -14,7 +14,7 @@
 
 from typing import List, Literal, Optional, Union
 
-# Default port exposed by Snowflake App services
+# Default port exposed by Snowflake Apps Deploy services
 DEFAULT_APP_PORT = 3000
 
 from pydantic import Field, field_validator
@@ -93,17 +93,21 @@ class CodeStageReference(UpdatableModel):
 
 
 class SnowflakeAppMetaField(MetaField):
-    """Extended meta field for Snowflake Apps with title, description, icon."""
+    """Extended meta field for Snowflake Apps Deploy with title, description, icon."""
 
-    title: Optional[str] = Field(title="Title of the Snowflake App", default=None)
-    description: Optional[str] = Field(
-        title="Description of the Snowflake App", default=None
+    title: Optional[str] = Field(
+        title="Title of the Snowflake Apps Deploy", default=None
     )
-    icon: Optional[str] = Field(title="Icon for the Snowflake App", default=None)
+    description: Optional[str] = Field(
+        title="Description of the Snowflake Apps Deploy", default=None
+    )
+    icon: Optional[str] = Field(
+        title="Icon for the Snowflake Apps Deploy", default=None
+    )
 
 
 class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
-    """Entity model for Snowflake App (snowflake-app) type."""
+    """Entity model for Snowflake Apps Deploy (snowflake-app) type."""
 
     type: Literal["snowflake-app"] = DiscriminatorField()  # noqa: A003
 
