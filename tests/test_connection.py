@@ -802,6 +802,42 @@ def test_session_and_master_tokens(mock_connector, mock_ctx, runner):
     )
 
 
+@mock.patch.dict(
+    os.environ,
+    {
+        "SNOWFLAKE_HOST": "env-host.snowflakecomputing.com",
+        "SNOWFLAKE_PORT": "4242",
+    },
+    clear=True,
+)
+@mock.patch("snowflake.connector.connect")
+def test_host_and_port_are_read_from_env_for_temporary_connection(
+    mock_connector, mock_ctx, runner
+):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(
+        [
+            "object",
+            "list",
+            "warehouse",
+            "--temporary-connection",
+            "--account",
+            "test_account",
+            "--user",
+            "snowcli_test",
+            "--password",
+            "top_secret",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    kwargs = mock_connector.call_args.kwargs
+    assert kwargs["host"] == "env-host.snowflakecomputing.com"
+    assert kwargs["port"] == "4242"
+
+
 @mock.patch("snowflake.connector.connect")
 def test_token_file_path_tokens(mock_connector, mock_ctx, runner, temporary_directory):
     ctx = mock_ctx()
