@@ -355,6 +355,17 @@ class TestDCMManifest:
         assert target.account_identifier == "MY_ORG-MY_ACCOUNT"
         assert target.project_owner == "MY_ROLE"
 
+    def test_account_identifier_with_dot_separator_preserved(self):
+        target = DCMTarget.from_dict(
+            {
+                "name": "dev",
+                "project_name": "P1",
+                "account_identifier": "my_org.my_account",
+                "project_owner": "my_role",
+            }
+        )
+        assert target.account_identifier == "MY_ORG.MY_ACCOUNT"
+
 
 class TestLoadManifest:
     def test_raises_when_manifest_file_is_missing(self, project_directory):

@@ -8,8 +8,9 @@ from snowflake.cli._plugins.dcm.commands import (
     _validate_account_identifier,
     _validate_project_owner,
 )
-from snowflake.cli._plugins.dcm.models import DCMManifest
-from snowflake.cli.api.identifiers import FQN
+from snowflake.cli._plugins.dcm.models import DCMManifest, DCMTarget
+from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.identifiers import FQN, AccountIdentifier
 from snowflake.cli.api.utils.path_utils import change_directory
 
 
@@ -2207,39 +2208,71 @@ class TestOwnershipValidationForCommands:
 
 
 class TestValidateAccountIdentifierLogic:
-    @mock.patch(
-        "snowflake.cli._plugins.dcm.commands.get_account_identifier",
-        return_value="MY_ORG-MY_ACCOUNT",
+    @pytest.mark.parametrize(
+        "manifest_account_identifier,session_account,should_pass",
+        [
+            (
+                "MY_ORG-MY_ACCOUNT",
+                AccountIdentifier("MY_ORG", "MY_ACCOUNT"),
+                True,
+            ),
+            (
+                "MY_ORG-MY_ACCOUNT",
+                AccountIdentifier("OTHER_ORG", "OTHER_ACCOUNT"),
+                False,
+            ),
+            (
+                "MY_ORG.MY_ACCOUNT",
+                AccountIdentifier("MY_ORG", "MY_ACCOUNT"),
+                True,
+            ),
+            (
+                "MY_ORG.MY_ACCOUNT",
+                AccountIdentifier("OTHER_ORG", "OTHER_ACCOUNT"),
+                False,
+            ),
+            (
+                "my_org-my_account",
+                AccountIdentifier("MY_ORG", "MY_ACCOUNT"),
+                True,
+            ),
+            (
+                "NO_SEPARATOR",
+                AccountIdentifier("MY_ORG", "MY_ACCOUNT"),
+                False,
+            ),
+        ],
+        ids=[
+            "hyphen_match",
+            "hyphen_mismatch",
+            "dot_match",
+            "dot_mismatch",
+            "case_insensitive_match",
+            "no_separator",
+        ],
     )
+    @mock.patch("snowflake.cli._plugins.dcm.commands.get_account_identifier")
     @mock.patch("snowflake.cli._plugins.dcm.commands.get_cli_context")
-    def test_matching_account_passes(self, mock_ctx, mock_get_id):
-        from snowflake.cli._plugins.dcm.models import DCMTarget
-
+    def test_validate_account_identifier(
+        self,
+        mock_ctx,
+        mock_get_id,
+        manifest_account_identifier,
+        session_account,
+        should_pass,
+    ):
+        mock_get_id.return_value = session_account
         target = DCMTarget(
             name="DEV",
             project_name="P1",
-            account_identifier="MY_ORG-MY_ACCOUNT",
+            account_identifier=manifest_account_identifier,
             project_owner="MY_ROLE",
         )
-        _validate_account_identifier(target)
-
-    @mock.patch(
-        "snowflake.cli._plugins.dcm.commands.get_account_identifier",
-        return_value="OTHER_ORG-OTHER_ACCOUNT",
-    )
-    @mock.patch("snowflake.cli._plugins.dcm.commands.get_cli_context")
-    def test_mismatching_account_raises(self, mock_ctx, mock_get_id):
-        from snowflake.cli._plugins.dcm.models import DCMTarget
-        from snowflake.cli.api.exceptions import CliError
-
-        target = DCMTarget(
-            name="DEV",
-            project_name="P1",
-            account_identifier="MY_ORG-MY_ACCOUNT",
-            project_owner="MY_ROLE",
-        )
-        with pytest.raises(CliError, match="Account mismatch"):
+        if should_pass:
             _validate_account_identifier(target)
+        else:
+            with pytest.raises(CliError, match="Account mismatch"):
+                _validate_account_identifier(target)
 
 
 class TestValidateProjectOwnerLogic:

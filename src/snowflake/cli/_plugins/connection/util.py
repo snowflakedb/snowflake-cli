@@ -22,6 +22,7 @@ from functools import lru_cache
 from typing import Any, Dict, Optional
 
 from click.exceptions import ClickException
+from snowflake.cli.api.identifiers import AccountIdentifier
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import DictCursor
 
@@ -193,15 +194,16 @@ def get_account(conn: SnowflakeConnection) -> str:
         raise MissingConnectionAccountError(conn)
 
 
-def get_account_identifier(conn: SnowflakeConnection) -> str:
+def get_account_identifier(conn: SnowflakeConnection) -> AccountIdentifier:
     *_, cursor = conn.execute_string(
         "SELECT CURRENT_ORGANIZATION_NAME() AS org, CURRENT_ACCOUNT_NAME() AS acct",
         cursor_class=DictCursor,
     )
     result = cursor.fetchone()
-    org_name = result["ORG"]
-    account_name = result["ACCT"]
-    return f"{org_name}-{account_name}".upper()
+    return AccountIdentifier(
+        organization_name=result["ORG"],
+        account_name=result["ACCT"],
+    )
 
 
 def get_snowsight_host(conn: SnowflakeConnection) -> str:

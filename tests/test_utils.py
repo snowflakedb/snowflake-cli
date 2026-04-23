@@ -225,6 +225,7 @@ def test_get_account_identifier(mock_get_account):
     from unittest.mock import MagicMock
 
     from snowflake.cli._plugins.connection.util import get_account_identifier
+    from snowflake.cli.api.identifiers import AccountIdentifier
     from snowflake.connector.cursor import DictCursor
 
     mock_conn = MagicMock()
@@ -234,7 +235,9 @@ def test_get_account_identifier(mock_get_account):
 
     result = get_account_identifier(mock_conn)
 
-    assert result == "MY_ORG-MY_ACCOUNT"
+    assert result == AccountIdentifier(
+        organization_name="MY_ORG", account_name="MY_ACCOUNT"
+    )
     mock_conn.execute_string.assert_called_once_with(
         "SELECT CURRENT_ORGANIZATION_NAME() AS org, CURRENT_ACCOUNT_NAME() AS acct",
         cursor_class=DictCursor,

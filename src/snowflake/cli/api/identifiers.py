@@ -221,3 +221,30 @@ class FQN:
 
     def to_dict(self) -> dict:
         return {"name": self.name, "schema": self.schema, "database": self.database}
+
+
+class AccountIdentifier:
+    def __init__(self, organization_name: str, account_name: str):
+        self.organization_name = organization_name.upper()
+        self.account_name = account_name.upper()
+
+    def as_hyphen_form(self) -> str:
+        return f"{self.organization_name}-{self.account_name}"
+
+    def as_dot_form(self) -> str:
+        return f"{self.organization_name}.{self.account_name}"
+
+    def matches(self, identifier: str) -> bool:
+        upper = identifier.upper()
+        return upper == self.as_hyphen_form() or upper == self.as_dot_form()
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, AccountIdentifier):
+            return NotImplemented
+        return (
+            self.organization_name == other.organization_name
+            and self.account_name == other.account_name
+        )
+
+    def __str__(self) -> str:
+        return self.as_hyphen_form()

@@ -147,7 +147,7 @@ optional_dcm_identifier = typer.Argument(
 
 def _validate_account_identifier(target: DCMTarget) -> None:
     current_account = get_account_identifier(get_cli_context().connection)
-    if current_account != target.account_identifier:
+    if not current_account.matches(target.account_identifier):
         raise CliError(
             f"Account mismatch: manifest target specifies account_identifier '{target.account_identifier}', "
             f"but the current session account is '{current_account}'."
