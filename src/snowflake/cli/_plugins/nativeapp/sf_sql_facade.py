@@ -341,7 +341,10 @@ class SnowflakeSQLFacade:
 
         with self._use_role_optional(role):
             try:
-                self._sql_executor.execute_query(query)
+                with self._sql_executor.query_tag(
+                    "snowflake-cli:nativeapp:version_create"
+                ):
+                    self._sql_executor.execute_query(query)
             except Exception as err:
                 if isinstance(err, ProgrammingError):
                     if err.errno == MAX_UNBOUND_VERSIONS_REACHED:
@@ -444,9 +447,12 @@ class SnowflakeSQLFacade:
         )
         with self._use_role_optional(role):
             try:
-                result_cursor = self._sql_executor.execute_query(
-                    add_patch_query, cursor_class=DictCursor
-                ).fetchall()
+                with self._sql_executor.query_tag(
+                    "snowflake-cli:nativeapp:version_add_patch"
+                ):
+                    result_cursor = self._sql_executor.execute_query(
+                        add_patch_query, cursor_class=DictCursor
+                    ).fetchall()
             except Exception as err:
                 if isinstance(err, ProgrammingError):
                     if err.errno == APPLICATION_PACKAGE_PATCH_ALREADY_EXISTS:

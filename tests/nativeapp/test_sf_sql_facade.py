@@ -4082,6 +4082,12 @@ def test_create_version_in_package(
         (
             mock_execute_query,
             mock.call(
+                "alter session set query_tag = 'snowflake-cli:nativeapp:version_create'"
+            ),
+        ),
+        (
+            mock_execute_query,
+            mock.call(
                 dedent(
                     f"""\
                         alter application package {package_name}
@@ -4090,6 +4096,10 @@ def test_create_version_in_package(
                     """
                 )
             ),
+        ),
+        (
+            mock_execute_query,
+            mock.call("alter session unset query_tag"),
         ),
     ]
 
@@ -4121,6 +4131,12 @@ def test_create_version_in_package_with_label(
         (
             mock_execute_query,
             mock.call(
+                "alter session set query_tag = 'snowflake-cli:nativeapp:version_create'"
+            ),
+        ),
+        (
+            mock_execute_query,
+            mock.call(
                 dedent(
                     f"""\
                         alter application package {package_name}
@@ -4130,6 +4146,10 @@ def test_create_version_in_package_with_label(
                     """
                 )
             ),
+        ),
+        (
+            mock_execute_query,
+            mock.call("alter session unset query_tag"),
         ),
     ]
 
@@ -4161,6 +4181,12 @@ def test_create_version_with_special_characters(
         (
             mock_execute_query,
             mock.call(
+                "alter session set query_tag = 'snowflake-cli:nativeapp:version_create'"
+            ),
+        ),
+        (
+            mock_execute_query,
+            mock.call(
                 dedent(
                     f"""\
                         alter application package "{package_name}"
@@ -4169,6 +4195,10 @@ def test_create_version_with_special_characters(
                     """
                 )
             ),
+        ),
+        (
+            mock_execute_query,
+            mock.call("alter session unset query_tag"),
         ),
     ]
 
@@ -4232,7 +4262,8 @@ def test_create_version_in_package_with_error(
     action_placeholder = "register" if release_channels_enabled else "add"
     error_message = error_message.replace("ACTION_PLACEHOLDER", action_placeholder)
 
-    mock_execute_query.side_effect = error_raised
+    # query_tag set succeeds, the ALTER PACKAGE call raises, query_tag unset succeeds
+    mock_execute_query.side_effect = [None, error_raised, None]
 
     with mock_release_channels(sql_facade, release_channels_enabled):
         with pytest.raises(error_caught) as err:
@@ -4372,7 +4403,7 @@ def test_add_patch_to_package_version_valid_input_then_success(
         """
     )
 
-    mock_execute_query.side_effect = [mock_cursor([{"patch": 1}], [])]
+    mock_execute_query.side_effect = [None, mock_cursor([{"patch": 1}], []), None]
     result = sql_facade.add_patch_to_package_version(
         package_name=package_name,
         path_to_version_directory=stage_fqn,
@@ -4381,7 +4412,15 @@ def test_add_patch_to_package_version_valid_input_then_success(
     )
 
     assert result == patch
-    mock_execute_query.assert_called_once_with(expected_query, cursor_class=DictCursor)
+    mock_execute_query.assert_has_calls(
+        [
+            mock.call(
+                "alter session set query_tag = 'snowflake-cli:nativeapp:version_add_patch'"
+            ),
+            mock.call(expected_query, cursor_class=DictCursor),
+            mock.call("alter session unset query_tag"),
+        ]
+    )
 
 
 # patch 0 shouldn't be treated in a special way (rely on backend saying 0 already exists)
@@ -4401,7 +4440,7 @@ def test_add_patch_to_package_version_valid_input_then_success_patch_0(
         """
     )
 
-    mock_execute_query.side_effect = [mock_cursor([{"patch": 0}], [])]
+    mock_execute_query.side_effect = [None, mock_cursor([{"patch": 0}], []), None]
     result = sql_facade.add_patch_to_package_version(
         package_name=package_name,
         path_to_version_directory=stage_fqn,
@@ -4410,7 +4449,15 @@ def test_add_patch_to_package_version_valid_input_then_success_patch_0(
     )
 
     assert result == patch
-    mock_execute_query.assert_called_once_with(expected_query, cursor_class=DictCursor)
+    mock_execute_query.assert_has_calls(
+        [
+            mock.call(
+                "alter session set query_tag = 'snowflake-cli:nativeapp:version_add_patch'"
+            ),
+            mock.call(expected_query, cursor_class=DictCursor),
+            mock.call("alter session unset query_tag"),
+        ]
+    )
 
 
 def test_add_patch_to_package_version_valid_input_then_success_no_patch_in_input(
@@ -4428,7 +4475,7 @@ def test_add_patch_to_package_version_valid_input_then_success_no_patch_in_input
         """
     )
 
-    mock_execute_query.side_effect = [mock_cursor([{"patch": 5}], [])]
+    mock_execute_query.side_effect = [None, mock_cursor([{"patch": 5}], []), None]
     result = sql_facade.add_patch_to_package_version(
         package_name=package_name,
         path_to_version_directory=stage_fqn,
@@ -4437,7 +4484,15 @@ def test_add_patch_to_package_version_valid_input_then_success_no_patch_in_input
     )
 
     assert result == 5
-    mock_execute_query.assert_called_once_with(expected_query, cursor_class=DictCursor)
+    mock_execute_query.assert_has_calls(
+        [
+            mock.call(
+                "alter session set query_tag = 'snowflake-cli:nativeapp:version_add_patch'"
+            ),
+            mock.call(expected_query, cursor_class=DictCursor),
+            mock.call("alter session unset query_tag"),
+        ]
+    )
 
 
 @pytest.mark.parametrize(
@@ -4473,7 +4528,8 @@ def test_add_patch_to_package_version_with_error(
     patch = 1
     stage_fqn = "src.stage"
 
-    mock_execute_query.side_effect = error_raised
+    # query_tag set succeeds, the ALTER PACKAGE call raises, query_tag unset succeeds
+    mock_execute_query.side_effect = [None, error_raised, None]
 
     with pytest.raises(error_caught) as err:
         sql_facade.add_patch_to_package_version(
@@ -4495,9 +4551,11 @@ def test_add_patch_to_package_with_patch_already_exist_error_and_null_patch(
     patch = None
     stage_fqn = "src.stage"
 
-    mock_execute_query.side_effect = ProgrammingError(
-        errno=APPLICATION_PACKAGE_PATCH_ALREADY_EXISTS
-    )
+    mock_execute_query.side_effect = [
+        None,
+        ProgrammingError(errno=APPLICATION_PACKAGE_PATCH_ALREADY_EXISTS),
+        None,
+    ]
 
     with pytest.raises(UserInputError) as err:
         sql_facade.add_patch_to_package_version(
