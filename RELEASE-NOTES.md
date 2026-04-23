@@ -24,6 +24,7 @@
 * Added `snow app setup` command for initializing a `snowflake.yml` for a Snowflake Apps Deploy project.
 * Added `snow connection generate-workload-identity-token` command to generate a workload identity token for the current environment. Supports AWS, GCP, Azure, and OIDC providers via `--workload-identity-provider` flag or connection configuration.
 * Added `snow custom-image validate` command to validate custom Docker images against configured rules (entrypoint, environment variables, Python packages, dependency health). Supports an optional `--scan-vulnerabilities` flag to run Grype vulnerability scanning.
+* Added `snow dcm purge` command to drop all the objects managed by the specified DCM Project
 
 ## Fixes and improvements
 * `snow app setup` / `snow app deploy` (Snowflake Apps Deploy flow): `--build-eai` is now fully optional. When no value is provided and no account parameter is set, the generated `snowflake.yml` omits the `build_eai` block, `--dry-run` no longer prints a `build_eai: None (missing)` line, and the deploy pipeline runs the artifact-repo build without an external access integration.
