@@ -328,13 +328,29 @@ class TestGenerateSnowflakeYml:
         assert "query_warehouse: TEST_WH" in result
         assert "name: MY_POOL" in result
         assert "name: MY_EAI" in result
-        assert "name: MY_APP_CODE" in result
+        # code_stage is written as a fully-qualified identifier.
+        assert "code_stage: TEST_DB.SNOW_APPS.MY_APP_CODE" in result
         assert "image_repository" not in result
         assert "artifact_repository" not in result
 
     def test_no_null_values_in_output(self):
         result = _generate_snowflake_yml("my_app", self._BASE_RESOLVED)
         assert "null" not in result
+
+    def test_build_eai_omitted_when_missing(self):
+        """When ``build_eai`` is missing, the generated YAML has no
+        ``build_eai`` block — the field is optional."""
+        resolved = {**self._BASE_RESOLVED, "build_eai": None}
+        result = _generate_snowflake_yml("my_app", resolved)
+        assert "build_eai" not in result
+        assert "None" not in result
+
+    def test_build_eai_omitted_when_missing_key(self):
+        """When ``build_eai`` is not in the resolved dict at all, the
+        generated YAML still works and omits the block."""
+        resolved = {k: v for k, v in self._BASE_RESOLVED.items() if k != "build_eai"}
+        result = _generate_snowflake_yml("my_app", resolved)
+        assert "build_eai" not in result
 
     def test_custom_schema(self):
         resolved = {**self._BASE_RESOLVED, "schema": "CFG_SCHEMA"}
@@ -357,7 +373,11 @@ class TestGenerateSnowflakeYml:
 
         assert entity.type == "snowflake-app"
         assert entity.query_warehouse == "TEST_WH"
+        # code_stage is emitted as ``DB.SCHEMA.STAGE`` and the validator
+        # parses it back into a ``CodeStageReference`` with db/schema set.
         assert entity.code_stage.name == "MY_APP_CODE"
+        assert entity.code_stage.database == "TEST_DB"
+        assert entity.code_stage.schema_ == "SNOW_APPS"
         assert entity.artifacts is not None
 
 
@@ -1204,6 +1224,31 @@ class TestSetupCommand:
             assert not (tmp_path / "snowflake.yml").exists()
             assert "PARAM_DB" in result.output
             assert "PARAM_WH" in result.output
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_dry_run_omits_missing_build_eai(self, mock_mgr_cls, runner, tmp_path):
+        """``--build-eai`` is optional: when no value is resolved the dry-run
+        output should not emit the ``build_eai`` line (which would otherwise
+        display ``build_eai: None  (missing)`` and imply it is required)."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "database": "PARAM_DB",
+            "schema": "PARAM_SCHEMA",
+            "query_warehouse": "PARAM_WH",
+            "build_compute_pool": "PARAM_POOL",
+            "service_compute_pool": "PARAM_SVC_POOL",
+            # no build_eai
+        }
+
+        from tests_common import change_directory
+
+        with change_directory(tmp_path):
+            result = runner.invoke(
+                ["app", "setup", "--app-name", "my_app", "--dry-run"]
+            )
+            assert result.exit_code == 0, result.output
+            assert "build_eai" not in result.output
+            assert "missing" not in result.output
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_dry_run_json_output(self, mock_mgr_cls, runner, tmp_path):

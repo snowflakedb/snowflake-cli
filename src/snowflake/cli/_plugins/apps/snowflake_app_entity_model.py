@@ -84,9 +84,20 @@ class ImageRepositoryReference(UpdatableModel):
 
 
 class CodeStageReference(UpdatableModel):
-    """Reference to a code stage."""
+    """Reference to a code stage.
+
+    Supports both a fully-qualified identifier form (``DB.SCHEMA.STAGE``)
+    and a bare-name form (``STAGE``).  When only a name is provided the
+    app's database and schema are used implicitly at deploy time.
+    """
 
     name: str = IdentifierField(title="Name of the code stage")
+    schema_: Optional[str] = IdentifierField(
+        title="Schema of the code stage", alias="schema", default=None
+    )
+    database: Optional[str] = IdentifierField(
+        title="Database of the code stage", default=None
+    )
     encryption_type: Optional[str] = Field(
         title="Encryption type for the stage", default="SNOWFLAKE_SSE"
     )
@@ -160,6 +171,31 @@ class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
     code_stage: Optional[CodeStageReference] = Field(
         title="Stage for storing code artifacts", default=None
     )
+
+    @field_validator("code_stage", mode="before")
+    @classmethod
+    def _validate_code_stage(cls, value):
+        """Accept either a dict, a plain stage name, or a ``DB.SCHEMA.STAGE`` identifier.
+
+        When a string is provided it is parsed as an FQN.  Any missing
+        database/schema components are left as ``None`` and resolved to the
+        app's database/schema at deploy time — this preserves
+        backwards-compatibility with existing apps that configure
+        ``code_stage`` as a bare name.
+        """
+        if value is None or value == "null":
+            return None
+        if isinstance(value, str):
+            from snowflake.cli.api.identifiers import FQN
+
+            fqn = FQN.from_string(value)
+            parsed: dict = {"name": fqn.name}
+            if fqn.database:
+                parsed["database"] = fqn.database
+            if fqn.schema:
+                parsed["schema"] = fqn.schema
+            return parsed
+        return value
 
     app_port: int = Field(title="Port the app listens on", default=DEFAULT_APP_PORT)
 

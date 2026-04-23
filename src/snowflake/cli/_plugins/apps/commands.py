@@ -207,6 +207,12 @@ def snowflake_app_setup(
             f"Initialized Snowflake Apps Deploy project in {DEFINITION_FILENAME}."
         )
     for key, (value, source) in resolved.items():
+        # Skip optional fields that could not be resolved (e.g. ``build_eai``
+        # when no value was provided and no account parameter is set).
+        # Emitting ``build_eai: None  (missing)`` is noisy and implies the
+        # field is required when it is not.
+        if value is None and source == SOURCE_MISSING:
+            continue
         cli_console.step(f"  {key}: {value}  ({source})")
     return EmptyResult()
 
@@ -395,9 +401,13 @@ def snowflake_app_deploy(
 
     if entity.code_stage:
         stage_name = entity.code_stage.name
+        stage_database = entity.code_stage.database
+        stage_schema = entity.code_stage.schema_
         encryption_type = entity.code_stage.encryption_type or "SNOWFLAKE_SSE"
     else:
         stage_name = f"{app_name}_CODE_STAGE"
+        stage_database = None
+        stage_schema = None
         encryption_type = "SNOWFLAKE_SSE"
 
     build_compute_pool = (
@@ -430,7 +440,15 @@ def snowflake_app_deploy(
     artifact_repo_fqn_str = f"{ar_database}.{ar_schema}.{ar_name}"
 
     # ── Derived names ─────────────────────────────────────────────────
-    stage_fqn = FQN(database=database, schema=schema, name=stage_name)
+    # If the code_stage was defined as a fully-qualified identifier
+    # (e.g. ``DB.SCHEMA.STAGE``) use its components; otherwise fall back
+    # to the app's resolved database/schema for backwards-compatibility
+    # with existing apps that configure ``code_stage`` as a bare name.
+    stage_fqn = FQN(
+        database=stage_database or database,
+        schema=stage_schema or schema,
+        name=stage_name,
+    )
     service_fqn = FQN(database=database, schema=schema, name=app_name)
 
     stage_manager = StageManager()
@@ -618,10 +636,15 @@ def snowflake_app_teardown(
     service_fqn = FQN(database=db, schema=schema, name=app_name)
     use_artifact_repo = entity.artifact_repository is not None
 
-    stage_name = (
-        entity.code_stage.name if entity.code_stage else f"{app_name}_CODE_STAGE"
-    )
-    stage_fqn = FQN(database=db, schema=schema, name=stage_name)
+    if entity.code_stage:
+        stage_name = entity.code_stage.name
+        stage_database = entity.code_stage.database or db
+        stage_schema = entity.code_stage.schema_ or schema
+    else:
+        stage_name = f"{app_name}_CODE_STAGE"
+        stage_database = db
+        stage_schema = schema
+    stage_fqn = FQN(database=stage_database, schema=stage_schema, name=stage_name)
     build_job_fqn = FQN(database=db, schema=schema, name=f"{app_name}_BUILD_JOB")
 
     object_kind = "application service" if use_artifact_repo else "service"
