@@ -39,9 +39,11 @@ from snowflake.cli._plugins.object.command_aliases import add_object_command_ali
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli.api.commands.flags import (
+    ForceOption,
     IdentifierType,
     IfExistsOption,
     IfNotExistsOption,
+    InteractiveOption,
     LocalDirectoryType,
     identifier_argument,
     like_option,
@@ -352,6 +354,8 @@ def purge(
     from_location: SecurePath = from_option,
     target: Optional[str] = target_option,
     save_output: bool = save_output_option,
+    interactive: bool = InteractiveOption,
+    force: Optional[bool] = ForceOption,
     skip_plan: bool = typer.Option(
         False,
         "--skip-plan",
@@ -368,7 +372,12 @@ def purge(
     context = _resolve_context_with_optional_manifest(from_location, identifier, target)
     project_id = context.project_identifier
 
-    _confirm_purge(project_id)
+    if not force and not interactive:
+        raise CliError(
+            "Cannot purge the DCM project non-interactively without --force."
+        )
+    if not force:
+        _confirm_purge(project_id)
 
     with cli_console.spinner() as spinner:
         spinner.add_task(description=f"Purging dcm project {project_id}", total=None)

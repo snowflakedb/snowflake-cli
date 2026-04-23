@@ -42,6 +42,7 @@ from snowflake.cli.api.secret import SecretType
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.stage_path import StagePath
 from snowflake.cli.api.utils.path_utils import is_stage_path
+from snowflake.cli.api.utils.tty import is_tty_interactive
 from snowflake.cli.api.utils.types import try_cast_to_int
 from snowflake.connector.auth.workload_identity import ApiFederatedAuthenticationType
 
@@ -823,3 +824,24 @@ def deprecated_flag_callback_enum(msg: str):
         return value.value
 
     return _warning_callback
+
+
+def _interactive_callback(val):
+    if val is None:
+        return is_tty_interactive()
+    return val
+
+
+InteractiveOption = typer.Option(
+    None,
+    help="When enabled, this option displays prompts even if the standard input and output are not terminal devices. Defaults to True in an interactive shell environment, and False otherwise.",
+    callback=_interactive_callback,
+    show_default=False,
+)
+
+ForceOption = typer.Option(
+    False,
+    "--force",
+    help="When enabled, this option causes the command to implicitly approve any prompts that arise. You should enable this option if interactive mode is not specified and if you want perform potentially destructive actions. Defaults to unset.",
+    is_flag=True,
+)

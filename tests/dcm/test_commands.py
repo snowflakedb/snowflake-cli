@@ -547,7 +547,9 @@ class TestDCMPurge:
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
-            result = runner.invoke(["dcm", "purge", project_identifier])
+            result = runner.invoke(
+                ["dcm", "purge", project_identifier, "--interactive"]
+            )
 
         assert result.exit_code == 0, result.output
         assert mock_prompt.call_count == expected_prompt_count
@@ -576,7 +578,9 @@ class TestDCMPurge:
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
-            result = runner.invoke(["dcm", "purge", "fooBar", "--alias", "my_alias"])
+            result = runner.invoke(
+                ["dcm", "purge", "fooBar", "--alias", "my_alias", "--interactive"]
+            )
 
         assert result.exit_code == 0, result.output
 
@@ -602,7 +606,7 @@ class TestDCMPurge:
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
-            result = runner.invoke(["dcm", "purge", "fooBar"])
+            result = runner.invoke(["dcm", "purge", "fooBar", "--interactive"])
 
         assert result.exit_code != 0
         mock_dcm_manager().purge.assert_not_called()
@@ -634,7 +638,7 @@ class TestDCMPurge:
         )
 
         with project_directory("dcm_project"):
-            result = runner.invoke(["dcm", "purge", "--target", "dev"])
+            result = runner.invoke(["dcm", "purge", "--target", "dev", "--interactive"])
 
         assert result.exit_code == 0, result.output
         mock_dcm_manager().purge.assert_called_once_with(
@@ -663,7 +667,7 @@ class TestDCMPurge:
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
-            result = runner.invoke(["dcm", "purge", "fooBar"])
+            result = runner.invoke(["dcm", "purge", "fooBar", "--interactive"])
 
         assert result.exit_code == 0, result.output
         assert "  Project identifier mismatch" in result.output
@@ -691,10 +695,116 @@ class TestDCMPurge:
         mock_manifest_load.return_value = _manifest_without_config()
 
         with change_directory(tmp_path):
-            result = runner.invoke(["dcm", "purge", "fooBar", "--save-output"])
+            result = runner.invoke(
+                ["dcm", "purge", "fooBar", "--save-output", "--interactive"]
+            )
 
             assert result.exit_code == 0, result.output
             _assert_json_dumped("purge", plan_response, tmp_path)
+
+    @pytest.mark.parametrize("extra_args", [[], ["--no-interactive"]])
+    @mock.patch("snowflake.cli._plugins.dcm.commands._confirm_purge")
+    def test_purge_with_force_skips_prompt(
+        self,
+        mock_confirm_purge,
+        extra_args,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_dcm_manager().purge.return_value = mock_cursor(
+            rows=[("[]",)], columns=("operations",)
+        )
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "purge", "fooBar", "--force", *extra_args])
+
+        assert result.exit_code == 0, result.output
+        mock_confirm_purge.assert_not_called()
+        mock_dcm_manager().purge.assert_called_once_with(
+            project_identifier=FQN.from_string("fooBar"),
+            alias=None,
+            skip_plan=False,
+        )
+
+    def test_purge_no_interactive_without_force_fails(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "purge", "fooBar", "--no-interactive"])
+
+        assert result.exit_code != 0
+        assert (
+            "Cannot purge the DCM project non-interactively without --force"
+            in result.output
+        )
+        mock_dcm_manager().purge.assert_not_called()
+
+    @mock.patch(
+        "snowflake.cli.api.commands.flags.is_tty_interactive", return_value=False
+    )
+    def test_purge_default_non_tty_without_force_fails(
+        self,
+        mock_is_tty,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "purge", "fooBar"])
+
+        assert result.exit_code != 0
+        assert (
+            "Cannot purge the DCM project non-interactively without --force"
+            in result.output
+        )
+        mock_dcm_manager().purge.assert_not_called()
+
+    @mock.patch(
+        "snowflake.cli.api.commands.flags.is_tty_interactive", return_value=True
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.dcm.commands.typer.prompt", return_value="purge fooBar"
+    )
+    def test_purge_default_tty_shows_prompt(
+        self,
+        mock_prompt,
+        mock_is_tty,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_dcm_manager().purge.return_value = mock_cursor(
+            rows=[("[]",)], columns=("operations",)
+        )
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "purge", "fooBar"])
+
+        assert result.exit_code == 0, result.output
+        mock_prompt.assert_called()
+        mock_dcm_manager().purge.assert_called_once()
 
 
 class TestDCMPlan:
