@@ -35,6 +35,7 @@ from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import (
     identifier_to_show_like_pattern,
     to_identifier,
+    to_string_literal,
     unquote_identifier,
 )
 from snowflake.cli.api.utils.cursor import find_first_row
@@ -105,6 +106,23 @@ class BaseSqlExecutor:
 
         # Without remove_comments=True, connectors might throw an error if there is a comment at the end of the file
         return list(self.execute_string(queries, remove_comments=True, **kwargs))
+
+    @contextmanager
+    def query_tag(self, tag: str):
+        """Sets a session query_tag for the duration of the context, then unsets it.
+
+        Useful for marking queries that are expected to be slow (e.g. because they
+        trigger server-side setup-script execution) so downstream observability
+        tooling can identify them without relying on account-specific filters.
+        """
+        self.execute_query(f"alter session set query_tag = {to_string_literal(tag)}")
+        try:
+            yield
+        finally:
+            try:
+                self.execute_query("alter session unset query_tag")
+            except Exception:  # noqa: BLE001
+                self._log.debug("Failed to unset query_tag", exc_info=True)
 
 
 class SqlExecutor(BaseSqlExecutor):

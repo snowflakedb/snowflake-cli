@@ -29,6 +29,7 @@
 ## Fixes and improvements
 * Fixed `snow streamlit deploy` failing with a collision error when `pages/*.py` glob in `additional_source_files` overlaps with the automatically-included `pages/` directory. Overlapping glob patterns are now deduplicated during v1-to-v2 definition conversion.
 * Updated `snowflake-connector-python` to version 4.4.0. Connector python 4.x series introduced stricter permission checks. In future versions of Snowflake CLI strict configuration file permissions will become mandatory. To test if your files have correct permissions set SNOWFLAKE_CLI_FEATURES_ENFORCE_STRICT_CONFIG_PERMISSIONS=1 before running CLI commands.
+* Native App version operations (`snow app version create` and its `add patch` path) now set a session `query_tag` around the underlying `ALTER APPLICATION PACKAGE` call. These statements run setup scripts server-side and are expected to be slower than regular `ALTER APPLICATION PACKAGE` operations; the tag makes them easy to identify in query history and observability tools. No behavior change.
 
 # v3.16.0
 
