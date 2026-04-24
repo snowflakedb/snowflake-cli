@@ -147,7 +147,14 @@ optional_dcm_identifier = typer.Argument(
 
 
 def _check_account_identifier(target: DCMTarget) -> None:
-    current_account = get_account_identifier(get_cli_context().connection)
+    try:
+        current_account = get_account_identifier(get_cli_context().connection)
+    except Exception as e:
+        cli_console.warning(
+            f"⚠️  Cannot validate target's account identifier: current account could not be determined: {e}."
+        )
+        return
+
     if not current_account.matches(target.account_identifier):
         cli_console.warning(
             f"⚠️  Account mismatch: manifest target specifies account_identifier '{target.account_identifier}', "
@@ -156,11 +163,17 @@ def _check_account_identifier(target: DCMTarget) -> None:
 
 
 def _check_project_owner(target: DCMTarget) -> None:
-    current_role = SqlExecutor().current_role()
+    try:
+        current_role = SqlExecutor().current_role()
+    except Exception as e:
+        cli_console.warning(
+            f"⚠️  Cannot validate target's project owner: current role could not be determined: {e}."
+        )
+        return
 
     if not current_role:
         cli_console.warning(
-            "⚠️  Cannot validate project owner: current role could not be determined. "
+            "⚠️  Cannot validate target's project owner: current role could not be determined. "
             "The current session role is required to match the manifest target's project_owner."
         )
         return

@@ -2275,6 +2275,28 @@ def test_check_account_identifier(
         mock_console.warning.assert_not_called()
 
 
+@mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
+@mock.patch("snowflake.cli._plugins.dcm.commands.get_account_identifier")
+@mock.patch("snowflake.cli._plugins.dcm.commands.get_cli_context")
+def test_check_account_identifier_warns_on_get_account_identifier_error(
+    mock_ctx, mock_get_id, mock_console
+):
+    mock_get_id.side_effect = Exception("Connection timeout")
+    target = DCMTarget(
+        name="DEV",
+        project_name="P1",
+        account_identifier="MY_ORG-MY_ACCOUNT",
+        project_owner="MY_ROLE",
+    )
+
+    _check_account_identifier(target)
+
+    mock_console.warning.assert_called_once()
+    warning_message = mock_console.warning.call_args[0][0]
+    assert "Cannot validate target's account identifier" in warning_message
+    assert "Connection timeout" in warning_message
+
+
 class TestCheckProjectOwner:
     @mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
     @mock.patch(
@@ -2333,16 +2355,25 @@ class TestCheckProjectOwner:
         target = DCMTarget(name="DEV", project_name="P1", **_DEFAULT_TARGET_FIELDS)
         _check_project_owner(target)
         mock_console.warning.assert_called_once()
-        assert "Cannot validate project owner" in mock_console.warning.call_args[0][0]
+        assert (
+            "Cannot validate target's project owner"
+            in mock_console.warning.call_args[0][0]
+        )
 
+    @mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
     @mock.patch(
         "snowflake.cli._plugins.dcm.commands.SqlExecutor",
     )
-    def test_current_role_query_failure_raises(self, mock_executor_cls):
+    def test_current_role_query_failure_warns(self, mock_executor_cls, mock_console):
         mock_executor_cls().current_role.side_effect = Exception("Connection timeout")
         target = DCMTarget(name="DEV", project_name="P1", **_DEFAULT_TARGET_FIELDS)
-        with pytest.raises(Exception, match="Connection timeout"):
-            _check_project_owner(target)
+
+        _check_project_owner(target)
+
+        mock_console.warning.assert_called_once()
+        warning_message = mock_console.warning.call_args[0][0]
+        assert "Cannot validate target's project owner" in warning_message
+        assert "Connection timeout" in warning_message
 
     @mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
     @mock.patch("snowflake.cli._plugins.dcm.commands.SqlExecutor")
