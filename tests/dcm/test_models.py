@@ -292,7 +292,7 @@ class TestDCMManifest:
         ):
             manifest.get_target("DEV")
 
-    def test_get_target_missing_account_identifier(self):
+    def test_get_target_missing_account_identifier_does_not_raise(self):
         data = {
             "manifest_version": 2,
             "type": "dcm_project",
@@ -302,13 +302,10 @@ class TestDCMManifest:
         }
         manifest = DCMManifest.from_dict(data)
 
-        with pytest.raises(
-            ManifestConfigurationError,
-            match="Target 'DEV' is missing required field\\(s\\): account_identifier",
-        ):
-            manifest.get_target("DEV")
+        target = manifest.get_target("DEV")
+        assert target.account_identifier == ""
 
-    def test_get_target_missing_project_owner(self):
+    def test_get_target_missing_project_owner_does_not_raise(self):
         data = {
             "manifest_version": 2,
             "type": "dcm_project",
@@ -321,11 +318,8 @@ class TestDCMManifest:
         }
         manifest = DCMManifest.from_dict(data)
 
-        with pytest.raises(
-            ManifestConfigurationError,
-            match="Target 'DEV' is missing required field\\(s\\): project_owner",
-        ):
-            manifest.get_target("DEV")
+        target = manifest.get_target("DEV")
+        assert target.project_owner == ""
 
     def test_get_target_missing_all_required_fields(self):
         data = {
@@ -339,7 +333,7 @@ class TestDCMManifest:
 
         with pytest.raises(
             ManifestConfigurationError,
-            match="Target 'DEV' is missing required field\\(s\\): project_name, account_identifier, project_owner",
+            match="Target 'DEV' is missing required field\\(s\\): project_name",
         ):
             manifest.get_target("DEV")
 

@@ -147,6 +147,13 @@ optional_dcm_identifier = typer.Argument(
 
 
 def _check_account_identifier(target: DCMTarget) -> None:
+    if not target.account_identifier:
+        cli_console.warning(
+            "⚠️  Cannot validate target's account identifier: "
+            "account_identifier is not specified in the manifest target."
+        )
+        return
+
     try:
         current_account = get_account_identifier(get_cli_context().connection)
     except Exception as e:
@@ -163,6 +170,13 @@ def _check_account_identifier(target: DCMTarget) -> None:
 
 
 def _check_project_owner(target: DCMTarget) -> None:
+    if not target.project_owner:
+        cli_console.warning(
+            "⚠️  Cannot validate target's project owner: "
+            "project_owner is not specified in the manifest target."
+        )
+        return
+
     try:
         current_role = SqlExecutor().current_role()
     except Exception as e:

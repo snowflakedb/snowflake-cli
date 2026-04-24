@@ -178,16 +178,9 @@ class DCMManifest:
             )
 
     def _validate_target_required_fields(self, target: DCMTarget):
-        missing = []
         if not target.project_name:
-            missing.append("project_name")
-        if not target.account_identifier:
-            missing.append("account_identifier")
-        if not target.project_owner:
-            missing.append("project_owner")
-        if missing:
             raise ManifestConfigurationError(
-                f"Target '{target.name}' is missing required field(s): {', '.join(missing)}."
+                f"Target '{target.name}' is missing required field(s): project_name."
             )
 
     def get_target(self, target_name: str) -> DCMTarget:

@@ -2297,6 +2297,26 @@ def test_check_account_identifier_warns_on_get_account_identifier_error(
     assert "Connection timeout" in warning_message
 
 
+@mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
+@mock.patch("snowflake.cli._plugins.dcm.commands.get_account_identifier")
+@mock.patch("snowflake.cli._plugins.dcm.commands.get_cli_context")
+def test_check_account_identifier_warns_when_target_account_identifier_is_empty(
+    mock_ctx, mock_get_id, mock_console
+):
+    target = DCMTarget(
+        name="DEV",
+        project_name="P1",
+        account_identifier="",
+        project_owner="MY_ROLE",
+    )
+
+    _check_account_identifier(target)
+
+    mock_get_id.assert_not_called()
+    mock_console.warning.assert_called_once()
+    assert "account_identifier is not specified" in mock_console.warning.call_args[0][0]
+
+
 class TestCheckProjectOwner:
     @mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
     @mock.patch(
@@ -2420,3 +2440,19 @@ class TestCheckProjectOwner:
         )
         _check_project_owner(target)
         mock_console.warning.assert_not_called()
+
+    @mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
+    @mock.patch("snowflake.cli._plugins.dcm.commands.SqlExecutor")
+    def test_empty_target_project_owner_warns(self, mock_executor_cls, mock_console):
+        target = DCMTarget(
+            name="DEV",
+            project_name="P1",
+            account_identifier="MY_ORG-MY_ACCOUNT",
+            project_owner="",
+        )
+
+        _check_project_owner(target)
+
+        mock_executor_cls().current_role.assert_not_called()
+        mock_console.warning.assert_called_once()
+        assert "project_owner is not specified" in mock_console.warning.call_args[0][0]
