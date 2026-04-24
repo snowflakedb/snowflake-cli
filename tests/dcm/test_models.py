@@ -343,7 +343,7 @@ class TestDCMManifest:
         ):
             manifest.get_target("DEV")
 
-    def test_account_identifier_normalized_to_uppercase(self):
+    def test_account_identifier_preserved_as_written(self):
         target = DCMTarget.from_dict(
             {
                 "name": "dev",
@@ -352,7 +352,7 @@ class TestDCMManifest:
                 "project_owner": "my_role",
             }
         )
-        assert target.account_identifier == "MY_ORG-MY_ACCOUNT"
+        assert target.account_identifier == "my_org-my_account"
 
     def test_project_owner_unquoted_preserved_unchanged(self):
         target = DCMTarget.from_dict(
@@ -396,7 +396,7 @@ class TestDCMManifest:
                 "project_owner": "my_role",
             }
         )
-        assert target.account_identifier == "MY_ORG.MY_ACCOUNT"
+        assert target.account_identifier == "my_org.my_account"
 
 
 class TestLoadManifest:

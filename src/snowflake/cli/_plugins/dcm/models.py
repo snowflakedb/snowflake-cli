@@ -69,7 +69,7 @@ class DCMTarget:
         return cls(
             name=data.get("name", "").upper(),
             project_name=data.get("project_name", ""),
-            account_identifier=account_identifier.upper() if account_identifier else "",
+            account_identifier=account_identifier if account_identifier else "",
             project_owner=to_identifier(project_owner) if project_owner else "",
             templating_config=templating_config.upper() if templating_config else None,
         )
