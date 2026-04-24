@@ -2343,3 +2343,49 @@ class TestCheckProjectOwner:
         target = DCMTarget(name="DEV", project_name="P1", **_DEFAULT_TARGET_FIELDS)
         with pytest.raises(Exception, match="Connection timeout"):
             _check_project_owner(target)
+
+    @mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
+    @mock.patch("snowflake.cli._plugins.dcm.commands.SqlExecutor")
+    def test_matching_quoted_role_no_warning(self, mock_executor_cls, mock_console):
+        mock_executor_cls().current_role.return_value = '"my role"'
+        target = DCMTarget(
+            name="DEV",
+            project_name="P1",
+            account_identifier="MY_ORG-MY_ACCOUNT",
+            project_owner='"my role"',
+        )
+        _check_project_owner(target)
+        mock_console.warning.assert_not_called()
+
+    @mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
+    @mock.patch("snowflake.cli._plugins.dcm.commands.SqlExecutor")
+    def test_mismatching_quoted_role_case_sensitive_warns(
+        self, mock_executor_cls, mock_console
+    ):
+        mock_executor_cls().current_role.return_value = '"my role"'
+        target = DCMTarget(
+            name="DEV",
+            project_name="P1",
+            account_identifier="MY_ORG-MY_ACCOUNT",
+            project_owner='"My Role"',
+        )
+        _check_project_owner(target)
+        mock_console.warning.assert_called_once()
+        assert "Role mismatch" in mock_console.warning.call_args[0][0]
+
+    @mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
+    @mock.patch("snowflake.cli._plugins.dcm.commands.SqlExecutor")
+    def test_unquoted_role_with_space_gets_quoted_no_warning(
+        self, mock_executor_cls, mock_console
+    ):
+        mock_executor_cls().current_role.return_value = '"my role"'
+        target = DCMTarget.from_dict(
+            {
+                "name": "dev",
+                "project_name": "P1",
+                "account_identifier": "MY_ORG-MY_ACCOUNT",
+                "project_owner": "my role",
+            }
+        )
+        _check_project_owner(target)
+        mock_console.warning.assert_not_called()

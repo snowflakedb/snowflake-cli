@@ -65,6 +65,7 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     QueryResult,
 )
+from snowflake.cli.api.project.util import same_identifiers
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutor
 from snowflake.connector.cursor import SnowflakeCursor
@@ -164,7 +165,7 @@ def _check_project_owner(target: DCMTarget) -> None:
         )
         return
 
-    if current_role.upper() != target.project_owner:
+    if not same_identifiers(current_role, target.project_owner):
         cli_console.warning(
             f"⚠️  Role mismatch: manifest target specifies project_owner '{target.project_owner}', "
             f"but the current session role is '{current_role}'."

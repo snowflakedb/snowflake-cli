@@ -343,7 +343,7 @@ class TestDCMManifest:
         ):
             manifest.get_target("DEV")
 
-    def test_target_fields_normalized_to_uppercase(self):
+    def test_account_identifier_normalized_to_uppercase(self):
         target = DCMTarget.from_dict(
             {
                 "name": "dev",
@@ -353,7 +353,39 @@ class TestDCMManifest:
             }
         )
         assert target.account_identifier == "MY_ORG-MY_ACCOUNT"
-        assert target.project_owner == "MY_ROLE"
+
+    def test_project_owner_unquoted_preserved_unchanged(self):
+        target = DCMTarget.from_dict(
+            {
+                "name": "dev",
+                "project_name": "P1",
+                "account_identifier": "my_org-my_account",
+                "project_owner": "my_role",
+            }
+        )
+        assert target.project_owner == "my_role"
+
+    def test_project_owner_with_space_gets_quoted(self):
+        target = DCMTarget.from_dict(
+            {
+                "name": "dev",
+                "project_name": "P1",
+                "account_identifier": "my_org-my_account",
+                "project_owner": "my role",
+            }
+        )
+        assert target.project_owner == '"my role"'
+
+    def test_project_owner_quoted_preserved(self):
+        target = DCMTarget.from_dict(
+            {
+                "name": "dev",
+                "project_name": "P1",
+                "account_identifier": "my_org-my_account",
+                "project_owner": '"my role"',
+            }
+        )
+        assert target.project_owner == '"my role"'
 
     def test_account_identifier_with_dot_separator_preserved(self):
         target = DCMTarget.from_dict(

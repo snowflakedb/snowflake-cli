@@ -23,6 +23,7 @@ from snowflake.cli._plugins.dcm.exceptions import (
 )
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.util import to_identifier
 from snowflake.cli.api.secure_path import SecurePath
 
 MANIFEST_FILE_NAME = "manifest.yml"
@@ -69,7 +70,7 @@ class DCMTarget:
             name=data.get("name", "").upper(),
             project_name=data.get("project_name", ""),
             account_identifier=account_identifier.upper() if account_identifier else "",
-            project_owner=project_owner.upper() if project_owner else "",
+            project_owner=to_identifier(project_owner) if project_owner else "",
             templating_config=templating_config.upper() if templating_config else None,
         )
 
