@@ -910,11 +910,8 @@ def test_key_pair_authentication_no_passphrase_error(
         )
 
     assert result.exit_code == 1
-    assert "Encrypted private key, you must provide the2" in result.output
-    assert (
-        "passphrase in the environment variable PRIVATE_KEY_PASSPHRASE."
-        in result.output
-    )
+    assert "Encrypted private key, you must provide the passphrase" in result.output
+    assert "PRIVATE_KEY_PASSPHRASE" in result.output
 
 
 @mock.patch.dict(os.environ, {"PRIVATE_KEY_PASSPHRASE": ""}, clear=True)
