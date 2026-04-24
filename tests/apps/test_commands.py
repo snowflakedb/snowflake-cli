@@ -840,23 +840,17 @@ class TestSnowflakeAppManager:
 
     @patch(EXECUTE_QUERY)
     def test_get_service_endpoint_url_not_found(self, mock_execute):
-        first_cursor = Mock()
-        first_cursor.__iter__ = Mock(return_value=iter([]))
-        second_cursor = Mock()
-        second_cursor.__iter__ = Mock(return_value=iter([]))
-        mock_execute.side_effect = [first_cursor, second_cursor]
+        cursor = Mock()
+        cursor.__iter__ = Mock(return_value=iter([]))
+        mock_execute.return_value = cursor
 
         fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
         url = SnowflakeAppManager().get_service_endpoint_url(fqn)
         assert url is None
-        assert mock_execute.call_count == 2
+        mock_execute.assert_called_once()
         assert (
             "SHOW ENDPOINTS IN APPLICATION SERVICE DB.SCHEMA.SVC"
-            in mock_execute.call_args_list[0][0][0]
-        )
-        assert (
-            "SHOW ENDPOINTS IN SERVICE DB.SCHEMA.SVC"
-            in mock_execute.call_args_list[1][0][0]
+            in mock_execute.call_args[0][0]
         )
 
     @patch(EXECUTE_QUERY)
@@ -878,39 +872,6 @@ class TestSnowflakeAppManager:
         url = SnowflakeAppManager().get_service_endpoint_url(fqn)
         assert url == "Provisioning in progress... check back later"
         assert not url.startswith("https://")
-
-    @patch(EXECUTE_QUERY)
-    def test_get_service_endpoint_url_falls_back_to_service_on_programming_error(
-        self, mock_execute
-    ):
-        fallback_cursor = Mock()
-        fallback_cursor.__iter__ = Mock(
-            return_value=iter(
-                [
-                    {
-                        "name": "app-endpoint",
-                        "ingress_url": "legacy-endpoint.snowflakecomputing.app",
-                    }
-                ]
-            )
-        )
-        mock_execute.side_effect = [
-            ProgrammingError(msg="unsupported statement"),
-            fallback_cursor,
-        ]
-
-        fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
-        url = SnowflakeAppManager().get_service_endpoint_url(fqn)
-        assert url == "https://legacy-endpoint.snowflakecomputing.app"
-        assert mock_execute.call_count == 2
-        assert (
-            "SHOW ENDPOINTS IN APPLICATION SERVICE DB.SCHEMA.SVC"
-            in mock_execute.call_args_list[0][0][0]
-        )
-        assert (
-            "SHOW ENDPOINTS IN SERVICE DB.SCHEMA.SVC"
-            in mock_execute.call_args_list[1][0][0]
-        )
 
 
 # ── fetch_snow_apps_parameters tests ──────────────────────────────────

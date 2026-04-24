@@ -486,35 +486,21 @@ class SnowflakeAppManager(SqlExecutionMixin):
     def get_service_endpoint_url(
         self, service_fqn: FQN, endpoint_name: str = "app-endpoint"
     ) -> Optional[str]:
-        """Get the ingress URL for an app endpoint.
-
-        Snowflake Apps Deploy now provisions *application services*.
-        Prefer ``SHOW ENDPOINTS IN APPLICATION SERVICE`` and fall back to
-        legacy ``SHOW ENDPOINTS IN SERVICE`` for compatibility.
-        """
-        endpoint_queries = (
+        """Get the ingress URL for an application service endpoint."""
+        cursor = self.execute_query(
             f"SHOW ENDPOINTS IN APPLICATION SERVICE {service_fqn.identifier}",
-            f"SHOW ENDPOINTS IN SERVICE {service_fqn.identifier}",
+            cursor_class=DictCursor,
         )
-
-        for query in endpoint_queries:
-            try:
-                cursor = self.execute_query(query, cursor_class=DictCursor)
-            except ProgrammingError:
-                # Some accounts only support one endpoint namespace; try the
-                # alternate query before giving up.
-                continue
-
-            for row in cursor:
-                if row["name"].upper() == endpoint_name.upper():
-                    url = row["ingress_url"]
-                    if (
-                        url
-                        and not url.startswith(("http://", "https://"))
-                        and "provisioning in progress" not in url.lower()
-                    ):
-                        url = f"https://{url}"
-                    return url
+        for row in cursor:
+            if row["name"].upper() == endpoint_name.upper():
+                url = row["ingress_url"]
+                if (
+                    url
+                    and not url.startswith(("http://", "https://"))
+                    and "provisioning in progress" not in url.lower()
+                ):
+                    url = f"https://{url}"
+                return url
         return None
 
     def fetch_snow_apps_parameters(self) -> Dict[str, str]:
