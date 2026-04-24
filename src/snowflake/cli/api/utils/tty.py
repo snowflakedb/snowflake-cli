@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import typer
+import sys
 
-ValidateOption = typer.Option(
-    True,
-    "--validate/--no-validate",
-    help="When enabled, this option triggers validation of a deployed Snowflake Native App's setup script SQL",
-    is_flag=True,
-)
+
+def is_tty_interactive() -> bool:
+    try:
+        return sys.stdin.isatty() and sys.stdout.isatty()
+    except Exception:
+        return False

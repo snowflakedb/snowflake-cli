@@ -9336,14 +9336,34 @@
   |                                 default_target is defined in the manifest.   |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --alias                TEXT  Alias for the deployment.                       |
-  | --from                 PATH  Local directory path containing DCM project     |
-  |                              files. Omit to use current directory.           |
-  | --target               TEXT  Target profile from manifest.yml to use. Uses   |
-  |                              default_target if not specified.                |
-  | --save-output                Save command response and artifacts to local    |
-  |                              'out/' directory.                               |
-  | --help         -h            Show this message and exit.                     |
+  | --alias                                TEXT  Alias for the deployment.       |
+  | --from                                 PATH  Local directory path containing |
+  |                                              DCM project files. Omit to use  |
+  |                                              current directory.              |
+  | --target                               TEXT  Target profile from             |
+  |                                              manifest.yml to use. Uses       |
+  |                                              default_target if not           |
+  |                                              specified.                      |
+  | --save-output                                Save command response and       |
+  |                                              artifacts to local 'out/'       |
+  |                                              directory.                      |
+  | --interactive      --no-interactive          When enabled, this option       |
+  |                                              displays prompts even if the    |
+  |                                              standard input and output are   |
+  |                                              not terminal devices. Defaults  |
+  |                                              to True in an interactive shell |
+  |                                              environment, and False          |
+  |                                              otherwise.                      |
+  | --force                                      When enabled, this option       |
+  |                                              causes the command to           |
+  |                                              implicitly approve any prompts  |
+  |                                              that arise. You should enable   |
+  |                                              this option if interactive mode |
+  |                                              is not specified and if you     |
+  |                                              want perform potentially        |
+  |                                              destructive actions. Defaults   |
+  |                                              to unset.                       |
+  | --help         -h                            Show this message and exit.     |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |

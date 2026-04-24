@@ -33,6 +33,7 @@ from snowflake.cli.api.commands.execution_metadata import ExecutionMetadata
 from snowflake.cli.api.config import get_feature_flags_section
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.utils.error_handling import ignore_exceptions
+from snowflake.cli.api.utils.tty import is_tty_interactive
 from snowflake.connector import ProgrammingError
 from snowflake.connector.telemetry import (
     TelemetryData,
@@ -199,14 +200,6 @@ def _get_definition_version() -> str | None:
     return None
 
 
-def _is_interactive_terminal() -> bool:
-    """Check if stdin and stdout are connected to a TTY."""
-    try:
-        return sys.stdin.isatty() and sys.stdout.isatty()
-    except Exception:
-        return False
-
-
 def _is_env_truthy(name: str) -> bool:
     """Check if an environment variable has a truthy value."""
     return os.environ.get(name, "").lower() in ("yes", "true", "1", "on")
@@ -244,7 +237,7 @@ def _get_ci_environment_type() -> str:
         return "TRAVIS_CI"
     if _is_env_truthy("CI"):
         return "UNKNOWN_CI"
-    if _is_interactive_terminal():
+    if is_tty_interactive():
         return "LOCAL"
     return "UNKNOWN"
 

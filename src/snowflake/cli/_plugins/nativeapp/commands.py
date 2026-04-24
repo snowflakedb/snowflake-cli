@@ -33,11 +33,7 @@ from snowflake.cli._plugins.apps.commands import (
     snowflake_app_validate,
 )
 from snowflake.cli._plugins.nativeapp.artifacts import VersionInfo
-from snowflake.cli._plugins.nativeapp.common_flags import (
-    ForceOption,
-    InteractiveOption,
-    ValidateOption,
-)
+from snowflake.cli._plugins.nativeapp.common_flags import ValidateOption
 from snowflake.cli._plugins.nativeapp.entities.application import ApplicationEntityModel
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntityModel,
@@ -61,6 +57,10 @@ from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import (
     with_project_definition,
+)
+from snowflake.cli.api.commands.flags import (
+    ForceOption,
+    InteractiveOption,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.entities.utils import EntityActions
