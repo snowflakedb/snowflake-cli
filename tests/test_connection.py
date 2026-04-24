@@ -21,6 +21,9 @@ from unittest import mock
 
 import pytest
 import tomlkit
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 from snowflake.cli._plugins.connection import commands as connection_commands
 from snowflake.cli.api.config import ConnectionConfig
 from snowflake.cli.api.config_ng.masking import MASKED_VALUE
@@ -681,9 +684,6 @@ def test_temporary_connection(mock_connector, mock_ctx, option, runner):
 def test_key_pair_authentication(
     mock_connector, mock_ctx, runner, private_key_flag_name
 ):
-    from cryptography.hazmat.backends import default_backend
-    from cryptography.hazmat.primitives import serialization
-    from cryptography.hazmat.primitives.asymmetric import rsa
 
     ctx = mock_ctx()
     mock_connector.return_value = ctx
@@ -874,6 +874,81 @@ def test_key_pair_authentication_from_config(
         authenticator="SNOWFLAKE_JWT",
         private_key="secret value",
         application_name="snowcli",
+    )
+
+
+@mock.patch.dict(os.environ, {}, clear=True)
+def test_key_pair_authentication_no_passphrase_error(
+    mock_ctx, temporary_directory, runner
+):
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    encrypted_pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.BestAvailableEncryption(b"notempty"),
+    )
+
+    with NamedTemporaryFile("wb", suffix=".p8") as tmp_file:
+        tmp_file.write(encrypted_pem)
+        tmp_file.flush()
+
+        result = runner.invoke(
+            [
+                "object",
+                "list",
+                "warehouse",
+                "--temporary-connection",
+                "--account",
+                "test_account",
+                "--user",
+                "snowcli_test",
+                "--authenticator",
+                "SNOWFLAKE_JWT",
+                "--private-key-file",
+                tmp_file.name,
+            ]
+        )
+
+    assert result.exit_code == 1
+    assert "Encrypted private key, you must provide the passphrase" in result.output
+    assert "PRIVATE_KEY_PASSPHRASE" in result.output
+
+
+@mock.patch.dict(os.environ, {"PRIVATE_KEY_PASSPHRASE": ""}, clear=True)
+def test_key_pair_authentication_empty_passphrase_error(
+    mock_ctx, temporary_directory, runner
+):
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    encrypted_pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.BestAvailableEncryption(b"notempty"),
+    )
+
+    with NamedTemporaryFile("wb", suffix=".p8") as tmp_file:
+        tmp_file.write(encrypted_pem)
+        tmp_file.flush()
+
+        result = runner.invoke(
+            [
+                "object",
+                "list",
+                "warehouse",
+                "--temporary-connection",
+                "--account",
+                "test_account",
+                "--user",
+                "snowcli_test",
+                "--authenticator",
+                "SNOWFLAKE_JWT",
+                "--private-key-file",
+                tmp_file.name,
+            ]
+        )
+
+    assert result.exit_code == 1
+    assert (
+        "PRIVATE_KEY_PASSPHRASE environment variable is set but empty" in result.output
     )
 
 
