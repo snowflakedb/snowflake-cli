@@ -112,9 +112,24 @@ def test_dcm_deploy(
     runner,
     test_database,
     project_directory,
+    sql_test_helper,
 ):
     project_name = "project_descriptive_name"
-    with project_directory("dcm_project"):
+    standard_table_fqn = f"{test_database}.PUBLIC.MYTABLE"
+    hidden_file_table_fqn = f"{test_database}.PUBLIC.HIDDEN_FILE_TABLE"
+    hidden_folder_table_fqn = f"{test_database}.PUBLIC.HIDDEN_FOLDER_TABLE"
+
+    with project_directory("dcm_project") as project_root:
+        definitions = project_root / "sources" / "definitions"
+        (definitions / ".hidden_def.sql").write_text(
+            f"define table identifier('{hidden_file_table_fqn}') (fooBar string);\n"
+        )
+        hidden_folder = definitions / ".hidden"
+        hidden_folder.mkdir()
+        (hidden_folder / "in_hidden.sql").write_text(
+            f"define table identifier('{hidden_folder_table_fqn}') (fooBar string);\n"
+        )
+
         result = runner.invoke_with_connection(["dcm", "create", project_name])
         assert result.exit_code == 0, result.output
         assert f"DCM Project '{project_name}' successfully created." in result.output
@@ -135,7 +150,7 @@ def test_dcm_deploy(
                 "deploy",
                 project_name,
                 "-D",
-                f"table_name='{test_database}.PUBLIC.MyTable'",
+                f"table_name='{standard_table_fqn}'",
             ]
         )
         assert result.exit_code == 0, result.output
@@ -144,6 +159,21 @@ def test_dcm_deploy(
             project_name,
             {("DEPLOYMENT$1", None)},
         )
+
+        rows = sql_test_helper.execute_single_sql(
+            f"SHOW TABLES IN SCHEMA {test_database}.PUBLIC"
+        )
+        deployed_table_names = {row["name"] for row in rows}
+        for fqn in (
+            standard_table_fqn,
+            hidden_file_table_fqn,
+            hidden_folder_table_fqn,
+        ):
+            expected_name = fqn.rsplit(".", 1)[-1]
+            assert expected_name in deployed_table_names, (
+                f"{fqn} was not created by deploy; "
+                f"got {sorted(deployed_table_names)}"
+            )
 
         # remove project
         result = runner.invoke_with_connection(["dcm", "drop", project_name])
