@@ -14,7 +14,11 @@
 
 import json
 import os
+import warnings
+from contextlib import contextmanager
 from pathlib import Path
+
+import yaml
 
 import pytest
 
@@ -111,7 +115,7 @@ def assert_format_result(result: CommandResult, format_name: str):
 def test_dcm_deploy(
     runner,
     test_database,
-    project_directory,
+    dcm_project_directory,
     sql_test_helper,
 ):
     project_name = "project_descriptive_name"
@@ -119,7 +123,7 @@ def test_dcm_deploy(
     hidden_file_table_fqn = f"{test_database}.PUBLIC.HIDDEN_FILE_TABLE"
     hidden_folder_table_fqn = f"{test_database}.PUBLIC.HIDDEN_FOLDER_TABLE"
 
-    with project_directory("dcm_project") as project_root:
+    with dcm_project_directory("dcm_project") as project_root:
         definitions = project_root / "sources" / "definitions"
         (definitions / ".hidden_def.sql").write_text(
             f"define table identifier('{hidden_file_table_fqn}') (fooBar string);\n"
@@ -185,10 +189,10 @@ def test_dcm_deploy(
 def test_create_corner_cases(
     runner,
     test_database,
-    project_directory,
+    dcm_project_directory,
 ):
     project_name = "project_descriptive_name"
-    with project_directory("dcm_project"):
+    with dcm_project_directory("dcm_project"):
         # case 1: project already exists
         result = runner.invoke_with_connection(["dcm", "create", project_name])
         assert result.exit_code == 0, result.output
@@ -220,11 +224,11 @@ def test_create_corner_cases(
 def test_dcm_drop_deployment(
     runner,
     test_database,
-    project_directory,
+    dcm_project_directory,
 ):
     project_name = "project_descriptive_name"
 
-    with project_directory("dcm_project"):
+    with dcm_project_directory("dcm_project"):
         # Create project
         result = runner.invoke_with_connection(["dcm", "create", project_name])
         assert result.exit_code == 0, result.output
@@ -355,12 +359,12 @@ def test_dcm_drop_deployment(
 def test_dcm_plan_and_deploy_from_another_directory(
     runner,
     test_database,
-    project_directory,
+    dcm_project_directory,
     tmp_path,
 ):
     project_name = "project_descriptive_name"
 
-    with project_directory("dcm_project") as project_root:
+    with dcm_project_directory("dcm_project") as project_root:
         project_source_path = project_root
 
     original_cwd = os.getcwd()
@@ -409,12 +413,12 @@ def test_dcm_plan_and_deploy_from_another_directory(
 def test_dcm_plan_with_save_output(
     runner,
     test_database,
-    project_directory,
+    dcm_project_directory,
 ):
     project_name = "project_descriptive_name"
     output_dir = "out"
 
-    with project_directory("dcm_project") as project_root:
+    with dcm_project_directory("dcm_project") as project_root:
         result = runner.invoke_with_connection(["dcm", "create", project_name])
         assert result.exit_code == 0, result.output
         assert f"DCM Project '{project_name}' successfully created." in result.output
@@ -452,14 +456,14 @@ def test_dcm_plan_with_save_output(
 def test_dcm_command_respects_format_option(
     runner,
     test_database,
-    project_directory,
+    dcm_project_directory,
     object_name_provider,
     format_name,
     command,
 ):
     project_name = object_name_provider.create_and_get_next_object_name()
 
-    with project_directory("dcm_project"):
+    with dcm_project_directory("dcm_project"):
         result = runner.invoke_with_connection(["dcm", "create", project_name])
         assert result.exit_code == 0, result.output
 
@@ -483,7 +487,7 @@ def test_dcm_command_respects_format_option(
 def test_dcm_preview_command(
     runner,
     test_database,
-    project_directory,
+    dcm_project_directory,
     object_name_provider,
     sql_test_helper,
 ):
@@ -491,7 +495,7 @@ def test_dcm_preview_command(
     view_name = f"{test_database}.PUBLIC.PreviewTestView"
     base_table_name = f"{test_database}.PUBLIC.OutputTestTable"
 
-    with project_directory("dcm_project") as project_root:
+    with dcm_project_directory("dcm_project") as project_root:
         result = runner.invoke_with_connection(["dcm", "create", project_name])
         assert result.exit_code == 0, result.output
 
@@ -565,7 +569,7 @@ INSERT INTO {base_table_name} (fooBar) VALUES
 def test_dcm_refresh_command(
     runner,
     test_database,
-    project_directory,
+    dcm_project_directory,
     object_name_provider,
     sql_test_helper,
 ):
@@ -573,7 +577,7 @@ def test_dcm_refresh_command(
     base_table_name = f"{test_database}.PUBLIC.RefreshBaseTable"
     dynamic_table_name = f"{test_database}.PUBLIC.RefreshDynamicTable"
 
-    with project_directory("dcm_project") as project_root:
+    with dcm_project_directory("dcm_project") as project_root:
         result = runner.invoke_with_connection(["dcm", "create", project_name])
         assert result.exit_code == 0, result.output
 
@@ -650,7 +654,7 @@ INSERT INTO {base_table_name} (id, name, email) VALUES
 def test_dcm_test_command(
     runner,
     test_database,
-    project_directory,
+    dcm_project_directory,
     object_name_provider,
     sql_test_helper,
 ):
@@ -658,7 +662,7 @@ def test_dcm_test_command(
     table_name = f"{test_database}.PUBLIC.TestedTable"
     dmf_name = "test_dmf"
 
-    with project_directory("dcm_project") as project_root:
+    with dcm_project_directory("dcm_project") as project_root:
         result = runner.invoke_with_connection(["dcm", "create", project_name])
         assert result.exit_code == 0, result.output
 
@@ -743,13 +747,13 @@ UPDATE {table_name} SET level = 5 WHERE level < 5;
 def test_dcm_end_to_end_workflow(
     runner,
     test_database,
-    project_directory,
+    dcm_project_directory,
     target_args,
     expected_config,
 ):
     target_args = list(target_args)
 
-    with project_directory("dcm_project_multiple_configurations") as project_root:
+    with dcm_project_directory("dcm_project_multiple_configurations") as project_root:
         result = runner.invoke_with_connection(["dcm", "create"] + target_args)
         assert result.exit_code == 0, result.output
         assert f"successfully created." in result.output
@@ -806,11 +810,11 @@ def test_dcm_end_to_end_workflow(
 def test_dcm_raw_analyze_with_save_output(
     runner,
     test_database,
-    project_directory,
+    dcm_project_directory,
 ):
     project_name = "project_descriptive_name"
 
-    with project_directory("dcm_project") as project_root:
+    with dcm_project_directory("dcm_project") as project_root:
         result = runner.invoke_with_connection(["dcm", "create", project_name])
         assert result.exit_code == 0, result.output
         assert f"DCM Project '{project_name}' successfully created." in result.output
@@ -847,14 +851,14 @@ def test_dcm_raw_analyze_with_save_output(
 def test_dcm_raw_analyze_with_errors(
     runner,
     test_database,
-    project_directory,
+    dcm_project_directory,
     object_name_provider,
 ):
     project_name = object_name_provider.create_and_get_next_object_name()
     correct_table_fqn = f"{test_database}.PUBLIC.CORRECT_TABLE"
     incorrect_table_fqn = f"{test_database}.PUBLIC.INCORRECT_TABLE"
 
-    with project_directory("dcm_project") as project_root:
+    with dcm_project_directory("dcm_project") as project_root:
         # Create the project
         result = runner.invoke_with_connection(["dcm", "create", project_name])
         assert result.exit_code == 0, result.output
@@ -877,13 +881,13 @@ def test_dcm_raw_analyze_with_errors(
 def test_dcm_purge(
     runner,
     test_database,
-    project_directory,
+    dcm_project_directory,
     sql_test_helper,
 ):
     project_name = "project_descriptive_name"
     table_fqn = f"{test_database}.PUBLIC.PurgeTestTable"
 
-    with project_directory("dcm_project"):
+    with dcm_project_directory("dcm_project"):
         # GIVEN: create a DCM project and deploy a table
         result = runner.invoke_with_connection(["dcm", "create", project_name])
         assert result.exit_code == 0, result.output
@@ -922,3 +926,103 @@ def test_dcm_purge(
             f"SHOW TABLES LIKE 'PurgeTestTable' IN SCHEMA {test_database}.PUBLIC"
         )
         assert len(rows) == 0
+
+
+def _get_snowflake_identifiers(snowflake_session) -> tuple[str, str]:
+    *_, cursor = snowflake_session.execute_string(
+        "SELECT CURRENT_ORGANIZATION_NAME(), CURRENT_ACCOUNT_NAME(), CURRENT_ROLE()"
+    )
+    org_name, account_name, role_name = cursor.fetchone()
+    account_id = f"{org_name}-{account_name}".upper()
+    return account_id, role_name
+
+
+def _rewrite_dcm_manifest(
+    manifest_path: Path, account_identifier: str, project_owner: str
+) -> None:
+    try:
+        manifest = yaml.safe_load(manifest_path.read_text())
+    except FileNotFoundError:
+        warnings.warn(
+            f"DCM manifest not found at {manifest_path}. Skipping credential rewrite.",
+            UserWarning,
+            stacklevel=2,
+        )
+        return
+
+    if "targets" in manifest:
+        for target_config in manifest["targets"].values():
+            target_config["account_identifier"] = account_identifier
+            target_config["project_owner"] = project_owner
+
+    manifest_path.write_text(yaml.dump(manifest))
+
+
+@pytest.fixture
+def dcm_project_directory(project_directory, snowflake_session):
+    @contextmanager
+    def _dcm_project_directory(
+        project_name: str,
+        merge_project_definition: Optional[dict] = None,
+        subpath: Optional[Path] = None,
+    ):
+        with project_directory(
+            project_name,
+            merge_project_definition=merge_project_definition,
+            subpath=subpath,
+        ) as project_root:
+            manifest_path = project_root / "manifest.yml"
+            account_id, role_name = _get_snowflake_identifiers(snowflake_session)
+            _rewrite_dcm_manifest(manifest_path, account_id, role_name)
+
+            yield project_root
+
+    return _dcm_project_directory
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_dcm_account_identifier_validation(runner, project_directory):
+    with project_directory("dcm_project") as project_root:
+        manifest = {
+            "manifest_version": 2,
+            "type": "dcm_project",
+            "default_target": "dev",
+            "targets": {
+                "dev": {
+                    "project_name": "my_project",
+                    "account_identifier": "WRONG_ORG-WRONG_ACCOUNT",
+                    "project_owner": "SYSADMIN",
+                }
+            },
+        }
+        (project_root / "manifest.yml").write_text(yaml.dump(manifest))
+
+        result = runner.invoke_with_connection(["dcm", "create", "--target", "dev"])
+        assert result.exit_code == 0
+        assert "Account mismatch" in result.output
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_dcm_project_owner_validation(runner, project_directory, snowflake_session):
+    with project_directory("dcm_project") as project_root:
+        account_id, _ = _get_snowflake_identifiers(snowflake_session)
+
+        manifest = {
+            "manifest_version": 2,
+            "type": "dcm_project",
+            "default_target": "dev",
+            "targets": {
+                "dev": {
+                    "project_name": "my_project",
+                    "account_identifier": account_id,
+                    "project_owner": "NONEXISTENT_ROLE_XYZ",
+                }
+            },
+        }
+        (project_root / "manifest.yml").write_text(yaml.dump(manifest))
+
+        result = runner.invoke_with_connection(["dcm", "create", "--target", "dev"])
+        assert result.exit_code == 0
+        assert "Role mismatch" in result.output
