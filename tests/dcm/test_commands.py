@@ -2429,3 +2429,46 @@ def test_check_project_owner_warns_when_target_project_owner_is_empty(
     warning_message = mock_console.warning.call_args[0][0]
     assert "project_owner is not specified" in warning_message
     assert "The current session role is required to match" in warning_message
+
+
+@mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
+@mock.patch("snowflake.cli._plugins.dcm.commands.get_account_identifier")
+@mock.patch("snowflake.cli._plugins.dcm.commands.get_cli_context")
+def test_check_account_identifier_mismatch_warning_sanitizes_manifest_value(
+    mock_ctx, mock_get_id, mock_console
+):
+    mock_get_id.return_value = AccountIdentifier("MY_ORG", "MY_ACCOUNT")
+    target = DCMTarget(
+        name="DEV",
+        project_name="P1",
+        account_identifier="WRONG_ORG-WRONG_ACCOUNT\x1b[31m injected",
+        project_owner="MY_ROLE",
+    )
+
+    _check_account_identifier(target)
+
+    mock_console.warning.assert_called_once()
+    warning_message = mock_console.warning.call_args[0][0]
+    assert "\x1b" not in warning_message
+    assert "WRONG_ORG-WRONG_ACCOUNT injected" in warning_message
+
+
+@mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
+@mock.patch("snowflake.cli._plugins.dcm.commands.SqlExecutor")
+def test_check_project_owner_mismatch_warning_sanitizes_manifest_value(
+    mock_executor_cls, mock_console
+):
+    mock_executor_cls().current_role.return_value = "ADMIN_ROLE"
+    target = DCMTarget(
+        name="DEV",
+        project_name="P1",
+        account_identifier="MY_ORG-MY_ACCOUNT",
+        project_owner="FINANCE_ROLE\x1b[31m injected",
+    )
+
+    _check_project_owner(target)
+
+    mock_console.warning.assert_called_once()
+    warning_message = mock_console.warning.call_args[0][0]
+    assert "\x1b" not in warning_message
+    assert "FINANCE_ROLE injected" in warning_message

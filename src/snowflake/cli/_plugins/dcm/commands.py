@@ -66,6 +66,7 @@ from snowflake.cli.api.output.types import (
     QueryResult,
 )
 from snowflake.cli.api.project.util import same_identifiers
+from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutor
 from snowflake.connector.cursor import SnowflakeCursor
@@ -179,8 +180,9 @@ def _check_account_identifier(target: DCMTarget) -> None:
 
     if not current_account.matches(target.account_identifier):
         cli_console.warning(
-            f"⚠️  Account mismatch: manifest target specifies account_identifier '{target.account_identifier}', "
-            f"but the current session account is '{current_account}'."
+            f"⚠️  Account mismatch: manifest target specifies account_identifier "
+            f"'{sanitize_for_terminal(target.account_identifier)}', "
+            f"but the current session account is '{sanitize_for_terminal(str(current_account))}'."
         )
 
 
@@ -213,8 +215,9 @@ def _check_project_owner(target: DCMTarget) -> None:
 
     if not same_identifiers(current_role, target.project_owner):
         cli_console.warning(
-            f"⚠️  Role mismatch: manifest target specifies project_owner '{target.project_owner}', "
-            f"but the current session role is '{current_role}'."
+            f"⚠️  Role mismatch: manifest target specifies project_owner "
+            f"'{sanitize_for_terminal(target.project_owner)}', "
+            f"but the current session role is '{sanitize_for_terminal(current_role)}'."
         )
 
 
