@@ -323,15 +323,14 @@ class DCMProjectManager(SqlExecutionMixin):
     @staticmethod
     def _build_upload_plan(source_path: Path, stage_root: str) -> UploadPlan:
         plan = UploadPlan()
-        DCMProjectManager._add_manifest(plan, source_path)
+        DCMProjectManager._add_manifest(plan)
         DCMProjectManager._add_sources(plan, source_path, stage_root)
         return plan
 
     @staticmethod
-    def _add_manifest(plan: UploadPlan, source_path: Path) -> None:
-        if (source_path / MANIFEST_FILE_NAME).exists():
-            plan.artifacts.append(PathMapping(src=MANIFEST_FILE_NAME))
-            plan.relative_paths_to_upload.append(MANIFEST_FILE_NAME)
+    def _add_manifest(plan: UploadPlan) -> None:
+        plan.artifacts.append(PathMapping(src=MANIFEST_FILE_NAME))
+        plan.relative_paths_to_upload.append(MANIFEST_FILE_NAME)
 
     @staticmethod
     def _add_sources(plan: UploadPlan, source_path: Path, stage_root: str) -> None:
