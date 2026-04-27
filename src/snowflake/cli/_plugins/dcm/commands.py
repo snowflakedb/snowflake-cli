@@ -571,6 +571,11 @@ def create(
     """
     Creates a DCM Project in Snowflake.
     """
+    # `create` is the command where it's crucial to validate the project_owner upfront (validate_owner=True).
+    #  It's the command that creates the DCM project object and the role used to execute the command will
+    #  have OWNERSHIP privilege on the created DCM project object. If a different role, than the one specified
+    #  in the manifest, the target was used, then it's almost certain that it was not intended, and it will
+    #  impact who can use the project and how.
     context = _resolve_context_with_optional_manifest(
         from_location, identifier, target, validate_owner=True
     )
