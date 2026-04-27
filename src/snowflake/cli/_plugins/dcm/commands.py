@@ -58,7 +58,7 @@ from snowflake.cli.api.constants import (
 )
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
-from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.identifiers import FQN, AccountIdentifier
 from snowflake.cli.api.output.types import (
     CollectionResult,
     EmptyResult,
@@ -178,7 +178,7 @@ def _check_account_identifier(target: DCMTarget) -> None:
         )
         return
 
-    if not current_account.matches(target.account_identifier):
+    if current_account != AccountIdentifier.from_string(target.account_identifier):
         cli_console.warning(
             f"⚠️  Account mismatch: manifest target specifies account_identifier "
             f"'{sanitize_for_terminal(target.account_identifier)}', "

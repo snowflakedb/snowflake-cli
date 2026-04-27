@@ -228,15 +228,15 @@ class AccountIdentifier:
         self.organization_name = organization_name.upper()
         self.account_name = account_name.upper()
 
-    def as_hyphen_form(self) -> str:
-        return f"{self.organization_name}-{self.account_name}"
-
-    def as_dot_form(self) -> str:
-        return f"{self.organization_name}.{self.account_name}"
-
-    def matches(self, identifier: str) -> bool:
-        upper = identifier.upper()
-        return upper == self.as_hyphen_form() or upper == self.as_dot_form()
+    @classmethod
+    def from_string(cls, identifier: str) -> "AccountIdentifier":
+        if "-" in identifier and "." not in identifier:
+            org, account = identifier.split("-", 1)
+        elif "." in identifier and "-" not in identifier:
+            org, account = identifier.split(".", 1)
+        else:
+            org, account = identifier, ""
+        return cls(organization_name=org, account_name=account)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, AccountIdentifier):
@@ -247,4 +247,4 @@ class AccountIdentifier:
         )
 
     def __str__(self) -> str:
-        return self.as_hyphen_form()
+        return f"{self.organization_name}-{self.account_name}"
