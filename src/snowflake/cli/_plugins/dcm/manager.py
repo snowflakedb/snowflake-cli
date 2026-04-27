@@ -358,7 +358,7 @@ class DCMProjectManager(SqlExecutionMixin):
     def _sources_stage_destination(relative: Path, stage_root: str) -> str:
         dest_dir = f"{stage_root}/{SOURCES_FOLDER}"
         if relative.parent != Path("."):
-            dest_dir = f"{dest_dir}/{relative.parent}"
+            dest_dir = f"{dest_dir}/{relative.parent.as_posix()}"
         return dest_dir
 
     @staticmethod

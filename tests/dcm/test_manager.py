@@ -736,11 +736,11 @@ class TestSyncLocalFiles:
             assert (
                 "/.hidden_dir/*" not in q
             ), f"hidden dir must not be uploaded via dir/* glob: {q}"
-        for name in (
-            "/dbt/.gitignore",
-            "/.hidden_dir/visible.sql",
-            "/.hidden_dir/sub/deep.sql",
+        for filename, stage_dest in (
+            (".gitignore", f"/{SOURCES_FOLDER}/dbt"),
+            ("visible.sql", f"/{SOURCES_FOLDER}/.hidden_dir"),
+            ("deep.sql", f"/{SOURCES_FOLDER}/.hidden_dir/sub"),
         ):
             assert any(
-                name in q for q in put_queries
-            ), f"expected a PUT for {name}; got: {put_queries}"
+                filename in q and stage_dest in q for q in put_queries
+            ), f"expected a PUT for {filename} to {stage_dest}; got: {put_queries}"
