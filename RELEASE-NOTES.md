@@ -25,6 +25,10 @@
 * Added `snow connection generate-workload-identity-token` command to generate a workload identity token for the current environment. Supports AWS, GCP, Azure, and OIDC providers via `--workload-identity-provider` flag or connection configuration.
 * Added `snow custom-image validate` command to validate custom Docker images against configured rules (entrypoint, environment variables, Python packages, dependency health). Supports an optional `--scan-vulnerabilities` flag to run Grype vulnerability scanning.
 * Added `snow dcm purge` command to drop all the objects managed by the specified DCM Project
+* DCM manifest targets now validate `account_identifier` and `project_owner` fields.
+  CLI validates these against the current session and prints a warning on mismatch:
+  * `account_identifier` is checked for all manifest-based commands
+  * `project_owner` is checked for `snow dcm create`
 
 ## Fixes and improvements
 * Significantly improved DCM files upload performance
