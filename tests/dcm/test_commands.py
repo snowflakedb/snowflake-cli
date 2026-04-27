@@ -2295,6 +2295,7 @@ def test_check_account_identifier_warns_on_get_account_identifier_error(
     warning_message = mock_console.warning.call_args[0][0]
     assert "Cannot validate target's account identifier" in warning_message
     assert "Connection timeout" in warning_message
+    assert "The current session account is required to match" in warning_message
 
 
 @mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
@@ -2314,7 +2315,9 @@ def test_check_account_identifier_warns_when_target_account_identifier_is_empty(
 
     mock_get_id.assert_not_called()
     mock_console.warning.assert_called_once()
-    assert "account_identifier is not specified" in mock_console.warning.call_args[0][0]
+    warning_message = mock_console.warning.call_args[0][0]
+    assert "account_identifier is not specified" in warning_message
+    assert "The current session account is required to match" in warning_message
 
 
 class TestCheckProjectOwner:
@@ -2375,10 +2378,9 @@ class TestCheckProjectOwner:
         target = DCMTarget(name="DEV", project_name="P1", **_DEFAULT_TARGET_FIELDS)
         _check_project_owner(target)
         mock_console.warning.assert_called_once()
-        assert (
-            "Cannot validate target's project owner"
-            in mock_console.warning.call_args[0][0]
-        )
+        warning_message = mock_console.warning.call_args[0][0]
+        assert "Cannot validate target's project owner" in warning_message
+        assert "The current session role is required to match" in warning_message
 
     @mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
     @mock.patch(
@@ -2394,6 +2396,7 @@ class TestCheckProjectOwner:
         warning_message = mock_console.warning.call_args[0][0]
         assert "Cannot validate target's project owner" in warning_message
         assert "Connection timeout" in warning_message
+        assert "The current session role is required to match" in warning_message
 
     @mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
     @mock.patch("snowflake.cli._plugins.dcm.commands.SqlExecutor")
@@ -2455,4 +2458,6 @@ class TestCheckProjectOwner:
 
         mock_executor_cls().current_role.assert_not_called()
         mock_console.warning.assert_called_once()
-        assert "project_owner is not specified" in mock_console.warning.call_args[0][0]
+        warning_message = mock_console.warning.call_args[0][0]
+        assert "project_owner is not specified" in warning_message
+        assert "The current session role is required to match" in warning_message
