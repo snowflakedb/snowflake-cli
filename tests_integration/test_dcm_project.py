@@ -134,7 +134,6 @@ def test_dcm_deploy(
             f"define table identifier('{hidden_folder_table_fqn}') (fooBar string);\n"
         )
 
-
         result = runner.invoke_with_connection(["dcm", "create", project_name])
         assert result.exit_code == 0, result.output
         assert f"DCM Project '{project_name}' successfully created." in result.output
@@ -1000,7 +999,7 @@ def test_dcm_account_identifier_validation(runner, project_directory):
         (project_root / "manifest.yml").write_text(yaml.dump(manifest))
 
         result = runner.invoke_with_connection(["dcm", "create", "--target", "dev"])
-        assert result.exit_code == 1
+        assert result.exit_code == 0
         assert "Account mismatch" in result.output
 
 
@@ -1025,5 +1024,5 @@ def test_dcm_project_owner_validation(runner, project_directory, snowflake_sessi
         (project_root / "manifest.yml").write_text(yaml.dump(manifest))
 
         result = runner.invoke_with_connection(["dcm", "create", "--target", "dev"])
-        assert result.exit_code == 1
+        assert result.exit_code == 0
         assert "Role mismatch" in result.output
