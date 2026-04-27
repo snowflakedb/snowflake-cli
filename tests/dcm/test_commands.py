@@ -2320,144 +2320,112 @@ def test_check_account_identifier_warns_when_target_account_identifier_is_empty(
     assert "The current session account is required to match" in warning_message
 
 
-class TestCheckProjectOwner:
-    @mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
-    @mock.patch(
-        "snowflake.cli._plugins.dcm.commands.SqlExecutor",
+@pytest.mark.parametrize(
+    "manifest_project_owner,session_role,should_warn",
+    [
+        ("MY_ROLE", "MY_ROLE", False),
+        ("MY_ROLE", "my_role", False),
+        ("FINANCE_ROLE", "ADMIN_ROLE", True),
+        ('"my role"', '"my role"', False),
+        ('"My Role"', '"my role"', True),
+    ],
+    ids=[
+        "simple_match",
+        "case_insensitive_match",
+        "mismatch",
+        "quoted_match",
+        "quoted_mismatch",
+    ],
+)
+@mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
+@mock.patch("snowflake.cli._plugins.dcm.commands.SqlExecutor")
+def test_check_project_owner(
+    mock_executor_cls,
+    mock_console,
+    manifest_project_owner,
+    session_role,
+    should_warn,
+):
+    mock_executor_cls().current_role.return_value = session_role
+    target = DCMTarget(
+        name="DEV",
+        project_name="P1",
+        account_identifier="MY_ORG-MY_ACCOUNT",
+        project_owner=manifest_project_owner,
     )
-    def test_matching_role_no_warning(self, mock_executor_cls, mock_console):
-        mock_executor_cls().current_role.return_value = "MY_ROLE"
-        target = DCMTarget(
-            name="DEV",
-            project_name="P1",
-            account_identifier="MY_ORG-MY_ACCOUNT",
-            project_owner="MY_ROLE",
-        )
-        _check_project_owner(target)
-        mock_console.warning.assert_not_called()
-
-    @mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
-    @mock.patch(
-        "snowflake.cli._plugins.dcm.commands.SqlExecutor",
-    )
-    def test_matching_role_case_insensitive_no_warning(
-        self, mock_executor_cls, mock_console
-    ):
-        mock_executor_cls().current_role.return_value = "my_role"
-        target = DCMTarget(
-            name="DEV",
-            project_name="P1",
-            account_identifier="MY_ORG-MY_ACCOUNT",
-            project_owner="MY_ROLE",
-        )
-        _check_project_owner(target)
-        mock_console.warning.assert_not_called()
-
-    @mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
-    @mock.patch(
-        "snowflake.cli._plugins.dcm.commands.SqlExecutor",
-    )
-    def test_mismatching_role_warns(self, mock_executor_cls, mock_console):
-        mock_executor_cls().current_role.return_value = "ADMIN_ROLE"
-        target = DCMTarget(
-            name="DEV",
-            project_name="P1",
-            account_identifier="MY_ORG-MY_ACCOUNT",
-            project_owner="FINANCE_ROLE",
-        )
-        _check_project_owner(target)
+    _check_project_owner(target)
+    if should_warn:
         mock_console.warning.assert_called_once()
         assert "Role mismatch" in mock_console.warning.call_args[0][0]
-
-    @mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
-    @mock.patch(
-        "snowflake.cli._plugins.dcm.commands.SqlExecutor",
-    )
-    def test_current_role_none_warns(self, mock_executor_cls, mock_console):
-        mock_executor_cls().current_role.return_value = None
-        target = DCMTarget(name="DEV", project_name="P1", **_DEFAULT_TARGET_FIELDS)
-        _check_project_owner(target)
-        mock_console.warning.assert_called_once()
-        warning_message = mock_console.warning.call_args[0][0]
-        assert "Cannot validate target's project owner" in warning_message
-        assert "The current session role is required to match" in warning_message
-
-    @mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
-    @mock.patch(
-        "snowflake.cli._plugins.dcm.commands.SqlExecutor",
-    )
-    def test_current_role_query_failure_warns(self, mock_executor_cls, mock_console):
-        mock_executor_cls().current_role.side_effect = Exception("Connection timeout")
-        target = DCMTarget(name="DEV", project_name="P1", **_DEFAULT_TARGET_FIELDS)
-
-        _check_project_owner(target)
-
-        mock_console.warning.assert_called_once()
-        warning_message = mock_console.warning.call_args[0][0]
-        assert "Cannot validate target's project owner" in warning_message
-        assert "Connection timeout" in warning_message
-        assert "The current session role is required to match" in warning_message
-
-    @mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
-    @mock.patch("snowflake.cli._plugins.dcm.commands.SqlExecutor")
-    def test_matching_quoted_role_no_warning(self, mock_executor_cls, mock_console):
-        mock_executor_cls().current_role.return_value = '"my role"'
-        target = DCMTarget(
-            name="DEV",
-            project_name="P1",
-            account_identifier="MY_ORG-MY_ACCOUNT",
-            project_owner='"my role"',
-        )
-        _check_project_owner(target)
+    else:
         mock_console.warning.assert_not_called()
 
-    @mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
-    @mock.patch("snowflake.cli._plugins.dcm.commands.SqlExecutor")
-    def test_mismatching_quoted_role_case_sensitive_warns(
-        self, mock_executor_cls, mock_console
-    ):
-        mock_executor_cls().current_role.return_value = '"my role"'
-        target = DCMTarget(
-            name="DEV",
-            project_name="P1",
-            account_identifier="MY_ORG-MY_ACCOUNT",
-            project_owner='"My Role"',
-        )
-        _check_project_owner(target)
-        mock_console.warning.assert_called_once()
-        assert "Role mismatch" in mock_console.warning.call_args[0][0]
 
-    @mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
-    @mock.patch("snowflake.cli._plugins.dcm.commands.SqlExecutor")
-    def test_unquoted_role_with_space_gets_quoted_no_warning(
-        self, mock_executor_cls, mock_console
-    ):
-        mock_executor_cls().current_role.return_value = '"my role"'
-        target = DCMTarget.from_dict(
-            {
-                "name": "dev",
-                "project_name": "P1",
-                "account_identifier": "MY_ORG-MY_ACCOUNT",
-                "project_owner": "my role",
-            }
-        )
-        _check_project_owner(target)
-        mock_console.warning.assert_not_called()
+@mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
+@mock.patch("snowflake.cli._plugins.dcm.commands.SqlExecutor")
+def test_check_project_owner_warns_when_current_role_is_none(
+    mock_executor_cls, mock_console
+):
+    mock_executor_cls().current_role.return_value = None
+    target = DCMTarget(name="DEV", project_name="P1", **_DEFAULT_TARGET_FIELDS)
+    _check_project_owner(target)
+    mock_console.warning.assert_called_once()
+    warning_message = mock_console.warning.call_args[0][0]
+    assert "Cannot validate target's project owner" in warning_message
+    assert "The current session role is required to match" in warning_message
 
-    @mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
-    @mock.patch("snowflake.cli._plugins.dcm.commands.SqlExecutor")
-    def test_empty_target_project_owner_warns(self, mock_executor_cls, mock_console):
-        target = DCMTarget(
-            name="DEV",
-            project_name="P1",
-            account_identifier="MY_ORG-MY_ACCOUNT",
-            project_owner="",
-        )
 
-        _check_project_owner(target)
+@mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
+@mock.patch("snowflake.cli._plugins.dcm.commands.SqlExecutor")
+def test_check_project_owner_warns_on_current_role_error(
+    mock_executor_cls, mock_console
+):
+    mock_executor_cls().current_role.side_effect = Exception("Connection timeout")
+    target = DCMTarget(name="DEV", project_name="P1", **_DEFAULT_TARGET_FIELDS)
 
-        mock_executor_cls().current_role.assert_not_called()
-        mock_console.warning.assert_called_once()
-        warning_message = mock_console.warning.call_args[0][0]
-        assert "project_owner is not specified" in warning_message
-        assert "The current session role is required to match" in warning_message
+    _check_project_owner(target)
+
+    mock_console.warning.assert_called_once()
+    warning_message = mock_console.warning.call_args[0][0]
+    assert "Cannot validate target's project owner" in warning_message
+    assert "Connection timeout" in warning_message
+    assert "The current session role is required to match" in warning_message
+
+
+@mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
+@mock.patch("snowflake.cli._plugins.dcm.commands.SqlExecutor")
+def test_check_project_owner_no_warning_when_target_value_gets_quoted_via_from_dict(
+    mock_executor_cls, mock_console
+):
+    mock_executor_cls().current_role.return_value = '"my role"'
+    target = DCMTarget.from_dict(
+        {
+            "name": "dev",
+            "project_name": "P1",
+            "account_identifier": "MY_ORG-MY_ACCOUNT",
+            "project_owner": "my role",
+        }
+    )
+    _check_project_owner(target)
+    mock_console.warning.assert_not_called()
+
+
+@mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
+@mock.patch("snowflake.cli._plugins.dcm.commands.SqlExecutor")
+def test_check_project_owner_warns_when_target_project_owner_is_empty(
+    mock_executor_cls, mock_console
+):
+    target = DCMTarget(
+        name="DEV",
+        project_name="P1",
+        account_identifier="MY_ORG-MY_ACCOUNT",
+        project_owner="",
+    )
+
+    _check_project_owner(target)
+
+    mock_executor_cls().current_role.assert_not_called()
+    mock_console.warning.assert_called_once()
+    warning_message = mock_console.warning.call_args[0][0]
+    assert "project_owner is not specified" in warning_message
+    assert "The current session role is required to match" in warning_message
