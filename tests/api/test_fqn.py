@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
+from io import StringIO
 from unittest import mock
 from unittest.mock import MagicMock
 
@@ -19,7 +21,104 @@ import pytest
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import FQNInconsistencyError, FQNNameError
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.schemas.entities.common import Identifier
 from snowflake.cli.api.project.schemas.v1.streamlit.streamlit import Streamlit
+from snowflake.connector.util_text import split_statements
+
+
+class TestSqlIdentifier:
+    """Tests for FQN.sql_identifier — especially SQL injection prevention (SNOW-3392936)."""
+
+    @pytest.mark.parametrize(
+        "name, expected",
+        [
+            ("my_table", "IDENTIFIER('my_table')"),
+            ('"my table"', "IDENTIFIER('\"my table\"')"),
+            ("MY_NOTEBOOK", "IDENTIFIER('MY_NOTEBOOK')"),
+        ],
+    )
+    def test_normal_identifiers_unchanged(self, name, expected):
+        """Normal identifiers (no single quotes) produce the same output as before."""
+        assert FQN(name=name, database=None, schema=None).sql_identifier == expected
+
+    @pytest.mark.parametrize(
+        "name, expected",
+        [
+            (
+                "db.schema.my_table",
+                "IDENTIFIER('db.schema.my_table')",
+            ),
+            (
+                '"my_db"."my_schema"."my_table"',
+                'IDENTIFIER(\'"my_db"."my_schema"."my_table"\')',
+            ),
+        ],
+    )
+    def test_qualified_identifiers_unchanged(self, name, expected):
+        fqn = FQN.from_string(name)
+        assert fqn.sql_identifier == expected
+
+    def test_signature_preserved(self):
+        fqn = FQN.from_string("db.schema.func(string, int)")
+        assert fqn.sql_identifier == "IDENTIFIER('db.schema.func')(string, int)"
+
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            # Single-quote breakout with DROP TABLE
+            '"app_name\'); DROP TABLE sensitive_data --"',
+            # Privilege escalation
+            '"x\'); GRANT ALL PRIVILEGES ON ACCOUNT TO ROLE attacker --"',
+            # Data exfiltration via UNION
+            '"t\'); SELECT * FROM secrets; --"',
+        ],
+    )
+    def test_injection_payloads_are_escaped(self, payload):
+        """Single-quote injection payloads must be escaped — the single quote
+        must not terminate the IDENTIFIER('...') string literal."""
+        fqn = FQN.from_string(payload)
+        sql_id = fqn.sql_identifier
+
+        # The result must still start/end with the IDENTIFIER() wrapper
+        assert sql_id.startswith("IDENTIFIER('")
+        assert sql_id.endswith("')")
+
+        # No unescaped single quote may appear between the outer quotes
+        inner = sql_id[len("IDENTIFIER('") : -len("')")]
+
+        # Any ' in the inner content must be preceded by a backslash
+        unescaped = re.search(r"(?<!\\)'", inner)
+        assert (
+            unescaped is None
+        ), f"Unescaped single quote found in sql_identifier output: {sql_id!r}"
+
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            '"app_name\'); DROP TABLE sensitive_data --"',
+            '"x\'); GRANT ALL PRIVILEGES ON ACCOUNT TO ROLE attacker --"',
+        ],
+    )
+    def test_injection_payloads_produce_single_statement(self, payload):
+        """Using sql_identifier in a SQL template must yield exactly one statement
+        when parsed by the same splitter that execute_stream uses."""
+        fqn = FQN.from_string(payload)
+        sql = f"DESCRIBE STREAMLIT {fqn.sql_identifier};"
+        stmts = [s for s, _ in split_statements(StringIO(sql))]
+        assert len(stmts) == 1, (
+            f"Expected 1 statement, got {len(stmts)}. "
+            f"Injection may still be possible. Statements: {stmts}"
+        )
+
+    def test_identifier_model_path_also_safe(self):
+        """The snowflake.yml Identifier model path (from_identifier_model_v2) is
+        equally protected since it also flows through sql_identifier."""
+        malicious_name = '"app_name\'); DROP TABLE sensitive_data --"'
+        model = Identifier(name=malicious_name)
+        fqn = FQN.from_identifier_model_v2(model)
+        sql = f"DESCRIBE STREAMLIT {fqn.sql_identifier};"
+        stmts = [s for s, _ in split_statements(StringIO(sql))]
+        assert len(stmts) == 1
 
 
 def test_attributes():
