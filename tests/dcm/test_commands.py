@@ -4,8 +4,12 @@ from typing import Any
 from unittest import mock
 
 import pytest
-from snowflake.cli._plugins.dcm.models import DCMManifest
-from snowflake.cli.api.identifiers import FQN
+from snowflake.cli._plugins.dcm.commands import (
+    _check_account_identifier,
+    _check_project_owner,
+)
+from snowflake.cli._plugins.dcm.models import DCMManifest, DCMTarget
+from snowflake.cli.api.identifiers import FQN, AccountIdentifier
 from snowflake.cli.api.utils.path_utils import change_directory
 
 
@@ -77,6 +81,12 @@ def mock_project_exists():
         yield _fixture
 
 
+_DEFAULT_TARGET_FIELDS = {
+    "account_identifier": "MY_ORG-MY_ACCOUNT",
+    "project_owner": "MY_ROLE",
+}
+
+
 class TestDCMCreate:
     def test_create(
         self, mock_dcm_manager, mock_object_manager, runner, project_directory
@@ -127,7 +137,9 @@ class TestDCMCreate:
             {
                 "manifest_version": 2,
                 "type": "dcm_project",
-                "targets": {"dev": {"project_name": "my_project"}},
+                "targets": {
+                    "dev": {"project_name": "my_project", **_DEFAULT_TARGET_FIELDS}
+                },
             }
         )
 
@@ -140,6 +152,22 @@ class TestDCMCreate:
         )
 
 
+@pytest.fixture(autouse=True)
+def mock_check_account_identifier():
+    with mock.patch(
+        "snowflake.cli._plugins.dcm.commands._check_account_identifier"
+    ) as _fixture:
+        yield _fixture
+
+
+@pytest.fixture(autouse=True)
+def mock_check_project_owner():
+    with mock.patch(
+        "snowflake.cli._plugins.dcm.commands._check_project_owner"
+    ) as _fixture:
+        yield _fixture
+
+
 def _manifest_without_config():
     """Helper to create a manifest with target that has no templating_config."""
     return DCMManifest.from_dict(
@@ -147,7 +175,7 @@ def _manifest_without_config():
             "manifest_version": 2,
             "type": "dcm_project",
             "default_target": "dev",
-            "targets": {"dev": {"project_name": "ignored"}},
+            "targets": {"dev": {"project_name": "ignored", **_DEFAULT_TARGET_FIELDS}},
         }
     )
 
@@ -320,7 +348,9 @@ class TestDCMDeploy:
                 "manifest_version": 2,
                 "type": "dcm_project",
                 "default_target": "dev",
-                "targets": {"dev": {"project_name": "my_project"}},
+                "targets": {
+                    "dev": {"project_name": "my_project", **_DEFAULT_TARGET_FIELDS}
+                },
             }
         )
 
@@ -355,7 +385,9 @@ class TestDCMDeploy:
                 "manifest_version": 2,
                 "type": "dcm_project",
                 "default_target": "dev",
-                "targets": {"dev": {"project_name": "my_project"}},
+                "targets": {
+                    "dev": {"project_name": "my_project", **_DEFAULT_TARGET_FIELDS}
+                },
             }
         )
 
@@ -396,6 +428,7 @@ class TestDCMDeploy:
                     "dev": {
                         "project_name": "target_project",
                         "templating_config": "dev_config",
+                        **_DEFAULT_TARGET_FIELDS,
                     }
                 },
                 "templating": {"configurations": {"dev_config": {}}},
@@ -439,6 +472,7 @@ class TestDCMDeploy:
                     "dev": {
                         "project_name": "my_project",
                         "templating_config": "dev_config",
+                        **_DEFAULT_TARGET_FIELDS,
                     }
                 },
                 "templating": {"configurations": {"dev_config": {}}},
@@ -547,7 +581,9 @@ class TestDCMPurge:
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
-            result = runner.invoke(["dcm", "purge", project_identifier])
+            result = runner.invoke(
+                ["dcm", "purge", project_identifier, "--interactive"]
+            )
 
         assert result.exit_code == 0, result.output
         assert mock_prompt.call_count == expected_prompt_count
@@ -576,7 +612,9 @@ class TestDCMPurge:
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
-            result = runner.invoke(["dcm", "purge", "fooBar", "--alias", "my_alias"])
+            result = runner.invoke(
+                ["dcm", "purge", "fooBar", "--alias", "my_alias", "--interactive"]
+            )
 
         assert result.exit_code == 0, result.output
 
@@ -602,7 +640,7 @@ class TestDCMPurge:
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
-            result = runner.invoke(["dcm", "purge", "fooBar"])
+            result = runner.invoke(["dcm", "purge", "fooBar", "--interactive"])
 
         assert result.exit_code != 0
         mock_dcm_manager().purge.assert_not_called()
@@ -629,12 +667,14 @@ class TestDCMPurge:
                 "manifest_version": 2,
                 "type": "dcm_project",
                 "default_target": "dev",
-                "targets": {"dev": {"project_name": "my_project"}},
+                "targets": {
+                    "dev": {"project_name": "my_project", **_DEFAULT_TARGET_FIELDS}
+                },
             }
         )
 
         with project_directory("dcm_project"):
-            result = runner.invoke(["dcm", "purge", "--target", "dev"])
+            result = runner.invoke(["dcm", "purge", "--target", "dev", "--interactive"])
 
         assert result.exit_code == 0, result.output
         mock_dcm_manager().purge.assert_called_once_with(
@@ -663,7 +703,7 @@ class TestDCMPurge:
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
-            result = runner.invoke(["dcm", "purge", "fooBar"])
+            result = runner.invoke(["dcm", "purge", "fooBar", "--interactive"])
 
         assert result.exit_code == 0, result.output
         assert "  Project identifier mismatch" in result.output
@@ -691,10 +731,116 @@ class TestDCMPurge:
         mock_manifest_load.return_value = _manifest_without_config()
 
         with change_directory(tmp_path):
-            result = runner.invoke(["dcm", "purge", "fooBar", "--save-output"])
+            result = runner.invoke(
+                ["dcm", "purge", "fooBar", "--save-output", "--interactive"]
+            )
 
             assert result.exit_code == 0, result.output
             _assert_json_dumped("purge", plan_response, tmp_path)
+
+    @pytest.mark.parametrize("extra_args", [[], ["--no-interactive"]])
+    @mock.patch("snowflake.cli._plugins.dcm.commands._confirm_purge")
+    def test_purge_with_force_skips_prompt(
+        self,
+        mock_confirm_purge,
+        extra_args,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_dcm_manager().purge.return_value = mock_cursor(
+            rows=[("[]",)], columns=("operations",)
+        )
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "purge", "fooBar", "--force", *extra_args])
+
+        assert result.exit_code == 0, result.output
+        mock_confirm_purge.assert_not_called()
+        mock_dcm_manager().purge.assert_called_once_with(
+            project_identifier=FQN.from_string("fooBar"),
+            alias=None,
+            skip_plan=False,
+        )
+
+    def test_purge_no_interactive_without_force_fails(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "purge", "fooBar", "--no-interactive"])
+
+        assert result.exit_code != 0
+        assert (
+            "Cannot purge the DCM project non-interactively without --force"
+            in result.output
+        )
+        mock_dcm_manager().purge.assert_not_called()
+
+    @mock.patch(
+        "snowflake.cli.api.commands.flags.is_tty_interactive", return_value=False
+    )
+    def test_purge_default_non_tty_without_force_fails(
+        self,
+        mock_is_tty,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "purge", "fooBar"])
+
+        assert result.exit_code != 0
+        assert (
+            "Cannot purge the DCM project non-interactively without --force"
+            in result.output
+        )
+        mock_dcm_manager().purge.assert_not_called()
+
+    @mock.patch(
+        "snowflake.cli.api.commands.flags.is_tty_interactive", return_value=True
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.dcm.commands.typer.prompt", return_value="purge fooBar"
+    )
+    def test_purge_default_tty_shows_prompt(
+        self,
+        mock_prompt,
+        mock_is_tty,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_dcm_manager().purge.return_value = mock_cursor(
+            rows=[("[]",)], columns=("operations",)
+        )
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "purge", "fooBar"])
+
+        assert result.exit_code == 0, result.output
+        mock_prompt.assert_called()
+        mock_dcm_manager().purge.assert_called_once()
 
 
 class TestDCMPlan:
@@ -991,7 +1137,9 @@ class TestDCMRawAnalyze:
                 "manifest_version": 2,
                 "type": "dcm_project",
                 "default_target": "dev",
-                "targets": {"dev": {"project_name": "my_project"}},
+                "targets": {
+                    "dev": {"project_name": "my_project", **_DEFAULT_TARGET_FIELDS}
+                },
             }
         )
 
@@ -1025,7 +1173,9 @@ class TestDCMRawAnalyze:
                 "manifest_version": 2,
                 "type": "dcm_project",
                 "default_target": "dev",
-                "targets": {"dev": {"project_name": "my_project"}},
+                "targets": {
+                    "dev": {"project_name": "my_project", **_DEFAULT_TARGET_FIELDS}
+                },
             }
         )
 
@@ -1065,6 +1215,7 @@ class TestDCMRawAnalyze:
                     "dev": {
                         "project_name": "target_project",
                         "templating_config": "dev_config",
+                        **_DEFAULT_TARGET_FIELDS,
                     }
                 },
                 "templating": {"configurations": {"dev_config": {}}},
@@ -1363,7 +1514,9 @@ class TestDCMListDeployments:
             {
                 "manifest_version": 2,
                 "type": "dcm_project",
-                "targets": {"dev": {"project_name": "my_project"}},
+                "targets": {
+                    "dev": {"project_name": "my_project", **_DEFAULT_TARGET_FIELDS}
+                },
             }
         )
 
@@ -1469,7 +1622,9 @@ class TestDCMDrop:
             {
                 "manifest_version": 2,
                 "type": "dcm_project",
-                "targets": {"dev": {"project_name": "my_project"}},
+                "targets": {
+                    "dev": {"project_name": "my_project", **_DEFAULT_TARGET_FIELDS}
+                },
             }
         )
 
@@ -1526,7 +1681,9 @@ class TestDCMDescribe:
             {
                 "manifest_version": 2,
                 "type": "dcm_project",
-                "targets": {"dev": {"project_name": "my_project"}},
+                "targets": {
+                    "dev": {"project_name": "my_project", **_DEFAULT_TARGET_FIELDS}
+                },
             }
         )
 
@@ -1742,7 +1899,9 @@ class TestDCMRefresh:
             {
                 "manifest_version": 2,
                 "type": "dcm_project",
-                "targets": {"dev": {"project_name": "my_project"}},
+                "targets": {
+                    "dev": {"project_name": "my_project", **_DEFAULT_TARGET_FIELDS}
+                },
             }
         )
 
@@ -1898,7 +2057,9 @@ class TestDCMTest:
             {
                 "manifest_version": 2,
                 "type": "dcm_project",
-                "targets": {"dev": {"project_name": "my_project"}},
+                "targets": {
+                    "dev": {"project_name": "my_project", **_DEFAULT_TARGET_FIELDS}
+                },
             }
         )
 
@@ -1962,3 +2123,352 @@ class TestDCMTest:
         assert result.exit_code == 0, result.output
         payload = json.loads(result.output)
         _assert_format_result(payload, test_result, format_name)
+
+
+class TestAccountIdentifierValidationForCommands:
+    def test_create_calls_check_account_identifier(
+        self,
+        mock_dcm_manager,
+        mock_object_manager,
+        mock_check_account_identifier,
+        runner,
+        project_directory,
+    ):
+        mock_object_manager().object_exists.return_value = False
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "create", "my_project"])
+
+        assert result.exit_code == 0, result.output
+        mock_check_account_identifier.assert_called_once()
+
+    def test_deploy_calls_check_account_identifier(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        mock_check_account_identifier,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_dcm_manager().deploy.return_value = mock_cursor(
+            rows=[("[]",)], columns=("operations",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "deploy", "fooBar"])
+
+        assert result.exit_code == 0, result.output
+        mock_check_account_identifier.assert_called_once()
+
+    def test_no_validation_without_manifest(
+        self,
+        mock_dcm_manager,
+        mock_object_manager,
+        mock_check_account_identifier,
+        runner,
+    ):
+        mock_object_manager().object_exists.return_value = False
+        result = runner.invoke(["dcm", "create", "my_project"])
+
+        assert result.exit_code == 0, result.output
+        mock_check_account_identifier.assert_not_called()
+
+
+class TestOwnershipValidationForCommands:
+    """Tests for commands that require project owner validation."""
+
+    def test_create_validates_ownership(
+        self,
+        mock_dcm_manager,
+        mock_object_manager,
+        mock_check_project_owner,
+        runner,
+        project_directory,
+    ):
+        mock_object_manager().object_exists.return_value = False
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "create", "my_project"])
+
+        assert result.exit_code == 0, result.output
+        mock_check_project_owner.assert_called_once()
+
+    def test_describe_no_ownership_validated(
+        self,
+        mock_check_project_owner,
+        mock_connect,
+        runner,
+    ):
+        runner.invoke(["dcm", "describe", "my_project"])
+
+        mock_check_project_owner.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "manifest_account_identifier,session_account,should_warn",
+    [
+        (
+            "MY_ORG-MY_ACCOUNT",
+            AccountIdentifier("MY_ORG", "MY_ACCOUNT"),
+            False,
+        ),
+        (
+            "MY_ORG-MY_ACCOUNT",
+            AccountIdentifier("OTHER_ORG", "OTHER_ACCOUNT"),
+            True,
+        ),
+        (
+            "MY_ORG.MY_ACCOUNT",
+            AccountIdentifier("MY_ORG", "MY_ACCOUNT"),
+            False,
+        ),
+        (
+            "MY_ORG.MY_ACCOUNT",
+            AccountIdentifier("OTHER_ORG", "OTHER_ACCOUNT"),
+            True,
+        ),
+        (
+            "my_org-my_account",
+            AccountIdentifier("MY_ORG", "MY_ACCOUNT"),
+            False,
+        ),
+        (
+            "NO_SEPARATOR",
+            AccountIdentifier("MY_ORG", "MY_ACCOUNT"),
+            True,
+        ),
+    ],
+    ids=[
+        "hyphen_match",
+        "hyphen_mismatch",
+        "dot_match",
+        "dot_mismatch",
+        "case_insensitive_match",
+        "no_separator",
+    ],
+)
+@mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
+@mock.patch("snowflake.cli._plugins.dcm.commands.get_account_identifier")
+@mock.patch("snowflake.cli._plugins.dcm.commands.get_cli_context")
+def test_check_account_identifier(
+    mock_ctx,
+    mock_get_id,
+    mock_console,
+    manifest_account_identifier,
+    session_account,
+    should_warn,
+):
+    mock_get_id.return_value = session_account
+    target = DCMTarget(
+        name="DEV",
+        project_name="P1",
+        account_identifier=manifest_account_identifier,
+        project_owner="MY_ROLE",
+    )
+    _check_account_identifier(target)
+    if should_warn:
+        mock_console.warning.assert_called_once()
+        assert "Account mismatch" in mock_console.warning.call_args[0][0]
+    else:
+        mock_console.warning.assert_not_called()
+
+
+@mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
+@mock.patch("snowflake.cli._plugins.dcm.commands.get_account_identifier")
+@mock.patch("snowflake.cli._plugins.dcm.commands.get_cli_context")
+def test_check_account_identifier_warns_on_get_account_identifier_error(
+    mock_ctx, mock_get_id, mock_console
+):
+    mock_get_id.side_effect = Exception("Connection timeout")
+    target = DCMTarget(
+        name="DEV",
+        project_name="P1",
+        account_identifier="MY_ORG-MY_ACCOUNT",
+        project_owner="MY_ROLE",
+    )
+
+    _check_account_identifier(target)
+
+    mock_console.warning.assert_called_once()
+    warning_message = mock_console.warning.call_args[0][0]
+    assert "Cannot validate target's account identifier" in warning_message
+    assert "Connection timeout" in warning_message
+    assert "The current session account is required to match" in warning_message
+
+
+@mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
+@mock.patch("snowflake.cli._plugins.dcm.commands.get_account_identifier")
+@mock.patch("snowflake.cli._plugins.dcm.commands.get_cli_context")
+def test_check_account_identifier_warns_when_target_account_identifier_is_empty(
+    mock_ctx, mock_get_id, mock_console
+):
+    target = DCMTarget(
+        name="DEV",
+        project_name="P1",
+        account_identifier="",
+        project_owner="MY_ROLE",
+    )
+
+    _check_account_identifier(target)
+
+    mock_get_id.assert_not_called()
+    mock_console.warning.assert_called_once()
+    warning_message = mock_console.warning.call_args[0][0]
+    assert "account_identifier is not specified" in warning_message
+    assert "The current session account is required to match" in warning_message
+
+
+@pytest.mark.parametrize(
+    "manifest_project_owner,session_role,should_warn",
+    [
+        ("MY_ROLE", "MY_ROLE", False),
+        ("MY_ROLE", "my_role", False),
+        ("FINANCE_ROLE", "ADMIN_ROLE", True),
+        ('"my role"', '"my role"', False),
+        ('"My Role"', '"my role"', True),
+    ],
+    ids=[
+        "simple_match",
+        "case_insensitive_match",
+        "mismatch",
+        "quoted_match",
+        "quoted_mismatch",
+    ],
+)
+@mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
+@mock.patch("snowflake.cli._plugins.dcm.commands.SqlExecutor")
+def test_check_project_owner(
+    mock_executor_cls,
+    mock_console,
+    manifest_project_owner,
+    session_role,
+    should_warn,
+):
+    mock_executor_cls().current_role.return_value = session_role
+    target = DCMTarget(
+        name="DEV",
+        project_name="P1",
+        account_identifier="MY_ORG-MY_ACCOUNT",
+        project_owner=manifest_project_owner,
+    )
+    _check_project_owner(target)
+    if should_warn:
+        mock_console.warning.assert_called_once()
+        assert "Role mismatch" in mock_console.warning.call_args[0][0]
+    else:
+        mock_console.warning.assert_not_called()
+
+
+@mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
+@mock.patch("snowflake.cli._plugins.dcm.commands.SqlExecutor")
+def test_check_project_owner_warns_when_current_role_is_none(
+    mock_executor_cls, mock_console
+):
+    mock_executor_cls().current_role.return_value = None
+    target = DCMTarget(name="DEV", project_name="P1", **_DEFAULT_TARGET_FIELDS)
+    _check_project_owner(target)
+    mock_console.warning.assert_called_once()
+    warning_message = mock_console.warning.call_args[0][0]
+    assert "Cannot validate target's project owner" in warning_message
+    assert "The current session role is required to match" in warning_message
+
+
+@mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
+@mock.patch("snowflake.cli._plugins.dcm.commands.SqlExecutor")
+def test_check_project_owner_warns_on_current_role_error(
+    mock_executor_cls, mock_console
+):
+    mock_executor_cls().current_role.side_effect = Exception("Connection timeout")
+    target = DCMTarget(name="DEV", project_name="P1", **_DEFAULT_TARGET_FIELDS)
+
+    _check_project_owner(target)
+
+    mock_console.warning.assert_called_once()
+    warning_message = mock_console.warning.call_args[0][0]
+    assert "Cannot validate target's project owner" in warning_message
+    assert "Connection timeout" in warning_message
+    assert "The current session role is required to match" in warning_message
+
+
+@mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
+@mock.patch("snowflake.cli._plugins.dcm.commands.SqlExecutor")
+def test_check_project_owner_no_warning_when_target_value_gets_quoted_via_from_dict(
+    mock_executor_cls, mock_console
+):
+    mock_executor_cls().current_role.return_value = '"my role"'
+    target = DCMTarget.from_dict(
+        {
+            "name": "dev",
+            "project_name": "P1",
+            "account_identifier": "MY_ORG-MY_ACCOUNT",
+            "project_owner": "my role",
+        }
+    )
+    _check_project_owner(target)
+    mock_console.warning.assert_not_called()
+
+
+@mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
+@mock.patch("snowflake.cli._plugins.dcm.commands.SqlExecutor")
+def test_check_project_owner_warns_when_target_project_owner_is_empty(
+    mock_executor_cls, mock_console
+):
+    target = DCMTarget(
+        name="DEV",
+        project_name="P1",
+        account_identifier="MY_ORG-MY_ACCOUNT",
+        project_owner="",
+    )
+
+    _check_project_owner(target)
+
+    mock_executor_cls().current_role.assert_not_called()
+    mock_console.warning.assert_called_once()
+    warning_message = mock_console.warning.call_args[0][0]
+    assert "project_owner is not specified" in warning_message
+    assert "The current session role is required to match" in warning_message
+
+
+@mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
+@mock.patch("snowflake.cli._plugins.dcm.commands.get_account_identifier")
+@mock.patch("snowflake.cli._plugins.dcm.commands.get_cli_context")
+def test_check_account_identifier_mismatch_warning_sanitizes_manifest_value(
+    mock_ctx, mock_get_id, mock_console
+):
+    mock_get_id.return_value = AccountIdentifier("MY_ORG", "MY_ACCOUNT")
+    target = DCMTarget(
+        name="DEV",
+        project_name="P1",
+        account_identifier="WRONG_ORG-WRONG_ACCOUNT\x1b[31m injected",
+        project_owner="MY_ROLE",
+    )
+
+    _check_account_identifier(target)
+
+    mock_console.warning.assert_called_once()
+    warning_message = mock_console.warning.call_args[0][0]
+    assert "\x1b" not in warning_message
+    assert "WRONG_ORG-WRONG_ACCOUNT injected" in warning_message
+
+
+@mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
+@mock.patch("snowflake.cli._plugins.dcm.commands.SqlExecutor")
+def test_check_project_owner_mismatch_warning_sanitizes_manifest_value(
+    mock_executor_cls, mock_console
+):
+    mock_executor_cls().current_role.return_value = "ADMIN_ROLE"
+    target = DCMTarget(
+        name="DEV",
+        project_name="P1",
+        account_identifier="MY_ORG-MY_ACCOUNT",
+        project_owner="FINANCE_ROLE\x1b[31m injected",
+    )
+
+    _check_project_owner(target)
+
+    mock_console.warning.assert_called_once()
+    warning_message = mock_console.warning.call_args[0][0]
+    assert "\x1b" not in warning_message
+    assert "FINANCE_ROLE injected" in warning_message

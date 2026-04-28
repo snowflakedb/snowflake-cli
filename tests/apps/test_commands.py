@@ -817,6 +817,10 @@ class TestSnowflakeAppManager:
         url = SnowflakeAppManager().get_service_endpoint_url(fqn)
         assert url == "https://my-endpoint.snowflakecomputing.app"
         mock_execute.assert_called_once()
+        assert (
+            mock_execute.call_args[0][0]
+            == "SHOW ENDPOINTS IN APPLICATION SERVICE DB.SCHEMA.SVC"
+        )
 
     @patch(EXECUTE_QUERY)
     def test_get_service_endpoint_url_adds_https_prefix(self, mock_execute):
@@ -846,6 +850,11 @@ class TestSnowflakeAppManager:
         fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
         url = SnowflakeAppManager().get_service_endpoint_url(fqn)
         assert url is None
+        mock_execute.assert_called_once()
+        assert (
+            "SHOW ENDPOINTS IN APPLICATION SERVICE DB.SCHEMA.SVC"
+            in mock_execute.call_args[0][0]
+        )
 
     @patch(EXECUTE_QUERY)
     def test_get_service_endpoint_url_provisioning_in_progress(self, mock_execute):

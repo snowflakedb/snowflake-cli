@@ -237,49 +237,13 @@ def test_generic_ci_env_variable_returns_unknown_ci(_, mock_conn, runner, ci_val
     assert usage_command_event["message"]["command_ci_environment"] == "UNKNOWN_CI"
 
 
-def test_is_interactive_terminal_returns_true_when_tty():
-    """Test _is_interactive_terminal returns True when both stdin and stdout are TTYs."""
-    from snowflake.cli._app.telemetry import _is_interactive_terminal
-
-    with mock.patch("sys.stdin") as mock_stdin, mock.patch("sys.stdout") as mock_stdout:
-        mock_stdin.isatty.return_value = True
-        mock_stdout.isatty.return_value = True
-        assert _is_interactive_terminal() is True
-
-
-def test_is_interactive_terminal_returns_false_when_not_tty():
-    """Test _is_interactive_terminal returns False when stdin or stdout is not a TTY."""
-    from snowflake.cli._app.telemetry import _is_interactive_terminal
-
-    # stdin is not a TTY
-    with mock.patch("sys.stdin") as mock_stdin, mock.patch("sys.stdout") as mock_stdout:
-        mock_stdin.isatty.return_value = False
-        mock_stdout.isatty.return_value = True
-        assert _is_interactive_terminal() is False
-
-    # stdout is not a TTY
-    with mock.patch("sys.stdin") as mock_stdin, mock.patch("sys.stdout") as mock_stdout:
-        mock_stdin.isatty.return_value = True
-        mock_stdout.isatty.return_value = False
-        assert _is_interactive_terminal() is False
-
-
-def test_is_interactive_terminal_returns_false_on_exception():
-    """Test _is_interactive_terminal returns False when isatty() raises an exception."""
-    from snowflake.cli._app.telemetry import _is_interactive_terminal
-
-    with mock.patch("sys.stdin") as mock_stdin:
-        mock_stdin.isatty.side_effect = Exception("No TTY available")
-        assert _is_interactive_terminal() is False
-
-
 def test_get_ci_environment_type_returns_local_for_interactive_terminal():
     """Test that LOCAL is returned when running in an interactive terminal."""
     from snowflake.cli._app.telemetry import _get_ci_environment_type
 
     with mock.patch.dict(os.environ, {}, clear=True):
         with mock.patch(
-            "snowflake.cli._app.telemetry._is_interactive_terminal", return_value=True
+            "snowflake.cli._app.telemetry.is_tty_interactive", return_value=True
         ):
             assert _get_ci_environment_type() == "LOCAL"
 
@@ -290,7 +254,7 @@ def test_get_ci_environment_type_returns_unknown_for_non_interactive_non_ci():
 
     with mock.patch.dict(os.environ, {}, clear=True):
         with mock.patch(
-            "snowflake.cli._app.telemetry._is_interactive_terminal", return_value=False
+            "snowflake.cli._app.telemetry.is_tty_interactive", return_value=False
         ):
             assert _get_ci_environment_type() == "UNKNOWN"
 
@@ -337,7 +301,7 @@ def test_agent_context_non_tty_with_agent_detected():
 
     with mock.patch.dict(os.environ, {"CURSOR_AGENT": "1"}, clear=True):
         with mock.patch(
-            "snowflake.cli._app.telemetry._is_interactive_terminal", return_value=False
+            "snowflake.cli._app.telemetry.is_tty_interactive", return_value=False
         ):
             assert _get_ci_environment_type() == "UNKNOWN"
             assert _detect_agent_environment() == "CURSOR"

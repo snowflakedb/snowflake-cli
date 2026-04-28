@@ -15,7 +15,15 @@
  -->
 # Unreleased version
 ## Backward incompatibility
-* **Configuration System (NG)**: File-based configuration sources (`snowsql_config`, `cli_config_toml`, `connections_toml`) now use **connection-level replacement** instead of field-level merging. When a later file source defines a connection, it completely replaces the entire connection from earlier file sources - fields are NOT inherited. Environment variables and CLI arguments continue to overlay per-field on top of the file-derived connection. This provides more predictable configuration behavior where file-defined connections are atomic units.
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+
+
+# v3.17.0
 
 ## Deprecations
 
@@ -25,10 +33,16 @@
 * Added `snow connection generate-workload-identity-token` command to generate a workload identity token for the current environment. Supports AWS, GCP, Azure, and OIDC providers via `--workload-identity-provider` flag or connection configuration.
 * Added `snow custom-image validate` command to validate custom Docker images against configured rules (entrypoint, environment variables, Python packages, dependency health). Supports an optional `--scan-vulnerabilities` flag to run Grype vulnerability scanning.
 * Added `snow dcm purge` command to drop all the objects managed by the specified DCM Project
+* DCM manifest targets now validate `account_identifier` and `project_owner` fields.
+  CLI validates these against the current session and prints a warning on mismatch:
+  * `account_identifier` is checked for all manifest-based commands
+  * `project_owner` is checked for `snow dcm create`
 
 ## Fixes and improvements
+* Significantly improved DCM files upload performance
 * Fixed `snow streamlit deploy` failing with a collision error when `pages/*.py` glob in `additional_source_files` overlaps with the automatically-included `pages/` directory. Overlapping glob patterns are now deduplicated during v1-to-v2 definition conversion.
 * Updated `snowflake-connector-python` to version 4.4.0. Connector python 4.x series introduced stricter permission checks. In future versions of Snowflake CLI strict configuration file permissions will become mandatory. To test if your files have correct permissions set SNOWFLAKE_CLI_FEATURES_ENFORCE_STRICT_CONFIG_PERMISSIONS=1 before running CLI commands.
+* Fixed error message when `PRIVATE_KEY_PASSPHRASE` environment variable is set to an empty string.
 
 # v3.16.0
 

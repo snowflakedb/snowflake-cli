@@ -6,3 +6,5 @@ default_target: dev
 targets:
   dev:
     project_name: "my_project"
+    account_identifier: "MY_ORG-MY_ACCOUNT"
+    project_owner: "MY_ROLE"

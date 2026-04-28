@@ -583,9 +583,9 @@ class SnowflakeAppManager(SqlExecutionMixin):
     def get_service_endpoint_url(
         self, service_fqn: FQN, endpoint_name: str = "app-endpoint"
     ) -> Optional[str]:
-        """Get the ingress URL for a service endpoint."""
+        """Get the ingress URL for an application service endpoint."""
         cursor = self.execute_query(
-            f"SHOW ENDPOINTS IN SERVICE {service_fqn.identifier}",
+            f"SHOW ENDPOINTS IN APPLICATION SERVICE {service_fqn.identifier}",
             cursor_class=DictCursor,
         )
         for row in cursor:
