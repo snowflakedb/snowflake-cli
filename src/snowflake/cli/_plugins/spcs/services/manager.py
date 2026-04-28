@@ -315,6 +315,7 @@ class ServiceManager(SqlExecutionMixin):
         build_context_path: str,
         external_access_integrations: Optional[List[str]],
         async_mode: bool = True,
+        workload_type: Optional[str] = None,
     ) -> SnowflakeCursor:
         """
         Builds a container image using EXECUTE JOB SERVICE with the Snowflake image builder.
@@ -329,6 +330,13 @@ class ServiceManager(SqlExecutionMixin):
             build_context_path: Path on stage where build context is located
             external_access_integrations: List of EAI names
             async_mode: Whether to run the build asynchronously
+            workload_type: Optional workload identifier (e.g. "notebook", "ml_jobs")
+                that selects which validation YAML the sf-image-build runner
+                applies. Propagated as the WORKLOAD_TYPE env var; the runner
+                resolves it to /etc/sf-image-build/configs/<workload>.yaml and
+                fails fast if no such file is baked into the runner image.
+                When None, the WORKLOAD_TYPE env var is omitted, which causes
+                the runner to skip validation entirely (with a logged warning).
         """
         # Get organization name
         # Using execute_string (same as get_account) for consistency
@@ -370,18 +378,26 @@ class ServiceManager(SqlExecutionMixin):
         )
 
         # Create the specification for the image build job
+        env_vars = {
+            "IMAGE_REGISTRY_URL": image_registry_url,
+            "IMAGE_NAME": image_name,
+            "IMAGE_TAG": image_tag,
+            "BUILD_CONTEXT": "/app",
+        }
+        if workload_type:
+            # Opts the runner into validation against
+            # /etc/sf-image-build/configs/<workload_type>.yaml. Setting an
+            # unknown workload type causes the runner to fail fast with a
+            # message listing every YAML baked into the runner image.
+            env_vars["WORKLOAD_TYPE"] = workload_type
+
         spec = {
             "spec": {
                 "containers": [
                     {
                         "name": "main",
                         "image": "/snowflake/images/snowflake_images/sf-image-build:0.0.1",
-                        "env": {
-                            "IMAGE_REGISTRY_URL": image_registry_url,
-                            "IMAGE_NAME": image_name,
-                            "IMAGE_TAG": image_tag,
-                            "BUILD_CONTEXT": "/app",
-                        },
+                        "env": env_vars,
                         "volumeMounts": [
                             {
                                 "name": "code-volume",

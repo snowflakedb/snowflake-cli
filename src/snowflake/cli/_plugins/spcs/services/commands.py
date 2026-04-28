@@ -694,6 +694,19 @@ def build_image(
         "--eai-name",
         help="Identifies external access integrations (EAI) that the build job can access. This option may be specified multiple times for multiple EAIs.",
     ),
+    workload_type: Optional[str] = typer.Option(
+        None,
+        "--workload-type",
+        help=(
+            "Workload identifier (e.g. 'notebook', 'ml_jobs') that selects "
+            "which validation YAML the sf-image-build runner applies. "
+            "Propagated to the build job as the WORKLOAD_TYPE env var; the "
+            "runner resolves it to /etc/sf-image-build/configs/<workload>.yaml "
+            "and fails fast if no such file is baked into the runner image. "
+            "If omitted, the runner skips validation entirely (with a warning)."
+        ),
+        show_default=False,
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -738,6 +751,18 @@ def build_image(
     if not image_tag.replace("_", "").replace("-", "").replace(".", "").isalnum():
         raise CliArgumentError(
             f"Invalid image tag '{image_tag}'. Must contain only alphanumeric characters, hyphens, underscores, and dots."
+        )
+
+    # Defensive validation: workload_type becomes a JSON env value that is then
+    # used by the runner to construct /etc/sf-image-build/configs/<value>.yaml.
+    # Restricting to alphanumerics + _ - . prevents path traversal and shell
+    # metacharacters from sneaking through. The runner validates further by
+    # rejecting any value that does not map to an existing baked-in YAML.
+    if workload_type is not None and not workload_type.replace("_", "").replace(
+        "-", ""
+    ).replace(".", "").isalnum():
+        raise CliArgumentError(
+            f"Invalid workload type '{workload_type}'. Must contain only alphanumeric characters, hyphens, underscores, and dots."
         )
 
     # Generate a unique identifier for this build operation
@@ -795,6 +820,7 @@ def build_image(
         build_context_path=build_context_stage_path,
         external_access_integrations=external_access_integrations,
         async_mode=True,  # Always async so we can stream logs
+        workload_type=workload_type,
     )
 
     cli_console.step(f"Waiting for job to start...")

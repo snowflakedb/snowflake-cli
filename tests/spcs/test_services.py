@@ -1934,8 +1934,52 @@ def test_build_image(mock_execute_query, mock_get_account):
     assert container["env"]["IMAGE_NAME"] == image_name
     assert container["env"]["IMAGE_TAG"] == image_tag
     assert container["env"]["BUILD_CONTEXT"] == "/app"
+    # WORKLOAD_TYPE must NOT be set when the caller did not pass it: the
+    # runner treats absence as "skip validation entirely" and we never want
+    # to silently opt callers into a wrong ruleset.
+    assert "WORKLOAD_TYPE" not in container["env"]
 
     assert result == cursor
+
+
+@patch("snowflake.cli._plugins.connection.util.get_account")
+@patch(EXECUTE_QUERY)
+def test_build_image_with_workload_type(mock_execute_query, mock_get_account):
+    """Passing workload_type propagates to the WORKLOAD_TYPE env var."""
+    mock_org_cursor = Mock()
+    mock_org_cursor.fetchone.return_value = {"CURRENT_ORGANIZATION_NAME()": "TEST_ORG"}
+    mock_conn = Mock()
+    mock_conn.execute_string.return_value = (None, mock_org_cursor)
+    mock_conn.database = None
+    mock_conn.schema = None
+    mock_conn.account = "test_account"
+    mock_get_account.return_value = "test_account"
+
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_query.return_value = cursor
+
+    manager = ServiceManager(connection=mock_conn)
+    manager.build_image(
+        job_service_name="test_build_job",
+        compute_pool="test_pool",
+        image_repository="db.schema.repo",
+        image_name="my_image",
+        image_tag="v1.0",
+        stage="test_stage",
+        build_context_path="ctx",
+        external_access_integrations=None,
+        async_mode=True,
+        workload_type="notebook",
+    )
+
+    spec_arg = mock_execute_query.mock_calls[0].args[0]
+    import re
+
+    match = re.search(r"\$\$\s*(\{.*?\})\s*\$\$", spec_arg, re.DOTALL)
+    assert match is not None
+    spec = json.loads(match.group(1))
+    env = spec["spec"]["containers"][0]["env"]
+    assert env["WORKLOAD_TYPE"] == "notebook"
 
 
 @patch("snowflake.cli._plugins.connection.util.get_account")
@@ -2125,6 +2169,31 @@ def test_build_image_cli_parameter_validation(runner, temporary_directory):
     )
     assert result.exit_code != 0
     assert "Invalid job name" in result.output
+
+    # Test 4: Invalid workload type (path-traversal-style value rejected before
+    # we ever shell anything out, in addition to the runner's fail-fast).
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "build-image",
+            "--compute-pool",
+            "test_pool",
+            "--image-repository",
+            "db.schema.repo",
+            "--image-name",
+            "my_image",
+            "--image-tag",
+            "v1.0",
+            "--build-context-dir",
+            str(build_context),
+            "--workload-type",
+            "../etc/passwd",
+        ],
+        catch_exceptions=False,
+    )
+    assert result.exit_code != 0
+    assert "Invalid workload type" in result.output
 
 
 # Tests for check_terminal_status parameter in stream_logs
