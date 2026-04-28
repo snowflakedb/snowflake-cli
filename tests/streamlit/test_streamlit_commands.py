@@ -435,6 +435,69 @@ class TestStreamlitCommands(StreamlitTestClass):
             ["streamlit_app.py", "environment.yml", "pages/my_page.py"],
         )
 
+    @pytest.mark.parametrize(
+        "project_name", ["example_streamlit_v2", "example_streamlit"]
+    )
+    def test_deploy_versioned_replace_existing_uses_alter(
+        self,
+        project_name,
+        project_directory,
+        runner,
+        alter_snowflake_yml,
+        mock_live_version_location_uri,
+    ):
+        with project_directory(project_name) as tmp_dir:
+            if project_name == "example_streamlit_v2":
+                alter_snowflake_yml(
+                    tmp_dir / "snowflake.yml",
+                    parameter_path="entities.test_streamlit.artifacts",
+                    value=["streamlit_app.py", "environment.yml", "pages/"],
+                )
+            with mock.patch(
+                "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists",
+                return_value=True,
+            ):
+                result = runner.invoke(["streamlit", "deploy", "--replace"])
+
+        expected_query = dedent(
+            f"""
+                ALTER STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') SET
+                QUERY_WAREHOUSE = test_warehouse
+                TITLE = 'My Fancy Streamlit';
+                """
+        ).strip()
+        assert result.exit_code == 0, result.output
+        self.mock_execute.assert_any_call(expected_query)
+        self._assert_that_exactly_those_files_were_put_to_stage(
+            ["streamlit_app.py", "environment.yml", "pages/my_page.py"],
+        )
+
+    def test_deploy_legacy_replace_existing_uses_alter(
+        self,
+        project_directory,
+        runner,
+    ):
+        with project_directory("example_streamlit") as tmp_dir:
+            (tmp_dir / "environment.yml").unlink()
+            shutil.rmtree(tmp_dir / "pages")
+            with mock.patch(
+                "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists",
+                return_value=True,
+            ):
+                result = runner.invoke(["streamlit", "deploy", "--replace", "--legacy"])
+
+        expected_query = dedent(
+            f"""
+                ALTER STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') SET
+                ROOT_LOCATION = '@streamlit/{STREAMLIT_NAME}'
+                MAIN_FILE = 'streamlit_app.py'
+                QUERY_WAREHOUSE = test_warehouse
+                TITLE = 'My Fancy Streamlit';
+                """
+        ).strip()
+        assert result.exit_code == 0, result.output
+        self.mock_execute.assert_any_call(expected_query)
+
     def test_share_streamlit(self, runner, mock_streamlit_ctx):
         self.mock_connector.return_value = mock_streamlit_ctx
         role = "other_role"
