@@ -128,6 +128,53 @@ array,object,date
     )
 
 
+def test_query_result_duplicate_column_names_are_uniquified(mock_cursor):
+    # Simulates: SELECT * FROM A LEFT JOIN B ON a.b_id = b.id
+    # where both A and B have columns named "id" and "addr1"
+    cursor = mock_cursor(
+        columns=["id", "addr1", "b_id", "id", "addr1"],
+        rows=[(1, "a_addr", 10, 99, "b_addr")],
+    )
+    result = QueryResult(cursor)
+    assert result.column_names == ["id", "addr1", "b_id", "id_2", "addr1_2"]
+    rows = list(result.result)
+    assert rows == [
+        {"id": 1, "addr1": "a_addr", "b_id": 10, "id_2": 99, "addr1_2": "b_addr"}
+    ]
+
+
+def test_query_result_uniquify_column_names_triple_duplicate(mock_cursor):
+    cursor = mock_cursor(
+        columns=["x", "x", "x"],
+        rows=[(1, 2, 3)],
+    )
+    result = QueryResult(cursor)
+    assert result.column_names == ["x", "x_2", "x_3"]
+    rows = list(result.result)
+    assert rows == [{"x": 1, "x_2": 2, "x_3": 3}]
+
+
+def test_query_result_uniquify_column_names_collision_with_existing(mock_cursor):
+    # "x_2" already exists as a real column — the deduplicator must skip to "_3"
+    cursor = mock_cursor(
+        columns=["x", "x_2", "x"],
+        rows=[(1, 2, 3)],
+    )
+    result = QueryResult(cursor)
+    assert result.column_names == ["x", "x_2", "x_3"]
+    rows = list(result.result)
+    assert rows == [{"x": 1, "x_2": 2, "x_3": 3}]
+
+
+def test_query_result_no_duplicates_unchanged(mock_cursor):
+    cursor = mock_cursor(
+        columns=["a", "b", "c"],
+        rows=[(1, 2, 3)],
+    )
+    result = QueryResult(cursor)
+    assert result.column_names == ["a", "b", "c"]
+
+
 def test_print_markup_tags_in_output_do_not_raise_errors(capsys, mock_cursor):
     output_data = QueryResult(
         mock_cursor(
