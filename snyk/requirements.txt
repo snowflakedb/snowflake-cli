@@ -12,7 +12,7 @@ click==8.1.8
 cloudpickle==3.0.0
 colorama==0.4.6 ; sys_platform == 'win32'
 cryptography==46.0.6
-filelock==3.18.0
+filelock==3.20.3
 gitdb==4.0.12
 gitpython==3.1.44
 id==1.5.0
