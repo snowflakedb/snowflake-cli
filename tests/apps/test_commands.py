@@ -1228,8 +1228,31 @@ class TestSetupCommand:
 
         assert mock_gen.call_args[0][0] == tmp_path.name
 
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
+        return_value="definition_version: '2'\n",
+    )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
-    def test_init_rejects_derived_invalid_directory_name(
+    def test_init_normalizes_derived_directory_name(
+        self, mock_mgr_cls, mock_gen, runner, tmp_path
+    ):
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "database": "PARAM_DB",
+            "schema": "PARAM_SCHEMA",
+            "query_warehouse": "PARAM_WH",
+        }
+        project_dir = tmp_path / "my app-name!@#"
+        project_dir.mkdir()
+
+        with change_directory(project_dir):
+            result = runner.invoke(["app", "setup"])
+
+        assert result.exit_code == 0, result.output
+        assert mock_gen.call_args[0][0] == "my_app_name"
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_init_rejects_empty_normalized_directory_name(
         self, mock_mgr_cls, runner, tmp_path
     ):
         mock_mgr = mock_mgr_cls.return_value
@@ -1238,14 +1261,14 @@ class TestSetupCommand:
             "schema": "PARAM_SCHEMA",
             "query_warehouse": "PARAM_WH",
         }
-        invalid_project = tmp_path / "invalid-name"
+        invalid_project = tmp_path / "!@#"
         invalid_project.mkdir()
 
         with change_directory(invalid_project):
             result = runner.invoke(["app", "setup"])
 
         assert result.exit_code == 1
-        assert "Invalid app name 'invalid-name'" in result.output
+        assert "Could not derive app name from the current directory." in result.output
 
     def test_init_skips_when_file_exists(self, runner, tmp_path):
         (tmp_path / "snowflake.yml").write_text("existing content")

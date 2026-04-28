@@ -83,7 +83,16 @@ def snowflake_app_setup(
     See the ``snow app setup`` command in
     :mod:`snowflake.cli._plugins.nativeapp.commands` for the CLI surface.
     """
-    resolved_app_name = app_name or Path.cwd().name
+    resolved_app_name = app_name
+    if resolved_app_name is None:
+        derived_app_name = Path.cwd().name
+        # For implicit names, normalize directory strings into a valid
+        # identifier by mapping common separators to "_" and stripping
+        # all other disallowed characters.
+        resolved_app_name = re.sub(
+            r"[^a-zA-Z0-9_]", "", derived_app_name.replace(" ", "_").replace("-", "_")
+        )
+
     if not resolved_app_name:
         raise ClickException(
             "Could not derive app name from the current directory. "
