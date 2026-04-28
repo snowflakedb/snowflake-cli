@@ -220,6 +220,31 @@ def test_make_snowsight_url(
     assert actual == expected
 
 
+@patch("snowflake.cli._plugins.connection.util.get_account")
+def test_get_account_identifier(mock_get_account):
+    from unittest.mock import MagicMock
+
+    from snowflake.cli._plugins.connection.util import get_account_identifier
+    from snowflake.cli.api.identifiers import AccountIdentifier
+    from snowflake.connector.cursor import DictCursor
+
+    mock_conn = MagicMock()
+    mock_cursor = MagicMock()
+    mock_cursor.fetchone.return_value = {"ORG": "My_Org", "ACCT": "my_account"}
+    mock_conn.execute_string.return_value = (None, mock_cursor)
+
+    result = get_account_identifier(mock_conn)
+
+    assert result == AccountIdentifier(
+        organization_name="MY_ORG", account_name="MY_ACCOUNT"
+    )
+    mock_conn.execute_string.assert_called_once_with(
+        "SELECT CURRENT_ORGANIZATION_NAME() AS org, CURRENT_ACCOUNT_NAME() AS acct",
+        cursor_class=DictCursor,
+    )
+    mock_get_account.assert_not_called()
+
+
 @pytest.mark.parametrize(
     "allowlist, expected",
     [

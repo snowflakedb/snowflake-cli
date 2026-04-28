@@ -29,12 +29,10 @@ from snowflake.cli._plugins.apps.manager import (
     perform_bundle,
 )
 from snowflake.cli.api.exceptions import CliError
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.connector.errors import ProgrammingError
 
 from tests_common import change_directory
-from tests_common.feature_flag_utils import with_feature_flags
 
 EXECUTE_QUERY = "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.execute_query"
 OBJECT_EXISTS = "snowflake.cli._plugins.apps.manager._object_exists"
@@ -46,17 +44,23 @@ FETCH_SNOW_APPS_PARAMS = (
 )
 
 
-# ── Feature flag tests ────────────────────────────────────────────────
+_SNOWFLAKE_APP_YML = """definition_version: '2'
+entities:
+  my_app:
+    type: snowflake-app
+    identifier: my_app
+    artifacts:
+      - src: "*"
+        dest: ./
+"""
 
 
-class TestFeatureFlag:
-    def test_feature_flag_disabled_by_default(self):
-        assert FeatureFlag.ENABLE_SNOWFLAKE_APPS.is_disabled()
-
-    def test_apps_command_hidden_by_default(self, runner):
-        result = runner.invoke(["--help"])
-        assert result.exit_code == 0
-        assert "__app" not in result.output
+def _write_snowflake_app_yml(path):
+    """Write a minimal ``snowflake.yml`` containing a single ``snowflake-app``
+    entity so that ``@with_app_flow_routing()`` can detect the Snowflake Apps Deploy
+    flow when the CLI is invoked from ``path``.
+    """
+    (path / "snowflake.yml").write_text(_SNOWFLAKE_APP_YML)
 
 
 # ── Helper function tests ─────────────────────────────────────────────
@@ -324,13 +328,29 @@ class TestGenerateSnowflakeYml:
         assert "query_warehouse: TEST_WH" in result
         assert "name: MY_POOL" in result
         assert "name: MY_EAI" in result
-        assert "name: MY_APP_CODE" in result
+        # code_stage is written as a fully-qualified identifier.
+        assert "code_stage: TEST_DB.SNOW_APPS.MY_APP_CODE" in result
         assert "image_repository" not in result
         assert "artifact_repository" not in result
 
     def test_no_null_values_in_output(self):
         result = _generate_snowflake_yml("my_app", self._BASE_RESOLVED)
         assert "null" not in result
+
+    def test_build_eai_omitted_when_missing(self):
+        """When ``build_eai`` is missing, the generated YAML has no
+        ``build_eai`` block — the field is optional."""
+        resolved = {**self._BASE_RESOLVED, "build_eai": None}
+        result = _generate_snowflake_yml("my_app", resolved)
+        assert "build_eai" not in result
+        assert "None" not in result
+
+    def test_build_eai_omitted_when_missing_key(self):
+        """When ``build_eai`` is not in the resolved dict at all, the
+        generated YAML still works and omits the block."""
+        resolved = {k: v for k, v in self._BASE_RESOLVED.items() if k != "build_eai"}
+        result = _generate_snowflake_yml("my_app", resolved)
+        assert "build_eai" not in result
 
     def test_custom_schema(self):
         resolved = {**self._BASE_RESOLVED, "schema": "CFG_SCHEMA"}
@@ -353,7 +373,11 @@ class TestGenerateSnowflakeYml:
 
         assert entity.type == "snowflake-app"
         assert entity.query_warehouse == "TEST_WH"
+        # code_stage is emitted as ``DB.SCHEMA.STAGE`` and the validator
+        # parses it back into a ``CodeStageReference`` with db/schema set.
         assert entity.code_stage.name == "MY_APP_CODE"
+        assert entity.code_stage.database == "TEST_DB"
+        assert entity.code_stage.schema_ == "SNOW_APPS"
         assert entity.artifacts is not None
 
 
@@ -790,6 +814,10 @@ class TestSnowflakeAppManager:
         url = SnowflakeAppManager().get_service_endpoint_url(fqn)
         assert url == "https://my-endpoint.snowflakecomputing.app"
         mock_execute.assert_called_once()
+        assert (
+            mock_execute.call_args[0][0]
+            == "SHOW ENDPOINTS IN APPLICATION SERVICE DB.SCHEMA.SVC"
+        )
 
     @patch(EXECUTE_QUERY)
     def test_get_service_endpoint_url_adds_https_prefix(self, mock_execute):
@@ -819,6 +847,11 @@ class TestSnowflakeAppManager:
         fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
         url = SnowflakeAppManager().get_service_endpoint_url(fqn)
         assert url is None
+        mock_execute.assert_called_once()
+        assert (
+            "SHOW ENDPOINTS IN APPLICATION SERVICE DB.SCHEMA.SVC"
+            in mock_execute.call_args[0][0]
+        )
 
     @patch(EXECUTE_QUERY)
     def test_get_service_endpoint_url_provisioning_in_progress(self, mock_execute):
@@ -1159,13 +1192,11 @@ class TestSetupCommand:
             "build_eai": "PARAM_EAI",
         }
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "setup", "--app-name", "my_app"])
-                assert result.exit_code == 0, result.output
-                assert "Initialized Snowflake App project" in result.output
-                assert (tmp_path / "snowflake.yml").exists()
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+            assert result.exit_code == 0, result.output
+            assert "Initialized Snowflake Apps Deploy project" in result.output
+            assert (tmp_path / "snowflake.yml").exists()
 
         resolved = mock_gen.call_args[0][1]
         assert resolved["database"] == "PARAM_DB"
@@ -1174,13 +1205,11 @@ class TestSetupCommand:
         assert resolved["build_eai"] == "PARAM_EAI"
 
     def test_init_skips_when_file_exists(self, runner, tmp_path):
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-
-            (tmp_path / "snowflake.yml").write_text("existing content")
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "setup", "--app-name", "my_app"])
-                assert result.exit_code == 0, result.output
-                assert "already exists" in result.output
+        (tmp_path / "snowflake.yml").write_text("existing content")
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+            assert result.exit_code == 0, result.output
+            assert "already exists" in result.output
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_dry_run_does_not_create_file(self, mock_mgr_cls, runner, tmp_path):
@@ -1194,17 +1223,41 @@ class TestSetupCommand:
             "build_eai": "PARAM_EAI",
         }
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
+        from tests_common import change_directory
 
-            with change_directory(tmp_path):
-                result = runner.invoke(
-                    ["__app", "setup", "--app-name", "my_app", "--dry-run"]
-                )
-                assert result.exit_code == 0, result.output
-                assert not (tmp_path / "snowflake.yml").exists()
-                assert "PARAM_DB" in result.output
-                assert "PARAM_WH" in result.output
+        with change_directory(tmp_path):
+            result = runner.invoke(
+                ["app", "setup", "--app-name", "my_app", "--dry-run"]
+            )
+            assert result.exit_code == 0, result.output
+            assert not (tmp_path / "snowflake.yml").exists()
+            assert "PARAM_DB" in result.output
+            assert "PARAM_WH" in result.output
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_dry_run_omits_missing_build_eai(self, mock_mgr_cls, runner, tmp_path):
+        """``--build-eai`` is optional: when no value is resolved the dry-run
+        output should not emit the ``build_eai`` line (which would otherwise
+        display ``build_eai: None  (missing)`` and imply it is required)."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "database": "PARAM_DB",
+            "schema": "PARAM_SCHEMA",
+            "query_warehouse": "PARAM_WH",
+            "build_compute_pool": "PARAM_POOL",
+            "service_compute_pool": "PARAM_SVC_POOL",
+            # no build_eai
+        }
+
+        from tests_common import change_directory
+
+        with change_directory(tmp_path):
+            result = runner.invoke(
+                ["app", "setup", "--app-name", "my_app", "--dry-run"]
+            )
+            assert result.exit_code == 0, result.output
+            assert "build_eai" not in result.output
+            assert "missing" not in result.output
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_dry_run_json_output(self, mock_mgr_cls, runner, tmp_path):
@@ -1220,28 +1273,27 @@ class TestSetupCommand:
             "build_eai": "PARAM_EAI",
         }
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
+        from tests_common import change_directory
 
-            with change_directory(tmp_path):
-                result = runner.invoke(
-                    [
-                        "__app",
-                        "setup",
-                        "--app-name",
-                        "my_app",
-                        "--dry-run",
-                        "--format",
-                        "json",
-                    ]
-                )
-                assert result.exit_code == 0, result.output
-                parsed = json_mod.loads(result.output)
-                assert parsed["success"] is False
-                assert parsed["database"] == "PARAM_DB"
-                assert parsed["warehouse"] == "PARAM_WH"
-                assert parsed["build_compute_pool"] == "PARAM_POOL"
-                assert parsed["build_eai"] == "PARAM_EAI"
+        with change_directory(tmp_path):
+            result = runner.invoke(
+                [
+                    "app",
+                    "setup",
+                    "--app-name",
+                    "my_app",
+                    "--dry-run",
+                    "--format",
+                    "json",
+                ]
+            )
+            assert result.exit_code == 0, result.output
+            parsed = json_mod.loads(result.output)
+            assert parsed["success"] is False
+            assert parsed["database"] == "PARAM_DB"
+            assert parsed["warehouse"] == "PARAM_WH"
+            assert parsed["build_compute_pool"] == "PARAM_POOL"
+            assert parsed["build_eai"] == "PARAM_EAI"
 
     @patch(
         "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
@@ -1263,25 +1315,24 @@ class TestSetupCommand:
             "build_eai": "PARAM_EAI",
         }
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
+        from tests_common import change_directory
 
-            with change_directory(tmp_path):
-                result = runner.invoke(
-                    [
-                        "__app",
-                        "setup",
-                        "--app-name",
-                        "my_app",
-                        "--format",
-                        "json",
-                    ]
-                )
-                assert result.exit_code == 0, result.output
-                parsed = json_mod.loads(result.output)
-                assert parsed["success"] is True
-                assert parsed["database"] == "PARAM_DB"
-                assert parsed["warehouse"] == "PARAM_WH"
+        with change_directory(tmp_path):
+            result = runner.invoke(
+                [
+                    "app",
+                    "setup",
+                    "--app-name",
+                    "my_app",
+                    "--format",
+                    "json",
+                ]
+            )
+            assert result.exit_code == 0, result.output
+            parsed = json_mod.loads(result.output)
+            assert parsed["success"] is True
+            assert parsed["database"] == "PARAM_DB"
+            assert parsed["warehouse"] == "PARAM_WH"
 
     @patch(
         "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
@@ -1301,15 +1352,14 @@ class TestSetupCommand:
             "build_eai": "PARAM_EAI",
         }
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
+        from tests_common import change_directory
 
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "setup", "--app-name", "my_app"])
-                assert result.exit_code == 0, result.output
-                assert "database: PARAM_DB" in result.output
-                assert "warehouse: PARAM_WH" in result.output
-                assert "build_compute_pool: PARAM_POOL" in result.output
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+            assert result.exit_code == 0, result.output
+            assert "database: PARAM_DB" in result.output
+            assert "warehouse: PARAM_WH" in result.output
+            assert "build_compute_pool: PARAM_POOL" in result.output
 
     @patch(
         "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
@@ -1328,23 +1378,22 @@ class TestSetupCommand:
             "query_warehouse": "PARAM_WH",
         }
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
+        from tests_common import change_directory
 
-            with change_directory(tmp_path):
-                result = runner.invoke(
-                    [
-                        "__app",
-                        "setup",
-                        "--app-name",
-                        "my_app",
-                        "--compute-pool",
-                        "FLAG_POOL",
-                        "--build-eai",
-                        "FLAG_EAI",
-                    ]
-                )
-                assert result.exit_code == 0, result.output
+        with change_directory(tmp_path):
+            result = runner.invoke(
+                [
+                    "app",
+                    "setup",
+                    "--app-name",
+                    "my_app",
+                    "--compute-pool",
+                    "FLAG_POOL",
+                    "--build-eai",
+                    "FLAG_EAI",
+                ]
+            )
+            assert result.exit_code == 0, result.output
 
         resolved = mock_gen.call_args[0][1]
         assert resolved["build_compute_pool"] == "FLAG_POOL"
@@ -1372,13 +1421,12 @@ class TestSetupCommand:
             "schema": "PARAM_SCHEMA",
         }
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
+        from tests_common import change_directory
 
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "setup", "--app-name", "my_app"])
-                assert result.exit_code == 0, result.output
-                assert "account parameter" in result.output
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+            assert result.exit_code == 0, result.output
+            assert "account parameter" in result.output
 
 
 # ── perform_bundle tests ──────────────────────────────────────────────
@@ -1456,14 +1504,13 @@ class TestBundleCommand:
         project_paths = ProjectPaths(project_root=tmp_path)
         mock_perform_bundle.return_value = project_paths
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "bundle"])
-                assert result.exit_code == 0, result.output
-                assert "Bundle generated at" in result.output
-                assert "output" in result.output
-                mock_perform_bundle.assert_called_once_with("my_app", entity)
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "bundle"])
+            assert result.exit_code == 0, result.output
+            assert "Bundle generated at" in result.output
+            assert "output" in result.output
+            mock_perform_bundle.assert_called_once_with("my_app", entity)
 
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
     @patch(
@@ -1484,12 +1531,11 @@ class TestBundleCommand:
         project_paths = ProjectPaths(project_root=tmp_path)
         mock_perform_bundle.return_value = project_paths
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "bundle", "--entity-id", "custom_app"])
-                assert result.exit_code == 0, result.output
-                mock_resolve.assert_called_once_with("custom_app")
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "bundle", "--entity-id", "custom_app"])
+            assert result.exit_code == 0, result.output
+            mock_resolve.assert_called_once_with("custom_app")
 
 
 # ── _find_dockerfile_expose_port tests ─────────────────────────────────
@@ -1603,12 +1649,11 @@ class TestValidateCommand:
 
         mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "validate"])
-                assert result.exit_code == 0, result.output
-                assert "Valid Snowflake App project" in result.output
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "validate"])
+            assert result.exit_code == 0, result.output
+            assert "Valid Snowflake Apps Deploy project" in result.output
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
@@ -1628,12 +1673,11 @@ class TestValidateCommand:
         mock_mgr = self._configure_manager_mock(mock_manager_cls)
         mock_mgr.database_exists.return_value = False
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "validate"])
-                assert result.exit_code == 1
-                assert "Database 'TEST_DB' does not exist" in result.output
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "validate"])
+            assert result.exit_code == 1
+            assert "Database 'TEST_DB' does not exist" in result.output
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
@@ -1653,12 +1697,11 @@ class TestValidateCommand:
         mock_mgr = self._configure_manager_mock(mock_manager_cls)
         mock_mgr.schema_exists.return_value = False
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "validate"])
-                assert result.exit_code == 1
-                assert "Schema 'TEST_DB.TEST_SCHEMA' does not exist" in result.output
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "validate"])
+            assert result.exit_code == 1
+            assert "Schema 'TEST_DB.TEST_SCHEMA' does not exist" in result.output
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
@@ -1686,12 +1729,11 @@ class TestValidateCommand:
 
         mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "validate"])
-                assert result.exit_code == 1
-                assert "No Dockerfile found" in result.output
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "validate"])
+            assert result.exit_code == 1
+            assert "No Dockerfile found" in result.output
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
@@ -1720,13 +1762,12 @@ class TestValidateCommand:
 
         mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "validate"])
-                assert result.exit_code == 0, result.output
-                assert "EXPOSE" in result.output
-                assert "warning" in result.output.lower()
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "validate"])
+            assert result.exit_code == 0, result.output
+            assert "EXPOSE" in result.output
+            assert "warning" in result.output.lower()
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
@@ -1755,13 +1796,12 @@ class TestValidateCommand:
 
         mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "validate"])
-                assert result.exit_code == 0, result.output
-                assert "multi-port" in result.output.lower()
-                assert "warning" in result.output.lower()
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "validate"])
+            assert result.exit_code == 0, result.output
+            assert "multi-port" in result.output.lower()
+            assert "warning" in result.output.lower()
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
@@ -1790,14 +1830,13 @@ class TestValidateCommand:
 
         mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "validate"])
-                assert result.exit_code == 0, result.output
-                assert "Validation passed with 1 warning(s)" in result.output
-                assert "8080" in result.output
-                assert "3000" in result.output
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "validate"])
+            assert result.exit_code == 0, result.output
+            assert "Validation passed with 1 warning(s)" in result.output
+            assert "8080" in result.output
+            assert "3000" in result.output
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
@@ -1825,12 +1864,11 @@ class TestValidateCommand:
 
         mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "validate"])
-                assert result.exit_code == 1
-                assert not bundle_dir.exists()
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "validate"])
+            assert result.exit_code == 1
+            assert not bundle_dir.exists()
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
@@ -1853,12 +1891,11 @@ class TestValidateCommand:
 
         mock_perform_bundle.side_effect = CliError("bundle failed")
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "validate"])
-                assert result.exit_code == 1
-                assert "bundle failed" in result.output
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "validate"])
+            assert result.exit_code == 1
+            assert "bundle failed" in result.output
 
 
 # ── role_has_bind_service_endpoint tests ──────────────────────────────
@@ -1944,15 +1981,12 @@ class TestOpenCommand:
             "https://my-app.snowflakecomputing.app"
         )
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "open"])
-                assert result.exit_code == 0, result.output
-                assert "https://my-app.snowflakecomputing.app" in result.output
-                mock_launch.assert_called_once_with(
-                    "https://my-app.snowflakecomputing.app"
-                )
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "open"])
+            assert result.exit_code == 0, result.output
+            assert result.output.strip() == "https://my-app.snowflakecomputing.app"
+            mock_launch.assert_called_once_with("https://my-app.snowflakecomputing.app")
 
     @patch("snowflake.cli._plugins.apps.commands.typer.launch")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
@@ -1979,13 +2013,12 @@ class TestOpenCommand:
             "https://my-app.snowflakecomputing.app"
         )
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "open", "--print-only"])
-                assert result.exit_code == 0, result.output
-                assert "https://my-app.snowflakecomputing.app" in result.output
-                mock_launch.assert_not_called()
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "open", "--print-only"])
+            assert result.exit_code == 0, result.output
+            assert result.output.strip() == "https://my-app.snowflakecomputing.app"
+            mock_launch.assert_not_called()
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
@@ -2008,12 +2041,11 @@ class TestOpenCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.get_service_endpoint_url.return_value = None
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "open"])
-                assert result.exit_code == 1
-                assert "No endpoint URL found" in result.output
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "open"])
+            assert result.exit_code == 1
+            assert "No endpoint URL found" in result.output
 
     @patch("snowflake.cli._plugins.apps.commands.typer.launch")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
@@ -2048,14 +2080,14 @@ class TestOpenCommand:
             "https://my-app.snowflakecomputing.app"
         )
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
+        from tests_common import change_directory
 
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "open"])
-                assert result.exit_code == 0, result.output
-                call_args = mock_mgr.get_service_endpoint_url.call_args[0][0]
-                assert str(call_args).startswith("CONN_DB")
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "open"])
+            assert result.exit_code == 0, result.output
+            call_args = mock_mgr.get_service_endpoint_url.call_args[0][0]
+            assert str(call_args).startswith("CONN_DB")
 
     @patch("snowflake.cli._plugins.apps.commands.get_cli_context")
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
@@ -2079,13 +2111,13 @@ class TestOpenCommand:
         mock_get_entity.return_value = entity
         mock_ctx.return_value.connection_context = Mock(database=None, schema=None)
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
+        from tests_common import change_directory
 
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "open"])
-                assert result.exit_code == 1
-                assert "Cannot resolve" in result.output
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "open"])
+            assert result.exit_code == 1
+            assert "Cannot resolve" in result.output
 
     @patch("snowflake.cli._plugins.apps.commands.typer.launch")
     @patch(
@@ -2116,17 +2148,17 @@ class TestOpenCommand:
         mock_ctx.return_value.connection = Mock()
         mock_ctx.return_value.connection_context = Mock(database="DB", schema="SCHEMA")
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
+        from tests_common import change_directory
 
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "open", "--settings"])
-                assert result.exit_code == 0, result.output
-                assert "#/apps/service/DB.SCHEMA.MY_APP/details" in result.output
-                mock_launch.assert_called_once()
-                mock_snowsight.assert_called_once()
-                path_arg = mock_snowsight.call_args[0][1]
-                assert path_arg == "#/apps/service/DB.SCHEMA.MY_APP/details"
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "open", "--settings"])
+            assert result.exit_code == 0, result.output
+            assert "#/apps/service/DB.SCHEMA.MY_APP/details" in result.output
+            mock_launch.assert_called_once()
+            mock_snowsight.assert_called_once()
+            path_arg = mock_snowsight.call_args[0][1]
+            assert path_arg == "#/apps/service/DB.SCHEMA.MY_APP/details"
 
     @patch("snowflake.cli._plugins.apps.commands.typer.launch")
     @patch(
@@ -2157,14 +2189,14 @@ class TestOpenCommand:
         mock_ctx.return_value.connection = Mock()
         mock_ctx.return_value.connection_context = Mock(database="DB", schema="SCHEMA")
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
+        from tests_common import change_directory
 
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "open", "--settings", "--print-only"])
-                assert result.exit_code == 0, result.output
-                assert "#/apps/service/DB.SCHEMA.MY_APP/details" in result.output
-                mock_launch.assert_not_called()
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "open", "--settings", "--print-only"])
+            assert result.exit_code == 0, result.output
+            assert "#/apps/service/DB.SCHEMA.MY_APP/details" in result.output
+            mock_launch.assert_not_called()
 
     @patch("snowflake.cli._plugins.apps.commands.typer.launch")
     @patch(
@@ -2198,14 +2230,14 @@ class TestOpenCommand:
             database="CONN_DB", schema="CONN_SCHEMA"
         )
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
+        from tests_common import change_directory
 
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "open", "--settings"])
-                assert result.exit_code == 0, result.output
-                path_arg = mock_snowsight.call_args[0][1]
-                assert path_arg == "#/apps/service/CONN_DB.CONN_SCHEMA.MY_APP/details"
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "open", "--settings"])
+            assert result.exit_code == 0, result.output
+            path_arg = mock_snowsight.call_args[0][1]
+            assert path_arg == "#/apps/service/CONN_DB.CONN_SCHEMA.MY_APP/details"
 
     @patch("snowflake.cli._plugins.apps.commands.get_cli_context")
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
@@ -2229,15 +2261,15 @@ class TestOpenCommand:
         mock_get_entity.return_value = entity
         mock_ctx.return_value.connection_context = Mock(database=None, schema=None)
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
+        from tests_common import change_directory
 
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "open", "--settings"])
-                assert result.exit_code == 1
-                assert "Cannot resolve" in result.output
-                assert "database" in result.output
-                assert "schema" in result.output
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "open", "--settings"])
+            assert result.exit_code == 1
+            assert "Cannot resolve" in result.output
+            assert "database" in result.output
+            assert "schema" in result.output
 
     @patch("snowflake.cli._plugins.apps.commands.typer.launch")
     @patch(
@@ -2271,16 +2303,16 @@ class TestOpenCommand:
             database='"MY DB"', schema='"MY SCHEMA"'
         )
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
+        from tests_common import change_directory
 
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "open", "--settings"])
-                assert result.exit_code == 0, result.output
-                path_arg = mock_snowsight.call_args[0][1]
-                assert "MY%20DB" in path_arg
-                assert "MY%20SCHEMA" in path_arg
-                assert "MY%20APP" in path_arg
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "open", "--settings"])
+            assert result.exit_code == 0, result.output
+            path_arg = mock_snowsight.call_args[0][1]
+            assert "MY%20DB" in path_arg
+            assert "MY%20SCHEMA" in path_arg
+            assert "MY%20APP" in path_arg
 
 
 # ── Events CLI command tests ──────────────────────────────────────────
@@ -2308,12 +2340,11 @@ class TestEventsCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.get_service_logs.return_value = "INFO: app started\nINFO: listening"
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "events"])
-                assert result.exit_code == 0, result.output
-                assert "app started" in result.output
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "events"])
+            assert result.exit_code == 0, result.output
+            assert "app started" in result.output
 
         mock_mgr.get_service_logs.assert_called_once()
 
@@ -2338,12 +2369,11 @@ class TestEventsCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.get_service_logs.return_value = ""
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "events", "--entity-id", "custom_app"])
-                assert result.exit_code == 0, result.output
-                mock_resolve.assert_called_once_with("custom_app")
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "events", "--entity-id", "custom_app"])
+            assert result.exit_code == 0, result.output
+            mock_resolve.assert_called_once_with("custom_app")
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
@@ -2366,11 +2396,10 @@ class TestEventsCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.get_service_logs.return_value = "line1"
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "events", "--last", "100"])
-                assert result.exit_code == 0, result.output
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "events", "--last", "100"])
+            assert result.exit_code == 0, result.output
 
         mock_mgr.get_service_logs.assert_called_once()
         _, kwargs = mock_mgr.get_service_logs.call_args
@@ -2397,13 +2426,12 @@ class TestEventsCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.get_service_logs.side_effect = ProgrammingError("does not exist")
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "events"])
-                assert result.exit_code == 1
-                assert "Could not retrieve logs" in result.output
-                assert "Verify that the app is deployed" in result.output
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "events"])
+            assert result.exit_code == 1
+            assert "Could not retrieve logs" in result.output
+            assert "Verify that the app is deployed" in result.output
 
 
 # ── Deploy CLI command tests ──────────────────────────────────────────
@@ -2464,14 +2492,13 @@ class TestDeployCommand:
             "is_upgrading": "false",
         }
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "deploy", "--deploy-only"])
-                assert result.exit_code == 0, result.output
-                mock_mgr.build_app_artifact_repo.assert_not_called()
-                mock_mgr.artifact_repo_exists.assert_not_called()
-                mock_mgr.create_app_service.assert_called_once()
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "deploy", "--deploy-only"])
+            assert result.exit_code == 0, result.output
+            mock_mgr.build_app_artifact_repo.assert_not_called()
+            mock_mgr.artifact_repo_exists.assert_not_called()
+            mock_mgr.create_app_service.assert_called_once()
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
     @patch("snowflake.cli._plugins.apps.commands.StageManager")
@@ -2548,12 +2575,11 @@ class TestDeployCommand:
             },  # describe poll
         ]
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "deploy"])
-                assert result.exit_code == 0, result.output
-                assert "my-app.snowflakecomputing.app" in result.output
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "deploy"])
+            assert result.exit_code == 0, result.output
+            assert "my-app.snowflakecomputing.app" in result.output
 
         mock_mgr.artifact_repo_exists.assert_called_once()
         mock_mgr.create_artifact_repo.assert_called_once()
@@ -2656,11 +2682,10 @@ class TestDeployCommand:
             },
         ]
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "deploy"])
-                assert result.exit_code == 0, result.output
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "deploy"])
+            assert result.exit_code == 0, result.output
 
         mock_mgr.artifact_repo_exists.assert_called_once()
         mock_mgr.create_artifact_repo.assert_not_called()
@@ -2669,27 +2694,21 @@ class TestDeployCommand:
     # ── Phase flag tests ──────────────────────────────────────────────
 
     def test_mutually_exclusive_phase_flags(self, runner, tmp_path):
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
+        from tests_common import change_directory
 
-            with change_directory(tmp_path):
-                result = runner.invoke(
-                    ["__app", "deploy", "--upload-only", "--build-only"]
-                )
-                assert result.exit_code == 1
-                assert "Only one of" in result.output
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "deploy", "--upload-only", "--build-only"])
+            assert result.exit_code == 1
+            assert "Only one of" in result.output
 
-                result = runner.invoke(
-                    ["__app", "deploy", "--upload-only", "--deploy-only"]
-                )
-                assert result.exit_code == 1
-                assert "Only one of" in result.output
+            result = runner.invoke(["app", "deploy", "--upload-only", "--deploy-only"])
+            assert result.exit_code == 1
+            assert "Only one of" in result.output
 
-                result = runner.invoke(
-                    ["__app", "deploy", "--build-only", "--deploy-only"]
-                )
-                assert result.exit_code == 1
-                assert "Only one of" in result.output
+            result = runner.invoke(["app", "deploy", "--build-only", "--deploy-only"])
+            assert result.exit_code == 1
+            assert "Only one of" in result.output
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
     @patch("snowflake.cli._plugins.apps.commands.StageManager")
@@ -2761,13 +2780,13 @@ class TestDeployCommand:
             },  # describe poll
         ]
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
+        from tests_common import change_directory
 
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "deploy"])
-                assert result.exit_code == 0, result.output
-                assert "App ready at" in result.output
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "deploy"])
+            assert result.exit_code == 0, result.output
+            assert "App ready at" in result.output
 
         mock_mgr.create_stage.assert_called_once()
         mock_perform_bundle.assert_called_once()
@@ -2827,13 +2846,13 @@ class TestDeployCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.stage_exists.return_value = False
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
+        from tests_common import change_directory
 
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "deploy", "--upload-only"])
-                assert result.exit_code == 0, result.output
-                assert "Artifacts uploaded" in result.output
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "deploy", "--upload-only"])
+            assert result.exit_code == 0, result.output
+            assert "Artifacts uploaded" in result.output
 
         mock_mgr.create_stage.assert_called_once()
         mock_perform_bundle.assert_called_once()
@@ -2891,13 +2910,13 @@ class TestDeployCommand:
         )
         mock_poll.return_value = "DONE"
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
+        from tests_common import change_directory
 
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "deploy", "--build-only"])
-                assert result.exit_code == 0, result.output
-                assert "Build completed successfully" in result.output
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "deploy", "--build-only"])
+            assert result.exit_code == 0, result.output
+            assert "Build completed successfully" in result.output
 
         mock_mgr.artifact_repo_exists.assert_called_once()
         mock_mgr.create_artifact_repo.assert_called_once()
@@ -2954,13 +2973,13 @@ class TestDeployCommand:
             "is_upgrading": "false",
         }
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
+        from tests_common import change_directory
 
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "deploy", "--deploy-only"])
-                assert result.exit_code == 0, result.output
-                assert "App ready at" in result.output
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "deploy", "--deploy-only"])
+            assert result.exit_code == 0, result.output
+            assert "App ready at" in result.output
 
         mock_mgr.create_app_service.assert_called_once()
         mock_mgr.build_app_artifact_repo.assert_not_called()
@@ -3015,15 +3034,15 @@ class TestDeployCommand:
         mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
         mock_manager_cls.return_value.stage_exists.return_value = False
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
+        from tests_common import change_directory
 
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "deploy", "--upload-only"])
-                assert result.exit_code == 0, result.output
-                assert "build_compute_pool is required" not in result.output
-                assert "service_compute_pool is required" not in result.output
-                assert "query_warehouse is required" not in result.output
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "deploy", "--upload-only"])
+            assert result.exit_code == 0, result.output
+            assert "build_compute_pool is required" not in result.output
+            assert "service_compute_pool is required" not in result.output
+            assert "query_warehouse is required" not in result.output
 
     @patch(
         RESOLVE_DEPLOY_DEFAULTS,
@@ -3056,10 +3075,10 @@ class TestDeployCommand:
         entity.artifact_repository = None
         mock_get_entity.return_value = entity
 
-        with with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_APPS: True}):
-            from tests_common import change_directory
+        from tests_common import change_directory
 
-            with change_directory(tmp_path):
-                result = runner.invoke(["__app", "deploy", "--build-only"])
-                assert "service_compute_pool is required" not in result.output
-                assert "query_warehouse is required" not in result.output
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "deploy", "--build-only"])
+            assert "service_compute_pool is required" not in result.output
+            assert "query_warehouse is required" not in result.output

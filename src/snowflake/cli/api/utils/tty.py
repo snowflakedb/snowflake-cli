@@ -1,4 +1,4 @@
-# Copyright (c) 2026 Snowflake Inc.
+# Copyright (c) 2024 Snowflake Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,19 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from snowflake.cli._plugins.apps import commands
-from snowflake.cli.api.plugins.command import (
-    SNOWCLI_ROOT_COMMAND_PATH,
-    CommandSpec,
-    CommandType,
-    plugin_hook_impl,
-)
+import sys
 
 
-@plugin_hook_impl
-def command_spec():
-    return CommandSpec(
-        parent_command_path=SNOWCLI_ROOT_COMMAND_PATH,
-        command_type=CommandType.COMMAND_GROUP,
-        typer_instance=commands.app.create_instance(),
-    )
+def is_tty_interactive() -> bool:
+    try:
+        return sys.stdin.isatty() and sys.stdout.isatty()
+    except Exception:
+        return False

@@ -16,13 +16,14 @@ import logging
 from typing import List, Optional
 
 import typer
+from snowflake.cli._plugins.connection.util import get_account_identifier
 from snowflake.cli._plugins.dcm.exceptions import (
     InvalidManifestError,
     ManifestConfigurationError,
     ManifestNotFoundError,
 )
 from snowflake.cli._plugins.dcm.manager import DCMProjectManager
-from snowflake.cli._plugins.dcm.models import DCMManifest, TargetContext
+from snowflake.cli._plugins.dcm.models import DCMManifest, DCMTarget, TargetContext
 from snowflake.cli._plugins.dcm.reporters import (
     AnalyzeReporter,
     PlanReporter,
@@ -38,10 +39,13 @@ from snowflake.cli._plugins.dcm.utils import (
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.object.manager import ObjectManager
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import (
+    ForceOption,
     IdentifierType,
     IfExistsOption,
     IfNotExistsOption,
+    InteractiveOption,
     LocalDirectoryType,
     identifier_argument,
     like_option,
@@ -54,14 +58,17 @@ from snowflake.cli.api.constants import (
 )
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
-from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.identifiers import FQN, AccountIdentifier
 from snowflake.cli.api.output.types import (
     CollectionResult,
     EmptyResult,
     MessageResult,
     QueryResult,
 )
+from snowflake.cli.api.project.util import same_identifiers
+from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.api.sql_execution import SqlExecutor
 from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__name__)
@@ -140,10 +147,85 @@ optional_dcm_identifier = typer.Argument(
 )
 
 
+_ACCOUNT_GUIDANCE = "The current session account is required to match the manifest target's account_identifier."
+_ROLE_GUIDANCE = (
+    "The current session role is required to match the manifest target's project_owner."
+)
+
+
+def _warn_cannot_validate(thing_name: str, reason: str, guidance: str) -> None:
+    cli_console.warning(
+        f"⚠️  Cannot validate target's {thing_name}: {reason}. {guidance}"
+    )
+
+
+def _check_account_identifier(target: DCMTarget) -> None:
+    if not target.account_identifier:
+        _warn_cannot_validate(
+            "account identifier",
+            "account_identifier is not specified in the manifest target",
+            _ACCOUNT_GUIDANCE,
+        )
+        return
+
+    try:
+        current_account = get_account_identifier(get_cli_context().connection)
+    except Exception as e:
+        _warn_cannot_validate(
+            "account identifier",
+            f"current account could not be determined: {e}",
+            _ACCOUNT_GUIDANCE,
+        )
+        return
+
+    if current_account != AccountIdentifier.from_string(target.account_identifier):
+        cli_console.warning(
+            f"⚠️  Account mismatch: manifest target specifies account_identifier "
+            f"'{sanitize_for_terminal(target.account_identifier)}', "
+            f"but the current session account is '{sanitize_for_terminal(str(current_account))}'."
+        )
+
+
+def _check_project_owner(target: DCMTarget) -> None:
+    if not target.project_owner:
+        _warn_cannot_validate(
+            "project owner",
+            "project_owner is not specified in the manifest target",
+            _ROLE_GUIDANCE,
+        )
+        return
+
+    try:
+        current_role = SqlExecutor().current_role()
+    except Exception as e:
+        _warn_cannot_validate(
+            "project owner",
+            f"current role could not be determined: {e}",
+            _ROLE_GUIDANCE,
+        )
+        return
+
+    if not current_role:
+        _warn_cannot_validate(
+            "project owner",
+            "current role could not be determined",
+            _ROLE_GUIDANCE,
+        )
+        return
+
+    if not same_identifiers(current_role, target.project_owner):
+        cli_console.warning(
+            f"⚠️  Role mismatch: manifest target specifies project_owner "
+            f"'{sanitize_for_terminal(target.project_owner)}', "
+            f"but the current session role is '{sanitize_for_terminal(current_role)}'."
+        )
+
+
 def _resolve_target_context(
     identifier: Optional[FQN],
     target: Optional[str],
     source_path: SecurePath,
+    validate_owner: bool = False,
 ) -> TargetContext:
     """
     Resolve project identifier and configuration from manifest target.
@@ -175,26 +257,40 @@ def _resolve_target_context(
         project_id,
         bool(effective_target.templating_config),
     )
+    _check_account_identifier(effective_target)
+    if validate_owner:
+        _check_project_owner(effective_target)
     return TargetContext(
-        project_identifier=project_id, configuration=effective_target.templating_config
+        project_identifier=project_id,
+        configuration=effective_target.templating_config,
     )
 
 
 def _resolve_context_with_required_manifest(
-    from_location: SecurePath, identifier: FQN | None, target: str | None
+    from_location: SecurePath,
+    identifier: FQN | None,
+    target: str | None,
+    validate_owner: bool = False,
 ) -> TargetContext:
     try:
-        context = _resolve_target_context(identifier, target, from_location)
+        context = _resolve_target_context(
+            identifier, target, from_location, validate_owner=validate_owner
+        )
     except ManifestNotFoundError as e:
         raise CliError(str(e))
     return context
 
 
 def _resolve_context_with_optional_manifest(
-    from_location: SecurePath, identifier: FQN | None, target: str | None
+    from_location: SecurePath,
+    identifier: FQN | None,
+    target: str | None,
+    validate_owner: bool = False,
 ) -> TargetContext:
     try:
-        context = _resolve_target_context(identifier, target, from_location)
+        context = _resolve_target_context(
+            identifier, target, from_location, validate_owner=validate_owner
+        )
     except ManifestNotFoundError:
         if not identifier:
             raise CliError(
@@ -345,13 +441,15 @@ def _confirm_purge(project_id: FQN) -> None:
             )
 
 
-@app.command(requires_connection=True, hidden=True)
+@app.command(requires_connection=True)
 def purge(
     identifier: Optional[FQN] = optional_dcm_identifier,
     alias: Optional[str] = alias_option,
     from_location: SecurePath = from_option,
     target: Optional[str] = target_option,
     save_output: bool = save_output_option,
+    interactive: bool = InteractiveOption,
+    force: Optional[bool] = ForceOption,
     skip_plan: bool = typer.Option(
         False,
         "--skip-plan",
@@ -368,7 +466,12 @@ def purge(
     context = _resolve_context_with_optional_manifest(from_location, identifier, target)
     project_id = context.project_identifier
 
-    _confirm_purge(project_id)
+    if not force and not interactive:
+        raise CliError(
+            "Cannot purge the DCM project non-interactively without --force."
+        )
+    if not force:
+        _confirm_purge(project_id)
 
     with cli_console.spinner() as spinner:
         spinner.add_task(description=f"Purging dcm project {project_id}", total=None)
@@ -468,7 +571,14 @@ def create(
     """
     Creates a DCM Project in Snowflake.
     """
-    context = _resolve_context_with_optional_manifest(from_location, identifier, target)
+    # `create` is the command where it's crucial to validate the project_owner upfront (validate_owner=True).
+    #  It's the command that creates the DCM project object and the role used to execute the command will
+    #  have OWNERSHIP privilege on the created DCM project object. If a different role, than the one specified
+    #  in the manifest, the target was used, then it's almost certain that it was not intended, and it will
+    #  impact who can use the project and how.
+    context = _resolve_context_with_optional_manifest(
+        from_location, identifier, target, validate_owner=True
+    )
     project_id = context.project_identifier
 
     om = ObjectManager()

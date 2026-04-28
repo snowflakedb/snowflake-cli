@@ -20,6 +20,8 @@ from typing import Any, Optional
 
 import yaml
 from click import ClickException
+from snowflake.cli._plugins.custom_images.metrics import CustomImageCounterField
+from snowflake.cli.api.cli_global_context import get_cli_context
 
 _FAIL_SEVERITIES = {"high", "critical"}
 
@@ -92,6 +94,7 @@ class ValidationResult:
     check_name: str
     passed: bool
     message: str
+    counter_field: Optional[str] = None
 
 
 @dataclass
@@ -180,6 +183,27 @@ class CustomImageManager:
             pass
         return None
 
+    def _record_validate_metrics(self, report: ValidationReport) -> None:
+        """Record validation failure rate and failure reasons as CLI metrics."""
+        metrics = get_cli_context().metrics
+        metrics.set_counter(CustomImageCounterField.CUSTOM_IMAGE_VALIDATE, 1)
+
+        # Initialize all failure counters to 0 for results that carry a counter_field
+        for result in report.results:
+            if result.counter_field:
+                metrics.set_counter_default(result.counter_field, 0)
+
+        overall_failed = False
+        for result in report.results:
+            if not result.passed:
+                overall_failed = True
+                if result.counter_field:
+                    metrics.set_counter(result.counter_field, 1)
+
+        metrics.set_counter(
+            CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAILED, int(overall_failed)
+        )
+
     def validate(
         self, image: str, scan_vulnerabilities: bool = False
     ) -> tuple[ValidationReport, str]:
@@ -201,8 +225,10 @@ class CustomImageManager:
                     check_name="image_exists",
                     passed=False,
                     message=f"Image '{image}' not found. Please ensure the image exists locally.",
+                    counter_field=CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_IMAGE_NOT_FOUND,
                 )
             )
+            self._record_validate_metrics(report)
             return report, format_report(report)
 
         report.add_result(
@@ -225,6 +251,7 @@ class CustomImageManager:
             # Stop early if entrypoint check fails (file missing or mismatch)
             # Entrypoint is fundamental - other checks are irrelevant if it's wrong
             if not entrypoint_result.passed:
+                self._record_validate_metrics(report)
                 return report, format_report(report)
 
         for check_name, handler in self._check_handlers.items():
@@ -270,6 +297,7 @@ class CustomImageManager:
         if common_passed and notebook_all_passed:
             readiness.append("Notebooks")
 
+        self._record_validate_metrics(report)
         return report, format_report(report, readiness)
 
     def _check_entrypoint(
@@ -289,6 +317,7 @@ class CustomImageManager:
                 check_name="entrypoint",
                 passed=False,
                 message=f"Entrypoint mismatch. Expected: {expected}, Actual: {actual}",
+                counter_field=CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_ENTRYPOINT,
             )
 
         # Check if the entrypoint file exists (use --entrypoint "" to bypass)
@@ -312,12 +341,14 @@ class CustomImageManager:
                 check_name="entrypoint",
                 passed=False,
                 message=f"Entrypoint file '{expected}' does not exist in the image",
+                counter_field=CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_ENTRYPOINT,
             )
 
         return ValidationResult(
             check_name="entrypoint",
             passed=True,
             message=f"Entrypoint is correctly set to '{expected}'",
+            counter_field=CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_ENTRYPOINT,
         )
 
     def _check_required_scripts(
@@ -347,6 +378,7 @@ class CustomImageManager:
                         check_name=f"script_{script}",
                         passed=False,
                         message=f"Script '{script}' is missing or not executable",
+                        counter_field=CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_REQUIRED_SCRIPTS,
                     )
                 )
             else:
@@ -355,6 +387,7 @@ class CustomImageManager:
                         check_name=f"script_{script}",
                         passed=True,
                         message=f"Script '{script}' exists and is executable",
+                        counter_field=CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_REQUIRED_SCRIPTS,
                     )
                 )
         return results
@@ -386,6 +419,7 @@ class CustomImageManager:
                         check_name=f"env_{var_name}",
                         passed=False,
                         message=f"Environment variable '{var_name}' not found. Expected: {var_name}={expected_value}",
+                        counter_field=CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_ENV_VARS,
                     )
                 )
             elif expected_value and env_dict[var_name] != expected_value:
@@ -394,6 +428,7 @@ class CustomImageManager:
                         check_name=f"env_{var_name}",
                         passed=False,
                         message=f"Environment variable '{var_name}' has wrong value. Expected: {expected_value}, Actual: {env_dict[var_name]}",
+                        counter_field=CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_ENV_VARS,
                     )
                 )
             else:
@@ -402,6 +437,7 @@ class CustomImageManager:
                         check_name=f"env_{var_name}",
                         passed=True,
                         message=f"Environment variable '{var_name}' is correctly set",
+                        counter_field=CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_ENV_VARS,
                     )
                 )
 
@@ -433,6 +469,7 @@ class CustomImageManager:
                     check_name="python_packages",
                     passed=False,
                     message=f"Failed to list Python packages. pip may not be installed or accessible: {stderr}",
+                    counter_field=CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_PYTHON_PACKAGES,
                 )
             )
             return results
@@ -451,6 +488,7 @@ class CustomImageManager:
                     check_name="python_packages",
                     passed=False,
                     message=f"Failed to parse pip output: {stdout}",
+                    counter_field=CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_PYTHON_PACKAGES,
                 )
             )
             return results
@@ -464,6 +502,7 @@ class CustomImageManager:
                         check_name=f"pkg_{pkg_name}",
                         passed=True,
                         message=f"Package '{pkg_name}' is installed",
+                        counter_field=CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_PYTHON_PACKAGES,
                     )
                 )
             else:
@@ -472,6 +511,7 @@ class CustomImageManager:
                         check_name=f"pkg_{pkg_name}",
                         passed=False,
                         message=f"Package '{pkg_name}' is not installed",
+                        counter_field=CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_PYTHON_PACKAGES,
                     )
                 )
 
@@ -512,6 +552,7 @@ class CustomImageManager:
                 check_name="dependency_health",
                 passed=True,
                 message="No broken dependencies found",
+                counter_field=CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_DEPENDENCY_HEALTH,
             )
 
         output = stdout or stderr
@@ -534,6 +575,7 @@ class CustomImageManager:
                     check_name="dependency_health",
                     passed=True,
                     message="No broken dependencies found",
+                    counter_field=CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_DEPENDENCY_HEALTH,
                 )
             output = "\n".join(filtered_lines)
 
@@ -541,6 +583,7 @@ class CustomImageManager:
             check_name="dependency_health",
             passed=False,
             message=f"Broken dependencies detected:\n{output}",
+            counter_field=CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_DEPENDENCY_HEALTH,
         )
 
     def _check_vulnerabilities(self, context: ValidationContext) -> ValidationResult:
@@ -551,6 +594,7 @@ class CustomImageManager:
                 check_name="vulnerability_scan",
                 passed=True,
                 message="No high/critical vulnerabilities found",
+                counter_field=CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_VULNERABILITY_SCAN,
             )
 
         table = _grype_fail_table(out or "")
@@ -559,6 +603,7 @@ class CustomImageManager:
             check_name="vulnerability_scan",
             passed=False,
             message=msg,
+            counter_field=CustomImageCounterField.CUSTOM_IMAGE_VALIDATE_FAIL_VULNERABILITY_SCAN,
         )
 
 
