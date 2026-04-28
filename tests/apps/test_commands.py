@@ -1710,7 +1710,7 @@ class TestValidateCommand:
         "snowflake.cli._plugins.apps.commands._resolve_entity_id",
         return_value="my_app",
     )
-    def test_validate_fails_no_dockerfile(
+    def test_validate_succeeds_without_dockerfile(
         self,
         mock_resolve,
         mock_get_entity,
@@ -1726,39 +1726,6 @@ class TestValidateCommand:
 
         bundle_dir = tmp_path / "output" / "bundle"
         bundle_dir.mkdir(parents=True)
-
-        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
-
-        with change_directory(tmp_path):
-            _write_snowflake_app_yml(tmp_path)
-            result = runner.invoke(["app", "validate"])
-            assert result.exit_code == 1
-            assert "No Dockerfile found" in result.output
-
-    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
-    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
-    @patch("snowflake.cli._plugins.apps.commands._get_entity")
-    @patch(
-        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
-        return_value="my_app",
-    )
-    def test_validate_warns_no_expose(
-        self,
-        mock_resolve,
-        mock_get_entity,
-        mock_perform_bundle,
-        mock_manager_cls,
-        runner,
-        tmp_path,
-    ):
-        from snowflake.cli.api.project.project_paths import ProjectPaths
-
-        mock_get_entity.return_value = self._make_validate_entity()
-        self._configure_manager_mock(mock_manager_cls)
-
-        bundle_dir = tmp_path / "output" / "bundle"
-        bundle_dir.mkdir(parents=True)
-        (bundle_dir / "Dockerfile").write_text("FROM python:3.11\nCMD ['python']\n")
 
         mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
 
@@ -1766,8 +1733,7 @@ class TestValidateCommand:
             _write_snowflake_app_yml(tmp_path)
             result = runner.invoke(["app", "validate"])
             assert result.exit_code == 0, result.output
-            assert "EXPOSE" in result.output
-            assert "warning" in result.output.lower()
+            assert "Valid Snowflake Apps Deploy project" in result.output
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
@@ -1776,7 +1742,7 @@ class TestValidateCommand:
         "snowflake.cli._plugins.apps.commands._resolve_entity_id",
         return_value="my_app",
     )
-    def test_validate_warns_unsupported_expose_syntax(
+    def test_validate_cleans_up_bundle_after_validation(
         self,
         mock_resolve,
         mock_get_entity,
@@ -1792,7 +1758,6 @@ class TestValidateCommand:
 
         bundle_dir = tmp_path / "output" / "bundle"
         bundle_dir.mkdir(parents=True)
-        (bundle_dir / "Dockerfile").write_text("FROM python:3.11\nEXPOSE 3000 8080\n")
 
         mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
 
@@ -1800,74 +1765,6 @@ class TestValidateCommand:
             _write_snowflake_app_yml(tmp_path)
             result = runner.invoke(["app", "validate"])
             assert result.exit_code == 0, result.output
-            assert "multi-port" in result.output.lower()
-            assert "warning" in result.output.lower()
-
-    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
-    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
-    @patch("snowflake.cli._plugins.apps.commands._get_entity")
-    @patch(
-        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
-        return_value="my_app",
-    )
-    def test_validate_warns_port_mismatch(
-        self,
-        mock_resolve,
-        mock_get_entity,
-        mock_perform_bundle,
-        mock_manager_cls,
-        runner,
-        tmp_path,
-    ):
-        from snowflake.cli.api.project.project_paths import ProjectPaths
-
-        mock_get_entity.return_value = self._make_validate_entity()
-        self._configure_manager_mock(mock_manager_cls)
-
-        bundle_dir = tmp_path / "output" / "bundle"
-        bundle_dir.mkdir(parents=True)
-        (bundle_dir / "Dockerfile").write_text("FROM python:3.11\nEXPOSE 8080\n")
-
-        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
-
-        with change_directory(tmp_path):
-            _write_snowflake_app_yml(tmp_path)
-            result = runner.invoke(["app", "validate"])
-            assert result.exit_code == 0, result.output
-            assert "Validation passed with 1 warning(s)" in result.output
-            assert "8080" in result.output
-            assert "3000" in result.output
-
-    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
-    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
-    @patch("snowflake.cli._plugins.apps.commands._get_entity")
-    @patch(
-        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
-        return_value="my_app",
-    )
-    def test_validate_cleans_up_bundle_on_error(
-        self,
-        mock_resolve,
-        mock_get_entity,
-        mock_perform_bundle,
-        mock_manager_cls,
-        runner,
-        tmp_path,
-    ):
-        from snowflake.cli.api.project.project_paths import ProjectPaths
-
-        mock_get_entity.return_value = self._make_validate_entity()
-        self._configure_manager_mock(mock_manager_cls)
-
-        bundle_dir = tmp_path / "output" / "bundle"
-        bundle_dir.mkdir(parents=True)
-
-        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
-
-        with change_directory(tmp_path):
-            _write_snowflake_app_yml(tmp_path)
-            result = runner.invoke(["app", "validate"])
-            assert result.exit_code == 1
             assert not bundle_dir.exists()
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
