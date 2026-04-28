@@ -39,7 +39,7 @@ pycparser==2.22 ; implementation_name != 'PyPy' and platform_python_implementati
 pydantic==2.12.5
 pydantic-core==2.41.5
 pygments==2.19.2
-pyjwt==2.10.1
+pyjwt==2.12.0
 pyopenssl==26.0.0
 python-dateutil==2.9.0.post0
 pytz==2025.2
