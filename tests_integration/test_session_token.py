@@ -33,6 +33,8 @@ def test_use_session_token(runner, snowflake_session):
             session_token,
             "--master-token",
             master_token,
+            "--host",
+            snowflake_session.host,
         ]
     )
     assert result_of_setting_variable.exit_code == 0
@@ -48,6 +50,8 @@ def test_use_session_token(runner, snowflake_session):
             session_token,
             "--master-token",
             master_token,
+            "--host",
+            snowflake_session.host,
             "--format",
             "json",
         ]
