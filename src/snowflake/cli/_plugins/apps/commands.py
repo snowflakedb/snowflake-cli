@@ -73,7 +73,7 @@ SOURCE_MISSING = "missing"
 
 
 def snowflake_app_setup(
-    app_name: str,
+    app_name: Optional[str],
     dry_run: bool,
     compute_pool: Optional[str],
     build_eai: Optional[str],
@@ -83,9 +83,16 @@ def snowflake_app_setup(
     See the ``snow app setup`` command in
     :mod:`snowflake.cli._plugins.nativeapp.commands` for the CLI surface.
     """
-    if not re.fullmatch(r"[a-zA-Z0-9_]+", app_name):
+    resolved_app_name = app_name or Path.cwd().name
+    if not resolved_app_name:
         raise ClickException(
-            f"Invalid app name '{app_name}'. "
+            "Could not derive app name from the current directory. "
+            "Please provide --app-name."
+        )
+
+    if not re.fullmatch(r"[a-zA-Z0-9_]+", resolved_app_name):
+        raise ClickException(
+            f"Invalid app name '{resolved_app_name}'. "
             "Only letters, digits, and underscores are allowed."
         )
 
@@ -192,7 +199,9 @@ def snowflake_app_setup(
     resolved_values = {k: v[0] for k, v in resolved.items()}
 
     if not dry_run:
-        project_file.write_text(_generate_snowflake_yml(app_name, resolved_values))
+        project_file.write_text(
+            _generate_snowflake_yml(resolved_app_name, resolved_values)
+        )
 
     is_json = get_cli_context().output_format.is_json
     if is_json:
