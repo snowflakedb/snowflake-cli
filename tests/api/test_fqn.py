@@ -27,8 +27,6 @@ from snowflake.connector.util_text import split_statements
 
 
 class TestSqlIdentifier:
-    """Tests for FQN.sql_identifier — especially SQL injection prevention (SNOW-3392936)."""
-
     @pytest.mark.parametrize(
         "name, expected",
         [
