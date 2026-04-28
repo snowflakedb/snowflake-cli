@@ -35,9 +35,7 @@ from snowflake.cli._plugins.apps.generate import (
 )
 from snowflake.cli._plugins.apps.manager import (
     DEFINITION_FILENAME,
-    EXPOSE_UNSUPPORTED_SYNTAX,
     SnowflakeAppManager,
-    _find_dockerfile_expose_port,
     _get_entity,
     _poll_until,
     _resolve_deploy_defaults,
@@ -227,11 +225,9 @@ def snowflake_app_bundle(entity_id: Optional[str]) -> CommandResult:
 
 
 def snowflake_app_validate(entity_id: Optional[str]) -> CommandResult:
-    """Validate a local Snowflake Apps Deploy project (Dockerfile + stage privileges)."""
+    """Validate a local Snowflake Apps Deploy project."""
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
-
-    warnings: list[str] = []
 
     # ── Validate database and schema ──────────────────────────────────
     fqn = entity.fqn
@@ -252,46 +248,13 @@ def snowflake_app_validate(entity_id: Optional[str]) -> CommandResult:
                     f"or is not accessible."
                 )
 
-    # ── Validate bundle / Dockerfile ──────────────────────────────────
+    # ── Validate project can bundle artifacts ─────────────────────────
     project_paths = None
     try:
         project_paths = perform_bundle(resolved_entity_id, entity)
-
-        bundle_root = project_paths.bundle_root
-        dockerfile = bundle_root / "Dockerfile"
-        if not dockerfile.exists():
-            raise CliError(
-                f"No Dockerfile found in bundled artifacts. "
-                f"A Dockerfile is required for Snowflake Apps Deploy projects."
-            )
-
-        exposed_port = _find_dockerfile_expose_port(bundle_root)
-        if exposed_port is None:
-            warnings.append(
-                "Dockerfile does not contain a recognized EXPOSE directive. "
-                "The Dockerfile must expose a port for the app service."
-            )
-        elif exposed_port == EXPOSE_UNSUPPORTED_SYNTAX:
-            warnings.append(
-                "Could not determine the exposed port from the Dockerfile. "
-                "Only simple 'EXPOSE <port>' is supported "
-                "(multi-port and range syntax are not)."
-            )
-        elif exposed_port != entity.app_port:
-            warnings.append(
-                f"Dockerfile exposes port {exposed_port}, but the entity "
-                f"'app_port' is configured as {entity.app_port}. "
-                f"These should match for the service endpoint to work correctly."
-            )
     finally:
         if project_paths is not None:
             project_paths.clean_up_output()
-
-    for warning in warnings:
-        cli_console.warning(warning)
-
-    if warnings:
-        return MessageResult(f"Validation passed with {len(warnings)} warning(s).")
     return MessageResult("Valid Snowflake Apps Deploy project.")
 
 
