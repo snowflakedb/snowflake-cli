@@ -174,16 +174,8 @@ def is_valid_string_literal(literal: str) -> bool:
 def to_string_literal(raw_value: str) -> str:
     """
     Converts the raw string value to a correctly escaped, single-quoted string literal.
-
-    Single quotes are doubled (``''``), Snowflake's native quote escape. A backslash
-    that would otherwise sit immediately before our doubled ``''`` is itself doubled:
-    the connector's client-side ``split_statements`` always interprets ``\\'`` as an
-    escape pair when slicing input, so a raw ``\\`` in front of our ``''`` would
-    consume the first ``'`` and turn the rest of the payload into a second statement.
-    Non-quote-adjacent backslashes are left alone so LIKE-escape sequences (``\\%``,
-    ``\\_``) reach the server intact under the default ``STANDARD_ESCAPE_SEQUENCES=FALSE``.
     """
-    escaped = raw_value.replace("\\'", "\\\\'").replace("'", "''")
+    escaped = re.sub(r"(\\*)'", lambda m: m.group(1) * 2 + "''", raw_value)
     return f"'{escaped}'"
 
 
