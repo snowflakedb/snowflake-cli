@@ -126,7 +126,9 @@ class StreamResult(CommandResult):
 
 class QueryResult(CollectionResult):
     def __init__(self, cursor: SnowflakeCursor | DictCursor):
-        self.column_names = [col.name for col in cursor.description]
+        self.column_names = self._uniquify_column_names(
+            [col.name for col in cursor.description]
+        )
         super().__init__(
             elements=self._prepare_payload(cursor),
             row_mapper=RespectingColumnTypesRowMapper(cursor.description),
@@ -137,6 +139,30 @@ class QueryResult(CollectionResult):
         if isinstance(cursor, DictCursor):
             return (k for k in cursor)
         return ({k: v for k, v in zip(self.column_names, row)} for row in cursor)
+
+    @staticmethod
+    def _uniquify_column_names(column_names: list[str]) -> list[str]:
+        """Disambiguate duplicate column names by appending a counter suffix."""
+        unique_names: list[str] = []
+        used_names: set[str] = set()
+        duplicate_counters: dict[str, int] = {}
+
+        for name in column_names:
+            if name not in used_names:
+                unique_names.append(name)
+                used_names.add(name)
+                duplicate_counters[name] = 1
+            else:
+                duplicate_index = duplicate_counters.get(name, 1) + 1
+                candidate = f"{name}_{duplicate_index}"
+                while candidate in used_names:
+                    duplicate_index += 1
+                    candidate = f"{name}_{duplicate_index}"
+                unique_names.append(candidate)
+                used_names.add(candidate)
+                duplicate_counters[name] = duplicate_index
+
+        return unique_names
 
     @property
     def query(self):
