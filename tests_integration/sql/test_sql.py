@@ -126,6 +126,21 @@ def test_multi_input_from_stdin(runner, test_root_path):
     assert result.json[1] == [{"42": 42}]
 
 
+@pytest.mark.integration
+def test_select_star_with_duplicate_column_names_from_join(runner):
+    # Simulates: SELECT * FROM A LEFT JOIN B where both tables share column names.
+    # The output must keep all columns distinct rather than clobbering duplicates.
+    sql = """
+        SELECT *
+        FROM (SELECT 1 AS id, 'alice' AS name) AS a
+        JOIN (SELECT 1 AS id, 'bob' AS name) AS b ON a.id = b.id
+    """
+    result = runner.invoke_with_connection_json(["sql", "-q", sql])
+
+    assert result.exit_code == 0
+    assert result.json == [{"ID": 1, "NAME": "alice", "ID_2": 1, "NAME_2": "bob"}]
+
+
 def _round_values(results):
     for result in results:
         for k, v in result.items():

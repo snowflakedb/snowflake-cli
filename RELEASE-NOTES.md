@@ -21,7 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
-
+* Fixed `SELECT *` output being corrupted when joined tables share column names. Duplicate column names are now disambiguated by appending a numeric suffix (e.g. `NAME`, `NAME_2`).
 
 # v3.17.0
 
