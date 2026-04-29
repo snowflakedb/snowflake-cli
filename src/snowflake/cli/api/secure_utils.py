@@ -39,7 +39,7 @@ def _get_windows_whitelisted_users():
 def _run_icacls(file_path: Path) -> str:
     import subprocess
 
-    return subprocess.check_output(["icacls", str(file_path)], text=True)
+    return subprocess.check_output(["icacls", str(file_path)], text=True, encoding="utf-8", errors="replace")
 
 
 def _windows_permissions_are_denied(permission_codes: str) -> bool:
