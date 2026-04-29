@@ -13812,6 +13812,164 @@
   
   '''
 # ---
+# name: test_help_messages[snowpark.execute-file]
+  '''
+                                                                                  
+   Usage: root snowpark execute-file [OPTIONS] LOCAL_PATH                         
+                                                                                  
+   Uploads a local Python or SQL file to a temporary stage and executes it on     
+   Snowflake.                                                                     
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  | *    local_path      TEXT  Path to a local .py or .sql file, directory, or   |
+  |                            glob pattern to execute on Snowflake. For         |
+  |                            example: ./script.py, ./scripts/, ./scripts/*.py  |
+  |                            [required]                                        |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | --on-error          [break|continue]  What to do when an error occurs.       |
+  |                                       Defaults to break.                     |
+  |                                       [default: break]                       |
+  | --variable  -D      TEXT              Variables for the execution context;   |
+  |                                       for example: -D "<key>=<value>". For   |
+  |                                       SQL files, variables are used to       |
+  |                                       expand the template, and any unknown   |
+  |                                       variable will cause an error (consider |
+  |                                       embedding quoting in the file).For     |
+  |                                       Python files, variables are used to    |
+  |                                       update the os.environ dictionary.      |
+  |                                       Provided keys are capitalized to       |
+  |                                       adhere to best practices. In case of   |
+  |                                       SQL files string values must be quoted |
+  |                                       in '' (consider embedding quoting in   |
+  |                                       the file).                             |
+  | --help      -h                        Show this message and exit.            |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment    -c      TEXT     Name of the connection, as    |
+  |                                                defined in your config.toml   |
+  |                                                file. Default: default.       |
+  | --host                                TEXT     Host address for the          |
+  |                                                connection. Overrides the     |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --port                                INTEGER  Port for the connection.      |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --account,--accountname               TEXT     Name assigned to your         |
+  |                                                Snowflake account. Overrides  |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --user,--username                     TEXT     Username to connect to        |
+  |                                                Snowflake. Overrides the      |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --password                            TEXT     Snowflake password. Overrides |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --authenticator                       TEXT     Snowflake authenticator.      |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --workload-identity-provider          TEXT     Workload identity provider    |
+  |                                                (AWS, AZURE, GCP, OIDC).      |
+  |                                                Overrides the value specified |
+  |                                                for the connection            |
+  | --private-key-file,--privat…          TEXT     Snowflake private key file    |
+  |                                                path. Overrides the value     |
+  |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
+  | --token-file-path                     TEXT     Path to file with an OAuth    |
+  |                                                token to use when connecting  |
+  |                                                to Snowflake.                 |
+  | --database,--dbname                   TEXT     Database to use. Overrides    |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --schema,--schemaname                 TEXT     Database schema to use.       |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --role,--rolename                     TEXT     Role to use. Overrides the    |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --warehouse                           TEXT     Warehouse to use. Overrides   |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --temporary-connection        -x               Uses a connection defined     |
+  |                                                with command-line parameters, |
+  |                                                instead of one defined in     |
+  |                                                config                        |
+  | --mfa-passcode                        TEXT     Token to use for multi-factor |
+  |                                                authentication (MFA)          |
+  | --enable-diag                                  Whether to generate a         |
+  |                                                connection diagnostic report. |
+  | --diag-log-path                       TEXT     Path for the generated        |
+  |                                                report. Defaults to system    |
+  |                                                temporary directory.          |
+  | --diag-allowlist-path                 TEXT     Path to a JSON file that      |
+  |                                                contains allowlist            |
+  |                                                parameters.                   |
+  | --oauth-client-id                     TEXT     Value of client id provided   |
+  |                                                by the Identity Provider for  |
+  |                                                Snowflake integration.        |
+  | --oauth-client-secret                 TEXT     Value of the client secret    |
+  |                                                provided by the Identity      |
+  |                                                Provider for Snowflake        |
+  |                                                integration.                  |
+  | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
+  |                                                supplying the authorization   |
+  |                                                code to the driver.           |
+  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
+  |                                                supplying the access tokens   |
+  |                                                to the driver.                |
+  | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
+  |                                                code redirection.             |
+  | --oauth-scope                         TEXT     Scope requested in the        |
+  |                                                Identity Provider             |
+  |                                                authorization request.        |
+  | --oauth-disable-pkce                           Disables Proof Key for Code   |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
+  | --oauth-enable-refresh-toke…                   Enables a silent              |
+  |                                                re-authentication when the    |
+  |                                                actual access token becomes   |
+  |                                                outdated. Default: False.     |
+  | --oauth-enable-single-use-r…                   Whether to opt-in to          |
+  |                                                single-use refresh token      |
+  |                                                semantics. Default: False.    |
+  | --client-store-temporary-cr…                   Store the temporary           |
+  |                                                credential.                   |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
+  |                                CSV]                   format.                |
+  |                                                       [default: TABLE]       |
+  | --verbose              -v                             Displays log entries   |
+  |                                                       for log levels info    |
+  |                                                       and higher.            |
+  | --debug                                               Displays log entries   |
+  |                                                       for log levels debug   |
+  |                                                       and higher; debug logs |
+  |                                                       contain additional     |
+  |                                                       information.           |
+  | --silent                                              Turns off intermediate |
+  |                                                       output to console.     |
+  | --enhanced-exit-codes                                 Differentiate exit     |
+  |                                                       error codes based on   |
+  |                                                       failure type.          |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified. [env var:   |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
 # name: test_help_messages[snowpark.execute]
   '''
                                                                                   
@@ -14578,21 +14736,24 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | build      Builds artifacts required for the Snowpark project. The artifacts |
-  |            can be used by deploy command. For each directory in artifacts a  |
-  |            .zip file is created. All non-anaconda dependencies are packaged  |
-  |            in dependencies.zip file.                                         |
-  | deploy     Deploys procedures and functions defined in project. Deploying    |
-  |            the project alters all objects defined in it. By default, if any  |
-  |            of the objects exist already the commands will fail unless        |
-  |            --replace flag is provided. Required artifacts are deployed       |
-  |            before creating functions or procedures. Dependencies are         |
-  |            deployed once to every stage specified in definitions.            |
-  | describe   Provides description of a procedure or function.                  |
-  | drop       Drop procedure or function.                                       |
-  | execute    Executes a procedure or function in a specified environment.      |
-  | list       Lists all available procedures or functions.                      |
-  | package    Manages custom Python packages for Snowpark                       |
+  | build          Builds artifacts required for the Snowpark project. The       |
+  |                artifacts can be used by deploy command. For each directory   |
+  |                in artifacts a .zip file is created. All non-anaconda         |
+  |                dependencies are packaged in dependencies.zip file.           |
+  | deploy         Deploys procedures and functions defined in project.          |
+  |                Deploying the project alters all objects defined in it. By    |
+  |                default, if any of the objects exist already the commands     |
+  |                will fail unless --replace flag is provided. Required         |
+  |                artifacts are deployed before creating functions or           |
+  |                procedures. Dependencies are deployed once to every stage     |
+  |                specified in definitions.                                     |
+  | describe       Provides description of a procedure or function.              |
+  | drop           Drop procedure or function.                                   |
+  | execute        Executes a procedure or function in a specified environment.  |
+  | execute-file   Uploads a local Python or SQL file to a temporary stage and   |
+  |                executes it on Snowflake.                                     |
+  | list           Lists all available procedures or functions.                  |
+  | package        Manages custom Python packages for Snowpark                   |
   +------------------------------------------------------------------------------+
   
   
@@ -23880,21 +24041,24 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | build      Builds artifacts required for the Snowpark project. The artifacts |
-  |            can be used by deploy command. For each directory in artifacts a  |
-  |            .zip file is created. All non-anaconda dependencies are packaged  |
-  |            in dependencies.zip file.                                         |
-  | deploy     Deploys procedures and functions defined in project. Deploying    |
-  |            the project alters all objects defined in it. By default, if any  |
-  |            of the objects exist already the commands will fail unless        |
-  |            --replace flag is provided. Required artifacts are deployed       |
-  |            before creating functions or procedures. Dependencies are         |
-  |            deployed once to every stage specified in definitions.            |
-  | describe   Provides description of a procedure or function.                  |
-  | drop       Drop procedure or function.                                       |
-  | execute    Executes a procedure or function in a specified environment.      |
-  | list       Lists all available procedures or functions.                      |
-  | package    Manages custom Python packages for Snowpark                       |
+  | build          Builds artifacts required for the Snowpark project. The       |
+  |                artifacts can be used by deploy command. For each directory   |
+  |                in artifacts a .zip file is created. All non-anaconda         |
+  |                dependencies are packaged in dependencies.zip file.           |
+  | deploy         Deploys procedures and functions defined in project.          |
+  |                Deploying the project alters all objects defined in it. By    |
+  |                default, if any of the objects exist already the commands     |
+  |                will fail unless --replace flag is provided. Required         |
+  |                artifacts are deployed before creating functions or           |
+  |                procedures. Dependencies are deployed once to every stage     |
+  |                specified in definitions.                                     |
+  | describe       Provides description of a procedure or function.              |
+  | drop           Drop procedure or function.                                   |
+  | execute        Executes a procedure or function in a specified environment.  |
+  | execute-file   Uploads a local Python or SQL file to a temporary stage and   |
+  |                executes it on Snowflake.                                     |
+  | list           Lists all available procedures or functions.                  |
+  | package        Manages custom Python packages for Snowpark                   |
   +------------------------------------------------------------------------------+
   
   

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from typing import Dict, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import typer
 from click import ClickException, UsageError
@@ -70,8 +70,13 @@ from snowflake.cli.api.cli_global_context import (
 from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
+from snowflake.cli.api.commands.common import (
+    OnErrorType,
+)
 from snowflake.cli.api.commands.flags import (
+    ExecuteVariablesOption,
     ForceReplaceOption,
+    OnErrorOption,
     IfExistsOption,
     PruneOption,
     ReplaceOption,
@@ -438,6 +443,25 @@ def execute(
         execution_identifier=execution_identifier, object_type=object_type
     )
     return SingleQueryResult(cursor)
+
+
+@app.command("execute-file", requires_connection=True)
+def execute_file(
+    local_path: str = typer.Argument(
+        ...,
+        help="Path to a local .py or .sql file, directory, or glob pattern to execute on Snowflake. "
+        "For example: ./script.py, ./scripts/, ./scripts/*.py",
+        show_default=False,
+    ),
+    on_error: OnErrorType = OnErrorOption,
+    variables: Optional[List[str]] = ExecuteVariablesOption,
+    **options,
+) -> CommandResult:
+    """Uploads a local Python or SQL file to a temporary stage and executes it on Snowflake."""
+    results = StageManager().execute_from_local_path(
+        local_path_str=local_path, on_error=on_error, variables=variables
+    )
+    return CollectionResult(results)
 
 
 @app.command("list", requires_connection=True)
