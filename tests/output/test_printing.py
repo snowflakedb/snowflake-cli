@@ -166,6 +166,21 @@ def test_query_result_uniquify_column_names_collision_with_existing(mock_cursor)
     assert rows == [{"x": 1, "x_2": 2, "x_3": 3}]
 
 
+def test_query_result_uniquify_does_not_rename_real_column_matching_generated_suffix(
+    mock_cursor,
+):
+    # Real column "id_2" from table B must keep its name;
+    # the duplicate "id" must skip to "id_3" to avoid the clash.
+    cursor = mock_cursor(
+        columns=["id", "name", "id", "name", "id_2"],
+        rows=[(1, "alice", 1, "bob", 2)],
+    )
+    result = QueryResult(cursor)
+    assert result.column_names == ["id", "name", "id_3", "name_2", "id_2"]
+    rows = list(result.result)
+    assert rows == [{"id": 1, "name": "alice", "id_3": 1, "name_2": "bob", "id_2": 2}]
+
+
 def test_query_result_no_duplicates_unchanged(mock_cursor):
     cursor = mock_cursor(
         columns=["a", "b", "c"],

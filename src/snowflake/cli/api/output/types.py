@@ -144,16 +144,15 @@ class QueryResult(CollectionResult):
     def _uniquify_column_names(column_names: list[str]) -> list[str]:
         """Disambiguate duplicate column names by appending a counter suffix."""
         unique_names: list[str] = []
-        used_names: set[str] = set()
+        used_names: set[str] = set(column_names)
         duplicate_counters: dict[str, int] = {}
 
         for name in column_names:
-            if name not in used_names:
+            if name not in duplicate_counters:
                 unique_names.append(name)
-                used_names.add(name)
                 duplicate_counters[name] = 1
             else:
-                duplicate_index = duplicate_counters.get(name, 1) + 1
+                duplicate_index = duplicate_counters[name] + 1
                 candidate = f"{name}_{duplicate_index}"
                 while candidate in used_names:
                     duplicate_index += 1
