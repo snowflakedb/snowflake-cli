@@ -134,10 +134,10 @@ def _reject_snowflake_app_options(command: str, **options: object) -> None:
 
 @app.command("setup", requires_connection=True)
 def app_setup(
-    app_name: str = typer.Option(
-        ...,
+    app_name: Optional[str] = typer.Option(
+        None,
         "--app-name",
-        help="Name of the Snowflake Apps Deploy to initialize.",
+        help="Name of the Snowflake Apps Deploy to initialize. Defaults to the current directory name.",
     ),
     dry_run: bool = typer.Option(
         False,
