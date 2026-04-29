@@ -96,10 +96,11 @@ def v1_to_v2(
         manager.project_root, pd, accept_templates, manager.template_context
     )
 
-    SecurePath("snowflake.yml").rename("snowflake_V1.yml")
+    snowflake_yml_path = SecurePath("snowflake.yml")
+    snowflake_yml_path.rename("snowflake_V1.yml")
     if has_local_yml:
         SecurePath("snowflake.local.yml").rename("snowflake_V1.local.yml")
-    with open("snowflake.yml", "w") as file:
+    with snowflake_yml_path.open("w") as file:
         yaml.dump(
             pd_v2.model_dump(
                 exclude_unset=True, exclude_none=True, mode="json", by_alias=True
