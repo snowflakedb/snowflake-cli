@@ -517,10 +517,26 @@ class SnowflakeAppManager(SqlExecutionMixin):
             f"/{WORKSPACE_LIVE_VERSION_PATH}"
         )
 
+    def workspace_subdirectory_uri(
+        self, workspace_fqn: FQN, directory_name: str
+    ) -> str:
+        """Return a workspace URI under the live version for *directory_name*."""
+        normalized_directory = directory_name.strip("/")
+        return f"{self.workspace_uri(workspace_fqn)}/{normalized_directory}"
+
+    def clear_workspace_subdirectory(
+        self, workspace_fqn: FQN, directory_name: str
+    ) -> None:
+        """Remove all files from a subdirectory under the workspace live version."""
+        self.execute_query(
+            f"REMOVE {self.workspace_subdirectory_uri(workspace_fqn, directory_name)}/"
+        )
+
     def upload_to_workspace(
         self,
         local_root: Path,
         workspace_fqn: FQN,
+        target_subdirectory: Optional[str] = None,
         overwrite: bool = True,
     ) -> Iterator[Dict[str, str]]:
         """Recursively upload *local_root*'s contents into the workspace's live version.
@@ -535,6 +551,10 @@ class SnowflakeAppManager(SqlExecutionMixin):
         ``target`` keys so callers can display progress.
         """
         base_uri = self.workspace_uri(workspace_fqn)
+        if target_subdirectory:
+            base_uri = self.workspace_subdirectory_uri(
+                workspace_fqn, target_subdirectory
+            )
         local_root = local_root.resolve()
         overwrite_str = str(overwrite).lower()
 

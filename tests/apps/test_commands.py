@@ -2617,9 +2617,13 @@ class TestDeployCommand:
         mock_mgr.artifact_repo_exists.assert_called_once()
         mock_mgr.create_artifact_repo.assert_called_once()
         mock_mgr.create_workspace.assert_called_once()
+        mock_mgr.clear_workspace_subdirectory.assert_called_once_with(
+            FQN(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP_CODE"),
+            "MY_APP",
+        )
         mock_mgr.create_stage.assert_not_called()
         mock_mgr.build_app_artifact_repo.assert_called_once_with(
-            source_uri=mock_mgr.workspace_uri.return_value,
+            source_uri=mock_mgr.workspace_subdirectory_uri.return_value,
             artifact_repo_fqn="TEST_DB.TEST_SCHEMA.MY_APP_REPO",
             app_id="MY_APP",
             compute_pool="BUILD_POOL",

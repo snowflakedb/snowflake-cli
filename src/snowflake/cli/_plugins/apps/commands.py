@@ -459,6 +459,7 @@ def snowflake_app_deploy(
         name=storage_name,
     )
     service_fqn = FQN(database=database, schema=schema, name=app_name)
+    workspace_source_uri = manager.workspace_subdirectory_uri(storage_fqn, app_name)
 
     stage_manager = StageManager()
 
@@ -471,11 +472,14 @@ def snowflake_app_deploy(
                 cli_console.step(f"Creating workspace {storage_fqn}")
                 manager.create_workspace(storage_fqn)
                 cli_console.step(
-                    f"Uploading bundled files to {manager.workspace_uri(storage_fqn)}"
+                    f"Clearing existing workspace files in {workspace_source_uri}/"
                 )
+                manager.clear_workspace_subdirectory(storage_fqn, app_name)
+                cli_console.step(f"Uploading bundled files to {workspace_source_uri}")
                 for result in manager.upload_to_workspace(
                     local_root=project_paths.bundle_root,
                     workspace_fqn=storage_fqn,
+                    target_subdirectory=app_name,
                     overwrite=True,
                 ):
                     cli_console.step(
@@ -505,9 +509,7 @@ def snowflake_app_deploy(
 
     if upload_only:
         if use_workspace:
-            return MessageResult(
-                f"Artifacts uploaded to {manager.workspace_uri(storage_fqn)}"
-            )
+            return MessageResult(f"Artifacts uploaded to {workspace_source_uri}")
         return MessageResult(f"Artifacts uploaded to @{storage_fqn}")
 
     # ── Build phase ───────────────────────────────────────────────────
@@ -532,7 +534,7 @@ def snowflake_app_deploy(
             build_eai=build_eai,
         )
         if use_workspace:
-            build_kwargs["source_uri"] = manager.workspace_uri(storage_fqn)
+            build_kwargs["source_uri"] = workspace_source_uri
         else:
             build_kwargs["stage_fqn"] = storage_fqn
         build_result = manager.build_app_artifact_repo(**build_kwargs)
