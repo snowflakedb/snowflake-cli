@@ -21,6 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
+* Fixed `FQN.sql_identifier()` and lack of single quote escaping.
 
 
 # v3.17.0
