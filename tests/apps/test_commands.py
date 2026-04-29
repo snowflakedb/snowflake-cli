@@ -328,8 +328,9 @@ class TestGenerateSnowflakeYml:
         assert "query_warehouse: TEST_WH" in result
         assert "name: MY_POOL" in result
         assert "name: MY_EAI" in result
-        # code_stage is written as a fully-qualified identifier.
-        assert "code_stage: TEST_DB.SNOW_APPS.MY_APP_CODE" in result
+        # code_workspace is written as a fully-qualified identifier.
+        assert "code_workspace: TEST_DB.SNOW_APPS.MY_APP_CODE" in result
+        assert "code_stage:" not in result
         assert "image_repository" not in result
         assert "artifact_repository" not in result
 
@@ -373,11 +374,13 @@ class TestGenerateSnowflakeYml:
 
         assert entity.type == "snowflake-app"
         assert entity.query_warehouse == "TEST_WH"
-        # code_stage is emitted as ``DB.SCHEMA.STAGE`` and the validator
-        # parses it back into a ``CodeStageReference`` with db/schema set.
-        assert entity.code_stage.name == "MY_APP_CODE"
-        assert entity.code_stage.database == "TEST_DB"
-        assert entity.code_stage.schema_ == "SNOW_APPS"
+        # code_workspace is emitted as ``DB.SCHEMA.WORKSPACE`` and the
+        # validator parses it back into a ``CodeWorkspaceReference`` with
+        # db/schema set.
+        assert entity.code_workspace.name == "MY_APP_CODE"
+        assert entity.code_workspace.database == "TEST_DB"
+        assert entity.code_workspace.schema_ == "SNOW_APPS"
+        assert entity.code_stage is None
         assert entity.artifacts is not None
 
 
@@ -1494,6 +1497,34 @@ class TestSetupCommand:
             assert result.exit_code == 0, result.output
             assert "account parameter" in result.output
 
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
+        return_value="definition_version: '2'\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_personal_db_default_and_public_schema(
+        self, mock_mgr_cls, mock_gen, runner, tmp_path
+    ):
+        """When no param/session db is set, fall back to the personal DB and PUBLIC schema."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "query_warehouse": "PARAM_WH",
+            "build_compute_pool": "PARAM_POOL",
+            "service_compute_pool": "PARAM_SVC_POOL",
+            "build_eai": "PARAM_EAI",
+        }
+        mock_mgr.get_personal_database.return_value = "USER$MYUSER"
+
+        from tests_common import change_directory
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+            assert result.exit_code == 0, result.output
+
+        resolved = mock_gen.call_args[0][1]
+        assert resolved["database"] == "USER$MYUSER"
+        assert resolved["schema"] == "PUBLIC"
+
 
 # ── perform_bundle tests ──────────────────────────────────────────────
 
@@ -2444,6 +2475,7 @@ class TestDeployCommand:
         fqn.schema = "TEST_SCHEMA"
         entity.fqn = fqn
         entity.code_stage = None
+        entity.code_workspace = None
         entity.artifacts = []
         entity.meta = None
         entity.artifact_repository = None
@@ -2508,6 +2540,7 @@ class TestDeployCommand:
         fqn.schema = "TEST_SCHEMA"
         entity.fqn = fqn
         entity.code_stage = None
+        entity.code_workspace = None
         entity.artifacts = []
         entity.meta = None
         entity.runtime_image = "runtime:latest"
@@ -2546,10 +2579,14 @@ class TestDeployCommand:
 
         mock_mgr.artifact_repo_exists.assert_called_once()
         mock_mgr.create_artifact_repo.assert_called_once()
+        mock_mgr.create_workspace.assert_called_once()
+        mock_mgr.clear_workspace_subdirectory.assert_called_once_with(
+            FQN(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP_CODE"),
+            "MY_APP",
+        )
+        mock_mgr.create_stage.assert_not_called()
         mock_mgr.build_app_artifact_repo.assert_called_once_with(
-            stage_fqn=FQN(
-                database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP_CODE_STAGE"
-            ),
+            source_uri=mock_mgr.workspace_subdirectory_uri.return_value,
             artifact_repo_fqn="TEST_DB.TEST_SCHEMA.MY_APP_REPO",
             app_id="MY_APP",
             compute_pool="BUILD_POOL",
@@ -2569,6 +2606,106 @@ class TestDeployCommand:
             comment='{"appId": "MY_APP"}',
         )
         assert mock_poll.call_count == 2
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.StageManager")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_legacy_stage_flow_when_code_stage_set(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        mock_stage_manager_cls,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """When only code_stage is set (and code_workspace is not), use the legacy stage flow."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = Mock(
+            name="MY_STAGE",
+            encryption_type="SNOWFLAKE_SSE",
+            database=None,
+            schema_=None,
+        )
+        entity.code_stage.name = "MY_STAGE"
+        entity.code_workspace = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.runtime_image = "runtime:latest"
+        entity.query_warehouse = "WH"
+        entity.build_image = None
+        entity.execute_as_caller = False
+        entity.artifact_repository = None
+        entity.build_compute_pool = None
+        entity.service_compute_pool = None
+        entity.build_eai = None
+        mock_get_entity.return_value = entity
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.stage_exists.return_value = False
+        mock_mgr.artifact_repo_exists.return_value = False
+        mock_mgr.build_app_artifact_repo.return_value = (
+            "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
+        )
+        mock_poll.side_effect = [
+            "DONE",
+            {
+                "url": "my-app.snowflakecomputing.app",
+                "is_upgrading": "false",
+            },
+        ]
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "deploy"])
+            assert result.exit_code == 0, result.output
+
+        mock_mgr.create_stage.assert_called_once()
+        mock_mgr.create_workspace.assert_not_called()
+        mock_mgr.build_app_artifact_repo.assert_called_once_with(
+            stage_fqn=FQN(database="TEST_DB", schema="TEST_SCHEMA", name="MY_STAGE"),
+            artifact_repo_fqn="TEST_DB.TEST_SCHEMA.MY_APP_REPO",
+            app_id="MY_APP",
+            compute_pool="BUILD_POOL",
+            database="TEST_DB",
+            schema="TEST_SCHEMA",
+            runtime_image="runtime:latest",
+            build_eai="MY_EAI",
+        )
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
     @patch("snowflake.cli._plugins.apps.commands.StageManager")
@@ -2615,6 +2752,7 @@ class TestDeployCommand:
         fqn.schema = "TEST_SCHEMA"
         entity.fqn = fqn
         entity.code_stage = None
+        entity.code_workspace = None
         entity.artifacts = []
         entity.meta = None
         entity.runtime_image = "runtime:latest"
@@ -2718,6 +2856,7 @@ class TestDeployCommand:
         fqn.schema = "TEST_SCHEMA"
         entity.fqn = fqn
         entity.code_stage = None
+        entity.code_workspace = None
         entity.artifacts = []
         entity.meta = None
         entity.artifact_repository = None
@@ -2751,7 +2890,7 @@ class TestDeployCommand:
             assert result.exit_code == 0, result.output
             assert "App ready at" in result.output
 
-        mock_mgr.create_stage.assert_called_once()
+        mock_mgr.create_workspace.assert_called_once()
         mock_perform_bundle.assert_called_once()
         mock_mgr.artifact_repo_exists.assert_called_once()
         mock_mgr.create_artifact_repo.assert_called_once()
@@ -2796,6 +2935,7 @@ class TestDeployCommand:
         entity = Mock()
         entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP")
         entity.code_stage = None
+        entity.code_workspace = None
         entity.artifacts = []
         entity.meta = None
         entity.artifact_repository = None
@@ -2817,7 +2957,7 @@ class TestDeployCommand:
             assert result.exit_code == 0, result.output
             assert "Artifacts uploaded" in result.output
 
-        mock_mgr.create_stage.assert_called_once()
+        mock_mgr.create_workspace.assert_called_once()
         mock_perform_bundle.assert_called_once()
         mock_mgr.build_app_artifact_repo.assert_not_called()
         mock_mgr.create_app_service.assert_not_called()
@@ -2860,6 +3000,7 @@ class TestDeployCommand:
         fqn.schema = "TEST_SCHEMA"
         entity.fqn = fqn
         entity.code_stage = None
+        entity.code_workspace = None
         entity.artifacts = []
         entity.meta = None
         entity.artifact_repository = None
@@ -2925,6 +3066,7 @@ class TestDeployCommand:
         fqn.schema = "TEST_SCHEMA"
         entity.fqn = fqn
         entity.code_stage = None
+        entity.code_workspace = None
         entity.artifacts = []
         entity.meta = None
         entity.artifact_repository = None
@@ -2987,6 +3129,7 @@ class TestDeployCommand:
         entity = Mock()
         entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP")
         entity.code_stage = None
+        entity.code_workspace = None
         entity.artifacts = []
         entity.meta = None
         entity.artifact_repository = None
@@ -3033,6 +3176,7 @@ class TestDeployCommand:
         entity = Mock()
         entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP")
         entity.code_stage = None
+        entity.code_workspace = None
         entity.artifacts = []
         entity.meta = None
         entity.artifact_repository = None

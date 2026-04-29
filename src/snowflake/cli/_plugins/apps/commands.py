@@ -29,11 +29,9 @@ from typing import Optional
 
 import typer
 from click import ClickException
-from snowflake.cli._plugins.apps.generate import (
-    IS_PERSONAL_DB_SUPPORTED,
-    _generate_snowflake_yml,
-)
+from snowflake.cli._plugins.apps.generate import _generate_snowflake_yml
 from snowflake.cli._plugins.apps.manager import (
+    DEFAULT_PERSONAL_SCHEMA,
     DEFINITION_FILENAME,
     SnowflakeAppManager,
     _get_entity,
@@ -55,7 +53,7 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     ObjectResult,
 )
-from snowflake.cli.api.project.util import get_env_username, identifier_for_url
+from snowflake.cli.api.project.util import identifier_for_url
 from snowflake.connector.errors import ProgrammingError
 
 # Default number of log lines returned by ``snow app events`` for the
@@ -150,9 +148,8 @@ def snowflake_app_setup(
     session_db = getattr(conn, "database", None) or conn_config.get("database") or None
     session_schema = getattr(conn, "schema", None) or conn_config.get("schema") or None
 
-    personal_db = (
-        f"USER${get_env_username().upper()}" if IS_PERSONAL_DB_SUPPORTED else None
-    )
+    personal_db = manager.get_personal_database()
+    personal_schema = DEFAULT_PERSONAL_SCHEMA if personal_db else None
 
     # ── Resolve each field ────────────────────────────────────────────
     resolved = {
@@ -165,6 +162,7 @@ def snowflake_app_setup(
         # a single shared schema for all apps.
         "schema": _resolve(
             account_param=params.get("schema"),
+            default_value=personal_schema,
             current_session=session_schema,
         ),
         "warehouse": _resolve(
@@ -380,16 +378,26 @@ def snowflake_app_deploy(
     database = fqn.database or conn.database
     schema = fqn.schema or conn.schema
 
-    if entity.code_stage:
-        stage_name = entity.code_stage.name
-        stage_database = entity.code_stage.database
-        stage_schema = entity.code_stage.schema_
-        encryption_type = entity.code_stage.encryption_type or "SNOWFLAKE_SSE"
+    # ── Resolve code storage backend ──────────────────────────────────
+    # Workspace is the default; if both code_workspace and code_stage are
+    # defined, workspace wins. code_stage remains available for users who
+    # explicitly opt into the legacy stage flow.
+    use_workspace = entity.code_workspace is not None or entity.code_stage is None
+    if use_workspace:
+        if entity.code_workspace:
+            storage_name = entity.code_workspace.name
+            storage_db_override = entity.code_workspace.database
+            storage_schema_override = entity.code_workspace.schema_
+        else:
+            storage_name = f"{app_name}_CODE"
+            storage_db_override = None
+            storage_schema_override = None
+        encryption_type = "SNOWFLAKE_SSE"  # unused in workspace flow
     else:
-        stage_name = f"{app_name}_CODE_STAGE"
-        stage_database = None
-        stage_schema = None
-        encryption_type = "SNOWFLAKE_SSE"
+        storage_name = entity.code_stage.name
+        storage_db_override = entity.code_stage.database
+        storage_schema_override = entity.code_stage.schema_
+        encryption_type = entity.code_stage.encryption_type or "SNOWFLAKE_SSE"
 
     build_compute_pool = (
         entity.build_compute_pool.name if entity.build_compute_pool else None
@@ -421,46 +429,69 @@ def snowflake_app_deploy(
     artifact_repo_fqn_str = f"{ar_database}.{ar_schema}.{ar_name}"
 
     # ── Derived names ─────────────────────────────────────────────────
-    # If the code_stage was defined as a fully-qualified identifier
-    # (e.g. ``DB.SCHEMA.STAGE``) use its components; otherwise fall back
+    # If the code storage was defined as a fully-qualified identifier
+    # (e.g. ``DB.SCHEMA.NAME``) use its components; otherwise fall back
     # to the app's resolved database/schema for backwards-compatibility
-    # with existing apps that configure ``code_stage`` as a bare name.
-    stage_fqn = FQN(
-        database=stage_database or database,
-        schema=stage_schema or schema,
-        name=stage_name,
+    # with entities that configure ``code_stage``/``code_workspace`` as a
+    # bare name.
+    storage_fqn = FQN(
+        database=storage_db_override or database,
+        schema=storage_schema_override or schema,
+        name=storage_name,
     )
     service_fqn = FQN(database=database, schema=schema, name=app_name)
+    workspace_source_uri = manager.workspace_subdirectory_uri(storage_fqn, app_name)
 
     stage_manager = StageManager()
 
     # ── Upload phase ──────────────────────────────────────────────────
 
     if run_upload:
-        if manager.stage_exists(stage_fqn):
-            cli_console.step(f"Clearing existing stage @{stage_fqn}")
-            manager.clear_stage(stage_fqn)
-        else:
-            cli_console.step(f"Creating stage @{stage_fqn}")
-            manager.create_stage(stage_fqn, encryption_type)
-
         project_paths = perform_bundle(resolved_entity_id, entity)
-
         try:
-            cli_console.step(f"Uploading bundled files to @{stage_fqn}")
-            for result in stage_manager.put_recursive(
-                local_path=project_paths.bundle_root,
-                stage_path=f"@{stage_fqn}",
-                overwrite=True,
-                auto_compress=False,
-                temp_directory=project_paths.bundle_root,
-            ):
-                cli_console.step(f"  Uploaded {result['source']} -> {result['target']}")
+            if use_workspace:
+                cli_console.step(f"Creating workspace {storage_fqn}")
+                manager.create_workspace(storage_fqn)
+                cli_console.step(
+                    f"Clearing existing workspace files in {workspace_source_uri}/"
+                )
+                manager.clear_workspace_subdirectory(storage_fqn, app_name)
+                cli_console.step(f"Uploading bundled files to {workspace_source_uri}")
+                for result in manager.upload_to_workspace(
+                    local_root=project_paths.bundle_root,
+                    workspace_fqn=storage_fqn,
+                    target_subdirectory=app_name,
+                    overwrite=True,
+                ):
+                    cli_console.step(
+                        f"  Uploaded {result['source']} -> {result['target']}"
+                    )
+            else:
+                if manager.stage_exists(storage_fqn):
+                    cli_console.step(f"Clearing existing stage @{storage_fqn}")
+                    manager.clear_stage(storage_fqn)
+                else:
+                    cli_console.step(f"Creating stage @{storage_fqn}")
+                    manager.create_stage(storage_fqn, encryption_type)
+
+                cli_console.step(f"Uploading bundled files to @{storage_fqn}")
+                for result in stage_manager.put_recursive(
+                    local_path=project_paths.bundle_root,
+                    stage_path=f"@{storage_fqn}",
+                    overwrite=True,
+                    auto_compress=False,
+                    temp_directory=project_paths.bundle_root,
+                ):
+                    cli_console.step(
+                        f"  Uploaded {result['source']} -> {result['target']}"
+                    )
         finally:
             project_paths.clean_up_output()
 
     if upload_only:
-        return MessageResult(f"Artifacts uploaded to @{stage_fqn}")
+        if use_workspace:
+            return MessageResult(f"Artifacts uploaded to {workspace_source_uri}")
+        return MessageResult(f"Artifacts uploaded to @{storage_fqn}")
 
     # ── Build phase ───────────────────────────────────────────────────
 
@@ -474,8 +505,7 @@ def snowflake_app_deploy(
             )
 
         cli_console.step("Building app using artifact repository...")
-        build_result = manager.build_app_artifact_repo(
-            stage_fqn=stage_fqn,
+        build_kwargs: dict = dict(
             artifact_repo_fqn=artifact_repo_fqn_str,
             app_id=app_name,
             compute_pool=build_compute_pool,
@@ -484,6 +514,11 @@ def snowflake_app_deploy(
             runtime_image=entity.runtime_image,
             build_eai=build_eai,
         )
+        if use_workspace:
+            build_kwargs["source_uri"] = workspace_source_uri
+        else:
+            build_kwargs["stage_fqn"] = storage_fqn
+        build_result = manager.build_app_artifact_repo(**build_kwargs)
         cli_console.step(f"SPCS_TEST_BUILD_APP_ARTIFACT_REPO output:\n{build_result}")
 
         match = re.search(r"Build job submitted:\s*(\S+)", build_result)
@@ -617,15 +652,21 @@ def snowflake_app_teardown(
     service_fqn = FQN(database=db, schema=schema, name=app_name)
     use_artifact_repo = entity.artifact_repository is not None
 
-    if entity.code_stage:
-        stage_name = entity.code_stage.name
-        stage_database = entity.code_stage.database or db
-        stage_schema = entity.code_stage.schema_ or schema
+    use_workspace = entity.code_workspace is not None or entity.code_stage is None
+    if use_workspace:
+        if entity.code_workspace:
+            storage_name = entity.code_workspace.name
+            storage_db = entity.code_workspace.database or db
+            storage_schema = entity.code_workspace.schema_ or schema
+        else:
+            storage_name = f"{app_name}_CODE"
+            storage_db, storage_schema = db, schema
     else:
-        stage_name = f"{app_name}_CODE_STAGE"
-        stage_database = db
-        stage_schema = schema
-    stage_fqn = FQN(database=stage_database, schema=stage_schema, name=stage_name)
+        storage_name = entity.code_stage.name
+        storage_db = entity.code_stage.database or db
+        storage_schema = entity.code_stage.schema_ or schema
+
+    storage_fqn = FQN(database=storage_db, schema=storage_schema, name=storage_name)
     build_job_fqn = FQN(database=db, schema=schema, name=f"{app_name}_BUILD_JOB")
 
     object_kind = "application service" if use_artifact_repo else "service"
@@ -644,8 +685,12 @@ def snowflake_app_teardown(
     else:
         manager.drop_service_if_exists(service_fqn)
 
-    cli_console.step(f"Dropping stage {stage_fqn.identifier}")
-    manager.drop_stage_if_exists(stage_fqn)
+    if use_workspace:
+        cli_console.step(f"Dropping workspace {storage_fqn.identifier}")
+        manager.drop_workspace_if_exists(storage_fqn)
+    else:
+        cli_console.step(f"Dropping stage {storage_fqn.identifier}")
+        manager.drop_stage_if_exists(storage_fqn)
 
     if not use_artifact_repo:
         cli_console.step(f"Dropping build job service {build_job_fqn.identifier}")
