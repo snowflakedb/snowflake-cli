@@ -30,6 +30,7 @@ from snowflake.cli._plugins.apps.manager import (
 )
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.connector.errors import ProgrammingError
 
 from tests_common import change_directory
@@ -1500,7 +1501,7 @@ class TestSetupCommand:
 
 class TestPerformBundle:
     @patch("snowflake.cli._plugins.apps.manager.get_cli_context")
-    @patch("snowflake.cli._plugins.apps.manager.bundle_artifacts")
+    @patch("snowflake.cli._plugins.apps.manager._bundle_app_artifacts")
     def test_creates_bundle_root_and_calls_bundle_artifacts(
         self, mock_bundle, mock_ctx, tmp_path
     ):
@@ -1516,7 +1517,7 @@ class TestPerformBundle:
         mock_bundle.assert_called_once_with(result, entity.artifacts)
 
     @patch("snowflake.cli._plugins.apps.manager.get_cli_context")
-    @patch("snowflake.cli._plugins.apps.manager.bundle_artifacts")
+    @patch("snowflake.cli._plugins.apps.manager._bundle_app_artifacts")
     def test_removes_existing_bundle_root(self, mock_bundle, mock_ctx, tmp_path):
         mock_ctx().project_root = tmp_path
 
@@ -1534,7 +1535,7 @@ class TestPerformBundle:
         assert not (result.bundle_root / "old_file.txt").exists()
 
     @patch("snowflake.cli._plugins.apps.manager.get_cli_context")
-    @patch("snowflake.cli._plugins.apps.manager.bundle_artifacts")
+    @patch("snowflake.cli._plugins.apps.manager._bundle_app_artifacts")
     def test_returns_project_paths(self, mock_bundle, mock_ctx, tmp_path):
         mock_ctx().project_root = tmp_path
 
@@ -1545,6 +1546,28 @@ class TestPerformBundle:
 
         assert result.project_root == tmp_path
         assert result.bundle_root == tmp_path / "output" / "bundle"
+
+    @patch("snowflake.cli._plugins.apps.manager.get_cli_context")
+    def test_excludes_bundle_root_recursion_for_snowflake_apps(
+        self, mock_ctx, tmp_path
+    ):
+        mock_ctx().project_root = tmp_path
+
+        (tmp_path / "app").mkdir(parents=True)
+        (tmp_path / "app" / "main.py").write_text("print('ok')\n")
+        (tmp_path / "output").mkdir(parents=True)
+        (tmp_path / "output" / "keep.txt").write_text("keep\n")
+        (tmp_path / "output" / "bundle").mkdir(parents=True)
+        (tmp_path / "output" / "bundle" / "recursive.txt").write_text("recursive\n")
+
+        entity = Mock()
+        entity.artifacts = [PathMapping(src="*", dest="./")]
+
+        result = perform_bundle("my_app", entity)
+
+        assert (result.bundle_root / "app" / "main.py").exists()
+        assert (result.bundle_root / "output" / "keep.txt").exists()
+        assert not (result.bundle_root / "output" / "bundle" / "recursive.txt").exists()
 
 
 # ── Bundle CLI command tests ──────────────────────────────────────────

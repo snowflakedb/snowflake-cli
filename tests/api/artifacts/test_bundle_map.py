@@ -1171,23 +1171,3 @@ class TestIgnorePatterns:
         srcs = self._posix_srcs(bm, project_root)
         assert "app/main.py" in srcs
         assert "app/node_modules/pkg/index.js" in srcs
-
-
-def test_expand_directories_skips_deploy_root_subtree(tmp_path):
-    project_root = tmp_path / "project"
-    deploy_root = project_root / "output" / "bundle"
-    touch(str(project_root / "app/main.py"))
-    touch(str(project_root / "output/keep.txt"))
-    touch(str(project_root / "output/bundle/recursive.txt"))
-
-    bm = BundleMap(project_root=project_root, deploy_root=deploy_root)
-    bm.add(PathMapping(src="*", dest="./"))
-
-    srcs = [
-        s.relative_to(project_root).as_posix()
-        for s, _ in bm.all_mappings(absolute=True, expand_directories=True)
-        if s.is_file()
-    ]
-    assert "app/main.py" in srcs
-    assert "output/keep.txt" in srcs
-    assert "output/bundle/recursive.txt" not in srcs
