@@ -209,6 +209,7 @@ class OpenConnectionCache:
 
     connections: dict[str, SnowflakeConnection]
     cleanup_futures: dict[str, asyncio.TimerHandle]
+    failures: dict[str, Exception]
 
     CONNECTION_CLEANUP_SEC: float = 10.0 * 60
     """Connections are closed this many seconds after the last time they are accessed."""
@@ -216,6 +217,7 @@ class OpenConnectionCache:
     def __init__(self):
         self.connections = {}
         self.cleanup_futures = {}
+        self.failures = {}
 
     def __getitem__(self, ctx):
         if not isinstance(ctx, ConnectionContext):
@@ -223,6 +225,14 @@ class OpenConnectionCache:
                 f"Expected key to be ConnectionContext but got {repr(ctx)}"
             )
         key = repr(ctx)
+        if key in self.failures:
+            # A prior attempt for this context already failed; re-raise rather
+            # than dialing again. Without this, every access of the CLI's
+            # global connection (pre-command telemetry, command body, error
+            # handler, post-command telemetry) would trigger an independent
+            # connect() call, producing duplicate LOGIN_HISTORY events on
+            # auth-policy rejection and similar deterministic failures.
+            raise self.failures[key]
         if not self._has_open_connection(key):
             self._insert(key, ctx)
         self._touch(key)
@@ -238,6 +248,11 @@ class OpenConnectionCache:
         for future in self.cleanup_futures.values():
             future.cancel()
         self.cleanup_futures.clear()
+        self.failures.clear()
+
+    def clear_failures(self):
+        """Forgets cached failed-connection attempts so they can be retried."""
+        self.failures.clear()
 
     def _has_open_connection(self, key: str):
         return key in self.connections
@@ -250,10 +265,11 @@ class OpenConnectionCache:
             # given ConnectionContext if get_env_value or get_connection_dict would
             # have returned different values (i.e. env / config have changed).
             self.connections[key] = ctx.build_connection()
-        except Exception:
+        except Exception as exc:
             logger.debug(
-                "ConnectionCache: failed to connect using %s; not caching.", key
+                "ConnectionCache: failed to connect using %s; caching failure.", key
             )
+            self.failures[key] = exc
             raise
 
     def _cancel_cleanup_future_if_exists(self, key: str):

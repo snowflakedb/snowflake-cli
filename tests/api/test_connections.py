@@ -98,3 +98,99 @@ def test_connection_cache_caches(
         password="dummy_password",
         application_name="snowcli",
     )
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+def test_connection_cache_caches_failures(
+    mock_command_info, mock_connect, local_connection_cache, test_snowcli_config
+):
+    """Once a connect() call fails, subsequent accesses must re-raise without
+    re-dialing — otherwise auth-policy rejection logs duplicate LOGIN_HISTORY
+    events (one per access of the CLI's global connection: pre-command
+    telemetry, command body, error handler, post-command telemetry).
+    """
+    from snowflake.cli.api.exceptions import InvalidConnectionConfigurationError
+    from snowflake.connector.errors import DatabaseError
+
+    mock_command_info.return_value = "application"
+    mock_connect.side_effect = DatabaseError(
+        msg="Failed to connect to DB: host:port. Sign-in disallowed by authentication policy",
+        errno=250001,
+    )
+
+    from snowflake.cli.api.config import config_init
+
+    config_init(test_snowcli_config)
+
+    ctx = ConnectionContext(connection_name="default")
+
+    cached_exc = None
+    for _ in range(3):
+        with pytest.raises(InvalidConnectionConfigurationError) as excinfo:
+            local_connection_cache[ctx]
+        if cached_exc is None:
+            cached_exc = excinfo.value
+        else:
+            assert excinfo.value is cached_exc
+
+    assert mock_connect.call_count == 1
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+def test_connection_cache_clear_failures_allows_retry(
+    mock_command_info, mock_connect, local_connection_cache, test_snowcli_config
+):
+    from snowflake.cli.api.exceptions import InvalidConnectionConfigurationError
+    from snowflake.connector.errors import DatabaseError
+
+    mock_command_info.return_value = "application"
+    mock_connect.side_effect = [
+        DatabaseError(msg="boom", errno=250001),
+        mock.MagicMock(),
+    ]
+
+    from snowflake.cli.api.config import config_init
+
+    config_init(test_snowcli_config)
+
+    ctx = ConnectionContext(connection_name="default")
+
+    with pytest.raises(InvalidConnectionConfigurationError):
+        local_connection_cache[ctx]
+    assert mock_connect.call_count == 1
+
+    local_connection_cache.clear_failures()
+
+    local_connection_cache[ctx]
+    assert mock_connect.call_count == 2
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+def test_connection_cache_clear_also_forgets_failures(
+    mock_command_info, mock_connect, local_connection_cache, test_snowcli_config
+):
+    from snowflake.cli.api.exceptions import InvalidConnectionConfigurationError
+    from snowflake.connector.errors import DatabaseError
+
+    mock_command_info.return_value = "application"
+    mock_connect.side_effect = [
+        DatabaseError(msg="boom", errno=250001),
+        mock.MagicMock(),
+    ]
+
+    from snowflake.cli.api.config import config_init
+
+    config_init(test_snowcli_config)
+
+    ctx = ConnectionContext(connection_name="default")
+
+    with pytest.raises(InvalidConnectionConfigurationError):
+        local_connection_cache[ctx]
+
+    local_connection_cache.clear()
+
+    local_connection_cache[ctx]
+    assert mock_connect.call_count == 2
