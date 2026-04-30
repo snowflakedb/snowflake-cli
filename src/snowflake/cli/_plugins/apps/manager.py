@@ -507,27 +507,32 @@ class SnowflakeAppManager(SqlExecutionMixin):
         self.execute_query(f"DROP STAGE IF EXISTS {stage_fqn.sql_identifier}")
 
     def create_workspace(self, workspace_fqn: FQN) -> None:
-        """Create a workspace (if missing) and ensure it has a live version.
-
-        A new Snowflake workspace does not have a live version until one is
-        created; the live version is what the ``snow://workspace/.../versions/live/``
-        URI resolves against.  We follow the create with
-        ``ALTER WORKSPACE ... ADD LIVE VERSION FROM LAST`` so the workspace
-        is immediately writable.  If a live version already exists (re-deploy
-        of an existing workspace) Snowflake returns ``099106 (42710): There
-        is already a live version`` which we treat as success.
-        """
+        """Create a workspace if needed and ensure it has a live version."""
         self.execute_query(
             f"CREATE WORKSPACE IF NOT EXISTS {workspace_fqn.sql_identifier}"
         )
+        self.ensure_workspace_live_version(workspace_fqn)
+
+    def ensure_workspace_live_version(self, workspace_fqn: FQN) -> None:
+        """Ensure the workspace has a writable live version."""
         try:
+            # TODO: switch to "ADD LIVE VERSION IF NOT EXISTS FROM LAST"
+            # when Snowflake workspaces support that syntax.
             self.execute_query(
                 f"ALTER WORKSPACE {workspace_fqn.sql_identifier} "
                 f"ADD LIVE VERSION FROM LAST"
             )
         except ProgrammingError as e:
-            if "already a live version" not in str(e).lower():
-                raise
+            error_text = str(e)
+            if getattr(e, "errno", None) == 99106 or (
+                "099106" in error_text and "42710" in error_text
+            ):
+                return
+            raise
+
+    def commit_workspace_live_version(self, workspace_fqn: FQN) -> None:
+        """Commit the current workspace live version."""
+        self.execute_query(f"ALTER WORKSPACE {workspace_fqn.sql_identifier} COMMIT")
 
     def clear_workspace(self, workspace_fqn: FQN) -> None:
         """Remove all files from the workspace's live version."""
@@ -547,12 +552,55 @@ class SnowflakeAppManager(SqlExecutionMixin):
             f"/{WORKSPACE_LIVE_VERSION_PATH}"
         )
 
+    def workspace_last_uri(self, workspace_fqn: FQN) -> str:
+        """Return the ``snow://workspace/...`` URI pointing at the last committed version."""
+        return f"snow://workspace/{workspace_fqn.identifier}" f"/versions/last"
+
     def workspace_subdirectory_uri(
         self, workspace_fqn: FQN, directory_name: str
     ) -> str:
         """Return a workspace URI under the live version for *directory_name*."""
         normalized_directory = directory_name.strip("/")
         return f"{self.workspace_uri(workspace_fqn)}/{normalized_directory}"
+
+    def workspace_last_subdirectory_uri(
+        self, workspace_fqn: FQN, directory_name: str
+    ) -> str:
+        """Return a workspace URI under the last committed version for *directory_name*."""
+        normalized_directory = directory_name.strip("/")
+        return f"{self.workspace_last_uri(workspace_fqn)}/{normalized_directory}"
+
+    def get_default_workspace_version_subdirectory_uri(
+        self, workspace_fqn: FQN, directory_name: str
+    ) -> str:
+        """Return URI for *directory_name* under the workspace default version."""
+        cursor = self.execute_query(
+            f"DESCRIBE WORKSPACE {workspace_fqn.sql_identifier}",
+            cursor_class=DictCursor,
+        )
+        row = cursor.fetchone()
+        if row is None:
+            raise CliError(
+                f"Could not describe workspace {workspace_fqn.identifier} "
+                "to resolve default version."
+            )
+        location_uri = (
+            row.get("default_version_location_uri")
+            or row.get("DEFAULT_VERSION_LOCATION_URI")
+            or ""
+        )
+        if not location_uri:
+            version_name = row.get("default_version_name") or row.get(
+                "DEFAULT_VERSION_NAME"
+            )
+            if version_name:
+                location_uri = f"snow://workspace/{workspace_fqn.identifier}/versions/{version_name}/"
+        if not location_uri:
+            raise CliError(
+                f"Could not resolve default version for workspace {workspace_fqn.identifier}."
+            )
+        normalized_directory = directory_name.strip("/")
+        return f"{str(location_uri).rstrip('/')}/{normalized_directory}"
 
     def clear_workspace_subdirectory(
         self, workspace_fqn: FQN, directory_name: str

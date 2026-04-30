@@ -31,6 +31,7 @@ from snowflake.cli._plugins.apps.manager import (
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
+from snowflake.connector.cursor import DictCursor
 from snowflake.connector.errors import ProgrammingError
 
 from tests_common import change_directory
@@ -477,6 +478,112 @@ class TestSnowflakeAppManager:
         mock_execute.assert_called_once_with(
             "CREATE STAGE IF NOT EXISTS IDENTIFIER('DB.SCHEMA.STAGE') ENCRYPTION = (TYPE = 'SNOWFLAKE_FULL')"
         )
+
+    @patch(EXECUTE_QUERY)
+    def test_create_workspace_ensures_live_version(self, mock_execute):
+        fqn = FQN(database="DB", schema="SCHEMA", name="WORKSPACE")
+        SnowflakeAppManager().create_workspace(fqn)
+        assert [c[0][0] for c in mock_execute.call_args_list] == [
+            "CREATE WORKSPACE IF NOT EXISTS IDENTIFIER('DB.SCHEMA.WORKSPACE')",
+            (
+                "ALTER WORKSPACE IDENTIFIER('DB.SCHEMA.WORKSPACE') "
+                "ADD LIVE VERSION FROM LAST"
+            ),
+        ]
+
+    @patch(EXECUTE_QUERY)
+    def test_commit_workspace_live_version(self, mock_execute):
+        fqn = FQN(database="DB", schema="SCHEMA", name="WORKSPACE")
+        SnowflakeAppManager().commit_workspace_live_version(fqn)
+        mock_execute.assert_called_once_with(
+            "ALTER WORKSPACE IDENTIFIER('DB.SCHEMA.WORKSPACE') COMMIT"
+        )
+
+    @patch(EXECUTE_QUERY)
+    def test_ensure_workspace_live_version(self, mock_execute):
+        fqn = FQN(database="DB", schema="SCHEMA", name="WORKSPACE")
+        SnowflakeAppManager().ensure_workspace_live_version(fqn)
+        mock_execute.assert_called_once_with(
+            "ALTER WORKSPACE IDENTIFIER('DB.SCHEMA.WORKSPACE') "
+            "ADD LIVE VERSION FROM LAST"
+        )
+
+    @patch(EXECUTE_QUERY)
+    def test_ensure_workspace_live_version_ignores_duplicate_live_version_error(
+        self, mock_execute
+    ):
+        fqn = FQN(database="DB", schema="SCHEMA", name="WORKSPACE")
+        mock_execute.side_effect = ProgrammingError(
+            "099106 (42710): There is already a live version"
+        )
+        SnowflakeAppManager().ensure_workspace_live_version(fqn)
+
+    @patch(EXECUTE_QUERY)
+    def test_ensure_workspace_live_version_raises_unexpected_programming_error(
+        self, mock_execute
+    ):
+        fqn = FQN(database="DB", schema="SCHEMA", name="WORKSPACE")
+        mock_execute.side_effect = ProgrammingError("some other error")
+        with pytest.raises(ProgrammingError):
+            SnowflakeAppManager().ensure_workspace_live_version(fqn)
+
+    @patch(EXECUTE_QUERY)
+    def test_get_default_workspace_version_subdirectory_uri(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = {
+            "default_version_name": "VERSION$7",
+            "default_version_location_uri": (
+                "snow://workspace/DB.SCHEMA.WORKSPACE/versions/version$7/"
+            ),
+        }
+        mock_execute.return_value = cursor
+        fqn = FQN(database="DB", schema="SCHEMA", name="WORKSPACE")
+        assert (
+            SnowflakeAppManager().get_default_workspace_version_subdirectory_uri(
+                fqn, "MY_APP"
+            )
+            == "snow://workspace/DB.SCHEMA.WORKSPACE/versions/version$7/MY_APP"
+        )
+        mock_execute.assert_called_once_with(
+            "DESCRIBE WORKSPACE IDENTIFIER('DB.SCHEMA.WORKSPACE')",
+            cursor_class=DictCursor,
+        )
+
+    @patch(EXECUTE_QUERY)
+    def test_get_default_workspace_version_subdirectory_uri_uses_name_fallback(
+        self, mock_execute
+    ):
+        cursor = Mock()
+        cursor.fetchone.return_value = {
+            "default_version_name": "VERSION$9",
+            "default_version_location_uri": "",
+        }
+        mock_execute.return_value = cursor
+        fqn = FQN(database="DB", schema="SCHEMA", name="WORKSPACE")
+        assert (
+            SnowflakeAppManager().get_default_workspace_version_subdirectory_uri(
+                fqn, "MY_APP"
+            )
+            == "snow://workspace/DB.SCHEMA.WORKSPACE/versions/VERSION$9/MY_APP"
+        )
+
+    @patch(EXECUTE_QUERY)
+    def test_get_default_workspace_version_subdirectory_uri_raises_when_missing(
+        self, mock_execute
+    ):
+        cursor = Mock()
+        cursor.fetchone.return_value = {
+            "default_version_name": "",
+            "default_version_location_uri": "",
+        }
+        mock_execute.return_value = cursor
+        fqn = FQN(database="DB", schema="SCHEMA", name="WORKSPACE")
+        with pytest.raises(
+            CliError, match="Could not resolve default version for workspace"
+        ):
+            SnowflakeAppManager().get_default_workspace_version_subdirectory_uri(
+                fqn, "MY_APP"
+            )
 
     @staticmethod
     def _find_query(call_args_list, substr):
@@ -2607,9 +2714,15 @@ class TestDeployCommand:
             FQN(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP_CODE"),
             "MY_APP",
         )
+        mock_mgr.commit_workspace_live_version.assert_called_once_with(
+            FQN(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP_CODE")
+        )
+        mock_mgr.ensure_workspace_live_version.assert_called_once_with(
+            FQN(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP_CODE")
+        )
         mock_mgr.create_stage.assert_not_called()
         mock_mgr.build_app_artifact_repo.assert_called_once_with(
-            source_uri=mock_mgr.workspace_subdirectory_uri.return_value,
+            source_uri=mock_mgr.get_default_workspace_version_subdirectory_uri.return_value,
             artifact_repo_fqn="TEST_DB.TEST_SCHEMA.MY_APP_REPO",
             app_id="MY_APP",
             compute_pool="BUILD_POOL",
@@ -2617,6 +2730,10 @@ class TestDeployCommand:
             schema="TEST_SCHEMA",
             runtime_image="runtime:latest",
             build_eai="MY_EAI",
+        )
+        mock_mgr.get_default_workspace_version_subdirectory_uri.assert_called_once_with(
+            FQN(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP_CODE"),
+            "MY_APP",
         )
         mock_mgr.create_app_service.assert_called_once_with(
             service_fqn=FQN(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP"),
@@ -2981,6 +3098,8 @@ class TestDeployCommand:
             assert "Artifacts uploaded" in result.output
 
         mock_mgr.create_workspace.assert_called_once()
+        mock_mgr.commit_workspace_live_version.assert_called_once()
+        mock_mgr.ensure_workspace_live_version.assert_called_once()
         mock_perform_bundle.assert_called_once()
         mock_mgr.build_app_artifact_repo.assert_not_called()
         mock_mgr.create_app_service.assert_not_called()

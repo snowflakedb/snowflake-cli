@@ -230,6 +230,26 @@ class BundleMap:
 
         if absolute_src.is_dir() and expand_directories:
             for root, subdirs, files in os.walk(absolute_src, followlinks=True):
+                resolved_root = resolve_without_follow(Path(root))
+                if (
+                    resolved_root == self._deploy_root
+                    or self._deploy_root in resolved_root.parents
+                ):
+                    # Skip any directory under deploy_root to avoid recursively
+                    # re-bundling generated output (e.g. output/bundle).
+                    subdirs[:] = []
+                    continue
+
+                subdirs[:] = [
+                    d
+                    for d in subdirs
+                    if (
+                        (resolved_subdir := resolve_without_follow(Path(root) / d))
+                        != self._deploy_root
+                        and self._deploy_root not in resolved_subdir.parents
+                    )
+                ]
+
                 if ignore:
                     subdirs[:] = [d for d in subdirs if not _matches_ignore(d, ignore)]
                     files = [f for f in files if not _matches_ignore(f, ignore)]

@@ -466,6 +466,10 @@ def snowflake_app_deploy(
                     cli_console.step(
                         f"  Uploaded {result['source']} -> {result['target']}"
                     )
+                cli_console.step(f"Committing workspace live version for {storage_fqn}")
+                manager.commit_workspace_live_version(storage_fqn)
+                cli_console.step(f"Creating a fresh live version for {storage_fqn}")
+                manager.ensure_workspace_live_version(storage_fqn)
             else:
                 if manager.stage_exists(storage_fqn):
                     cli_console.step(f"Clearing existing stage @{storage_fqn}")
@@ -515,7 +519,24 @@ def snowflake_app_deploy(
             build_eai=build_eai,
         )
         if use_workspace:
-            build_kwargs["source_uri"] = workspace_source_uri
+            # NOTE: We intentionally do not use ``.../versions/last/...`` here.
+            # Due to a current SPCS_TEST_BUILD_APP_ARTIFACT_REPO issue, that
+            # alias path can fail. Resolve the workspace default version URI
+            # from ``DESCRIBE WORKSPACE`` and pass that exact version location.
+            workspace_build_source_uri = (
+                manager.get_default_workspace_version_subdirectory_uri(
+                    storage_fqn, app_name
+                )
+            )
+            workspace_build_source_uri_str = str(workspace_build_source_uri)
+            version_match = re.search(
+                r"/versions/([^/]+)/", workspace_build_source_uri_str
+            )
+            workspace_version = (
+                version_match.group(1) if version_match else "<unknown-version>"
+            )
+            cli_console.step(f"Using workspace version for build: {workspace_version}")
+            build_kwargs["source_uri"] = workspace_build_source_uri
         else:
             build_kwargs["stage_fqn"] = storage_fqn
         build_result = manager.build_app_artifact_repo(**build_kwargs)
