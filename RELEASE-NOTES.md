@@ -21,6 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
+* Fixed duplicate `LOGIN_HISTORY` events (and `OVERFLOW_FAILURE_EVENTS_ELIDED`) emitted when a `snow` command is rejected by an authentication policy. The internal connection cache now remembers a failed connect attempt and re-raises it on subsequent accesses within the same process, instead of re-dialing Snowflake once per access of the shared connection.
 
 
 # v3.17.0
