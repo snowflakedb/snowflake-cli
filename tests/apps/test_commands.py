@@ -528,7 +528,7 @@ class TestSnowflakeAppManager:
             SnowflakeAppManager().ensure_workspace_live_version(fqn)
 
     @patch(EXECUTE_QUERY)
-    def test_get_default_workspace_version_subdirectory_uri(self, mock_execute):
+    def test_get_default_workspace_version_uri(self, mock_execute):
         cursor = Mock()
         cursor.fetchone.return_value = {
             "default_version_name": "VERSION$7",
@@ -539,10 +539,8 @@ class TestSnowflakeAppManager:
         mock_execute.return_value = cursor
         fqn = FQN(database="DB", schema="SCHEMA", name="WORKSPACE")
         assert (
-            SnowflakeAppManager().get_default_workspace_version_subdirectory_uri(
-                fqn, "MY_APP"
-            )
-            == "snow://workspace/DB.SCHEMA.WORKSPACE/versions/version$7/MY_APP"
+            SnowflakeAppManager().get_default_workspace_version_uri(fqn)
+            == "snow://workspace/DB.SCHEMA.WORKSPACE/versions/version$7"
         )
         mock_execute.assert_called_once_with(
             "DESCRIBE WORKSPACE IDENTIFIER('DB.SCHEMA.WORKSPACE')",
@@ -550,9 +548,7 @@ class TestSnowflakeAppManager:
         )
 
     @patch(EXECUTE_QUERY)
-    def test_get_default_workspace_version_subdirectory_uri_uses_name_fallback(
-        self, mock_execute
-    ):
+    def test_get_default_workspace_version_uri_uses_name_fallback(self, mock_execute):
         cursor = Mock()
         cursor.fetchone.return_value = {
             "default_version_name": "VERSION$9",
@@ -561,16 +557,12 @@ class TestSnowflakeAppManager:
         mock_execute.return_value = cursor
         fqn = FQN(database="DB", schema="SCHEMA", name="WORKSPACE")
         assert (
-            SnowflakeAppManager().get_default_workspace_version_subdirectory_uri(
-                fqn, "MY_APP"
-            )
-            == "snow://workspace/DB.SCHEMA.WORKSPACE/versions/VERSION$9/MY_APP"
+            SnowflakeAppManager().get_default_workspace_version_uri(fqn)
+            == "snow://workspace/DB.SCHEMA.WORKSPACE/versions/VERSION$9"
         )
 
     @patch(EXECUTE_QUERY)
-    def test_get_default_workspace_version_subdirectory_uri_raises_when_missing(
-        self, mock_execute
-    ):
+    def test_get_default_workspace_version_uri_raises_when_missing(self, mock_execute):
         cursor = Mock()
         cursor.fetchone.return_value = {
             "default_version_name": "",
@@ -581,9 +573,7 @@ class TestSnowflakeAppManager:
         with pytest.raises(
             CliError, match="Could not resolve default version for workspace"
         ):
-            SnowflakeAppManager().get_default_workspace_version_subdirectory_uri(
-                fqn, "MY_APP"
-            )
+            SnowflakeAppManager().get_default_workspace_version_uri(fqn)
 
     @staticmethod
     def _find_query(call_args_list, substr):
