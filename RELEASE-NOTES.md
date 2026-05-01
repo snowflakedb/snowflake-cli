@@ -21,6 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
+* Snowsight URLs are now generated with a graceful fallback to `https://app.snowflake.com` when the connection's region or account cannot be resolved (for example, on Azure accounts whose host does not match the 6-part `<account>.<x>.<y>.<z>.snowflakecomputing.com` shape). Previously, commands such as `snow app run`, `snow streamlit deploy`, and `snow apps service get-endpoints` could fail purely because a precise URL could not be built even though the underlying deployment succeeded.
 
 
 # v3.17.0
