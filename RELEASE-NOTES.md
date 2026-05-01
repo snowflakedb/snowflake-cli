@@ -22,6 +22,7 @@
 
 ## Fixes and improvements
 * Upgraded `pip` from 26.1.1 to 26.1.2.
+* Snowsight URLs are now generated with a graceful fallback to `https://app.snowflake.com` when the connection's region or account cannot be resolved (for example, on Azure accounts whose host does not match the 6-part `<account>.<x>.<y>.<z>.snowflakecomputing.com` shape). Previously, commands such as `snow app run`, `snow streamlit deploy`, and `snow apps service get-endpoints` could fail purely because a precise URL could not be built even though the underlying deployment succeeded.
 * `snow app setup` and `snow app deploy` now default to a workspace (instead of a stage) for app code whenever the resolved destination is a personal database (`USER$<user>`), which do not support stages. An explicitly configured `code_stage` is still honored, with a warning when the destination is a personal database.
 * The `build_eai` field of a `snowflake-app` entity can now be specified as a bare string (e.g. `build_eai: MY_EAI`) in addition to the existing `build_eai:\n  name: MY_EAI` object form.
 
