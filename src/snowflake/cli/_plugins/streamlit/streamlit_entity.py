@@ -3,7 +3,11 @@ from pathlib import Path
 from typing import Optional
 
 from click import ClickException
-from snowflake.cli._plugins.connection.util import make_snowsight_url
+from snowflake.cli._plugins.connection.util import (
+    MissingConnectionAccountError,
+    MissingConnectionRegionError,
+    make_snowsight_url,
+)
 from snowflake.cli._plugins.nativeapp.artifacts import build_bundle
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli._plugins.streamlit.manager import StreamlitManager
@@ -62,9 +66,12 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         self, action_ctx: ActionContext, *args, **kwargs
     ):  # maybe this should be a property
         name = self._entity_model.fqn.using_connection(self._conn)
-        return make_snowsight_url(
-            self._conn, f"/#/streamlit-apps/{name.url_identifier}"
-        )
+        try:
+            return make_snowsight_url(
+                self._conn, f"/#/streamlit-apps/{name.url_identifier}"
+            )
+        except (MissingConnectionRegionError, MissingConnectionAccountError):
+            return "https://app.snowflake.com"
 
     def _is_spcs_runtime_v2_mode(self) -> bool:
         """Check if SPCS runtime v2 mode is enabled."""

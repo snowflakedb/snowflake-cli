@@ -141,6 +141,21 @@ class TestStreamlitEntity(StreamlitTestClass):
             f"CREATE STREAMLIT IDENTIFIER('{STREAMLIT_NAME}')\nROOT_LOCATION = '@streamlit/test_streamlit'\nMAIN_FILE = 'streamlit_app.py'\nQUERY_WAREHOUSE = test_warehouse\nTITLE = 'My Fancy Streamlit';"
         )
 
+    def test_action_get_url_falls_back_on_missing_region(
+        self, example_entity, action_context
+    ):
+        from snowflake.cli._plugins.connection.util import (
+            MissingConnectionRegionError,
+        )
+
+        self.mock_snowsight_url.side_effect = MissingConnectionRegionError(
+            "acct.us-east-1.snowflakecomputing.com"
+        )
+
+        url = example_entity.action_get_url(action_context)
+
+        assert url == "https://app.snowflake.com"
+
     def test_drop(self, example_entity, action_context):
         example_entity.action_drop(action_context)
         self.mock_execute.assert_called_with(

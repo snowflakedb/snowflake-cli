@@ -21,6 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
+* Fixed `snow streamlit deploy` surfacing a "host (...) was missing or not in the expected format" error after the Streamlit object had already been created successfully on accounts whose host cannot be resolved to a Snowsight region (for example accounts hosted in regions with hyphens like `us-east-1`). The deploy action now falls back to `https://app.snowflake.com` when the Snowsight URL cannot be built, matching the behavior of `snow streamlit get-url`.
 
 
 # v3.17.0
