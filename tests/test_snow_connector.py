@@ -260,6 +260,66 @@ def test_returns_nice_error_in_case_of_missing_master_token(runner):
     )
 
 
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+@mock.patch("snowflake.connector.connect")
+@mock.patch.dict(
+    os.environ,
+    {
+        "SNOWFLAKE_SESSION_TOKEN": "env-session-token",
+        "SNOWFLAKE_MASTER_TOKEN": "env-master-token",
+    },
+    clear=True,
+)
+def test_env_session_master_tokens_enable_keep_alive(
+    mock_connect, mock_command_info, test_snowcli_config
+):
+    """Session/master tokens from generic env vars should enable keep-alive."""
+    from snowflake.cli._app.snow_connector import connect_to_snowflake
+    from snowflake.cli.api.config import config_init
+
+    config_init(test_snowcli_config)
+    mock_command_info.return_value = "SNOWCLI.TEST"
+
+    connect_to_snowflake(connection_name="default")
+
+    mock_connect.assert_called_once()
+    call_kwargs = mock_connect.call_args[1]
+    assert call_kwargs["session_token"] == "env-session-token"
+    assert call_kwargs["master_token"] == "env-master-token"
+    assert call_kwargs["server_session_keep_alive"] is True
+    assert call_kwargs["client_session_keep_alive"] is True
+    assert call_kwargs["client_session_keep_alive_heartbeat_frequency"] == 3600
+
+
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+@mock.patch("snowflake.cli._app.snow_connector.get_connection_dict")
+@mock.patch("snowflake.connector.connect")
+@mock.patch.dict(os.environ, {}, clear=True)
+def test_config_session_master_tokens_enable_keep_alive(
+    mock_connect, mock_get_connection_dict, mock_command_info
+):
+    """Session/master tokens from connection config should enable keep-alive."""
+    from snowflake.cli._app.snow_connector import connect_to_snowflake
+
+    mock_command_info.return_value = "SNOWCLI.TEST"
+    mock_get_connection_dict.return_value = {
+        "account": "test_account",
+        "user": "test_user",
+        "session_token": "cfg-session-token",
+        "master_token": "cfg-master-token",
+    }
+
+    connect_to_snowflake(connection_name="qa6bug")
+
+    mock_connect.assert_called_once()
+    call_kwargs = mock_connect.call_args[1]
+    assert call_kwargs["session_token"] == "cfg-session-token"
+    assert call_kwargs["master_token"] == "cfg-master-token"
+    assert call_kwargs["server_session_keep_alive"] is True
+    assert call_kwargs["client_session_keep_alive"] is True
+    assert call_kwargs["client_session_keep_alive_heartbeat_frequency"] == 3600
+
+
 @mock.patch("snowflake.connector.connect")
 @pytest.mark.parametrize("feature_flag", [None, True, False])
 def test_internal_application_data_is_sent_if_feature_flag_is_set(

@@ -228,6 +228,12 @@ def connect_to_snowflake(
                 "connection_diag_allowlist_path"
             ] = diag_allowlist_path
 
+    # Determine token-based auth from the final merged parameters (flags/config/env).
+    # Keep the existing guard behavior above unchanged for now, but ensure keep-alive
+    # protections are applied whenever session/master tokens are actually used.
+    using_session_token = "session_token" in connection_parameters
+    using_master_token = "master_token" in connection_parameters
+
     # Make sure the connection is not closed if it was shared to the SnowCLI, instead of being created in the SnowCLI
     _avoid_closing_the_connection_if_it_was_shared(
         using_session_token, using_master_token, connection_parameters
