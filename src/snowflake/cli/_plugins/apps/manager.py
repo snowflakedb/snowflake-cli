@@ -29,7 +29,8 @@ if TYPE_CHECKING:
         SnowflakeAppEntityModel,
     )
 from snowflake.cli._plugins.object.manager import ObjectManager
-from snowflake.cli.api.artifacts.utils import bundle_artifacts
+from snowflake.cli.api.artifacts.bundle_map import BundleMap
+from snowflake.cli.api.artifacts.utils import symlink_or_copy
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliError
@@ -37,6 +38,7 @@ from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import ProjectPaths
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.cli.api.utils.path_utils import resolve_without_follow
 from snowflake.connector.cursor import DictCursor
 from snowflake.connector.errors import ProgrammingError
 
@@ -310,9 +312,37 @@ def perform_bundle(
     SecurePath(project_paths.bundle_root).mkdir(parents=True, exist_ok=True)
 
     cli_console.step(f"Bundling source files for '{resolved_entity_id}'")
-    bundle_artifacts(project_paths, artifacts)
+    _bundle_app_artifacts(project_paths, artifacts)
 
     return project_paths
+
+
+def _bundle_app_artifacts(project_paths: ProjectPaths, artifacts) -> BundleMap:
+    """Bundle snowflake-app artifacts while excluding the active bundle root subtree."""
+    bundle_root = resolve_without_follow(project_paths.bundle_root)
+    bundle_map = BundleMap(
+        project_root=project_paths.project_root,
+        deploy_root=project_paths.bundle_root,
+    )
+    for artifact in artifacts:
+        bundle_map.add(artifact)
+
+    def _exclude_bundle_root_sources(src: Path, _dest: Path) -> bool:
+        resolved_src = resolve_without_follow(src)
+        return resolved_src != bundle_root and bundle_root not in resolved_src.parents
+
+    for absolute_src, absolute_dest in bundle_map.all_mappings(
+        absolute=True,
+        expand_directories=True,
+        predicate=_exclude_bundle_root_sources,
+    ):
+        if absolute_src.is_file():
+            symlink_or_copy(
+                absolute_src,
+                absolute_dest,
+                deploy_root=project_paths.bundle_root,
+            )
+    return bundle_map
 
 
 _EXPOSE_SIMPLE_RE = re.compile(
