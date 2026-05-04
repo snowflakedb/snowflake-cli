@@ -22,6 +22,7 @@
 
 ## Fixes and improvements
 * Fixed `snow connection generate-jwt` and `snow connection generate-workload-identity-token` failing with `Connection None is not configured` when used with `--temporary-connection`.
+* Fixed `snow sql` treating `&` inside words (e.g. `Principal&Interest` in a comment or semantic view synonym) as a SnowSQL template variable, which caused rendering to fail with `'Interest' is undefined`. The legacy `&var` template delimiter is now only recognised at the start of the input or after a non-word character.
 
 
 # v3.17.0
