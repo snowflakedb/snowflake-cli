@@ -399,7 +399,9 @@ def _load_pem_to_der(
     connection config) so existing setups keep working.
     """
     env_passphrase = os.getenv("PRIVATE_KEY_PASSPHRASE")
-    resolved_passphrase = env_passphrase if env_passphrase is not None else config_passphrase
+    resolved_passphrase = (
+        env_passphrase if env_passphrase is not None else config_passphrase
+    )
     private_key_passphrase = SecretType(resolved_passphrase)
 
     if private_key_pem.value.startswith(ENCRYPTED_PKCS8_PK_HEADER):
