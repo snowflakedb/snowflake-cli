@@ -21,6 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
+* Fixed `snow connection generate-jwt` and `snow connection generate-workload-identity-token` failing with `Connection None is not configured` when used with `--temporary-connection`.
 
 
 # v3.17.0
