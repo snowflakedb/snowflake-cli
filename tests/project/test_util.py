@@ -265,11 +265,11 @@ def test_escape_like_pattern(raw_string, escaped):
         # must not close the SQL string literal. The embedded single quote is escaped
         # by being doubled ('') so the entire payload ends up as a harmless LIKE pattern.
         (
-            "\"stream'lit); GRANT ROLE ACCOUNTADMIN TO USER attacker;--\"",
+            '"stream\'lit); GRANT ROLE ACCOUNTADMIN TO USER attacker;--"',
             "'stream''lit); GRANT ROLE ACCOUNTADMIN TO USER attacker;--'",
         ),
         # A bare single quote in the identifier is doubled.
-        ("\"a'b\"", "'a''b'"),
+        ('"a\'b"', "'a''b'"),
         # Multiple embedded single quotes are each doubled.
         ("\"a'b'c\"", "'a''b''c'"),
     ],
