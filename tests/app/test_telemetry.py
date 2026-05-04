@@ -535,3 +535,40 @@ def test_pending_telemetry_drains_when_connection_opens(_, mock_connect, runner)
     assert calls[1].args[0].to_dict()["message"]["type"] == "result_executing_command"
     # Pending buffer should be drained after post_execute's flush.
     assert telemetry_client._pending == []  # noqa: SLF001
+
+
+def test_flush_clears_pending_when_forced_dial_fails():
+    """If ``flush(force_dial=True)`` is asked to dial but the dial raises,
+    ``_pending`` must still be cleared. Otherwise stale events (built with
+    an earlier ``platform.platform()`` / feature-flag snapshot) can leak
+    into the next command and be drained into its connector, corrupting
+    that command's telemetry.
+    """
+    from snowflake.cli._app.telemetry import CLITelemetryClient
+
+    client = CLITelemetryClient()
+    # Simulate an event buffered during pre_execute before any connection
+    # was available. The object itself doesn't matter for this test; we
+    # just need ``_pending`` to be non-empty so ``flush`` takes the
+    # force-dial branch.
+    client._pending.append(mock.sentinel.stale_event)  # noqa: SLF001
+
+    # Make the ``self._ctx.connection`` access blow up the same way a real
+    # failed dial would (no default connection, bad credentials, offline).
+    class _RaisingCtx:
+        @property
+        def connection(self):
+            raise RuntimeError("dial failed")
+
+        cached_connection = None
+
+    with mock.patch.object(
+        CLITelemetryClient,
+        "_ctx",
+        new_callable=mock.PropertyMock,
+        return_value=_RaisingCtx(),
+    ):
+        with pytest.raises(RuntimeError, match="dial failed"):
+            client.flush(force_dial=True)
+
+    assert client._pending == []  # noqa: SLF001

@@ -385,21 +385,25 @@ class CLITelemetryClient:
             self._pending.append(telemetry_data)
 
     def flush(self, force_dial: bool = False):
-        telemetry = self._telemetry
-        if telemetry is None and force_dial and self._pending:
-            # Command declared requires_connection=True (or otherwise expects
-            # telemetry to be delivered even on early failure). Dial now so
-            # buffered events still reach the batcher, matching the pre-
-            # SNOW-3450376 behaviour. ``@ignore_exceptions()`` on the caller
-            # swallows any dial failure, same as before.
-            telemetry = self._ctx.connection._telemetry  # noqa: SLF001
-        if telemetry:
-            self._drain_pending(telemetry)
-            telemetry.send_batch()
-        else:
-            # No connection, no dial; pending events are dropped, matching
-            # the pre-fix behaviour where ``@ignore_exceptions()`` swallowed
-            # any telemetry dial failure on no-connection commands.
+        try:
+            telemetry = self._telemetry
+            if telemetry is None and force_dial and self._pending:
+                # Command declared requires_connection=True (or otherwise
+                # expects telemetry to be delivered even on early failure).
+                # Dial now so buffered events still reach the batcher,
+                # matching the pre-SNOW-3450376 behaviour.
+                # ``@ignore_exceptions()`` on the caller swallows any dial
+                # failure, same as before.
+                telemetry = self._ctx.connection._telemetry  # noqa: SLF001
+            if telemetry:
+                self._drain_pending(telemetry)
+                telemetry.send_batch()
+        finally:
+            # Whatever happened above (success, dial failure, or unexpected
+            # error inside the connector), buffered events must not leak into
+            # the next command: they were built with an earlier context and
+            # dropping them here matches the pre-fix behaviour where
+            # ``@ignore_exceptions()`` swallowed any telemetry dial failure.
             self._pending.clear()
 
 
