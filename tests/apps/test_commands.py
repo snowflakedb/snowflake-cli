@@ -595,6 +595,20 @@ class TestSnowflakeAppManager:
         )
 
     @patch(EXECUTE_QUERY)
+    def test_get_default_workspace_version_uri_raises_when_describe_returns_no_row(
+        self, mock_execute
+    ):
+        cursor = Mock()
+        cursor.fetchone.return_value = None
+        mock_execute.return_value = cursor
+        fqn = FQN(database="DB", schema="SCHEMA", name="WORKSPACE")
+        with pytest.raises(
+            CliError,
+            match=r"Could not describe workspace DB\.SCHEMA\.WORKSPACE",
+        ):
+            SnowflakeAppManager().get_default_workspace_version_uri(fqn)
+
+    @patch(EXECUTE_QUERY)
     def test_get_default_workspace_version_uri_raises_when_missing(self, mock_execute):
         cursor = Mock()
         cursor.fetchone.return_value = {
@@ -659,6 +673,26 @@ class TestSnowflakeAppManager:
         )
         assert "app'injection" not in build_query
         assert "app\\'injection" in build_query
+
+    def test_build_app_artifact_repo_requires_repo_and_app_id(self):
+        stage_fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
+        mgr = SnowflakeAppManager()
+        with pytest.raises(ValueError, match="artifact_repo_fqn"):
+            mgr.build_app_artifact_repo(
+                stage_fqn=stage_fqn,
+                artifact_repo_fqn="",
+                app_id="my_app",
+                database="DB",
+                schema="SCHEMA",
+            )
+        with pytest.raises(ValueError, match="app_id"):
+            mgr.build_app_artifact_repo(
+                stage_fqn=stage_fqn,
+                artifact_repo_fqn="DB.SCHEMA.REPO",
+                app_id="  ",
+                database="DB",
+                schema="SCHEMA",
+            )
 
     @patch(EXECUTE_QUERY)
     def test_build_app_artifact_repo_restores_session(self, mock_execute):
@@ -1647,8 +1681,6 @@ class TestSetupCommand:
         }
         mock_mgr.get_personal_database.return_value = "USER$MYUSER"
 
-        from tests_common import change_directory
-
         with change_directory(tmp_path):
             result = runner.invoke(["app", "setup", "--app-name", "my_app"])
             assert result.exit_code == 0, result.output
@@ -2617,6 +2649,11 @@ RESOLVE_DEPLOY_DEFAULTS = (
     "snowflake.cli._plugins.apps.commands._resolve_deploy_defaults"
 )
 
+# Shape must include ``/versions/<id>/`` — deploy parses this for the build step message.
+_WORKSPACE_BUILD_SOURCE_URI = (
+    "snow://workspace/TEST_DB.TEST_SCHEMA.MY_APP_CODE/versions/version$1/MY_APP"
+)
+
 
 class TestDeployCommand:
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
@@ -2741,6 +2778,9 @@ class TestDeployCommand:
         mock_perform_bundle.return_value = project_paths
 
         mock_mgr = mock_manager_cls.return_value
+        mock_mgr.get_default_workspace_version_subdirectory_uri.return_value = (
+            _WORKSPACE_BUILD_SOURCE_URI
+        )
         mock_mgr.artifact_repo_exists.return_value = False
         mock_mgr.build_app_artifact_repo.return_value = (
             "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
@@ -2844,7 +2884,6 @@ class TestDeployCommand:
         fqn.schema = "TEST_SCHEMA"
         entity.fqn = fqn
         entity.code_stage = Mock(
-            name="MY_STAGE",
             encryption_type="SNOWFLAKE_SSE",
             database=None,
             schema_=None,
@@ -2963,6 +3002,9 @@ class TestDeployCommand:
         mock_perform_bundle.return_value = project_paths
 
         mock_mgr = mock_manager_cls.return_value
+        mock_mgr.get_default_workspace_version_subdirectory_uri.return_value = (
+            _WORKSPACE_BUILD_SOURCE_URI
+        )
         mock_mgr.artifact_repo_exists.return_value = True
         mock_mgr.build_app_artifact_repo.return_value = (
             "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
@@ -3061,6 +3103,9 @@ class TestDeployCommand:
         mock_perform_bundle.return_value = project_paths
 
         mock_mgr = mock_manager_cls.return_value
+        mock_mgr.get_default_workspace_version_subdirectory_uri.return_value = (
+            _WORKSPACE_BUILD_SOURCE_URI
+        )
         mock_mgr.stage_exists.return_value = False
         mock_mgr.artifact_repo_exists.return_value = False
         mock_mgr.build_app_artifact_repo.return_value = (
@@ -3202,6 +3247,9 @@ class TestDeployCommand:
         mock_get_entity.return_value = entity
 
         mock_mgr = mock_manager_cls.return_value
+        mock_mgr.get_default_workspace_version_subdirectory_uri.return_value = (
+            _WORKSPACE_BUILD_SOURCE_URI
+        )
         mock_mgr.artifact_repo_exists.return_value = False
         mock_mgr.build_app_artifact_repo.return_value = (
             "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"

@@ -537,9 +537,12 @@ def snowflake_app_deploy(
             version_match = re.search(
                 r"/versions/([^/]+)/", workspace_build_source_uri_str
             )
-            workspace_version = (
-                version_match.group(1) if version_match else "<unknown-version>"
-            )
+            if not version_match:
+                raise CliError(
+                    "Could not parse workspace version from default version URI "
+                    f"(unexpected format): {workspace_build_source_uri_str!r}"
+                )
+            workspace_version = version_match.group(1)
             cli_console.step(f"Using workspace version for build: {workspace_version}")
             build_kwargs["source_uri"] = workspace_build_source_uri
         else:

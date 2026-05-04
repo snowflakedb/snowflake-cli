@@ -642,6 +642,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
             )
         local_root = local_root.resolve()
         overwrite_str = str(overwrite).lower()
+        from snowflake.cli.api.project.util import to_string_literal
 
         for path in sorted(local_root.rglob("*")):
             if not path.is_file():
@@ -653,8 +654,9 @@ class SnowflakeAppManager(SqlExecutionMixin):
                 if rel_dir != Path(".")
                 else f"{base_uri}/"
             )
+            file_uri = f"file://{path.resolve().as_posix()}"
             self.execute_query(
-                f"PUT 'file://{path}' '{dest_dir}' "
+                f"PUT {to_string_literal(file_uri)} {to_string_literal(dest_dir)} "
                 f"auto_compress=false overwrite={overwrite_str}"
             )
             yield {"source": str(rel), "target": f"{dest_dir}{path.name}"}
@@ -812,6 +814,11 @@ class SnowflakeAppManager(SqlExecutionMixin):
             if stage_fqn is None:
                 raise ValueError("Either stage_fqn or source_uri must be provided")
             source_uri = f"@{stage_fqn.identifier}"
+
+        if not artifact_repo_fqn.strip():
+            raise ValueError("artifact_repo_fqn must be a non-empty string")
+        if not app_id.strip():
+            raise ValueError("app_id must be a non-empty string")
 
         with self._use_database_and_schema(database, schema):
             config = self._build_artifact_repo_config(build_eai)

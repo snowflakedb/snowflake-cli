@@ -1191,3 +1191,32 @@ def test_expand_directories_skips_deploy_root_subtree(tmp_path):
     assert "app/main.py" in srcs
     assert "output/keep.txt" in srcs
     assert "output/bundle/recursive.txt" not in srcs
+
+
+@pytest.mark.skipif(
+    IS_WINDOWS, reason="directory symlinks often require privileges on Windows"
+)
+def test_expand_directories_skips_deploy_root_when_entered_via_symlink(tmp_path):
+    """Walking must not traverse into deploy_root even via a symlink from elsewhere."""
+    project_root = tmp_path / "project"
+    deploy_root = project_root / "output" / "bundle"
+    deploy_root.mkdir(parents=True)
+    touch(str(project_root / "app/main.py"))
+    touch(str(project_root / "output/keep.txt"))
+    touch(str(deploy_root / "recursive.txt"))
+
+    link_parent = project_root / "app"
+    link = link_parent / "into_bundle"
+    link.symlink_to(os.path.relpath(deploy_root, link.parent), target_is_directory=True)
+
+    bm = BundleMap(project_root=project_root, deploy_root=deploy_root)
+    bm.add(PathMapping(src="*", dest="./"))
+
+    srcs = [
+        s.relative_to(project_root).as_posix()
+        for s, _ in bm.all_mappings(absolute=True, expand_directories=True)
+        if s.is_file()
+    ]
+    assert "app/main.py" in srcs
+    assert "output/keep.txt" in srcs
+    assert "output/bundle/recursive.txt" not in srcs
