@@ -657,6 +657,34 @@ class TestSnowflakeAppManager:
         desc = SnowflakeAppManager().describe_app_service(fqn)
         assert desc == {}
 
+    def test_resolve_application_service_url_from_describe(self):
+        mgr = SnowflakeAppManager()
+        assert mgr.resolve_application_service_url_from_describe({}) is None
+        assert (
+            mgr.resolve_application_service_url_from_describe(
+                {"url": "x.snowflakecomputing.app", "is_upgrading": "false"}
+            )
+            == "https://x.snowflakecomputing.app"
+        )
+        assert (
+            mgr.resolve_application_service_url_from_describe(
+                {"url": "https://x.snowflakecomputing.app", "is_upgrading": "false"}
+            )
+            == "https://x.snowflakecomputing.app"
+        )
+        assert (
+            mgr.resolve_application_service_url_from_describe(
+                {"url": "", "is_upgrading": "false"}
+            )
+            is None
+        )
+        assert (
+            mgr.resolve_application_service_url_from_describe(
+                {"url": "x.app", "is_upgrading": "true"}
+            )
+            is None
+        )
+
     @patch(EXECUTE_QUERY)
     def test_get_build_status_done(self, mock_execute):
         cursor = Mock()
@@ -799,16 +827,10 @@ class TestSnowflakeAppManager:
     @patch(EXECUTE_QUERY)
     def test_get_service_endpoint_url(self, mock_execute):
         cursor = Mock()
-        cursor.__iter__ = Mock(
-            return_value=iter(
-                [
-                    {
-                        "name": "app-endpoint",
-                        "ingress_url": "https://my-endpoint.snowflakecomputing.app",
-                    }
-                ]
-            )
-        )
+        cursor.fetchone.return_value = {
+            "url": "https://my-endpoint.snowflakecomputing.app",
+            "is_upgrading": "false",
+        }
         mock_execute.return_value = cursor
 
         fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
@@ -816,23 +838,16 @@ class TestSnowflakeAppManager:
         assert url == "https://my-endpoint.snowflakecomputing.app"
         mock_execute.assert_called_once()
         assert (
-            mock_execute.call_args[0][0]
-            == "SHOW ENDPOINTS IN APPLICATION SERVICE DB.SCHEMA.SVC"
+            mock_execute.call_args[0][0] == "DESCRIBE APPLICATION SERVICE DB.SCHEMA.SVC"
         )
 
     @patch(EXECUTE_QUERY)
     def test_get_service_endpoint_url_adds_https_prefix(self, mock_execute):
         cursor = Mock()
-        cursor.__iter__ = Mock(
-            return_value=iter(
-                [
-                    {
-                        "name": "app-endpoint",
-                        "ingress_url": "my-endpoint.snowflakecomputing.app",
-                    }
-                ]
-            )
-        )
+        cursor.fetchone.return_value = {
+            "url": "my-endpoint.snowflakecomputing.app",
+            "is_upgrading": "false",
+        }
         mock_execute.return_value = cursor
 
         fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
@@ -842,7 +857,7 @@ class TestSnowflakeAppManager:
     @patch(EXECUTE_QUERY)
     def test_get_service_endpoint_url_not_found(self, mock_execute):
         cursor = Mock()
-        cursor.__iter__ = Mock(return_value=iter([]))
+        cursor.fetchone.return_value = None
         mock_execute.return_value = cursor
 
         fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
@@ -850,29 +865,34 @@ class TestSnowflakeAppManager:
         assert url is None
         mock_execute.assert_called_once()
         assert (
-            "SHOW ENDPOINTS IN APPLICATION SERVICE DB.SCHEMA.SVC"
-            in mock_execute.call_args[0][0]
+            "DESCRIBE APPLICATION SERVICE DB.SCHEMA.SVC" in mock_execute.call_args[0][0]
         )
 
     @patch(EXECUTE_QUERY)
     def test_get_service_endpoint_url_provisioning_in_progress(self, mock_execute):
         cursor = Mock()
-        cursor.__iter__ = Mock(
-            return_value=iter(
-                [
-                    {
-                        "name": "app-endpoint",
-                        "ingress_url": "Provisioning in progress... check back later",
-                    }
-                ]
-            )
-        )
+        cursor.fetchone.return_value = {
+            "url": "Provisioning in progress... check back later",
+            "is_upgrading": "false",
+        }
         mock_execute.return_value = cursor
 
         fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
         url = SnowflakeAppManager().get_service_endpoint_url(fqn)
-        assert url == "Provisioning in progress... check back later"
-        assert not url.startswith("https://")
+        assert url is None
+
+    @patch(EXECUTE_QUERY)
+    def test_get_service_endpoint_url_while_upgrading(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = {
+            "url": "my-app.snowflakecomputing.app",
+            "is_upgrading": "true",
+        }
+        mock_execute.return_value = cursor
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="SVC")
+        url = SnowflakeAppManager().get_service_endpoint_url(fqn)
+        assert url is None
 
 
 # ── fetch_snow_apps_parameters tests ──────────────────────────────────
@@ -2552,6 +2572,10 @@ class TestDeployCommand:
         mock_mgr.artifact_repo_exists.return_value = False
         mock_mgr.build_app_artifact_repo.return_value = (
             "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
+        )
+        _real_manager = SnowflakeAppManager()
+        mock_mgr.resolve_application_service_url_from_describe.side_effect = (
+            _real_manager.resolve_application_service_url_from_describe
         )
         mock_poll.side_effect = [
             "DONE",  # build status poll
