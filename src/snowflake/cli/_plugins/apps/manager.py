@@ -533,18 +533,12 @@ class SnowflakeAppManager(SqlExecutionMixin):
             url = f"https://{url}"
         return url
 
-    def get_service_endpoint_url(
-        self, service_fqn: FQN, endpoint_name: str = "app-endpoint"
-    ) -> Optional[str]:
+    def get_service_endpoint_url(self, service_fqn: FQN) -> Optional[str]:
         """Get the public URL for an application service.
 
         Uses ``DESCRIBE APPLICATION SERVICE`` (same source as the deploy wait
-        loop), not ``SHOW ENDPOINTS``.
-
-        The *endpoint_name* argument is kept for backwards compatibility and is
-        ignored: the URL is taken from the describe result's ``url`` column.
+        loop): the ``url`` column from the describe result.
         """
-        _ = endpoint_name
         desc = self.describe_app_service(service_fqn)
         return self.resolve_application_service_url_from_describe(desc)
 
