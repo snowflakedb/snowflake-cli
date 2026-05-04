@@ -23,6 +23,7 @@
 ## Fixes and improvements
 * Fixed `SELECT *` output being corrupted when joined tables share column names. Duplicate column names are now disambiguated by appending a numeric suffix (e.g. `NAME`, `NAME_2`).
 * Fixed `snow connection generate-jwt` and `snow connection generate-workload-identity-token` failing with `Connection None is not configured` when used with `--temporary-connection`.
+* Artifact sync (`snow notebook deploy`, `snow streamlit deploy`, and other commands that upload to a named stage) now skips `CREATE STAGE IF NOT EXISTS` when the stage already exists, so roles that only hold `USAGE` on an existing stage (but not `CREATE STAGE` on the schema) can deploy successfully.
 
 
 # v3.17.0

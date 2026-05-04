@@ -561,6 +561,19 @@ class StageManager(SqlExecutionMixin):
             query += f" comment='{comment}'"
         return self.execute_query(query)
 
+    def exists(self, fqn: FQN) -> bool:
+        """Check if a stage exists using DESCRIBE STAGE.
+
+        Requires only USAGE on the stage (plus USAGE on the parent database
+        and schema). Unlike `create stage if not exists`, this does not
+        require the caller to hold CREATE STAGE on the schema.
+        """
+        try:
+            self.execute_query(f"describe stage {fqn.sql_identifier}")
+            return True
+        except ProgrammingError:
+            return False
+
     def iter_stage(self, stage_path: StagePath):
         for file in self.list_files(stage_path.absolute_path()).fetchall():
             if stage_path.is_user_stage():

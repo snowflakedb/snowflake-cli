@@ -769,6 +769,29 @@ def test_stage_create_quoted(mock_execute, runner, mock_cursor):
     )
 
 
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_stage_manager_exists_returns_true_when_describe_succeeds(
+    mock_execute, mock_cursor
+):
+    from snowflake.cli.api.identifiers import FQN
+
+    mock_execute.return_value = mock_cursor(["row"], [])
+    assert StageManager().exists(FQN.from_stage("db.schema.stg")) is True
+    mock_execute.assert_called_once_with(
+        "describe stage IDENTIFIER('db.schema.stg')"
+    )
+
+
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_stage_manager_exists_returns_false_on_programming_error(mock_execute):
+    from snowflake.cli.api.identifiers import FQN
+
+    mock_execute.side_effect = ProgrammingError(
+        msg="does not exist", errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+    )
+    assert StageManager().exists(FQN.from_stage("db.schema.missing")) is False
+
+
 @mock.patch("snowflake.cli._plugins.object.commands.ObjectManager.execute_query")
 def test_stage_drop(mock_execute, runner, mock_cursor):
     mock_execute.return_value = mock_cursor(["row"], [])

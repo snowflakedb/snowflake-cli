@@ -301,6 +301,96 @@ Use the --prune flag to delete them from the stage."""
         mock_console.warning.assert_not_called()
 
 
+@mock.patch("snowflake.cli._plugins.stage.manager.StageManager.exists")
+@mock.patch("snowflake.cli._plugins.stage.manager.StageManager.create")
+@mock.patch(f"{ENTITIES_UTILS_MODULE}.compute_stage_diff")
+@mock.patch(f"{ENTITIES_UTILS_MODULE}.sync_local_diff_with_stage")
+@pytest.mark.parametrize("stage_exists", [True, False])
+def test_sync_deploy_root_with_stage_non_nativeapp_skips_create_when_stage_exists(
+    mock_local_diff_with_stage,
+    mock_compute_stage_diff,
+    mock_stage_create,
+    mock_stage_exists,
+    temporary_directory,
+    stage_exists,
+):
+    """Non-native-app deploys should skip `create stage` when the stage already
+    exists, so that roles with USAGE but without CREATE STAGE can still deploy
+    (GitHub #2627 / SNOW-2361367).
+    """
+    mock_stage_exists.return_value = stage_exists
+    mock_diff_result = DiffResult(different=[StagePathType("app.py")])
+    mock_compute_stage_diff.return_value = mock_diff_result
+    mock_local_diff_with_stage.return_value = None
+
+    deploy_root = Path(temporary_directory) / "output" / "bundle"
+    deploy_root.mkdir(parents=True)
+    (deploy_root / "app.py").write_text("x = 1\n")
+
+    stage_fqn = "db.schema.stage"
+    mock_bundle_map = mock.Mock(spec=BundleMap)
+
+    sync_deploy_root_with_stage(
+        console=cc,
+        deploy_root=deploy_root,
+        bundle_map=mock_bundle_map,
+        prune=True,
+        recursive=True,
+        stage_path_parts=DefaultStagePathParts.from_fqn(stage_fqn),
+    )
+
+    from snowflake.cli.api.identifiers import FQN
+
+    mock_stage_exists.assert_called_once_with(FQN.from_stage(stage_fqn))
+    if stage_exists:
+        mock_stage_create.assert_not_called()
+    else:
+        mock_stage_create.assert_called_once_with(
+            fqn=FQN.from_stage(stage_fqn), temporary=False
+        )
+
+
+@mock.patch("snowflake.cli._plugins.stage.manager.StageManager.exists")
+@mock.patch("snowflake.cli._plugins.stage.manager.StageManager.create")
+@mock.patch(f"{ENTITIES_UTILS_MODULE}.compute_stage_diff")
+@mock.patch(f"{ENTITIES_UTILS_MODULE}.sync_local_diff_with_stage")
+def test_sync_deploy_root_with_stage_non_nativeapp_temporary_always_creates(
+    mock_local_diff_with_stage,
+    mock_compute_stage_diff,
+    mock_stage_create,
+    mock_stage_exists,
+    temporary_directory,
+):
+    """Temporary stages are per-session, so they should always be created
+    without consulting the existence check."""
+    mock_diff_result = DiffResult()
+    mock_compute_stage_diff.return_value = mock_diff_result
+    mock_local_diff_with_stage.return_value = None
+
+    deploy_root = Path(temporary_directory) / "output" / "bundle"
+    deploy_root.mkdir(parents=True)
+
+    stage_fqn = "db.schema.temp_stage"
+    mock_bundle_map = mock.Mock(spec=BundleMap)
+
+    sync_deploy_root_with_stage(
+        console=cc,
+        deploy_root=deploy_root,
+        bundle_map=mock_bundle_map,
+        prune=False,
+        recursive=True,
+        stage_path_parts=DefaultStagePathParts.from_fqn(stage_fqn),
+        use_temporary_stage=True,
+    )
+
+    from snowflake.cli.api.identifiers import FQN
+
+    mock_stage_exists.assert_not_called()
+    mock_stage_create.assert_called_once_with(
+        fqn=FQN.from_stage(stage_fqn), temporary=True
+    )
+
+
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_app_pkg_distribution_in_snowflake(
     mock_execute, temporary_directory, mock_cursor, workspace_context

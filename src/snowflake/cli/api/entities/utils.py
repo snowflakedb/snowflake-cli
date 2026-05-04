@@ -122,11 +122,18 @@ def sync_deploy_root_with_stage(
     elif not package_name:
         # ensure stage exists
         stage_fqn = FQN.from_stage(stage_path_parts.stage)
+        stage_manager = StageManager()
         if use_temporary_stage:
             console.step(f"Creating temporary stage {stage_fqn}.")
+            stage_manager.create(fqn=stage_fqn, temporary=True)
+        elif stage_manager.exists(stage_fqn):
+            # Skip creation when the stage already exists so that roles
+            # without CREATE STAGE (but with USAGE on an existing stage)
+            # can still deploy. See GitHub issue #2627 / SNOW-2361367.
+            console.step(f"Using existing stage {stage_fqn}.")
         else:
-            console.step(f"Creating stage {stage_fqn} if not exists.")
-        StageManager().create(fqn=stage_fqn, temporary=use_temporary_stage)
+            console.step(f"Creating stage {stage_fqn}.")
+            stage_manager.create(fqn=stage_fqn, temporary=False)
     else:
         # ensure stage exists - nativeapp behavior
         sql_facade = get_snowflake_facade()
