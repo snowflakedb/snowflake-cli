@@ -30,7 +30,7 @@ class _SnowSQLTemplate(string.Template):
             {(?P<braced>(?a:[_a-z][_a-z0-9]*))}  |   # delimiter and a braced identifier
             (?P<invalid>)                            # other ill-formed delimiter exprs
         )
-    """
+    """  # type: ignore[assignment]
 
 
 class _Mapper:
