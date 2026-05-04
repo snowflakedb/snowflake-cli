@@ -137,6 +137,11 @@ class QueryResult(CollectionResult):
 
     def _prepare_payload(self, cursor: SnowflakeCursor | DictCursor):
         if isinstance(cursor, DictCursor):
+            # DictCursor rows are pre-built dicts by the connector, so duplicate
+            # keys are already collapsed before we see them — column_names
+            # deduplication has no effect here. DictCursor is only used for
+            # metadata queries (SHOW, DESCRIBE) where duplicate column names
+            # don't occur, so this is acceptable.
             return (k for k in cursor)
         return ({k: v for k, v in zip(self.column_names, row)} for row in cursor)
 
