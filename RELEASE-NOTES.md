@@ -22,6 +22,7 @@
 
 ## Fixes and improvements
 * Fixed macOS arm64 installer incorrectly requiring Rosetta 2. The `Distribution.xml` package metadata now declares `hostArchitectures="arm64,x86_64"`, so the installer is recognized as native on Apple Silicon.
+* Encrypted private key files no longer require `PRIVATE_KEY_PASSPHRASE` to be set in the environment. The passphrase can now be read from `private_key_file_pwd` (the name used by `snowflake-connector-python`) or `private_key_passphrase` in `connections.toml` / `config.toml`. The `PRIVATE_KEY_PASSPHRASE` environment variable continues to take precedence when set.
 
 
 # v3.17.0
