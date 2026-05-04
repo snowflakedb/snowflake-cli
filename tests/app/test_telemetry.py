@@ -495,3 +495,44 @@ def test_flags_from_parent_contexts_are_captured(mock_uuid4, mock_connect, runne
     assert (
         "run_async" in command_flags
     ), f"run_async flag should be captured in telemetry. Found flags: {command_flags}"
+
+
+@mock.patch("snowflake.connector.connect")
+def test_no_connection_required_command_does_not_dial_for_telemetry(
+    mock_connect, runner
+):
+    """Commands declared with requires_connection=False must not trigger a
+    Snowflake login just to emit per-command telemetry events.
+
+    Regression test for SNOW-3450376: previously, the pre-execute hook walked
+    through cli_context.connection._telemetry, which lazily opened a
+    connection even when the command body didn't need one.
+    """
+    result = runner.invoke(["connection", "list"], catch_exceptions=False)
+    assert result.exit_code == 0, result.output
+    mock_connect.assert_not_called()
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+def test_pending_telemetry_drains_when_connection_opens(_, mock_connect, runner):
+    """Events buffered during pre_execute (before any connection exists) must
+    be delivered to the connector's batch once the command body opens a
+    connection. Regression test for SNOW-3450376.
+    """
+    from snowflake.cli._app.telemetry import _telemetry as telemetry_client
+
+    result = runner.invoke(["connection", "test"], catch_exceptions=False)
+    assert result.exit_code == 0, result.output
+
+    calls = mock_connect.return_value._telemetry.try_add_log_to_batch.call_args_list  # noqa: SLF001
+    # Both the usage event (buffered during pre_execute, drained once the
+    # command opened a connection) and the result event (sent after the
+    # connection was open) must reach the connector's batcher, in order.
+    assert len(calls) >= 2
+    assert calls[0].args[0].to_dict()["message"]["type"] == "executing_command"
+    assert (
+        calls[1].args[0].to_dict()["message"]["type"] == "result_executing_command"
+    )
+    # Pending buffer should be drained after post_execute's flush.
+    assert telemetry_client._pending == []  # noqa: SLF001

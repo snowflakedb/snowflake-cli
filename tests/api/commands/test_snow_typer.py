@@ -34,12 +34,12 @@ def class_factory(
 ):
     class _CustomTyper(SnowTyper):
         @staticmethod
-        def pre_execute(execution, require_warehouse):
+        def pre_execute(execution, require_warehouse=False, requires_connection=False):
             if pre_execute:
                 pre_execute(execution)
 
         @staticmethod
-        def post_execute(execution):
+        def post_execute(execution, requires_connection=False):
             if post_execute:
                 post_execute(execution)
 
@@ -218,7 +218,7 @@ def test_snow_typer_pre_execute_sends_telemetry(mock_log_command_usage, cli):
 def test_snow_typer_post_execute_sends_telemetry(mock_flush_telemetry, cli):
     result = cli(app_factory(SnowTyperFactory))(["simple_cmd", "Norma"])
     assert result.exit_code == 0
-    mock_flush_telemetry.assert_called_once_with()
+    mock_flush_telemetry.assert_called_once_with(force_dial=False)
 
 
 @mock.patch("snowflake.cli._app.printing.print_result")

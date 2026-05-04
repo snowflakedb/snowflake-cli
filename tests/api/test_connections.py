@@ -98,3 +98,44 @@ def test_connection_cache_caches(
         password="dummy_password",
         application_name="snowcli",
     )
+
+
+@mock.patch("snowflake.connector.connect")
+def test_connection_cache_peek_returns_none_without_dialing(
+    mock_connect, local_connection_cache
+):
+    ctx = ConnectionContext(connection_name="default")
+    ctx.validate_and_complete()
+
+    assert local_connection_cache.peek(ctx) is None
+    mock_connect.assert_not_called()
+    # peek must not mutate cache state
+    assert local_connection_cache.connections == {}
+    assert local_connection_cache.cleanup_futures == {}
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+def test_connection_cache_peek_returns_existing_connection(
+    mock_command_info, mock_connect, local_connection_cache, test_snowcli_config
+):
+    mock_command_info.return_value = "application"
+
+    from snowflake.cli.api.config import config_init
+
+    config_init(test_snowcli_config)
+
+    ctx = ConnectionContext(connection_name="default")
+
+    # Dial once via __getitem__.
+    conn = local_connection_cache[ctx]
+    mock_connect.assert_called_once()
+
+    # peek() returns the same instance without dialing again.
+    assert local_connection_cache.peek(ctx) is conn
+    mock_connect.assert_called_once()
+
+
+def test_connection_cache_peek_rejects_non_context(local_connection_cache):
+    with pytest.raises(ValueError):
+        local_connection_cache.peek("not-a-context")  # type: ignore[arg-type]

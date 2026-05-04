@@ -21,6 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
+* Commands that do not require a Snowflake connection (e.g. `snow --version`, `snow --help`, `snow config list`, `snow connection list`) no longer open a Snowflake connection as a side-effect of emitting telemetry. Telemetry events for such commands are now discarded instead of forcing a login, matching what users expect offline and in minimal environments.
 
 
 # v3.17.0

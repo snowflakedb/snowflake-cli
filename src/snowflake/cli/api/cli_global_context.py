@@ -131,6 +131,15 @@ class _CliGlobalContextManager:
         self.connection_context.validate_and_complete()
         return self.connection_cache[self.connection_context]
 
+    @property
+    def cached_connection(self) -> SnowflakeConnection | None:
+        """
+        Returns the cached connection for our configured context if one is
+        already open, otherwise ``None``. Never dials Snowflake and never
+        mutates the connection cache.
+        """
+        return self.connection_cache.peek(self.connection_context)
+
     def _definition_manager_or_raise(self) -> DefinitionManager:
         """
         (Re-)parses project definition based on project args (project_path_arg and
@@ -231,6 +240,14 @@ class _CliGlobalContextAccess:
     @property
     def connection(self) -> SnowflakeConnection:
         return self._manager.connection
+
+    @property
+    def cached_connection(self) -> SnowflakeConnection | None:
+        """
+        Returns the cached connection if one has already been opened for the
+        current context, otherwise ``None``. Does not dial Snowflake.
+        """
+        return self._manager.cached_connection
 
     @property
     def connection_context(self) -> ConnectionContext:
