@@ -398,11 +398,12 @@ def test_execution_fails_if_unknown_variable(runner, query):
         ("'P&I'", "'P&I'"),
         ("COMMENT = 'principal&interest'", "COMMENT = 'principal&interest'"),
         ("foo&bar", "foo&bar"),
-        # Preceded by a digit (also a word character) — still should not match.
+        # Preceded by a digit — still should not match.
         ("1&foo", "1&foo"),
-        # Preceded by underscore (word character) — should not match.
-        ("a_&foo", "a_&foo"),
-        # Preceded by a non-word character — should still substitute.
+        # Preceded by a non-alphanumeric character — should still substitute.
+        # Underscore counts as a separator here so that filenames like
+        # `source_&value.sql` passed to `!source` still get templated.
+        ("a_&foo", "a_&{ foo }"),
         ("(&foo)", "(&{ foo })"),
         ("'&foo'", "'&{ foo }'"),
     ],

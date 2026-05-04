@@ -17,13 +17,16 @@ import string
 
 class _SnowSQLTemplate(string.Template):
     delimiter = "&"
-    # Only recognise `&` as a template delimiter when it appears at the start of
-    # the text or after a non-word character.  This prevents false matches
-    # inside words or identifiers (e.g. `Principal&Interest` embedded in a DDL
-    # COMMENT or semantic view synonym), which would otherwise be rewritten to
+    # Do not recognise `&` as a template delimiter when the preceding character
+    # is a letter or digit.  This prevents false matches inside words or
+    # identifiers (e.g. `Principal&Interest` embedded in a DDL COMMENT or
+    # semantic view synonym), which would otherwise be rewritten to
     # `Principal&{ Interest }` and fail Jinja rendering.  See #2714.
+    # Underscore is intentionally NOT treated as a separator character —
+    # e.g. `source_&value.sql` (a filename passed to `!source`) still
+    # substitutes `&value`.
     pattern = r"""
-        (?:^|(?<=\W))
+        (?<![A-Za-z0-9])
         \&(?:
             (?P<escaped>\&)                      |   # escape sequence (&&)
             (?P<named>(?a:[_a-z][_a-z0-9]*))     |   # delimiter and a Python identifier
