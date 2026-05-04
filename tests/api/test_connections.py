@@ -72,6 +72,30 @@ def test_clone_connection_context():
         assert getattr(old_ctx, key) == "value"
 
 
+@mock.patch("snowflake.cli.api.connections.get_connection_dict")
+def test_update_from_config_skips_load_for_temporary_connection(
+    mock_get_connection_dict,
+):
+    """Regression test for SNOW-3000366: update_from_config must not look up
+    a named connection when temporary_connection is set, since there is
+    nothing to merge and get_connection_dict(None) raises."""
+    ctx = ConnectionContext(
+        temporary_connection=True,
+        account="acct",
+        user="user",
+        private_key_file="/key",
+    )
+
+    result = ctx.update_from_config()
+
+    assert result is ctx
+    mock_get_connection_dict.assert_not_called()
+    # Ensure the explicit fields are preserved unchanged
+    assert ctx.account == "acct"
+    assert ctx.user == "user"
+    assert ctx.private_key_file == "/key"
+
+
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._app.snow_connector.command_info")
 def test_connection_cache_caches(
