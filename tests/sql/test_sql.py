@@ -391,6 +391,20 @@ def test_execution_fails_if_unknown_variable(runner, query):
         # Test templating is ignored
         ("&{ foo }", "&{ foo }"),
         ("select *  from &{ foo } join bar", "select *  from &{ foo } join bar"),
+        # `&` embedded in a word must not be treated as a delimiter (#2714):
+        # SnowCLI was rewriting `Principal&Interest` to `Principal&{ Interest }`,
+        # which then failed Jinja rendering because `Interest` was undefined.
+        ("Principal&Interest payment", "Principal&Interest payment"),
+        ("'P&I'", "'P&I'"),
+        ("COMMENT = 'principal&interest'", "COMMENT = 'principal&interest'"),
+        ("foo&bar", "foo&bar"),
+        # Preceded by a digit (also a word character) — still should not match.
+        ("1&foo", "1&foo"),
+        # Preceded by underscore (word character) — should not match.
+        ("a_&foo", "a_&foo"),
+        # Preceded by a non-word character — should still substitute.
+        ("(&foo)", "(&{ foo })"),
+        ("'&foo'", "'&{ foo }'"),
     ],
 )
 def test_snowsql_compatibility(text, expected):
