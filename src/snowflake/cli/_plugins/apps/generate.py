@@ -22,6 +22,8 @@ log = logging.getLogger(__name__)
 def _generate_snowflake_yml(
     app_id: str,
     resolved: Dict[str, Optional[str]],
+    *,
+    use_workspace: bool,
 ) -> str:
     """Generate snowflake.yml content from pre-resolved configuration values.
 
@@ -34,6 +36,12 @@ def _generate_snowflake_yml(
 
     The artifact repository is omitted from the generated YAML; the CLI
     will default to ``<app-id>_REPO`` at deploy time.
+
+    When ``use_workspace`` is true (database resolved from the user's
+    personal database during ``snow app setup``), the generator emits
+    ``code_workspace`` as a fully-qualified identifier. Otherwise it emits
+    ``code_stage`` as a bare stage name resolved against the app's database
+    and schema at deploy time.
     """
 
     if resolved.get("image_repository"):
@@ -50,11 +58,15 @@ def _generate_snowflake_yml(
     service_compute_pool = resolved["service_compute_pool"]
     build_eai = resolved.get("build_eai")
 
-    # code_workspace is emitted as an identifier (``DB.SCHEMA.WORKSPACE``) so
-    # it is self-contained and does not implicitly depend on the app's
-    # database and schema at deploy time.
-    code_workspace_name = f"{app_id.upper()}_CODE"
-    code_workspace_identifier = f"{database}.{schema}.{code_workspace_name}"
+    code_storage_name = f"{app_id.upper()}_CODE"
+    if use_workspace:
+        # Fully-qualified so it is self-contained when the destination DB
+        # comes from the personal-database default.
+        code_storage_block = (
+            f"\n            code_workspace: {database}.{schema}.{code_storage_name}\n"
+        )
+    else:
+        code_storage_block = f"\n            code_stage: {code_storage_name}\n"
 
     build_eai_block = (
         f"\n            build_eai:\n              name: {build_eai}"
@@ -93,6 +105,6 @@ def _generate_snowflake_yml(
             service_compute_pool:
               name: {service_compute_pool}"""
         + build_eai_block
-        + f"\n            code_workspace: {code_workspace_identifier}\n"
+        + code_storage_block
     )
     return dedent(raw)

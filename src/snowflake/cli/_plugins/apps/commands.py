@@ -206,8 +206,13 @@ def snowflake_app_setup(
     resolved_values = {k: v[0] for k, v in resolved.items()}
 
     if not dry_run:
+        use_workspace = resolved["database"][1] == SOURCE_DEFAULT
         project_file.write_text(
-            _generate_snowflake_yml(resolved_app_name, resolved_values)
+            _generate_snowflake_yml(
+                resolved_app_name,
+                resolved_values,
+                use_workspace=use_workspace,
+            )
         )
 
     is_json = get_cli_context().output_format.is_json

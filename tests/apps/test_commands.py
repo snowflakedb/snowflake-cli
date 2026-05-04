@@ -322,7 +322,9 @@ class TestGenerateSnowflakeYml:
     }
 
     def test_generates_yml_with_all_required_values(self):
-        result = _generate_snowflake_yml("my_app", self._BASE_RESOLVED)
+        result = _generate_snowflake_yml(
+            "my_app", self._BASE_RESOLVED, use_workspace=True
+        )
         assert "type: snowflake-app" in result
         assert "name: MY_APP" in result
         assert "database: TEST_DB" in result
@@ -336,15 +338,24 @@ class TestGenerateSnowflakeYml:
         assert "image_repository" not in result
         assert "artifact_repository" not in result
 
+    def test_generates_yml_with_code_stage_when_not_using_workspace(self):
+        result = _generate_snowflake_yml(
+            "my_app", self._BASE_RESOLVED, use_workspace=False
+        )
+        assert "code_stage: MY_APP_CODE" in result
+        assert "code_workspace" not in result
+
     def test_no_null_values_in_output(self):
-        result = _generate_snowflake_yml("my_app", self._BASE_RESOLVED)
+        result = _generate_snowflake_yml(
+            "my_app", self._BASE_RESOLVED, use_workspace=True
+        )
         assert "null" not in result
 
     def test_build_eai_omitted_when_missing(self):
         """When ``build_eai`` is missing, the generated YAML has no
         ``build_eai`` block — the field is optional."""
         resolved = {**self._BASE_RESOLVED, "build_eai": None}
-        result = _generate_snowflake_yml("my_app", resolved)
+        result = _generate_snowflake_yml("my_app", resolved, use_workspace=False)
         assert "build_eai" not in result
         assert "None" not in result
 
@@ -352,12 +363,12 @@ class TestGenerateSnowflakeYml:
         """When ``build_eai`` is not in the resolved dict at all, the
         generated YAML still works and omits the block."""
         resolved = {k: v for k, v in self._BASE_RESOLVED.items() if k != "build_eai"}
-        result = _generate_snowflake_yml("my_app", resolved)
+        result = _generate_snowflake_yml("my_app", resolved, use_workspace=False)
         assert "build_eai" not in result
 
     def test_custom_schema(self):
         resolved = {**self._BASE_RESOLVED, "schema": "CFG_SCHEMA"}
-        result = _generate_snowflake_yml("my_app", resolved)
+        result = _generate_snowflake_yml("my_app", resolved, use_workspace=True)
         assert "schema: CFG_SCHEMA" in result
 
     def test_generated_yml_is_valid_project_definition(self):
@@ -367,7 +378,9 @@ class TestGenerateSnowflakeYml:
             render_definition_template,
         )
 
-        raw_yml = _generate_snowflake_yml("my_app", self._BASE_RESOLVED)
+        raw_yml = _generate_snowflake_yml(
+            "my_app", self._BASE_RESOLVED, use_workspace=True
+        )
         definition_input = yaml.safe_load(raw_yml)
 
         result = render_definition_template(definition_input, {})
@@ -384,6 +397,26 @@ class TestGenerateSnowflakeYml:
         assert entity.code_workspace.schema_ == "SNOW_APPS"
         assert entity.code_stage is None
         assert entity.artifacts is not None
+
+    def test_generated_yml_with_stage_is_valid_project_definition(self):
+        """When ``use_workspace`` is false, ``code_stage`` is a bare name."""
+        import yaml
+        from snowflake.cli.api.utils.definition_rendering import (
+            render_definition_template,
+        )
+
+        raw_yml = _generate_snowflake_yml(
+            "my_app", self._BASE_RESOLVED, use_workspace=False
+        )
+        definition_input = yaml.safe_load(raw_yml)
+
+        result = render_definition_template(definition_input, {})
+        entity = result.project_definition.entities["my_app"]
+
+        assert entity.code_stage.name == "MY_APP_CODE"
+        assert entity.code_stage.database is None
+        assert entity.code_stage.schema_ is None
+        assert entity.code_workspace is None
 
 
 # ── SnowflakeAppManager tests ─────────────────────────────────────────
@@ -1304,6 +1337,7 @@ class TestSetupCommand:
         assert resolved["warehouse"] == "PARAM_WH"
         assert resolved["build_compute_pool"] == "PARAM_POOL"
         assert resolved["build_eai"] == "PARAM_EAI"
+        assert mock_gen.call_args.kwargs["use_workspace"] is False
 
     @patch(
         "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
@@ -1622,6 +1656,34 @@ class TestSetupCommand:
         resolved = mock_gen.call_args[0][1]
         assert resolved["database"] == "USER$MYUSER"
         assert resolved["schema"] == "PUBLIC"
+        assert mock_gen.call_args.kwargs["use_workspace"] is True
+
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
+        return_value="definition_version: '2'\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.get_connection_dict")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_setup_uses_stage_when_database_resolved_from_session(
+        self, mock_mgr_cls, mock_get_conn, mock_gen, runner, tmp_path
+    ):
+        """Session/connection database (not personal DB) should emit code_stage."""
+        mock_get_conn.return_value = {"database": "CONN_DB"}
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "schema": "PARAM_SCHEMA",
+            "query_warehouse": "PARAM_WH",
+            "build_compute_pool": "PARAM_POOL",
+            "service_compute_pool": "PARAM_SVC_POOL",
+            "build_eai": "PARAM_EAI",
+        }
+        mock_mgr.get_personal_database.return_value = None
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+            assert result.exit_code == 0, result.output
+
+        assert mock_gen.call_args.kwargs["use_workspace"] is False
 
 
 # ── perform_bundle tests ──────────────────────────────────────────────
