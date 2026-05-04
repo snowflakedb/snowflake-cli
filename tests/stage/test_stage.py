@@ -147,8 +147,8 @@ def test_stage_copy_remote_to_local_quoted_stage_recursive(
         ("{}/dest_?dir", "file://{}/dest_?dir/"),
         ("{}/dest%dir", "file://{}/dest%dir/"),
         ('{}/dest"dir', 'file://{}/dest"dir/'),
-        ("{}/dest'dir", r"'file://{}/dest\'dir/'"),
-        ("{}/dest\tdir", r"'file://{}/dest\tdir/'"),
+        ("{}/dest'dir", "'file://{}/dest''dir/'"),
+        ("{}/dest\tdir", "'file://{}/dest\tdir/'"),
     ],
 )
 @mock.patch(f"{STAGE_MANAGER}.execute_query")
@@ -179,8 +179,8 @@ def test_stage_copy_remote_to_local_quoted_uri(
         ("{}/dest_?dir", "file://{}/dest_?dir/"),
         ("{}/dest%dir", "file://{}/dest%dir/"),
         ('{}/dest"dir', 'file://{}/dest"dir/'),
-        ("{}/dest'dir", r"'file://{}/dest\'dir/'"),
-        ("{}/dest\tdir", r"'file://{}/dest\tdir/'"),
+        ("{}/dest'dir", "'file://{}/dest''dir/'"),
+        ("{}/dest\tdir", "'file://{}/dest\tdir/'"),
     ],
 )
 @mock.patch(f"{STAGE_MANAGER}.execute_query")
@@ -273,8 +273,8 @@ def test_stage_copy_local_to_remote_quoted_stage(mock_execute, runner, mock_curs
         ("{}/read_?me.md", "file://{}/read_?me.md"),
         ("{}/read%me.md", "file://{}/read%me.md"),
         ('{}/read"me.md', 'file://{}/read"me.md'),
-        ("{}/read'me.md", r"'file://{}/read\'me.md'"),
-        ("{}/read\tme.md", r"'file://{}/read\tme.md'"),
+        ("{}/read'me.md", "'file://{}/read''me.md'"),
+        ("{}/read\tme.md", "'file://{}/read\tme.md'"),
     ],
 )
 @mock.patch(f"{STAGE_MANAGER}.execute_query")
@@ -976,8 +976,8 @@ def test_stage_internal_put_quoted_stage(mock_execute, mock_cursor):
         ("{}/read_?me.md", "file://{}/read_?me.md"),
         ("{}/read%me.md", "file://{}/read%me.md"),
         ('{}/read"me.md', 'file://{}/read"me.md'),
-        ("{}/read'me.md", r"'file://{}/read\'me.md'"),
-        ("{}/read\tme.md", r"'file://{}/read\tme.md'"),
+        ("{}/read'me.md", "'file://{}/read''me.md'"),
+        ("{}/read\tme.md", "'file://{}/read\tme.md'"),
     ],
 )
 @mock.patch(f"{STAGE_MANAGER}.execute_query")
