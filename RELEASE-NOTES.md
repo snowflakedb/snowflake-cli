@@ -23,6 +23,7 @@
 ## Fixes and improvements
 * Fixed `SELECT *` output being corrupted when joined tables share column names. Duplicate column names are now disambiguated by appending a numeric suffix (e.g. `NAME`, `NAME_2`).
 * Fixed `snow connection generate-jwt` and `snow connection generate-workload-identity-token` failing with `Connection None is not configured` when used with `--temporary-connection`.
+* Fix the spurious `Unauthorized users have access to configuration file` warning on non-English Windows installations. The built-in `SYSTEM` and `Administrators` accounts are now resolved from their well-known SIDs at runtime, so the localized names (e.g. `Système`/`Administrateurs` on French Windows) are recognized alongside the English names.
 
 
 # v3.17.0
