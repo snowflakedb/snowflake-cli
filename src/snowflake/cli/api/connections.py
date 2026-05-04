@@ -112,6 +112,12 @@ class ConnectionContext:
         return self
 
     def update_from_config(self) -> ConnectionContext:
+        if self.temporary_connection:
+            # For temporary connections, all parameters come from CLI/env rather
+            # than a named connection in config.toml, so there is no config to merge.
+            self._config_loaded = True
+            return self
+
         connection_config = get_connection_dict(connection_name=self.connection_name)
         if "private_key_path" in connection_config:
             connection_config["private_key_file"] = connection_config[

@@ -1556,6 +1556,43 @@ def test_generate_jwt_honors_params(
     mocked_get_token.assert_called_once_with(**expected_params)
 
 
+@mock.patch(
+    "snowflake.cli._plugins.connection.commands.connector.auth.get_token_from_private_key"
+)
+@mock.patch.dict(os.environ, {}, clear=True)
+def test_generate_jwt_with_temporary_connection(
+    mocked_get_token, runner, named_temporary_file
+):
+    """Regression test for SNOW-3000366: --temporary-connection must not require
+    a configured connection in config.toml when generating a JWT."""
+    mocked_get_token.return_value = "funny token"
+
+    with named_temporary_file() as f:
+        f.write_text("secret from file")
+        result = runner.invoke(
+            [
+                "connection",
+                "generate-jwt",
+                "--temporary-connection",
+                "--authenticator",
+                "SNOWFLAKE_JWT",
+                "--user",
+                "FooBar",
+                "--account",
+                "account1",
+                "--private-key-file",
+                f,
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert "Connection None is not configured" not in result.output
+    assert result.output == "funny token\n"
+    mocked_get_token.assert_called_once_with(
+        user="FooBar", account="account1", privatekey_path=str(f), key_password=None
+    )
+
+
 @pytest.mark.parametrize("attribute", ["account", "user", "private_key_file"])
 @mock.patch(
     "snowflake.cli._plugins.connection.commands.connector.auth.get_token_from_private_key"
@@ -1599,6 +1636,34 @@ def test_generate_workload_identity_token(mock_create_attestation, runner):
     )
 
     assert result.exit_code == 0, result.output
+    assert "test-wif-token" in result.output
+    from snowflake.connector.wif_util import AttestationProvider
+
+    mock_create_attestation.assert_called_once_with(
+        provider=AttestationProvider.GCP, token=None
+    )
+
+
+@mock.patch("snowflake.connector.wif_util.create_attestation")
+def test_generate_workload_identity_token_with_temporary_connection(
+    mock_create_attestation, runner
+):
+    """Regression test for SNOW-3000366: --temporary-connection must not require
+    a configured connection in config.toml when generating a WIF token."""
+    mock_create_attestation.return_value = mock.MagicMock(credential="test-wif-token")
+
+    result = runner.invoke(
+        [
+            "connection",
+            "generate-workload-identity-token",
+            "--temporary-connection",
+            "--workload-identity-provider",
+            "GCP",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Connection None is not configured" not in result.output
     assert "test-wif-token" in result.output
     from snowflake.connector.wif_util import AttestationProvider
 
