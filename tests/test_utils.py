@@ -255,7 +255,7 @@ def test_get_account_identifier(mock_get_account):
                     "type": "SNOWFLAKE_DEPLOYMENT",
                 },
                 {
-                    "host": "myacct.nonregioned.snowflakecomputing.com",
+                    "host": "myorg-myacct.nonregioned.snowflakecomputing.com",
                     "type": "SNOWFLAKE_DEPLOYMENT",
                 },
                 {"type": "unrelated"},
@@ -285,7 +285,7 @@ def test_get_context_non_regionless_uses_region(
     guess_regioned_host_from_allowlist, is_regionless_redirect
 ):
     mock_conn = mock.MagicMock(spec=SnowflakeConnection)
-    mock_conn.host = "myacct.regionless.snowflakecomputing.com"
+    mock_conn.host = "myorg-myacct.regionless.snowflakecomputing.com"
     guess_regioned_host_from_allowlist.return_value = (
         "myacct.x.y.z.snowflakecomputing.com"
     )
@@ -310,9 +310,19 @@ def test_get_context_local_non_regionless_gets_local_region(
     "host, expected",
     [
         ("some.dns.local", LOCAL_DEPLOYMENT_REGION),
+        # Regionless (<org>-<account>.<deployment>.snowflakecomputing.com) — the dash in
+        # the account component distinguishes it from a regioned 4-part host.
         ("org-acct.mydns.snowflakecomputing.com", None),
+        # 4-part regioned hosts (AWS legacy, e.g. us-east-1).
+        ("naf_test_pc.us-west-2.snowflakecomputing.com", "us-west-2"),
+        ("acct.us-east-1.snowflakecomputing.com", "us-east-1"),
+        # 5-part regioned hosts (cloud suffix).
+        ("acct.eu-central-1.aws.snowflakecomputing.com", "eu-central-1.aws"),
+        ("acct.west-europe.azure.snowflakecomputing.com", "west-europe.azure"),
+        ("acct.us-central1.gcp.snowflakecomputing.com", "us-central1.gcp"),
+        # 6-part regioned host (VPS / PrivateLink).
         ("account.x.us-west-2.aws.snowflakecomputing.com", "x.us-west-2.aws"),
-        ("naf_test_pc.us-west-2.snowflakecomputing.com", None),
+        # Non-Snowsight hosts (internal/legacy zones) return None so callers fall back.
         ("test_account.az.int.snowflakecomputing.com", None),
         ("frozenweb.prod3.external-zone.snowflakecomputing.com", None),
     ],

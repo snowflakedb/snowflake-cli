@@ -112,15 +112,38 @@ def is_regionless_redirect(conn: SnowflakeConnection) -> bool:
 
 def get_host_region(host: str) -> str | None:
     """
-    Looks for hosts of form
-    <account>.[x.y.z].snowflakecomputing.com
-    Returns the three-part [region identifier] or None.
+    Extract the Snowsight region segment from a Snowflake host.
+
+    Supported shapes (all ending in .snowflakecomputing.com):
+        <account>.<region>.snowflakecomputing.com                    -> <region>
+            e.g. <acct>.us-east-1.snowflakecomputing.com             -> us-east-1
+        <account>.<region>.<cloud>.snowflakecomputing.com            -> <region>.<cloud>
+            where <cloud> ∈ {aws, azure, gcp}
+        <account>.<x>.<y>.<z>.snowflakecomputing.com                 -> <x>.<y>.<z>
+            (legacy VPS / PrivateLink)
+        *.local                                                      -> LOCAL_DEPLOYMENT_REGION
+
+    Regionless aliases (<org>-<account>.<deployment>.snowflakecomputing.com, recognizable
+    by a dash in the account component) return None so callers fall back to the allowlist
+    lookup to find the real regioned host.
     """
     host_parts = host.split(".")
     if host_parts[-1] == "local":
         return LOCAL_DEPLOYMENT_REGION
-    elif len(host_parts) == 6:
-        return ".".join(host_parts[1:4])
+    if host_parts[-2:] != ["snowflakecomputing", "com"]:
+        return None
+    remaining = host_parts[:-2]
+    if len(remaining) < 2:
+        return None
+    account, region_parts = remaining[0], remaining[1:]
+    if "-" in account:
+        return None
+    if len(region_parts) == 1:
+        return region_parts[0]
+    if len(region_parts) == 2 and region_parts[-1] in ("aws", "azure", "gcp"):
+        return ".".join(region_parts)
+    if len(region_parts) == 3:
+        return ".".join(region_parts)
     return None
 
 
