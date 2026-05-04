@@ -525,14 +525,13 @@ def test_pending_telemetry_drains_when_connection_opens(_, mock_connect, runner)
     result = runner.invoke(["connection", "test"], catch_exceptions=False)
     assert result.exit_code == 0, result.output
 
-    calls = mock_connect.return_value._telemetry.try_add_log_to_batch.call_args_list  # noqa: SLF001
+    telemetry_batcher = mock_connect.return_value._telemetry  # noqa: SLF001
+    calls = telemetry_batcher.try_add_log_to_batch.call_args_list
     # Both the usage event (buffered during pre_execute, drained once the
     # command opened a connection) and the result event (sent after the
     # connection was open) must reach the connector's batcher, in order.
     assert len(calls) >= 2
     assert calls[0].args[0].to_dict()["message"]["type"] == "executing_command"
-    assert (
-        calls[1].args[0].to_dict()["message"]["type"] == "result_executing_command"
-    )
+    assert calls[1].args[0].to_dict()["message"]["type"] == "result_executing_command"
     # Pending buffer should be drained after post_execute's flush.
     assert telemetry_client._pending == []  # noqa: SLF001

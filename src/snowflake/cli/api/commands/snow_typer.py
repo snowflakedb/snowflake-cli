@@ -165,9 +165,8 @@ class SnowTyper(typer.Typer):
         Pay attention to make this method safe to use if performed operations are not necessary
         for executing the command in proper way.
         """
-        from snowflake.cli.api.cli_global_context import get_cli_context
-
         from snowflake.cli._app.telemetry import log_command_usage
+        from snowflake.cli.api.cli_global_context import get_cli_context
 
         log.debug("Executing command pre execution callback")
         if requires_connection:
