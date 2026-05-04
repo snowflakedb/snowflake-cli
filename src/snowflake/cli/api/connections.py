@@ -228,6 +228,25 @@ class OpenConnectionCache:
         self._touch(key)
         return self.connections[key]
 
+    def peek(self, ctx: ConnectionContext) -> Optional[SnowflakeConnection]:
+        """
+        Returns the cached connection for ``ctx`` if one already exists, or
+        ``None`` otherwise. Unlike ``__getitem__``, this never dials Snowflake
+        and does not mutate cache state (no insert, no lifetime refresh).
+
+        Intended for callers that want to piggy-back on a connection that was
+        already opened for other reasons (e.g. per-command telemetry) without
+        causing their own side-effects.
+        """
+        if not isinstance(ctx, ConnectionContext):
+            raise ValueError(
+                f"Expected key to be ConnectionContext but got {repr(ctx)}"
+            )
+        key = repr(ctx)
+        if not self._has_open_connection(key):
+            return None
+        return self.connections[key]
+
     def clear(self):
         """Closes all connections and resets the cache to its initial state."""
         connection_keys = list(self.connections.keys())

@@ -321,6 +321,13 @@ def _get_config_telemetry() -> TelemetryDict:
 
 
 class CLITelemetryClient:
+    def __init__(self):
+        # Events produced before any Snowflake connection is opened are staged
+        # here as fully-serialised TelemetryData objects. They are drained into
+        # the connector batcher the first time a connection becomes available
+        # (either via a later send() or via flush()).
+        self._pending: list[TelemetryData] = []
+
     @property
     def _ctx(self) -> _CliGlobalContextAccess:
         return get_cli_context()
@@ -350,18 +357,54 @@ class CLITelemetryClient:
 
     @property
     def _telemetry(self):
-        return self._ctx.connection._telemetry  # noqa
+        # Use the non-dialing accessor so that per-command telemetry never
+        # causes a login on commands that don't otherwise need a Snowflake
+        # connection (e.g. `snow --version`, `snow --help`, `snow config
+        # list`). When a command does open a connection, we piggy-back on its
+        # batcher; otherwise the event stays buffered until flush().
+        conn = self._ctx.cached_connection
+        return conn._telemetry if conn is not None else None  # noqa
+
+    def _drain_pending(self, telemetry) -> None:
+        if not self._pending:
+            return
+        drained, self._pending = self._pending, []
+        for event in drained:
+            telemetry.try_add_log_to_batch(event)
 
     def send(self, payload: TelemetryDict):
-        if self._telemetry:
-            message = self.generate_telemetry_data_dict(payload)
-            telemetry_data = TelemetryData.from_telemetry_data_dict(
-                from_dict=message, timestamp=get_time_millis()
-            )
-            self._telemetry.try_add_log_to_batch(telemetry_data)
+        message = self.generate_telemetry_data_dict(payload)
+        telemetry_data = TelemetryData.from_telemetry_data_dict(
+            from_dict=message, timestamp=get_time_millis()
+        )
+        telemetry = self._telemetry
+        if telemetry:
+            self._drain_pending(telemetry)
+            telemetry.try_add_log_to_batch(telemetry_data)
+        else:
+            self._pending.append(telemetry_data)
 
-    def flush(self):
-        self._telemetry.send_batch()
+    def flush(self, force_dial: bool = False):
+        try:
+            telemetry = self._telemetry
+            if telemetry is None and force_dial and self._pending:
+                # Command declared requires_connection=True (or otherwise
+                # expects telemetry to be delivered even on early failure).
+                # Dial now so buffered events still reach the batcher,
+                # matching the pre-SNOW-3450376 behaviour.
+                # ``@ignore_exceptions()`` on the caller swallows any dial
+                # failure, same as before.
+                telemetry = self._ctx.connection._telemetry  # noqa: SLF001
+            if telemetry:
+                self._drain_pending(telemetry)
+                telemetry.send_batch()
+        finally:
+            # Whatever happened above (success, dial failure, or unexpected
+            # error inside the connector), buffered events must not leak into
+            # the next command: they were built with an earlier context and
+            # dropping them here matches the pre-fix behaviour where
+            # ``@ignore_exceptions()`` swallowed any telemetry dial failure.
+            self._pending.clear()
 
 
 _telemetry = CLITelemetryClient()
@@ -408,5 +451,5 @@ def log_command_execution_error(exception: Exception, execution: ExecutionMetada
 
 
 @ignore_exceptions()
-def flush_telemetry():
-    _telemetry.flush()
+def flush_telemetry(force_dial: bool = False):
+    _telemetry.flush(force_dial=force_dial)

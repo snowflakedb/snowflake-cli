@@ -130,7 +130,11 @@ class SnowTyper(typer.Typer):
             def command_callable_decorator(*args, **kw):
                 """Wrapper around command callable. This is what happens at "runtime"."""
                 execution = ExecutionMetadata()
-                self.pre_execute(execution, require_warehouse=require_warehouse)
+                self.pre_execute(
+                    execution,
+                    require_warehouse=require_warehouse,
+                    requires_connection=requires_connection,
+                )
                 try:
                     result = command_callable(*args, **kw)
                     self.process_result(result)
@@ -140,7 +144,9 @@ class SnowTyper(typer.Typer):
                     exception = self.exception_handler(err, execution)
                     raise exception
                 finally:
-                    self.post_execute(execution)
+                    self.post_execute(
+                        execution, requires_connection=requires_connection
+                    )
 
             return super(SnowTyper, self).command(name=name, **kwargs)(
                 command_callable_decorator
@@ -149,15 +155,27 @@ class SnowTyper(typer.Typer):
         return custom_command
 
     @staticmethod
-    def pre_execute(execution: ExecutionMetadata, require_warehouse: bool = False):
+    def pre_execute(
+        execution: ExecutionMetadata,
+        require_warehouse: bool = False,
+        requires_connection: bool = False,
+    ):
         """
         Callback executed before running any command callable (after context execution).
         Pay attention to make this method safe to use if performed operations are not necessary
         for executing the command in proper way.
         """
         from snowflake.cli._app.telemetry import log_command_usage
+        from snowflake.cli.api.cli_global_context import get_cli_context
 
         log.debug("Executing command pre execution callback")
+        if requires_connection:
+            # For requires_connection=True commands, resolve the default
+            # connection name now so that the command body (and later telemetry
+            # flush) can rely on self.connection_name being populated. This
+            # preserves the pre-SNOW-3450376 side-effect that used to happen
+            # implicitly when telemetry opened the connection.
+            get_cli_context().connection_context.validate_and_complete()
         log_command_usage(execution)
         if require_warehouse and not SqlExecutionMixin().session_has_warehouse():
             raise ClickException(
@@ -203,7 +221,7 @@ class SnowTyper(typer.Typer):
         return exception
 
     @staticmethod
-    def post_execute(execution: ExecutionMetadata):
+    def post_execute(execution: ExecutionMetadata, requires_connection: bool = False):
         """
         Callback executed after running any command callable. Pay attention to make this method safe to
         use if performed operations are not necessary for executing the command in proper way.
@@ -212,7 +230,7 @@ class SnowTyper(typer.Typer):
 
         log.debug("Executing command post execution callback")
         log_command_result(execution)
-        flush_telemetry()
+        flush_telemetry(force_dial=requires_connection)
 
 
 @dataclasses.dataclass
