@@ -24,6 +24,7 @@
 ## Fixes and improvements
 * Updated `snowflake-connector-python` to version 4.5.0.
 * Fixed macOS arm64 installer incorrectly requiring Rosetta 2. The `Distribution.xml` package metadata now declares `hostArchitectures="arm64,x86_64"`, so the installer is recognized as native on Apple Silicon.
+* Fixed SQL string literal escaping in `identifier_to_show_like_pattern` and `to_string_literal` to use Snowflake's standard single-quote doubling (`''`) instead of backslash escaping, which is not interpreted under the default `STANDARD_ESCAPE_SEQUENCES=FALSE` session setting. This closes SQL injection vectors through `SHOW ... LIKE` queries driven by a project-controlled `snowflake.yml` or `manifest.yml`.
 
 
 # v3.17.1

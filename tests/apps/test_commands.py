@@ -708,8 +708,9 @@ class TestDatabaseExists:
 
         SnowflakeAppManager().database_exists("BAD'DB")
         query = mock_execute.call_args[0][0]
-        assert "BAD\\'DB" in query
-        assert "BAD'DB" not in query
+        # Single quotes are escaped by doubling them (''), not by backslash prefix.
+        assert "'BAD''DB'" in query
+        assert "BAD\\'DB" not in query
 
 
 class TestSchemaExists:
@@ -929,8 +930,11 @@ class TestSnowflakeAppManager:
         build_query = self._find_query(
             mock_execute.call_args_list, "SPCS_TEST_BUILD_APP_ARTIFACT_REPO"
         )
-        assert "app'injection" not in build_query
-        assert "app\\'injection" in build_query
+        # Single quotes are escaped by doubling (Snowflake's native escape mechanism);
+        # the raw payload 'app\'injection' must not appear as a literal unescaped quote.
+        assert "'app''injection'" in build_query
+        assert "app'injection'," not in build_query
+        assert "app'injection)" not in build_query
 
     def test_build_app_artifact_repo_requires_repo_and_app_id(self):
         stage_fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
@@ -2751,8 +2755,9 @@ class TestRoleHasBindServiceEndpoint:
         mock_execute.return_value = cursor
         SnowflakeAppManager().role_has_bind_service_endpoint("BAD'ROLE")
         query = mock_execute.call_args[0][0]
-        assert "BAD\\'ROLE" in query
-        assert "BAD'ROLE" not in query
+        # Single quotes are escaped by doubling them (''), not by backslash prefix.
+        assert "'BAD''ROLE'" in query
+        assert "BAD\\'ROLE" not in query
 
 
 # ── Open CLI command tests ────────────────────────────────────────────
