@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from pathlib import Path
@@ -42,6 +43,12 @@ from snowflake.cli.api.project.definition_conversion import (
     convert_project_definition_to_v2,
 )
 from snowflake.cli.api.project.definition_manager import DefinitionManager
+from snowflake.cli.api.project.schemas.project_definition import (
+    DefinitionV10,
+    DefinitionV11,
+    DefinitionV20,
+    get_version_map,
+)
 from snowflake.cli.api.secure_path import SecurePath
 
 log = logging.getLogger(__name__)
@@ -373,3 +380,69 @@ def show_config_sources(
     return get_configuration_explanation_results(
         key=key, verbose=show_details, connection=connection
     )
+
+
+_PROJECT_DEFINITION_MODELS = {
+    "1": DefinitionV10,
+    "1.1": DefinitionV11,
+    "2": DefinitionV20,
+}
+
+
+def _build_project_definition_schema(version: str) -> dict[str, Any]:
+    model = _PROJECT_DEFINITION_MODELS[version]
+    schema = model.model_json_schema()
+    schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"
+    schema["$id"] = (
+        "https://raw.githubusercontent.com/snowflakedb/snowflake-cli/main/"
+        f"schemas/project_definition_v{version.replace('.', '_')}.json"
+    )
+    schema["title"] = f"Snowflake CLI project definition v{version}"
+    schema["description"] = (
+        "JSON Schema for Snowflake CLI project definition files "
+        f"(snowflake.yml) at definition_version {version}."
+    )
+    return schema
+
+
+@app.command(name="generate-project-schema", requires_connection=False)
+def generate_project_schema(
+    version: str = typer.Option(
+        "2",
+        "--version",
+        help=(
+            "Project definition schema version to generate. "
+            f"Supported: {', '.join(get_version_map())}."
+        ),
+    ),
+    output_file: Optional[Path] = typer.Option(
+        None,
+        "--output-file",
+        "-o",
+        help="Write the JSON Schema to this file. When omitted, schema is printed to stdout.",
+        dir_okay=False,
+        writable=True,
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Generate a JSON Schema for the Snowflake CLI project definition file (snowflake.yml).
+
+    The produced schema follows the JSON Schema Store format and can be plugged into editors
+    (for example via the YAML VS Code extension) or CI pipelines to provide completion and
+    linting for snowflake.yml files before they reach Snowflake.
+    """
+    if version not in _PROJECT_DEFINITION_MODELS:
+        supported = ", ".join(get_version_map())
+        raise click.ClickException(
+            f"Unsupported project definition version '{version}'. Supported: {supported}."
+        )
+
+    schema = _build_project_definition_schema(version)
+    payload = json.dumps(schema, indent=2, sort_keys=True)
+
+    if output_file is not None:
+        SecurePath(output_file).write_text(payload + "\n")
+        return MessageResult(f"Project definition schema written to {output_file}.")
+
+    return MessageResult(payload)
