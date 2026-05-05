@@ -47,6 +47,7 @@ IGNORED_FILES = [
     "**/requirements.txt",
     "**/requirements.snowflake.txt",
     "**/requirements.other.txt",
+    "**/pyproject.toml",
     "**/snowflake.yml",
 ]
 

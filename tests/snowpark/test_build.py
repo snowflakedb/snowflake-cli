@@ -42,6 +42,54 @@ def test_snowpark_build_no_deprecated_warnings_by_default(
         assert "flag is deprecated" not in result.output
 
 
+@patch("snowflake.cli._plugins.snowpark.package_utils.download_unavailable_packages")
+def test_snowpark_build_falls_back_to_pyproject_toml(
+    mock_download, runner, project_directory
+):
+    """When requirements.txt is absent, the build reads PEP 621 dependencies
+    from pyproject.toml instead."""
+    mock_download.return_value = DownloadUnavailablePackagesResult()
+    with project_directory("snowpark_functions") as tmp_dir:
+        (tmp_dir / "requirements.txt").unlink()
+        (tmp_dir / "pyproject.toml").write_text(
+            "[project]\n"
+            'name = "snowpark-funcs"\n'
+            'version = "0.1.0"\n'
+            'dependencies = ["snowflake-snowpark-python"]\n'
+        )
+
+        result = runner.invoke(["snowpark", "build", "--ignore-anaconda"])
+
+        assert result.exit_code == 0, result.output
+        assert "Resolving dependencies from pyproject.toml" in result.output
+        assert mock_download.called
+        called_requirements = mock_download.call_args.kwargs["requirements"]
+        assert [r.name for r in called_requirements] == ["snowflake_snowpark_python"]
+
+
+@patch("snowflake.cli._plugins.snowpark.package_utils.download_unavailable_packages")
+def test_snowpark_build_prefers_requirements_txt_over_pyproject(
+    mock_download, runner, project_directory
+):
+    """requirements.txt is kept as the canonical source; pyproject.toml is a
+    fallback and should be ignored when both are present."""
+    mock_download.return_value = DownloadUnavailablePackagesResult()
+    with project_directory("snowpark_functions") as tmp_dir:
+        (tmp_dir / "pyproject.toml").write_text(
+            "[project]\n"
+            'name = "snowpark-funcs"\n'
+            'version = "0.1.0"\n'
+            'dependencies = ["should-be-ignored"]\n'
+        )
+
+        result = runner.invoke(["snowpark", "build", "--ignore-anaconda"])
+
+        assert result.exit_code == 0, result.output
+        assert "Resolving dependencies from requirements.txt" in result.output
+        called_requirements = mock_download.call_args.kwargs["requirements"]
+        assert "should_be_ignored" not in {r.name for r in called_requirements}
+
+
 @pytest.mark.parametrize(
     "artifacts, zip_name, expected_files",
     [
