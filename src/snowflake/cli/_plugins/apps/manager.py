@@ -687,25 +687,34 @@ class SnowflakeAppManager(SqlExecutionMixin):
         row = cursor.fetchone()
         return row[0] if row else ""
 
-    def get_service_endpoint_url(
-        self, service_fqn: FQN, endpoint_name: str = "app-endpoint"
+    def resolve_application_service_url_from_describe(
+        self, desc: Dict[str, Any]
     ) -> Optional[str]:
-        """Get the ingress URL for an application service endpoint."""
-        cursor = self.execute_query(
-            f"SHOW ENDPOINTS IN APPLICATION SERVICE {service_fqn.identifier}",
-            cursor_class=DictCursor,
-        )
-        for row in cursor:
-            if row["name"].upper() == endpoint_name.upper():
-                url = row["ingress_url"]
-                if (
-                    url
-                    and not url.startswith(("http://", "https://"))
-                    and "provisioning in progress" not in url.lower()
-                ):
-                    url = f"https://{url}"
-                return url
-        return None
+        """Return a browser-ready URL from :meth:`describe_app_service` output.
+
+        Returns *None* when the row is empty, the service is upgrading, the URL
+        is missing, or the URL is still the *provisioning* placeholder. Otherwise
+        returns the ``url`` value with an ``https://`` prefix when needed.
+        """
+        if not desc:
+            return None
+        if str(desc.get("is_upgrading", "")).lower() in ("true", "1", "yes"):
+            return None
+        url = (desc.get("url") or "").strip()
+        if not url or "provisioning in progress" in url.lower():
+            return None
+        if not url.startswith(("http://", "https://")):
+            url = f"https://{url}"
+        return url
+
+    def get_service_endpoint_url(self, service_fqn: FQN) -> Optional[str]:
+        """Get the public URL for an application service.
+
+        Uses ``DESCRIBE APPLICATION SERVICE`` (same source as the deploy wait
+        loop): the ``url`` column from the describe result.
+        """
+        desc = self.describe_app_service(service_fqn)
+        return self.resolve_application_service_url_from_describe(desc)
 
     def fetch_snow_apps_parameters(self) -> Dict[str, str]:
         """Fetch SnowApps default parameters for the current user.
