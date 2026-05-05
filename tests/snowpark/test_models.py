@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import zipfile
-from pathlib import Path
 
 import pytest
 from snowflake.cli._plugins.snowpark.models import (
