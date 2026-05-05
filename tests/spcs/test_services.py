@@ -1351,11 +1351,44 @@ def test_read_yaml(temporary_directory):
     assert result == json.dumps(SPEC_DICT)
 
 
-def test_read_yaml_escapes_dollar_quote_breakout(temporary_directory):
-    # A spec value containing $$ must not be passed through verbatim:
-    # the JSON is later embedded inside $$...$$ SQL literals by
-    # create(), _execute_job_service(), and upgrade_spec(), and an unescaped
-    # $$ in spec content would close the literal and allow injected SQL.
+@pytest.mark.parametrize(
+    "payload",
+    [
+        "$$ ); GRANT ROLE ACCOUNTADMIN TO USER attacker; --",
+        # Odd-length runs must also be neutralized — a naive replace("$$", "$ $")
+        # would leave the trailing $$ intact and still allow breakout.
+        "$$$); DROP TABLE users;--",
+        "$$$$); DROP TABLE users;--",
+        "$$$$$); DROP TABLE users;--",
+    ],
+)
+def test_read_yaml_escapes_dollar_quote_breakout(payload, temporary_directory):
+    # A spec value containing two or more consecutive $ must not survive
+    # verbatim: the JSON is later embedded inside $$...$$ SQL literals by
+    # create(), _execute_job_service(), and upgrade_spec(), and any $$ in
+    # spec content would close the literal and allow injected SQL.
+    tmp_dir = Path(temporary_directory)
+    spec_path = tmp_dir / "spec.yml"
+    spec_path.write_text(
+        dedent(
+            f"""
+            spec:
+                containers:
+                - name: main
+                  image: /db/repo:tag
+                  env:
+                    PAYLOAD: "{payload}"
+            """
+        )
+    )
+    result = ServiceManager()._read_yaml(spec_path)  # noqa: SLF001
+    assert "$$" not in result
+
+
+def test_read_yaml_preserves_single_dollar(temporary_directory):
+    # A single $ is not a dollar-quote delimiter and must pass through
+    # unchanged — legitimate spec values (env var references, passwords,
+    # etc.) often contain a lone $.
     tmp_dir = Path(temporary_directory)
     spec_path = tmp_dir / "spec.yml"
     spec_path.write_text(
@@ -1366,13 +1399,14 @@ def test_read_yaml_escapes_dollar_quote_breakout(temporary_directory):
                 - name: main
                   image: /db/repo:tag
                   env:
-                    PAYLOAD: "$$ ); GRANT ROLE ACCOUNTADMIN TO USER attacker; --"
+                    HOME_PATH: "$HOME/data"
+                    PRICE: "cost is $5"
             """
         )
     )
     result = ServiceManager()._read_yaml(spec_path)  # noqa: SLF001
-    assert "$$" not in result
-    assert "$ $" in result
+    assert "$HOME/data" in result
+    assert "cost is $5" in result
 
 
 @pytest.mark.parametrize(
@@ -1383,24 +1417,29 @@ def test_read_yaml_escapes_dollar_quote_breakout(temporary_directory):
         ("upgrade_spec", "from specification $$"),
     ],
 )
+@pytest.mark.parametrize(
+    "dollar_run",
+    ["$$", "$$$", "$$$$", "$$$$$"],
+)
 @patch(EXECUTE_QUERY)
 def test_service_spec_dollar_quote_not_broken_out(
-    mock_execute_query, temporary_directory, method_name, query_fragment
+    mock_execute_query, temporary_directory, method_name, query_fragment, dollar_run
 ):
-    # End-to-end check: a spec value containing $$ must not appear verbatim
-    # inside the generated SQL, otherwise the dollar-quoted literal is
-    # terminated early and the rest is parsed as SQL.
+    # End-to-end check: any run of >=2 $ in spec content must not appear
+    # verbatim inside the generated SQL, otherwise the dollar-quoted literal
+    # is terminated early and the rest is parsed as SQL. Covers odd-length
+    # runs where a naive pairwise escape would leave a trailing $$ intact.
     tmp_dir = Path(temporary_directory)
     spec_path = tmp_dir / "spec.yml"
     spec_path.write_text(
         dedent(
-            """
+            f"""
             spec:
                 containers:
                 - name: main
                   image: /db/repo:tag
                   env:
-                    PAYLOAD: "$$ ); GRANT ROLE ACCOUNTADMIN TO USER attacker; --"
+                    PAYLOAD: "{dollar_run} ); GRANT ROLE ACCOUNTADMIN TO USER attacker; --"
             """
         )
     )

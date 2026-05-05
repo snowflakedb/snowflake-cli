@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from datetime import datetime
 from pathlib import Path
@@ -422,9 +423,12 @@ class ServiceManager(SqlExecutionMixin):
     @staticmethod
     def _serialize_spec(data) -> str:
         # The returned JSON is embedded inside $$...$$ dollar-quoted SQL
-        # literals; json.dumps does not escape $, so a spec value containing
-        # $$ would close the literal early and allow SQL injection.
-        return json.dumps(data).replace("$$", "$ $")
+        # literals; json.dumps does not escape $, so any run of two or more
+        # $ in spec content would close the literal early and allow SQL
+        # injection. Break up every adjacent $$ pair — this handles runs of
+        # any length ($$, $$$, $$$$, ...) without mutating legitimate
+        # single-$ values.
+        return re.sub(r"\$(?=\$)", "$ ", json.dumps(data))
 
     def status(self, service_name: str) -> SnowflakeCursor:
         return self.execute_query(f"CALL SYSTEM$GET_SERVICE_STATUS('{service_name}')")
