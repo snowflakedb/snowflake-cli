@@ -23,6 +23,7 @@ from snowflake.cli.api.secure_utils import (
     _LOCAL_SYSTEM_FALLBACK_NAME,
     _LOCAL_SYSTEM_SID,
     _get_windows_whitelisted_users,
+    _lookup_windows_sid_account_name,
     windows_get_not_whitelisted_users_with_access,
 )
 
@@ -184,4 +185,4 @@ def test_sid_lookup_returns_none_on_non_windows():
     if sys.platform == "win32":
         pytest.skip("This test covers non-Windows fallback behavior.")
 
-    assert secure_utils._lookup_windows_sid_account_name(_LOCAL_SYSTEM_SID) is None
+    assert _lookup_windows_sid_account_name(_LOCAL_SYSTEM_SID) is None
