@@ -23,9 +23,10 @@ dispatched to from the unified handlers without CLI-framework coupling.
 """
 
 import json
+import logging
 import re
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import typer
 from click import ClickException
@@ -55,6 +56,8 @@ from snowflake.cli.api.output.types import (
 )
 from snowflake.cli.api.project.util import identifier_for_url
 from snowflake.connector.errors import ProgrammingError
+
+log = logging.getLogger(__name__)
 
 # Default number of log lines returned by ``snow app events`` for the
 # Snowflake Apps Deploy flow. The unified command accepts ``--last`` with a ``None``
@@ -354,6 +357,34 @@ def snowflake_app_events(
     return MessageResult(logs)
 
 
+def _make_build_log_streamer(
+    manager: SnowflakeAppManager, build_job_fqn: FQN
+) -> Callable[[], None]:
+    """Return an ``on_poll`` callback that streams new build log lines.
+
+    Lines are emitted at INFO level so they only appear when the user
+    runs the deploy with ``--verbose`` (or ``--debug``).  The callback
+    keeps a running count of lines already shown and only emits the
+    delta on each invocation.  Failures fetching logs are swallowed so
+    they never interrupt the surrounding polling loop.
+    """
+    seen_count = 0
+
+    def _stream() -> None:
+        nonlocal seen_count
+        try:
+            logs = manager.get_build_job_logs(build_job_fqn)
+        except Exception:
+            log.debug("Failed to fetch build logs", exc_info=True)
+            return
+        new_lines = logs[seen_count:]
+        for line in new_lines:
+            log.info(line)
+        seen_count = len(logs)
+
+    return _stream
+
+
 def snowflake_app_deploy(
     entity_id: Optional[str],
     upload_only: bool,
@@ -570,6 +601,7 @@ def snowflake_app_deploy(
                 f"  SELECT * FROM TABLE("
                 f"{artifact_build_job_fqn.identifier}!SPCS_GET_LOGS())"
             ),
+            on_poll=_make_build_log_streamer(manager, artifact_build_job_fqn),
         )
 
     if build_only:
