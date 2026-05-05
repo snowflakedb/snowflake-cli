@@ -1,3 +1,4 @@
+import time
 from contextlib import contextmanager
 from logging import getLogger
 from typing import Iterable
@@ -257,8 +258,11 @@ class Repl:
 
                 try:
                     log.debug("executing query")
+                    start = time.monotonic()
                     cursors = self._execute(user_input)
                     print_result(MultipleResults(QueryResult(c) for c in cursors))
+                    elapsed = time.monotonic() - start
+                    cli_console.message(f"Time Elapsed: {elapsed:.3f}s")
 
                 except Exception as e:
                     log.debug("error occurred: %s", e)

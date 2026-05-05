@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* `snow sql` REPL now prints `Time Elapsed: <seconds>s` after each query, matching SnowSQL's behavior.
 
 ## Fixes and improvements
 * Upgraded `pip` from 26.1.1 to 26.1.2.
