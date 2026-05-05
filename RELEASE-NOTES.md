@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* `snow sql` REPL now prints `Time Elapsed: <seconds>s` after each query, matching SnowSQL's behavior.
 
 ## Fixes and improvements
 * Fixed `SELECT *` output being corrupted when joined tables share column names. Duplicate column names are now disambiguated by appending a numeric suffix (e.g. `NAME`, `NAME_2`).
