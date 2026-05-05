@@ -23,6 +23,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, Optional, Set, TypeVar
 
 DEFAULT_PERSONAL_SCHEMA = "PUBLIC"
+# Shared workspace name used when ``snow app setup`` resolves the destination
+# database from the user's personal database. All of the user's apps live as
+# subdirectories under this single workspace.
+DEFAULT_PERSONAL_WORKSPACE_NAME = "SNOWFLAKE_APPS"
 WORKSPACE_LIVE_VERSION_PATH = "versions/live"
 
 if TYPE_CHECKING:

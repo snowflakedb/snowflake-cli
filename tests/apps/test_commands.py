@@ -332,8 +332,8 @@ class TestGenerateSnowflakeYml:
         assert "query_warehouse: TEST_WH" in result
         assert "name: MY_POOL" in result
         assert "name: MY_EAI" in result
-        # code_workspace is written as a fully-qualified identifier.
-        assert "code_workspace: TEST_DB.SNOW_APPS.MY_APP_CODE" in result
+        # code_workspace is a shared workspace, fully-qualified.
+        assert "code_workspace: TEST_DB.SNOW_APPS.SNOWFLAKE_APPS" in result
         assert "code_stage:" not in result
         assert "image_repository" not in result
         assert "artifact_repository" not in result
@@ -389,10 +389,10 @@ class TestGenerateSnowflakeYml:
 
         assert entity.type == "snowflake-app"
         assert entity.query_warehouse == "TEST_WH"
-        # code_workspace is emitted as ``DB.SCHEMA.WORKSPACE`` and the
-        # validator parses it back into a ``CodeWorkspaceReference`` with
+        # code_workspace points at the shared SNOWFLAKE_APPS workspace and
+        # the validator parses it back into a ``CodeWorkspaceReference`` with
         # db/schema set.
-        assert entity.code_workspace.name == "MY_APP_CODE"
+        assert entity.code_workspace.name == "SNOWFLAKE_APPS"
         assert entity.code_workspace.database == "TEST_DB"
         assert entity.code_workspace.schema_ == "SNOW_APPS"
         assert entity.code_stage is None

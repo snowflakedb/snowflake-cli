@@ -716,8 +716,13 @@ def snowflake_app_teardown(
         manager.drop_service_if_exists(service_fqn)
 
     if use_workspace:
-        cli_console.step(f"Dropping workspace {storage_fqn.identifier}")
-        manager.drop_workspace_if_exists(storage_fqn)
+        # The workspace may be shared across apps (e.g. the default
+        # ``SNOWFLAKE_APPS`` workspace), so we only clear this app's
+        # subdirectory and leave the workspace itself in place.
+        cli_console.step(
+            f"Clearing workspace files for {app_name} in {storage_fqn.identifier}"
+        )
+        manager.clear_workspace_subdirectory(storage_fqn, app_name)
     else:
         cli_console.step(f"Dropping stage {storage_fqn.identifier}")
         manager.drop_stage_if_exists(storage_fqn)
