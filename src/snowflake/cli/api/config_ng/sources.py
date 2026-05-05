@@ -710,6 +710,7 @@ _ENV_CONFIG_KEYS: Final[list[str]] = [
     "oauth_enable_refresh_tokens",
     "oauth_enable_single_use_refresh_tokens",
     "client_store_temporary_credential",
+    "secondary_roles",
 ]
 
 _BOOLEAN_ENV_CONFIG_KEYS: Final[set[str]] = {
