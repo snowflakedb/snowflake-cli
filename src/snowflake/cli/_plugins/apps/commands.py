@@ -557,14 +557,13 @@ def snowflake_app_deploy(
         return d.get("status", "").upper() == "FAILED"
 
     def _url_is_ready(d: dict) -> bool:
-        url = d.get("url", "")
-        return bool(url) and "provisioning in progress" not in url.lower()
+        return manager.resolve_application_service_url_from_describe(d) is not None
 
     if did_upgrade:
         cli_console.step("Waiting for upgrade to complete...")
         desc = _poll_until(
             poll_fn=lambda: manager.describe_app_service(service_fqn),
-            is_done=lambda d: not _svc_is_upgrading(d) and _url_is_ready(d),
+            is_done=_url_is_ready,
             is_error=_svc_has_failed,
             format_status=lambda d: ("upgrading" if _svc_is_upgrading(d) else "ready"),
             timeout_message=(
@@ -585,9 +584,12 @@ def snowflake_app_deploy(
             ),
         )
 
-    endpoint_url = desc.get("url", "")
-    if endpoint_url and not endpoint_url.startswith(("http://", "https://")):
-        endpoint_url = f"https://{endpoint_url}"
+    endpoint_url = manager.resolve_application_service_url_from_describe(desc)
+    if not endpoint_url:
+        raise CliError(
+            "Application service URL is not available after deploy. "
+            f"Check: DESCRIBE APPLICATION SERVICE {service_fqn.identifier}"
+        )
     return MessageResult(f"App ready at {endpoint_url}")
 
 
