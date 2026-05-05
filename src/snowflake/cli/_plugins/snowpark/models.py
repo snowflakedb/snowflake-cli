@@ -20,7 +20,29 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List
 
+from click.exceptions import ClickException
 from requirements import requirement
+
+
+class UnsafeWheelEntryError(ClickException):
+    """Raised when a wheel archive contains an entry that would extract
+    outside of the extraction destination (a zip-slip attack)."""
+
+    def __init__(self, wheel_path: Path, member_name: str, destination: Path):
+        super().__init__(
+            f"Refusing to extract wheel '{wheel_path}': entry '{member_name}' "
+            f"would be written outside of '{destination}'. The wheel may be "
+            "malicious or corrupt."
+        )
+
+
+def _is_within_destination(member_path: Path, destination: Path) -> bool:
+    """Check that `member_path` would land inside `destination` once resolved."""
+    try:
+        member_path.resolve(strict=False).relative_to(destination)
+        return True
+    except ValueError:
+        return False
 
 
 class Requirement(requirement.Requirement):
@@ -79,8 +101,22 @@ class RequirementWithWheel:
     wheel_path: Path | None
 
     def extract_files(self, destination: Path) -> None:
-        if self.wheel_path is not None:
-            zipfile.ZipFile(self.wheel_path).extractall(destination)
+        if self.wheel_path is None:
+            return
+        # Validate every entry before extracting to guard against zip-slip
+        # attacks: a malicious wheel can contain paths like `../../etc/foo`
+        # that would write arbitrary files outside of `destination`.
+        # `zipfile.extractall` on Python 3.10/3.11 performs no such check,
+        # and the Python 3.12+ `filter=` argument is opt-in.
+        destination_root = Path(destination).resolve()
+        with zipfile.ZipFile(self.wheel_path) as zf:
+            for member in zf.infolist():
+                member_path = destination_root / member.filename
+                if not _is_within_destination(member_path, destination_root):
+                    raise UnsafeWheelEntryError(
+                        self.wheel_path, member.filename, destination_root
+                    )
+            zf.extractall(destination)
 
     def namelist(self) -> List[str]:
         if self.wheel_path is None:

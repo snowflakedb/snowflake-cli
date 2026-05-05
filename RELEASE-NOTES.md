@@ -23,6 +23,7 @@
 ## Fixes and improvements
 * Fixed `SELECT *` output being corrupted when joined tables share column names. Duplicate column names are now disambiguated by appending a numeric suffix (e.g. `NAME`, `NAME_2`).
 * Fixed `snow connection generate-jwt` and `snow connection generate-workload-identity-token` failing with `Connection None is not configured` when used with `--temporary-connection`.
+* Hardened wheel extraction during `snow snowpark build` against zip-slip: wheel archives whose entries resolve outside the extraction directory are now rejected with a clear error instead of writing files to arbitrary paths on disk.
 
 
 # v3.17.0
