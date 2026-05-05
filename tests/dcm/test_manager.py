@@ -23,7 +23,6 @@ from snowflake.cli._plugins.dcm.manager import (
     DCMProjectManager,
 )
 from snowflake.cli._plugins.dcm.models import MANIFEST_FILE_NAME
-from snowflake.cli.api.constants import PatternMatchingType
 from snowflake.cli.api.identifiers import FQN
 
 execute_queries = "snowflake.cli._plugins.dcm.manager.DCMProjectManager.execute_query"
@@ -490,49 +489,95 @@ def test_deploy_project_with_alias_special_characters(
     )
 
 
+@mock.patch(execute_queries)
+def test_purge_project(mock_execute_query):
+    mgr = DCMProjectManager()
+    mgr.purge(
+        project_identifier=TEST_PROJECT,
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PURGE"
+    )
+
+
+@mock.patch(execute_queries)
+def test_purge_project_with_skip_plan(mock_execute_query):
+    mgr = DCMProjectManager()
+    mgr.purge(
+        project_identifier=TEST_PROJECT,
+        skip_plan=True,
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PURGE SKIP PLAN"
+    )
+
+
+@mock.patch(execute_queries)
+def test_purge_project_with_alias(mock_execute_query):
+    mgr = DCMProjectManager()
+    mgr.purge(
+        project_identifier=TEST_PROJECT,
+        alias="my_alias",
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PURGE AS \"my_alias\""
+    )
+
+
 class TestSyncLocalFiles:
-    @mock.patch("snowflake.cli._plugins.dcm.manager.sync_artifacts_with_stage")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put_recursive")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.bundle_artifacts")
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
-    def test_calls_sync_artifacts_with_stage(
+    def test_uploads_to_temporary_stage(
         self,
-        _mock_create_stage,
-        mock_sync_artifacts_with_stage,
+        mock_create_stage,
+        mock_bundle_artifacts,
+        mock_put,
+        mock_put_recursive,
         project_directory,
         mock_connect,
         mock_cursor,
         mock_from_resource,
     ):
-        with project_directory("dcm_project") as project_dir:
-            DCMProjectManager.sync_local_files(project_identifier=TEST_PROJECT)
+        mock_put_recursive.return_value = iter([])
 
-            mock_sync_artifacts_with_stage.assert_called_once()
+        with project_directory("dcm_project"):
+            result = DCMProjectManager.sync_local_files(project_identifier=TEST_PROJECT)
 
-            call_args = mock_sync_artifacts_with_stage.call_args
-            assert call_args.kwargs["stage_root"] == str(mock_from_resource())
+            mock_create_stage.assert_called_once()
+            assert mock_create_stage.call_args.kwargs["temporary"] is True
 
-            artifacts = call_args.kwargs["artifacts"]
-            artifact_srcs = {a.src for a in artifacts}
-            assert MANIFEST_FILE_NAME in artifact_srcs
-            assert any(SOURCES_FOLDER in src for src in artifact_srcs)
+            mock_bundle_artifacts.assert_called_once()
 
-            assert call_args.kwargs["pattern_type"] == PatternMatchingType.GLOB
-            assert call_args.kwargs["use_temporary_stage"] is True
+            mock_put_recursive.assert_called_once()
+            assert mock_put_recursive.call_args.kwargs["stage_path"] == str(
+                mock_from_resource()
+            )
 
-            actual_project_root = call_args.kwargs["project_paths"].project_root
-            expected_project_root = project_dir.resolve()
-            assert actual_project_root.resolve() == expected_project_root.resolve()
+            mock_put.assert_not_called()
 
-    @mock.patch("snowflake.cli._plugins.dcm.manager.sync_artifacts_with_stage")
+            assert result == str(mock_from_resource())
+
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put_recursive")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.bundle_artifacts")
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
     def test_sync_local_files_with_source_directory(
         self,
         _mock_create_stage,
-        mock_sync_artifacts_with_stage,
+        mock_bundle_artifacts,
+        mock_put,
+        mock_put_recursive,
         tmp_path,
         mock_connect,
         mock_cursor,
         mock_from_resource,
     ):
+        mock_put_recursive.return_value = iter([])
         source_dir = tmp_path / "custom_source"
         source_dir.mkdir()
 
@@ -552,35 +597,36 @@ class TestSyncLocalFiles:
             project_identifier=TEST_PROJECT, source_directory=str(source_dir)
         )
 
-        mock_sync_artifacts_with_stage.assert_called_once()
-        call_args = mock_sync_artifacts_with_stage.call_args
-        actual_project_root = call_args.kwargs["project_paths"].project_root
+        mock_bundle_artifacts.assert_called_once()
+        actual_project_root = mock_bundle_artifacts.call_args.args[0].project_root
         assert actual_project_root.resolve() == source_dir.resolve()
 
-        artifacts = call_args.kwargs["artifacts"]
-        artifact_srcs = [a.src for a in artifacts]
-        assert MANIFEST_FILE_NAME in artifact_srcs
-        assert any(
-            SOURCES_FOLDER in src and "custom_query.sql" in src for src in artifact_srcs
-        )
-
-    @mock.patch("snowflake.cli._plugins.dcm.manager.sync_artifacts_with_stage")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put_recursive")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.bundle_artifacts")
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
     def test_sync_local_files_with_relative_source_directory(
         self,
         _mock_create_stage,
-        mock_sync_artifacts_with_stage,
+        mock_bundle_artifacts,
+        mock_put,
+        mock_put_recursive,
         tmp_path,
         mock_connect,
         mock_cursor,
         mock_from_resource,
     ):
+        mock_put_recursive.return_value = iter([])
         source_dir = tmp_path / "relative_source"
         source_dir.mkdir()
 
         manifest_file = source_dir / MANIFEST_FILE_NAME
         with open(manifest_file, "w") as f:
             yaml.dump({"manifest_version": 2, "type": "dcm_project"}, f)
+
+        sources_dir = source_dir / SOURCES_FOLDER
+        sources_dir.mkdir()
+        (sources_dir / "file.sql").touch()
 
         original_cwd = os.getcwd()
         try:
@@ -591,26 +637,29 @@ class TestSyncLocalFiles:
                 source_directory="relative_source",
             )
 
-            mock_sync_artifacts_with_stage.assert_called_once()
-            call_args = mock_sync_artifacts_with_stage.call_args
-
-            actual_project_root = call_args.kwargs["project_paths"].project_root
+            mock_bundle_artifacts.assert_called_once()
+            actual_project_root = mock_bundle_artifacts.call_args.args[0].project_root
             assert actual_project_root.is_absolute()
             assert actual_project_root.resolve() == source_dir.resolve()
         finally:
             os.chdir(original_cwd)
 
-    @mock.patch("snowflake.cli._plugins.dcm.manager.sync_artifacts_with_stage")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put_recursive")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.bundle_artifacts")
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
-    def test_sync_local_files_includes_all_files_in_sources(
+    def test_sync_local_files_collects_manifest_and_sources(
         self,
         _mock_create_stage,
-        mock_sync_artifacts_with_stage,
+        mock_bundle_artifacts,
+        mock_put,
+        mock_put_recursive,
         tmp_path,
         mock_connect,
         mock_cursor,
         mock_from_resource,
     ):
+        mock_put_recursive.return_value = iter([])
         source_dir = tmp_path / "project_with_sources"
         source_dir.mkdir()
 
@@ -636,14 +685,62 @@ class TestSyncLocalFiles:
             project_identifier=TEST_PROJECT, source_directory=str(source_dir)
         )
 
-        mock_sync_artifacts_with_stage.assert_called_once()
-        call_args = mock_sync_artifacts_with_stage.call_args
-
-        artifacts = call_args.kwargs["artifacts"]
+        mock_bundle_artifacts.assert_called_once()
+        artifacts = mock_bundle_artifacts.call_args.args[1]
         artifact_srcs = [a.src for a in artifacts]
 
         assert MANIFEST_FILE_NAME in artifact_srcs
-        assert any("definitions" in src and "table.sql" in src for src in artifact_srcs)
-        assert any("macros" in src and "helpers.sql" in src for src in artifact_srcs)
-        assert any("macros" in src and "utils.jinja" in src for src in artifact_srcs)
-        assert any("dbt_project.yml" in src for src in artifact_srcs)
+        assert SOURCES_FOLDER in artifact_srcs
+
+    @mock.patch("snowflake.cli._plugins.stage.manager.StageManager.execute_query")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
+    def test_sync_local_files_uploads_hidden_files(
+        self,
+        _mock_create_stage,
+        mock_execute_query,
+        tmp_path,
+        mock_connect,
+        mock_cursor,
+        mock_from_resource,
+    ):
+        mock_execute_query.return_value = mock_cursor(rows=[], columns=[])
+
+        source_dir = tmp_path / "project_with_dotfiles"
+        source_dir.mkdir()
+        with open(source_dir / MANIFEST_FILE_NAME, "w") as f:
+            yaml.dump({"manifest_version": 2, "type": "dcm_project"}, f)
+
+        dbt = source_dir / SOURCES_FOLDER / "dbt"
+        (dbt / "models").mkdir(parents=True)
+        (dbt / ".gitignore").touch()
+        (dbt / "models" / "model.sql").touch()
+
+        hidden_dir = source_dir / SOURCES_FOLDER / ".hidden_dir"
+        (hidden_dir / "sub").mkdir(parents=True)
+        (hidden_dir / "visible.sql").touch()
+        (hidden_dir / "sub" / "deep.sql").touch()
+
+        DCMProjectManager.sync_local_files(
+            project_identifier=TEST_PROJECT, source_directory=str(source_dir)
+        )
+
+        put_queries = [
+            call.args[0]
+            for call in mock_execute_query.call_args_list
+            if call.args and call.args[0].lstrip().lower().startswith("put ")
+        ]
+        for q in put_queries:
+            assert (
+                "/dbt/*" not in q
+            ), f"PUT for dotfile-only dbt/ dir would crash the connector: {q}"
+            assert (
+                "/.hidden_dir/*" not in q
+            ), f"hidden dir must not be uploaded via dir/* glob: {q}"
+        for filename, stage_dest in (
+            (".gitignore", f"/{SOURCES_FOLDER}/dbt"),
+            ("visible.sql", f"/{SOURCES_FOLDER}/.hidden_dir"),
+            ("deep.sql", f"/{SOURCES_FOLDER}/.hidden_dir/sub"),
+        ):
+            assert any(
+                filename in q and stage_dest in q for q in put_queries
+            ), f"expected a PUT for {filename} to {stage_dest}; got: {put_queries}"

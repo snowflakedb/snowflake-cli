@@ -176,6 +176,7 @@ def config_init(config_file: Optional[Path]):
 
     if config_file:
         get_cli_context_manager().config_file_override = config_file
+        _check_custom_config_permissions(config_file)
     else:
         _check_default_config_files_permissions()
 
@@ -255,33 +256,95 @@ def _config_file():
         raise
 
 
-def _read_config_file():
-    config_manager = get_config_manager()
-    with warnings.catch_warnings():
-        if IS_WINDOWS:
-            warnings.filterwarnings(
-                action="ignore",
-                message="Bad owner or permissions.*",
-                module="snowflake.connector.config_manager",
-            )
+def _issue_unix_custom_permissions_warnings(config_path: Path) -> None:
+    """Issue a warning for custom config files with wide permissions (Unix only)."""
+    if file_permissions_are_strict(config_path):
+        return
 
-            if not file_permissions_are_strict(config_manager.file_path):
-                users = ", ".join(
-                    windows_get_not_whitelisted_users_with_access(
-                        config_manager.file_path
-                    )
-                )
-                warnings.warn(
-                    f"Unauthorized users ({users}) have access to configuration file {config_manager.file_path}.\n"
-                    f'Run `icacls "{config_manager.file_path}" /remove:g <USER_ID>` on those users to restrict permissions.'
-                )
+    warnings.warn(
+        f"Bad owner or permissions on {config_path}.\n"
+        f' * To change owner, run `chown $USER "{config_path}"`.\n'
+        f' * To restrict permissions, run `chmod 0600 "{config_path}"`.\n'
+        f" * In future versions of Snowflake CLI strict configuration file permissions will be mandatory. "
+        f"To test if your files have correct permissions set SNOWFLAKE_CLI_FEATURES_ENFORCE_STRICT_CONFIG_PERMISSIONS=1 and try again."
+    )
+
+
+def _read_config_file():
+    from snowflake.cli.api.cli_global_context import get_cli_context_manager
+
+    config_manager = get_config_manager()
+    is_custom_config = get_cli_context_manager().config_file_override is not None
+    enforce_strict = _should_enforce_strict_config_permissions()
+
+    with warnings.catch_warnings():
+        _issue_permission_warnings(
+            config_path=config_manager.file_path,
+            is_custom_config=is_custom_config,
+            enforce_strict=enforce_strict,
+        )
+        skip_permissions_check = _should_skip_connector_permissions_check(
+            is_custom_config=is_custom_config, enforce_strict=enforce_strict
+        )
 
         try:
-            config_manager.read_config()
-        except ConfigSourceError as exception:
-            raise ClickException(
-                f"Configuration file seems to be corrupted. {str(exception.__cause__)}"
+            config_manager.read_config(
+                skip_file_permissions_check=skip_permissions_check
             )
+        except ConfigSourceError as exception:
+            error_detail = (
+                str(exception.__cause__) if exception.__cause__ else exception.msg
+            )
+            raise ClickException(
+                f"Configuration file seems to be corrupted. {error_detail}"
+            )
+
+
+def _issue_permission_warnings(
+    config_path: Path, is_custom_config: bool, enforce_strict: bool
+) -> None:
+    """Set up platform- and context-specific permission warnings."""
+    if IS_WINDOWS:
+        _issue_windows_permission_warnings(config_path)
+        return
+
+    if is_custom_config and not enforce_strict:
+        _issue_unix_custom_permissions_warnings(config_path)
+
+
+def _issue_windows_permission_warnings(config_path: Path) -> None:
+    """Set up permission warnings for Windows."""
+    warnings.filterwarnings(
+        action="ignore",
+        message="Bad owner or permissions.*",
+        module="snowflake.connector.config_manager",
+    )
+
+    if not file_permissions_are_strict(config_path):
+        users = ", ".join(windows_get_not_whitelisted_users_with_access(config_path))
+        warnings.warn(
+            f"Unauthorized users ({users}) have access to configuration file {config_path}.\n"
+            f'Run `icacls "{config_path}" /remove:g <USER_ID>` on those users to restrict permissions.'
+        )
+
+
+def _should_skip_connector_permissions_check(
+    is_custom_config: bool, enforce_strict: bool
+) -> bool:
+    """
+    Determine whether the connector should skip file permission checks.
+
+    On Unix custom config files, strict mode controls whether connector checks are
+    skipped to preserve backwards-compatible behavior when strict mode is off.
+    """
+    if IS_WINDOWS:
+        return False
+
+    # If custom config is provided, we assume that it's a trusted file
+    if is_custom_config:
+        return True
+
+    return not enforce_strict
 
 
 def _initialise_logs_section():
@@ -487,6 +550,48 @@ def _check_default_config_files_permissions() -> None:
             raise ConfigFileTooWidePermissionsError(connections_file)
         if CONFIG_FILE.exists() and not file_permissions_are_strict(CONFIG_FILE):
             raise ConfigFileTooWidePermissionsError(CONFIG_FILE)
+
+
+def _check_custom_config_permissions(config_file: Path) -> None:
+    """
+    Check custom config file permissions if ENFORCE_STRICT_CONFIG_PERMISSIONS flag is enabled.
+
+    This allows users to opt-in to strict permission checking on custom config files.
+    The flag can be set via environment variable SNOWFLAKE_CLI_FEATURES_ENFORCE_STRICT_CONFIG_PERMISSIONS.
+
+    This is the early-exit gate: if strict mode is on and permissions are bad, we raise here
+    before the config file is ever read. _handle_unix_custom_config_permissions (called later
+    during _read_config_file) only runs when this check passes, i.e. permissions are acceptable.
+    """
+    if IS_WINDOWS:
+        return
+
+    if (
+        _should_enforce_strict_config_permissions()
+        and config_file.exists()
+        and not file_permissions_are_strict(config_file)
+    ):
+        raise ConfigFileTooWidePermissionsError(config_file)
+
+
+def _should_enforce_strict_config_permissions() -> bool:
+    # This intentionally reads only from the environment, not from the config file.
+    # The flag controls whether the config file's own permissions are checked before
+    # reading it — so reading the (potentially insecure) config file first to discover
+    # the flag would defeat the purpose.
+    env_var = get_env_variable_name(
+        *FEATURE_FLAGS_SECTION_PATH, key="ENFORCE_STRICT_CONFIG_PERMISSIONS"
+    )
+    value = os.environ.get(env_var, "")
+    try:
+        return try_cast_to_bool(value.lower())
+    except ValueError:
+        log.debug(
+            "Could not parse %s value %r as boolean, defaulting to False",
+            env_var,
+            value,
+        )
+        return False
 
 
 def get_feature_flags_section() -> Dict[str, bool | Literal["UNKNOWN"]]:

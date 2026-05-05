@@ -8,6 +8,7 @@ from snowflake.cli._plugins.sql.statement_reader import (
     CompiledStatement,
     ParsedStatement,
     StatementType,
+    _protect_sql_comments,
     compile_statements,
     files_reader,
     parse_statement,
@@ -408,6 +409,44 @@ def test_detect_async_queries():
     ]
 
 
+def test_source_file_receives_pre_render(tmp_path_factory: pytest.TempPathFactory):
+    """pre_render must be applied to files loaded via !source, not just the top-level query."""
+    f1 = tmp_path_factory.mktemp("jinja_source") / "sourced.sql"
+    f1.write_text("{% if flag %}SELECT 42;{% endif %}")
+
+    rendered_calls: list[str] = []
+
+    def pre_render(content: str) -> str:
+        from snowflake.cli.api.rendering.sql_templates import (
+            SQLTemplateSyntaxConfig,
+            snowflake_sql_jinja_render,
+        )
+
+        rendered_calls.append(content)
+        return snowflake_sql_jinja_render(
+            content,
+            template_syntax_config=SQLTemplateSyntaxConfig(
+                enable_legacy_syntax=False,
+                enable_standard_syntax=False,
+                enable_jinja_syntax=True,
+            ),
+            data={"flag": True},
+        )
+
+    source = query_reader(
+        f"!source {f1.as_posix()};",
+        operators=[],
+        pre_render=pre_render,
+    )
+    errors, cnt, compiled = compile_statements(source)
+
+    assert errors == [], errors
+    assert cnt == 1
+    assert compiled[0].statement == "SELECT 42;"
+    # pre_render must have been called for the sourced file
+    assert any("{% if flag %}" in c for c in rendered_calls)
+
+
 @pytest.mark.parametrize("command", ["queries", "abort", "result", "AbOrT"])
 def test_parse_command(command):
     query = f"!{command} args k1=v1 k2=v2;"
@@ -425,3 +464,80 @@ def test_parse_unknown_command():
     assert parsed_statement.statement.read() == query
     assert parsed_statement.source_path is None
     assert parsed_statement.error == "Unknown command: unknown_cmd"
+
+
+# ---------------------------------------------------------------------------
+# _protect_sql_comments tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        # Line comment
+        "SELECT 1; -- a comment\nSELECT 2;",
+        # Inline block comment
+        "SELECT /* inline */ 1;",
+        # Multi-line block comment
+        "SELECT\n/* line1\nline2\n*/\n1;",
+        # Nested block comment (Snowflake extension)
+        "SELECT /* outer /* inner */ still outer */ 1;",
+        # Jinja-like syntax in line comment
+        "-- {{ var }}\nSELECT 1;",
+        # Jinja-like syntax in block comment
+        "/* {{ var }} */\nSELECT 1;",
+        # {% endraw %} inside a comment — the edge case that breaks {% raw %} wrapping
+        "-- {% endraw %} trick\nSELECT 1;",
+        # Single-quoted string with comment-like content (must be untouched)
+        "SELECT '-- not a comment';",
+        # Single-quoted string with '' escape
+        "SELECT 'it''s fine -- not a comment';",
+        # Dollar-quoted string with comment-like content (must be untouched)
+        "SELECT $$-- not a comment\n{{var}}$$;",
+        # No comments — input should round-trip unchanged
+        "SELECT 1; SELECT 2;",
+        # Unterminated block comment
+        "SELECT 1; /* no end",
+        # Unterminated line comment (no trailing newline)
+        "SELECT 1; -- no newline",
+    ],
+)
+def test_protect_sql_comments_roundtrip(sql):
+    """protect → restore must always produce the original SQL."""
+    placeholder_sql, saved = _protect_sql_comments(sql)
+    assert saved.restore(placeholder_sql) == sql
+
+
+def test_protect_sql_comments_hides_jinja_syntax():
+    """Jinja-like syntax in comments must not survive into the placeholder SQL."""
+    sql = "-- {{ secret }}\nSELECT /* {% if x %} */ 1;"
+    placeholder_sql, _ = _protect_sql_comments(sql)
+    assert "{{" not in placeholder_sql
+    assert "{%" not in placeholder_sql
+
+
+def test_protect_sql_comments_nested_block():
+    """Nested block comment must be captured as a single placeholder."""
+    sql = "SELECT /* outer /* inner */ still outer */ 1;"
+    placeholder_sql, saved = _protect_sql_comments(sql)
+    # Entire nested comment replaced by a single placeholder
+    assert "/*" not in placeholder_sql
+    assert saved.restore(placeholder_sql) == sql
+
+
+def test_protect_comments_roundtrip_through_jinja():
+    """Comments must survive a full protect → Jinja-render → restore cycle."""
+    from snowflake.cli.api.rendering.sql_templates import (
+        SQLTemplateSyntaxConfig,
+        snowflake_sql_jinja_render,
+    )
+
+    sql = "-- {{ not_a_var }}\nSELECT /* {{ also_not }} */ 1 WHERE x = {{ x }};"
+    placeholder_sql, saved = _protect_sql_comments(sql)
+    rendered = snowflake_sql_jinja_render(
+        placeholder_sql,
+        template_syntax_config=SQLTemplateSyntaxConfig(enable_jinja_syntax=True),
+        data={"x": 42},
+    )
+    restored = saved.restore(rendered)
+    assert restored == "-- {{ not_a_var }}\nSELECT /* {{ also_not }} */ 1 WHERE x = 42;"

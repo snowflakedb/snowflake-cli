@@ -12,13 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List
 
 from snowflake.cli._plugins.dcm.models import MANIFEST_FILE_NAME, SOURCES_FOLDER
 from snowflake.cli._plugins.dcm.utils import collect_output
+from snowflake.cli._plugins.stage.diff import _to_diff_line
 from snowflake.cli._plugins.stage.manager import StageManager
-from snowflake.cli.api.artifacts.upload import sync_artifacts_with_stage
+from snowflake.cli.api.artifacts.utils import bundle_artifacts
 from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import (
@@ -34,6 +36,19 @@ from snowflake.cli.api.stage_path import StagePath
 from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__name__)
+
+
+@dataclass
+class FileUpload:
+    file: Path
+    dest: str
+
+
+@dataclass
+class UploadPlan:
+    artifacts: List[PathMapping] = field(default_factory=list)
+    individual_files: List[FileUpload] = field(default_factory=list)
+    relative_paths_to_upload: List[str] = field(default_factory=list)
 
 
 class DCMProjectManager(SqlExecutionMixin):
@@ -186,6 +201,24 @@ class DCMProjectManager(SqlExecutionMixin):
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} REFRESH ALL"
         return self.execute_query(query=query)
 
+    def purge(
+        self,
+        project_identifier: FQN,
+        alias: str | None = None,
+        skip_plan: bool = False,
+    ) -> SnowflakeCursor:
+        log.info(
+            "Running DCM purge manager operation (project_identifier=%s, skip_plan=%s).",
+            project_identifier,
+            skip_plan,
+        )
+        query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} PURGE"
+        if alias:
+            query += f' AS "{alias}"'
+        if skip_plan:
+            query += " SKIP PLAN"
+        return self.execute_query(query=query)
+
     def test(self, project_identifier: FQN) -> SnowflakeCursor:
         log.info(
             "Running DCM test manager operation (project_identifier=%s).",
@@ -229,24 +262,56 @@ class DCMProjectManager(SqlExecutionMixin):
             source_path,
         )
 
-        artifacts = DCMProjectManager._collect_artifacts(source_path.path)
-        log.info(
-            "Collected DCM artifacts for sync (project_identifier=%s, artifacts_count=%d).",
-            project_identifier,
-            len(artifacts),
-        )
-
         with cli_console.phase("Uploading definition files"):
             stage_fqn = FQN.from_resource(
                 ObjectType.DCM_PROJECT, project_identifier, "TMP_STAGE"
             )
-            sync_artifacts_with_stage(
-                project_paths=ProjectPaths(project_root=source_path.path),
-                stage_root=stage_fqn.identifier,
-                use_temporary_stage=True,
-                artifacts=artifacts,
-                pattern_type=PatternMatchingType.GLOB,
+            plan = DCMProjectManager._build_upload_plan(
+                source_path.path, stage_fqn.identifier
             )
+
+            project_paths = ProjectPaths(project_root=source_path.path)
+            project_paths.remove_up_bundle_root()
+            SecurePath(project_paths.bundle_root).mkdir(parents=True, exist_ok=True)
+
+            try:
+                bundle_artifacts(
+                    project_paths,
+                    plan.artifacts,
+                    pattern_type=PatternMatchingType.GLOB,
+                )
+
+                stage_manager = StageManager()
+                cli_console.step(f"Creating temporary stage {stage_fqn.identifier}.")
+                stage_manager.create(
+                    fqn=FQN.from_stage(stage_fqn.identifier), temporary=True
+                )
+
+                DCMProjectManager._report_files_to_be_deployed(plan)
+
+                cli_console.step(
+                    f"Uploading files from local {project_paths.bundle_root} directory to temporary stage."
+                )
+                for result in stage_manager.put_recursive(
+                    local_path=project_paths.bundle_root,
+                    stage_path=stage_fqn.identifier,
+                    temp_directory=project_paths.bundle_root,
+                ):
+                    log.info(
+                        "Uploaded %s to %s",
+                        result["source"],
+                        result["target"],
+                    )
+
+                for entry in plan.individual_files:
+                    stage_manager.put(local_path=entry.file, stage_path=entry.dest)
+                    log.info(
+                        "Uploaded %s to %s",
+                        entry.file.relative_to(source_path.path),
+                        entry.dest,
+                    )
+            finally:
+                project_paths.clean_up_output()
 
         log.info(
             "Finished syncing DCM files (project_identifier=%s, stage=%s).",
@@ -256,17 +321,51 @@ class DCMProjectManager(SqlExecutionMixin):
         return stage_fqn.identifier
 
     @staticmethod
-    def _collect_artifacts(source_path: Path) -> List[PathMapping]:
-        """Collect all artifacts from sources/ folder and manifest.yml."""
-        artifacts: List[PathMapping] = []
+    def _build_upload_plan(source_path: Path, stage_root: str) -> UploadPlan:
+        plan = UploadPlan()
+        DCMProjectManager._add_manifest(plan)
+        DCMProjectManager._add_sources(plan, source_path, stage_root)
+        return plan
 
-        artifacts.append(PathMapping(src=MANIFEST_FILE_NAME))
+    @staticmethod
+    def _add_manifest(plan: UploadPlan) -> None:
+        plan.artifacts.append(PathMapping(src=MANIFEST_FILE_NAME))
+        plan.relative_paths_to_upload.append(MANIFEST_FILE_NAME)
 
+    @staticmethod
+    def _add_sources(plan: UploadPlan, source_path: Path, stage_root: str) -> None:
         sources_path = source_path / SOURCES_FOLDER
-        if sources_path.exists() and sources_path.is_dir():
-            for file in sources_path.rglob("*"):
-                if file.is_file():
-                    relative_path = file.relative_to(source_path)
-                    artifacts.append(PathMapping(src=str(relative_path)))
+        if not (sources_path.exists() and sources_path.is_dir()):
+            return
+        plan.artifacts.append(PathMapping(src=SOURCES_FOLDER, ignore=[".*"]))
+        for file in sorted(sources_path.rglob("*")):
+            if not file.is_file():
+                continue
+            relative = file.relative_to(sources_path)
+            plan.relative_paths_to_upload.append(f"{SOURCES_FOLDER}/{relative}")
+            if DCMProjectManager._is_in_hidden_path(relative):
+                dest_dir = DCMProjectManager._sources_stage_destination(
+                    relative, stage_root
+                )
+                plan.individual_files.append(FileUpload(file=file, dest=dest_dir))
 
-        return artifacts
+    @staticmethod
+    def _is_in_hidden_path(relative: Path) -> bool:
+        return any(part.startswith(".") for part in relative.parts)
+
+    @staticmethod
+    def _sources_stage_destination(relative: Path, stage_root: str) -> str:
+        dest_dir = f"{stage_root}/{SOURCES_FOLDER}"
+        if relative.parent != Path("."):
+            dest_dir = f"{dest_dir}/{relative.parent.as_posix()}"
+        return dest_dir
+
+    @staticmethod
+    def _report_files_to_be_deployed(plan: UploadPlan) -> None:
+        if not plan.relative_paths_to_upload:
+            return
+
+        cli_console.message("Local changes to be deployed:")
+        with cli_console.indented():
+            for rel in plan.relative_paths_to_upload:
+                cli_console.message(_to_diff_line("added", rel, rel))

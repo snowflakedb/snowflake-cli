@@ -148,7 +148,9 @@ class CliAppFactory:
         def callback(value: bool):
             if value:
                 print_result(
-                    MessageResult(f"Snowflake CLI version: {__about__.VERSION}")
+                    MessageResult(
+                        f"Snowflake CLI version: {__about__.get_display_version()}"
+                    )
                 )
                 self._exit_with_cleanup()
 
@@ -160,7 +162,7 @@ class CliAppFactory:
             if value:
                 result = CollectionResult(
                     [
-                        {"key": "version", "value": __about__.VERSION},
+                        {"key": "version", "value": __about__.get_display_version()},
                         {
                             "key": "default_config_file_path",
                             "value": str(get_config_manager().file_path),

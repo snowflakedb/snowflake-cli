@@ -103,3 +103,35 @@ def test_sql_env_value_from_cli_multiple_args(
 
     assert result.exit_code == 0
     assert result.json == [{"'TEST1-TEST2'": "test1-test2"}]
+
+
+@pytest.mark.integration
+def test_sql_jinja_block_with_semicolons(runner, snowflake_session):
+    result = runner.invoke_with_connection_json(
+        [
+            "sql",
+            "-q",
+            "{% if True %}select 1;{% endif %}",
+            "--enable-templating",
+            "jinja",
+        ]
+    )
+
+    assert result.exit_code == 0
+    assert result.json == [{"1": 1}]
+
+
+@pytest.mark.integration
+def test_sql_jinja_for_loop_with_semicolons(runner, snowflake_session):
+    result = runner.invoke_with_connection_json(
+        [
+            "sql",
+            "-q",
+            "{% for i in range(3) %}select {{i}};{% endfor %}",
+            "--enable-templating",
+            "jinja",
+        ]
+    )
+
+    assert result.exit_code == 0
+    assert result.json == [[{"0": 0}], [{"1": 1}], [{"2": 2}]]

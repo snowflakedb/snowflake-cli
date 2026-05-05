@@ -19,6 +19,7 @@ from snowflake.cli._plugins.snowpark.snowpark_entity_model import (
 )
 from snowflake.cli.api.project.definition_conversion import (
     convert_project_definition_to_v2,
+    convert_streamlit_to_v2_data,
 )
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.errors import SchemaValidationError
@@ -33,6 +34,7 @@ from snowflake.cli.api.project.schemas.project_definition import (
     DefinitionV20,
 )
 from snowflake.cli.api.project.schemas.v1.snowpark.callable import _CallableBase
+from snowflake.cli.api.project.schemas.v1.streamlit.streamlit import Streamlit
 from snowflake.cli.api.utils.definition_rendering import render_definition_template
 
 from tests.nativeapp.factories import ProjectV11Factory
@@ -785,3 +787,46 @@ def test_if_list_in_mixin_is_applied_correctly():
     }
     project = render_definition_template(definition_input, {}).project_definition
     assert len(project.entities["func"].artifacts) == 1
+
+
+def test_v1_to_v2_streamlit_conversion_deduplicates_pages(temporary_directory):
+    pages_dir = Path(temporary_directory) / "pages"
+    pages_dir.mkdir()
+    (pages_dir / "my_page.py").write_text("# page")
+
+    streamlit = Streamlit(
+        name="test_streamlit",
+        query_warehouse="wh",
+        main_file=Path("streamlit_app.py"),
+        additional_source_files=[Path("pages/*.py")],
+    )
+
+    result = convert_streamlit_to_v2_data(streamlit)
+    artifacts = result["entities"]["test_streamlit"]["artifacts"]
+
+    assert "pages" in artifacts
+    assert str(Path("pages/*.py")) not in artifacts
+    assert "streamlit_app.py" in artifacts
+
+
+def test_v1_to_v2_streamlit_conversion_keeps_non_overlapping_additional_files(
+    temporary_directory,
+):
+    pages_dir = Path(temporary_directory) / "pages"
+    pages_dir.mkdir()
+    (pages_dir / "my_page.py").write_text("# page")
+
+    streamlit = Streamlit(
+        name="test_streamlit",
+        query_warehouse="wh",
+        main_file=Path("streamlit_app.py"),
+        additional_source_files=[Path("pages/*.py"), Path("utils/helper.py")],
+    )
+
+    result = convert_streamlit_to_v2_data(streamlit)
+    artifacts = result["entities"]["test_streamlit"]["artifacts"]
+
+    assert "pages" in artifacts
+    assert str(Path("pages/*.py")) not in artifacts
+    assert str(Path("utils/helper.py")) in artifacts
+    assert "streamlit_app.py" in artifacts

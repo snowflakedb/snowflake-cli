@@ -18,11 +18,7 @@ from snowflake.cli._plugins.connection.util import (
 from snowflake.cli._plugins.nativeapp.artifacts import (
     find_events_definitions_in_manifest_file,
 )
-from snowflake.cli._plugins.nativeapp.common_flags import (
-    ForceOption,
-    InteractiveOption,
-    ValidateOption,
-)
+from snowflake.cli._plugins.nativeapp.common_flags import ValidateOption
 from snowflake.cli._plugins.nativeapp.constants import (
     ALLOWED_SPECIAL_COMMENTS,
     COMMENT_COL,
@@ -56,6 +52,10 @@ from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
 from snowflake.cli._plugins.stage.manager import DefaultStagePathParts
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.cli_global_context import get_cli_context, span
+from snowflake.cli.api.commands.flags import (
+    ForceOption,
+    InteractiveOption,
+)
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.entities.common import (

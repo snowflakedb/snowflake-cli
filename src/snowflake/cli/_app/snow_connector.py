@@ -62,6 +62,8 @@ SUPPORTED_ENV_OVERRIDES = [
     "account",
     "user",
     "password",
+    "host",
+    "port",
     "authenticator",
     "workload_identity_provider",
     "private_key_file",
@@ -178,8 +180,6 @@ def connect_to_snowflake(
     elif temporary_connection:
         connection_parameters = {}  # we will apply overrides in next step
 
-    connection_parameters["using_session_keep_alive"] = True
-
     # Apply overrides to connection details
     # (1) Command line override case
     for key, value in overrides.items():
@@ -228,6 +228,12 @@ def connect_to_snowflake(
                 "connection_diag_allowlist_path"
             ] = diag_allowlist_path
 
+    # Determine token-based auth from the final merged parameters (flags/config/env).
+    # Keep the existing guard behavior above unchanged for now, but ensure keep-alive
+    # protections are applied whenever session/master tokens are actually used.
+    using_session_token = "session_token" in connection_parameters
+    using_master_token = "master_token" in connection_parameters
+
     # Make sure the connection is not closed if it was shared to the SnowCLI, instead of being created in the SnowCLI
     _avoid_closing_the_connection_if_it_was_shared(
         using_session_token, using_master_token, connection_parameters
@@ -262,6 +268,11 @@ def _avoid_closing_the_connection_if_it_was_shared(
 ):
     if using_session_token and using_master_token:
         connection_parameters["server_session_keep_alive"] = True
+        connection_parameters["client_session_keep_alive"] = True
+        # Workaround: the connector crashes with TypeError when
+        # client_session_keep_alive_heartbeat_frequency is None because
+        # token-based auth skips the login response that normally populates it.
+        connection_parameters["client_session_keep_alive_heartbeat_frequency"] = 3600
 
 
 def _raise_errors_related_to_session_token(
@@ -348,30 +359,34 @@ def _load_pem_from_parameters(private_key_raw: str) -> SecretType:
     return SecretType(private_key_raw.encode("utf-8"))
 
 
+def _validate_passphrase(passphrase: SecretType) -> None:
+    if passphrase.value is None:
+        raise CliError(
+            "Encrypted private key, you must provide the "
+            "passphrase in the environment variable PRIVATE_KEY_PASSPHRASE."
+        )
+    if passphrase.value == "":
+        raise CliError(
+            "PRIVATE_KEY_PASSPHRASE environment variable is set but empty. "
+            "Provide a non-empty passphrase or use an unencrypted private key."
+        )
+
+
 def _load_pem_to_der(private_key_pem: SecretType) -> SecretType:
     """
     Given a private key file path (in PEM format), decode key data into DER
     format
     """
     private_key_passphrase = SecretType(os.getenv("PRIVATE_KEY_PASSPHRASE", None))
-    if (
-        private_key_pem.value.startswith(ENCRYPTED_PKCS8_PK_HEADER)
-        and private_key_passphrase.value is None
-    ):
-        raise ClickException(
-            "Encrypted private key, you must provide the "
-            "passphrase in the environment variable PRIVATE_KEY_PASSPHRASE"
-        )
 
-    if not private_key_pem.value.startswith(
-        ENCRYPTED_PKCS8_PK_HEADER
-    ) and not private_key_pem.value.startswith(UNENCRYPTED_PKCS8_PK_HEADER):
-        raise ClickException(
+    if private_key_pem.value.startswith(ENCRYPTED_PKCS8_PK_HEADER):
+        _validate_passphrase(private_key_passphrase)
+    elif private_key_pem.value.startswith(UNENCRYPTED_PKCS8_PK_HEADER):
+        private_key_passphrase = SecretType(None)
+    else:
+        raise CliError(
             "Private key provided is not in PKCS#8 format. Please use correct format."
         )
-
-    if private_key_pem.value.startswith(UNENCRYPTED_PKCS8_PK_HEADER):
-        private_key_passphrase = SecretType(None)
 
     return prepare_private_key(private_key_pem, private_key_passphrase)
 

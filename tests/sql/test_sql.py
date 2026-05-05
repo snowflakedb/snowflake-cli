@@ -22,6 +22,7 @@ from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_temp
 from snowflake.cli._plugins.sql.statement_reader import CompiledStatement
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import (
+    CliArgumentError,
     ShowSpecificObjectMultipleRowsError,
     SnowflakeSQLExecutionError,
 )
@@ -519,6 +520,218 @@ def test_supported_syntax_config(
     mock_execute_query.assert_called_once_with(expected_query, cursor_class=mock.ANY)
 
 
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlManager._execute_string")
+def test_jinja_block_with_semicolons_issue_2650(mock_execute_query):
+    """Reproduces GitHub issue #2650: Jinja block statements containing
+    semicolons are broken by split_statements before Jinja rendering.
+
+    split_statements splits on `;` before Jinja rendering, so
+    `{% if var == 'Jinja' %}select 1;{% endif %}` becomes two fragments:
+      1) `{% if var == 'Jinja' %}select 1;`  (unclosed if)
+      2) `{% endif %}`                        (orphaned endif)
+    Each is rendered individually, causing TemplateSyntaxError.
+    """
+    manager = SqlManager()
+    query = "{% if var == 'Jinja' %}select 1;{% endif %}"
+    _, results = manager.execute(
+        query=query,
+        files=None,
+        std_in=False,
+        data={"var": "Jinja"},
+        template_syntax_config=SQLTemplateSyntaxConfig(
+            enable_legacy_syntax=False,
+            enable_standard_syntax=False,
+            enable_jinja_syntax=True,
+        ),
+    )
+    list(results)
+    mock_execute_query.assert_called_once_with("select 1;", cursor_class=mock.ANY)
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlManager._execute_string")
+def test_jinja_for_loop_with_semicolons(mock_execute_query):
+    manager = SqlManager()
+    query = "{% for i in range(3) %}select {{i}};{% endfor %}"
+    _, results = manager.execute(
+        query=query,
+        files=None,
+        std_in=False,
+        data={},
+        template_syntax_config=SQLTemplateSyntaxConfig(
+            enable_legacy_syntax=False,
+            enable_standard_syntax=False,
+            enable_jinja_syntax=True,
+        ),
+    )
+    list(results)
+    assert mock_execute_query.call_count == 3
+    mock_execute_query.assert_any_call("select 0;", cursor_class=mock.ANY)
+    mock_execute_query.assert_any_call("select 1;", cursor_class=mock.ANY)
+    mock_execute_query.assert_any_call("select 2;", cursor_class=mock.ANY)
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlManager._execute_string")
+def test_jinja_if_else_with_semicolons(mock_execute_query):
+    manager = SqlManager()
+    query = "{% if x %}select 1;{% else %}select 2;{% endif %}"
+    _, results = manager.execute(
+        query=query,
+        files=None,
+        std_in=False,
+        data={"x": True},
+        template_syntax_config=SQLTemplateSyntaxConfig(
+            enable_legacy_syntax=False,
+            enable_standard_syntax=False,
+            enable_jinja_syntax=True,
+        ),
+    )
+    list(results)
+    mock_execute_query.assert_called_once_with("select 1;", cursor_class=mock.ANY)
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlManager._execute_string")
+def test_jinja_blocks_mixed_with_standard_syntax(mock_execute_query):
+    manager = SqlManager()
+    query = "{% if x %}select <% name %>;{% endif %}"
+    _, results = manager.execute(
+        query=query,
+        files=None,
+        std_in=False,
+        data={"x": True, "name": "Alice"},
+        template_syntax_config=SQLTemplateSyntaxConfig(
+            enable_legacy_syntax=False,
+            enable_standard_syntax=True,
+            enable_jinja_syntax=True,
+        ),
+    )
+    list(results)
+    mock_execute_query.assert_called_once_with("select Alice;", cursor_class=mock.ANY)
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlManager._execute_string")
+def test_jinja_if_false_produces_no_statements(mock_execute_query):
+    manager = SqlManager()
+    query = "{% if x %}select 1;{% endif %}"
+    with pytest.raises(CliArgumentError):
+        manager.execute(
+            query=query,
+            files=None,
+            std_in=False,
+            data={"x": False},
+            template_syntax_config=SQLTemplateSyntaxConfig(
+                enable_legacy_syntax=False,
+                enable_standard_syntax=False,
+                enable_jinja_syntax=True,
+            ),
+        )
+    mock_execute_query.assert_not_called()
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_jinja_block_in_file_with_semicolons(
+    mock_execute, runner, mock_cursor, named_temporary_file
+):
+    mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(1))
+    query = "{% if True %}select 42;{% endif %}"
+
+    with named_temporary_file() as tmp_file:
+        tmp_file.write_text(query)
+        result = runner.invoke(
+            ["sql", "-f", str(tmp_file), "--enable-templating", "jinja"]
+        )
+
+    assert result.exit_code == 0, result.output
+    mock_execute.assert_called_once_with("select 42;", cursor_class=VerboseCursor)
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlManager._execute_string")
+def test_jinja_if_false_no_statements_error_message(mock_execute_query):
+    """Empty Jinja output should raise a clear error, not 'Use either query…'."""
+    manager = SqlManager()
+    query = "{% if x %}select 1;{% endif %}"
+    with pytest.raises(CliArgumentError, match="No SQL statements found to execute"):
+        manager.execute(
+            query=query,
+            files=None,
+            std_in=False,
+            data={"x": False},
+            template_syntax_config=SQLTemplateSyntaxConfig(
+                enable_legacy_syntax=False,
+                enable_standard_syntax=False,
+                enable_jinja_syntax=True,
+            ),
+        )
+    mock_execute_query.assert_not_called()
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlManager._execute_string")
+def test_jinja_template_syntax_in_sql_comment_is_ignored(mock_execute_query):
+    """Template-like syntax inside SQL comments must not be evaluated by Jinja."""
+    manager = SqlManager()
+    # The line comment contains {{ undefined_var }} which would raise an
+    # UndefinedError if evaluated, but SQL comments are replaced with inert
+    # placeholders before Jinja runs so their content is never evaluated.
+    query = "-- {{ undefined_var }}\nSELECT 1;"
+    mock_execute_query.return_value = iter([])
+    _, results = manager.execute(
+        query=query,
+        files=None,
+        std_in=False,
+        data={},
+        template_syntax_config=SQLTemplateSyntaxConfig(
+            enable_legacy_syntax=False,
+            enable_standard_syntax=False,
+            enable_jinja_syntax=True,
+        ),
+    )
+    list(results)
+    mock_execute_query.assert_called_once_with("SELECT 1;", cursor_class=mock.ANY)
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlManager._execute_string")
+def test_standard_variable_containing_jinja_block(mock_execute_query):
+    """Standard <% %> variables expand first; if the value contains Jinja syntax
+    that Jinja then resolves in the same pass, the final SQL is correct.
+
+    Rendering order: standard → Jinja (inside one snowflake_sql_jinja_render call).
+    """
+    manager = SqlManager()
+    query = "<% snippet %>"
+    mock_execute_query.return_value = iter([])
+    _, results = manager.execute(
+        query=query,
+        files=None,
+        std_in=False,
+        data={"snippet": "{% if True %}select 1;{% endif %}"},
+        template_syntax_config=SQLTemplateSyntaxConfig(
+            enable_legacy_syntax=False,
+            enable_standard_syntax=True,
+            enable_jinja_syntax=True,
+        ),
+    )
+    list(results)
+    mock_execute_query.assert_called_once_with("select 1;", cursor_class=mock.ANY)
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlManager._execute_string")
+def test_jinja_undefined_var_in_block_gives_error(mock_execute_query):
+    manager = SqlManager()
+    query = "{% if undefined_var %}select 1;{% endif %}"
+    with pytest.raises(Exception, match="undefined"):
+        _, results = manager.execute(
+            query=query,
+            files=None,
+            std_in=False,
+            data={},
+            template_syntax_config=SQLTemplateSyntaxConfig(
+                enable_legacy_syntax=False,
+                enable_standard_syntax=False,
+                enable_jinja_syntax=True,
+            ),
+        )
+        list(results)
+
+
 @pytest.mark.parametrize(
     "flags,exp_legacy,exp_standard,exp_jinja",
     [
@@ -647,6 +860,30 @@ def test_comments_are_handled_correctly_from_query(
         mock.call(exp_query, cursor_class=VerboseCursor) for exp_query in expected
     ]
     assert mock_execute.mock_calls == expected_calls
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_retain_comments_with_jinja_enabled(
+    mock_execute, runner, mock_cursor, named_temporary_file
+):
+    """--retain-comments must preserve SQL comments even when Jinja rendering is on.
+
+    Regression test for https://github.com/snowflakedb/snowflake-cli/issues/2650 —
+    comments must survive the Jinja pre-render step so that split_statements can
+    honour the remove_comments=False flag and pass them through to Snowflake.
+    """
+    mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(2))
+    query = "SELECT 42;\n-- optimizer hint\nSELECT 1;"
+
+    with named_temporary_file() as tmp_file:
+        tmp_file.write_text(query)
+        result = runner.invoke(
+            ["sql", "-f", tmp_file, "--retain-comments", "--enable-templating", "jinja"]
+        )
+
+    assert result.exit_code == 0, result.output
+    executed_sql = " ".join(call.args[0] for call in mock_execute.mock_calls)
+    assert "-- optimizer hint" in executed_sql
 
 
 @mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")

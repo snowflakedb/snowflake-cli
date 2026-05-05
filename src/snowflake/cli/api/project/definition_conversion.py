@@ -226,7 +226,12 @@ def convert_streamlit_to_v2_data(streamlit: Streamlit) -> Dict[str, Any]:
 
     if streamlit.additional_source_files:
         for additional_file in streamlit.additional_source_files:
-            artifacts.append(str(additional_file))
+            additional_str = str(additional_file)
+            if pages_dir and _is_path_covered_by_directory(
+                additional_str, str(pages_dir)
+            ):
+                continue
+            artifacts.append(additional_str)
 
     identifier = {"name": streamlit.name}
     if streamlit.schema_name:
@@ -595,6 +600,13 @@ def _process_streamlit_files(
     elif file_name is None and Path(default).exists():
         file_name = default
     return file_name
+
+
+def _is_path_covered_by_directory(file_pattern: str, directory: str) -> bool:
+    file_pattern = file_pattern.replace("\\", "/")
+    directory = directory.replace("\\", "/")
+    normalized_dir = directory.rstrip("/") + "/"
+    return file_pattern.startswith(normalized_dir) or file_pattern == directory
 
 
 def get_list_of_all_entities(

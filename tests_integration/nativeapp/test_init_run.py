@@ -127,10 +127,10 @@ def test_nativeapp_run_existing(
     project_name = "integration"
     project_dir = project_definition_files[0].parent
     with change_directory(project_dir):
-        result = runner.invoke_with_connection_json(["app", "run"])
-        assert result.exit_code == 0
-
         with nativeapp_teardown():
+            result = runner.invoke_with_connection_json(["app", "run"])
+            assert result.exit_code == 0
+
             # app + package exist
             package_name = (
                 f"{project_name}_pkg_{default_username}{resource_suffix}".upper()

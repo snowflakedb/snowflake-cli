@@ -7,6 +7,7 @@
       'artifacts': list([
         dict({
           'dest': './',
+          'ignore': None,
           'processors': list([
           ]),
           'src': 'app/*',
@@ -42,6 +43,7 @@
       'artifacts': list([
         dict({
           'dest': './',
+          'ignore': None,
           'processors': list([
           ]),
           'src': 'app/*',
@@ -77,12 +79,14 @@
       'artifacts': list([
         dict({
           'dest': None,
+          'ignore': None,
           'processors': list([
           ]),
           'src': 'setup.sql',
         }),
         dict({
           'dest': None,
+          'ignore': None,
           'processors': list([
           ]),
           'src': 'README.md',
@@ -114,18 +118,21 @@
       'artifacts': list([
         dict({
           'dest': None,
+          'ignore': None,
           'processors': list([
           ]),
           'src': 'setup.sql',
         }),
         dict({
           'dest': None,
+          'ignore': None,
           'processors': list([
           ]),
           'src': 'app/README.md',
         }),
         dict({
           'dest': 'ui/',
+          'ignore': None,
           'processors': list([
           ]),
           'src': 'app/streamlit/*.py',
@@ -167,18 +174,21 @@
       'artifacts': list([
         dict({
           'dest': None,
+          'ignore': None,
           'processors': list([
           ]),
           'src': 'setup.sql',
         }),
         dict({
           'dest': None,
+          'ignore': None,
           'processors': list([
           ]),
           'src': 'app/README.md',
         }),
         dict({
           'dest': 'ui/',
+          'ignore': None,
           'processors': list([
           ]),
           'src': 'app/streamlit/*.py',

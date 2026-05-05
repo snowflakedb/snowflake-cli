@@ -51,6 +51,8 @@ class RestApi:
         try:
             self.send_rest_request(url, method="get")
             return True
+        except BadRequest:
+            return True
         except HTTPError as err:
             if err.response.status_code == 404:
                 return False
@@ -95,7 +97,7 @@ class RestApi:
             full_url=full_url,
             headers=headers,
             token=self.rest.token,
-            data=json.dumps(data if data else {}),
+            data=json.dumps(data) if data else None,
             no_retry=True,
             raise_raw_http_failure=True,
             external_session_id=None,  # workaround for connector 3.16 bug, to be removed SNOW-2226816

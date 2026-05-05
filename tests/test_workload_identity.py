@@ -26,7 +26,6 @@ def test_workload_identity_provider_parameter(mock_connect, runner):
         account="test_account",
         user="test_user",
         workload_identity_provider="AWS",
-        using_session_keep_alive=True,
     )
 
 
@@ -65,7 +64,6 @@ def test_workload_identity_provider_from_config(mock_connect, runner, config_fil
         account="test_account",
         user="test_user",
         workload_identity_provider="AZURE",
-        using_session_keep_alive=True,
     )
 
 

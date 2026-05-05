@@ -12,67 +12,77 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 from textwrap import dedent
-from typing import Optional
+from typing import Dict, Optional
 
-from snowflake.cli._plugins.apps.manager import (
-    _get_compute_pool,
-    _get_external_access,
-)
-from snowflake.cli.api.project.util import get_env_username
+from snowflake.cli._plugins.apps.manager import DEFAULT_PERSONAL_WORKSPACE_NAME
 
-# Feature flags
-IS_PERSONAL_DB_SUPPORTED = False  # Will be enabled in the future
-
-DEFAULT_ARTIFACT_REPOSITORY = "SNOW_APPS_DEFAULT_ARTIFACT_REPOSITORY"
+log = logging.getLogger(__name__)
 
 
 def _generate_snowflake_yml(
     app_id: str,
-    warehouse: Optional[str],
-    database: Optional[str] = None,
+    resolved: Dict[str, Optional[str]],
+    *,
+    use_workspace: bool,
 ) -> str:
-    """Generate snowflake.yml content for a Snow App project."""
+    """Generate snowflake.yml content from pre-resolved configuration values.
 
-    username = get_env_username().upper()
+    Required keys: ``database``, ``schema``, ``warehouse``,
+    ``build_compute_pool``, ``service_compute_pool``.
 
-    # Database: use personal DB if supported, otherwise use connection database
-    if IS_PERSONAL_DB_SUPPORTED:
-        database = f"USER${username}"
+    Optional keys: ``build_eai``.  When not provided (``None``) the
+    ``build_eai`` block is omitted from the generated YAML — the builder
+    service will run without an external access integration.
+
+    The artifact repository is omitted from the generated YAML; the CLI
+    will default to ``<app-id>_REPO`` at deploy time.
+
+    When ``use_workspace`` is true (database resolved from the user's
+    personal database during ``snow app setup``), the generator emits
+    ``code_workspace`` as a fully-qualified identifier pointing at a shared
+    ``SNOWFLAKE_APPS`` workspace. Each app is uploaded into its own
+    subdirectory at deploy time, so a single workspace serves every app the
+    user owns.
+
+    Otherwise the generator emits ``code_stage`` as a bare stage name
+    resolved against the app's database and schema at deploy time.
+    """
+
+    if resolved.get("image_repository"):
+        log.warning(
+            "image_repository is configured but is no longer included in "
+            "generated snowflake.yml. The CLI defaults to <app-id>_REPO at "
+            "deploy time. You can remove the image_repository setting."
+        )
+
+    database = resolved["database"]
+    schema = resolved["schema"]
+    warehouse = resolved["warehouse"]
+    build_compute_pool = resolved["build_compute_pool"]
+    service_compute_pool = resolved["service_compute_pool"]
+    build_eai = resolved.get("build_eai")
+
+    if use_workspace:
+        # Shared workspace: all of the user's apps live as subdirectories
+        # under a single ``SNOWFLAKE_APPS`` workspace in their personal DB.
+        # Fully-qualified so it does not implicitly depend on the resolved
+        # database/schema.
+        code_storage_block = (
+            f"\n            code_workspace: "
+            f"{database}.{schema}.{DEFAULT_PERSONAL_WORKSPACE_NAME}\n"
+        )
     else:
-        database = database or "<% ctx.connection.database %>"
+        code_storage_block = f"\n            code_stage: {app_id.upper()}_CODE\n"
 
-    # Schema: SNOW_APP_<APP_ID>_<USERNAME>
-    schema = f"SNOW_APP_{app_id.upper()}_{username}"
+    build_eai_block = (
+        f"\n            build_eai:\n              name: {build_eai}"
+        if build_eai
+        else ""
+    )
 
-    # Stage: <APP_ID>_CODE
-    code_stage = f"{app_id.upper()}_CODE"
-
-    # Compute pool: check for existing pools
-    compute_pool = _get_compute_pool()
-    if compute_pool:
-        compute_pool_yaml = f"""build_compute_pool:
-              name: {compute_pool}
-            service_compute_pool:
-              name: {compute_pool}"""
-    else:
-        compute_pool_yaml = f"""build_compute_pool:
-              name: null
-            service_compute_pool:
-              name: null"""
-
-    # Build EAI: check for existing integrations
-    build_eai = _get_external_access(app_id)
-    if build_eai:
-        build_eai_yaml = f"""build_eai:
-              name: {build_eai}"""
-    else:
-        build_eai_yaml = "build_eai: null"
-
-    # TODO: Check if artifact repository exists
-    artifact_repository = DEFAULT_ARTIFACT_REPOSITORY
-
-    return dedent(
+    raw = (
         f"""\
         definition_version: "2"
 
@@ -85,19 +95,24 @@ def _generate_snowflake_yml(
               schema: {schema}
             meta:
               title: {app_id}
-              description: null
-              icon: null
             artifacts:
-              - src: app/*
+              - src: ./*
                 dest: ./
+                ignore:
+                  - node_modules
+                  - .env*
+                  - __pycache__
+                  - "*.pyc"
+                  - .next
+                  - .git
+                  - snowflake.log
 
-            query_warehouse: {warehouse or "<% ctx.connection.warehouse %>"}
-            {compute_pool_yaml}
-            {build_eai_yaml}
-            service_eai: null
-            artifact_repository:
-              name: {artifact_repository}
-            code_stage:
-              name: {code_stage}
-        """
+            query_warehouse: {warehouse}
+            build_compute_pool:
+              name: {build_compute_pool}
+            service_compute_pool:
+              name: {service_compute_pool}"""
+        + build_eai_block
+        + code_storage_block
     )
+    return dedent(raw)

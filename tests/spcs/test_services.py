@@ -2266,6 +2266,101 @@ def test_stream_logs_without_terminal_status_check(mock_sleep, mock_logs):
     assert "log 2" in generated_logs[1]
 
 
+@patch("time.sleep")
+@patch(
+    "snowflake.cli._plugins.spcs.services.commands.ObjectManager",
+)
+@patch(
+    "snowflake.cli._plugins.spcs.services.commands.ServiceManager",
+)
+@patch(
+    "snowflake.cli._plugins.stage.manager.StageManager.put",
+)
+@patch(
+    "snowflake.cli._plugins.stage.manager.StageManager.execute_query",
+)
+def test_build_image_cli_recursive_upload_with_nested_dirs(
+    mock_stage_execute_query,
+    mock_stage_put,
+    mock_service_manager_class,
+    mock_object_manager_class,
+    mock_sleep,
+    runner,
+    temporary_directory,
+):
+    """Test that build-image uploads nested directory structures correctly via put_recursive."""
+    build_context = Path(temporary_directory) / "build_context"
+    build_context.mkdir()
+    (build_context / "Dockerfile").write_text(
+        "FROM python:3.10-alpine\nCOPY templates/ /app/templates/"
+    )
+    (build_context / "app.py").write_text("print('hello')")
+    templates_dir = build_context / "templates"
+    templates_dir.mkdir()
+    (templates_dir / "index.html").write_text("<h1>Hello</h1>")
+    partials_dir = templates_dir / "partials"
+    partials_dir.mkdir()
+    (partials_dir / "header.html").write_text("<header>Header</header>")
+
+    mock_stage_put.return_value = Mock(fetchall=lambda: [])
+
+    mock_service_manager = Mock()
+    mock_service_manager_class.return_value = mock_service_manager
+    mock_build_cursor = Mock(spec=SnowflakeCursor)
+    mock_build_cursor.__iter__ = Mock(return_value=iter([]))
+    mock_build_cursor.fetchone.return_value = {"status": "DONE"}
+    mock_build_cursor.description = []
+    mock_build_cursor.query = ""
+    mock_service_manager.build_image.return_value = mock_build_cursor
+    mock_service_manager.stream_logs.return_value = iter(
+        [("__TERMINAL_STATUS__", "DONE")]
+    )
+
+    mock_object_manager = Mock()
+    mock_object_manager_class.return_value = mock_object_manager
+    mock_describe_cursor = Mock()
+    mock_describe_cursor.fetchone.return_value = {"status": "RUNNING"}
+    mock_object_manager.describe.return_value = mock_describe_cursor
+
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "build-image",
+            "--compute-pool",
+            "test_pool",
+            "--image-repository",
+            "db.schema.repo",
+            "--image-name",
+            "my_image",
+            "--image-tag",
+            "v1.0",
+            "--build-context-dir",
+            str(build_context),
+            "--stage",
+            "test_stage",
+        ],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, f"Command failed with output: {result.output}"
+
+    stage_paths = set()
+    for c in mock_stage_put.call_args_list:
+        sp = c.kwargs.get("stage_path", None)
+        if sp is not None:
+            stage_paths.add(str(sp))
+
+    assert any(
+        "templates/partials" in sp for sp in stage_paths
+    ), f"Stage path does not preserve nested directory structure. Stage paths: {stage_paths}"
+    assert any(
+        "templates" in sp and "partials" not in sp for sp in stage_paths
+    ), f"Stage path missing 'templates' level. Stage paths: {stage_paths}"
+    assert any(
+        "build_contexts/" in sp and "templates" not in sp for sp in stage_paths
+    ), f"Root-level upload missing. Stage paths: {stage_paths}"
+
+
 def test_build_image_hidden_by_default(runner):
     """Test that build-image command is hidden by default (feature flag disabled)."""
     result = runner.invoke(["spcs", "service", "--help"])

@@ -179,9 +179,15 @@ class _CliGlobalContextManager:
 
         connections_file = get_connections_file()
 
+        # When using a custom config file, skip permission checks on the
+        # default connections file since the user explicitly opted out of defaults
+        check_connections_permissions = self.config_file_override is None
+
         connections_slice = ConfigSlice(
             path=connections_file,
-            options=ConfigSliceOptions(check_permissions=True, only_in_slice=False),
+            options=ConfigSliceOptions(
+                check_permissions=check_connections_permissions, only_in_slice=False
+            ),
             section="connections",
         )
 

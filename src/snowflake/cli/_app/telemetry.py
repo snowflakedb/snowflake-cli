@@ -33,6 +33,7 @@ from snowflake.cli.api.commands.execution_metadata import ExecutionMetadata
 from snowflake.cli.api.config import get_feature_flags_section
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.utils.error_handling import ignore_exceptions
+from snowflake.cli.api.utils.tty import is_tty_interactive
 from snowflake.connector import ProgrammingError
 from snowflake.connector.telemetry import (
     TelemetryData,
@@ -59,6 +60,7 @@ class CLITelemetryField(Enum):
     COMMAND_OUTPUT_TYPE = "command_output_type"
     COMMAND_EXECUTION_TIME = "command_execution_time"
     COMMAND_CI_ENVIRONMENT = "command_ci_environment"
+    COMMAND_CI_INTEGRATION_VERSION = "command_ci_integration_version"
     COMMAND_AGENT_ENVIRONMENT = "command_agent_environment"
     # Configuration
     CONFIG_FEATURE_FLAGS = "config_feature_flags"
@@ -198,14 +200,6 @@ def _get_definition_version() -> str | None:
     return None
 
 
-def _is_interactive_terminal() -> bool:
-    """Check if stdin and stdout are connected to a TTY."""
-    try:
-        return sys.stdin.isatty() and sys.stdout.isatty()
-    except Exception:
-        return False
-
-
 def _is_env_truthy(name: str) -> bool:
     """Check if an environment variable has a truthy value."""
     return os.environ.get(name, "").lower() in ("yes", "true", "1", "on")
@@ -215,6 +209,10 @@ def _get_ci_environment_type() -> str:
     """Detect CI/CD environment type based on environment variables."""
     if "SF_GITHUB_ACTION" in os.environ:
         return "SF_GITHUB_ACTION"
+    if "SF_GITLAB_COMPONENT" in os.environ:
+        return "SF_GITLAB_COMPONENT"
+    if "SF_ADO_EXTENSION" in os.environ:
+        return "SF_ADO_EXTENSION"
     if "GITHUB_ACTIONS" in os.environ:
         return "GITHUB_ACTIONS"
     if "GITLAB_CI" in os.environ:
@@ -239,9 +237,14 @@ def _get_ci_environment_type() -> str:
         return "TRAVIS_CI"
     if _is_env_truthy("CI"):
         return "UNKNOWN_CI"
-    if _is_interactive_terminal():
+    if is_tty_interactive():
         return "LOCAL"
     return "UNKNOWN"
+
+
+def _get_ci_integration_version() -> str:
+    """Get the version of the official Snowflake CI/CD integration, if any."""
+    return os.environ.get("SF_CICD_INTEGRATION_VERSION", "")
 
 
 def _detect_agent_environment() -> str:
@@ -333,6 +336,7 @@ class CLITelemetryClient:
             CLITelemetryField.VERSION_OS: platform.platform(),
             CLITelemetryField.VERSION_PYTHON: python_version(),
             CLITelemetryField.COMMAND_CI_ENVIRONMENT: _get_ci_environment_type(),
+            CLITelemetryField.COMMAND_CI_INTEGRATION_VERSION: _get_ci_integration_version(),
             CLITelemetryField.COMMAND_AGENT_ENVIRONMENT: _detect_agent_environment(),
             CLITelemetryField.CONFIG_FEATURE_FLAGS: {
                 k: str(v) for k, v in get_feature_flags_section().items()
