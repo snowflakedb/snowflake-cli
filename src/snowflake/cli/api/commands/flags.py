@@ -29,6 +29,8 @@ from snowflake.cli.api.commands.common import OnErrorType
 from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
 from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.config import (
+    CLI_SECTION,
+    DEFAULT_FORMAT_KEY,
     get_all_connections,
     get_config_value,
     get_env_value,
@@ -473,12 +475,46 @@ DiagAllowlistPathOption: Path = typer.Option(
     file_okay=True,
 )
 
+
+def _output_format_callback(
+    ctx: click.Context, param: click.Parameter, value: OutputFormat
+) -> OutputFormat:
+    """Resolve the effective output format for this invocation.
+
+    If the user did not pass --format, fall back to `[cli] default_format` from
+    config (or the SNOWFLAKE_CLI_DEFAULT_FORMAT env var). Otherwise honor the
+    CLI flag.
+    """
+    if ctx.resilient_parsing:
+        return value
+
+    source = ctx.get_parameter_source(param.name)  # type: ignore[attr-defined]
+    if source == click.core.ParameterSource.DEFAULT:  # type: ignore[attr-defined]
+        configured = get_config_value(CLI_SECTION, key=DEFAULT_FORMAT_KEY, default=None)
+        if configured is not None:
+            try:
+                value = OutputFormat(str(configured).upper())
+            except ValueError:
+                valid = ", ".join(f.value for f in OutputFormat)
+                raise ClickException(
+                    f"Invalid value '{configured}' for "
+                    f"[{CLI_SECTION}] {DEFAULT_FORMAT_KEY} in config. "
+                    f"Valid values: {valid}."
+                )
+
+    get_cli_context_manager().output_format = value
+    return value
+
+
 OutputFormatOption = typer.Option(
     OutputFormat.TABLE.value,
     "--format",
-    help="Specifies the output format.",
+    help=(
+        "Specifies the output format. Defaults to the value of "
+        "`[cli] default_format` in config.toml (or `TABLE` if unset)."
+    ),
     case_sensitive=False,
-    callback=_context_callback("output_format"),
+    callback=_output_format_callback,
     rich_help_panel=_CLI_BEHAVIOUR,
 )
 
