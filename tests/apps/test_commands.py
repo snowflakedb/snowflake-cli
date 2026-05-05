@@ -1298,6 +1298,19 @@ class TestSetupCommand:
             assert result.exit_code == 0, result.output
             assert "already exists" in result.output
 
+    def test_init_rejects_invalid_explicit_app_name(self, runner, tmp_path):
+        """``--app-name`` with characters outside ``[a-zA-Z0-9_]`` is rejected.
+
+        Validation happens at the top of ``snowflake_app_setup`` (the
+        ``re.fullmatch`` guard), strictly before ``fetch_snow_apps_parameters``,
+        so no manager mock is required.
+        """
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "setup", "--app-name", "bad-name!"])
+
+        assert result.exit_code == 1
+        assert "Invalid app name 'bad-name!'" in result.output
+
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_dry_run_does_not_create_file(self, mock_mgr_cls, runner, tmp_path):
         mock_mgr = mock_mgr_cls.return_value
