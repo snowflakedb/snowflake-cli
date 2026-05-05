@@ -538,3 +538,41 @@ class TestReplPasteHandling:
         enter_handler(enter_event)
 
         buffer.validate_and_handle.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "command_args, env_var, config_value, ask_yn_called",
+    [
+        # test command arg
+        (["--no-prompt-exit-repl"], {}, {}, False),
+        # test env var
+        ([], {"SNOWFLAKE_CLI_NO_PROMPT_EXIT_REPL": "true"}, {}, False),
+        # test config value
+        ([], {}, {"no_prompt_exit_repl": "true"}, False),
+        # test default
+        ([], {}, {}, True),
+    ],
+)
+@mock.patch("snowflake.cli.api.config.get_config_section")
+@mock.patch("snowflake.cli._plugins.sql.repl.Repl.ask_yn")
+@mock.patch("snowflake.cli._plugins.sql.repl.Repl.repl_prompt")
+@mock.patch("snowflake.cli._plugins.sql.repl.Repl._initialize_connection")
+def test_no_prompt_exit_repl(
+    mock__initialize_connection,
+    mock_repl_prompt,
+    mock_ask_yn,
+    mock_get_config_section,
+    runner,
+    command_args,
+    env_var,
+    config_value,
+    ask_yn_called,
+):
+    mock_repl_prompt.side_effect = EOFError
+    mock_ask_yn.return_value = True
+    mock_get_config_section.return_value = config_value
+
+    with mock.patch.dict(os.environ, env_var):
+        runner.invoke(["sql", *command_args])
+
+    assert mock_ask_yn.called is ask_yn_called
