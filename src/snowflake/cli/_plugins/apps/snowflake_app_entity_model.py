@@ -17,7 +17,7 @@ from typing import List, Literal, Optional, Union
 # Default port exposed by Snowflake Apps Deploy services
 DEFAULT_APP_PORT = 3000
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBaseWithArtifacts,
     MetaField,
@@ -195,9 +195,7 @@ class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
 
         When a string is provided it is parsed as an FQN.  Any missing
         database/schema components are left as ``None`` and resolved to the
-        app's database/schema at deploy time — this preserves
-        backwards-compatibility with existing apps that configure
-        ``code_stage`` as a bare name.
+        app's database/schema at deploy time.
         """
         if value is None or value == "null":
             return None
@@ -212,6 +210,13 @@ class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
                 parsed["schema"] = fqn.schema
             return parsed
         return value
+
+    @model_validator(mode="after")
+    def _validate_single_code_storage(self):
+        """``code_stage`` and ``code_workspace`` are mutually exclusive."""
+        if self.code_stage is not None and self.code_workspace is not None:
+            raise ValueError("Specify either code_stage or code_workspace, not both.")
+        return self
 
     app_port: int = Field(title="Port the app listens on", default=DEFAULT_APP_PORT)
 

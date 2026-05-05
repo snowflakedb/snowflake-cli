@@ -2759,7 +2759,11 @@ class TestDeployCommand:
         fqn.schema = "TEST_SCHEMA"
         entity.fqn = fqn
         entity.code_stage = None
-        entity.code_workspace = None
+        entity.code_workspace = Mock(
+            database=None,
+            schema_=None,
+        )
+        entity.code_workspace.name = "MY_APP_CODE"
         entity.artifacts = []
         entity.meta = None
         entity.runtime_image = "runtime:latest"
@@ -3090,7 +3094,8 @@ class TestDeployCommand:
         fqn.schema = "TEST_SCHEMA"
         entity.fqn = fqn
         entity.code_stage = None
-        entity.code_workspace = None
+        entity.code_workspace = Mock(database=None, schema_=None)
+        entity.code_workspace.name = "MY_APP_CODE"
         entity.artifacts = []
         entity.meta = None
         entity.artifact_repository = None
@@ -3172,7 +3177,8 @@ class TestDeployCommand:
         entity = Mock()
         entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP")
         entity.code_stage = None
-        entity.code_workspace = None
+        entity.code_workspace = Mock(database=None, schema_=None)
+        entity.code_workspace.name = "MY_APP_CODE"
         entity.artifacts = []
         entity.meta = None
         entity.artifact_repository = None

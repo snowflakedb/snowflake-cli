@@ -384,25 +384,25 @@ def snowflake_app_deploy(
     schema = fqn.schema or conn.schema
 
     # ── Resolve code storage backend ──────────────────────────────────
-    # Workspace is the default; if both code_workspace and code_stage are
-    # defined, workspace wins. code_stage remains available for users who
-    # explicitly opt into the legacy stage flow.
-    use_workspace = entity.code_workspace is not None or entity.code_stage is None
+    # ``code_stage`` and ``code_workspace`` are mutually exclusive (enforced
+    # by the entity model). When only one is provided, that backend is used.
+    # When neither is configured, fall back to a code stage named ``<app>_CODE``.
+    use_workspace = entity.code_workspace is not None
     if use_workspace:
-        if entity.code_workspace:
-            storage_name = entity.code_workspace.name
-            storage_db_override = entity.code_workspace.database
-            storage_schema_override = entity.code_workspace.schema_
-        else:
-            storage_name = f"{app_name}_CODE"
-            storage_db_override = None
-            storage_schema_override = None
+        storage_name = entity.code_workspace.name
+        storage_db_override = entity.code_workspace.database
+        storage_schema_override = entity.code_workspace.schema_
         encryption_type = "SNOWFLAKE_SSE"  # unused in workspace flow
-    else:
+    elif entity.code_stage is not None:
         storage_name = entity.code_stage.name
         storage_db_override = entity.code_stage.database
         storage_schema_override = entity.code_stage.schema_
         encryption_type = entity.code_stage.encryption_type or "SNOWFLAKE_SSE"
+    else:
+        storage_name = f"{app_name}_CODE"
+        storage_db_override = None
+        storage_schema_override = None
+        encryption_type = "SNOWFLAKE_SSE"
 
     build_compute_pool = (
         entity.build_compute_pool.name if entity.build_compute_pool else None
@@ -681,19 +681,18 @@ def snowflake_app_teardown(
     service_fqn = FQN(database=db, schema=schema, name=app_name)
     use_artifact_repo = entity.artifact_repository is not None
 
-    use_workspace = entity.code_workspace is not None or entity.code_stage is None
+    use_workspace = entity.code_workspace is not None
     if use_workspace:
-        if entity.code_workspace:
-            storage_name = entity.code_workspace.name
-            storage_db = entity.code_workspace.database or db
-            storage_schema = entity.code_workspace.schema_ or schema
-        else:
-            storage_name = f"{app_name}_CODE"
-            storage_db, storage_schema = db, schema
-    else:
+        storage_name = entity.code_workspace.name
+        storage_db = entity.code_workspace.database or db
+        storage_schema = entity.code_workspace.schema_ or schema
+    elif entity.code_stage is not None:
         storage_name = entity.code_stage.name
         storage_db = entity.code_stage.database or db
         storage_schema = entity.code_stage.schema_ or schema
+    else:
+        storage_name = f"{app_name}_CODE"
+        storage_db, storage_schema = db, schema
 
     storage_fqn = FQN(database=storage_db, schema=storage_schema, name=storage_name)
     build_job_fqn = FQN(database=db, schema=schema, name=f"{app_name}_BUILD_JOB")
