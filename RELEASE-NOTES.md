@@ -23,6 +23,7 @@
 ## Fixes and improvements
 * Fixed `SELECT *` output being corrupted when joined tables share column names. Duplicate column names are now disambiguated by appending a numeric suffix (e.g. `NAME`, `NAME_2`).
 * Fixed `snow connection generate-jwt` and `snow connection generate-workload-identity-token` failing with `Connection None is not configured` when used with `--temporary-connection`.
+* Fixed `snow snowpark deploy --replace` not recreating a procedure/function when its argument signature changed — for example, removing a `default` value from an argument, renaming an argument, or changing its type. The deploy now compares the declared signature against the remote `DESCRIBE` output and re-creates the object when they differ.
 
 
 # v3.17.0

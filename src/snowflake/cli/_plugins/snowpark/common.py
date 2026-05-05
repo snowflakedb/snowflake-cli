@@ -18,7 +18,7 @@ import logging
 import re
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 from click import UsageError
 from snowflake.cli._plugins.snowpark.models import Requirement
@@ -197,6 +197,12 @@ def _check_if_replace_is_required(
         )
         return True
 
+    if "signature" in resource_json and _signatures_differ(
+        resource_json["signature"] or "", entity
+    ):
+        log.info("Argument signature does not match. Replacing the %s.", object_type)
+        return True
+
     if _compare_imports(resource_json, entity.imports, stage_artifact_files):
         log.info("Imports do not match. Replacing the %s", object_type)
         return True
@@ -365,6 +371,147 @@ def user_to_sql_type_mapper(user_provided_type: str) -> str:
                 # TEXT(30) -> VARCHAR(30)
                 return user_provided_type.replace(type_, cast_type + default)
     return user_provided_type
+
+
+def _signatures_differ(remote_signature: str, entity: SnowparkEntityModel) -> bool:
+    """Return True if the remote DESCRIBE signature does not match the signature
+    declared locally on ``entity``. Detects changes to argument names, types, and
+    defaults — including adding or removing a default on an existing argument."""
+    remote_args = _parse_remote_signature(remote_signature)
+    local_args = _local_signature_args(entity)
+
+    if len(remote_args) != len(local_args):
+        return True
+
+    for (r_name, r_type, r_default), (l_name, l_type, l_default) in zip(
+        remote_args, local_args
+    ):
+        if r_name.lower() != l_name.lower():
+            return True
+        if not same_type(r_type, l_type):
+            return True
+        if _normalize_default(r_default) != _normalize_default(l_default):
+            return True
+    return False
+
+
+def _parse_remote_signature(
+    signature: str,
+) -> List[Tuple[str, str, Optional[str]]]:
+    """Parse a signature string returned by DESCRIBE PROCEDURE/FUNCTION into a
+    list of ``(name, type, default)`` tuples. Returns an empty list for ``()``.
+
+    The Snowflake DESCRIBE output looks like ``(NAME VARCHAR, AGE NUMBER DEFAULT 10)``.
+    """
+    if not signature:
+        return []
+    stripped = signature.strip()
+    if stripped.startswith("(") and stripped.endswith(")"):
+        stripped = stripped[1:-1].strip()
+    if not stripped:
+        return []
+
+    args: List[Tuple[str, str, Optional[str]]] = []
+    for raw_arg in _split_signature_args(stripped):
+        name, _, rest = raw_arg.strip().partition(" ")
+        rest = rest.strip()
+        if not rest:
+            # Defensive: signature entry without a type is not something we can
+            # reason about. Treat as having no default.
+            args.append((name, "", None))
+            continue
+        upper_rest = rest.upper()
+        default_idx = upper_rest.find(" DEFAULT ")
+        if default_idx == -1:
+            args.append((name, rest, None))
+        else:
+            type_part = rest[:default_idx].strip()
+            default_part = rest[default_idx + len(" DEFAULT ") :].strip()
+            args.append((name, type_part, default_part))
+    return args
+
+
+def _split_signature_args(body: str) -> List[str]:
+    """Split a signature body on commas while respecting single-quoted strings
+    and parentheses (e.g. ``NUMBER(38,0)``)."""
+    parts = []
+    buf = []
+    depth = 0
+    in_quote = False
+    i = 0
+    while i < len(body):
+        ch = body[i]
+        if in_quote:
+            buf.append(ch)
+            if ch == "'":
+                # Handle doubled single-quote escape: ''
+                if i + 1 < len(body) and body[i + 1] == "'":
+                    buf.append(body[i + 1])
+                    i += 2
+                    continue
+                in_quote = False
+        else:
+            if ch == "'":
+                buf.append(ch)
+                in_quote = True
+            elif ch == "(":
+                depth += 1
+                buf.append(ch)
+            elif ch == ")":
+                depth -= 1
+                buf.append(ch)
+            elif ch == "," and depth == 0:
+                parts.append("".join(buf).strip())
+                buf = []
+            else:
+                buf.append(ch)
+        i += 1
+    tail = "".join(buf).strip()
+    if tail:
+        parts.append(tail)
+    return parts
+
+
+def _local_signature_args(
+    entity: SnowparkEntityModel,
+) -> List[Tuple[str, str, Optional[str]]]:
+    """Return the local entity's arguments as ``(name, type, default)`` tuples
+    with string defaults quoted the same way they are rendered into SQL."""
+    signature = entity.signature
+    if isinstance(signature, str):
+        return _parse_remote_signature(signature)
+    if not signature or signature == "null":
+        return []
+
+    args: List[Tuple[str, str, Optional[str]]] = []
+    for arg in signature:
+        name = arg.name
+        _type = arg.arg_type
+        _default = arg.default
+        rendered_default = _default
+        if (
+            rendered_default is not None
+            and _type.lower() in ("string", "varchar")
+            and rendered_default.lower() != "null"
+        ):
+            rendered_default = f"'{rendered_default}'"
+        args.append((name, _type, rendered_default))
+    return args
+
+
+def _normalize_default(default: str | None) -> str | None:
+    """Normalize a default expression so that differently-rendered-but-equivalent
+    defaults compare equal (trimmed whitespace, case-insensitive for identifiers
+    and keywords, but quoted string contents are preserved verbatim)."""
+    if default is None:
+        return None
+    value = default.strip()
+    if not value:
+        return None
+    if value.startswith("'") and value.endswith("'") and len(value) >= 2:
+        # Preserve string literal contents (case-sensitive).
+        return value
+    return value.upper()
 
 
 def _compare_imports(
