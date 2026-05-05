@@ -48,6 +48,16 @@ class _CallableBase(UpdatableModel):
         title="Stage and path to previously uploaded files you want to import",
         default=[],
     )
+    strict: Optional[bool] = Field(
+        title="If True, create the function/procedure with RETURNS NULL ON NULL INPUT "
+        "so the handler is skipped when any input argument is NULL.",
+        default=False,
+    )
+    immutable: Optional[bool] = Field(
+        title="If True, create the function/procedure as IMMUTABLE so Snowflake may "
+        "reuse results for identical inputs. Only safe when the handler has no side effects.",
+        default=False,
+    )
 
     @field_validator("runtime")
     @classmethod
