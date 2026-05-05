@@ -1351,6 +1351,99 @@ def test_read_yaml(temporary_directory):
     assert result == json.dumps(SPEC_DICT)
 
 
+def test_read_yaml_escapes_dollar_quote_breakout(temporary_directory):
+    # A spec value containing $$ must not be passed through verbatim:
+    # the JSON is later embedded inside $$...$$ SQL literals by
+    # create(), _execute_job_service(), and upgrade_spec(), and an unescaped
+    # $$ in spec content would close the literal and allow injected SQL.
+    tmp_dir = Path(temporary_directory)
+    spec_path = tmp_dir / "spec.yml"
+    spec_path.write_text(
+        dedent(
+            """
+            spec:
+                containers:
+                - name: main
+                  image: /db/repo:tag
+                  env:
+                    PAYLOAD: "$$ ); GRANT ROLE ACCOUNTADMIN TO USER attacker; --"
+            """
+        )
+    )
+    result = ServiceManager()._read_yaml(spec_path)  # noqa: SLF001
+    assert "$$" not in result
+    assert "$ $" in result
+
+
+@pytest.mark.parametrize(
+    "method_name,query_fragment",
+    [
+        ("create", "FROM SPECIFICATION $$"),
+        ("execute_job", "FROM SPECIFICATION $$"),
+        ("upgrade_spec", "from specification $$"),
+    ],
+)
+@patch(EXECUTE_QUERY)
+def test_service_spec_dollar_quote_not_broken_out(
+    mock_execute_query, temporary_directory, method_name, query_fragment
+):
+    # End-to-end check: a spec value containing $$ must not appear verbatim
+    # inside the generated SQL, otherwise the dollar-quoted literal is
+    # terminated early and the rest is parsed as SQL.
+    tmp_dir = Path(temporary_directory)
+    spec_path = tmp_dir / "spec.yml"
+    spec_path.write_text(
+        dedent(
+            """
+            spec:
+                containers:
+                - name: main
+                  image: /db/repo:tag
+                  env:
+                    PAYLOAD: "$$ ); GRANT ROLE ACCOUNTADMIN TO USER attacker; --"
+            """
+        )
+    )
+
+    if method_name == "create":
+        ServiceManager().create(
+            service_name="svc",
+            compute_pool="pool",
+            spec_path=spec_path,
+            min_instances=1,
+            max_instances=1,
+            auto_resume=True,
+            external_access_integrations=None,
+            query_warehouse=None,
+            tags=None,
+            comment=None,
+            if_not_exists=False,
+        )
+    elif method_name == "execute_job":
+        mock_conn = Mock()
+        mock_conn.database = None
+        mock_conn.schema = None
+        ServiceManager(connection=mock_conn).execute_job(
+            job_service_name="svc",
+            compute_pool="pool",
+            spec_path=spec_path,
+            external_access_integrations=None,
+            query_warehouse=None,
+            comment=None,
+            async_mode=False,
+        )
+    else:
+        ServiceManager().upgrade_spec("svc", spec_path)
+
+    query = mock_execute_query.mock_calls[0].args[0]
+    # The spec is embedded inside $$...$$ — the only $$ occurrences in the
+    # final SQL must be the opening and closing delimiters, never inside the
+    # spec payload.
+    assert query.count("$$") == 2, query
+    assert "GRANT ROLE ACCOUNTADMIN" in query  # payload still present, just neutralized
+    assert query_fragment in query
+
+
 @patch(EXECUTE_QUERY)
 def test_upgrade_spec(mock_execute_query, temporary_directory):
     service_name = "test_service"

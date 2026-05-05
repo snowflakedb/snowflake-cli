@@ -403,7 +403,7 @@ class ServiceManager(SqlExecutionMixin):
             }
         }
 
-        spec_json = json.dumps(spec)
+        spec_json = self._serialize_spec(spec)
 
         return self._execute_job_service(
             job_service_name=job_service_name,
@@ -417,7 +417,14 @@ class ServiceManager(SqlExecutionMixin):
         # TODO(aivanou): Add validation towards schema
         with SecurePath(path).open("r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fh:
             data = yaml.safe_load(fh)
-        return json.dumps(data)
+        return self._serialize_spec(data)
+
+    @staticmethod
+    def _serialize_spec(data) -> str:
+        # The returned JSON is embedded inside $$...$$ dollar-quoted SQL
+        # literals; json.dumps does not escape $, so a spec value containing
+        # $$ would close the literal early and allow SQL injection.
+        return json.dumps(data).replace("$$", "$ $")
 
     def status(self, service_name: str) -> SnowflakeCursor:
         return self.execute_query(f"CALL SYSTEM$GET_SERVICE_STATUS('{service_name}')")
