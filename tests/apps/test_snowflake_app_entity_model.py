@@ -336,6 +336,17 @@ class TestSnowflakeAppEntityModel:
         )
         assert model.execute_as_caller is False
 
+    def test_code_storage_mutually_exclusive(self):
+        """``code_stage`` and ``code_workspace`` cannot both be set."""
+        with pytest.raises(ValueError, match="code_stage or code_workspace, not both"):
+            SnowflakeAppEntityModel(
+                type="snowflake-app",
+                identifier="my_app",
+                artifacts=["app/*"],
+                code_stage={"name": "MY_STAGE"},
+                code_workspace={"name": "MY_WORKSPACE"},
+            )
+
 
 class TestSnowflakeAppInProjectDefinition:
     def test_snowflake_app_entity_in_project_definition(self):
