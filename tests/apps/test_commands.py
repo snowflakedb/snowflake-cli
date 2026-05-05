@@ -850,6 +850,31 @@ class TestSnowflakeAppManager:
                 schema="SCHEMA",
             )
 
+    def test_build_app_artifact_repo_requires_one_build_source(self):
+        """Neither stage_fqn nor source_uri -> ValueError."""
+        with pytest.raises(
+            ValueError, match="Either stage_fqn or source_uri must be provided"
+        ):
+            SnowflakeAppManager().build_app_artifact_repo(
+                artifact_repo_fqn="DB.SCHEMA.REPO",
+                app_id="my_app",
+                database="DB",
+                schema="SCHEMA",
+            )
+
+    def test_build_app_artifact_repo_rejects_both_build_sources(self):
+        """Specifying stage_fqn and source_uri together -> ValueError."""
+        stage_fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
+        with pytest.raises(ValueError, match="not both"):
+            SnowflakeAppManager().build_app_artifact_repo(
+                stage_fqn=stage_fqn,
+                source_uri="snow://workspace/DB.SCHEMA.WS/versions/live/",
+                artifact_repo_fqn="DB.SCHEMA.REPO",
+                app_id="my_app",
+                database="DB",
+                schema="SCHEMA",
+            )
+
     @patch(EXECUTE_QUERY)
     def test_build_app_artifact_repo_restores_session(self, mock_execute):
         cursor = Mock()

@@ -838,10 +838,12 @@ class SnowflakeAppManager(SqlExecutionMixin):
         """
         from snowflake.cli.api.project.util import to_string_literal
 
-        if source_uri is None:
-            if stage_fqn is None:
-                raise ValueError("Either stage_fqn or source_uri must be provided")
+        if stage_fqn is not None:
+            if source_uri is not None:
+                raise ValueError("Provide either stage_fqn or source_uri, not both")
             source_uri = f"@{stage_fqn.identifier}"
+        elif source_uri is None:
+            raise ValueError("Either stage_fqn or source_uri must be provided")
 
         if not artifact_repo_fqn.strip():
             raise ValueError("artifact_repo_fqn must be a non-empty string")
