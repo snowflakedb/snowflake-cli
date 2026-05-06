@@ -103,6 +103,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |

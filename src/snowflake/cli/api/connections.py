@@ -69,6 +69,7 @@ class ConnectionContext:
     oauth_enable_refresh_tokens: Optional[bool] = None
     oauth_enable_single_use_refresh_tokens: Optional[bool] = None
     client_store_temporary_credential: Optional[bool] = None
+    secondary_roles: Optional[str] = None
 
     # Internal flag to track if config has been loaded
     _config_loaded: bool = field(default=False, repr=False, init=False)
