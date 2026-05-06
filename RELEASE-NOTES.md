@@ -25,6 +25,7 @@
 ## Fixes and improvements
 * Fixed `SELECT *` output being corrupted when joined tables share column names. Duplicate column names are now disambiguated by appending a numeric suffix (e.g. `NAME`, `NAME_2`).
 * Fixed `snow connection generate-jwt` and `snow connection generate-workload-identity-token` failing with `Connection None is not configured` when used with `--temporary-connection`.
+* `snow snowpark package create` now falls back to `--ignore-anaconda` behavior (skipping the Anaconda channel lookup and emitting a warning) when no Snowflake connection is configured, so the zip can still be built in CI environments without Snowflake credentials. Previously the command failed with `Connection default is not configured`.
 
 
 # v3.17.0

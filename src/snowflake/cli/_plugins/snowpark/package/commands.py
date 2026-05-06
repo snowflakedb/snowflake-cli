@@ -42,6 +42,7 @@ from snowflake.cli._plugins.snowpark.snowpark_shared import (
 )
 from snowflake.cli._plugins.snowpark.zipper import zip_dir
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.exceptions import MissingConfigurationError
 from snowflake.cli.api.output.types import CommandResult, MessageResult
 from snowflake.cli.api.secure_path import SecurePath
 
@@ -117,6 +118,25 @@ def package_upload(
     return MessageResult(upload(file=file, stage=stage, overwrite=overwrite))
 
 
+def _resolve_anaconda_packages(ignore_anaconda: bool) -> AnacondaPackages:
+    """Resolve the Anaconda package list for `package create`.
+
+    When `ignore_anaconda` is set — or when no Snowflake connection is configured —
+    an empty set is returned so the command can run offline. Any other error from
+    the Anaconda lookup is re-raised so real misconfigurations stay visible.
+    """
+    if ignore_anaconda:
+        return AnacondaPackages.empty()
+    try:
+        return AnacondaPackagesManager().find_packages_available_in_snowflake_anaconda()
+    except MissingConfigurationError:
+        log.warning(
+            "No Snowflake connection is configured; skipping Anaconda channel check "
+            "and building the package as if --ignore-anaconda was passed."
+        )
+        return AnacondaPackages.empty()
+
+
 @app.command("create", requires_connection=True)
 def package_create(
     name: str = typer.Argument(
@@ -132,18 +152,17 @@ def package_create(
 ) -> CommandResult:
     """
     Creates a Python package as a zip file that can be uploaded to a stage and imported for a Snowpark Python app.
+
+    If no Snowflake connection is configured, the Anaconda channel lookup is
+    skipped (equivalent to `--ignore-anaconda`) so the zip can still be built
+    in environments without Snowflake credentials.
     """
     with SecurePath.temporary_directory() as packages_dir:
         package = Requirement.parse(name)
-        anaconda_packages_manager = AnacondaPackagesManager()
         download_result = download_unavailable_packages(
             requirements=[package],
             target_dir=packages_dir,
-            anaconda_packages=(
-                AnacondaPackages.empty()
-                if ignore_anaconda
-                else anaconda_packages_manager.find_packages_available_in_snowflake_anaconda()
-            ),
+            anaconda_packages=_resolve_anaconda_packages(ignore_anaconda),
             skip_version_check=skip_version_check,
             pip_index_url=index_url,
         )
