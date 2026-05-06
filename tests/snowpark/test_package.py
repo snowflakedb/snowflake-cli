@@ -87,6 +87,81 @@ class TestPackage:
         assert "in-anaconda-package>=2" in result.output
         assert os.path.isfile("totally-awesome-package.zip"), result.output
 
+    @patch(
+        "snowflake.cli._plugins.snowpark.package.commands.download_unavailable_packages"
+    )
+    @patch(
+        "snowflake.cli._plugins.snowpark.package_utils.pip_wheel",
+    )
+    @patch(
+        "snowflake.cli._plugins.snowpark.package.commands.AnacondaPackagesManager.find_packages_available_in_snowflake_anaconda"
+    )
+    def test_package_create_with_ignore_anaconda_does_not_query_anaconda(
+        self,
+        mock_find_anaconda,
+        mock_pip_wheel,
+        mock_download,
+        temporary_directory,
+        runner,
+    ) -> None:
+        mock_pip_wheel.return_value = 9
+        mock_download.return_value = DownloadUnavailablePackagesResult(
+            anaconda_packages=[],
+        )
+
+        result = runner.invoke(
+            [
+                "snowpark",
+                "package",
+                "create",
+                "totally-awesome-package",
+                "--ignore-anaconda",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        mock_find_anaconda.assert_not_called()
+
+    @patch(
+        "snowflake.cli._plugins.snowpark.package.commands.download_unavailable_packages"
+    )
+    @patch(
+        "snowflake.cli._plugins.snowpark.package_utils.pip_wheel",
+    )
+    @patch(
+        "snowflake.cli._plugins.snowpark.package.commands.AnacondaPackagesManager.find_packages_available_in_snowflake_anaconda"
+    )
+    def test_package_create_without_connection_falls_back_to_ignore_anaconda(
+        self,
+        mock_find_anaconda,
+        mock_pip_wheel,
+        mock_download,
+        caplog,
+        temporary_directory,
+        runner,
+    ) -> None:
+        from snowflake.cli.api.exceptions import MissingConfigurationError
+
+        mock_pip_wheel.return_value = 9
+        mock_find_anaconda.side_effect = MissingConfigurationError(
+            "Connection default is not configured"
+        )
+        mock_download.return_value = DownloadUnavailablePackagesResult(
+            anaconda_packages=[],
+        )
+
+        with caplog.at_level(
+            logging.WARNING, logger="snowflake.cli._plugins.snowpark.package"
+        ):
+            result = runner.invoke(
+                ["snowpark", "package", "create", "totally-awesome-package"]
+            )
+
+        assert result.exit_code == 0, result.output
+        mock_find_anaconda.assert_called_once()
+        assert "No Snowflake connection is configured" in caplog.text
+        assert os.path.isfile("totally-awesome-package.zip"), result.output
+
     @mock.patch("snowflake.cli._plugins.snowpark.package.manager.StageManager")
     @mock.patch("snowflake.cli._plugins.snowpark.package.manager.FQN.from_string")
     @mock.patch("snowflake.connector.connect")
