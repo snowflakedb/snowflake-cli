@@ -21,6 +21,7 @@ import pytest
 from snowflake.cli.api.cli_global_context import fork_cli_context
 from snowflake.cli.api.config import (
     ConfigFileTooWidePermissionsError,
+    ConnectionConfig,
     config_init,
     get_config_section,
     get_connection_dict,
@@ -685,3 +686,33 @@ def test_corrupted_config_raises_human_friendly_error(
 )
 def test_get_env_variable_name(path, key, expected):
     assert get_env_variable_name(*path, key=key) == expected
+
+
+@pytest.mark.parametrize("bad_value", ["just-a-string", 42, True, ["a", "b"]])
+def test_connection_config_from_dict_rejects_non_mapping(bad_value):
+    from snowflake.cli.api.exceptions import InvalidConnectionConfigurationError
+
+    with pytest.raises(InvalidConnectionConfigurationError) as exc_info:
+        ConnectionConfig.from_dict(bad_value)
+    assert "TOML table" in exc_info.value.message
+    assert type(bad_value).__name__ in exc_info.value.message
+    assert "Invalid connection configuration." in exc_info.value.format_message()
+
+
+def test_connection_config_from_dict_accepts_empty_mapping():
+    config = ConnectionConfig.from_dict({})
+    assert config.account is None
+    assert config.user is None
+
+
+def test_connection_config_from_dict_preserves_known_and_other_settings():
+    config = ConnectionConfig.from_dict(
+        {"account": "acc", "user": "u", "custom_setting": "value"}
+    )
+    assert config.account == "acc"
+    assert config.user == "u"
+    assert config.to_dict_of_all_non_empty_values() == {
+        "account": "acc",
+        "user": "u",
+        "custom_setting": "value",
+    }
