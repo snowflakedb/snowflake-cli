@@ -214,6 +214,7 @@ class PlanReporter(Reporter[PlanRow]):
         )
         labels = {
             "plan": SummaryLabels("to create", "to alter", "to drop", "Planned"),
+            "plan-delta": SummaryLabels("to create", "to alter", "to drop", "Planned"),
             "deploy": SummaryLabels("created", "altered", "dropped", "Deployed"),
             "purge": SummaryLabels("created", "altered", "dropped", "Purged"),
         }[self.command_name]

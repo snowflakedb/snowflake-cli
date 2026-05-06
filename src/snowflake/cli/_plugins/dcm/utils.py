@@ -167,7 +167,9 @@ def mock_dcm_response(command_name: str):
             if file_number is None:
                 return func(*args, **kwargs)
 
-            actual_command = "plan" if command_name == "deploy" else command_name
+            actual_command = (
+                "plan" if command_name in ("deploy", "plan-delta") else command_name
+            )
             try:
                 data = _load_debug_data(actual_command, file_number)
             except Exception:
@@ -188,6 +190,7 @@ def mock_dcm_response(command_name: str):
                 "refresh": RefreshReporter,
                 "test": TestReporter,
                 "plan": PlanReporter,
+                "plan-delta": PlanReporter,
             }
 
             reporter = reporter_mapping[command_name]()

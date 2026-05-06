@@ -523,6 +523,50 @@ def plan(
     return _process_plan_result(result, command_name="plan", save_output=save_output)
 
 
+@app.command(
+    requires_connection=True,
+    hidden=not FeatureFlag.ENABLE_DCM_EARLY_ACCESS.is_enabled(),
+)
+@mock_dcm_response("plan-delta")
+def plan_delta(
+    identifier: Optional[FQN] = optional_dcm_identifier,
+    from_location: SecurePath = from_option,
+    variables: Optional[List[str]] = variables_flag,
+    target: Optional[str] = target_option,
+    save_output: bool = save_output_option,
+    **options,
+):
+    """
+    Shows what objects would be created, altered, or dropped by the `deploy` command, without applying any changes. Compared to the standard `plan` command, `plan-delta` will process only statements that changed compared to the last `deploy`, plus statements that might be impacted by these changes.
+    """
+    clear_command_artifacts("plan-delta")
+
+    context = _resolve_context_with_required_manifest(from_location, identifier, target)
+    project_id = context.project_identifier
+
+    manager = DCMProjectManager()
+    effective_stage = manager.sync_local_files(
+        project_identifier=project_id,
+        source_directory=str(from_location.path),
+    )
+
+    with cli_console.spinner() as spinner:
+        spinner.add_task(
+            description=f"Planning delta for dcm project {project_id}", total=None
+        )
+        result = manager.plan_delta(
+            project_identifier=project_id,
+            configuration=context.configuration,
+            from_stage=effective_stage,
+            variables=variables,
+            save_output=save_output,
+        )
+
+    return _process_plan_result(
+        result, command_name="plan-delta", save_output=save_output
+    )
+
+
 @app.command(requires_connection=True, hidden=True)
 def raw_analyze(
     identifier: Optional[FQN] = optional_dcm_identifier,

@@ -135,6 +135,35 @@ class DCMProjectManager(SqlExecutionMixin):
             result = self.execute_query(query=query)
         return result
 
+    def plan_delta(
+        self,
+        project_identifier: FQN,
+        from_stage: str,
+        configuration: str | None = None,
+        variables: List[str] | None = None,
+        save_output: bool = False,
+    ) -> SnowflakeCursor:
+        log.info(
+            "Running DCM plan delta manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d, save_output=%s).",
+            project_identifier,
+            bool(configuration),
+            len(variables or []),
+            save_output,
+        )
+        query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} PLAN DELTA"
+        query += self._get_configuration_and_variables_query(configuration, variables)
+        query += self._get_from_stage_query(from_stage)
+
+        if save_output:
+            with collect_output(
+                project_identifier, command_name="plan-delta"
+            ) as output_stage:
+                query += f" OUTPUT_PATH {output_stage}"
+                result = self.execute_query(query=query)
+        else:
+            result = self.execute_query(query=query)
+        return result
+
     def create(self, project_identifier: FQN) -> None:
         log.info(
             "Running DCM create manager operation (project_identifier=%s).",
