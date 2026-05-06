@@ -25,6 +25,7 @@
 ## Fixes and improvements
 * Fixed `SELECT *` output being corrupted when joined tables share column names. Duplicate column names are now disambiguated by appending a numeric suffix (e.g. `NAME`, `NAME_2`).
 * Fixed `snow connection generate-jwt` and `snow connection generate-workload-identity-token` failing with `Connection None is not configured` when used with `--temporary-connection`.
+* Fixed a `KeyError` in the open-connection cache's cleanup path: when a scheduled cleanup timer fired for a connection that had already been removed (e.g. by `cache.clear()` or an earlier cleanup), the cache raised instead of treating the missing key as a no-op.
 
 
 # v3.17.0

@@ -292,9 +292,16 @@ class OpenConnectionCache:
 
     def _cleanup(self, key: str):
         """Closes the cached connection at the given key."""
-        if key not in self.connections:
+        # Always cancel the pending cleanup timer, even if the connection is
+        # no longer in the cache (e.g. because it was already removed by a
+        # previous cleanup or by clear()), so we do not leave an orphaned
+        # timer behind.
+        self._cancel_cleanup_future_if_exists(key)
+
+        conn = self.connections.pop(key, None)
+        if conn is None:
             logger.debug("Cleaning up connection %s, but not found in cache!", key)
+            return
 
         # doesn't cancel in-flight async queries
-        self._cancel_cleanup_future_if_exists(key)
-        self.connections.pop(key).close()
+        conn.close()

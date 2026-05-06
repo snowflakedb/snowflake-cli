@@ -122,3 +122,23 @@ def test_connection_cache_caches(
         password="dummy_password",
         application_name="snowcli",
     )
+
+
+def test_connection_cache_cleanup_tolerates_missing_key(local_connection_cache):
+    """_cleanup() must be a no-op when the key is not in the cache.
+
+    The cleanup timer scheduled by _touch() races with clear() and with a
+    second _cleanup() for the same key: whichever wins removes the
+    connection, and the loser fires later with a stale key. Before this
+    guard, the loser raised KeyError on `self.connections.pop(key)`.
+    """
+    # No connections in the cache — simulating a fired timer after clear().
+    local_connection_cache._cleanup("missing-key")  # noqa: SLF001
+
+    # Also verify that a lingering cleanup future for the missing key is
+    # cancelled rather than leaked.
+    fake_future = mock.Mock()
+    local_connection_cache.cleanup_futures["orphan-key"] = fake_future
+    local_connection_cache._cleanup("orphan-key")  # noqa: SLF001
+    fake_future.cancel.assert_called_once()
+    assert "orphan-key" not in local_connection_cache.cleanup_futures
