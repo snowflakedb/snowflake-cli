@@ -1550,6 +1550,71 @@ def test_resume_cli(mock_resume, mock_cursor, runner):
     assert "Statement executed successfully" in result.output
 
 
+@pytest.mark.parametrize(
+    "if_exists, force, expected_query",
+    [
+        (False, False, "drop service test_service"),
+        (True, False, "drop service if exists test_service"),
+        (False, True, "drop service test_service force"),
+        (True, True, "drop service if exists test_service force"),
+    ],
+)
+@patch(EXECUTE_QUERY)
+def test_drop(mock_execute_query, if_exists, force, expected_query):
+    service_name = "test_service"
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_query.return_value = cursor
+    result = ServiceManager().drop(
+        service_name=service_name, if_exists=if_exists, force=force
+    )
+    mock_execute_query.assert_called_once_with(expected_query)
+    assert result == cursor
+
+
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.drop")
+def test_drop_cli_default(mock_drop, mock_cursor, runner):
+    service_name = "test_service"
+    cursor = mock_cursor(
+        rows=[["Statement executed successfully."]], columns=["status"]
+    )
+    mock_drop.return_value = cursor
+    result = runner.invoke(["spcs", "service", "drop", service_name])
+    assert result.exit_code == 0, result.output
+    mock_drop.assert_called_once_with(
+        service_name=f"IDENTIFIER('{service_name}')", if_exists=False, force=False
+    )
+
+
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.drop")
+def test_drop_cli_force(mock_drop, mock_cursor, runner):
+    service_name = "test_service"
+    cursor = mock_cursor(
+        rows=[["Statement executed successfully."]], columns=["status"]
+    )
+    mock_drop.return_value = cursor
+    result = runner.invoke(["spcs", "service", "drop", service_name, "--force"])
+    assert result.exit_code == 0, result.output
+    mock_drop.assert_called_once_with(
+        service_name=f"IDENTIFIER('{service_name}')", if_exists=False, force=True
+    )
+
+
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.drop")
+def test_drop_cli_if_exists_and_force(mock_drop, mock_cursor, runner):
+    service_name = "test_service"
+    cursor = mock_cursor(
+        rows=[["Statement executed successfully."]], columns=["status"]
+    )
+    mock_drop.return_value = cursor
+    result = runner.invoke(
+        ["spcs", "service", "drop", service_name, "--if-exists", "--force"]
+    )
+    assert result.exit_code == 0, result.output
+    mock_drop.assert_called_once_with(
+        service_name=f"IDENTIFIER('{service_name}')", if_exists=True, force=True
+    )
+
+
 @patch(EXECUTE_QUERY)
 def test_set_property(mock_execute_query):
     service_name = "test_service"
