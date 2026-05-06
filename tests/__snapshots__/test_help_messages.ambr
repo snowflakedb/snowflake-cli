@@ -19082,7 +19082,7 @@
                                                                                   
    Usage: root spcs service drop [OPTIONS] NAME                                   
                                                                                   
-   Drops service with given name.                                                 
+   Drops a service.                                                               
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the service; for example: my_service      |
@@ -19091,6 +19091,9 @@
   +- Options --------------------------------------------------------------------+
   | --if-exists            Only apply this operation if the specified object     |
   |                        exists.                                               |
+  | --force                Drops the service along with any block storage        |
+  |                        volumes it contains. Without this flag, dropping a    |
+  |                        service that contains block storage volumes fails.    |
   | --help       -h        Show this message and exit.                           |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -21397,7 +21400,7 @@
   | deploy            Deploys a service defined in the project                   |
   |                   definition file.                                           |
   | describe          Provides description of service.                           |
-  | drop              Drops service with given name.                             |
+  | drop              Drops a service.                                           |
   | execute-job       Creates and executes a job service in the                  |
   |                   current schema.                                            |
   | list              Lists all available services.                              |
@@ -24857,7 +24860,7 @@
   | deploy            Deploys a service defined in the project                   |
   |                   definition file.                                           |
   | describe          Provides description of service.                           |
-  | drop              Drops service with given name.                             |
+  | drop              Drops a service.                                           |
   | execute-job       Creates and executes a job service in the                  |
   |                   current schema.                                            |
   | list              Lists all available services.                              |
