@@ -15,25 +15,125 @@
 import logging
 import stat
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from snowflake.connector.compat import IS_WINDOWS
 
 log = logging.getLogger(__name__)
+
+# Well-known Windows SIDs whose display names are localized per system language
+# (e.g. "SYSTEM" / "Administrators" in English, "Système" / "Administrateurs"
+# in French, "системный" / "Администраторы" in Russian). Resolving them at
+# runtime keeps the whitelist correct on non-English Windows installations.
+# https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-identifiers
+_LOCAL_SYSTEM_SID = "S-1-5-18"
+_BUILTIN_ADMINISTRATORS_SID = "S-1-5-32-544"
+
+# English fallbacks used if the Windows API call fails (or when running under
+# a stubbed API in tests). These match the pre-i18n behavior.
+_LOCAL_SYSTEM_FALLBACK_NAME = "SYSTEM"
+_BUILTIN_ADMINISTRATORS_FALLBACK_NAME = "Administrators"
+
+
+def _lookup_windows_sid_account_name(sid_str: str) -> Optional[str]:
+    """Resolve a well-known SID string to its localized account name via the
+    Windows API, or ``None`` if resolution fails.
+
+    Uses ``ctypes`` rather than ``pywin32`` so we don't add a new runtime
+    dependency. Only called on Windows.
+    """
+    try:
+        import ctypes
+        from ctypes import wintypes
+    except ImportError:  # pragma: no cover - ctypes is part of stdlib
+        return None
+
+    try:
+        advapi32 = ctypes.WinDLL("advapi32", use_last_error=True)  # type: ignore[attr-defined]
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+    except (AttributeError, OSError):
+        # WinDLL is missing on non-Windows, and loading can fail under unusual
+        # runtimes. Fall back to the caller-supplied default in both cases.
+        return None
+
+    convert_string_sid_to_sid = advapi32.ConvertStringSidToSidW
+    convert_string_sid_to_sid.argtypes = [
+        wintypes.LPCWSTR,
+        ctypes.POINTER(ctypes.c_void_p),
+    ]
+    convert_string_sid_to_sid.restype = wintypes.BOOL
+
+    lookup_account_sid = advapi32.LookupAccountSidW
+    lookup_account_sid.argtypes = [
+        wintypes.LPCWSTR,
+        ctypes.c_void_p,
+        wintypes.LPWSTR,
+        wintypes.LPDWORD,
+        wintypes.LPWSTR,
+        wintypes.LPDWORD,
+        ctypes.POINTER(wintypes.DWORD),
+    ]
+    lookup_account_sid.restype = wintypes.BOOL
+
+    local_free = kernel32.LocalFree
+    local_free.argtypes = [wintypes.HLOCAL]
+
+    sid = ctypes.c_void_p()
+    if not convert_string_sid_to_sid(sid_str, ctypes.byref(sid)):
+        return None
+
+    try:
+        name_size = wintypes.DWORD(256)
+        domain_size = wintypes.DWORD(256)
+        name = ctypes.create_unicode_buffer(name_size.value)
+        domain = ctypes.create_unicode_buffer(domain_size.value)
+        sid_name_use = wintypes.DWORD()
+        if not lookup_account_sid(
+            None,
+            sid,
+            name,
+            ctypes.byref(name_size),
+            domain,
+            ctypes.byref(domain_size),
+            ctypes.byref(sid_name_use),
+        ):
+            return None
+        return name.value or None
+    finally:
+        local_free(sid)
 
 
 def _get_windows_whitelisted_users():
     # whitelisted users list obtained in consultation with prodsec: CASEC-9627
     import os
 
-    return [
-        "SYSTEM",
-        "Administrators",
+    system_name = (
+        _lookup_windows_sid_account_name(_LOCAL_SYSTEM_SID)
+        or _LOCAL_SYSTEM_FALLBACK_NAME
+    )
+    admins_name = (
+        _lookup_windows_sid_account_name(_BUILTIN_ADMINISTRATORS_SID)
+        or _BUILTIN_ADMINISTRATORS_FALLBACK_NAME
+    )
+
+    whitelisted = [
+        system_name,
+        admins_name,
         "Network",
         "Domain Admins",
         "Domain Users",
         os.getlogin(),
     ]
+
+    # Keep the English names too, so administrators who have mixed-language
+    # inventories still pass the whitelist if a host returns English names
+    # under a non-English locale.
+    if system_name != _LOCAL_SYSTEM_FALLBACK_NAME:
+        whitelisted.append(_LOCAL_SYSTEM_FALLBACK_NAME)
+    if admins_name != _BUILTIN_ADMINISTRATORS_FALLBACK_NAME:
+        whitelisted.append(_BUILTIN_ADMINISTRATORS_FALLBACK_NAME)
+
+    return whitelisted
 
 
 def _run_icacls(file_path: Path) -> str:
