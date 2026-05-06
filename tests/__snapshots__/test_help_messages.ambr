@@ -320,6 +320,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -469,6 +475,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -700,6 +712,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -865,6 +883,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -1101,6 +1125,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -1258,6 +1288,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -1414,6 +1450,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -1566,6 +1608,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -1723,6 +1771,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -1879,6 +1933,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -2030,6 +2090,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -2212,6 +2278,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -2375,6 +2447,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -2534,6 +2612,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -2702,6 +2786,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -2856,6 +2946,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -3123,6 +3219,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -3271,6 +3373,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -3466,6 +3574,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -3626,6 +3740,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -3848,6 +3968,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -4028,6 +4154,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -4176,6 +4308,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -4381,6 +4519,12 @@
   | --token-file-path              -t      TEXT     Path to file with an OAuth   |
   |                                                 token that should be used    |
   |                                                 when connecting to Snowflake |
+  | --secondary-roles                      TEXT     Secondary roles mode applied |
+  |                                                 when the session starts.     |
+  |                                                 Supported values are ALL and |
+  |                                                 NONE; pass NONE to run the   |
+  |                                                 session only with the        |
+  |                                                 primary role.                |
   | --default                                       If provided the connection   |
   |                                                 will be configured as        |
   |                                                 default connection.          |
@@ -4521,6 +4665,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -4658,6 +4808,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -4928,6 +5084,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -5203,6 +5365,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -5342,6 +5510,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -5483,6 +5657,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -5632,6 +5812,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -5807,6 +5993,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -5982,6 +6174,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -6157,6 +6355,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -6332,6 +6536,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -6507,6 +6717,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -6682,6 +6898,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -6857,6 +7079,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -7032,6 +7260,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -7207,6 +7441,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -7382,6 +7622,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -7557,6 +7803,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -7732,6 +7984,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -7906,6 +8164,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -8077,6 +8341,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -8230,6 +8500,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -8377,6 +8653,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -8533,6 +8815,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -8682,6 +8970,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -8829,6 +9123,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -8981,6 +9281,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -9133,6 +9439,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -9286,6 +9598,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -9457,6 +9775,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -9608,6 +9932,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -9758,6 +10088,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -9908,6 +10244,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -10096,6 +10438,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -10235,6 +10583,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -10376,6 +10730,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -10537,6 +10897,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -10677,6 +11043,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -10821,6 +11193,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -10966,6 +11344,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -11110,6 +11494,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -11258,6 +11648,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -11410,6 +11806,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -11652,6 +12054,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -11795,6 +12203,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -11947,6 +12361,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -12087,6 +12507,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -12227,6 +12653,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -12367,6 +12799,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -12549,6 +12987,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -12696,6 +13140,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -12845,6 +13295,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -13005,6 +13461,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -13331,6 +13793,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -13487,6 +13955,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -13632,6 +14106,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -13779,6 +14259,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -13926,6 +14412,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -14078,6 +14570,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -14232,6 +14730,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -14371,6 +14875,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -14513,6 +15023,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -14762,6 +15278,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -14907,6 +15429,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -15047,6 +15575,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -15189,6 +15723,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -15329,6 +15869,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -15469,6 +16015,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -15629,6 +16181,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -15770,6 +16328,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -15910,6 +16474,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -16051,6 +16621,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -16200,6 +16776,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -16371,6 +16953,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -16509,6 +17097,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -16656,6 +17250,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -16820,6 +17420,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -16963,6 +17569,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -17105,6 +17717,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -17249,6 +17867,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -17395,6 +18019,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -17543,6 +18173,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -17683,6 +18319,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -17897,6 +18539,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -18094,6 +18742,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -18240,6 +18894,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -18379,6 +19039,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -18520,6 +19186,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -18685,6 +19357,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -18824,6 +19502,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -18963,6 +19647,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -19102,6 +19792,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -19241,6 +19937,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -19389,6 +20091,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -19540,6 +20248,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -19689,6 +20403,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -19828,6 +20548,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -20014,6 +20740,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -20157,6 +20889,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -20296,6 +21034,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -20452,6 +21196,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -20593,6 +21343,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -20860,6 +21616,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -21031,6 +21793,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -21179,6 +21947,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -21318,6 +22092,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -21459,6 +22239,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -21600,6 +22386,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -21758,6 +22550,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -21901,6 +22699,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -22049,6 +22853,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -22190,6 +23000,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -22377,6 +23193,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -22517,6 +23339,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -22659,6 +23487,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -22799,6 +23633,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -22940,6 +23780,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -23088,6 +23934,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -23230,6 +24082,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -23639,6 +24497,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |

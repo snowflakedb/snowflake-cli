@@ -130,6 +130,7 @@ class ConnectionConfig:
     oauth_enable_refresh_tokens: Optional[bool] = None
     oauth_enable_single_use_refresh_tokens: Optional[bool] = None
     client_store_temporary_credential: Optional[bool] = None
+    secondary_roles: Optional[str] = None
 
     _other_settings: dict = field(default_factory=lambda: {})
 

@@ -45,6 +45,7 @@ from snowflake.cli.api.commands.flags import (
     PrivateKeyPathOption,
     RoleOption,
     SchemaOption,
+    SecondaryRolesOption,
     TokenFilePathOption,
     UserOption,
     WarehouseOption,
@@ -256,6 +257,15 @@ def add(
         *TokenFilePathOption.param_decls,
         help="Path to file with an OAuth token that should be used when connecting to Snowflake",
     ),
+    secondary_roles: Optional[str] = typer.Option(
+        None,
+        *SecondaryRolesOption.param_decls,
+        help=(
+            "Secondary roles mode applied when the session starts. "
+            "Supported values are `ALL` and `NONE`; pass `NONE` to run the "
+            "session only with the primary role."
+        ),
+    ),
     set_as_default: bool = typer.Option(
         False,
         "--default",
@@ -282,6 +292,7 @@ def add(
         "workload_identity_provider": workload_identity_provider,
         "private_key_file": private_key_file,
         "token_file_path": token_file_path,
+        "secondary_roles": secondary_roles,
     }
 
     if not no_interactive:
