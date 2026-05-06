@@ -320,13 +320,80 @@ def test_project_columns_aligns_heterogeneous_rows():
 
     # Datasource row: same alignment guarantees — type/name in the
     # right slots, FV-only columns blanked out, spec-derived details
-    # carried through verbatim.
-    assert ds_proj["type"] == "Datasource"
+    # carried through verbatim.  The ``type`` column surfaces the
+    # specific source type (``OfflineTable``) instead of the generic
+    # ``Datasource`` so operators can distinguish stream vs table
+    # backings at a glance — see
+    # ``test_project_columns_surfaces_datasource_source_type_in_type_column``.
+    assert ds_proj["type"] == "OfflineTable"
     assert ds_proj["name"] == "click_events_offline"
     assert ds_proj["entities"] == ""
     assert ds_proj["version"] == ""
     assert ds_proj["created_on"] == ""
     assert ds_proj["details"] == {"source_type": "OfflineTable", "column_count": 7}
+
+
+def test_project_columns_surfaces_datasource_source_type_in_type_column():
+    """Datasource rows surface ``details.source_type`` in the rendered
+    ``type`` column instead of the generic ``Datasource`` label.
+
+    This mirrors how FeatureView rows already render the specific
+    subkind (``StreamingFeatureView`` / ``RealtimeFeatureView`` /
+    ``BatchFeatureView``) in the ``type`` column.  Operators reading
+    ``snow feature list`` see the backing kind (``Stream`` vs
+    ``OfflineTable``) at a glance without having to expand the
+    ``details`` cell.
+
+    Behavior:
+
+    * ``details.source_type == "Stream"``      → ``type`` renders ``Stream``
+    * ``details.source_type == "OfflineTable"``→ ``type`` renders ``OfflineTable``
+    * missing / empty ``details.source_type``  → ``type`` falls back to
+      the canonical ``Datasource`` so the row remains visibly a
+      datasource even when the source type is unknown.
+
+    Internal model (``AppliedObject.kind``) is unchanged — the swap is
+    a display-time projection only.  Code paths that group by
+    ``kind == "Datasource"`` continue to work untouched.
+    """
+    from snowflake.cli._plugins.feature.commands import _project_columns
+
+    stream_row = {
+        "type": "Datasource",
+        "name": "clickstream_events",
+        "details": {"source_type": "Stream", "column_count": 6},
+    }
+    offline_row = {
+        "type": "Datasource",
+        "name": "click_events_offline",
+        "details": {"source_type": "OfflineTable", "column_count": 7},
+    }
+    no_source_type_row = {
+        "type": "Datasource",
+        "name": "legacy_unknown",
+        "details": {"column_count": 0},
+    }
+    no_details_row = {
+        "type": "Datasource",
+        "name": "legacy_no_details",
+    }
+
+    stream_proj, offline_proj, no_st_proj, no_det_proj = _project_columns(
+        [stream_row, offline_row, no_source_type_row, no_details_row]
+    )
+
+    assert stream_proj["type"] == "Stream"
+    assert offline_proj["type"] == "OfflineTable"
+    assert no_st_proj["type"] == "Datasource"
+    assert no_det_proj["type"] == "Datasource"
+
+    # Non-datasource rows are never rewritten — the swap only fires
+    # when the canonical ``Datasource`` value is present.
+    fv_row = {"type": "StreamingFeatureView", "name": "x"}
+    entity_row = {"type": "Entity", "name": "user_id"}
+    fv_proj, ent_proj = _project_columns([fv_row, entity_row])
+    assert fv_proj["type"] == "StreamingFeatureView"
+    assert ent_proj["type"] == "Entity"
 
 
 def test_project_columns_empty_input_returns_empty():

@@ -169,6 +169,46 @@ produced. See
 "Session setup (DESCRIBE TYPE = SPECIFICATION priming)" for the full
 contract.
 
+### export_specs() orchestration
+
+`snow feature export` is a strict, full-fidelity-only command. Every
+emitted YAML carries the authoritative spec recovered via
+`DESCRIBE ONLINE FEATURE TABLE … TYPE = SPECIFICATION`, or the entire
+command aborts with a clear error naming the OFT(s) for which the
+SPECIFICATION JSON could not be recovered. There is no
+column-DESCRIBE-only fallback and no reduced / flagged YAML output —
+every emitted spec is full-fidelity or the command fails.
+
+```
+1. self._ensure_session_setup()                                             → primes the session
+2. queries = decl_api.export_queries(database, schema)
+3. applied_state, specification_map = self._fetch_oft_state(
+       queries=queries,
+       database=database,
+       schema=schema,
+   )                                                                         → reuses the LIST-path helper
+4. yaml_files = decl_api.export_specs(
+       applied_state,
+       specification_map=specification_map,
+   )                                                                         → strict full-fidelity render
+5. Write each YAML file under the output directory
+```
+
+`_fetch_oft_state` is the same helper that backs `list_specs()` — it
+runs the SHOW queries, fans the per-OFT
+`DESCRIBE … TYPE = SPECIFICATION` template out, parses each result
+via `decl_api.parse_specification_rows(...)`, and returns
+`(applied_state, specification_map)` in a single pass. There is no
+separate column-DESCRIBE loop in `export_specs`; the previous
+fallback that built partial YAML from column metadata alone has been
+removed.
+
+`decl_api.export_specs(...)` raises if `specification_map[oft]` is
+missing or empty for any FV `AppliedObject`. `SessionSetupError` and
+the strict-export error both propagate without being caught — Click
+renders them as normal command failures, and no YAML files are
+written when the command aborts.
+
 ---
 
 ## --json output

@@ -68,12 +68,18 @@ def _to_object(data: dict) -> CommandResult:
 # returns a single multi-kind list (FeatureView, Entity, Datasource), each
 # tagged with a ``type`` column.  ``details`` is included so that
 # ``--format json`` round-trips the kind-specific extras (e.g.
-# ``details.inferred``, ``details.source_type``, ``details.referenced_by``,
-# and — for FeatureView rows — ``details.scheduling_state``).  In table
-# mode the ``details`` cell renders as a compact dict, which is a
-# deliberate trade-off — operators inspecting the table see at-a-glance
-# whether a row is inferred and what the runtime status is, while scripts
-# consuming JSON get the full structured data they need.
+# ``details.source_type``, ``details.referenced_by``, and — for FeatureView
+# rows — ``details.scheduling_state``).  In table mode the ``details`` cell
+# renders as a compact dict, which is a deliberate trade-off — operators
+# inspecting the table see at-a-glance what the runtime status is, while
+# scripts consuming JSON get the full structured data they need.
+#
+# Datasource rows surface ``details.source_type`` (``Stream`` /
+# ``OfflineTable`` / etc.) in the rendered ``type`` column instead of the
+# generic ``Datasource`` label, mirroring how FeatureView rows already
+# render the specific subkind (``StreamingFeatureView`` etc.).  See
+# ``_project_columns`` for the swap.  ``AppliedObject.kind`` is unchanged
+# in the underlying data; the swap is display-only.
 #
 # Two upstream-row fields are intentionally *not* projected:
 #
@@ -105,6 +111,18 @@ def _project_columns(rows: list[dict]) -> list[dict]:
     order: heterogeneous rows (FeatureView vs Entity vs Datasource)
     would otherwise misalign — e.g. the Entity ``type`` value
     landing under the FeatureView-only ``created_on`` column.
+
+    Datasource ``type`` rewrite: when a row carries the canonical
+    ``Datasource`` kind and ``details.source_type`` is populated, the
+    rendered ``type`` cell is swapped to the specific source type
+    (``Stream`` / ``OfflineTable`` / etc.) so operators can
+    distinguish stream vs table backings at a glance — mirroring how
+    FeatureView rows already render the specific subkind
+    (``StreamingFeatureView`` etc.).  This is a display-only
+    transformation; ``AppliedObject.kind`` is unchanged in the
+    underlying data, so internal grouping (``kind == "Datasource"``)
+    continues to work.  When ``source_type`` is missing or empty, the
+    fallback is the original ``Datasource`` label.
     """
     if not rows:
         return rows
@@ -115,7 +133,14 @@ def _project_columns(rows: list[dict]) -> list[dict]:
         new_row: dict = {}
         for col in _TABLE_DISPLAY_COLUMNS:
             actual = lower_to_actual.get(col.lower())
-            new_row[col] = row.get(actual, "") if actual else ""
+            value = row.get(actual, "") if actual else ""
+            if col == "type" and value == "Datasource":
+                details = row.get("details") or {}
+                if isinstance(details, dict):
+                    source_type = details.get("source_type")
+                    if source_type:
+                        value = source_type
+            new_row[col] = value
         out.append(new_row)
     return out
 

@@ -807,17 +807,23 @@ class TestFeatureManagerInit:
 
 
 class TestFeatureManagerExportSpecs:
-    """Tests for export_specs — verifies SQL execution and decl_api delegation."""
+    """Tests for export_specs — verifies the strict full-fidelity SPECIFICATION flow."""
 
-    def _setup_show_describe(self, mock_execute_query, show_rows, describe_rows=None):
-        """Configure execute_query mock for SHOW + DESCRIBE queries."""
-        desc = describe_rows or []
+    def _setup_show_specification(
+        self, mock_execute_query, show_rows, specification_rows=None
+    ):
+        """Configure execute_query mock for SHOW + DESCRIBE TYPE = SPECIFICATION queries."""
+        spec_rows = (
+            specification_rows
+            if specification_rows is not None
+            else [{"specification": "{}"}]
+        )
 
         def side_effect(query, **kwargs):
             if "SHOW ONLINE FEATURE TABLES" in query:
                 return iter(show_rows)
-            if "DESCRIBE ONLINE FEATURE TABLE" in query:
-                return iter(desc)
+            if "TYPE = SPECIFICATION" in query:
+                return iter(list(spec_rows))
             return iter([])
 
         mock_execute_query.side_effect = side_effect
@@ -831,7 +837,7 @@ class TestFeatureManagerExportSpecs:
             "directory": str(tmp_path),
             "files": [],
         }
-        self._setup_show_describe(mock_execute_query, [_SHOW_ROW_SINGLE])
+        self._setup_show_specification(mock_execute_query, [_SHOW_ROW_SINGLE])
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         mgr = FeatureManager()
@@ -842,15 +848,13 @@ class TestFeatureManagerExportSpecs:
     def test_export_passes_correct_args_to_decl_api(
         self, mock_execute_query, mock_cli_context, mock_decl, tmp_path
     ):
-        """export_specs passes show_rows, describe_map, output_dir, db, schema."""
+        """export_specs forwards show_rows, an empty describe_map, output_dir, db, schema."""
         mock_decl.export_specs.return_value = {
             "status": "exported",
             "directory": str(tmp_path),
             "files": [],
         }
-        self._setup_show_describe(
-            mock_execute_query, [_SHOW_ROW_SINGLE], _DESCRIBE_ROWS_SINGLE
-        )
+        self._setup_show_specification(mock_execute_query, [_SHOW_ROW_SINGLE])
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         mgr = FeatureManager()
@@ -859,37 +863,12 @@ class TestFeatureManagerExportSpecs:
         call_args = mock_decl.export_specs.call_args
         show_rows_arg, describe_map_arg, out_dir_arg, db_arg, schema_arg = call_args[0]
         assert show_rows_arg == [_SHOW_ROW_SINGLE]
-        assert "my_fv$v1$ONLINE" in describe_map_arg
+        # Column-level DESCRIBE has been removed — full fidelity comes from
+        # the SPECIFICATION JSON, so the legacy describe_map is empty.
+        assert describe_map_arg == {}
         assert out_dir_arg == str(tmp_path)
         assert db_arg == "TEST_DB"
         assert schema_arg == "TEST_SCHEMA"
-
-    def test_export_collects_describe_per_oft(
-        self, mock_execute_query, mock_cli_context, mock_decl, tmp_path
-    ):
-        """A DESCRIBE query is issued for each OFT returned by SHOW."""
-        mock_decl.export_specs.return_value = {
-            "status": "exported",
-            "directory": str(tmp_path),
-            "files": [],
-        }
-        show_rows = [_make_show_row("fv_a"), _make_show_row("fv_b")]
-        describe_call_count = [0]
-
-        def side_effect(query, **kwargs):
-            if "SHOW ONLINE FEATURE TABLES" in query:
-                return iter(show_rows)
-            if "DESCRIBE ONLINE FEATURE TABLE" in query:
-                describe_call_count[0] += 1
-                return iter([])
-            return iter([])
-
-        mock_execute_query.side_effect = side_effect
-        from snowflake.cli._plugins.feature.manager import FeatureManager
-
-        mgr = FeatureManager()
-        mgr.export_specs(str(tmp_path))
-        assert describe_call_count[0] == 2
 
     def test_export_returns_decl_api_result(
         self, mock_execute_query, mock_cli_context, mock_decl, tmp_path
@@ -901,7 +880,7 @@ class TestFeatureManagerExportSpecs:
             "files": ["a.yaml", "b.yaml"],
         }
         mock_decl.export_specs.return_value = expected
-        self._setup_show_describe(mock_execute_query, [_SHOW_ROW_SINGLE])
+        self._setup_show_specification(mock_execute_query, [_SHOW_ROW_SINGLE])
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         mgr = FeatureManager()
@@ -919,6 +898,115 @@ class TestFeatureManagerExportSpecs:
         result = mgr.export_specs(str(tmp_path))
         assert result["status"] == "exported"
         assert result["files"] == []
+        mock_decl.export_specs.assert_not_called()
+
+    def test_export_specs_runs_session_setup_then_show_ofts_then_specification(
+        self, mock_execute_query, mock_cli_context, mock_decl, tmp_path
+    ):
+        """Strict flow: ALTER SESSION priming → SHOW OFTs → DESCRIBE TYPE = SPECIFICATION per OFT."""
+        _wire_real_session_setup(mock_decl)
+        mock_decl.export_specs.return_value = {
+            "status": "exported",
+            "directory": str(tmp_path),
+            "files": [],
+        }
+        mock_decl.parse_specification_rows.return_value = {"kind": "FeatureView"}
+        show_rows = [_make_show_row("fv_a"), _make_show_row("fv_b")]
+        self._setup_show_specification(mock_execute_query, show_rows)
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        mgr.export_specs(str(tmp_path))
+
+        sqls = _executed_sqls(mock_execute_query)
+        assert sqls, "expected at least one executed SQL"
+        # 1: ALTER SESSION priming first.
+        assert sqls[0] == _ALTER_SESSION_SQL, (
+            f"first executed SQL must be the session-priming ALTER SESSION; "
+            f"got: {sqls[0]!r} (full call list: {sqls})"
+        )
+        # 2: SHOW ONLINE FEATURE TABLES second.
+        assert "SHOW ONLINE FEATURE TABLES" in sqls[1], (
+            f"second executed SQL must be SHOW ONLINE FEATURE TABLES; "
+            f"got: {sqls[1]!r}"
+        )
+        # 3+: One DESCRIBE TYPE = SPECIFICATION per OFT row, in order.
+        spec_sqls = [s for s in sqls[2:] if "TYPE = SPECIFICATION" in s]
+        assert len(spec_sqls) == len(show_rows), (
+            f"expected one DESCRIBE TYPE = SPECIFICATION per OFT "
+            f"(rows={len(show_rows)}); got {len(spec_sqls)}: {spec_sqls}"
+        )
+        # No legacy column-level DESCRIBE issued.
+        legacy = [
+            s
+            for s in sqls
+            if "DESCRIBE ONLINE FEATURE TABLE" in s and "TYPE = SPECIFICATION" not in s
+        ]
+        assert legacy == [], (
+            f"export_specs must not issue legacy column-level DESCRIBE; "
+            f"got: {legacy}"
+        )
+
+    def test_export_specs_passes_specification_map_to_decl_api(
+        self, mock_execute_query, mock_cli_context, mock_decl, tmp_path
+    ):
+        """decl_api.export_specs receives a non-empty specification_map keyed by OFT name."""
+        parsed_spec = {
+            "kind": "StreamingFeatureView",
+            "metadata": {
+                "database": "TEST_DB",
+                "schema": "TEST_SCHEMA",
+                "name": "fv_a",
+                "version": "v1",
+            },
+            "spec": {"sources": [], "features": []},
+        }
+        mock_decl.export_specs.return_value = {
+            "status": "exported",
+            "directory": str(tmp_path),
+            "files": [],
+        }
+        mock_decl.parse_specification_rows.return_value = parsed_spec
+        show_rows = [_make_show_row("fv_a"), _make_show_row("fv_b")]
+        self._setup_show_specification(mock_execute_query, show_rows)
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        mgr.export_specs(str(tmp_path))
+
+        call = mock_decl.export_specs.call_args
+        assert (
+            "specification_map" in call.kwargs
+        ), f"expected specification_map keyword arg; got kwargs={list(call.kwargs)}"
+        spec_map = call.kwargs["specification_map"]
+        assert (
+            isinstance(spec_map, dict) and spec_map
+        ), f"expected non-empty specification_map dict; got: {spec_map!r}"
+        oft_names = {row["name"] for row in show_rows}
+        assert set(spec_map.keys()) == oft_names, (
+            f"specification_map keys must match OFT names; "
+            f"got keys={set(spec_map.keys())}, expected={oft_names}"
+        )
+
+    def test_export_specs_aborts_when_specification_parse_fails(
+        self, mock_execute_query, mock_cli_context, mock_decl, tmp_path
+    ):
+        """If parse_specification_rows raises, the error propagates and decl_api.export_specs is not called."""
+        mock_decl.export_specs.return_value = {
+            "status": "exported",
+            "directory": str(tmp_path),
+            "files": [],
+        }
+        mock_decl.parse_specification_rows.side_effect = ValueError(
+            "spec payload malformed"
+        )
+        self._setup_show_specification(mock_execute_query, [_SHOW_ROW_SINGLE])
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        with pytest.raises(ValueError, match="spec payload malformed"):
+            mgr.export_specs(str(tmp_path))
+
         mock_decl.export_specs.assert_not_called()
 
 

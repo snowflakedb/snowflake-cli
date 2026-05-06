@@ -862,7 +862,13 @@ class FeatureManager(SqlExecutionMixin):
     # ------------------------------------------------------------------
 
     def export_specs(self, output_dir: str) -> dict[str, Any]:
-        """Export deployed feature-store objects as YAML spec files."""
+        """Export deployed feature-store objects as YAML spec files.
+
+        Strict full-fidelity flow: prime the session, list OFTs, then fetch
+        each OFT's full spec JSON via ``DESCRIBE … TYPE = SPECIFICATION``
+        through :meth:`_fetch_oft_state`.  Any per-OFT failure aborts the
+        entire export — there is no column-DESCRIBE fallback.
+        """
         self._ensure_session_setup()
         ctx = get_cli_context()
         eq = decl_api.export_queries(ctx.connection.database, ctx.connection.schema)
@@ -873,24 +879,15 @@ class FeatureManager(SqlExecutionMixin):
         if not show_rows:
             return {"status": "exported", "directory": "", "files": []}
 
-        # Column-level DESCRIBE feeds the YAML-export renderer's column
-        # metadata.  This is the export-time column dump, NOT the deleted
-        # ``_fetch_oft_state`` fallback — the SPECIFICATION call above
-        # remains the source of truth for state queries.
-        describe_map: dict[str, list[dict[str, Any]]] = {}
-        for row in show_rows:
-            name = row.get("name", "")
-            desc_sql = eq["describe_template"].format(name=name)
-            describe_map[name] = _rows_to_dicts(
-                self.execute_query(desc_sql, cursor_class=DictCursor)
-            )
+        specification_map = self._fetch_oft_state(show_rows, eq)
 
         return decl_api.export_specs(
             show_rows,
-            describe_map,
+            {},
             output_dir,
             ctx.connection.database,
             ctx.connection.schema,
+            specification_map=specification_map,
         )
 
     # ------------------------------------------------------------------
