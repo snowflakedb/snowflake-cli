@@ -1860,6 +1860,49 @@ def test_connection_add_no_interactive(mock_add, runner):
             authenticator=None,
             private_key_file=None,
             token_file_path=None,
+            secondary_roles=None,
+            _other_settings={},
+        ),
+    )
+
+
+@mock.patch("snowflake.cli._plugins.connection.commands.add_connection_to_proper_file")
+def test_connection_add_secondary_roles(mock_add, runner):
+    mock_add.return_value = "file_name"
+    result = runner.invoke(
+        [
+            "connection",
+            "add",
+            "--connection-name",
+            "conn1",
+            "--username",
+            "user1",
+            "--account",
+            "account1",
+            "--secondary-roles",
+            "ALL",
+            "--no-interactive",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+
+    mock_add.assert_called_once_with(
+        "conn1",
+        ConnectionConfig(
+            account="account1",
+            user="user1",
+            host=None,
+            region=None,
+            port=None,
+            database=None,
+            schema=None,
+            warehouse=None,
+            role=None,
+            authenticator=None,
+            private_key_file=None,
+            token_file_path=None,
+            secondary_roles="ALL",
             _other_settings={},
         ),
     )
@@ -1890,7 +1933,8 @@ def test_connection_add_no_key_pair_setup_if_private_key_provided(
         "\n"  # authenticator:
         "\n"  # workload identity provider:
         f"{key}\n"  # private key file:
-        "\n",  # token file path:
+        "\n"  # token file path:
+        "\n",  # secondary roles:
     )
     assert result.exit_code == 0, result.output
     assert result.output == dedent(
@@ -1910,6 +1954,7 @@ def test_connection_add_no_key_pair_setup_if_private_key_provided(
         Enter workload identity provider: 
         Enter private key file: {key.resolve()}
         Enter token file path: 
+        Enter secondary roles: 
         Wrote new connection conn to {test_snowcli_config}
         """
     )
