@@ -96,11 +96,12 @@ class GitManager(StageManager):
     def create(
         self, repo_name: FQN, api_integration: str, url: str, secret: str
     ) -> SnowflakeCursor:
+        safe_url = url.replace("'", "''")
         query = dedent(
             f"""
             create git repository {repo_name.sql_identifier}
             api_integration = {api_integration}
-            origin = '{url}'
+            origin = '{safe_url}'
             """
         )
         if secret is not None:

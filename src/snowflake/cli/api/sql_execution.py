@@ -185,23 +185,26 @@ class SqlExecutor(BaseSqlExecutor):
     def create_password_secret(
         self, name: FQN, username: str, password: str
     ) -> SnowflakeCursor:
+        safe_username = username.replace("'", "''")
+        safe_password = password.replace("'", "''")
         return self.execute_query(
             f"""
             create secret {name.sql_identifier}
             type = password
-            username = '{username}'
-            password = '{password}'
+            username = '{safe_username}'
+            password = '{safe_password}'
             """
         )
 
     def create_api_integration(
         self, name: FQN, api_provider: str, allowed_prefix: str, secret: Optional[str]
     ) -> SnowflakeCursor:
+        safe_allowed_prefix = allowed_prefix.replace("'", "''")
         return self.execute_query(
             f"""
             create api integration {name.sql_identifier}
             api_provider = {api_provider}
-            api_allowed_prefixes = ('{allowed_prefix}')
+            api_allowed_prefixes = ('{safe_allowed_prefix}')
             allowed_authentication_secrets = ({secret if secret else ""})
             enabled = true
             """
