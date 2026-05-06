@@ -744,6 +744,23 @@ def test_status_qualified_name(mock_execute_query):
 
 
 @patch(EXECUTE_QUERY)
+def test_status_escapes_single_quote(mock_execute_query):
+    """A service name containing a single quote must be passed as an escaped literal."""
+    service_name = "svc'); DROP SERVICE foo; --"
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_query.return_value = cursor
+    ServiceManager().status(service_name)
+    expected_query = (
+        f"CALL SYSTEM$GET_SERVICE_STATUS({to_string_literal(service_name)})"
+    )
+    mock_execute_query.assert_called_once_with(expected_query)
+    # The embedded quote must be escaped (backslash form) so Snowflake's parser
+    # cannot treat the remainder as a new statement.
+    sent_query = mock_execute_query.call_args[0][0]
+    assert "\\'" in sent_query
+
+
+@patch(EXECUTE_QUERY)
 def test_logs(mock_execute_query):
     service_name = "test_service"
     container_name = "test_container"
@@ -761,7 +778,11 @@ def test_logs(mock_execute_query):
     )
     result = list(result_generator)
 
-    expected_query_1 = f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '{instance_id}', '{container_name}', {num_lines}, False, '', False);"
+    expected_query_1 = (
+        f"call SYSTEM$GET_SERVICE_LOGS({to_string_literal(service_name)}, "
+        f"{to_string_literal(instance_id)}, {to_string_literal(container_name)}, "
+        f"{num_lines}, False, {to_string_literal('')}, False);"
+    )
     expected_output = ["log_line_1", "log_line_2"]
 
     mock_execute_query.assert_has_calls([call(expected_query_1)])
@@ -779,7 +800,11 @@ def test_logs(mock_execute_query):
     )
     result = list(result_generator)
 
-    expected_query_2 = f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '{instance_id}', '{container_name}', {num_lines}, False, '{since_timestamp}', False);"
+    expected_query_2 = (
+        f"call SYSTEM$GET_SERVICE_LOGS({to_string_literal(service_name)}, "
+        f"{to_string_literal(instance_id)}, {to_string_literal(container_name)}, "
+        f"{num_lines}, False, {to_string_literal(since_timestamp)}, False);"
+    )
     expected_output = ["log_line_1", "log_line_2"]
 
     # Assertions for Test Case 2
@@ -801,11 +826,36 @@ def test_logs(mock_execute_query):
     )
     result = list(result_generator)
 
-    expected_query_3 = f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '{instance_id}', '{container_name}', {num_lines}, True, '', False);"
+    expected_query_3 = (
+        f"call SYSTEM$GET_SERVICE_LOGS({to_string_literal(service_name)}, "
+        f"{to_string_literal(instance_id)}, {to_string_literal(container_name)}, "
+        f"{num_lines}, True, {to_string_literal('')}, False);"
+    )
     expected_output = ["previous_log_line_1", "previous_log_line_2"]
 
     mock_execute_query.assert_has_calls([call(expected_query_3)])
     assert result == expected_output
+
+
+@patch(EXECUTE_QUERY)
+def test_logs_escapes_single_quote(mock_execute_query):
+    """String arguments containing single quotes must be passed as escaped literals."""
+    service_name = "svc'); DROP SERVICE foo; --"
+    instance_id = "0"
+    container_name = "main"
+    num_lines = 10
+
+    cursor = Mock(spec=SnowflakeCursor)
+    cursor.fetchall.return_value = []
+    mock_execute_query.return_value = cursor
+
+    list(ServiceManager().logs(service_name, instance_id, container_name, num_lines))
+
+    sent_query = mock_execute_query.call_args[0][0]
+    # The embedded quote must be escaped (backslash form), preventing parser breakout.
+    assert "\\'" in sent_query
+    # The properly-escaped literal should appear in the final query.
+    assert to_string_literal(service_name) in sent_query
 
 
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.logs")

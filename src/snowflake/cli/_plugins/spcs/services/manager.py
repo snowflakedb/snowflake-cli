@@ -47,6 +47,7 @@ from snowflake.cli.api.artifacts.utils import bundle_artifacts
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.entities.common import Artifacts
+from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
@@ -433,7 +434,9 @@ class ServiceManager(SqlExecutionMixin):
         return re.sub(r"\$(?=\$)", r"\\u0024", json.dumps(data))
 
     def status(self, service_name: str) -> SnowflakeCursor:
-        return self.execute_query(f"CALL SYSTEM$GET_SERVICE_STATUS('{service_name}')")
+        return self.execute_query(
+            f"CALL SYSTEM$GET_SERVICE_STATUS({to_string_literal(service_name)})"
+        )
 
     def logs(
         self,
@@ -446,8 +449,10 @@ class ServiceManager(SqlExecutionMixin):
         include_timestamps: bool = False,
     ):
         cursor = self.execute_query(
-            f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '{instance_id}', '{container_name}', "
-            f"{num_lines}, {previous_logs}, '{since_timestamp}', {include_timestamps});"
+            f"call SYSTEM$GET_SERVICE_LOGS({to_string_literal(service_name)}, "
+            f"{to_string_literal(instance_id)}, {to_string_literal(container_name)}, "
+            f"{num_lines}, {previous_logs}, {to_string_literal(since_timestamp)}, "
+            f"{include_timestamps});"
         )
 
         for log in cursor.fetchall():
