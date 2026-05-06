@@ -50,6 +50,7 @@ from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
     find_entity,
     force_project_definition_v2,
     native_app_only,
+    set_app_flow,
     with_app_flow_routing,
 )
 from snowflake.cli._plugins.nativeapp.version.commands import app as versions_app
@@ -84,6 +85,18 @@ app = SnowTyperFactory(
 app.add_typer(versions_app)
 app.add_typer(release_directives_app)
 app.add_typer(release_channels_app)
+
+
+@app.callback()
+def _app_group_callback() -> None:
+    """Default the telemetry ``app_flow`` to ``snowflake_app`` for every
+    ``snow app *`` invocation so new commands are correctly attributed by
+    default. Native-App routing decorators (``with_app_flow_routing``,
+    ``force_project_definition_v2``, ``native_app_only``) override this
+    when they detect or assert a Native App project.
+    """
+    set_app_flow(AppFlow.SNOWFLAKE_APP)
+
 
 log = logging.getLogger(__name__)
 
