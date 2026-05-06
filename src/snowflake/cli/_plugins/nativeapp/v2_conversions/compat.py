@@ -57,6 +57,16 @@ NATIVE_APP_ENTITY_TYPES = {"application", "application package"}
 SNOWFLAKE_APP_ENTITY_TYPES = {"snowflake-app"}
 
 
+def set_app_flow(flow: AppFlow) -> None:
+    """Record the resolved ``snow app`` product flow on the CLI context so
+    telemetry (see ``CLITelemetryField.APP_FLOW``) can distinguish Native App
+    invocations from Snowflake Apps Deploy invocations.
+
+    Safe to call multiple times; the last call wins.
+    """
+    get_cli_context_manager().app_flow = flow.value
+
+
 APP_AND_PACKAGE_OPTIONS = [
     inspect.Parameter(
         "package_entity_id",
@@ -256,6 +266,12 @@ def force_project_definition_v2(
                         # This happens after templates are rendered,
                         # so we can safely remove the entity
                         del original_pdf.entities[entity_id]
+            # All paths above either converted a v1 PDF (always Native App)
+            # or resolved Native App entities (raising on a snowflake-app
+            # project). Stamp the flow only after that resolution succeeds
+            # so failed lookups don't mis-attribute a snowflake-app project
+            # as native_app in the error event.
+            set_app_flow(AppFlow.NATIVE_APP)
             return func(*args, **kwargs)
 
         if single_app_and_package:
@@ -316,6 +332,8 @@ def native_app_only(command: str):
                     f"projects (entity types: application, application "
                     f"package). Your project contains snowflake-app entities."
                 )
+            # Defensive: if the guard passed, this command is Native-App-only.
+            set_app_flow(AppFlow.NATIVE_APP)
             return func(*args, **kwargs)
 
         return wrapper
@@ -437,6 +455,7 @@ def with_app_flow_routing(
 
                 get_cli_context_manager().override_project_definition = pdfv2
                 kwargs["app_flow"] = AppFlow.NATIVE_APP
+                set_app_flow(AppFlow.NATIVE_APP)
                 return func(*args, **kwargs)
 
             flow = _detect_flow_from_project(
@@ -445,6 +464,7 @@ def with_app_flow_routing(
                 package_entity_id=package_entity_id,
                 app_entity_id=app_entity_id,
             )
+            set_app_flow(flow)
 
             if flow == AppFlow.NATIVE_APP and single_app_and_package:
                 app_definition, app_package_definition = _find_app_and_package_entities(
