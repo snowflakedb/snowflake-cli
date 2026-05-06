@@ -1046,6 +1046,54 @@ class TestSnowflakeAppManager:
         desc = SnowflakeAppManager().describe_app_service(fqn)
         assert desc == {}
 
+    @patch(OBJECT_EXISTS)
+    @patch(EXECUTE_QUERY)
+    def test_is_application_service_true_when_describe_app_service_succeeds(
+        self, mock_execute, mock_object_exists
+    ):
+        cursor = Mock()
+        cursor.fetchone.return_value = {"URL": "my-app.snowflakecomputing.app"}
+        mock_execute.return_value = cursor
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="my_app")
+        assert SnowflakeAppManager().is_application_service(fqn) is True
+        mock_object_exists.assert_not_called()
+
+    @patch(OBJECT_EXISTS, return_value=True)
+    @patch(EXECUTE_QUERY)
+    def test_is_application_service_false_when_legacy_service_exists(
+        self, mock_execute, mock_object_exists
+    ):
+        mock_execute.side_effect = ProgrammingError("object does not exist")
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="my_app")
+        assert SnowflakeAppManager().is_application_service(fqn) is False
+        mock_object_exists.assert_called_once_with("service", "DB.SCHEMA.my_app")
+
+    @patch(OBJECT_EXISTS, return_value=True)
+    @patch(EXECUTE_QUERY)
+    def test_is_application_service_false_when_describe_returns_no_rows(
+        self, mock_execute, mock_object_exists
+    ):
+        cursor = Mock()
+        cursor.fetchone.return_value = None
+        mock_execute.return_value = cursor
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="my_app")
+        assert SnowflakeAppManager().is_application_service(fqn) is False
+        mock_object_exists.assert_called_once_with("service", "DB.SCHEMA.my_app")
+
+    @patch(OBJECT_EXISTS, return_value=False)
+    @patch(EXECUTE_QUERY)
+    def test_is_application_service_defaults_to_true_on_check_failure(
+        self, mock_execute, mock_object_exists
+    ):
+        mock_execute.side_effect = ProgrammingError("permission denied")
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="my_app")
+        assert SnowflakeAppManager().is_application_service(fqn) is True
+        mock_object_exists.assert_called_once_with("service", "DB.SCHEMA.my_app")
+
     def test_resolve_application_service_url_from_describe(self):
         mgr = SnowflakeAppManager()
         assert mgr.resolve_application_service_url_from_describe({}) is None
@@ -2832,9 +2880,10 @@ class TestOpenCommand:
     @patch("snowflake.cli._plugins.apps.commands.typer.launch")
     @patch(
         "snowflake.cli._plugins.apps.commands.make_snowsight_url",
-        return_value="https://app.snowflake.com/org/acct/#/apps/service/DB.SCHEMA.MY_APP/details",
+        return_value="https://app.snowflake.com/org/acct/#/apps/app-service/DB.SCHEMA.MY_APP/details",
     )
     @patch("snowflake.cli._plugins.apps.commands.get_cli_context")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
     @patch(
         "snowflake.cli._plugins.apps.commands._resolve_entity_id",
@@ -2844,6 +2893,7 @@ class TestOpenCommand:
         self,
         mock_resolve,
         mock_get_entity,
+        mock_manager_cls,
         mock_ctx,
         mock_snowsight,
         mock_launch,
@@ -2857,6 +2907,7 @@ class TestOpenCommand:
         mock_get_entity.return_value = entity
         mock_ctx.return_value.connection = Mock()
         mock_ctx.return_value.connection_context = Mock(database="DB", schema="SCHEMA")
+        mock_manager_cls.return_value.is_application_service.return_value = True
 
         from tests_common import change_directory
 
@@ -2864,18 +2915,19 @@ class TestOpenCommand:
             _write_snowflake_app_yml(tmp_path)
             result = runner.invoke(["app", "open", "--settings"])
             assert result.exit_code == 0, result.output
-            assert "#/apps/service/DB.SCHEMA.MY_APP/details" in result.output
+            assert "#/apps/app-service/DB.SCHEMA.MY_APP/details" in result.output
             mock_launch.assert_called_once()
             mock_snowsight.assert_called_once()
             path_arg = mock_snowsight.call_args[0][1]
-            assert path_arg == "#/apps/service/DB.SCHEMA.MY_APP/details"
+            assert path_arg == "#/apps/app-service/DB.SCHEMA.MY_APP/details"
 
     @patch("snowflake.cli._plugins.apps.commands.typer.launch")
     @patch(
         "snowflake.cli._plugins.apps.commands.make_snowsight_url",
-        return_value="https://app.snowflake.com/org/acct/#/apps/service/DB.SCHEMA.MY_APP/details",
+        return_value="https://app.snowflake.com/org/acct/#/apps/app-service/DB.SCHEMA.MY_APP/details",
     )
     @patch("snowflake.cli._plugins.apps.commands.get_cli_context")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
     @patch(
         "snowflake.cli._plugins.apps.commands._resolve_entity_id",
@@ -2885,6 +2937,7 @@ class TestOpenCommand:
         self,
         mock_resolve,
         mock_get_entity,
+        mock_manager_cls,
         mock_ctx,
         mock_snowsight,
         mock_launch,
@@ -2898,6 +2951,7 @@ class TestOpenCommand:
         mock_get_entity.return_value = entity
         mock_ctx.return_value.connection = Mock()
         mock_ctx.return_value.connection_context = Mock(database="DB", schema="SCHEMA")
+        mock_manager_cls.return_value.is_application_service.return_value = True
 
         from tests_common import change_directory
 
@@ -2905,15 +2959,16 @@ class TestOpenCommand:
             _write_snowflake_app_yml(tmp_path)
             result = runner.invoke(["app", "open", "--settings", "--print-only"])
             assert result.exit_code == 0, result.output
-            assert "#/apps/service/DB.SCHEMA.MY_APP/details" in result.output
+            assert "#/apps/app-service/DB.SCHEMA.MY_APP/details" in result.output
             mock_launch.assert_not_called()
 
     @patch("snowflake.cli._plugins.apps.commands.typer.launch")
     @patch(
         "snowflake.cli._plugins.apps.commands.make_snowsight_url",
-        return_value="https://app.snowflake.com/org/acct/#/apps/service/CONN_DB.CONN_SCHEMA.MY_APP/details",
+        return_value="https://app.snowflake.com/org/acct/#/apps/app-service/CONN_DB.CONN_SCHEMA.MY_APP/details",
     )
     @patch("snowflake.cli._plugins.apps.commands.get_cli_context")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
     @patch(
         "snowflake.cli._plugins.apps.commands._resolve_entity_id",
@@ -2923,6 +2978,7 @@ class TestOpenCommand:
         self,
         mock_resolve,
         mock_get_entity,
+        mock_manager_cls,
         mock_ctx,
         mock_snowsight,
         mock_launch,
@@ -2939,6 +2995,7 @@ class TestOpenCommand:
         mock_ctx.return_value.connection_context = Mock(
             database="CONN_DB", schema="CONN_SCHEMA"
         )
+        mock_manager_cls.return_value.is_application_service.return_value = True
 
         from tests_common import change_directory
 
@@ -2947,7 +3004,48 @@ class TestOpenCommand:
             result = runner.invoke(["app", "open", "--settings"])
             assert result.exit_code == 0, result.output
             path_arg = mock_snowsight.call_args[0][1]
-            assert path_arg == "#/apps/service/CONN_DB.CONN_SCHEMA.MY_APP/details"
+            assert path_arg == "#/apps/app-service/CONN_DB.CONN_SCHEMA.MY_APP/details"
+
+    @patch("snowflake.cli._plugins.apps.commands.typer.launch")
+    @patch(
+        "snowflake.cli._plugins.apps.commands.make_snowsight_url",
+        return_value="https://app.snowflake.com/org/acct/#/apps/service/DB.SCHEMA.MY_APP/details",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.get_cli_context")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_open_settings_uses_service_segment_for_legacy_services(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        mock_ctx,
+        mock_snowsight,
+        mock_launch,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        fqn = Mock(database="DB", schema="SCHEMA")
+        fqn.name = "MY_APP"
+        entity.fqn = fqn
+        mock_get_entity.return_value = entity
+        mock_ctx.return_value.connection = Mock()
+        mock_ctx.return_value.connection_context = Mock(database="DB", schema="SCHEMA")
+        mock_manager_cls.return_value.is_application_service.return_value = False
+
+        from tests_common import change_directory
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "open", "--settings"])
+            assert result.exit_code == 0, result.output
+            path_arg = mock_snowsight.call_args[0][1]
+            assert path_arg == "#/apps/service/DB.SCHEMA.MY_APP/details"
 
     @patch("snowflake.cli._plugins.apps.commands.get_cli_context")
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
@@ -2984,9 +3082,10 @@ class TestOpenCommand:
     @patch("snowflake.cli._plugins.apps.commands.typer.launch")
     @patch(
         "snowflake.cli._plugins.apps.commands.make_snowsight_url",
-        return_value="https://app.snowflake.com/org/acct/#/apps/service/MY%20DB.MY%20SCHEMA.MY%20APP/details",
+        return_value="https://app.snowflake.com/org/acct/#/apps/app-service/MY%20DB.MY%20SCHEMA.MY%20APP/details",
     )
     @patch("snowflake.cli._plugins.apps.commands.get_cli_context")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
     @patch(
         "snowflake.cli._plugins.apps.commands._resolve_entity_id",
@@ -2996,6 +3095,7 @@ class TestOpenCommand:
         self,
         mock_resolve,
         mock_get_entity,
+        mock_manager_cls,
         mock_ctx,
         mock_snowsight,
         mock_launch,
@@ -3012,6 +3112,7 @@ class TestOpenCommand:
         mock_ctx.return_value.connection_context = Mock(
             database='"MY DB"', schema='"MY SCHEMA"'
         )
+        mock_manager_cls.return_value.is_application_service.return_value = True
 
         from tests_common import change_directory
 
@@ -3020,6 +3121,7 @@ class TestOpenCommand:
             result = runner.invoke(["app", "open", "--settings"])
             assert result.exit_code == 0, result.output
             path_arg = mock_snowsight.call_args[0][1]
+            assert "#/apps/app-service/" in path_arg
             assert "MY%20DB" in path_arg
             assert "MY%20SCHEMA" in path_arg
             assert "MY%20APP" in path_arg
