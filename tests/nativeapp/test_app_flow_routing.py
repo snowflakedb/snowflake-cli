@@ -393,8 +393,11 @@ def _find_force_v2_callers(src_root: Path) -> set[tuple[str, str]]:
     """
     callers: set[tuple[str, str]] = set()
     for path in src_root.rglob("*.py"):
+        # Force UTF-8: Path.read_text() defaults to the platform encoding,
+        # which is cp1252 on Windows and trips on UTF-8 source files (e.g.
+        # ones containing em-dashes or smart quotes).
         try:
-            tree = ast.parse(path.read_text(), filename=str(path))
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         except SyntaxError:
             continue
         for node in ast.walk(tree):
