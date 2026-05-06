@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from typing import Dict, Optional, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 import typer
 from click import ClickException, UsageError
@@ -42,6 +42,7 @@ from snowflake.cli._plugins.snowpark.common import (
     SnowparkObjectManager,
     StageToArtifactMapping,
     map_path_mapping_to_artifact,
+    same_type,
     zip_and_copy_artifacts_to_deploy,
 )
 from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
@@ -137,7 +138,8 @@ def deploy(
     ),
     force_replace: bool = ForceReplaceOption(),
     prune: bool = PruneOption(
-        help="Remove contents of the stage before uploading artifacts."
+        help="Remove contents of the stage before uploading artifacts, and drop procedures "
+        "and functions that exist in the target schemas but are not declared in the project."
     ),
     **options,
 ) -> CommandResult:
@@ -181,6 +183,10 @@ def deploy(
         )
 
         create_stages_and_upload_artifacts(stages_to_artifact_map, prune=prune)
+
+    if prune:
+        with cli_console.phase("Pruning removed procedures and functions"):
+            drop_removed_snowpark_entities(om, snowpark_entities)
 
     # Create snowpark entities
     with cli_console.phase("Creating Snowpark entities"):
@@ -273,6 +279,177 @@ def create_stages_and_upload_artifacts(
                 stage_path=artifact.upload_path(stage),
                 overwrite=True,
             )
+
+
+def drop_removed_snowpark_entities(
+    om: ObjectManager,
+    snowpark_entities: SnowparkEntities,
+) -> None:
+    """Drop procedures and functions that exist in the target schemas but
+    are not declared in the project definition.
+
+    Objects are only dropped from schemas that have at least one declared
+    entity of the same type, so schemas unrelated to the project remain
+    untouched.
+    """
+    # Key: (object_type, (DATABASE_UPPER, SCHEMA_UPPER)).
+    # Value: (preserved-case database, preserved-case schema,
+    #        list of declared (upper-name, [type,...]) tuples).
+    # Database/schema cases are preserved so DROP statements use the same
+    # spelling the user declared. The upper-cased keys only group duplicates.
+    declared: Dict[
+        Tuple[str, Tuple[Optional[str], Optional[str]]],
+        Tuple[Optional[str], Optional[str], List[Tuple[str, List[str]]]],
+    ] = {}
+    for entity in snowpark_entities.values():
+        fqn = entity.fqn
+        if not fqn.database or not fqn.schema:
+            # Fall back to the context-aware identifier when the entity did
+            # not declare database/schema explicitly.
+            fqn = FQN.from_string(entity.udf_sproc_identifier.identifier_with_arg_types)
+        arg_types = _entity_arg_types(entity)
+        key = (
+            entity.type,
+            (_normalize(fqn.database), _normalize(fqn.schema)),
+        )
+        entry = declared.setdefault(key, (fqn.database, fqn.schema, []))
+        entry[2].append((fqn.name.upper(), arg_types))
+
+    for (object_type, _upper_key), (
+        database,
+        schema,
+        declared_entries,
+    ) in declared.items():
+        existing = _list_schema_snowpark_objects(om, object_type, database, schema)
+        for existing_name, existing_arg_types, existing_fqn in existing:
+            if _matches_any(existing_name, existing_arg_types, declared_entries):
+                continue
+            cli_console.step(f"Dropping {object_type} {existing_fqn.identifier}")
+            om.drop(object_type=object_type, fqn=existing_fqn, if_exists=True)
+
+
+def _entity_arg_types(entity) -> List[str]:
+    if not entity.signature or entity.signature == "null":
+        return []
+    return [arg.arg_type for arg in entity.signature]
+
+
+def _matches_any(
+    name: str,
+    arg_types: List[str],
+    declared_entries: List[Tuple[str, List[str]]],
+) -> bool:
+    for declared_name, declared_types in declared_entries:
+        if declared_name != name:
+            continue
+        if len(declared_types) != len(arg_types):
+            continue
+        if all(
+            same_type(existing, declared)
+            for existing, declared in zip(arg_types, declared_types)
+        ):
+            return True
+    return False
+
+
+def _list_schema_snowpark_objects(
+    om: ObjectManager,
+    object_type: str,
+    database: Optional[str],
+    schema: Optional[str],
+) -> List[Tuple[str, List[str], FQN]]:
+    if not database or not schema:
+        return []
+    scope_name = f"{database}.{schema}"
+    cursor = om.show(
+        object_type=object_type,
+        scope=("schema", scope_name),
+        cursor_class=DictCursor,
+    )
+    results: List[Tuple[str, List[str], FQN]] = []
+    for row in cursor:
+        # SHOW USER FUNCTIONS/PROCEDURES returns 'name', 'arguments', 'is_builtin'.
+        # 'arguments' looks like: 'FUNC_NAME(VARCHAR, NUMBER) RETURN VARCHAR'
+        if _is_builtin(row):
+            continue
+        name = row.get("name")
+        arguments = row.get("arguments", "")
+        if not name or not arguments:
+            continue
+        arg_types = _parse_arg_types_from_show(arguments)
+        fqn = FQN(
+            database=database,
+            schema=schema,
+            name=name,
+            signature=f"({', '.join(arg_types)})",
+        )
+        results.append((name.upper(), arg_types, fqn))
+    return results
+
+
+def _is_builtin(row: dict) -> bool:
+    for key in ("is_builtin", "is_builtin_"):
+        value = row.get(key)
+        if isinstance(value, str):
+            return value.upper() in {"Y", "YES", "TRUE"}
+        if isinstance(value, bool):
+            return value
+    return False
+
+
+def _parse_arg_types_from_show(arguments: str) -> List[str]:
+    """Parse the comma-separated argument types from a SHOW USER FUNCTIONS /
+    PROCEDURES 'arguments' column, which looks like:
+        'FUNC_NAME(VARCHAR, NUMBER(38,0)) RETURN VARCHAR'
+    """
+    open_idx = arguments.find("(")
+    if open_idx < 0:
+        return []
+    depth = 0
+    close_idx = -1
+    for i in range(open_idx, len(arguments)):
+        ch = arguments[i]
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                close_idx = i
+                break
+    if close_idx < 0:
+        return []
+    inside = arguments[open_idx + 1 : close_idx].strip()
+    if not inside:
+        return []
+    return [_split_signature_arg(part.strip()) for part in _split_top_level(inside)]
+
+
+def _split_top_level(signature: str) -> Iterable[str]:
+    """Split a signature argument list on commas that are not inside parens."""
+    depth = 0
+    start = 0
+    for i, ch in enumerate(signature):
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        elif ch == "," and depth == 0:
+            yield signature[start:i]
+            start = i + 1
+    yield signature[start:]
+
+
+def _split_signature_arg(arg: str) -> str:
+    """Return only the type portion of an argument entry, stripping any name."""
+    # SHOW typically returns just the type (e.g. 'VARCHAR'), but be defensive in
+    # case a future server version includes the name too.
+    return arg.strip().split(" ", 1)[-1]
+
+
+def _normalize(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    return value.upper()
 
 
 def _find_existing_objects(

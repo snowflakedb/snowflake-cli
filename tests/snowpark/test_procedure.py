@@ -788,6 +788,77 @@ def test_deploy_procedure_with_empty_default_value(
     ]
 
 
+@pytest.mark.parametrize(
+    "project_name", ["snowpark_procedures", "snowpark_procedures_v2"]
+)
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.drop")
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
+@mock.patch(
+    "snowflake.cli._plugins.snowpark.package_utils.download_unavailable_packages"
+)
+@mock_session_has_warehouse
+def test_deploy_procedure_prune_drops_removed_entities(
+    mock_download,
+    mock_om_show,
+    mock_om_describe,
+    mock_conn,
+    mock_om_drop,
+    runner,
+    mock_ctx,
+    project_directory,
+    project_name,
+    enable_snowpark_glob_support_feature_flag,
+):
+    mock_download.return_value = DownloadUnavailablePackagesResult()
+    mock_om_describe.side_effect = ProgrammingError(
+        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+    )
+    # ObjectManager.show() is called for integrations, then for procedures.
+    # snowpark_procedures declares procedureName(name string) and test().
+    # Stale procedure stale_proc(int) should be dropped.
+    mock_om_show.side_effect = [
+        [],  # integrations
+        [  # procedures
+            {
+                "name": "procedureName".upper(),
+                "arguments": "PROCEDURENAME(VARCHAR) RETURN VARCHAR",
+                "is_builtin": "N",
+            },
+            {
+                "name": "TEST",
+                "arguments": "TEST() RETURN VARCHAR",
+                "is_builtin": "N",
+            },
+            {
+                "name": "STALE_PROC",
+                "arguments": "STALE_PROC(NUMBER(38,0)) RETURN VARCHAR",
+                "is_builtin": "N",
+            },
+        ],
+    ]
+
+    ctx = mock_ctx()
+    mock_conn.return_value = ctx
+
+    with project_directory(project_name):
+        result = runner.invoke(
+            ["snowpark", "build", "--ignore-anaconda"],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0, result.output
+        result = runner.invoke(["snowpark", "deploy", "--prune"])
+
+    assert result.exit_code == 0, result.output
+    assert mock_om_drop.call_count == 1
+    drop_kwargs = mock_om_drop.call_args.kwargs
+    assert drop_kwargs["object_type"] == "procedure"
+    assert drop_kwargs["fqn"].identifier == "MockDatabase.MockSchema.STALE_PROC"
+    assert drop_kwargs["fqn"].signature == "(NUMBER(38,0))"
+    assert drop_kwargs["if_exists"] is True
+
+
 @mock.patch("snowflake.connector.connect")
 def test_execute_procedure(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
