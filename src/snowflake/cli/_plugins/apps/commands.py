@@ -324,7 +324,12 @@ def snowflake_app_open(
             f".{identifier_for_url(schema)}"
             f".{identifier_for_url(fqn.name)}"
         )
-        url = make_snowsight_url(ctx.connection, f"#/apps/service/{app_id}/details")
+        service_fqn = FQN(database=db, schema=schema, name=fqn.name)
+        manager = SnowflakeAppManager()
+        segment = (
+            "app-service" if manager.is_application_service(service_fqn) else "service"
+        )
+        url = make_snowsight_url(ctx.connection, f"#/apps/{segment}/{app_id}/details")
     else:
         service_fqn = FQN(
             database=db,

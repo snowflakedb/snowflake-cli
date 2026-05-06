@@ -965,6 +965,31 @@ class SnowflakeAppManager(SqlExecutionMixin):
             query += f"\nTO VERSION {version}"
         self.execute_query(query)
 
+    def is_application_service(self, service_fqn: FQN) -> bool:
+        """Return True when settings should use the ``app-service`` URL segment.
+
+        Detection order:
+        1) If ``DESCRIBE APPLICATION SERVICE`` returns a row, treat as application
+           service.
+        2) Otherwise, if a legacy ``SERVICE`` object exists with the same FQN,
+           treat as legacy service.
+        3) If type checks fail (errors/unknown), default to application service.
+        """
+        try:
+            if self.describe_app_service(service_fqn):
+                return True
+        except ProgrammingError:
+            log.debug(
+                "DESCRIBE APPLICATION SERVICE failed for %s",
+                service_fqn,
+                exc_info=True,
+            )
+
+        if _object_exists("service", service_fqn.identifier):
+            return False
+
+        return True
+
     def describe_app_service(self, service_fqn: FQN) -> Dict[str, Any]:
         """Run ``DESCRIBE APPLICATION SERVICE`` and return a case-insensitive
         dict of the first result row.
