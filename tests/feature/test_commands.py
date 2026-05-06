@@ -161,6 +161,180 @@ def test_list_table_display_columns_include_type():
     assert "type" in _TABLE_DISPLAY_COLUMNS
 
 
+def test_list_table_display_columns_omits_scheduling_state():
+    """``scheduling_state`` is intentionally excluded from the table
+    display columns: it is duplicated inside the ``details`` cell for
+    FeatureView rows and is empty for Entity / Datasource rows, so
+    surfacing it as its own column was pure noise.  The runtime status
+    the user actually cares about is in ``details.scheduling_state``
+    (FeatureView) and ``snow feature online-service status``."""
+    from snowflake.cli._plugins.feature.commands import _TABLE_DISPLAY_COLUMNS
+
+    assert "scheduling_state" not in _TABLE_DISPLAY_COLUMNS
+
+
+def test_list_table_display_columns_omits_database_and_schema():
+    """``database_name`` and ``schema_name`` are uniform across every
+    row of a single ``snow feature list`` invocation (the connection
+    has one current database/schema), so duplicating them in every
+    table row was wasted width.  They are now surfaced once, above the
+    table, by the ``Database: ... Schema: ...`` header line printed by
+    ``_print_listing_scope_header``."""
+    from snowflake.cli._plugins.feature.commands import _TABLE_DISPLAY_COLUMNS
+
+    assert "database_name" not in _TABLE_DISPLAY_COLUMNS
+    assert "schema_name" not in _TABLE_DISPLAY_COLUMNS
+
+
+def test_listing_scope_uniform_rows_returns_single_value_pair():
+    """When every row has the same database_name and schema_name, the
+    helper returns those values verbatim so the header can render
+    ``Database: <db>  Schema: <sch>``."""
+    from snowflake.cli._plugins.feature.commands import _listing_scope
+
+    rows = [
+        {"name": "a", "database_name": "JKEW_DB", "schema_name": "JKEW_SCHEMA"},
+        {"name": "b", "database_name": "JKEW_DB", "schema_name": "JKEW_SCHEMA"},
+        {"name": "c", "database_name": "JKEW_DB", "schema_name": "JKEW_SCHEMA"},
+    ]
+    assert _listing_scope(rows) == ("JKEW_DB", "JKEW_SCHEMA")
+
+
+def test_listing_scope_mixed_rows_returns_multiple_marker():
+    """When rows disagree on database or schema, the corresponding
+    side of the pair becomes ``"(multiple)"`` so the operator knows
+    the table spans more than one scope."""
+    from snowflake.cli._plugins.feature.commands import _listing_scope
+
+    mixed_db = [
+        {"database_name": "DB_A", "schema_name": "SCH"},
+        {"database_name": "DB_B", "schema_name": "SCH"},
+    ]
+    assert _listing_scope(mixed_db) == ("(multiple)", "SCH")
+
+    mixed_schema = [
+        {"database_name": "DB", "schema_name": "SCH_A"},
+        {"database_name": "DB", "schema_name": "SCH_B"},
+    ]
+    assert _listing_scope(mixed_schema) == ("DB", "(multiple)")
+
+
+def test_listing_scope_returns_none_for_empty_or_unscoped():
+    """Empty inputs (no rows) and rows that lack both database_name
+    and schema_name (e.g. file-mode listings) signal that no header
+    should be printed."""
+    from snowflake.cli._plugins.feature.commands import _listing_scope
+
+    assert _listing_scope([]) is None
+    assert _listing_scope([{"name": "a"}, {"name": "b"}]) is None
+    # Empty strings count as "missing" — they should not be rendered
+    # as the scope value.
+    assert _listing_scope([{"database_name": "", "schema_name": ""}]) is None
+
+
+def test_project_columns_aligns_heterogeneous_rows():
+    """Every projected row must carry **all** display columns in the
+    canonical ``_TABLE_DISPLAY_COLUMNS`` order, with empty strings for
+    fields a particular row does not populate.
+
+    Without this guarantee the underlying table renderer (which uses
+    each row's dict iteration order to position values) shifts the
+    Entity / Datasource type and name values into columns that belong
+    to FeatureView-only fields like ``created_on``.  The user-visible
+    symptom is "the type shows up in the first column, ``created_on``"
+    — see the column-alignment fix that introduced this test.
+    """
+    from snowflake.cli._plugins.feature.commands import (
+        _TABLE_DISPLAY_COLUMNS,
+        _project_columns,
+    )
+
+    fv_row = {
+        "type": "FeatureView",
+        "name": "click_fv",
+        "version": "v1",
+        "entities": "user_id",
+        "database_name": "DB",
+        "schema_name": "SCH",
+        "created_on": "2024-01-01",
+        "scheduling_state": "ACTIVE",
+        "details": {"scheduling_state": "ACTIVE"},
+    }
+    entity_row = {
+        "type": "Entity",
+        "name": "user_id",
+        "entities": "USER_ID",
+        "database_name": "DB",
+        "schema_name": "SCH",
+        "details": {
+            "join_keys": ["USER_ID"],
+            "comment": "User identity entity",
+        },
+    }
+    datasource_row = {
+        "type": "Datasource",
+        "name": "click_events_offline",
+        "database_name": "DB",
+        "schema_name": "SCH",
+        "details": {"source_type": "OfflineTable", "column_count": 7},
+    }
+
+    projected = _project_columns([fv_row, entity_row, datasource_row])
+
+    assert len(projected) == 3
+    for row in projected:
+        # Every row carries the full display column set …
+        assert list(row.keys()) == _TABLE_DISPLAY_COLUMNS, (
+            f"Expected canonical column order {_TABLE_DISPLAY_COLUMNS}, "
+            f"got {list(row.keys())}"
+        )
+        # … and the columns we deliberately moved to header / details
+        # are *not* projected per-row.
+        assert "scheduling_state" not in row
+        assert "database_name" not in row
+        assert "schema_name" not in row
+
+    fv_proj, entity_proj, ds_proj = projected
+
+    # FV columns survive untouched (the upstream scheduling_state value
+    # is preserved inside ``details`` for the FeatureView row).
+    assert fv_proj["type"] == "FeatureView"
+    assert fv_proj["name"] == "click_fv"
+    assert fv_proj["version"] == "v1"
+    assert fv_proj["entities"] == "user_id"
+    assert fv_proj["created_on"] == "2024-01-01"
+    assert fv_proj["details"] == {"scheduling_state": "ACTIVE"}
+
+    # Entity row's type/name land in the right keys, and FV-only
+    # columns are empty strings — proving column-by-column alignment
+    # against the canonical ``_TABLE_DISPLAY_COLUMNS`` order.
+    assert entity_proj["type"] == "Entity"
+    assert entity_proj["name"] == "user_id"
+    assert entity_proj["entities"] == "USER_ID"
+    assert entity_proj["version"] == ""
+    assert entity_proj["created_on"] == ""
+    assert entity_proj["details"] == {
+        "join_keys": ["USER_ID"],
+        "comment": "User identity entity",
+    }
+
+    # Datasource row: same alignment guarantees — type/name in the
+    # right slots, FV-only columns blanked out, spec-derived details
+    # carried through verbatim.
+    assert ds_proj["type"] == "Datasource"
+    assert ds_proj["name"] == "click_events_offline"
+    assert ds_proj["entities"] == ""
+    assert ds_proj["version"] == ""
+    assert ds_proj["created_on"] == ""
+    assert ds_proj["details"] == {"source_type": "OfflineTable", "column_count": 7}
+
+
+def test_project_columns_empty_input_returns_empty():
+    from snowflake.cli._plugins.feature.commands import _project_columns
+
+    assert _project_columns([]) == []
+
+
 @mock.patch(FEATURE_MANAGER)
 def test_list_renders_multi_kind_rows(mock_manager, runner):
     """The table output should accept rows of all three kinds with a type column."""
@@ -197,12 +371,27 @@ def test_list_renders_multi_kind_rows(mock_manager, runner):
     }
     result = runner.invoke(["feature", "list"])
     assert result.exit_code == 0, result.output
-    # The table may wrap long values; check for non-wrapped substrings.
+    # The table now displays only 6 columns (type, name, version,
+    # entities, created_on, details); database/schema are surfaced
+    # once above the table by the ``Database: ... Schema: ...`` header
+    # line.  Check for prefixes short enough to land inside a single
+    # column cell.
     assert "Entity" in result.output
-    assert "Datasou" in result.output  # Datasource may wrap
-    assert "Feature" in result.output  # FeatureView may wrap
-    assert "click_f" in result.output  # name appears (may wrap)
-    assert "user_ev" in result.output  # datasource name appears
+    assert "Dataso" in result.output  # Datasource wraps as "Dataso\nurce"
+    assert "Featur" in result.output  # FeatureView wraps as "Featur\neView"
+    assert "click_" in result.output  # FV name appears (may wrap)
+    assert "user_e" in result.output  # datasource name appears (may wrap)
+    # ``scheduling_state`` is no longer a column header — it lives
+    # inside ``details`` for FeatureView rows.
+    header_block = result.output.split("|--")[0]
+    assert "scheduling_state" not in header_block
+    # ``database_name`` / ``schema_name`` are no longer column headers
+    # either — but the header line above the table still surfaces
+    # the uniform DB / schema once.
+    assert "database_name" not in header_block
+    assert "schema_name" not in header_block
+    assert "Database: DB" in result.output
+    assert "Schema: SCH" in result.output
 
 
 # ---------------------------------------------------------------------------

@@ -182,6 +182,60 @@ class TestFeatureManagerApply:
                 allow_recreate=False,
             )
 
+    def test_apply_specs_runs_session_setup_once_per_instance(
+        self, mock_execute_query, mock_decl
+    ):
+        """apply() invokes multiple decl_api SQL factories — the priming
+        ALTER SESSION must run exactly once across the whole operation."""
+        _wire_real_session_setup(mock_decl)
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        mgr.apply(
+            input_files=["specs.yaml"],
+            config=None,
+            dry_run=True,
+            dev_mode=False,
+            overwrite=False,
+            allow_recreate=False,
+        )
+
+        sqls = _executed_sqls(mock_execute_query)
+        alter_count = sum(1 for s in sqls if s == _ALTER_SESSION_SQL)
+        assert alter_count == 1, (
+            f"expected exactly one ALTER SESSION priming call across the "
+            f"apply() flow; got {alter_count} (full call list: {sqls})"
+        )
+
+
+_ALTER_SESSION_SQL = (
+    "ALTER SESSION SET ENABLE_FEATURE_STORE_DESCRIBE_OFT_SPECIFICATION = TRUE"
+)
+
+
+def _executed_sqls(mock_execute_query):
+    """Extract executed SQL strings from a mocked execute_query call list."""
+    sqls = []
+    for call in mock_execute_query.call_args_list:
+        if call.args:
+            sqls.append(str(call.args[0]))
+    return sqls
+
+
+def _wire_real_session_setup(mock_decl):
+    """Make decl_api.ensure_session_setup actually invoke the executor.
+
+    The shared ``mock_decl`` fixture replaces the entire decl_api module
+    with a MagicMock, so by default ``ensure_session_setup`` is a no-op
+    mock.  Tests that need to observe the priming SQL hitting
+    ``execute_query`` install this side effect.
+    """
+
+    def fake_ensure(execute_query):
+        execute_query(_ALTER_SESSION_SQL)
+
+    mock_decl.ensure_session_setup.side_effect = fake_ensure
+
 
 class TestFeatureManagerListSpecs:
     def test_list_specs_returns_dict(self, mock_execute_query, mock_decl):
@@ -209,6 +263,70 @@ class TestFeatureManagerListSpecs:
         mgr = FeatureManager()
         mgr.list_specs(input_files=(), config=None)
         mock_decl.list_state_queries.assert_called_once_with("TEST_DB", "TEST_SCHEMA")
+
+    def test_list_specs_runs_session_setup_before_state_queries(
+        self, mock_execute_query, mock_decl
+    ):
+        """The Snowflake-bound list_specs branch must prime the session
+        with ``ALTER SESSION SET ENABLE_FEATURE_STORE_DESCRIBE_OFT_SPECIFICATION
+        = TRUE`` *before* any state SHOW/DESCRIBE query."""
+        _wire_real_session_setup(mock_decl)
+        mock_decl.enrich_list_results.return_value = []
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        mgr.list_specs(input_files=(), config=None)
+
+        sqls = _executed_sqls(mock_execute_query)
+        assert sqls, "expected at least one executed SQL"
+        assert sqls[0] == _ALTER_SESSION_SQL, (
+            f"first executed SQL must be the session-priming ALTER SESSION; "
+            f"got: {sqls[0]!r} (full call list: {sqls})"
+        )
+
+    def test_list_specs_with_input_files_skips_session_setup(
+        self, mock_execute_query, mock_decl
+    ):
+        """File-only list_specs must not touch the Snowflake session."""
+        _wire_real_session_setup(mock_decl)
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        mgr.list_specs(input_files=("specs.yaml",), config=None)
+
+        mock_decl.ensure_session_setup.assert_not_called()
+        sqls = _executed_sqls(mock_execute_query)
+        assert (
+            _ALTER_SESSION_SQL not in sqls
+        ), f"file-only list_specs must not run ALTER SESSION; got: {sqls}"
+
+    def test_list_specs_aborts_when_session_setup_fails(
+        self, mock_execute_query, mock_decl
+    ):
+        """If ALTER SESSION priming fails, ``SessionSetupError`` must
+        propagate from list_specs and *no* further SQL must be issued."""
+        from snowflake.ml.feature_store.decl.errors import SessionSetupError
+
+        def fake_ensure(execute_query):
+            try:
+                execute_query(_ALTER_SESSION_SQL)
+            except Exception as exc:
+                raise SessionSetupError(_ALTER_SESSION_SQL, exc) from exc
+
+        mock_decl.ensure_session_setup.side_effect = fake_ensure
+        mock_decl.SessionSetupError = SessionSetupError
+        mock_execute_query.side_effect = RuntimeError("priming SQL failed")
+
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        with pytest.raises(SessionSetupError):
+            mgr.list_specs(input_files=(), config=None)
+
+        sqls = _executed_sqls(mock_execute_query)
+        assert sqls == [
+            _ALTER_SESSION_SQL
+        ], f"only the ALTER SESSION attempt should have been made; got: {sqls}"
 
     def test_list_specs_forwards_entity_rows_and_spec_map(
         self, mock_execute_query, mock_decl
@@ -285,6 +403,21 @@ class TestFeatureManagerDescribe:
         mgr = FeatureManager()
         result = mgr.describe(name="MY_ENTITY")
         assert isinstance(result, dict)
+
+    def test_describe_runs_session_setup(self, mock_execute_query, mock_decl):
+        """describe() must prime the session before issuing any state SQL."""
+        _wire_real_session_setup(mock_decl)
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        mgr.describe(name="MY_FV")
+
+        sqls = _executed_sqls(mock_execute_query)
+        assert sqls, "expected at least one executed SQL"
+        assert sqls[0] == _ALTER_SESSION_SQL, (
+            f"first executed SQL must be the session-priming ALTER SESSION; "
+            f"got: {sqls[0]!r} (full call list: {sqls})"
+        )
 
 
 class TestFeatureManagerConvert:

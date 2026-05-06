@@ -43,6 +43,27 @@ def _rows_to_dicts(rows) -> list[dict[str, Any]]:
 class FeatureManager(SqlExecutionMixin):
     """Thin CLI adapter — delegates all business logic to decl_api."""
 
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._session_setup_done: bool = False
+
+    def _ensure_session_setup(self) -> None:
+        """Run session priming exactly once per FeatureManager instance.
+
+        Delegates to :func:`decl_api.ensure_session_setup`, which owns the
+        priming SQL and the strict-failure policy.  The CLI never builds
+        SQL of its own here — it only supplies its bound
+        :meth:`execute_query` callable.
+
+        Raises:
+            SessionSetupError: If the priming SQL cannot be executed. Propagates
+                so the CLI command aborts before any state SQL runs.
+        """
+        if self._session_setup_done:
+            return
+        decl_api.ensure_session_setup(self.execute_query)
+        self._session_setup_done = True
+
     def _target_info(self) -> dict[str, str]:
         """Return connection target db/schema/warehouse for result dicts."""
         ctx = get_cli_context()
@@ -127,6 +148,8 @@ class FeatureManager(SqlExecutionMixin):
         If *no_delete* is True, deletion detection is disabled — objects in
         Snowflake not represented in the local spec files will NOT be dropped.
         """
+        self._ensure_session_setup()
+
         if plan_file is not None:
             return self._apply_from_plan_file(
                 plan_file=plan_file,
@@ -147,12 +170,11 @@ class FeatureManager(SqlExecutionMixin):
             self.execute_query(sqls["show_tables"], cursor_class=DictCursor)
         )
 
-        # Per-OFT full spec JSON (DESCRIBE ... TYPE = SPECIFICATION) — used
-        # by the planner for full-spec diffs.  Falls back to column-only
-        # DESCRIBE for the structural-fingerprint path when the
-        # SPECIFICATION call is unavailable for a given OFT.
-        eq = decl_api.export_queries(ctx.connection.database, ctx.connection.schema)
-        specification_map, describe_map = self._fetch_oft_state(raw_show, sqls, eq)
+        # Per-OFT full spec JSON (DESCRIBE ... TYPE = SPECIFICATION) — the
+        # planner relies on these spec dicts for full-spec diffs.  The
+        # session is primed (above) so the call is guaranteed to be
+        # available; failures propagate per the strict-spec contract.
+        specification_map = self._fetch_oft_state(raw_show, sqls)
 
         # Entity tags drive Entity AppliedObjects (used by deletion detection
         # in full_directory_mode).  Tolerate empty / unavailable tag schemas.
@@ -161,7 +183,6 @@ class FeatureManager(SqlExecutionMixin):
         applied_state = decl_api.fetch_applied_state(
             raw_show,
             raw_tables,
-            describe_map,
             specification_map=specification_map,
             entity_rows=entity_rows,
             default_database=ctx.connection.database or "",
@@ -336,9 +357,11 @@ class FeatureManager(SqlExecutionMixin):
 
         from snowflake.ml.feature_store.decl.types import PlanOptions
 
+        self._ensure_session_setup()
+
         ctx = get_cli_context()
 
-        # Fetch applied state (with full spec JSON when available).
+        # Fetch applied state (full spec JSON via DESCRIBE TYPE = SPECIFICATION).
         sqls = decl_api.state_queries(ctx.connection.database, ctx.connection.schema)
         raw_show = _rows_to_dicts(
             self.execute_query(sqls["show_ofts"], cursor_class=DictCursor)
@@ -346,13 +369,11 @@ class FeatureManager(SqlExecutionMixin):
         raw_tables = _rows_to_dicts(
             self.execute_query(sqls["show_tables"], cursor_class=DictCursor)
         )
-        eq = decl_api.export_queries(ctx.connection.database, ctx.connection.schema)
-        specification_map, describe_map = self._fetch_oft_state(raw_show, sqls, eq)
+        specification_map = self._fetch_oft_state(raw_show, sqls)
         entity_rows = self._fetch_entity_rows(ctx)
         applied_state = decl_api.fetch_applied_state(
             raw_show,
             raw_tables,
-            describe_map,
             specification_map=specification_map,
             entity_rows=entity_rows,
             default_database=ctx.connection.database or "",
@@ -405,6 +426,11 @@ class FeatureManager(SqlExecutionMixin):
             specs = getattr(batch, "specs", [])
             return {"source": "files", "specs": [str(s) for s in specs]}
 
+        # Snowflake-bound branch: prime the session before any state query.
+        # SessionSetupError is intentionally raised outside the try/except
+        # below so the command aborts cleanly.
+        self._ensure_session_setup()
+
         ctx = get_cli_context()
         try:
             queries = decl_api.list_state_queries(
@@ -416,14 +442,10 @@ class FeatureManager(SqlExecutionMixin):
 
             entity_rows = self._fetch_entity_rows(ctx)
 
-            eq = decl_api.export_queries(ctx.connection.database, ctx.connection.schema)
-            specification_map, describe_columns_map = self._fetch_oft_state(
-                oft_rows, queries, eq
-            )
+            specification_map = self._fetch_oft_state(oft_rows, queries)
 
             enriched = decl_api.enrich_list_results(
                 oft_rows,
-                describe_columns_map,
                 entity_rows=entity_rows,
                 specification_map=specification_map,
             )
@@ -438,6 +460,8 @@ class FeatureManager(SqlExecutionMixin):
 
     def describe(self, name: str) -> dict[str, Any]:
         """Return metadata for a named feature view (resolves to OFT name)."""
+        self._ensure_session_setup()
+
         ctx = get_cli_context()
 
         # Resolve feature view name → OFT name via SHOW lookup
@@ -646,50 +670,31 @@ class FeatureManager(SqlExecutionMixin):
         self,
         oft_rows: list[dict[str, Any]],
         state_sqls: dict[str, str],
-        export_sqls: dict[str, str],
-    ) -> tuple[dict[str, dict[str, Any]], dict[str, list[dict[str, Any]]]]:
-        """Fetch per-OFT spec JSON (preferred) and column DESCRIBE (fallback).
+    ) -> dict[str, dict[str, Any]]:
+        """Fetch per-OFT spec JSON via ``DESCRIBE … TYPE = SPECIFICATION``.
 
-        For each OFT name, run ``DESCRIBE ONLINE FEATURE TABLE <name>
-        TYPE = SPECIFICATION`` first.  If that returns a parseable spec
-        JSON, use it.  Otherwise fall back to the column-only ``DESCRIBE``
-        used for structural fingerprinting.
+        The session must already be primed (see :meth:`_ensure_session_setup`),
+        so the SPECIFICATION call is the authoritative source of truth for
+        every OFT.  Per the strict-spec contract, both ``execute_query``
+        failures and ``decl_api.parse_specification_rows`` failures
+        propagate to the caller — there is no column-DESCRIBE fallback.
         """
         specification_map: dict[str, dict[str, Any]] = {}
-        describe_map: dict[str, list[dict[str, Any]]] = {}
-        spec_template = state_sqls.get("describe_specification_template") or (
-            export_sqls.get("describe_specification_template")
-        )
+        spec_template = state_sqls.get("describe_specification_template")
+        if not spec_template:
+            return specification_map
         for row in oft_rows:
             name = row.get("name", "")
             if not name:
                 continue
-            parsed: Optional[dict[str, Any]] = None
-            if spec_template:
-                spec_sql = spec_template.format(name=name)
-                try:
-                    spec_rows = _rows_to_dicts(
-                        self.execute_query(spec_sql, cursor_class=DictCursor)
-                    )
-                    parsed = decl_api.parse_specification_rows(spec_rows)
-                except Exception as exc:
-                    log.debug(
-                        "describe TYPE = SPECIFICATION failed for %s: %s", name, exc
-                    )
-
+            spec_sql = spec_template.format(name=name)
+            spec_rows = _rows_to_dicts(
+                self.execute_query(spec_sql, cursor_class=DictCursor)
+            )
+            parsed = decl_api.parse_specification_rows(spec_rows)
             if parsed is not None:
                 specification_map[name] = parsed
-                continue
-
-            desc_sql = export_sqls["describe_template"].format(name=name)
-            try:
-                describe_map[name] = _rows_to_dicts(
-                    self.execute_query(desc_sql, cursor_class=DictCursor)
-                )
-            except Exception as exc:
-                log.debug("describe columns failed for %s: %s", name, exc)
-                describe_map[name] = []
-        return specification_map, describe_map
+        return specification_map
 
     def _fetch_entity_rows(self, ctx: Any) -> list[dict[str, Any]]:
         """Fetch entity tag rows; tolerate failure with an empty list."""
@@ -761,6 +766,7 @@ class FeatureManager(SqlExecutionMixin):
 
     def get_status(self) -> dict[str, Any]:
         """Query and parse the feature store runtime status."""
+        self._ensure_session_setup()
         ctx = get_cli_context()
         sqls = decl_api.service_sql(ctx.connection.database, ctx.connection.schema)
         try:
@@ -788,6 +794,7 @@ class FeatureManager(SqlExecutionMixin):
         consumer_role: Optional[str] = None,
     ) -> dict[str, Any]:
         """Send CREATE runtime command. Returns immediately; caller polls."""
+        self._ensure_session_setup()
         ctx = get_cli_context()
         p_role = producer_role or ctx.connection.role
         c_role = consumer_role or "PUBLIC"
@@ -817,6 +824,7 @@ class FeatureManager(SqlExecutionMixin):
 
     def destroy_service(self) -> dict[str, Any]:
         """Drop all OFTs then drop the feature store runtime."""
+        self._ensure_session_setup()
         ctx = get_cli_context()
         sqls = decl_api.service_sql(ctx.connection.database, ctx.connection.schema)
 
@@ -855,6 +863,7 @@ class FeatureManager(SqlExecutionMixin):
 
     def export_specs(self, output_dir: str) -> dict[str, Any]:
         """Export deployed feature-store objects as YAML spec files."""
+        self._ensure_session_setup()
         ctx = get_cli_context()
         eq = decl_api.export_queries(ctx.connection.database, ctx.connection.schema)
 
@@ -864,6 +873,10 @@ class FeatureManager(SqlExecutionMixin):
         if not show_rows:
             return {"status": "exported", "directory": "", "files": []}
 
+        # Column-level DESCRIBE feeds the YAML-export renderer's column
+        # metadata.  This is the export-time column dump, NOT the deleted
+        # ``_fetch_oft_state`` fallback — the SPECIFICATION call above
+        # remains the source of truth for state queries.
         describe_map: dict[str, list[dict[str, Any]]] = {}
         for row in show_rows:
             name = row.get("name", "")

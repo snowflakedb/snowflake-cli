@@ -64,37 +64,60 @@ def _to_object(data: dict) -> CommandResult:
     return ObjectResult(_sanitize_dict(data))
 
 
-# Columns to show in table output for `snow feature list` results.  The
-# Snowflake path now returns a single multi-kind list (FeatureView, Entity,
-# Datasource), each tagged with a `type` column.  All columns are still
-# available via --format json.
+# Columns to surface for ``snow feature list`` results.  The Snowflake path
+# returns a single multi-kind list (FeatureView, Entity, Datasource), each
+# tagged with a ``type`` column.  ``details`` is included so that
+# ``--format json`` round-trips the kind-specific extras (e.g.
+# ``details.inferred``, ``details.source_type``, ``details.referenced_by``,
+# and — for FeatureView rows — ``details.scheduling_state``).  In table
+# mode the ``details`` cell renders as a compact dict, which is a
+# deliberate trade-off — operators inspecting the table see at-a-glance
+# whether a row is inferred and what the runtime status is, while scripts
+# consuming JSON get the full structured data they need.
+#
+# Two upstream-row fields are intentionally *not* projected:
+#
+# * ``scheduling_state`` — only meaningful for FeatureView rows (Entity /
+#   Datasource leave it empty).  The value is already carried inside
+#   ``details`` for FV rows.
+# * ``database_name`` / ``schema_name`` — uniform across every row of a
+#   single ``snow feature list`` invocation, since the Snowflake
+#   connection has one current database and schema.  These are surfaced
+#   once above the table by ``_print_listing_scope_header`` instead of
+#   being repeated in every row.
 _TABLE_DISPLAY_COLUMNS = [
     "type",
     "name",
     "version",
     "entities",
-    "database_name",
-    "schema_name",
     "created_on",
-    "scheduling_state",
+    "details",
 ]
 
 
 def _project_columns(rows: list[dict]) -> list[dict]:
-    """Keep only the display columns (case-insensitive match) for table output."""
+    """Project rows onto ``_TABLE_DISPLAY_COLUMNS`` with stable order.
+
+    Every output row carries **all** display columns in the canonical
+    ``_TABLE_DISPLAY_COLUMNS`` order, with ``""`` substituted for any
+    field a row does not populate.  This is critical for the table
+    renderer, which positions cells by each row's dict iteration
+    order: heterogeneous rows (FeatureView vs Entity vs Datasource)
+    would otherwise misalign — e.g. the Entity ``type`` value
+    landing under the FeatureView-only ``created_on`` column.
+    """
     if not rows:
         return rows
-    # Build a case-insensitive lookup from the first row's actual keys.
-    first = rows[0]
-    keep = set()
-    lower_to_actual = {k.lower(): k for k in first}
-    for col in _TABLE_DISPLAY_COLUMNS:
-        actual = lower_to_actual.get(col.lower())
-        if actual:
-            keep.add(actual)
-    if not keep:
-        return rows  # none matched — return everything
-    return [{k: v for k, v in r.items() if k in keep} for r in rows]
+    out: list[dict] = []
+    for row in rows:
+        # Case-insensitive lookup of this row's actual keys.
+        lower_to_actual = {k.lower(): k for k in row}
+        new_row: dict = {}
+        for col in _TABLE_DISPLAY_COLUMNS:
+            actual = lower_to_actual.get(col.lower())
+            new_row[col] = row.get(actual, "") if actual else ""
+        out.append(new_row)
+    return out
 
 
 def _to_collection(rows: list[dict], *, all_columns: bool = False) -> CommandResult:
@@ -134,6 +157,59 @@ def _print_target_header(result: dict) -> None:
     schema = result.get("target_schema", "")
     wh = result.get("target_warehouse", "")
     sys.stderr.write(f"\nTarget: {db}.{schema} (warehouse: {wh})\n\n")
+    sys.stderr.flush()
+
+
+def _listing_scope(rows: list[dict]) -> Optional[tuple[str, str]]:
+    """Inspect list rows and derive the database / schema scope label.
+
+    Args:
+        rows: The result rows from ``FeatureManager.list_specs``.  Each
+            row may carry ``database_name`` and ``schema_name`` fields
+            (Snowflake-mode listings always do; file-mode listings do
+            not).
+
+    Returns:
+        A two-tuple ``(database_label, schema_label)`` suitable for
+        rendering above the table.  Each label is the uniform value
+        when every row agrees, or ``"(multiple)"`` when at least two
+        rows disagree on that field.  Returns ``None`` if no row has
+        a non-empty ``database_name`` or ``schema_name`` (file-mode
+        output, or empty input), signaling that no scope header
+        should be printed.
+    """
+    if not rows:
+        return None
+    dbs: set[str] = {str(r["database_name"]) for r in rows if r.get("database_name")}
+    schemas: set[str] = {str(r["schema_name"]) for r in rows if r.get("schema_name")}
+    if not dbs and not schemas:
+        return None
+    db_label: str = next(iter(dbs)) if len(dbs) == 1 else "(multiple)"
+    schema_label: str = next(iter(schemas)) if len(schemas) == 1 else "(multiple)"
+    return (db_label, schema_label)
+
+
+def _print_listing_scope_header(rows: list[dict]) -> None:
+    """Write a one-line ``Database: X  Schema: Y`` header to stderr.
+
+    The header is written on stderr (separate from the table on stdout
+    or the JSON payload from ``--format json``) so it remains visible
+    in both rendering modes without polluting machine-readable output.
+    Skipped silently when ``_listing_scope(rows)`` returns ``None``
+    (e.g. file-mode listings that have no Snowflake scope).
+
+    Args:
+        rows: The result rows from ``FeatureManager.list_specs``.
+
+    Returns:
+        None.  The header is emitted to ``sys.stderr`` as a side
+        effect.
+    """
+    scope = _listing_scope(rows)
+    if scope is None:
+        return
+    db, schema = scope
+    sys.stderr.write(f"\nDatabase: {db}  Schema: {schema}\n\n")
     sys.stderr.flush()
 
 
@@ -331,6 +407,7 @@ def list_cmd(
     )
     specs = result.get("specs", [])
     if isinstance(specs, list) and specs and isinstance(specs[0], dict):
+        _print_listing_scope_header(specs)
         return _to_collection(specs)
     return _to_object(result)
 

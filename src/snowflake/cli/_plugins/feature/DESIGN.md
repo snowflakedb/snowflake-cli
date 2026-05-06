@@ -84,28 +84,47 @@ catch `NotImplementedError` (raised by Phase 0 stubs) and any other
 exceptions. When caught, the method returns a placeholder dict so the CLI
 remains functional during parallel Phase 1 development.
 
+### Session priming
+
+Every Snowflake-bound `FeatureManager` entry point (`apply_specs`,
+`write_plan`, `list_specs` (only when `input_files` is empty),
+`describe`, `export_specs`, `get_status`, `initialize_service`,
+`destroy_service`, and `convert` against Snowflake) calls
+`self._ensure_session_setup()` as its first step. The helper is
+gated by `self._session_setup_done` so each `FeatureManager`
+instance primes once. It delegates to
+`decl_api.ensure_session_setup(self.execute_query)`, which runs the
+idempotent `ALTER SESSION SET ENABLE_FEATURE_STORE_DESCRIBE_OFT_SPECIFICATION = TRUE`
+priming statement that lives in `decl/session_setup.py`. On
+failure, `decl_api.SessionSetupError` propagates — the CLI does not
+catch it, so Click renders it as a normal command failure and no
+further state SQL runs.
+
 ### apply() orchestration
 
 ```
-1. Expand file globs
-2. decl_api.load_specs(files, config)                                       → SpecBatch
-3. queries = decl_api.state_queries(database, schema)
+1. self._ensure_session_setup()                                             → primes the session
+2. Expand file globs
+3. decl_api.load_specs(files, config)                                       → SpecBatch
+4. queries = decl_api.state_queries(database, schema)
    - execute_query(queries["show_ofts"])      → oft_rows
    - execute_query(queries["show_tables"])    → table_rows
    - execute_query(queries["show_entities"])  → entity_rows
    - for each oft_row:
        execute_query(queries["describe_specification_template"].format(name=...))
        → decl_api.parse_specification_rows(rows) → specification_map[name]
-4. decl_api.fetch_applied_state(
+5. decl_api.fetch_applied_state(
        oft_rows, table_rows,
        describe_map=..., specification_map=..., entity_rows=...,
        default_database=..., default_schema=...,
    )                                                                        → AppliedState
-5. decl_api.validate_specs(batch, state)                                    → ValidationResult[]
-6. decl_api.generate_plan(batch, state, opts, database=..., schema=...)     → Plan
-7. Display plan ops
-8. If not dry_run: execute each op's SQL
-9. Return result dict
+6. decl_api.validate_specs(batch, state)                                    → ValidationResult[]
+7. decl_api.generate_plan(batch, state, opts, database=..., schema=...)     → Plan
+8. Display plan ops
+9. If not dry_run: decl_api.execute_plan(plan, session, ...)
+   — the executor primes the borrowed Snowpark session via apply_session_setup_to_session(session)
+     before constructing FeatureStore(...)
+10. Return result dict
 ```
 
 ### list_specs() flow (Snowflake-backed mode)
@@ -133,6 +152,22 @@ The returned `rows` are a single ordered list with a leading `type` column
 (`FeatureView` / `Entity` / `Datasource`), a uniform `name` column, plus
 kind-specific `details`. `commands._TABLE_DISPLAY_COLUMNS` projects this into
 the table view; the same dict is returned verbatim under `--format json`.
+
+#### Strict spec-only Entity & Datasource rows
+
+All Entity / Datasource rows are authoritative — entities come from
+`SHOW TAGS LIKE 'SNOWML_FEATURE_STORE_ENTITY_%'` and datasources are
+derived from `spec.sources[]` recovered via
+`DESCRIBE … TYPE = SPECIFICATION`. There is no inference fallback
+that synthesizes rows from FV PK columns or `source`-string parsing
+when the SPECIFICATION call fails. The session-priming gate at the
+top of every Snowflake-bound entry point makes the parameter
+available before any state SQL runs; if priming fails the command
+exits with `decl_api.SessionSetupError` and no list rows are
+produced. See
+[`docs/ARCHITECTURE.md`](../../../../../../docs/ARCHITECTURE.md)
+"Session setup (DESCRIBE TYPE = SPECIFICATION priming)" for the full
+contract.
 
 ---
 
