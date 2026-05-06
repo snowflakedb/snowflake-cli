@@ -147,18 +147,26 @@ class FeatureManager(SqlExecutionMixin):
             self.execute_query(sqls["show_tables"], cursor_class=DictCursor)
         )
 
-        # DESCRIBE each deployed OFT for structural fingerprinting
+        # Per-OFT full spec JSON (DESCRIBE ... TYPE = SPECIFICATION) — used
+        # by the planner for full-spec diffs.  Falls back to column-only
+        # DESCRIBE for the structural-fingerprint path when the
+        # SPECIFICATION call is unavailable for a given OFT.
         eq = decl_api.export_queries(ctx.connection.database, ctx.connection.schema)
-        describe_map: dict[str, list[dict[str, Any]]] = {}
-        for row in raw_show:
-            name = row.get("name", "")
-            if name:
-                desc_sql = eq["describe_template"].format(name=name)
-                describe_map[name] = _rows_to_dicts(
-                    self.execute_query(desc_sql, cursor_class=DictCursor)
-                )
+        specification_map, describe_map = self._fetch_oft_state(raw_show, sqls, eq)
 
-        applied_state = decl_api.fetch_applied_state(raw_show, raw_tables, describe_map)
+        # Entity tags drive Entity AppliedObjects (used by deletion detection
+        # in full_directory_mode).  Tolerate empty / unavailable tag schemas.
+        entity_rows = self._fetch_entity_rows(ctx)
+
+        applied_state = decl_api.fetch_applied_state(
+            raw_show,
+            raw_tables,
+            describe_map,
+            specification_map=specification_map,
+            entity_rows=entity_rows,
+            default_database=ctx.connection.database or "",
+            default_schema=ctx.connection.schema or "",
+        )
 
         # 2. Load specs — also scan sibling directories for datasource YAMLs
         all_files = self._expand_with_datasources(list(input_files))
@@ -330,7 +338,7 @@ class FeatureManager(SqlExecutionMixin):
 
         ctx = get_cli_context()
 
-        # Fetch applied state
+        # Fetch applied state (with full spec JSON when available).
         sqls = decl_api.state_queries(ctx.connection.database, ctx.connection.schema)
         raw_show = _rows_to_dicts(
             self.execute_query(sqls["show_ofts"], cursor_class=DictCursor)
@@ -339,15 +347,17 @@ class FeatureManager(SqlExecutionMixin):
             self.execute_query(sqls["show_tables"], cursor_class=DictCursor)
         )
         eq = decl_api.export_queries(ctx.connection.database, ctx.connection.schema)
-        describe_map: dict[str, list[dict[str, Any]]] = {}
-        for row in raw_show:
-            name = row.get("name", "")
-            if name:
-                desc_sql = eq["describe_template"].format(name=name)
-                describe_map[name] = _rows_to_dicts(
-                    self.execute_query(desc_sql, cursor_class=DictCursor)
-                )
-        applied_state = decl_api.fetch_applied_state(raw_show, raw_tables, describe_map)
+        specification_map, describe_map = self._fetch_oft_state(raw_show, sqls, eq)
+        entity_rows = self._fetch_entity_rows(ctx)
+        applied_state = decl_api.fetch_applied_state(
+            raw_show,
+            raw_tables,
+            describe_map,
+            specification_map=specification_map,
+            entity_rows=entity_rows,
+            default_database=ctx.connection.database or "",
+            default_schema=ctx.connection.schema or "",
+        )
 
         # Load and expand specs
         all_files = self._expand_with_datasources(list(input_files))
@@ -377,7 +387,19 @@ class FeatureManager(SqlExecutionMixin):
         input_files: Tuple[str, ...],
         config: Optional[dict[str, Any]],
     ) -> dict[str, Any]:
-        """List specs from files or deployed objects from Snowflake."""
+        """List specs from files or deployed objects from Snowflake.
+
+        When listing from Snowflake, this surfaces three object kinds in a
+        single result:
+
+        - ``FeatureView`` rows from ``SHOW ONLINE FEATURE TABLES``, enriched
+          with the full spec JSON returned by
+          ``DESCRIBE ONLINE FEATURE TABLE <name> TYPE = SPECIFICATION``.
+        - ``Entity`` rows from ``SHOW TAGS LIKE 'SNOWML_FEATURE_STORE_ENTITY_%'``.
+        - ``Datasource`` rows derived by unioning ``spec.sources[]`` across
+          every recovered FV spec (datasources are virtual — they have no
+          dedicated SHOW command).
+        """
         if input_files:
             batch = decl_api.load_specs(list(input_files), config)
             specs = getattr(batch, "specs", [])
@@ -385,19 +407,26 @@ class FeatureManager(SqlExecutionMixin):
 
         ctx = get_cli_context()
         try:
-            sql = decl_api.list_query(ctx.connection.database, ctx.connection.schema)
-            rows = _rows_to_dicts(self.execute_query(sql, cursor_class=DictCursor))
+            queries = decl_api.list_state_queries(
+                ctx.connection.database, ctx.connection.schema
+            )
+            oft_rows = _rows_to_dicts(
+                self.execute_query(queries["show_ofts"], cursor_class=DictCursor)
+            )
 
-            # Enrich with feature_view name, version, and entities
+            entity_rows = self._fetch_entity_rows(ctx)
+
             eq = decl_api.export_queries(ctx.connection.database, ctx.connection.schema)
-            describe_map: dict[str, list[dict[str, Any]]] = {}
-            for row in rows:
-                name = row.get("name", "")
-                desc_sql = eq["describe_template"].format(name=name)
-                describe_map[name] = _rows_to_dicts(
-                    self.execute_query(desc_sql, cursor_class=DictCursor)
-                )
-            enriched = decl_api.enrich_list_results(rows, describe_map)
+            specification_map, describe_columns_map = self._fetch_oft_state(
+                oft_rows, queries, eq
+            )
+
+            enriched = decl_api.enrich_list_results(
+                oft_rows,
+                describe_columns_map,
+                entity_rows=entity_rows,
+                specification_map=specification_map,
+            )
             return {**self._target_info(), "source": "snowflake", "specs": enriched}
         except Exception as exc:
             log.warning("list query raised %s: %s", type(exc).__name__, exc)
@@ -612,6 +641,66 @@ class FeatureManager(SqlExecutionMixin):
         from snowflake.snowpark import Session
 
         return Session.builder.configs({"connection": self._conn}).create()
+
+    def _fetch_oft_state(
+        self,
+        oft_rows: list[dict[str, Any]],
+        state_sqls: dict[str, str],
+        export_sqls: dict[str, str],
+    ) -> tuple[dict[str, dict[str, Any]], dict[str, list[dict[str, Any]]]]:
+        """Fetch per-OFT spec JSON (preferred) and column DESCRIBE (fallback).
+
+        For each OFT name, run ``DESCRIBE ONLINE FEATURE TABLE <name>
+        TYPE = SPECIFICATION`` first.  If that returns a parseable spec
+        JSON, use it.  Otherwise fall back to the column-only ``DESCRIBE``
+        used for structural fingerprinting.
+        """
+        specification_map: dict[str, dict[str, Any]] = {}
+        describe_map: dict[str, list[dict[str, Any]]] = {}
+        spec_template = state_sqls.get("describe_specification_template") or (
+            export_sqls.get("describe_specification_template")
+        )
+        for row in oft_rows:
+            name = row.get("name", "")
+            if not name:
+                continue
+            parsed: Optional[dict[str, Any]] = None
+            if spec_template:
+                spec_sql = spec_template.format(name=name)
+                try:
+                    spec_rows = _rows_to_dicts(
+                        self.execute_query(spec_sql, cursor_class=DictCursor)
+                    )
+                    parsed = decl_api.parse_specification_rows(spec_rows)
+                except Exception as exc:
+                    log.debug(
+                        "describe TYPE = SPECIFICATION failed for %s: %s", name, exc
+                    )
+
+            if parsed is not None:
+                specification_map[name] = parsed
+                continue
+
+            desc_sql = export_sqls["describe_template"].format(name=name)
+            try:
+                describe_map[name] = _rows_to_dicts(
+                    self.execute_query(desc_sql, cursor_class=DictCursor)
+                )
+            except Exception as exc:
+                log.debug("describe columns failed for %s: %s", name, exc)
+                describe_map[name] = []
+        return specification_map, describe_map
+
+    def _fetch_entity_rows(self, ctx: Any) -> list[dict[str, Any]]:
+        """Fetch entity tag rows; tolerate failure with an empty list."""
+        try:
+            sql = decl_api.list_entities_query(
+                ctx.connection.database, ctx.connection.schema
+            )
+            return _rows_to_dicts(self.execute_query(sql, cursor_class=DictCursor))
+        except Exception as exc:
+            log.debug("list_entities query failed (treating as empty): %s", exc)
+            return []
 
     @staticmethod
     def _expand_with_datasources(input_files: list[str]) -> list[str]:

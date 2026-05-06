@@ -40,7 +40,25 @@ def mock_decl():
         m.state_queries.return_value = {
             "show_ofts": "SHOW ONLINE FEATURE TABLES IN SCHEMA TEST_DB.TEST_SCHEMA",
             "show_tables": "SHOW TABLES LIKE '%' IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "describe_specification_template": (
+                'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}" '
+                "TYPE = SPECIFICATION"
+            ),
         }
+        m.list_state_queries.return_value = {
+            "show_ofts": "SHOW ONLINE FEATURE TABLES IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_entities": (
+                "SHOW TAGS LIKE 'SNOWML_FEATURE_STORE_ENTITY_%' "
+                "IN SCHEMA TEST_DB.TEST_SCHEMA"
+            ),
+            "describe_specification_template": (
+                'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}" '
+                "TYPE = SPECIFICATION"
+            ),
+        }
+        m.list_entities_query.return_value = "SHOW TAGS LIKE 'SNOWML_FEATURE_STORE_ENTITY_%' IN SCHEMA TEST_DB.TEST_SCHEMA"
+        m.describe_specification_query.return_value = 'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."x" TYPE = SPECIFICATION'
+        m.parse_specification_rows.return_value = None
         # generate_apply_sql returns an ApplyResult-like mock (used for dry_run)
         apply_result = mock.MagicMock()
         apply_result.status = "ready"
@@ -68,6 +86,10 @@ def mock_decl():
         m.export_queries.return_value = {
             "show_ofts": "SHOW ONLINE FEATURE TABLES IN SCHEMA TEST_DB.TEST_SCHEMA",
             "describe_template": 'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}"',
+            "describe_specification_template": (
+                'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}" '
+                "TYPE = SPECIFICATION"
+            ),
         }
         yield m
 
@@ -178,6 +200,82 @@ class TestFeatureManagerListSpecs:
         mgr = FeatureManager()
         with pytest.raises(ValueError, match="bad spec file"):
             mgr.list_specs(input_files=("specs.yaml",), config=None)
+
+    def test_list_specs_calls_list_state_queries(self, mock_execute_query, mock_decl):
+        """list_specs() asks decl_api for the SQL set, never builds SQL itself."""
+        mock_decl.enrich_list_results.return_value = []
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        mgr.list_specs(input_files=(), config=None)
+        mock_decl.list_state_queries.assert_called_once_with("TEST_DB", "TEST_SCHEMA")
+
+    def test_list_specs_forwards_entity_rows_and_spec_map(
+        self, mock_execute_query, mock_decl
+    ):
+        """list_specs() must pass entity_rows and specification_map kwargs
+        to enrich_list_results so the table can include all three kinds."""
+        mock_decl.enrich_list_results.return_value = []
+        mock_decl.parse_specification_rows.return_value = {
+            "kind": "StreamingFeatureView",
+            "metadata": {
+                "database": "TEST_DB",
+                "schema": "TEST_SCHEMA",
+                "name": "fv",
+                "version": "v1",
+            },
+            "spec": {
+                "ordered_entity_column_names": ["user_id"],
+                "sources": [{"name": "src", "source_type": "Stream"}],
+                "features": [],
+            },
+        }
+        # SHOW OFT row + SHOW TAGS row + DESCRIBE SPECIFICATION row.
+        from snowflake.connector.cursor import DictCursor  # noqa: F401
+
+        responses = iter(
+            [
+                # show_ofts: one OFT row
+                iter(
+                    [
+                        {
+                            "name": "FV$V1$ONLINE",
+                            "database_name": "TEST_DB",
+                            "schema_name": "TEST_SCHEMA",
+                        }
+                    ]
+                ),
+                # show_entities: one entity tag row
+                iter(
+                    [
+                        {
+                            "name": "SNOWML_FEATURE_STORE_ENTITY_USER",
+                            "allowed_values": '["USER_ID"]',
+                        }
+                    ]
+                ),
+                # describe TYPE = SPECIFICATION: one row (parsed via mock)
+                iter([{"specification": "{}"}]),
+            ]
+        )
+        mock_execute_query.side_effect = lambda *a, **kw: next(responses)
+
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        mgr.list_specs(input_files=(), config=None)
+
+        call = mock_decl.enrich_list_results.call_args
+        kwargs = call.kwargs
+        assert "entity_rows" in kwargs
+        assert "specification_map" in kwargs
+        # Spec map populated with the parsed result.
+        assert "FV$V1$ONLINE" in kwargs["specification_map"]
+        # Entity row passed through.
+        assert any(
+            r.get("name", "").startswith("SNOWML_FEATURE_STORE_ENTITY_")
+            for r in kwargs["entity_rows"]
+        )
 
 
 class TestFeatureManagerDescribe:

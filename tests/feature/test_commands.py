@@ -153,6 +153,58 @@ def test_list_with_file_passes_files(mock_manager, runner):
     assert "my_specs.yaml" in call_kwargs["input_files"]
 
 
+def test_list_table_display_columns_include_type():
+    """The `type` column must be present so multi-kind rows can be
+    distinguished (FeatureView / Entity / Datasource)."""
+    from snowflake.cli._plugins.feature.commands import _TABLE_DISPLAY_COLUMNS
+
+    assert "type" in _TABLE_DISPLAY_COLUMNS
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_list_renders_multi_kind_rows(mock_manager, runner):
+    """The table output should accept rows of all three kinds with a type column."""
+    mock_manager.return_value.list_specs.return_value = {
+        "source": "snowflake",
+        "specs": [
+            {
+                "type": "FeatureView",
+                "name": "click_fv",
+                "version": "v1",
+                "entities": "user_id",
+                "database_name": "DB",
+                "schema_name": "SCH",
+                "scheduling_state": "ACTIVE",
+                "created_on": "2024-01-01",
+            },
+            {
+                "type": "Entity",
+                "name": "user",
+                "version": "",
+                "entities": "USER_ID",
+                "database_name": "DB",
+                "schema_name": "SCH",
+            },
+            {
+                "type": "Datasource",
+                "name": "user_events",
+                "version": "",
+                "entities": "",
+                "database_name": "DB",
+                "schema_name": "SCH",
+            },
+        ],
+    }
+    result = runner.invoke(["feature", "list"])
+    assert result.exit_code == 0, result.output
+    # The table may wrap long values; check for non-wrapped substrings.
+    assert "Entity" in result.output
+    assert "Datasou" in result.output  # Datasource may wrap
+    assert "Feature" in result.output  # FeatureView may wrap
+    assert "click_f" in result.output  # name appears (may wrap)
+    assert "user_ev" in result.output  # datasource name appears
+
+
 # ---------------------------------------------------------------------------
 # describe
 # ---------------------------------------------------------------------------

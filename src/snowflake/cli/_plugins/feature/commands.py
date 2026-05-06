@@ -64,10 +64,13 @@ def _to_object(data: dict) -> CommandResult:
     return ObjectResult(_sanitize_dict(data))
 
 
-# Columns to show in table output for SHOW ONLINE FEATURE TABLES results.
-# All columns are still available via --format json.
+# Columns to show in table output for `snow feature list` results.  The
+# Snowflake path now returns a single multi-kind list (FeatureView, Entity,
+# Datasource), each tagged with a `type` column.  All columns are still
+# available via --format json.
 _TABLE_DISPLAY_COLUMNS = [
-    "feature_view",
+    "type",
+    "name",
     "version",
     "entities",
     "database_name",

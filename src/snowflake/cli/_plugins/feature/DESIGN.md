@@ -88,15 +88,51 @@ remains functional during parallel Phase 1 development.
 
 ```
 1. Expand file globs
-2. decl_api.load_specs(files, config)       → SpecBatch
-3. execute_query("SHOW ONLINE FEATURE TABLES ...") → raw state
-4. decl_api.fetch_applied_state(raw_results) → AppliedState
-5. decl_api.validate_specs(batch, state)    → ValidationResult[]
-6. decl_api.generate_plan(batch, state, opts) → Plan
+2. decl_api.load_specs(files, config)                                       → SpecBatch
+3. queries = decl_api.state_queries(database, schema)
+   - execute_query(queries["show_ofts"])      → oft_rows
+   - execute_query(queries["show_tables"])    → table_rows
+   - execute_query(queries["show_entities"])  → entity_rows
+   - for each oft_row:
+       execute_query(queries["describe_specification_template"].format(name=...))
+       → decl_api.parse_specification_rows(rows) → specification_map[name]
+4. decl_api.fetch_applied_state(
+       oft_rows, table_rows,
+       describe_map=..., specification_map=..., entity_rows=...,
+       default_database=..., default_schema=...,
+   )                                                                        → AppliedState
+5. decl_api.validate_specs(batch, state)                                    → ValidationResult[]
+6. decl_api.generate_plan(batch, state, opts, database=..., schema=...)     → Plan
 7. Display plan ops
 8. If not dry_run: execute each op's SQL
 9. Return result dict
 ```
+
+### list_specs() flow (Snowflake-backed mode)
+
+```
+queries = decl_api.list_state_queries(database, schema)
+oft_rows     = execute_query(queries["show_ofts"])
+entity_rows  = execute_query(queries["show_entities"])
+for row in oft_rows:
+    sql = queries["describe_specification_template"].format(name=row["name"])
+    spec = decl_api.parse_specification_rows(execute_query(sql))
+    if spec is not None:
+        specification_map[row["name"]] = spec
+
+rows = decl_api.enrich_list_results(
+    oft_show_rows=oft_rows,
+    entity_show_rows=entity_rows,
+    specification_map=specification_map,
+    describe_map=describe_columns_map,  # legacy column fallback
+)
+return {**target_info, "source": "snowflake", "specs": rows}
+```
+
+The returned `rows` are a single ordered list with a leading `type` column
+(`FeatureView` / `Entity` / `Datasource`), a uniform `name` column, plus
+kind-specific `details`. `commands._TABLE_DISPLAY_COLUMNS` projects this into
+the table view; the same dict is returned verbatim under `--format json`.
 
 ---
 
