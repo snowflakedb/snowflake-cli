@@ -17,6 +17,23 @@ import string
 
 class _SnowSQLTemplate(string.Template):
     delimiter = "&"
+    # Do not recognise `&` as a template delimiter when the preceding character
+    # is a letter or digit.  This prevents false matches inside words or
+    # identifiers (e.g. `Principal&Interest` embedded in a DDL COMMENT or
+    # semantic view synonym), which would otherwise be rewritten to
+    # `Principal&{ Interest }` and fail Jinja rendering.  See #2714.
+    # Underscore is intentionally NOT treated as a separator character —
+    # e.g. `source_&value.sql` (a filename passed to `!source`) still
+    # substitutes `&value`.
+    pattern = r"""
+        (?<![A-Za-z0-9])
+        \&(?:
+            (?P<escaped>\&)                      |   # escape sequence (&&)
+            (?P<named>(?a:[_a-z][_a-z0-9]*))     |   # delimiter and a Python identifier
+            {(?P<braced>(?a:[_a-z][_a-z0-9]*))}  |   # delimiter and a braced identifier
+            (?P<invalid>)                            # other ill-formed delimiter exprs
+        )
+    """  # type: ignore[assignment]
 
 
 class _Mapper:
