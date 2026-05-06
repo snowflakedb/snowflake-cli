@@ -358,6 +358,68 @@ def test_executing_command_sends_project_definition_in_telemetry_data(
 
 
 @mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+def test_app_flow_is_absent_for_non_app_commands(_, mock_conn, runner):
+    """Commands outside the ``snow app *`` group must never emit
+    ``app_flow``. Check every telemetry call, not just the first/last,
+    so a regression that mis-attaches the field anywhere in the lifecycle
+    surfaces here."""
+    result = runner.invoke(["connection", "test"], catch_exceptions=False)
+    assert result.exit_code == 0, result.output
+
+    telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
+    for call in telemetry.try_add_log_to_batch.call_args_list:
+        message = call.args[0].to_dict()["message"]
+        assert "app_flow" not in message, message
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.streamlit.commands.StreamlitEntity")
+def test_app_flow_is_absent_for_streamlit_commands(
+    mock_entity, mock_conn, project_directory, runner
+):
+    """Loading a project definition for a non-``snow app`` command must not
+    leak ``app_flow`` into telemetry."""
+    with project_directory("streamlit_full_definition_v2"):
+        result = runner.invoke(["streamlit", "deploy"])
+    assert result.exit_code == 0, result.output
+
+    telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
+    for call in telemetry.try_add_log_to_batch.call_args_list:
+        message = call.args[0].to_dict()["message"]
+        assert "app_flow" not in message, message
+
+
+@mock.patch("snowflake.connector.connect")
+def test_app_flow_native_app_in_telemetry_data(mock_conn, project_directory, runner):
+    """``snow app *`` invocations against a Native App project must report
+    ``app_flow=native_app``. The ``napp_post_deploy_missing_file`` fixture
+    is a v1 Native App project, exercising the in-memory v1->v2 conversion
+    path in ``force_project_definition_v2``.
+
+    The flow is detected during command execution, after
+    ``log_command_usage`` (the ``executing_command`` event) runs. We
+    therefore check the ``error_executing_command`` event, which is
+    emitted from ``post_execute`` after the routing decorator has
+    resolved the flow. (Native App and Snowflake Apps Deploy events can
+    be joined on ``command_execution_id``.)
+    """
+    with project_directory("napp_post_deploy_missing_file"):
+        runner.invoke(["app", "run"], catch_exceptions=False)
+
+    error_command_event = (
+        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
+            1
+        ]
+        .args[0]
+        .to_dict()
+    )
+
+    assert error_command_event["message"]["type"] == "error_executing_command"
+    assert error_command_event["message"]["app_flow"] == "native_app"
+
+
+@mock.patch("snowflake.connector.connect")
 @mock.patch("uuid.uuid4")
 @mock.patch("snowflake.cli._plugins.streamlit.commands.StreamlitManager")
 def test_failing_executing_command_sends_telemetry_data(
