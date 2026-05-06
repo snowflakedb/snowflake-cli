@@ -20,6 +20,7 @@
 
 ## New additions
 * Added a `--secondary-roles` option (plus matching `SNOWFLAKE_SECONDARY_ROLES` env var and `secondary_roles` config key) to `snow connection add` and the global connection overrides. The value is forwarded to `snowflake-connector-python` and accepts `ALL` or `NONE`, so sessions can be pinned to the primary role without running an extra `USE SECONDARY ROLES` statement.
+* Added a `--delta` option to `snow dcm plan` which maps to the `EXECUTE DCM PROJECT ... PLAN DELTA` SQL and plans only the definitions whose SQL hash has changed since the last deployment. Faster than a full plan, but may miss cross-entity dependency changes — use a full plan when those matter.
 
 ## Fixes and improvements
 * Fixed `SELECT *` output being corrupted when joined tables share column names. Duplicate column names are now disambiguated by appending a numeric suffix (e.g. `NAME`, `NAME_2`).

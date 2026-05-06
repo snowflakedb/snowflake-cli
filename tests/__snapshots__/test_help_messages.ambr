@@ -9344,6 +9344,10 @@
   |                              default_target if not specified.                |
   | --save-output                Save command response and artifacts to local    |
   |                              'out/' directory.                               |
+  | --delta                      Plan only the changes whose definition hash     |
+  |                              differs from the last deployment. Faster than a |
+  |                              full plan, but may miss cross-entity            |
+  |                              dependencies.                                   |
   | --help         -h            Show this message and exit.                     |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+

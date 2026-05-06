@@ -877,6 +877,7 @@ class TestDCMPlan:
             from_stage="TMP_STAGE",
             variables=["key=value"],
             save_output=False,
+            delta=False,
         )
 
     def test_plan_project_with_save_output(
@@ -911,6 +912,42 @@ class TestDCMPlan:
             from_stage="TMP_STAGE",
             variables=None,
             save_output=True,
+            delta=False,
+        )
+
+    def test_plan_project_with_delta(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_dcm_manager().plan.return_value = mock_cursor(
+            rows=[("[]",)], columns=("operations",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                [
+                    "dcm",
+                    "plan",
+                    "fooBar",
+                    "--delta",
+                ]
+            )
+        assert result.exit_code == 0, result.output
+
+        mock_dcm_manager().plan.assert_called_once_with(
+            project_identifier=FQN.from_string("fooBar"),
+            configuration=None,
+            from_stage="TMP_STAGE",
+            variables=None,
+            save_output=False,
+            delta=True,
         )
 
     def test_plan_project_with_from_stage_fails(

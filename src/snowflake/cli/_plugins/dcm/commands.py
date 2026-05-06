@@ -494,6 +494,12 @@ def plan(
     variables: Optional[List[str]] = variables_flag,
     target: Optional[str] = target_option,
     save_output: bool = save_output_option,
+    delta: bool = typer.Option(
+        False,
+        "--delta",
+        help="Plan only the changes whose definition hash differs from the last deployment. Faster than a full plan, but may miss cross-entity dependencies.",
+        show_default=False,
+    ),
     **options,
 ):
     """
@@ -518,6 +524,7 @@ def plan(
             from_stage=effective_stage,
             variables=variables,
             save_output=save_output,
+            delta=delta,
         )
 
     return _process_plan_result(result, command_name="plan", save_output=save_output)
