@@ -19,9 +19,13 @@
 ## Deprecations
 
 ## New additions
+* Added a `--secondary-roles` option (plus matching `SNOWFLAKE_SECONDARY_ROLES` env var and `secondary_roles` config key) to `snow connection add` and the global connection overrides. The value is forwarded to `snowflake-connector-python` and accepts `ALL` or `NONE`, so sessions can be pinned to the primary role without running an extra `USE SECONDARY ROLES` statement.
+* Added `--force` flag to `snow spcs service drop` to allow dropping services that contain block storage volumes.
 
 ## Fixes and improvements
 * Snowsight URLs are now generated with a graceful fallback to `https://app.snowflake.com` when the connection's region or account cannot be resolved (for example, on Azure accounts whose host does not match the 6-part `<account>.<x>.<y>.<z>.snowflakecomputing.com` shape). Previously, commands such as `snow app run`, `snow streamlit deploy`, and `snow apps service get-endpoints` could fail purely because a precise URL could not be built even though the underlying deployment succeeded.
+* Fixed `SELECT *` output being corrupted when joined tables share column names. Duplicate column names are now disambiguated by appending a numeric suffix (e.g. `NAME`, `NAME_2`).
+* Fixed `snow connection generate-jwt` and `snow connection generate-workload-identity-token` failing with `Connection None is not configured` when used with `--temporary-connection`.
 
 
 # v3.17.0

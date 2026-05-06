@@ -43,6 +43,7 @@
       --oauth-enable-refresh-tokens
       --oauth-enable-single-use-refresh-tokens
       --client-store-temporary-credential
+      --secondary-roles <secondary_roles>
       --format <format>
       --verbose
       --debug
@@ -157,6 +158,9 @@
   
   :samp:`--client-store-temporary-credential`
     Store the temporary credential.
+  
+  :samp:`--secondary-roles {TEXT}`
+    Secondary roles mode applied when the session starts. Supported values are `ALL` and `NONE`; pass `NONE` to run the session only with the primary role.
   
   :samp:`--format [TABLE|JSON|JSON_EXT|CSV]`
     Specifies the output format. Default: TABLE.

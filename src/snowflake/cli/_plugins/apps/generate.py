@@ -16,15 +16,16 @@ import logging
 from textwrap import dedent
 from typing import Dict, Optional
 
-log = logging.getLogger(__name__)
+from snowflake.cli._plugins.apps.manager import DEFAULT_PERSONAL_WORKSPACE_NAME
 
-# Feature flags
-IS_PERSONAL_DB_SUPPORTED = False  # Will be enabled in the future
+log = logging.getLogger(__name__)
 
 
 def _generate_snowflake_yml(
     app_id: str,
     resolved: Dict[str, Optional[str]],
+    *,
+    use_workspace: bool,
 ) -> str:
     """Generate snowflake.yml content from pre-resolved configuration values.
 
@@ -37,6 +38,16 @@ def _generate_snowflake_yml(
 
     The artifact repository is omitted from the generated YAML; the CLI
     will default to ``<app-id>_REPO`` at deploy time.
+
+    When ``use_workspace`` is true (database resolved from the user's
+    personal database during ``snow app setup``), the generator emits
+    ``code_workspace`` as a fully-qualified identifier pointing at a shared
+    ``SNOWFLAKE_APPS`` workspace. Each app is uploaded into its own
+    subdirectory at deploy time, so a single workspace serves every app the
+    user owns.
+
+    Otherwise the generator emits ``code_stage`` as a bare stage name
+    resolved against the app's database and schema at deploy time.
     """
 
     if resolved.get("image_repository"):
@@ -53,11 +64,17 @@ def _generate_snowflake_yml(
     service_compute_pool = resolved["service_compute_pool"]
     build_eai = resolved.get("build_eai")
 
-    # code_stage is emitted as an identifier (``DB.SCHEMA.STAGE``) so it is
-    # self-contained and does not implicitly depend on the app's database
-    # and schema at deploy time.
-    code_stage_name = f"{app_id.upper()}_CODE"
-    code_stage_identifier = f"{database}.{schema}.{code_stage_name}"
+    if use_workspace:
+        # Shared workspace: all of the user's apps live as subdirectories
+        # under a single ``SNOWFLAKE_APPS`` workspace in their personal DB.
+        # Fully-qualified so it does not implicitly depend on the resolved
+        # database/schema.
+        code_storage_block = (
+            f"\n            code_workspace: "
+            f"{database}.{schema}.{DEFAULT_PERSONAL_WORKSPACE_NAME}\n"
+        )
+    else:
+        code_storage_block = f"\n            code_stage: {app_id.upper()}_CODE\n"
 
     build_eai_block = (
         f"\n            build_eai:\n              name: {build_eai}"
@@ -96,6 +113,6 @@ def _generate_snowflake_yml(
             service_compute_pool:
               name: {service_compute_pool}"""
         + build_eai_block
-        + f"\n            code_stage: {code_stage_identifier}\n"
+        + code_storage_block
     )
     return dedent(raw)

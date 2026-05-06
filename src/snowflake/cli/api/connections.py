@@ -69,6 +69,7 @@ class ConnectionContext:
     oauth_enable_refresh_tokens: Optional[bool] = None
     oauth_enable_single_use_refresh_tokens: Optional[bool] = None
     client_store_temporary_credential: Optional[bool] = None
+    secondary_roles: Optional[str] = None
 
     # Internal flag to track if config has been loaded
     _config_loaded: bool = field(default=False, repr=False, init=False)
@@ -112,6 +113,12 @@ class ConnectionContext:
         return self
 
     def update_from_config(self) -> ConnectionContext:
+        if self.temporary_connection:
+            # For temporary connections, all parameters come from CLI/env rather
+            # than a named connection in config.toml, so there is no config to merge.
+            self._config_loaded = True
+            return self
+
         connection_config = get_connection_dict(connection_name=self.connection_name)
         if "private_key_path" in connection_config:
             connection_config["private_key_file"] = connection_config[

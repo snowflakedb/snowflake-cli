@@ -424,6 +424,19 @@ ClientStoreTemporaryCredentialOption = typer.Option(
     rich_help_panel=_CONNECTION_SECTION,
 )
 
+SecondaryRolesOption = typer.Option(
+    None,
+    "--secondary-roles",
+    help=(
+        "Secondary roles mode applied when the session starts. "
+        "Supported values are `ALL` and `NONE`; pass `NONE` to run the "
+        "session only with the primary role."
+    ),
+    callback=_connection_callback("secondary_roles"),
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
 # Set default via callback to avoid including tempdir path in generated docs (snow --docs).
 # Use constant instead of None, as None is removed from telemetry data.
 _DIAG_LOG_DEFAULT_VALUE = "<system_temporary_directory>"
