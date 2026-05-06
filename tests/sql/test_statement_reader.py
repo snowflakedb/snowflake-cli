@@ -184,6 +184,41 @@ def test_read_files(tmp_path_factory: pytest.TempPathFactory):
     ]
 
 
+def test_read_files_utf8(tmp_path_factory: pytest.TempPathFactory):
+    # Regression: SQL files must be read as UTF-8 regardless of platform locale
+    # (e.g. cp932 on Japanese Windows). The bytes below are valid UTF-8 but
+    # would either fail to decode or decode to garbage under cp932/cp1252.
+    f1 = tmp_path_factory.mktemp("utf8") / "f1.sql"
+    f1.write_bytes("select '日本語' as 列;".encode("utf-8"))
+    f2 = tmp_path_factory.mktemp("utf8") / "f2.sql"
+    f2.write_bytes("-- コメント\nselect 'café' as colonne;".encode("utf-8"))
+
+    files = (SecurePath(f1), SecurePath(f2))
+    errors, cnt, compiled = compile_statements(
+        files_reader(files, WORKING_OPERATOR_FUNCS),
+    )
+
+    assert not errors, errors
+    assert cnt == 2
+    assert compiled == [
+        CompiledStatement(statement="select '日本語' as 列;"),
+        CompiledStatement(statement="-- コメント\nselect 'café' as colonne;"),
+    ]
+
+
+def test_source_file_utf8(tmp_path_factory: pytest.TempPathFactory):
+    # Files loaded via !source must also be decoded as UTF-8.
+    f1 = tmp_path_factory.mktemp("utf8_source") / "f1.sql"
+    f1.write_bytes("select '日本語';".encode("utf-8"))
+
+    source = query_reader(f"!source {f1.as_posix()};", WORKING_OPERATOR_FUNCS)
+    errors, cnt, compiled = compile_statements(source)
+
+    assert not errors, errors
+    assert cnt == 1
+    assert compiled == [CompiledStatement(statement="select '日本語';")]
+
+
 def test_parsed_source_repr():
     query = "select 1;"
 

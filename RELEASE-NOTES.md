@@ -25,6 +25,7 @@
 ## Fixes and improvements
 * Fixed `SELECT *` output being corrupted when joined tables share column names. Duplicate column names are now disambiguated by appending a numeric suffix (e.g. `NAME`, `NAME_2`).
 * Fixed `snow connection generate-jwt` and `snow connection generate-workload-identity-token` failing with `Connection None is not configured` when used with `--temporary-connection`.
+* Fixed `snow sql -f` and `!source` failing with `UnicodeDecodeError` when reading UTF-8 SQL files on platforms whose default locale encoding is not UTF-8 (e.g. cp932 on Japanese Windows). SQL files are now always decoded as UTF-8.
 
 
 # v3.17.0
