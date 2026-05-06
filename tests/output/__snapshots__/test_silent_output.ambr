@@ -111,7 +111,11 @@
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  |                                CSV]                   format. Defaults to    |
+  |                                                       the value of [cli]     |
+  |                                                       default_format in      |
+  |                                                       config.toml (or TABLE  |
+  |                                                       if unset).             |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |

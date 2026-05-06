@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Added `[cli] default_format` configuration option (also available as the `SNOWFLAKE_CLI_DEFAULT_FORMAT` environment variable) to set the default output format used when `--format` is not passed on the command line. Accepts `TABLE`, `JSON`, `JSON_EXT`, or `CSV` (case-insensitive); `--format` still takes precedence.
 
 ## Fixes and improvements
 * Fixed `SELECT *` output being corrupted when joined tables share column names. Duplicate column names are now disambiguated by appending a numeric suffix (e.g. `NAME`, `NAME_2`).

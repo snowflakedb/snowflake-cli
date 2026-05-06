@@ -159,7 +159,7 @@
     Store the temporary credential.
   
   :samp:`--format [TABLE|JSON|JSON_EXT|CSV]`
-    Specifies the output format. Default: TABLE.
+    Specifies the output format. Defaults to the value of `[cli] default_format` in config.toml (or `TABLE` if unset). Default: TABLE.
   
   :samp:`--verbose, -v`
     Displays log entries for log levels `info` and higher. Default: False.

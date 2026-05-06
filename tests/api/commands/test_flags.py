@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+import tempfile
+from pathlib import Path
 from unittest import mock
 from unittest.mock import Mock, create_autospec, patch
 
@@ -229,3 +232,87 @@ def test_cannot_callback_unknown_context_args(callback):
             opt=typer.Option(None, "--my-opt", callback=callback("attr_does_not_exist"))
         ):
             pass
+
+
+def _toml_config_with_default_format(default_format: str) -> Path:
+    content = (
+        "[connections]\n"
+        "[connections.default]\n"
+        'database = "db"\n'
+        "\n"
+        "[cli]\n"
+        f'default_format = "{default_format}"\n'
+    )
+    tmp = tempfile.NamedTemporaryFile(
+        mode="w", suffix=".toml", delete=False, encoding="utf-8"
+    )
+    tmp.write(content)
+    tmp.close()
+    Path(tmp.name).chmod(0o600)
+    return Path(tmp.name)
+
+
+@mock.patch.dict(os.environ, {}, clear=True)
+def test_default_format_from_config(runner):
+    config_path = _toml_config_with_default_format("json")
+    try:
+        result = runner.invoke_with_config_file(
+            str(config_path), ["connection", "list"]
+        )
+        assert result.exit_code == 0, result.output
+        # JSON output starts with a '[' for a list result; table output would be ASCII art.
+        assert result.output.lstrip().startswith("["), result.output
+    finally:
+        config_path.unlink(missing_ok=True)
+
+
+@mock.patch.dict(os.environ, {"SNOWFLAKE_CLI_DEFAULT_FORMAT": "json"}, clear=False)
+def test_default_format_from_env_var(runner):
+    # No [cli] default_format in config — env var alone should take effect.
+    result = runner.invoke(["connection", "list"])
+    assert result.exit_code == 0, result.output
+    assert result.output.lstrip().startswith("["), result.output
+
+
+@mock.patch.dict(os.environ, {}, clear=True)
+def test_cli_flag_overrides_config_default_format(runner):
+    config_path = _toml_config_with_default_format("json")
+    try:
+        # Config says json, CLI says csv — CLI wins.
+        result = runner.invoke_with_config_file(
+            str(config_path), ["connection", "list", "--format", "csv"]
+        )
+        assert result.exit_code == 0, result.output
+        # CSV output doesn't start with '[' and doesn't contain ASCII table borders.
+        assert not result.output.lstrip().startswith("["), result.output
+        assert "+---" not in result.output, result.output
+    finally:
+        config_path.unlink(missing_ok=True)
+
+
+@mock.patch.dict(os.environ, {}, clear=True)
+def test_invalid_default_format_in_config_errors(runner):
+    config_path = _toml_config_with_default_format("yaml")
+    try:
+        result = runner.invoke_with_config_file(
+            str(config_path), ["connection", "list"]
+        )
+        assert result.exit_code != 0
+        assert "default_format" in result.output
+        assert "yaml" in result.output.lower()
+    finally:
+        config_path.unlink(missing_ok=True)
+
+
+@mock.patch.dict(os.environ, {}, clear=True)
+def test_default_format_case_insensitive(runner):
+    # Accept lowercase values in config.toml, same as the CLI flag.
+    config_path = _toml_config_with_default_format("JsOn")
+    try:
+        result = runner.invoke_with_config_file(
+            str(config_path), ["connection", "list"]
+        )
+        assert result.exit_code == 0, result.output
+        assert result.output.lstrip().startswith("["), result.output
+    finally:
+        config_path.unlink(missing_ok=True)
