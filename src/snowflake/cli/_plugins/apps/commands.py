@@ -122,6 +122,7 @@ def snowflake_app_setup(
     metrics = ctx.metrics
     with metrics.span("snowflake_app.setup.resolve_defaults"):
         params = manager.fetch_snow_apps_parameters()
+        managed_compute_pool_enabled = manager.is_managed_compute_pool_enabled()
 
     def _resolve(
         user_input=None,
@@ -174,13 +175,26 @@ def snowflake_app_setup(
         ),
         # TODO: Consider removing --compute-pool argument once services can run
         # in the system default compute pool (SYSTEM_COMPUTE_POOL_CPU).
-        "build_compute_pool": _resolve(
-            user_input=compute_pool,
-            account_param=params.get("build_compute_pool"),
+        # When the backend opts the account into managed compute pools we
+        # deliberately skip resolving both ``build_compute_pool`` and
+        # ``service_compute_pool`` so the fields are omitted from the
+        # generated ``snowflake.yml`` and the server picks the pools at
+        # deploy time.
+        "build_compute_pool": (
+            (None, SOURCE_MISSING)
+            if managed_compute_pool_enabled
+            else _resolve(
+                user_input=compute_pool,
+                account_param=params.get("build_compute_pool"),
+            )
         ),
-        "service_compute_pool": _resolve(
-            user_input=compute_pool,
-            account_param=params.get("service_compute_pool"),
+        "service_compute_pool": (
+            (None, SOURCE_MISSING)
+            if managed_compute_pool_enabled
+            else _resolve(
+                user_input=compute_pool,
+                account_param=params.get("service_compute_pool"),
+            )
         ),
         # TODO: Remove --build-eai argument once the builder service no longer
         # requires an external access integration.
@@ -458,6 +472,33 @@ def snowflake_app_deploy(
     service_compute_pool = defaults["service_compute_pool"]
     query_warehouse = defaults["query_warehouse"]
     build_eai = defaults["build_eai"]
+
+    # User-supplied compute pools are always passed through to the server
+    # (forwarded as the 4th argument to
+    # ``SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO`` and emitted as
+    # ``IN COMPUTE POOL`` in ``CREATE APPLICATION SERVICE``).  However, when
+    # the account has managed compute pools enforced
+    # (``ENABLE_APPLICATION_SERVICE_MANAGED_COMPUTE_POOL`` is true and the
+    # companion ``..._FALLBACK`` parameter is false), the server may
+    # reject or override those values.  In that case we warn the user up
+    # front so they know why the deploy might not behave as configured.
+    if (
+        (build_compute_pool or service_compute_pool)
+        and manager.is_managed_compute_pool_enabled()
+        and not manager.is_managed_compute_pool_fallback_enabled()
+    ):
+        if build_compute_pool:
+            cli_console.warning(
+                f"build_compute_pool '{build_compute_pool}' is configured "
+                "but managed compute pools are enforced for this account; "
+                "the server may not honor this value."
+            )
+        if service_compute_pool:
+            cli_console.warning(
+                f"service_compute_pool '{service_compute_pool}' is configured "
+                "but managed compute pools are enforced for this account; "
+                "the server may not honor this value."
+            )
 
     ar_name = defaults["artifact_repository"]
     ar_database = defaults["artifact_repo_database"]
