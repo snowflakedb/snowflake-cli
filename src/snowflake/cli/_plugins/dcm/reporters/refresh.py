@@ -34,7 +34,6 @@ class RefreshStatistics(BaseModel):
 class RefreshTableResult(BaseModel):
     table_name: str = "UNKNOWN"
     statistics: Optional[RefreshStatistics] = None
-    data_timestamp: Optional[str] = None
 
 
 class DtsRefreshResult(BaseModel):
