@@ -122,11 +122,19 @@ def sync_deploy_root_with_stage(
     elif not package_name:
         # ensure stage exists
         stage_fqn = FQN.from_stage(stage_path_parts.stage)
+        stage_manager = StageManager()
         if use_temporary_stage:
             console.step(f"Creating temporary stage {stage_fqn}.")
+            stage_manager.create(fqn=stage_fqn, temporary=True)
+        elif stage_manager.stage_exists(stage_fqn):
+            # CREATE STAGE IF NOT EXISTS still requires CREATE STAGE on the
+            # schema, so roles that can only USE an existing stage would get
+            # INSUFFICIENT_PRIVILEGES here. Skip the create when the stage is
+            # already visible to the caller.
+            console.step(f"Using existing stage {stage_fqn}.")
         else:
             console.step(f"Creating stage {stage_fqn} if not exists.")
-        StageManager().create(fqn=stage_fqn, temporary=use_temporary_stage)
+            stage_manager.create(fqn=stage_fqn, temporary=False)
     else:
         # ensure stage exists - nativeapp behavior
         sql_facade = get_snowflake_facade()

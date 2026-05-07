@@ -40,9 +40,18 @@ from snowflake.cli.api.commands.common import (
 )
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import PYTHON_3_12
+from snowflake.cli.api.errno import (
+    DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
+    INSUFFICIENT_PRIVILEGES,
+)
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.project.util import VALID_IDENTIFIER_REGEX, to_string_literal
+from snowflake.cli.api.project.util import (
+    VALID_IDENTIFIER_REGEX,
+    identifier_to_show_like_pattern,
+    to_identifier,
+    to_string_literal,
+)
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
@@ -542,6 +551,34 @@ class StageManager(SqlExecutionMixin):
         with self.use_role(role) if role else nullcontext():
             stage_path = self.build_path(stage_name) / path
             return self.execute_query(f"remove {stage_path.path_for_sql()}")
+
+    def stage_exists(self, fqn: FQN) -> bool:
+        """
+        Returns True if the caller can see a stage named ``fqn`` via SHOW STAGES.
+
+        Used to skip CREATE STAGE IF NOT EXISTS when the stage already exists —
+        that statement requires CREATE STAGE on the schema even when it's a no-op,
+        which breaks deploys for roles that only have USAGE/READ/WRITE on the stage.
+        """
+        pattern = identifier_to_show_like_pattern(to_identifier(fqn.name))
+        if fqn.database and fqn.schema:
+            in_clause = f" in schema {fqn.database}.{fqn.schema}"
+        elif fqn.schema:
+            in_clause = f" in schema {fqn.schema}"
+        elif fqn.database:
+            in_clause = f" in database {fqn.database}"
+        else:
+            in_clause = ""
+        try:
+            result = self.execute_query(f"show stages like {pattern}{in_clause}")
+        except ProgrammingError as err:
+            if err.errno in (
+                DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
+                INSUFFICIENT_PRIVILEGES,
+            ):
+                return False
+            raise
+        return result.rowcount > 0
 
     def create(
         self,

@@ -2,7 +2,7 @@
 # name: test_deploy_default_stage_paths[notebook1][query]
   '''
   DESCRIBE NOTEBOOK IDENTIFIER('notebook1');
-  create stage if not exists IDENTIFIER('notebooks')
+  show stages like 'NOTEBOOKS'
   CREATE OR REPLACE NOTEBOOK IDENTIFIER('notebook1')
   FROM '@notebooks'
   QUERY_WAREHOUSE = 'xsmall'
@@ -14,7 +14,7 @@
 # name: test_deploy_default_stage_paths[notebook2][query]
   '''
   DESCRIBE NOTEBOOK IDENTIFIER('notebook2');
-  create stage if not exists IDENTIFIER('notebooks')
+  show stages like 'NOTEBOOKS'
   CREATE OR REPLACE NOTEBOOK IDENTIFIER('notebook2')
   FROM '@notebooks'
   QUERY_WAREHOUSE = 'xsmall'
@@ -26,7 +26,7 @@
 # name: test_deploy_single_notebook[notebook_containerized_v2][query]
   '''
   DESCRIBE NOTEBOOK IDENTIFIER('containerized_notebook');
-  create stage if not exists IDENTIFIER('notebooks')
+  show stages like 'NOTEBOOKS'
   CREATE OR REPLACE NOTEBOOK IDENTIFIER('containerized_notebook')
   FROM '@notebooks'
   QUERY_WAREHOUSE = 'xsmall'
@@ -40,7 +40,7 @@
 # name: test_deploy_single_notebook[notebook_v2][query]
   '''
   DESCRIBE NOTEBOOK IDENTIFIER('custom_identifier');
-  create stage if not exists IDENTIFIER('custom_stage')
+  show stages like 'CUSTOM\\_STAGE'
   CREATE OR REPLACE NOTEBOOK IDENTIFIER('custom_identifier')
   FROM '@custom_stage'
   QUERY_WAREHOUSE = 'xsmall'

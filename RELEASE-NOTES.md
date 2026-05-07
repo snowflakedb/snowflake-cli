@@ -26,6 +26,7 @@
 * Fixed `SELECT *` output being corrupted when joined tables share column names. Duplicate column names are now disambiguated by appending a numeric suffix (e.g. `NAME`, `NAME_2`).
 * Fixed `snow connection generate-jwt` and `snow connection generate-workload-identity-token` failing with `Connection None is not configured` when used with `--temporary-connection`.
 * The internal connection cache now remembers failed connect attempts and re-raises the original exception on subsequent accesses within the same process, instead of re-dialing Snowflake every time a command accesses the shared connection. This fixes, among other cases, the customer-visible duplicate `LOGIN_HISTORY` events (and `OVERFLOW_FAILURE_EVENTS_ELIDED`) previously emitted when a `snow` invocation was rejected by an authentication policy.
+* Entity deploys (`snow notebook deploy`, `snow streamlit deploy`, `snow dcm deploy`, and other commands that sync artifacts to a stage) now check whether the target stage already exists before issuing `CREATE STAGE IF NOT EXISTS`. This means a role that holds only `USAGE`/`READ`/`WRITE` on a pre-existing stage can deploy without also being granted `CREATE STAGE` on the schema. In particular, `snow notebook deploy` no longer fails for roles that were previously forced to hold `CREATE STAGE` purely to satisfy the no-op `IF NOT EXISTS` path.
 
 
 # v3.17.0
