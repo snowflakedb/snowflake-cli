@@ -711,6 +711,15 @@ class ServiceManager(SqlExecutionMixin):
     def resume(self, service_name: str):
         return self.execute_query(f"alter service {service_name} resume")
 
+    def drop(
+        self, service_name: str, if_exists: bool = False, force: bool = False
+    ) -> SnowflakeCursor:
+        if_exists_clause = " if exists" if if_exists else ""
+        force_clause = " force" if force else ""
+        return self.execute_query(
+            f"drop service{if_exists_clause} {service_name}{force_clause}"
+        )
+
     def set_property(
         self,
         service_name: str,

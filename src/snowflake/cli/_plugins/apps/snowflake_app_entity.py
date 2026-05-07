@@ -19,7 +19,7 @@ from snowflake.cli.api.entities.common import EntityBase
 
 
 class SnowflakeAppEntity(EntityBase[SnowflakeAppEntityModel]):
-    """Entity class for Snowflake App (snowflake-app) type.
+    """Entity class for Snowflake Apps Deploy (snowflake-app) type.
 
     Note: This entity does not yet implement action methods (e.g. bundle, deploy,
     drop, etc.), so commands like ``snow ws deploy --entity-id <app>`` will not

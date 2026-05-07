@@ -1,4 +1,4 @@
-"""Minimal HTTP server used as a Snowflake Apps integration-test fixture."""
+"""Minimal HTTP server used as a Snowflake Apps Deploy integration-test fixture."""
 
 from http.server import HTTPServer, BaseHTTPRequestHandler
 

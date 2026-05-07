@@ -21,6 +21,9 @@ from unittest import mock
 
 import pytest
 import tomlkit
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 from snowflake.cli._plugins.connection import commands as connection_commands
 from snowflake.cli.api.config import ConnectionConfig
 from snowflake.cli.api.config_ng.masking import MASKED_VALUE
@@ -681,9 +684,6 @@ def test_temporary_connection(mock_connector, mock_ctx, option, runner):
 def test_key_pair_authentication(
     mock_connector, mock_ctx, runner, private_key_flag_name
 ):
-    from cryptography.hazmat.backends import default_backend
-    from cryptography.hazmat.primitives import serialization
-    from cryptography.hazmat.primitives.asymmetric import rsa
 
     ctx = mock_ctx()
     mock_connector.return_value = ctx
@@ -802,6 +802,42 @@ def test_session_and_master_tokens(mock_connector, mock_ctx, runner):
     )
 
 
+@mock.patch.dict(
+    os.environ,
+    {
+        "SNOWFLAKE_HOST": "env-host.snowflakecomputing.com",
+        "SNOWFLAKE_PORT": "4242",
+    },
+    clear=True,
+)
+@mock.patch("snowflake.connector.connect")
+def test_host_and_port_are_read_from_env_for_temporary_connection(
+    mock_connector, mock_ctx, runner
+):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(
+        [
+            "object",
+            "list",
+            "warehouse",
+            "--temporary-connection",
+            "--account",
+            "test_account",
+            "--user",
+            "snowcli_test",
+            "--password",
+            "top_secret",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    kwargs = mock_connector.call_args.kwargs
+    assert kwargs["host"] == "env-host.snowflakecomputing.com"
+    assert kwargs["port"] == "4242"
+
+
 @mock.patch("snowflake.connector.connect")
 def test_token_file_path_tokens(mock_connector, mock_ctx, runner, temporary_directory):
     ctx = mock_ctx()
@@ -874,6 +910,81 @@ def test_key_pair_authentication_from_config(
         authenticator="SNOWFLAKE_JWT",
         private_key="secret value",
         application_name="snowcli",
+    )
+
+
+@mock.patch.dict(os.environ, {}, clear=True)
+def test_key_pair_authentication_no_passphrase_error(
+    mock_ctx, temporary_directory, runner
+):
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    encrypted_pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.BestAvailableEncryption(b"notempty"),
+    )
+
+    with NamedTemporaryFile("wb", suffix=".p8") as tmp_file:
+        tmp_file.write(encrypted_pem)
+        tmp_file.flush()
+
+        result = runner.invoke(
+            [
+                "object",
+                "list",
+                "warehouse",
+                "--temporary-connection",
+                "--account",
+                "test_account",
+                "--user",
+                "snowcli_test",
+                "--authenticator",
+                "SNOWFLAKE_JWT",
+                "--private-key-file",
+                tmp_file.name,
+            ]
+        )
+
+    assert result.exit_code == 1
+    assert "Encrypted private key, you must provide the passphrase" in result.output
+    assert "PRIVATE_KEY_PASSPHRASE" in result.output
+
+
+@mock.patch.dict(os.environ, {"PRIVATE_KEY_PASSPHRASE": ""}, clear=True)
+def test_key_pair_authentication_empty_passphrase_error(
+    mock_ctx, temporary_directory, runner
+):
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    encrypted_pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.BestAvailableEncryption(b"notempty"),
+    )
+
+    with NamedTemporaryFile("wb", suffix=".p8") as tmp_file:
+        tmp_file.write(encrypted_pem)
+        tmp_file.flush()
+
+        result = runner.invoke(
+            [
+                "object",
+                "list",
+                "warehouse",
+                "--temporary-connection",
+                "--account",
+                "test_account",
+                "--user",
+                "snowcli_test",
+                "--authenticator",
+                "SNOWFLAKE_JWT",
+                "--private-key-file",
+                tmp_file.name,
+            ]
+        )
+
+    assert result.exit_code == 1
+    assert (
+        "PRIVATE_KEY_PASSPHRASE environment variable is set but empty" in result.output
     )
 
 
@@ -1445,6 +1556,43 @@ def test_generate_jwt_honors_params(
     mocked_get_token.assert_called_once_with(**expected_params)
 
 
+@mock.patch(
+    "snowflake.cli._plugins.connection.commands.connector.auth.get_token_from_private_key"
+)
+@mock.patch.dict(os.environ, {}, clear=True)
+def test_generate_jwt_with_temporary_connection(
+    mocked_get_token, runner, named_temporary_file
+):
+    """Regression test for SNOW-3000366: --temporary-connection must not require
+    a configured connection in config.toml when generating a JWT."""
+    mocked_get_token.return_value = "funny token"
+
+    with named_temporary_file() as f:
+        f.write_text("secret from file")
+        result = runner.invoke(
+            [
+                "connection",
+                "generate-jwt",
+                "--temporary-connection",
+                "--authenticator",
+                "SNOWFLAKE_JWT",
+                "--user",
+                "FooBar",
+                "--account",
+                "account1",
+                "--private-key-file",
+                f,
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert "Connection None is not configured" not in result.output
+    assert result.output == "funny token\n"
+    mocked_get_token.assert_called_once_with(
+        user="FooBar", account="account1", privatekey_path=str(f), key_password=None
+    )
+
+
 @pytest.mark.parametrize("attribute", ["account", "user", "private_key_file"])
 @mock.patch(
     "snowflake.cli._plugins.connection.commands.connector.auth.get_token_from_private_key"
@@ -1488,6 +1636,34 @@ def test_generate_workload_identity_token(mock_create_attestation, runner):
     )
 
     assert result.exit_code == 0, result.output
+    assert "test-wif-token" in result.output
+    from snowflake.connector.wif_util import AttestationProvider
+
+    mock_create_attestation.assert_called_once_with(
+        provider=AttestationProvider.GCP, token=None
+    )
+
+
+@mock.patch("snowflake.connector.wif_util.create_attestation")
+def test_generate_workload_identity_token_with_temporary_connection(
+    mock_create_attestation, runner
+):
+    """Regression test for SNOW-3000366: --temporary-connection must not require
+    a configured connection in config.toml when generating a WIF token."""
+    mock_create_attestation.return_value = mock.MagicMock(credential="test-wif-token")
+
+    result = runner.invoke(
+        [
+            "connection",
+            "generate-workload-identity-token",
+            "--temporary-connection",
+            "--workload-identity-provider",
+            "GCP",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Connection None is not configured" not in result.output
     assert "test-wif-token" in result.output
     from snowflake.connector.wif_util import AttestationProvider
 
@@ -1684,6 +1860,49 @@ def test_connection_add_no_interactive(mock_add, runner):
             authenticator=None,
             private_key_file=None,
             token_file_path=None,
+            secondary_roles=None,
+            _other_settings={},
+        ),
+    )
+
+
+@mock.patch("snowflake.cli._plugins.connection.commands.add_connection_to_proper_file")
+def test_connection_add_secondary_roles(mock_add, runner):
+    mock_add.return_value = "file_name"
+    result = runner.invoke(
+        [
+            "connection",
+            "add",
+            "--connection-name",
+            "conn1",
+            "--username",
+            "user1",
+            "--account",
+            "account1",
+            "--secondary-roles",
+            "ALL",
+            "--no-interactive",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+
+    mock_add.assert_called_once_with(
+        "conn1",
+        ConnectionConfig(
+            account="account1",
+            user="user1",
+            host=None,
+            region=None,
+            port=None,
+            database=None,
+            schema=None,
+            warehouse=None,
+            role=None,
+            authenticator=None,
+            private_key_file=None,
+            token_file_path=None,
+            secondary_roles="ALL",
             _other_settings={},
         ),
     )
@@ -1714,7 +1933,8 @@ def test_connection_add_no_key_pair_setup_if_private_key_provided(
         "\n"  # authenticator:
         "\n"  # workload identity provider:
         f"{key}\n"  # private key file:
-        "\n",  # token file path:
+        "\n"  # token file path:
+        "\n",  # secondary roles:
     )
     assert result.exit_code == 0, result.output
     assert result.output == dedent(
@@ -1734,6 +1954,7 @@ def test_connection_add_no_key_pair_setup_if_private_key_provided(
         Enter workload identity provider: 
         Enter private key file: {key.resolve()}
         Enter token file path: 
+        Enter secondary roles: 
         Wrote new connection conn to {test_snowcli_config}
         """
     )

@@ -20,17 +20,22 @@ import re
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Set, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, Optional, Set, TypeVar
 
-from snowflake.cli._plugins.apps.generate import IS_PERSONAL_DB_SUPPORTED
-from snowflake.cli._plugins.apps.snowflake_app_entity_model import DEFAULT_APP_PORT
+DEFAULT_PERSONAL_SCHEMA = "PUBLIC"
+# Shared workspace name used when ``snow app setup`` resolves the destination
+# database from the user's personal database. All of the user's apps live as
+# subdirectories under this single workspace.
+DEFAULT_PERSONAL_WORKSPACE_NAME = "SNOWFLAKE_APPS"
+WORKSPACE_LIVE_VERSION_PATH = "versions/live"
 
 if TYPE_CHECKING:
     from snowflake.cli._plugins.apps.snowflake_app_entity_model import (
         SnowflakeAppEntityModel,
     )
 from snowflake.cli._plugins.object.manager import ObjectManager
-from snowflake.cli.api.artifacts.utils import bundle_artifacts
+from snowflake.cli.api.artifacts.bundle_map import BundleMap
+from snowflake.cli.api.artifacts.utils import symlink_or_copy
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliError
@@ -38,6 +43,7 @@ from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import ProjectPaths
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.cli.api.utils.path_utils import resolve_without_follow
 from snowflake.connector.cursor import DictCursor
 from snowflake.connector.errors import ProgrammingError
 
@@ -45,15 +51,7 @@ log = logging.getLogger(__name__)
 
 DEFINITION_FILENAME = "snowflake.yml"
 SNOWFLAKE_APP_ENTITY_TYPE = "snowflake-app"
-# TODO: Update to "app" after migration from __app
-_APP_COMMAND_NAME = "__app"
 
-DEFAULT_IMAGE_REPOSITORY = "IMAGE_REPO"
-
-# TODO: Remove config table once DEFAULT_SNOWFLAKE_APPS_* account parameters
-# are rolled out to production and configurable in Snowsight (week of 2026-04-06).
-APP_DEFAULTS_TABLE = "APPS.PUBLIC.SNOW_APP_DEFAULTS"
-APP_DEFAULTS_INTEGRATION = "snowflake-apps"
 
 # Mapping from SHOW PARAMETERS result names to internal resolution keys.
 _SNOW_APPS_PARAM_MAP = {
@@ -65,8 +63,22 @@ _SNOW_APPS_PARAM_MAP = {
     "DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA": "schema",
 }
 
-_BUILD_IMAGE = "/snowflake/images/snowflake_images/sf-image-build:0.0.1"
-_SERVICE_PLACEHOLDER_IMAGE = "/snowflake/images/snowflake_images/sf-image-build:0.0.1"
+# Backend parameter that opts an account into Snowflake-managed build compute
+# pools.  When enabled, the CLI omits ``build_compute_pool`` from generated
+# project files and forwards an empty string to
+# ``SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO`` so the server allocates a
+# managed pool on the user's behalf.
+MANAGED_COMPUTE_POOL_PARAM = "ENABLE_APPLICATION_SERVICE_MANAGED_COMPUTE_POOL"
+
+# Companion to :data:`MANAGED_COMPUTE_POOL_PARAM`. When the managed-pool
+# parameter is on, this parameter controls whether the server falls back to
+# user-specified compute pools (``true``) or strictly enforces the managed
+# pool (``false``). The CLI uses it to decide whether to honor or strip
+# ``build_compute_pool`` / ``service_compute_pool`` values supplied via
+# ``snowflake.yml`` during ``snow app deploy``.
+MANAGED_COMPUTE_POOL_FALLBACK_PARAM = (
+    "ENABLE_APPLICATION_SERVICE_MANAGED_COMPUTE_POOL_FALLBACK"
+)
 
 T = TypeVar("T")
 
@@ -154,24 +166,26 @@ def _object_exists(object_type: str, name: str) -> bool:
 def _resolve_deploy_defaults(
     entity: "SnowflakeAppEntityModel",
     manager: "SnowflakeAppManager",
+    app_name: Optional[str] = None,
 ) -> Dict[str, Optional[str]]:
-    """Resolve deploy defaults using a five-tier precedence:
+    """Resolve deploy defaults using a four-tier precedence:
 
     1. Values explicitly set in ``snowflake.yml`` (highest priority)
     2. SnowApps parameters (``SHOW PARAMETERS LIKE 'DEFAULT_SNOWFLAKE_APPS_%' IN USER``)
-    3. Values from the ``APP_DEFAULTS_TABLE`` config table
-    4. Built-in defaults (personal DB for database, IMAGE_REPO for image repository)
-    5. Current session values (lowest priority)
+    3. Built-in defaults (personal DB for database, ``<app-id>_REPO`` for artifact repository)
+    4. Current session values (lowest priority)
 
     Returns a dict with keys ``query_warehouse``, ``build_compute_pool``,
-    ``service_compute_pool``, ``build_eai``, ``image_repository``,
-    ``image_repo_database``, ``image_repo_schema``, ``database``, and
-    ``schema``.  Any of them may still be ``None`` if no source provides
-    a value.
+    ``service_compute_pool``, ``build_eai``, ``artifact_repository``,
+    ``artifact_repo_database``, ``artifact_repo_schema``, ``database``,
+    and ``schema``.  Any of them may still be ``None`` if no source
+    provides a value.
     """
 
     # ── 1. snowflake.yml values ───────────────────────────────────────
     fqn = entity.fqn
+    if app_name is None:
+        app_name = fqn.name
     yml_vals: Dict[str, Optional[str]] = {
         "query_warehouse": entity.query_warehouse,
         "build_compute_pool": (
@@ -181,14 +195,14 @@ def _resolve_deploy_defaults(
             entity.service_compute_pool.name if entity.service_compute_pool else None
         ),
         "build_eai": entity.build_eai.name if entity.build_eai else None,
-        "image_repository": (
-            entity.image_repository.name if entity.image_repository else None
+        "artifact_repository": (
+            entity.artifact_repository.name if entity.artifact_repository else None
         ),
-        "image_repo_database": (
-            entity.image_repository.database if entity.image_repository else None
+        "artifact_repo_database": (
+            entity.artifact_repository.database if entity.artifact_repository else None
         ),
-        "image_repo_schema": (
-            entity.image_repository.schema_ if entity.image_repository else None
+        "artifact_repo_schema": (
+            entity.artifact_repository.schema_ if entity.artifact_repository else None
         ),
         "database": fqn.database,
         "schema": fqn.schema,
@@ -204,38 +218,16 @@ def _resolve_deploy_defaults(
         )
         param_vals = dict(raw_params)
 
-    # ── 3. Config-table values ────────────────────────────────────────
-    config_table_vals: Dict[str, Optional[str]] = {}
-    role = manager.current_role()
-    if role:
-        raw = manager.fetch_config_table_defaults(role)
-        if raw:
-            cli_console.step(
-                f"Loaded config-table defaults for role {role}: "
-                + ", ".join(f"{k}={v}" for k, v in raw.items())
-            )
-        config_table_vals = {
-            "query_warehouse": raw.get("warehouse"),
-            "build_compute_pool": raw.get("compute_pool"),
-            "service_compute_pool": raw.get("compute_pool"),
-            "build_eai": raw.get("eai"),
-            "image_repository": raw.get("image_repository"),
-            "image_repo_database": raw.get("image_repo_database"),
-            "image_repo_schema": raw.get("image_repo_schema"),
-            "database": raw.get("database"),
-            "schema": raw.get("schema"),
-        }
-
-    # ── 4. Built-in defaults ────────────────────────────────────────────
-    from snowflake.cli.api.project.util import get_env_username
-
+    # ── 3. Built-in defaults ────────────────────────────────────────────
     default_vals: Dict[str, Optional[str]] = {
-        "image_repository": DEFAULT_IMAGE_REPOSITORY,
+        "artifact_repository": f"{app_name}_REPO",
     }
-    if IS_PERSONAL_DB_SUPPORTED:
-        default_vals["database"] = f"USER${get_env_username().upper()}"
+    personal_db = manager.get_personal_database()
+    if personal_db:
+        default_vals["database"] = personal_db
+        default_vals["schema"] = DEFAULT_PERSONAL_SCHEMA
 
-    # ── 5. Current session values ─────────────────────────────────────
+    # ── 4. Current session values ─────────────────────────────────────
     ctx = get_cli_context()
     conn = ctx.connection_context
     curr_session_vals: Dict[str, Optional[str]] = {
@@ -246,18 +238,13 @@ def _resolve_deploy_defaults(
 
     # ── Merge (first non-None wins) ──────────────────────────────────
     all_keys = (
-        set(yml_vals)
-        | set(param_vals)
-        | set(config_table_vals)
-        | set(default_vals)
-        | set(curr_session_vals)
+        set(yml_vals) | set(param_vals) | set(default_vals) | set(curr_session_vals)
     )
     resolved: Dict[str, Optional[str]] = {}
     for key in all_keys:
         for source in (
             yml_vals,
             param_vals,
-            config_table_vals,
             default_vals,
             curr_session_vals,
         ):
@@ -268,11 +255,11 @@ def _resolve_deploy_defaults(
         else:
             resolved[key] = None
 
-    # Image repo db/schema default to the resolved database/schema.
-    if not resolved.get("image_repo_database"):
-        resolved["image_repo_database"] = resolved.get("database")
-    if not resolved.get("image_repo_schema"):
-        resolved["image_repo_schema"] = resolved.get("schema")
+    # Artifact repo db/schema default to the resolved database/schema.
+    if not resolved.get("artifact_repo_database"):
+        resolved["artifact_repo_database"] = resolved.get("database")
+    if not resolved.get("artifact_repo_schema"):
+        resolved["artifact_repo_schema"] = resolved.get("schema")
 
     return resolved
 
@@ -283,10 +270,7 @@ def _get_snowflake_app_entities() -> Dict[str, Any]:
     project_def = ctx.project_definition
 
     if project_def is None:
-        raise CliError(
-            f"No {DEFINITION_FILENAME} found. "
-            f"Run 'snow {_APP_COMMAND_NAME} setup' first."
-        )
+        raise CliError(f"No {DEFINITION_FILENAME} found. Run 'snow app setup' first.")
 
     # Get entities with type "snowflake-app"
     snowflake_apps = {}
@@ -313,7 +297,7 @@ def _resolve_entity_id(entity_id: Optional[str]) -> str:
     if len(snowflake_apps) == 0:
         raise CliError(
             f"No snowflake-app entities found in {DEFINITION_FILENAME}. "
-            f"Add a snowflake-app entity or run 'snow {_APP_COMMAND_NAME} setup' first."
+            f"Add a snowflake-app entity or run 'snow app setup' first."
         )
     elif len(snowflake_apps) == 1:
         return list(snowflake_apps.keys())[0]
@@ -350,7 +334,8 @@ def perform_bundle(
     temporary *bundle root* directory under ``<project_root>/output/bundle``.
 
     This function is the shared implementation behind both
-    ``snow <__app> bundle`` and the bundling step of ``snow <__app> deploy``.
+    ``snow app bundle`` and the bundling step of ``snow app deploy`` for
+    ``snowflake-app`` entities.
 
     Returns the :class:`ProjectPaths` instance so callers can inspect or
     upload the bundle root, and are responsible for cleanup via
@@ -364,9 +349,37 @@ def perform_bundle(
     SecurePath(project_paths.bundle_root).mkdir(parents=True, exist_ok=True)
 
     cli_console.step(f"Bundling source files for '{resolved_entity_id}'")
-    bundle_artifacts(project_paths, artifacts)
+    _bundle_app_artifacts(project_paths, artifacts)
 
     return project_paths
+
+
+def _bundle_app_artifacts(project_paths: ProjectPaths, artifacts) -> BundleMap:
+    """Bundle snowflake-app artifacts while excluding the active bundle root subtree."""
+    bundle_root = resolve_without_follow(project_paths.bundle_root)
+    bundle_map = BundleMap(
+        project_root=project_paths.project_root,
+        deploy_root=project_paths.bundle_root,
+    )
+    for artifact in artifacts:
+        bundle_map.add(artifact)
+
+    def _exclude_bundle_root_sources(src: Path, _dest: Path) -> bool:
+        resolved_src = resolve_without_follow(src)
+        return resolved_src != bundle_root and bundle_root not in resolved_src.parents
+
+    for absolute_src, absolute_dest in bundle_map.all_mappings(
+        absolute=True,
+        expand_directories=True,
+        predicate=_exclude_bundle_root_sources,
+    ):
+        if absolute_src.is_file():
+            symlink_or_copy(
+                absolute_src,
+                absolute_dest,
+                deploy_root=project_paths.bundle_root,
+            )
+    return bundle_map
 
 
 _EXPOSE_SIMPLE_RE = re.compile(
@@ -408,78 +421,37 @@ def _find_dockerfile_expose_port(bundle_root: Path) -> Optional[int]:
     return None
 
 
-def _build_job_spec(
-    image_repo_url: str,
-    app_id: str,
-    code_stage: FQN,
-    build_image: Optional[str] = None,
-) -> str:
-    """Return the SPCS YAML spec for the image-build job service."""
-    image = build_image or _BUILD_IMAGE
-    return f"""spec:
-  containers:
-  - name: main
-    image: "{image}"
-    env:
-      IMAGE_REGISTRY_URL: "{image_repo_url}"
-      IMAGE_NAME: "{app_id.lower()}"
-      IMAGE_TAG: "latest"
-      BUILD_CONTEXT: "/app"
-    volumeMounts:
-      - name: code-volume
-        mountPath: /app
-  volumes:
-  - name: code-volume
-    source: "@{code_stage.identifier}"
-    uid: 65532"""
-
-
-def _service_spec(
-    image_url: str,
-    app_port: int = DEFAULT_APP_PORT,
-    command: Optional[list] = None,
-    execute_as_caller: bool = False,
-) -> str:
-    """Return the SPCS YAML spec for the application service."""
-    command_block = ""
-    if command:
-        items = "\n".join(f"        - {c}" for c in command)
-        command_block = f"\n      command:\n{items}"
-
-    capabilities_block = ""
-    if execute_as_caller:
-        capabilities_block = """
-capabilities:
-  securityContext:
-    executeAsCaller: true"""
-
-    return f"""spec:
-  containers:
-    - name: main
-      image: "{image_url}"{command_block}
-  endpoints:
-    - name: app-endpoint
-      port: {app_port}
-      public: true{capabilities_block}
-serviceRoles:
-  - name: viewer
-    endpoints:
-      - app-endpoint"""
-
-
 class SnowflakeAppManager(SqlExecutionMixin):
-    """Manager for Snowflake App operations.
+    """Manager for Snowflake Apps Deploy operations.
 
-    NOTE: Many DDL-building methods (execute_build_job, create_service,
-    create_app_service, …) interpolate bare ``str`` arguments such as
-    *compute_pool*, *query_warehouse*, and EAI names directly into SQL
-    without identifier quoting.  This is safe as long as callers pass
-    simple unquoted identifiers, but it will break for names containing
-    spaces or special characters.  If that ever becomes a requirement,
-    wrap them with ``FQN.from_string(name).sql_identifier`` or
+    NOTE: DDL-building methods (create_app_service, build_app_artifact_repo, …)
+    interpolate bare ``str`` arguments such as *compute_pool*,
+    *query_warehouse*, and EAI names directly into SQL without identifier
+    quoting.  This is safe as long as callers pass simple unquoted
+    identifiers, but it will break for names containing spaces or special
+    characters.  If that ever becomes a requirement, wrap them with
+    ``FQN.from_string(name).sql_identifier`` or
     ``IDENTIFIER(to_string_literal(name))`` for consistency with the
     ``FQN``-based parameters that already use ``.sql_identifier``.
     """
+
+    def get_personal_database(self) -> Optional[str]:
+        """Return the personal database name for the current user.
+
+        Runs ``SELECT 'USER$' || CURRENT_USER() AS personal_database`` and
+        returns the result.  Returns ``None`` when the query fails or the
+        current user is not set (e.g. in unauthenticated contexts).
+        """
+        try:
+            cursor = self.execute_query(
+                "SELECT 'USER$' || CURRENT_USER() AS personal_database"
+            )
+            row = cursor.fetchone()
+            if row and row[0] and not row[0].endswith("$"):
+                return str(row[0]).upper()
+        except Exception:
+            log.warning("Could not resolve personal database.", exc_info=True)
+        return None
 
     def database_exists(self, database: str) -> bool:
         """Return True if *database* exists and is visible to the current role."""
@@ -538,127 +510,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
             f"CREATE STAGE IF NOT EXISTS {stage_fqn.sql_identifier} ENCRYPTION = (TYPE = '{encryption_type}')"
         )
 
-    def drop_service_if_exists(self, service_fqn: FQN) -> None:
-        """Drop a service if it exists."""
-        self.execute_query(f"DROP SERVICE IF EXISTS {service_fqn.sql_identifier}")
-
-    def drop_app_service_if_exists(self, service_fqn: FQN) -> None:
-        """Drop an application service if it exists."""
-        self.execute_query(
-            f"DROP APPLICATION SERVICE IF EXISTS {service_fqn.sql_identifier}"
-        )
-
-    def drop_stage_if_exists(self, stage_fqn: FQN) -> None:
-        """Drop a stage if it exists."""
-        self.execute_query(f"DROP STAGE IF EXISTS {stage_fqn.sql_identifier}")
-
-    def get_image_repo_url(
-        self,
-        repo_name: str,
-        database: Optional[str] = None,
-        schema: Optional[str] = None,
-    ) -> str:
-        """Get the image repository URL and convert to local registry."""
-        from snowflake.cli.api.project.util import (
-            identifier_to_show_like_pattern,
-            unquote_identifier,
-        )
-
-        show_obj_query = (
-            f"show image repositories like {identifier_to_show_like_pattern(repo_name)}"
-        )
-        if database and schema:
-            schema_fqn = FQN(database=None, schema=database, name=schema)
-            show_obj_query += f" in schema {schema_fqn.sql_identifier}"
-        elif database:
-            show_obj_query += f" in database IDENTIFIER('{database}')"
-        elif schema:
-            raise CliError(
-                "image_repository.schema requires image_repository.database to be set."
-            )
-        cursor = self.execute_query(show_obj_query, cursor_class=DictCursor)
-
-        if cursor.rowcount is None or cursor.rowcount == 0:
-            raise CliError(f"Image repository '{repo_name}' not found")
-
-        unqualified_name = unquote_identifier(repo_name)
-        rows = cursor.fetchall()
-        row = next(
-            (r for r in rows if r["name"].upper() == unqualified_name.upper()),
-            None,
-        )
-        if not row:
-            # Fall back to the first row if name matching fails
-            row = rows[0] if rows else None
-        if not row:
-            raise CliError(f"Image repository '{repo_name}' not found")
-
-        # Get repository_url from the result
-        repo_url = row["repository_url"]
-
-        # Convert to local registry URL (replace .registry-dev. or .registry. with .registry-local.)
-        local_url = repo_url.replace(".registry-dev.", ".registry-local.")
-        local_url = local_url.replace(".registry.", ".registry-local.")
-        local_url = local_url.replace(".awsuswest2qa6.", ".")
-        local_url = local_url.replace(".awsuswest2qa3.", ".")
-
-        return local_url
-
-    def execute_build_job(
-        self,
-        job_service_name: FQN,
-        compute_pool: str,
-        code_stage: FQN,
-        image_repo_url: str,
-        app_id: str,
-        external_access_integration: Optional[str] = None,
-        build_image: Optional[str] = None,
-    ) -> None:
-        """Execute a build job service."""
-        spec = _build_job_spec(image_repo_url, app_id, code_stage, build_image)
-
-        query_lines = [
-            f"EXECUTE JOB SERVICE IN COMPUTE POOL {compute_pool}",
-            f"NAME = {job_service_name.sql_identifier}",
-            "ASYNC = TRUE",
-            f"FROM SPECIFICATION $${spec}$$",
-        ]
-
-        if external_access_integration:
-            query_lines.insert(
-                3, f"EXTERNAL_ACCESS_INTEGRATIONS = ({external_access_integration})"
-            )
-
-        query = "\n".join(query_lines)
-        self.execute_query(query)
-
-    def artifact_repo_exists(self, database: str, schema: str, repo_name: str) -> bool:
-        """Return True if the artifact repository already exists."""
-        from snowflake.cli.api.project.util import (
-            identifier_to_show_like_pattern,
-            unquote_identifier,
-        )
-
-        schema_fqn = FQN(database=None, schema=database, name=schema)
-        cursor = self.execute_query(
-            f"SHOW ARTIFACT REPOSITORIES LIKE {identifier_to_show_like_pattern(repo_name)}"
-            f" IN SCHEMA {schema_fqn.sql_identifier}",
-            cursor_class=DictCursor,
-        )
-        unqualified = unquote_identifier(repo_name).upper()
-        return any(row["name"].upper() == unqualified for row in cursor)
-
-    def create_artifact_repo(self, database: str, schema: str, repo_name: str) -> None:
-        """Create an artifact repository.
-
-        Uses IF NOT EXISTS so concurrent invocations (e.g. parallel CI
-        jobs) don't race on the CREATE after both pass the existence check.
-        """
-        fqn = FQN(database=database, schema=schema, name=repo_name)
-        self.execute_query(
-            f"CREATE ARTIFACT REPOSITORY IF NOT EXISTS {fqn.sql_identifier} TYPE=APPLICATION"
-        )
-
     def get_build_status(self, job_fqn: FQN) -> str:
         """
         Get the status of the build job service.
@@ -677,59 +528,174 @@ class SnowflakeAppManager(SqlExecutionMixin):
 
         return "IDLE"
 
-    def create_service(
-        self,
-        service_name: FQN,
-        compute_pool: str,
-        query_warehouse: str,
-        app_port: int = DEFAULT_APP_PORT,
-        app_comment: Optional[str] = None,
-        execute_as_caller: bool = False,
-    ) -> None:
-        """Create a service with a placeholder spec (suspended by default)."""
-        spec = _service_spec(
-            _SERVICE_PLACEHOLDER_IMAGE,
-            app_port,
-            command=["sleep", "infinity"],
-            execute_as_caller=execute_as_caller,
+    def drop_service_if_exists(self, service_fqn: FQN) -> None:
+        """Drop a service if it exists."""
+        self.execute_query(f"DROP SERVICE IF EXISTS {service_fqn.sql_identifier}")
+
+    def drop_app_service_if_exists(self, service_fqn: FQN) -> None:
+        """Drop an application service if it exists."""
+        self.execute_query(
+            f"DROP APPLICATION SERVICE IF EXISTS {service_fqn.sql_identifier}"
         )
 
-        query = (
-            f"CREATE SERVICE IF NOT EXISTS {service_name.sql_identifier}\n"
-            f"IN COMPUTE POOL {compute_pool}\n"
-            f"FROM SPECIFICATION $${spec}$$\n"
-            f"QUERY_WAREHOUSE = {query_warehouse}"
-        )
-        self.execute_query(query)
+    def drop_stage_if_exists(self, stage_fqn: FQN) -> None:
+        """Drop a stage if it exists."""
+        self.execute_query(f"DROP STAGE IF EXISTS {stage_fqn.sql_identifier}")
 
-        if app_comment:
-            escaped_comment = app_comment.replace("'", "''")
+    def create_workspace(self, workspace_fqn: FQN) -> None:
+        """Create a workspace if needed and ensure it has a live version."""
+        self.execute_query(
+            f"CREATE WORKSPACE IF NOT EXISTS {workspace_fqn.sql_identifier}"
+        )
+        self.ensure_workspace_live_version(workspace_fqn)
+
+    def ensure_workspace_live_version(self, workspace_fqn: FQN) -> None:
+        """Ensure the workspace has a writable live version."""
+        try:
+            # TODO: switch to "ADD LIVE VERSION IF NOT EXISTS FROM LAST"
+            # when Snowflake workspaces support that syntax.
             self.execute_query(
-                f"ALTER SERVICE {service_name.sql_identifier} SET COMMENT = '{escaped_comment}'"
+                f"ALTER WORKSPACE {workspace_fqn.sql_identifier} "
+                f"ADD LIVE VERSION FROM LAST"
             )
+        except ProgrammingError as e:
+            error_text = str(e)
+            if getattr(e, "errno", None) == 99106 or (
+                "099106" in error_text and "42710" in error_text
+            ):
+                return
+            raise
 
-        # Suspend the service after creation (deploy will resume it)
-        self.execute_query(f"ALTER SERVICE {service_name.sql_identifier} SUSPEND")
+    def commit_workspace_live_version(self, workspace_fqn: FQN) -> None:
+        """Commit the current workspace live version."""
+        self.execute_query(f"ALTER WORKSPACE {workspace_fqn.sql_identifier} COMMIT")
 
-    def alter_service_spec(
-        self,
-        service_name: FQN,
-        image_url: str,
-        app_port: int = DEFAULT_APP_PORT,
-        execute_as_caller: bool = False,
-    ) -> None:
-        """Alter a service with the built image spec."""
-        spec = _service_spec(image_url, app_port, execute_as_caller=execute_as_caller)
-
-        query = (
-            f"ALTER SERVICE {service_name.sql_identifier}\n"
-            f"FROM SPECIFICATION $${spec}$$"
+    def clear_workspace(self, workspace_fqn: FQN) -> None:
+        """Remove all files from the workspace's live version."""
+        self.execute_query(
+            f"REMOVE snow://workspace/{workspace_fqn.identifier}"
+            f"/{WORKSPACE_LIVE_VERSION_PATH}/"
         )
-        self.execute_query(query)
 
-    def resume_service(self, service_name: FQN) -> None:
-        """Resume a suspended service."""
-        self.execute_query(f"ALTER SERVICE {service_name.sql_identifier} RESUME")
+    def drop_workspace_if_exists(self, workspace_fqn: FQN) -> None:
+        """Drop a workspace if it exists."""
+        self.execute_query(f"DROP WORKSPACE IF EXISTS {workspace_fqn.sql_identifier}")
+
+    def workspace_uri(self, workspace_fqn: FQN) -> str:
+        """Return the ``snow://workspace/...`` URI pointing at the live version."""
+        return (
+            f"snow://workspace/{workspace_fqn.identifier}"
+            f"/{WORKSPACE_LIVE_VERSION_PATH}"
+        )
+
+    def workspace_last_uri(self, workspace_fqn: FQN) -> str:
+        """Return the ``snow://workspace/...`` URI pointing at the last committed version."""
+        return f"snow://workspace/{workspace_fqn.identifier}" f"/versions/last"
+
+    def workspace_subdirectory_uri(
+        self, workspace_fqn: FQN, directory_name: str
+    ) -> str:
+        """Return a workspace URI under the live version for *directory_name*."""
+        normalized_directory = directory_name.strip("/")
+        return f"{self.workspace_uri(workspace_fqn)}/{normalized_directory}"
+
+    def workspace_last_subdirectory_uri(
+        self, workspace_fqn: FQN, directory_name: str
+    ) -> str:
+        """Return a workspace URI under the last committed version for *directory_name*."""
+        normalized_directory = directory_name.strip("/")
+        return f"{self.workspace_last_uri(workspace_fqn)}/{normalized_directory}"
+
+    def get_default_workspace_version_uri(self, workspace_fqn: FQN) -> str:
+        """Return URI for the workspace default version."""
+        cursor = self.execute_query(
+            f"DESCRIBE WORKSPACE {workspace_fqn.sql_identifier}",
+            cursor_class=DictCursor,
+        )
+        row = cursor.fetchone()
+        if row is None:
+            raise CliError(
+                f"Could not describe workspace {workspace_fqn.identifier} "
+                "to resolve default version."
+            )
+        location_uri = (
+            row.get("default_version_location_uri")
+            or row.get("DEFAULT_VERSION_LOCATION_URI")
+            or ""
+        )
+        if not location_uri:
+            version_name = row.get("default_version_name") or row.get(
+                "DEFAULT_VERSION_NAME"
+            )
+            if version_name:
+                location_uri = f"snow://workspace/{workspace_fqn.identifier}/versions/{version_name}/"
+        if not location_uri:
+            raise CliError(
+                f"Could not resolve default version for workspace {workspace_fqn.identifier}."
+            )
+        return str(location_uri).rstrip("/")
+
+    def get_default_workspace_version_subdirectory_uri(
+        self, workspace_fqn: FQN, directory_name: str
+    ) -> str:
+        """Return URI for *directory_name* under the workspace default version."""
+        normalized_directory = directory_name.strip("/")
+        return (
+            f"{self.get_default_workspace_version_uri(workspace_fqn)}"
+            f"/{normalized_directory}"
+        )
+
+    def clear_workspace_subdirectory(
+        self, workspace_fqn: FQN, directory_name: str
+    ) -> None:
+        """Remove all files from a subdirectory under the workspace live version."""
+        self.execute_query(
+            f"REMOVE {self.workspace_subdirectory_uri(workspace_fqn, directory_name)}/"
+        )
+
+    def upload_to_workspace(
+        self,
+        local_root: Path,
+        workspace_fqn: FQN,
+        target_subdirectory: Optional[str] = None,
+        overwrite: bool = True,
+    ) -> Iterator[Dict[str, str]]:
+        """Recursively upload *local_root*'s contents into the workspace's live version.
+
+        Each file under *local_root* is uploaded with a single ``PUT``
+        statement, preserving its relative directory structure under
+        ``snow://workspace/<ws>/versions/live/``.  Files are uploaded
+        one-at-a-time (rather than via ``PUT <dir>/*``) because the glob
+        form also matches subdirectories, and the Snowflake PUT endpoint
+        rejects directories with ``253006: Not a file but a directory``.
+        Each uploaded file is yielded as a dict with ``source`` and
+        ``target`` keys so callers can display progress.
+        """
+        base_uri = self.workspace_uri(workspace_fqn)
+        if target_subdirectory:
+            base_uri = self.workspace_subdirectory_uri(
+                workspace_fqn, target_subdirectory
+            )
+        local_root = local_root.resolve()
+        overwrite_str = str(overwrite).lower()
+        from snowflake.cli.api.project.util import to_string_literal
+
+        for path in sorted(local_root.rglob("*")):
+            if not path.is_file():
+                continue
+            rel = path.relative_to(local_root)
+            rel_dir = rel.parent
+            dest_dir = (
+                f"{base_uri}/{rel_dir.as_posix()}/"
+                if rel_dir != Path(".")
+                else f"{base_uri}/"
+            )
+            file_uri = f"file://{path.resolve().as_posix()}"
+            self.execute_query(
+                f"PUT {to_string_literal(file_uri)} {to_string_literal(dest_dir)} "
+                f"auto_compress=false overwrite={overwrite_str}"
+            )
+            yield {"source": str(rel), "target": f"{dest_dir}{path.name}"}
 
     def get_service_status(self, service_fqn: FQN) -> str:
         """
@@ -757,25 +723,74 @@ class SnowflakeAppManager(SqlExecutionMixin):
         row = cursor.fetchone()
         return row[0] if row else ""
 
-    def get_service_endpoint_url(
-        self, service_fqn: FQN, endpoint_name: str = "app-endpoint"
+    def resolve_application_service_url_from_describe(
+        self, desc: Dict[str, Any]
     ) -> Optional[str]:
-        """Get the ingress URL for a service endpoint."""
-        cursor = self.execute_query(
-            f"SHOW ENDPOINTS IN SERVICE {service_fqn.identifier}",
-            cursor_class=DictCursor,
-        )
-        for row in cursor:
-            if row["name"].upper() == endpoint_name.upper():
-                url = row["ingress_url"]
-                if (
-                    url
-                    and not url.startswith(("http://", "https://"))
-                    and "provisioning in progress" not in url.lower()
-                ):
-                    url = f"https://{url}"
-                return url
-        return None
+        """Return a browser-ready URL from :meth:`describe_app_service` output.
+
+        Returns *None* when the row is empty, the service is upgrading, the URL
+        is missing, or the URL is still the *provisioning* placeholder. Otherwise
+        returns the ``url`` value with an ``https://`` prefix when needed.
+        """
+        if not desc:
+            return None
+        if str(desc.get("is_upgrading", "")).lower() in ("true", "1", "yes"):
+            return None
+        url = (desc.get("url") or "").strip()
+        if not url or "provisioning in progress" in url.lower():
+            return None
+        if not url.startswith(("http://", "https://")):
+            url = f"https://{url}"
+        return url
+
+    def get_service_endpoint_url(self, service_fqn: FQN) -> Optional[str]:
+        """Get the public URL for an application service.
+
+        Uses ``DESCRIBE APPLICATION SERVICE`` (same source as the deploy wait
+        loop): the ``url`` column from the describe result.
+        """
+        desc = self.describe_app_service(service_fqn)
+        return self.resolve_application_service_url_from_describe(desc)
+
+    def _is_boolean_param_true(self, param_name: str) -> bool:
+        """Return True when the named boolean backend parameter is set to
+        ``"true"`` for the current session.
+
+        The check is intentionally tolerant: any error (e.g. the parameter
+        is not exposed to the current role) and any unset/non-true value
+        return ``False`` so callers fall back to the conservative default.
+        """
+        try:
+            cursor = self.execute_query(
+                f"SHOW PARAMETERS LIKE '{param_name}'",
+                cursor_class=DictCursor,
+            )
+            for row in cursor:
+                value = (row.get("value") or row.get("VALUE") or "").strip().lower()
+                return value == "true"
+            return False
+        except ProgrammingError:
+            return False
+
+    def is_managed_compute_pool_enabled(self) -> bool:
+        """Return True when the backend parameter
+        :data:`MANAGED_COMPUTE_POOL_PARAM` is set to ``"true"`` for the
+        current session.
+        """
+        return self._is_boolean_param_true(MANAGED_COMPUTE_POOL_PARAM)
+
+    def is_managed_compute_pool_fallback_enabled(self) -> bool:
+        """Return True when the backend parameter
+        :data:`MANAGED_COMPUTE_POOL_FALLBACK_PARAM` is set to ``"true"`` for
+        the current session.
+
+        When this is true (and managed pools are enabled), the server honors
+        user-specified compute pools as a fallback to the managed pool, so
+        the CLI passes ``snowflake.yml`` values through unchanged. When
+        false (the default), the server enforces the managed pool and the
+        CLI strips any user-specified pools with a warning.
+        """
+        return self._is_boolean_param_true(MANAGED_COMPUTE_POOL_FALLBACK_PARAM)
 
     def fetch_snow_apps_parameters(self) -> Dict[str, str]:
         """Fetch SnowApps default parameters for the current user.
@@ -807,50 +822,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
             )
             return {}
 
-    def fetch_config_table_defaults(
-        self, role: str, integration: str = APP_DEFAULTS_INTEGRATION
-    ) -> Dict[str, str]:
-        """Fetch defaults from the APP_DEFAULTS_TABLE for the given role.
-
-        Returns a dict that may contain keys such as ``warehouse``,
-        ``compute_pool``, ``eai``, ``database``, ``schema``.  Returns an empty
-        dict when the table does not exist, the role lacks permissions, the
-        query returns no rows, or any other error occurs.
-        """
-        from snowflake.cli.api.project.util import to_string_literal
-
-        try:
-            safe_integration = to_string_literal(integration)
-            safe_role = to_string_literal(role.upper())
-
-            cursor = self.execute_query(
-                f"SELECT defaults FROM {APP_DEFAULTS_TABLE} "
-                f"WHERE integration = {safe_integration} AND role = {safe_role} "
-                f"ORDER BY updated_at DESC LIMIT 1",
-                cursor_class=DictCursor,
-            )
-            row = cursor.fetchone()
-            if row is None:
-                return {}
-
-            raw = row.get("DEFAULTS") or row.get("defaults")
-            if raw is None:
-                return {}
-
-            defaults = json.loads(raw) if isinstance(raw, str) else raw
-            if not isinstance(defaults, dict):
-                return {}
-
-            return {k: str(v) for k, v in defaults.items() if v is not None and v != ""}
-        except Exception:
-            log.debug(
-                "Could not read %s (table may not "
-                "exist or role lacks permissions) – skipping config-table defaults.",
-                APP_DEFAULTS_TABLE,
-                exc_info=True,
-            )
-            return {}
-
     @contextmanager
     def _use_database_and_schema(self, database: str, schema: str):
         """Temporarily set session database and schema, restoring previous values on exit."""
@@ -868,41 +839,80 @@ class SnowflakeAppManager(SqlExecutionMixin):
 
     @staticmethod
     def _build_artifact_repo_config(
-        query_warehouse: Optional[str] = None,
         build_eai: Optional[str] = None,
     ) -> str:
         """Build the JSON config blob accepted by the artifact-repo system functions."""
         cfg: Dict[str, Any] = {}
-        if query_warehouse:
-            cfg["query_warehouse"] = query_warehouse
         if build_eai:
             cfg["external_access_integrations"] = [build_eai]
         return json.dumps(cfg)
 
+    def artifact_repo_exists(self, database: str, schema: str, repo_name: str) -> bool:
+        """Return True if the artifact repository already exists."""
+        from snowflake.cli.api.project.util import (
+            identifier_to_show_like_pattern,
+            unquote_identifier,
+        )
+
+        schema_fqn = FQN(database=None, schema=database, name=schema)
+        cursor = self.execute_query(
+            f"SHOW ARTIFACT REPOSITORIES LIKE {identifier_to_show_like_pattern(repo_name)}"
+            f" IN SCHEMA {schema_fqn.sql_identifier}",
+            cursor_class=DictCursor,
+        )
+        unqualified = unquote_identifier(repo_name).upper()
+        return any(row["name"].upper() == unqualified for row in cursor)
+
+    def create_artifact_repo(self, database: str, schema: str, repo_name: str) -> None:
+        """Create an artifact repository.
+
+        Uses IF NOT EXISTS so concurrent invocations (e.g. parallel CI
+        jobs) don't race on the CREATE after both pass the existence check.
+        """
+        fqn = FQN(database=database, schema=schema, name=repo_name)
+        self.execute_query(
+            f"CREATE ARTIFACT REPOSITORY IF NOT EXISTS {fqn.sql_identifier} TYPE=APPLICATION"
+        )
+
     def build_app_artifact_repo(
         self,
-        stage_fqn: FQN,
-        artifact_repo_fqn: str,
-        app_id: str,
-        compute_pool: str,
-        database: str,
-        schema: str,
+        stage_fqn: Optional[FQN] = None,
+        artifact_repo_fqn: str = "",
+        app_id: str = "",
+        compute_pool: Optional[str] = None,
+        database: str = "",
+        schema: str = "",
         runtime_image: str = "",
-        query_warehouse: Optional[str] = None,
         build_eai: Optional[str] = None,
         project_type: str = "nodejs",
+        source_uri: Optional[str] = None,
     ) -> str:
-        """Build an app using SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO."""
+        """Build an app using SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO.
+
+        The build source is specified by either *stage_fqn* (legacy stage
+        flow) or *source_uri* (e.g. a ``snow://workspace/...`` URI for the
+        workspace flow).  Exactly one of the two must be provided.
+        """
         from snowflake.cli.api.project.util import to_string_literal
 
+        if source_uri is None:
+            if stage_fqn is None:
+                raise ValueError("Either stage_fqn or source_uri must be provided")
+            source_uri = f"@{stage_fqn.identifier}"
+
+        if not artifact_repo_fqn.strip():
+            raise ValueError("artifact_repo_fqn must be a non-empty string")
+        if not app_id.strip():
+            raise ValueError("app_id must be a non-empty string")
+
         with self._use_database_and_schema(database, schema):
-            config = self._build_artifact_repo_config(query_warehouse, build_eai)
+            config = self._build_artifact_repo_config(build_eai)
             query = (
                 f"SELECT SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO("
-                f"'@{stage_fqn.identifier}', "
+                f"{to_string_literal(source_uri)}, "
                 f"{to_string_literal(artifact_repo_fqn)}, "
                 f"{to_string_literal(app_id)}, "
-                f"{to_string_literal(compute_pool)}, "
+                f"{to_string_literal(compute_pool or '')}, "
                 f"{to_string_literal(runtime_image)}, "
                 f"{to_string_literal(project_type)}, "
                 f"{to_string_literal(config)}"
@@ -917,7 +927,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         service_fqn: FQN,
         artifact_repo_fqn: str,
         package_name: str,
-        compute_pool: str,
+        compute_pool: Optional[str] = None,
         version: Optional[str] = None,
         query_warehouse: Optional[str] = None,
         external_access_integrations: Optional[list[str]] = None,
@@ -930,7 +940,8 @@ class SnowflakeAppManager(SqlExecutionMixin):
         ]
         if version:
             parts.append(f"VERSION {version}")
-        parts.append(f"IN COMPUTE POOL {compute_pool}")
+        if compute_pool:
+            parts.append(f"IN COMPUTE POOL {compute_pool}")
         if external_access_integrations:
             eai_list = ", ".join(external_access_integrations)
             parts.append(f"EXTERNAL_ACCESS_INTEGRATIONS = ({eai_list})")
@@ -953,6 +964,31 @@ class SnowflakeAppManager(SqlExecutionMixin):
         if version:
             query += f"\nTO VERSION {version}"
         self.execute_query(query)
+
+    def is_application_service(self, service_fqn: FQN) -> bool:
+        """Return True when settings should use the ``app-service`` URL segment.
+
+        Detection order:
+        1) If ``DESCRIBE APPLICATION SERVICE`` returns a row, treat as application
+           service.
+        2) Otherwise, if a legacy ``SERVICE`` object exists with the same FQN,
+           treat as legacy service.
+        3) If type checks fail (errors/unknown), default to application service.
+        """
+        try:
+            if self.describe_app_service(service_fqn):
+                return True
+        except ProgrammingError:
+            log.debug(
+                "DESCRIBE APPLICATION SERVICE failed for %s",
+                service_fqn,
+                exc_info=True,
+            )
+
+        if _object_exists("service", service_fqn.identifier):
+            return False
+
+        return True
 
     def describe_app_service(self, service_fqn: FQN) -> Dict[str, Any]:
         """Run ``DESCRIBE APPLICATION SERVICE`` and return a case-insensitive
@@ -986,7 +1022,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         return row[0] if row else ""
 
     def get_build_job_logs(self, build_job_fqn: FQN) -> list[str]:
-        """Fetch build logs for a build job service."""
+        """Fetch build logs for an artifact-repo build job."""
         cursor = self.execute_query(
             f"SELECT LOG FROM TABLE({build_job_fqn.identifier}!SPCS_GET_LOGS())",
         )

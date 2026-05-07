@@ -23,6 +23,7 @@ from snowflake.cli._plugins.dcm.exceptions import (
 )
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.util import to_identifier
 from snowflake.cli.api.secure_path import SecurePath
 
 MANIFEST_FILE_NAME = "manifest.yml"
@@ -56,14 +57,20 @@ class DCMTarget:
 
     name: str
     project_name: str
+    account_identifier: str
+    project_owner: str
     templating_config: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "DCMTarget":
         templating_config = data.get("templating_config")
+        account_identifier = data.get("account_identifier", "")
+        project_owner = data.get("project_owner", "")
         return cls(
             name=data.get("name", "").upper(),
             project_name=data.get("project_name", ""),
+            account_identifier=account_identifier if account_identifier else "",
+            project_owner=to_identifier(project_owner) if project_owner else "",
             templating_config=templating_config.upper() if templating_config else None,
         )
 
@@ -170,6 +177,12 @@ class DCMManifest:
                 f"Target '{target.name}' references unknown configuration '{target.templating_config}'."
             )
 
+    def _validate_target_required_fields(self, target: DCMTarget):
+        if not target.project_name:
+            raise ManifestConfigurationError(
+                f"Target '{target.name}' is missing required field(s): project_name."
+            )
+
     def get_target(self, target_name: str) -> DCMTarget:
         """Get a specific target by name."""
         target_name = target_name.upper()
@@ -183,6 +196,7 @@ class DCMManifest:
             )
         target = self.targets[target_name]
         self._validate_target_configuration_exists(target)
+        self._validate_target_required_fields(target)
         return target
 
     def get_effective_target(self, target_name: Optional[str] = None) -> DCMTarget:
