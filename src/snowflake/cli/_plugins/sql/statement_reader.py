@@ -214,7 +214,7 @@ class ParsedStatement:
         path = SecurePath(stripped_comments_path_part)
 
         if path.is_file():
-            payload = path.read_text(file_size_limit_mb=UNLIMITED)
+            payload = path.read_text(file_size_limit_mb=UNLIMITED, encoding="utf-8")
             return cls(payload, StatementType.FILE, path.as_posix())
 
         error_msg = f"Could not read: {path_part}"
@@ -334,7 +334,7 @@ def files_reader(
 
     Returns a generator with statements."""
     for path in paths:
-        with path.open(read_file_limit_mb=UNLIMITED) as f:
+        with path.open(read_file_limit_mb=UNLIMITED, encoding="utf-8") as f:
             content = f.read()
             if pre_render:
                 content = pre_render(content)

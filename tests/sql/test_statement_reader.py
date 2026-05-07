@@ -184,6 +184,71 @@ def test_read_files(tmp_path_factory: pytest.TempPathFactory):
     ]
 
 
+def _force_default_encoding(monkeypatch, encoding: str) -> None:
+    """Make pathlib.Path.open / read_text default to *encoding* in text mode.
+
+    Mirrors what happens on a system whose default text encoding is not UTF-8
+    (e.g. Japanese Windows where ``locale.getencoding() == 'cp932'``).
+    Monkeypatching ``locale.getpreferredencoding`` alone is not enough, because
+    pathlib resolves the default via ``io.text_encoding`` which consults the
+    C-level locale — we have to inject the encoding at the open() call site.
+    """
+    import pathlib
+
+    original_open = pathlib.Path.open
+
+    def patched_open(self, mode="r", *args, **kwargs):
+        if "b" not in mode and kwargs.get("encoding") in (None, "locale"):
+            # "locale" is the sentinel io.text_encoding returns when the caller
+            # did not specify an encoding; on Japanese Windows open() would
+            # resolve it to cp932.  Override it so this box behaves the same.
+            kwargs["encoding"] = encoding
+        return original_open(self, mode, *args, **kwargs)
+
+    monkeypatch.setattr(pathlib.Path, "open", patched_open)
+
+
+def test_read_utf8_file_on_non_utf8_locale(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch
+):
+    """UTF-8 SQL files must be readable regardless of the process default encoding.
+
+    Regression test for https://github.com/snowflakedb/snowflake-cli/issues/2759
+    where Japanese Windows defaults to cp932 and non-ASCII characters in UTF-8
+    SQL files crash with UnicodeDecodeError.
+    """
+    f1 = tmp_path_factory.mktemp("utf8") / "f1.sql"
+    f1.write_bytes("-- コメント\nselect 1;".encode("utf-8"))
+
+    _force_default_encoding(monkeypatch, "cp932")
+
+    files = (SecurePath(f1),)
+    errors, cnt, compiled = compile_statements(
+        files_reader(files, WORKING_OPERATOR_FUNCS, remove_comments=True),
+    )
+
+    assert not errors, errors
+    assert cnt == 1
+    assert compiled == [CompiledStatement(statement="select 1;")]
+
+
+def test_source_utf8_file_on_non_utf8_locale(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch
+):
+    """!source must also read sourced SQL files as UTF-8 on non-UTF-8 locales."""
+    sourced = tmp_path_factory.mktemp("utf8_src") / "sourced.sql"
+    sourced.write_bytes("-- 日本語\nselect 42;".encode("utf-8"))
+
+    _force_default_encoding(monkeypatch, "cp932")
+
+    query = f"!source {sourced.as_posix()};"
+    source = parse_statement(query, WORKING_OPERATOR_FUNCS)
+
+    assert source.statement_type == StatementType.FILE
+    assert source.error is None
+    assert "select 42;" in source.statement.read()
+
+
 def test_parsed_source_repr():
     query = "select 1;"
 
