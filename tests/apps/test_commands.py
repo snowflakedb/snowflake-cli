@@ -272,15 +272,15 @@ class TestPollUntilStateSetMode:
             )
 
     @patch("snowflake.cli._plugins.apps.manager.time.sleep")
-    def test_unknown_state_returns_early(self, mock_sleep):
-        result = _poll_until(
-            poll_fn=lambda: "UNKNOWN",
-            done_states={"DONE"},
-            error_states={"FAILED"},
-            known_pending_states={"PENDING"},
-            timeout_message="timed out",
-        )
-        assert result == "UNKNOWN"
+    def test_unknown_state_raises(self, mock_sleep):
+        with pytest.raises(CliError, match="unexpected status=UNKNOWN"):
+            _poll_until(
+                poll_fn=lambda: "UNKNOWN",
+                done_states={"DONE"},
+                error_states={"FAILED"},
+                known_pending_states={"PENDING"},
+                timeout_message="timed out",
+            )
 
     @patch("snowflake.cli._plugins.apps.manager.time.sleep")
     def test_pending_then_done(self, mock_sleep):
