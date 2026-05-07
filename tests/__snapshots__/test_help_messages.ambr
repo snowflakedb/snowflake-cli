@@ -121,10 +121,11 @@
    command with no arguments is a shorthand for snow app deploy --prune           
    --recursive.                                                                   
                                                                                   
-   For Snowflake Apps Deploy projects (snowflake-app entities): Builds and        
-   deploys a containerized Snowflake Apps Deploy. The pipeline has three phases   
-   (upload, build, deploy). By default all three run in sequence; use             
-   --upload-only / --build-only / --deploy-only to run a single phase.            
+   For Snowflake Apps Deploy projects (snowflake-app entities): Uploads bundled   
+   source artifacts, runs the server-side artifact repository build, then deploys 
+   the application service. The pipeline has three phases (upload, build,         
+   deploy). By default all three run in sequence; use --upload-only /             
+   --build-only / --deploy-only to run a single phase.                            
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   paths      [PATHS]...  (Native App only) Paths, relative to the project    |
@@ -182,9 +183,10 @@
   | --upload-only                                      (Snowflake Apps Deploy    |
   |                                                    only) Bundle and upload   |
   |                                                    source artifacts to the   |
-  |                                                    stage, then stop. Skips   |
-  |                                                    the build and deploy      |
-  |                                                    phases.                   |
+  |                                                    configured code location  |
+  |                                                    (stage or workspace),     |
+  |                                                    then stop. Skips the      |
+  |                                                    build and deploy phases.  |
   | --build-only                                       (Snowflake Apps Deploy    |
   |                                                    only) Run only the build  |
   |                                                    phase (assumes artifacts  |
@@ -193,11 +195,10 @@
   |                                                    upload and deploy phases. |
   | --deploy-only                                      (Snowflake Apps Deploy    |
   |                                                    only) Run only the deploy |
-  |                                                    phase (assumes the        |
-  |                                                    container image has       |
-  |                                                    already been built).      |
-  |                                                    Skips the upload and      |
-  |                                                    build phases.             |
+  |                                                    phase (assumes a previous |
+  |                                                    build phase has already   |
+  |                                                    completed). Skips the     |
+  |                                                    upload and build phases.  |
   | --package-entity-id                          TEXT  (Native App only) The ID  |
   |                                                    of the package entity on  |
   |                                                    which to operate when the |
@@ -3622,10 +3623,9 @@
    For Native App projects (application / application package entities):          
    Validates a deployed Snowflake Native App's setup script.                      
                                                                                   
-   For Snowflake Apps Deploy projects (snowflake-app entities): Bundles the       
-   project, checks that a Dockerfile with an EXPOSE directive exists, and         
-   verifies that the current role has the BIND SERVICE ENDPOINT privilege         
-   required for deployment.                                                       
+   For Snowflake Apps Deploy projects (snowflake-app entities): Bundles the local 
+   project and verifies that configured database/schema targets (when provided in 
+   snowflake.yml) are accessible.                                                 
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --package-entity-id          TEXT  (Native App only) The ID of the package   |
