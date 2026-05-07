@@ -47,7 +47,7 @@ class PlanEntityChange(BaseModel):
 
 
 class PlanResponse(BaseModel):
-    """Top-level version 2 plan response."""
+    """Top-level plan response."""
 
     version: int
     changeset: List[PlanEntityChange] = Field(default_factory=list)
@@ -74,7 +74,7 @@ class PlanRow:
 
     @classmethod
     def from_dict(cls, entry_dict: Dict[str, Any]) -> "PlanRow":
-        """Parse a version 2 changeset entry into a display entry without dropping data."""
+        """Parse a changeset entry into a display entry without dropping data."""
         try:
             entity = PlanEntityChange.model_validate(entry_dict)
             operation = sanitize_for_terminal(entity.type_.upper())
@@ -167,8 +167,6 @@ class PlanReporter(Reporter[PlanRow]):
         except ValidationError as e:
             log.info("Failed to validate plan response: %s", e)
             raise CliError("Could not process response.")
-        if response.version < 2:
-            raise CliError("Only version 2+ plan responses are supported.")
         if response.version > 2:
             log.info(
                 "Plan response version %s is newer than supported (v2); rendering with best effort.",
