@@ -20,6 +20,7 @@ from snowflake.cli.api.project.util import (
     concat_identifiers,
     escape_like_pattern,
     identifier_in_list,
+    identifier_to_show_like_pattern,
     identifier_to_str,
     is_valid_identifier,
     is_valid_object_name,
@@ -239,6 +240,50 @@ def test_to_string_literal(raw_string, literal):
 )
 def test_escape_like_pattern(raw_string, escaped):
     assert escape_like_pattern(raw_string) == escaped
+
+
+@pytest.mark.parametrize(
+    "identifier, expected",
+    [
+        # unquoted identifiers canonicalize to uppercase
+        ("abc", "'ABC'"),
+        # underscores are LIKE-escaped with a pair of backslashes so SHOW LIKE
+        # treats them literally
+        ("my_name", r"'MY\\_NAME'"),
+        # names containing wildcard-like characters are forced through the
+        # quoted-identifier path and therefore keep their original case
+        ("mixed_percent%", r"'mixed\\_percent\\%'"),
+        # explicit quoted identifiers preserve case
+        ('"abc"', "'abc'"),
+        ('"Mixed_Case%"', r"'Mixed\\_Case\\%'"),
+        # embedded single quotes are escaped by doubling so the literal stays
+        # well-formed. Without doubling, the quote would prematurely terminate
+        # the SQL string and allow a second statement to be appended
+        # (SNOW-3411343).
+        ('"x\'y"', "'x''y'"),
+        (
+            '"x\'; GRANT ROLE ACCOUNTADMIN TO USER attacker;--"',
+            "'x''; GRANT ROLE ACCOUNTADMIN TO USER attacker;--'",
+        ),
+        # embedded double quotes in a quoted identifier are unescaped from ""
+        ('"a""b"', "'a\"b'"),
+    ],
+)
+def test_identifier_to_show_like_pattern(identifier, expected):
+    assert identifier_to_show_like_pattern(identifier) == expected
+
+
+def test_identifier_to_show_like_pattern_blocks_sql_injection():
+    """Embedded single quote must not be able to close the SQL literal."""
+    pattern = identifier_to_show_like_pattern(
+        '"victim\'); GRANT ROLE ACCOUNTADMIN TO USER attacker;--"'
+    )
+    # The output must start and end with single quotes, and every interior
+    # single quote is doubled so no stray quote remains to close the literal.
+    assert pattern.startswith("'") and pattern.endswith("'")
+    interior = pattern[1:-1]
+    assert "''" in interior  # the attacker's quote was doubled
+    assert "'" not in interior.replace("''", "")  # no stray quotes left
 
 
 @pytest.mark.parametrize(

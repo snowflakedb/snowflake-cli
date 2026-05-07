@@ -257,9 +257,14 @@ def escape_like_pattern(pattern: str, escape_sequence: str = r"\\") -> str:
 def identifier_to_show_like_pattern(identifier: str) -> str:
     """
     Takes an identifier and converts it into a pattern to be used with SHOW ... LIKE ... to get all rows with name
-    matching this identifier
+    matching this identifier.
+
+    Any single quotes embedded in the identifier are escaped by doubling (``''``)
+    so the resulting pattern is always a well-formed SQL string literal.
     """
-    return f"'{escape_like_pattern(unquote_identifier(identifier))}'"
+    pattern = escape_like_pattern(unquote_identifier(identifier))
+    pattern = pattern.replace("'", "''")
+    return f"'{pattern}'"
 
 
 def append_test_resource_suffix(identifier: str) -> str:
