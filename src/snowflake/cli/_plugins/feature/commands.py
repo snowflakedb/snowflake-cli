@@ -382,16 +382,13 @@ def plan(
         ts = _dt.now().strftime("%Y%m%dT%H%M%S")
         out = os.path.join(".snowflake", "plans", f"feature_plan_{ts}.json")
 
-    plan_path = FeatureManager().write_plan(
-        input_files=input_files,
-        config=config,
-        dev_mode=dev,
-        out_path=out,
-        no_delete=no_delete,
-    )
-
-    # Also run a dry-run apply for the display result
-    result = FeatureManager().apply(
+    # Validate (dry-run apply) BEFORE writing the plan file so a failed
+    # plan never leaves a stale ``feature_plan_*.json`` on disk.  This
+    # mirrors the order ``snow feature apply`` already uses and matches
+    # the validate-before-emit invariant called out in the architecture
+    # docs (Step 6 — Validation).
+    manager = FeatureManager()
+    result = manager.apply(
         input_files=input_files,
         config=config,
         dry_run=True,
@@ -403,7 +400,14 @@ def plan(
     if result.get("status") == "validation_failed":
         return _to_object(result)
 
-    # Append plan file path to result for display
+    # Validation passed → persist the plan to disk.
+    plan_path = manager.write_plan(
+        input_files=input_files,
+        config=config,
+        dev_mode=dev,
+        out_path=out,
+        no_delete=no_delete,
+    )
     result["plan_file"] = plan_path
     return _ops_result(result)
 

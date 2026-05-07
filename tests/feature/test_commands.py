@@ -119,6 +119,43 @@ def test_plan_calls_apply_with_dry_run(mock_manager, runner):
 
 
 @mock.patch(FEATURE_MANAGER)
+def test_plan_does_not_write_plan_file_on_validation_failed(
+    mock_manager, runner, tmp_path
+):
+    """plan must NOT write a plan file when apply returns validation_failed.
+
+    The previous flow wrote the plan file *before* running validation, so a
+    failed plan still left a stale ``feature_plan_*.json`` on disk that
+    operators could mistake for a successful run.  The fix runs validation
+    first and short-circuits before ``write_plan`` is invoked.
+    """
+    out_path = tmp_path / "plans" / "feature_plan_test.json"
+    mock_manager.return_value.apply.return_value = {
+        "status": "validation_failed",
+        "ops": [],
+        "errors": ["VERSION_CONFLICT: ..."],
+    }
+    result = runner.invoke(["feature", "plan", "specs.yaml", "--out", str(out_path)])
+    assert result.exit_code == 0, result.output
+    mock_manager.return_value.write_plan.assert_not_called()
+    assert not out_path.exists()
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_plan_writes_plan_file_on_success(mock_manager, runner, tmp_path):
+    """plan must invoke write_plan when apply reports a non-failed status."""
+    out_path = tmp_path / "plans" / "feature_plan_test.json"
+    mock_manager.return_value.apply.return_value = {
+        "status": "ready",
+        "ops": [{"operation": "NO_CHANGE", "name": "x"}],
+    }
+    mock_manager.return_value.write_plan.return_value = str(out_path)
+    result = runner.invoke(["feature", "plan", "specs.yaml", "--out", str(out_path)])
+    assert result.exit_code == 0, result.output
+    mock_manager.return_value.write_plan.assert_called_once()
+
+
+@mock.patch(FEATURE_MANAGER)
 def test_plan_help_does_not_show_overwrite(mock_manager, runner):
     """plan --help must NOT show --overwrite or --allow-recreate."""
     result = runner.invoke(["feature", "plan", "--help"])
