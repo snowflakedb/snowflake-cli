@@ -342,6 +342,23 @@ def test_show_with_all_options_combined(mock_execute_query, mock_cursor):
     mock_execute_query.assert_called_once_with(expected_query)
 
 
+@mock.patch("snowflake.cli._plugins.object.manager.ObjectManager.execute_query")
+def test_show_like_escapes_single_quotes(mock_execute_query, mock_cursor):
+    """A single quote in --like must be escaped so it cannot terminate the
+    LIKE literal and inject additional SQL statements."""
+    from snowflake.cli._plugins.object.manager import ObjectManager
+
+    mock_execute_query.return_value = mock_cursor(["row"], [])
+
+    ObjectManager().show(
+        object_type="table",
+        like="foo'; drop table users; --",
+    )
+
+    expected_query = "show tables like 'foo''; drop table users; --'"
+    mock_execute_query.assert_called_once_with(expected_query)
+
+
 @mock.patch("snowflake.connector")
 @pytest.mark.parametrize(
     "object_type, object_name",

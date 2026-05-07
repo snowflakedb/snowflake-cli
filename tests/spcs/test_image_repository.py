@@ -367,6 +367,22 @@ def test_list_images_with_like(mock_execute_query):
     assert result == cursor
 
 
+@patch(
+    "snowflake.cli._plugins.spcs.image_repository.commands.ImageRepositoryManager.execute_query"
+)
+def test_list_images_like_escapes_single_quotes(mock_execute_query):
+    repo_name = "test_repo"
+    like = "foo'; drop table users; --"
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_query.return_value = cursor
+    ImageRepositoryManager().list_images(repo_name, like)
+    expected_query = (
+        "show images like 'foo''; drop table users; --' "
+        "in image repository test_repo"
+    )
+    mock_execute_query.assert_called_once_with(expected_query)
+
+
 @mock.patch("snowflake.cli._plugins.spcs.image_repository.commands.requests.get")
 @mock.patch(EXECUTE_QUERY)
 @mock.patch(

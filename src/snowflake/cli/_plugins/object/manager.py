@@ -58,7 +58,8 @@ class ObjectManager(SqlExecutionMixin):
         query = " ".join(query_parts)
 
         if like:
-            query += f" like '{like}'"
+            escaped_like = like.replace("'", "''")
+            query += f" like '{escaped_like}'"
         if scope[0] is not None:
             scope_type = scope[0].replace("-", " ")
             if scope[1] is not None:
