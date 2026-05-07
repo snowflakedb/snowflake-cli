@@ -73,6 +73,16 @@ SOURCE_DEFAULT = "default"
 SOURCE_MISSING = "missing"
 
 
+def _role_hint(details: str = "") -> str:
+    """Return a consistent privilege guidance hint for user-facing errors."""
+    role = getattr(get_cli_context().connection_context, "role", None)
+    role_fragment = f"role '{role}'" if role else "your current role"
+    base = f"Check grants for {role_fragment}, or retry with --role <ROLE>."
+    if details:
+        return f"{details} {base}"
+    return base
+
+
 def snowflake_app_setup(
     app_name: Optional[str],
     dry_run: bool,
@@ -338,7 +348,15 @@ def snowflake_app_open(
         )
 
         manager = SnowflakeAppManager()
-        url = manager.get_service_endpoint_url(service_fqn)
+        try:
+            url = manager.get_service_endpoint_url(service_fqn)
+        except ProgrammingError as err:
+            raise CliError(
+                f"Could not resolve endpoint URL for service {service_fqn.identifier}. "
+                + _role_hint(
+                    "This may indicate missing privileges on the target schema or application service."
+                )
+            ) from err
 
         if not url:
             raise CliError(
@@ -371,7 +389,10 @@ def snowflake_app_events(
     except ProgrammingError:
         raise ClickException(
             f"Could not retrieve logs for '{service_fqn.identifier}'. "
-            "Verify that the app is deployed and the service is running."
+            "Verify that the app is deployed and the service is running. "
+            + _role_hint(
+                "If the service exists, this can also happen when the active role cannot read application service logs."
+            )
         )
     return MessageResult(logs)
 
@@ -699,13 +720,28 @@ def snowflake_app_deploy(
                 cli_console.step(
                     f"Application service {app_name} already exists. Upgrading..."
                 )
-                manager.upgrade_app_service(
-                    service_fqn=service_fqn,
-                    version="LATEST",
-                )
+                try:
+                    manager.upgrade_app_service(
+                        service_fqn=service_fqn,
+                        version="LATEST",
+                    )
+                except ProgrammingError as upgrade_error:
+                    raise CliError(
+                        "Deployment failed while upgrading application service "
+                        f"'{service_fqn.identifier}': {upgrade_error}. "
+                        + _role_hint(
+                            "Verify privileges for ALTER APPLICATION SERVICE and access to referenced objects."
+                        )
+                    ) from upgrade_error
                 did_upgrade = True
             else:
-                raise
+                raise CliError(
+                    "Deployment failed while creating application service "
+                    f"'{service_fqn.identifier}': {e}. "
+                    + _role_hint(
+                        "Verify privileges for CREATE APPLICATION SERVICE plus USAGE on configured compute pools, warehouse, and external access integrations."
+                    )
+                ) from e
 
     def _svc_is_upgrading(d: dict) -> bool:
         return str(d.get("is_upgrading", "")).lower() in ("true", "1", "yes")
