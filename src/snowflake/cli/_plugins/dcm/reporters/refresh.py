@@ -60,11 +60,6 @@ class RefreshRow:
     _inserted: int = field(default=0, repr=False)
     _deleted: int = field(default=0, repr=False)
 
-    _STATISTICS_KEY = "statistics"
-    _TABLE_NAME_KEY = "table_name"
-    _INSERTED_KEY = "inserted_rows"
-    _DELETED_KEY = "deleted_rows"
-
     @staticmethod
     def _safe_int(value: Any) -> int:
         if value is None:
@@ -100,25 +95,13 @@ class RefreshRow:
         return str(num)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> Optional["RefreshRow"]:
-        if not isinstance(data, dict):
-            log.info("Unexpected table entry type: %s", type(data))
-            return None
-
-        raw_table_name = data.get(cls._TABLE_NAME_KEY, "UNKNOWN")
-        table_name = sanitize_for_terminal(str(raw_table_name))
-        row = cls(table_name=table_name)
-
-        statistics = data.get(cls._STATISTICS_KEY)
-        if statistics is None:
+    def from_model(cls, table: RefreshTableResult) -> "RefreshRow":
+        row = cls(table_name=sanitize_for_terminal(table.table_name))
+        if table.statistics is None:
             return row
 
-        if isinstance(statistics, dict):
-            row.inserted = statistics.get(cls._INSERTED_KEY, 0)
-            row.deleted = statistics.get(cls._DELETED_KEY, 0)
-        else:
-            log.info("Unexpected statistics type: %s, expected dict", type(statistics))
-            return row
+        row.inserted = table.statistics.inserted_rows
+        row.deleted = table.statistics.deleted_rows
 
         if row.inserted == 0 and row.deleted == 0:
             row.status = RefreshStatus.UP_TO_DATE
@@ -181,7 +164,7 @@ class RefreshReporter(Reporter[RefreshRow]):
         self.command_name = "refresh"
         self._summary = self.Summary()
 
-    def extract_data(self, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def extract_data(self, result_json: Dict[str, Any]) -> List[RefreshTableResult]:
         if not isinstance(result_json, dict):
             log.info("Unexpected response type: %s, expected dict", type(result_json))
             raise CliError("Could not process response.")
@@ -195,17 +178,11 @@ class RefreshReporter(Reporter[RefreshRow]):
         if response.dts_refresh_result is None:
             return []
 
-        return [
-            table.model_dump() for table in response.dts_refresh_result.refreshed_tables
-        ]
+        return response.dts_refresh_result.refreshed_tables
 
-    def parse_data(self, data: List[Dict[str, Any]]) -> Iterator[RefreshRow]:
-        for row in data:
-            parsed = RefreshRow.from_dict(row)
-            if parsed is None:
-                self._summary.unknown += 1
-                continue
-
+    def parse_data(self, data: List[RefreshTableResult]) -> Iterator[RefreshRow]:
+        for table in data:
+            parsed = RefreshRow.from_model(table)
             if parsed.status == RefreshStatus.UP_TO_DATE:
                 self._summary.up_to_date += 1
             elif parsed.status == RefreshStatus.REFRESHED:
