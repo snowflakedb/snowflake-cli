@@ -404,6 +404,30 @@ def _make_build_log_streamer(
     return _stream
 
 
+def _check_build_objects(
+    manager: SnowflakeAppManager,
+    compute_pool: Optional[str],
+    build_eai: Optional[str],
+) -> list[str]:
+    """Probe build-related objects via DESCRIBE to identify which are missing.
+
+    Returns a list of human-readable descriptions for each object that could
+    not be described (either does not exist or the current role lacks access).
+    """
+    missing: list[str] = []
+    if compute_pool:
+        try:
+            manager.execute_query(f"DESCRIBE COMPUTE POOL {compute_pool}")
+        except ProgrammingError:
+            missing.append(f"Compute pool: {compute_pool}")
+    if build_eai:
+        try:
+            manager.execute_query(f"DESCRIBE EXTERNAL ACCESS INTEGRATION {build_eai}")
+        except ProgrammingError:
+            missing.append(f"External access integration: {build_eai}")
+    return missing
+
+
 def snowflake_app_deploy(
     entity_id: Optional[str],
     upload_only: bool,
@@ -636,7 +660,43 @@ def snowflake_app_deploy(
                 build_kwargs["source_uri"] = workspace_build_source_uri
             else:
                 build_kwargs["stage_fqn"] = storage_fqn
-            build_result = manager.build_app_artifact_repo(**build_kwargs)
+            try:
+                build_result = manager.build_app_artifact_repo(**build_kwargs)
+            except ProgrammingError as e:
+                if e.errno == 2043:
+                    source = (
+                        build_kwargs.get("source_uri")
+                        or f"@{build_kwargs.get('stage_fqn')}"
+                    )
+                    missing = _check_build_objects(
+                        manager,
+                        compute_pool=build_compute_pool,
+                        build_eai=build_eai,
+                    )
+                    if missing:
+                        details = "\n".join(f"  - {name}" for name in missing)
+                        raise CliError(
+                            f"Build failed: the following object(s) do not "
+                            f"exist or your current role does not have "
+                            f"access:\n{details}\n"
+                            f"\n"
+                            f"Original error: {e.msg}"
+                        ) from e
+                    raise CliError(
+                        f"Build failed: object does not exist or operation "
+                        f"cannot be performed.\n"
+                        f"\n"
+                        f"The build step references several objects. Verify "
+                        f"that the following exist and that your current role "
+                        f"has access:\n"
+                        f"  - Code source:                 {source}\n"
+                        f"  - Artifact repository:         {artifact_repo_fqn_str}\n"
+                        f"  - Compute pool:                {build_compute_pool or '(not specified)'}\n"
+                        f"  - External access integration: {build_eai or '(not specified)'}\n"
+                        f"\n"
+                        f"Original error: {e.msg}"
+                    ) from e
+                raise
             cli_console.step(
                 f"SPCS_TEST_BUILD_APP_ARTIFACT_REPO output:\n{build_result}"
             )

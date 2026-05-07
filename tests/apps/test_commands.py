@@ -4384,3 +4384,107 @@ class TestDeployCommand:
 
         _, create_kwargs = mock_mgr.create_app_service.call_args
         assert create_kwargs["compute_pool"] == "YML_SVC_POOL"
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.StageManager")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "MY_BUILD_POOL",
+            "service_compute_pool": None,
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_build_error_2043_shows_helpful_message(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        mock_stage_manager_cls,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """When SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO fails with error 2043
+        (object does not exist), the CLI should show a helpful message listing
+        the objects the user should verify."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.code_workspace = Mock(database=None, schema_=None)
+        entity.code_workspace.name = "MY_APP_CODE"
+        entity.artifacts = []
+        entity.meta = None
+        entity.runtime_image = "runtime:latest"
+        entity.query_warehouse = "WH"
+        entity.build_image = None
+        entity.execute_as_caller = False
+        entity.artifact_repository = None
+        entity.build_compute_pool = Mock()
+        entity.build_compute_pool.name = "MY_BUILD_POOL"
+        entity.service_compute_pool = None
+        entity.build_eai = Mock()
+        entity.build_eai.name = "MY_EAI"
+        mock_get_entity.return_value = entity
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.get_default_workspace_version_subdirectory_uri.return_value = (
+            _WORKSPACE_BUILD_SOURCE_URI
+        )
+        mock_mgr.artifact_repo_exists.return_value = True
+        mock_mgr.build_app_artifact_repo.side_effect = ProgrammingError(
+            msg="SQL compilation error:\nObject does not exist, or operation cannot be performed.",
+            errno=2043,
+        )
+
+        def _describe_side_effect(query, **kwargs):
+            if "COMPUTE POOL" in query:
+                raise ProgrammingError(
+                    msg="Compute pool 'MY_BUILD_POOL' does not exist.",
+                    errno=2043,
+                )
+            if "EXTERNAL ACCESS INTEGRATION" in query:
+                raise ProgrammingError(
+                    msg="Integration 'MY_EAI' does not exist.",
+                    errno=2043,
+                )
+            return Mock()
+
+        mock_mgr.execute_query.side_effect = _describe_side_effect
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "deploy", "--build-only"])
+            assert result.exit_code == 1, result.output
+            assert (
+                "do not exist" in result.output.lower()
+                or "does not exist" in result.output.lower()
+            )
+            assert "MY_BUILD_POOL" in result.output
+            assert "MY_EAI" in result.output
