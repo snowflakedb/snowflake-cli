@@ -451,7 +451,7 @@ def test_dcm_plan_with_save_output(
 
 @pytest.mark.qa_only
 @pytest.mark.integration
-def test_dcm_plan_delta(
+def test_dcm_plan_with_delta(
     runner,
     test_database,
     dcm_project_directory,
@@ -477,8 +477,9 @@ def test_dcm_plan_delta(
         result = runner.invoke_with_connection(
             [
                 "dcm",
-                "plan-delta",
+                "plan",
                 project_name,
+                "--delta",
                 "-D",
                 f"table_name='{test_database}.PUBLIC.PlanDeltaTestTable'",
             ]

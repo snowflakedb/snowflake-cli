@@ -877,6 +877,42 @@ class TestDCMPlan:
             from_stage="TMP_STAGE",
             variables=["key=value"],
             save_output=False,
+            delta=False,
+        )
+
+    def test_plan_project_with_delta(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_dcm_manager().plan.return_value = mock_cursor(
+            rows=[("[]",)], columns=("operations",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                [
+                    "dcm",
+                    "plan",
+                    "fooBar",
+                    "--delta",
+                ]
+            )
+        assert result.exit_code == 0, result.output
+
+        mock_dcm_manager().plan.assert_called_once_with(
+            project_identifier=FQN.from_string("fooBar"),
+            configuration=None,
+            from_stage="TMP_STAGE",
+            variables=None,
+            save_output=False,
+            delta=True,
         )
 
     def test_plan_project_with_save_output(
@@ -911,6 +947,7 @@ class TestDCMPlan:
             from_stage="TMP_STAGE",
             variables=None,
             save_output=True,
+            delta=False,
         )
 
     def test_plan_project_with_from_stage_fails(
@@ -1029,162 +1066,6 @@ class TestDCMPlan:
 
         with project_directory("dcm_project"):
             result = runner.invoke(["dcm", "plan", "fooBar", "--format", format_name])
-
-        assert result.exit_code == 0, result.output
-        payload = json.loads(result.output)
-        _assert_format_result(payload, plan_response, format_name)
-
-
-class TestDCMPlanDelta:
-    def test_plan_delta_project(
-        self,
-        mock_dcm_manager,
-        mock_manifest_load,
-        runner,
-        project_directory,
-        mock_cursor,
-        mock_connect,
-    ):
-        mock_dcm_manager().plan_delta.return_value = mock_cursor(
-            rows=[("[]",)], columns=("operations",)
-        )
-        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
-        mock_manifest_load.return_value = _manifest_without_config()
-
-        with project_directory("dcm_project"):
-            result = runner.invoke(
-                [
-                    "dcm",
-                    "plan-delta",
-                    "fooBar",
-                    "-D",
-                    "key=value",
-                ]
-            )
-        assert result.exit_code == 0, result.output
-
-        mock_dcm_manager().plan_delta.assert_called_once_with(
-            project_identifier=FQN.from_string("fooBar"),
-            configuration=None,
-            from_stage="TMP_STAGE",
-            variables=["key=value"],
-            save_output=False,
-        )
-
-    def test_plan_delta_project_with_save_output(
-        self,
-        mock_dcm_manager,
-        mock_manifest_load,
-        runner,
-        project_directory,
-        mock_cursor,
-        mock_connect,
-    ):
-        mock_dcm_manager().plan_delta.return_value = mock_cursor(
-            rows=[("[]",)], columns=("operations",)
-        )
-        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
-        mock_manifest_load.return_value = _manifest_without_config()
-
-        with project_directory("dcm_project"):
-            result = runner.invoke(
-                [
-                    "dcm",
-                    "plan-delta",
-                    "fooBar",
-                    "--save-output",
-                ]
-            )
-        assert result.exit_code == 0, result.output
-
-        mock_dcm_manager().plan_delta.assert_called_once_with(
-            project_identifier=FQN.from_string("fooBar"),
-            configuration=None,
-            from_stage="TMP_STAGE",
-            variables=None,
-            save_output=True,
-        )
-
-    def test_plan_delta_project_with_from_stage_fails(
-        self, mock_dcm_manager, runner, project_directory
-    ):
-        result = runner.invoke(["dcm", "plan-delta", "fooBar", "--from", "@my_stage"])
-        assert result.exit_code == 1, result.output
-        assert "Stage paths are not supported" in result.output
-
-    def test_plan_delta_with_save_output_saves_response(
-        self,
-        mock_dcm_manager,
-        mock_manifest_load,
-        runner,
-        mock_cursor,
-        mock_connect,
-        tmp_path,
-    ):
-        plan_response = {
-            "version": 2,
-            "changeset": [
-                {
-                    "type": "CREATE",
-                    "object_id": {
-                        "domain": "TABLE",
-                        "name": '"ORDERS"',
-                        "fqn": '"DB"."SCH"."ORDERS"',
-                    },
-                    "changes": [],
-                }
-            ],
-        }
-        mock_dcm_manager().plan_delta.return_value = mock_cursor(
-            rows=[(json.dumps(plan_response),)], columns=("operations",)
-        )
-        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
-        mock_manifest_load.return_value = _manifest_without_config()
-
-        with change_directory(tmp_path):
-            result = runner.invoke(["dcm", "plan-delta", "fooBar", "--save-output"])
-
-            assert result.exit_code == 0, result.output
-
-            json_file = tmp_path / "out" / "plan-delta.json"
-            assert json_file.exists()
-            _assert_json_dumped("plan-delta", plan_response, tmp_path)
-
-    @pytest.mark.parametrize("format_name", ["json", "json_ext"])
-    def test_plan_delta_with_json_formats_returns_response(
-        self,
-        mock_dcm_manager,
-        mock_manifest_load,
-        runner,
-        mock_cursor,
-        mock_connect,
-        project_directory,
-        format_name,
-    ):
-        plan_response = {
-            "version": 2,
-            "changeset": [
-                {
-                    "type": "CREATE",
-                    "object_id": {
-                        "domain": "TABLE",
-                        "name": '"ORDERS"',
-                        "fqn": '"DB"."SCH"."ORDERS"',
-                    },
-                    "changes": [],
-                }
-            ],
-        }
-        mock_dcm_manager().plan_delta.return_value = _mock_cursor_for_format(
-            mock_cursor, plan_response, format_name
-        )
-        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
-        mock_manifest_load.return_value = _manifest_without_config()
-
-        with project_directory("dcm_project"):
-            result = runner.invoke(
-                ["dcm", "plan-delta", "fooBar", "--format", format_name]
-            )
 
         assert result.exit_code == 0, result.output
         payload = json.loads(result.output)

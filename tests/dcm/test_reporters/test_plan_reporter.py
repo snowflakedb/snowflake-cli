@@ -133,30 +133,6 @@ class TestPlanReporterTerse:
 
         assert "Deployed 1 entity (1 created, 0 altered, 0 dropped)." in output
 
-    def test_plan_delta_summary_prefix(self):
-        data = {
-            "version": 2,
-            "metadata": {},
-            "changeset": [
-                {
-                    "type": "CREATE",
-                    "object_id": {
-                        "domain": "TABLE",
-                        "name": '"ORDERS"',
-                        "fqn": '"DB"."SCH"."ORDERS"',
-                        "database": '"DB"',
-                        "schema": '"SCH"',
-                    },
-                    "changes": [],
-                }
-            ],
-        }
-        reporter = PlanReporter(command_name="plan-delta")
-
-        output = capture_reporter_output(reporter, FakeCursor(data))
-
-        assert "Planned 1 entity (1 to create, 0 to alter, 0 to drop)." in output
-
     def test_empty_cursor(self):
         output = capture_reporter_output(PlanReporter(), FakeCursor(None))
 
