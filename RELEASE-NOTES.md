@@ -26,6 +26,7 @@
 * Fixed `SELECT *` output being corrupted when joined tables share column names. Duplicate column names are now disambiguated by appending a numeric suffix (e.g. `NAME`, `NAME_2`).
 * Fixed `snow connection generate-jwt` and `snow connection generate-workload-identity-token` failing with `Connection None is not configured` when used with `--temporary-connection`.
 * The internal connection cache now remembers failed connect attempts and re-raises the original exception on subsequent accesses within the same process, instead of re-dialing Snowflake every time a command accesses the shared connection. This fixes, among other cases, the customer-visible duplicate `LOGIN_HISTORY` events (and `OVERFLOW_FAILURE_EVENTS_ELIDED`) previously emitted when a `snow` invocation was rejected by an authentication policy.
+* `snow connection list` (and other commands that enumerate connections) now raises a clear, actionable error when the `[connections]` section of `config.toml` contains an entry that is not a table (for example, a stray `default = "something"` line at the top of the section). Previously these configurations produced an unhandled `AttributeError: 'String' object has no attribute 'items'` with no indication of which entry was wrong.
 
 
 # v3.17.0

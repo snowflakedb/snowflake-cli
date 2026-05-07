@@ -136,14 +136,21 @@ class LegacyConfigProvider(ConfigProvider):
             )
 
     def get_all_connections(self, include_env_connections: bool = False) -> dict:
+        from click import ClickException
         from snowflake.cli.api.config import ConnectionConfig, get_config_section
 
         # Legacy provider ignores the flag since it never had env connections
         connections = get_config_section("connections")
-        return {
-            name: ConnectionConfig.from_dict(config)
-            for name, config in connections.items()
-        }
+        result = {}
+        for name, config in connections.items():
+            if not isinstance(config, dict):
+                raise ClickException(
+                    f"Connection '{name}' in the configuration file is malformed: "
+                    f"expected a table of connection parameters but found a {type(config).__name__}. "
+                    f"Each connection must be defined as [connections.{name}] with key = value entries."
+                )
+            result[name] = ConnectionConfig.from_dict(config)
+        return result
 
 
 class AlternativeConfigProvider(ConfigProvider):

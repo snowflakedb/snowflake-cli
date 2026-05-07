@@ -415,6 +415,32 @@ def test_mask_sensitive_parameters_masks_all_known_sensitive_keys():
     assert params["password"] == "hunter2"
 
 
+@mock.patch.dict(os.environ, {}, clear=True)
+def test_connection_list_reports_malformed_connection_entry(runner):
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        tmp_file.write(
+            dedent(
+                """\
+                [connections]
+                default = "conn"
+
+                [connections.conn]
+                user = "foo"
+                """
+            )
+        )
+        tmp_file.flush()
+        os.chmod(tmp_file.name, 0o600)
+        result = runner.invoke_with_config_file(
+            tmp_file.name, ["connection", "list", "--format", "json"]
+        )
+
+    assert result.exit_code != 0, result.output
+    assert "malformed" in result.output
+    assert "default" in result.output
+    assert "[connections.default]" in result.output
+
+
 @mock.patch.dict(
     os.environ,
     {
