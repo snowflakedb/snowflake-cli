@@ -717,8 +717,10 @@ class SnowflakeAppManager(SqlExecutionMixin):
 
     def get_service_logs(self, service_fqn: FQN, last: int = 500) -> str:
         """Fetch recent log output from an application service."""
+        from snowflake.cli.api.project.util import to_string_literal
+
         cursor = self.execute_query(
-            f"CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{service_fqn.identifier}', {last})"
+            f"CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS({to_string_literal(service_fqn.identifier)}, {last})"
         )
         row = cursor.fetchone()
         return row[0] if row else ""
@@ -1001,7 +1003,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         Returns an empty dict when the DESCRIBE returns no rows.
         """
         cursor = self.execute_query(
-            f"DESCRIBE APPLICATION SERVICE {service_fqn.identifier}",
+            f"DESCRIBE APPLICATION SERVICE {service_fqn.sql_identifier}",
             cursor_class=DictCursor,
         )
         row = cursor.fetchone()

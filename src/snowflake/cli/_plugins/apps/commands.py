@@ -728,7 +728,7 @@ def snowflake_app_deploy(
                 ),
                 timeout_message=(
                     f"Upgrade timed out. Check logs:\n"
-                    f"  CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{app_name}')"
+                    f"  CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{service_fqn.identifier}')"
                 ),
             )
         else:
