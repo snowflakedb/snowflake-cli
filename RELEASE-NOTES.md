@@ -21,6 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
+* Updated `GitPython` to 3.1.49 to address CVE-2026-44244, a config injection vulnerability in `GitConfigParser.set_value()` that could allow arbitrary hook path injection and remove code execution via crafted author names or emails.
 
 
 # v3.17.0
