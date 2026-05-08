@@ -556,3 +556,74 @@ class TestStreamlitCommands(StreamlitTestClass):
         assert mock_streamlit_ctx.get_queries() == [
             "EXECUTE STREAMLIT IDENTIFIER('test_streamlit')()"
         ]
+
+    # ---- Personal-preview deploy (`--preview`) ----
+
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._preview_object_exists",
+        return_value=False,
+    )
+    def test_deploy_preview_with_spcs_runtime(
+        self, _mock_preview_exists, project_directory, runner, alter_snowflake_yml
+    ):
+        """End-to-end: --preview emits the workspace-FROM SQL with SPCS runtime
+        clauses and uploads files to the per-entity workspace subfolder."""
+        with project_directory("example_streamlit_v2") as tmp_dir:
+            alter_snowflake_yml(
+                tmp_dir / "snowflake.yml",
+                parameter_path="entities.test_streamlit.runtime_name",
+                value="SYSTEM$ST_CONTAINER_RUNTIME_PY3_11",
+            )
+            alter_snowflake_yml(
+                tmp_dir / "snowflake.yml",
+                parameter_path="entities.test_streamlit.compute_pool",
+                value="MYPOOL",
+            )
+            result = runner.invoke(["streamlit", "deploy", "--preview", "--replace"])
+
+        expected_query = dedent(
+            """
+            CREATE OR REPLACE STREAMLIT user$.public.test_streamlit
+            FROM 'snow://workspace/USER$.PUBLIC.DEFAULT$/versions/live'
+            MAIN_FILE = 'test_streamlit/streamlit_app.py'
+            QUERY_WAREHOUSE = test_warehouse
+            TITLE = 'My Fancy Streamlit'
+            CREATE_CODE_STAGE = FALSE
+            RUNTIME_NAME = 'SYSTEM$ST_CONTAINER_RUNTIME_PY3_11'
+            COMPUTE_POOL = 'MYPOOL';
+            """
+        ).strip()
+
+        assert result.exit_code == 0, result.output
+        self.mock_execute.assert_any_call(expected_query)
+
+        # No ADD LIVE VERSION should be issued for preview mode.
+        executed = [c.args[0] for c in self.mock_execute.call_args_list]
+        assert not any("ADD LIVE VERSION" in q for q in executed), executed
+
+        # Files must be uploaded under the per-entity workspace subfolder.
+        upload_destinations = [
+            call.kwargs.get("stage_path")
+            or (call.args[1] if len(call.args) > 1 else None)
+            for call in self.mock_put.call_args_list
+        ]
+        assert any(
+            d
+            and "snow://workspace/USER$.PUBLIC.DEFAULT$/versions/live/test_streamlit"
+            in d
+            for d in upload_destinations
+        ), upload_destinations
+
+    def test_deploy_preview_with_prune_errors(self, project_directory, runner):
+        with project_directory("example_streamlit_v2"):
+            result = runner.invoke(["streamlit", "deploy", "--preview", "--prune"])
+
+        assert result.exit_code != 0, result.output
+        assert "--prune is not supported with --preview" in result.output
+
+    def test_deploy_preview_with_legacy_errors(self, project_directory, runner):
+        with project_directory("example_streamlit_v2"):
+            result = runner.invoke(["streamlit", "deploy", "--preview", "--legacy"])
+
+        assert result.exit_code != 0, result.output
+        assert "--preview is not compatible with --legacy" in result.output

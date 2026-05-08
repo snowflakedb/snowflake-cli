@@ -28,6 +28,11 @@ from snowflake.cli.api.project.schemas.updatable_model import DiscriminatorField
 # SPCS Runtime v2 constants
 SPCS_RUNTIME_V2_NAME = "SYSTEM$ST_CONTAINER_RUNTIME_PY3_11"
 
+# Personal-preview deploy constants (used by `snow streamlit deploy --preview`)
+PREVIEW_DATABASE = "user$"
+PREVIEW_SCHEMA = "public"
+PREVIEW_WORKSPACE_STAGE_URI = "snow://workspace/USER$.PUBLIC.DEFAULT$/versions/live"
+
 
 class StreamlitEntityModel(
     EntityModelBaseWithArtifacts,

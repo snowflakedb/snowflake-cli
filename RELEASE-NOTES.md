@@ -21,6 +21,7 @@
 ## New additions
 * Added a `--secondary-roles` option (plus matching `SNOWFLAKE_SECONDARY_ROLES` env var and `secondary_roles` config key) to `snow connection add` and the global connection overrides. The value is forwarded to `snowflake-connector-python` and accepts `ALL` or `NONE`, so sessions can be pinned to the primary role without running an extra `USE SECONDARY ROLES` statement.
 * Added `--force` flag to `snow spcs service drop` to allow dropping services that contain block storage volumes.
+* Added `--preview` flag to `snow streamlit deploy`. Bundles local artifacts and uploads them to a per-entity subfolder under the user's default workspace live version (`snow://workspace/USER$.PUBLIC.DEFAULT$/versions/live/<entity_id>/`), then creates the Streamlit at `user$.public.<name>` with `CREATE_CODE_STAGE = FALSE`. Incompatible with `--legacy` and `--prune`.
 
 ## Fixes and improvements
 * Fixed `SELECT *` output being corrupted when joined tables share column names. Duplicate column names are now disambiguated by appending a numeric suffix (e.g. `NAME`, `NAME_2`).

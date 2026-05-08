@@ -8,6 +8,9 @@ from snowflake.cli._plugins.nativeapp.artifacts import build_bundle
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli._plugins.streamlit.manager import StreamlitManager
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
+    PREVIEW_DATABASE,
+    PREVIEW_SCHEMA,
+    PREVIEW_WORKSPACE_STAGE_URI,
     SPCS_RUNTIME_V2_NAME,
     StreamlitEntityModel,
 )
@@ -99,13 +102,22 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         prune: bool = False,
         bundle_map: Optional[BundleMap] = None,
         legacy: bool = False,
+        preview: bool = False,
         *args,
         **kwargs,
     ):
+        if preview and legacy:
+            raise CliError("--preview is not compatible with --legacy.")
+        if preview and prune:
+            raise CliError("--prune is not supported with --preview.")
+
         if (
             bundle_map is None
         ):  # TODO: maybe we could hold bundle map as a cached property?
             bundle_map = self.bundle()
+
+        if preview:
+            return self._deploy_preview(bundle_map=bundle_map, replace=replace)
 
         console = self._workspace_ctx.console
         console.step(f"Checking if object exists")
@@ -220,6 +232,50 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
 
         return query + ";"
 
+    def _preview_identifier(self) -> str:
+        """Personal-preview FQN as a bare identifier (no IDENTIFIER('...') wrap).
+
+        Wrapping in ``IDENTIFIER('...')`` interacts awkwardly with the ``$``
+        sigil in ``user$``, so we interpolate directly.
+        """
+        return f"{PREVIEW_DATABASE}.{PREVIEW_SCHEMA}.{self._entity_model.fqn.name}"
+
+    def get_preview_deploy_sql(self, replace: bool = False) -> str:
+        """Build the CREATE STREAMLIT statement for a personal-preview deploy.
+
+        ``MAIN_FILE`` is auto-prefixed with the entity_id so it points at the
+        per-entity workspace subfolder where artifacts were uploaded.
+        """
+        verb = "CREATE OR REPLACE STREAMLIT" if replace else "CREATE STREAMLIT"
+        main_file_with_prefix = f"{self.entity_id}/{self._entity_model.main_file}"
+
+        parts = [
+            f"{verb} {self._preview_identifier()}",
+            f"FROM '{PREVIEW_WORKSPACE_STAGE_URI}'",
+            f"MAIN_FILE = '{main_file_with_prefix}'",
+        ]
+
+        if self.model.imports:
+            parts.append(self.model.get_imports_sql())
+        if self.model.query_warehouse:
+            parts.append(f"QUERY_WAREHOUSE = {self.model.query_warehouse}")
+        if self.model.title:
+            parts.append(f"TITLE = '{self.model.title}'")
+        if self.model.comment:
+            parts.append(f"COMMENT = '{self.model.comment}'")
+        if self.model.external_access_integrations:
+            parts.append(self.model.get_external_access_integrations_sql())
+        if self.model.secrets:
+            parts.append(self.model.get_secrets_sql())
+
+        parts.append("CREATE_CODE_STAGE = FALSE")
+
+        if self._is_spcs_runtime_v2_mode():
+            parts.append(f"RUNTIME_NAME = '{self.model.runtime_name}'")
+            parts.append(f"COMPUTE_POOL = '{self.model.compute_pool}'")
+
+        return "\n".join(parts) + ";"
+
     def get_describe_sql(self) -> str:
         return f"DESCRIBE STREAMLIT {self._get_sql_identifier()};"
 
@@ -325,3 +381,89 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         )
 
         StreamlitManager(connection=self._conn).grant_privileges(self.model)
+
+    def _preview_object_exists(self) -> bool:
+        """Existence check against the preview FQN (``user$.public.<name>``).
+
+        Cannot reuse ``_object_exists`` because that uses the yaml FQN.
+        """
+        sql = f"DESCRIBE STREAMLIT {self._preview_identifier()};"
+        try:
+            self._execute_query(sql, cursor_class=DictCursor)
+            return True
+        except ProgrammingError:
+            return False
+
+    def _get_preview_url(self) -> str:
+        # `user$` is a server-side alias resolved to `user$<current_user>`
+        # at SQL execution time. Snowsight URLs need the resolved name, so
+        # query CURRENT_USER() here and fall back to the literal `user$`
+        # if resolution fails (URL is informational; deploy already succeeded).
+        database = PREVIEW_DATABASE
+        try:
+            cursor = self._execute_query(
+                "SELECT 'USER$' || CURRENT_USER() AS personal_database"
+            )
+            row = cursor.fetchone()
+            # Empty CURRENT_USER() yields the literal 'USER$'; treat as unresolved.
+            if row and row[0] and not row[0].endswith("$"):
+                database = str(row[0])
+        except Exception:  # noqa: BLE001
+            log.warning(
+                "Could not resolve personal database; falling back to %r in URL.",
+                PREVIEW_DATABASE,
+                exc_info=True,
+            )
+
+        preview_fqn = FQN(
+            database=database,
+            schema=PREVIEW_SCHEMA,
+            name=self._entity_model.fqn.name,
+        ).using_connection(self._conn)
+        return make_snowsight_url(
+            self._conn, f"/#/streamlit-apps/{preview_fqn.url_identifier}"
+        )
+
+    def _deploy_preview(self, bundle_map: BundleMap, replace: bool = False) -> str:
+        console = self._workspace_ctx.console
+        preview_identifier = self._preview_identifier()
+
+        console.step(f"Checking if preview Streamlit {preview_identifier} exists")
+        if self._preview_object_exists() and not replace:
+            raise ClickException(
+                f"Preview Streamlit {preview_identifier} already exists. "
+                f"Use --replace to overwrite."
+            )
+
+        workspace_subfolder = f"{PREVIEW_WORKSPACE_STAGE_URI}/{self.entity_id}"
+        console.step(f"Uploading artifacts to {workspace_subfolder}")
+        sync_deploy_root_with_stage(
+            console=console,
+            deploy_root=bundle_map.deploy_root(),
+            bundle_map=bundle_map,
+            prune=False,  # workspace HEAD is shared; never prune unrelated files
+            recursive=True,
+            stage_path_parts=StageManager().stage_path_parts_from_str(
+                workspace_subfolder
+            ),
+            print_diff=True,
+            force_overwrite=True,
+        )
+
+        console.step(f"Creating preview Streamlit {preview_identifier}")
+        self._execute_query(self.get_preview_deploy_sql(replace=replace))
+
+        # `grants:` from snowflake.yml target the YAML FQN, not the preview
+        # FQN, so applying them here would either fail with "object does not
+        # exist" or silently grant on the wrong object. Preview deploys live
+        # in `user$.public.<name>`, which is private to the current user;
+        # users can apply grants manually if needed.
+        if self.model.grants:
+            console.warning(
+                "Skipping `grants:` in --preview mode. Preview deploys to "
+                f"{preview_identifier}, which is private to your user; apply "
+                "grants manually if needed."
+            )
+        else:
+            StreamlitManager(connection=self._conn).grant_privileges(self.model)
+        return self._get_preview_url()

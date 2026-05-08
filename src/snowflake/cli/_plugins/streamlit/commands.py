@@ -44,7 +44,7 @@ from snowflake.cli.api.commands.utils import get_entity_for_operation
 from snowflake.cli.api.console.console import CliConsole
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.entities.utils import EntityActions
-from snowflake.cli.api.exceptions import NoProjectDefinitionError
+from snowflake.cli.api.exceptions import CliError, NoProjectDefinitionError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CommandResult,
@@ -134,6 +134,19 @@ LegacyOption = typer.Option(
     is_flag=True,
 )
 
+PreviewOption = typer.Option(
+    False,
+    "--preview",
+    help=(
+        "Deploy the Streamlit as a personal preview in `user$.public.<name>` "
+        "sourced from your default workspace at "
+        "`snow://workspace/USER$.PUBLIC.DEFAULT$/versions/live`. "
+        "Local artifacts are uploaded to a per-entity subfolder under that "
+        "workspace live version. Incompatible with `--legacy` and `--prune`."
+    ),
+    is_flag=True,
+)
+
 
 @app.command("deploy", requires_connection=True)
 @with_project_definition()
@@ -147,6 +160,7 @@ def streamlit_deploy(
     entity_id: str = entity_argument("streamlit"),
     open_: bool = OpenOption,
     legacy: bool = LegacyOption,
+    preview: bool = PreviewOption,
     **options,
 ) -> CommandResult:
     """
@@ -155,6 +169,14 @@ def streamlit_deploy(
     stage is used. If the specified stage does not exist, the command creates it. If multiple Streamlits are defined
     in snowflake.yml and no entity_id is provided then command will raise an error.
     """
+
+    if preview and legacy:
+        raise CliError("--preview is not compatible with --legacy.")
+    if preview and prune:
+        raise CliError(
+            "--prune is not supported with --preview because the workspace "
+            "live version is shared with other files."
+        )
 
     cli_context = get_cli_context()
     workspace_ctx = _get_current_workspace_context()
@@ -194,6 +216,7 @@ def streamlit_deploy(
         replace=replace,
         legacy=legacy,
         prune=prune,
+        preview=preview,
     )
 
     if open_:
