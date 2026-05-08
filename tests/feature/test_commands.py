@@ -156,6 +156,41 @@ def test_plan_writes_plan_file_on_success(mock_manager, runner, tmp_path):
 
 
 @mock.patch(FEATURE_MANAGER)
+def test_bare_directory_triggers_full_sync_mode(mock_manager, runner, tmp_path):
+    """Bare directory arguments are auto-expanded to ``<dir>/...`` and run full-sync.
+
+    Previously a bare directory silently loaded zero files because the loader's
+    ``glob.glob`` branch returned the directory path itself and ``process_file``
+    then crashed with ``IsADirectoryError``, swallowed by the loader's bare
+    ``except``.  The fix auto-expands bare directories to ``<dir>/...``; this
+    test pins the CLI mode header and ``no_delete=False`` propagation so the
+    mode shown to the user matches what the loader actually does.
+    """
+    real_dir = tmp_path / "specs"
+    real_dir.mkdir()
+    (real_dir / "fv.yaml").write_text("kind: StreamingFeatureView\nname: x\n")
+
+    mock_manager.return_value.apply.return_value = {}
+    result = runner.invoke(["feature", "apply", str(real_dir)])
+    assert result.exit_code == 0, result.output
+    call_kwargs = mock_manager.return_value.apply.call_args[1]
+    assert call_kwargs["no_delete"] is False, call_kwargs
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_specific_file_stays_incremental(mock_manager, runner, tmp_path):
+    """A specific file argument runs in INCREMENTAL mode (``no_delete=True``)."""
+    p = tmp_path / "fv.yaml"
+    p.write_text("kind: StreamingFeatureView\nname: x\n")
+
+    mock_manager.return_value.apply.return_value = {}
+    result = runner.invoke(["feature", "apply", str(p)])
+    assert result.exit_code == 0, result.output
+    call_kwargs = mock_manager.return_value.apply.call_args[1]
+    assert call_kwargs["no_delete"] is True, call_kwargs
+
+
+@mock.patch(FEATURE_MANAGER)
 def test_plan_help_does_not_show_overwrite(mock_manager, runner):
     """plan --help must NOT show --overwrite or --allow-recreate."""
     result = runner.invoke(["feature", "plan", "--help"])

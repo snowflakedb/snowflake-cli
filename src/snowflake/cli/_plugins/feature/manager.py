@@ -385,7 +385,22 @@ class FeatureManager(SqlExecutionMixin):
         batch = decl_api.load_specs(all_files, config)
 
         options = PlanOptions(dev_mode=dev_mode, full_directory_mode=not no_delete)
-        plan = decl_api.generate_plan(batch, applied_state, options)
+        # Forward connection context so the planner qualifies bare specs
+        # (single-file invocations, entity YAMLs without ``database:``)
+        # against the active ``snow`` connection.  Skipping this is the
+        # ``write_plan`` ⇄ ``apply(dry_run=True)`` parity bug: the
+        # apply path qualifies via ``generate_apply_sql`` while
+        # ``write_plan`` would otherwise hand unqualified spec keys to
+        # the planner — so an unchanged repo would render as
+        # ``NO_CHANGE`` in the terminal yet emit a wave of phantom
+        # ``CREATE_*`` / ``DROP_*`` ops in the on-disk plan file.
+        plan = decl_api.generate_plan(
+            batch,
+            applied_state,
+            options,
+            database=ctx.connection.database or "",
+            schema=ctx.connection.schema or "",
+        )
 
         json_str = decl_api.serialize_plan(
             plan,
@@ -697,14 +712,28 @@ class FeatureManager(SqlExecutionMixin):
         return specification_map
 
     def _fetch_entity_rows(self, ctx: Any) -> list[dict[str, Any]]:
-        """Fetch entity tag rows; tolerate failure with an empty list."""
+        """Fetch entity tag rows via the imperative ``list_entities()`` facade.
+
+        Delegates to :func:`decl_api.fetch_entity_rows`, which lazy-imports
+        the imperative ``FeatureStore`` inside ``imperative_executor.py``
+        — the only declarative module permitted to do so.  The CLI no
+        longer issues a raw ``SHOW TAGS`` query of its own.
+
+        Failures are tolerated (logged and converted to an empty list) so
+        that missing-privilege paths still let ``snow feature list``
+        complete with FeatureView rows only, mirroring the prior raw-SQL
+        behaviour.
+        """
         try:
-            sql = decl_api.list_entities_query(
-                ctx.connection.database, ctx.connection.schema
+            session = self._build_session()
+            return decl_api.fetch_entity_rows(
+                session,
+                ctx.connection.database,
+                ctx.connection.schema,
+                ctx.connection.warehouse or "",
             )
-            return _rows_to_dicts(self.execute_query(sql, cursor_class=DictCursor))
         except Exception as exc:
-            log.debug("list_entities query failed (treating as empty): %s", exc)
+            log.debug("fetch_entity_rows failed (treating as empty): %s", exc)
             return []
 
     @staticmethod

@@ -248,10 +248,28 @@ def _print_mode_header(full_sync: bool) -> None:
 
 
 def _is_full_sync(input_files: list) -> bool:
-    """Return True if input_files indicates full-sync mode (./... pattern)."""
+    """Return True if *input_files* indicates full-sync mode.
+
+    Full-sync triggers when:
+
+    - any element ends in ``/...`` (or is ``./...``) — explicit recursive
+      marker, or
+    - any element points to an existing directory on disk — bare directory
+      paths are auto-expanded to ``<dir>/...`` by the loader and we mirror
+      that here so the CLI mode header and ``no_delete`` flag stay
+      consistent with the actual file walk.
+    """
+    import os as _os
+
     if not input_files:
         return False
-    return any(f.rstrip("/").endswith("/...") or f == "./..." for f in input_files)
+    for f in input_files:
+        stripped = f.rstrip("/")
+        if stripped.endswith("/...") or f == "./...":
+            return True
+        if _os.path.isdir(stripped):
+            return True
+    return False
 
 
 # ---------------------------------------------------------------------------

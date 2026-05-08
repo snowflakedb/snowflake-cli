@@ -56,7 +56,7 @@ def mock_decl():
                 "TYPE = SPECIFICATION"
             ),
         }
-        m.list_entities_query.return_value = "SHOW TAGS LIKE 'SNOWML_FEATURE_STORE_ENTITY_%' IN SCHEMA TEST_DB.TEST_SCHEMA"
+        m.fetch_entity_rows.return_value = []
         m.describe_specification_query.return_value = 'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."x" TYPE = SPECIFICATION'
         m.parse_specification_rows.return_value = None
         # generate_apply_sql returns an ApplyResult-like mock (used for dry_run)
@@ -348,12 +348,22 @@ class TestFeatureManagerListSpecs:
                 "features": [],
             },
         }
-        # SHOW OFT row + SHOW TAGS row + DESCRIBE SPECIFICATION row.
+        mock_decl.fetch_entity_rows.return_value = [
+            {
+                "name": "SNOWML_FEATURE_STORE_ENTITY_USER",
+                "database_name": "TEST_DB",
+                "schema_name": "TEST_SCHEMA",
+                "allowed_values": '["USER_ID"]',
+            }
+        ]
+        # show_ofts row + DESCRIBE SPECIFICATION row.  Entity rows now come
+        # from ``decl_api.fetch_entity_rows`` (imperative path), not from a
+        # raw ``SHOW TAGS`` query, so this iterator no longer feeds a
+        # SHOW TAGS response.
         from snowflake.connector.cursor import DictCursor  # noqa: F401
 
         responses = iter(
             [
-                # show_ofts: one OFT row
                 iter(
                     [
                         {
@@ -363,16 +373,6 @@ class TestFeatureManagerListSpecs:
                         }
                     ]
                 ),
-                # show_entities: one entity tag row
-                iter(
-                    [
-                        {
-                            "name": "SNOWML_FEATURE_STORE_ENTITY_USER",
-                            "allowed_values": '["USER_ID"]',
-                        }
-                    ]
-                ),
-                # describe TYPE = SPECIFICATION: one row (parsed via mock)
                 iter([{"specification": "{}"}]),
             ]
         )
@@ -381,7 +381,10 @@ class TestFeatureManagerListSpecs:
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         mgr = FeatureManager()
-        mgr.list_specs(input_files=(), config=None)
+        with mock.patch.object(
+            FeatureManager, "_build_session", return_value=mock.MagicMock()
+        ):
+            mgr.list_specs(input_files=(), config=None)
 
         call = mock_decl.enrich_list_results.call_args
         kwargs = call.kwargs
@@ -389,11 +392,74 @@ class TestFeatureManagerListSpecs:
         assert "specification_map" in kwargs
         # Spec map populated with the parsed result.
         assert "FV$V1$ONLINE" in kwargs["specification_map"]
-        # Entity row passed through.
+        # Entity row passed through (translated SHOW TAGS shape).
         assert any(
             r.get("name", "").startswith("SNOWML_FEATURE_STORE_ENTITY_")
             for r in kwargs["entity_rows"]
         )
+
+    def test_fetch_entity_rows_uses_decl_api_facade(self, mock_decl):
+        """The CLI must delegate entity-row fetching to ``decl_api.fetch_entity_rows``
+        and never issue a raw ``SHOW TAGS`` query of its own.
+
+        Pin two invariants:
+          - ``decl_api.fetch_entity_rows`` is invoked exactly once with
+            the connection-context db/schema and a Snowpark session;
+          - no SQL is sent through ``execute_query`` from this helper.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mock_decl.fetch_entity_rows.return_value = [
+            {"name": "SNOWML_FEATURE_STORE_ENTITY_X", "allowed_values": "[]"}
+        ]
+        sentinel_session = mock.MagicMock(name="snowpark_session")
+
+        mgr = FeatureManager()
+        ctx = mock.MagicMock()
+        ctx.connection.database = "TEST_DB"
+        ctx.connection.schema = "TEST_SCHEMA"
+        ctx.connection.warehouse = "TEST_WH"
+
+        with mock.patch.object(
+            FeatureManager, "_build_session", return_value=sentinel_session
+        ) as build, mock.patch.object(FeatureManager, "execute_query") as execute:
+            # SLF001: this is a unit test that explicitly pins the
+            # private helper's delegation contract (the CLI-side
+            # entity read path).  Promoting `_fetch_entity_rows` to a
+            # public method would expand the manager's API surface
+            # solely to satisfy the linter, which is the wrong
+            # trade-off here.
+            rows = mgr._fetch_entity_rows(ctx)  # noqa: SLF001
+
+        assert rows == mock_decl.fetch_entity_rows.return_value
+        build.assert_called_once_with()
+        mock_decl.fetch_entity_rows.assert_called_once_with(
+            sentinel_session, "TEST_DB", "TEST_SCHEMA", "TEST_WH"
+        )
+        execute.assert_not_called()
+
+    def test_fetch_entity_rows_tolerates_failure(self, mock_decl):
+        """Missing-privilege paths must still let list complete by
+        returning an empty list when the imperative call raises."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mock_decl.fetch_entity_rows.side_effect = RuntimeError("denied")
+
+        mgr = FeatureManager()
+        ctx = mock.MagicMock()
+        ctx.connection.database = "TEST_DB"
+        ctx.connection.schema = "TEST_SCHEMA"
+
+        with mock.patch.object(
+            FeatureManager, "_build_session", return_value=mock.MagicMock()
+        ):
+            # SLF001: same rationale as
+            # ``test_fetch_entity_rows_uses_decl_api_facade`` — this
+            # test pins the private helper's graceful-degradation
+            # contract (empty list on imperative-side failure), which
+            # is internal-only behaviour.
+            rows = mgr._fetch_entity_rows(ctx)  # noqa: SLF001
+        assert rows == []
 
 
 class TestFeatureManagerDescribe:
@@ -1127,6 +1193,54 @@ class TestWritePlan:
             out_path=out_path,
         )
         mock_decl.serialize_plan.assert_called_once()
+
+    def test_write_plan_forwards_connection_context_to_generate_plan(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``write_plan`` must thread the active connection's database +
+        schema into ``decl_api.generate_plan`` so the planner qualifies
+        every spec key against the same context the UI path
+        (``apply(dry_run=True)`` → ``generate_apply_sql``) qualifies
+        against.
+
+        Without this, the disk plan and the terminal-rendered plan
+        diverge for any spec missing explicit ``database:`` /
+        ``schema:`` (single-file invocations, bare entity YAMLs, etc.):
+        the UI path injects context via ``generate_apply_sql``'s spec
+        mutation while ``write_plan`` calls the planner with no
+        context, the unqualified key never collides with the
+        fully-qualified applied-state key, and every existing object
+        materialises as a phantom ``CREATE_*`` (and, in
+        full-directory mode, a phantom ``DROP_*``).
+
+        The ``mock_cli_context`` fixture (autouse) installs
+        ``database="TEST_DB"`` and ``schema="TEST_SCHEMA"`` on the CLI
+        context, so this test pins the contract that ``write_plan``
+        forwards exactly those two values to the planner.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        out_path = str(tmp_path / "plan.json")
+        mgr = FeatureManager()
+        mgr.write_plan(
+            input_files=["specs.yaml"],
+            config=None,
+            dev_mode=False,
+            out_path=out_path,
+        )
+
+        mock_decl.generate_plan.assert_called_once()
+        call_kwargs = mock_decl.generate_plan.call_args.kwargs
+        assert call_kwargs.get("database") == "TEST_DB", (
+            f"write_plan failed to forward connection database to generate_plan; "
+            f"got kwargs={call_kwargs}.  This is the parity bug: the disk plan "
+            f"will diverge from the apply(dry_run=True) UI plan whenever a spec "
+            f"omits an explicit database field."
+        )
+        assert call_kwargs.get("schema") == "TEST_SCHEMA", (
+            f"write_plan failed to forward connection schema to generate_plan; "
+            f"got kwargs={call_kwargs}."
+        )
 
 
 # ---------------------------------------------------------------------------
