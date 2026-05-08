@@ -494,6 +494,12 @@ def plan(
     variables: Optional[List[str]] = variables_flag,
     target: Optional[str] = target_option,
     save_output: bool = save_output_option,
+    delta: bool = typer.Option(
+        False,
+        "--delta",
+        help="Process only statements changed since the last `deploy`, plus statements potentially impacted by those changes.",
+        hidden=not FeatureFlag.ENABLE_DCM_EARLY_ACCESS.is_enabled(),
+    ),
     **options,
 ):
     """
@@ -518,6 +524,7 @@ def plan(
             from_stage=effective_stage,
             variables=variables,
             save_output=save_output,
+            delta=delta,
         )
 
     return _process_plan_result(result, command_name="plan", save_output=save_output)

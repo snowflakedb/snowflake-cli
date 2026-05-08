@@ -322,6 +322,20 @@ def test_plan_project_with_from_stage(mock_execute_query, project_directory):
 
 
 @mock.patch(execute_queries)
+def test_plan_project_with_delta(mock_execute_query):
+    mgr = DCMProjectManager()
+    mgr.plan(
+        project_identifier=TEST_PROJECT,
+        from_stage="@my_stage",
+        delta=True,
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN DELTA FROM @my_stage"
+    )
+
+
+@mock.patch(execute_queries)
 def test_list_deployments(mock_execute_query):
     mgr = DCMProjectManager()
     mgr.list_deployments(project_identifier=TEST_PROJECT)
