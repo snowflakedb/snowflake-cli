@@ -220,6 +220,16 @@ class TestPollUntilPredicateMode:
             )
 
     @patch("snowflake.cli._plugins.apps.manager.time.sleep")
+    def test_is_error_predicate_rewrites_timeout_wording(self, mock_sleep):
+        with pytest.raises(CliError, match="Upgrade failed"):
+            _poll_until(
+                poll_fn=lambda: "FAILED",
+                is_done=lambda v: v == "READY",
+                is_error=lambda v: v == "FAILED",
+                timeout_message="Upgrade timed out. Check logs:",
+            )
+
+    @patch("snowflake.cli._plugins.apps.manager.time.sleep")
     def test_predicate_mode_timeout(self, mock_sleep):
         with pytest.raises(CliError, match="timed out"):
             _poll_until(
@@ -262,7 +272,7 @@ class TestPollUntilStateSetMode:
 
     @patch("snowflake.cli._plugins.apps.manager.time.sleep")
     def test_error_state_raises(self, mock_sleep):
-        with pytest.raises(CliError, match="timed out"):
+        with pytest.raises(CliError, match="failed"):
             _poll_until(
                 poll_fn=lambda: "FAILED",
                 done_states={"DONE"},
