@@ -153,13 +153,18 @@ class TestFeatureManagerApply:
             assert "CREATE" not in sql.upper(), f"DDL executed in dry_run: {sql}"
 
     def test_apply_calls_load_specs(self, mock_execute_query, mock_decl):
+        """``apply(dry_run=True)`` calls ``load_specs`` to render the
+        plan-display UI.  Wet-run apply (``dry_run=False`` without an
+        explicit plan_file) deliberately does NOT call ``load_specs``
+        — it consumes a pre-generated plan file (L1–L4 invariants of
+        the apply-lifecycle contract)."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         mgr = FeatureManager()
         mgr.apply(
             input_files=["specs.yaml"],
             config=None,
-            dry_run=False,
+            dry_run=True,
             dev_mode=False,
             overwrite=False,
             allow_recreate=False,
@@ -167,7 +172,9 @@ class TestFeatureManagerApply:
         mock_decl.load_specs.assert_called_once()
 
     def test_apply_load_specs_error_propagates(self, mock_execute_query, mock_decl):
-        """If load_specs raises, the exception propagates to the caller."""
+        """If ``load_specs`` raises during a dry-run apply, the
+        exception propagates to the caller (dry-run is the only path
+        that loads specs under the new architecture)."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         mock_decl.load_specs.side_effect = ValueError("bad spec file")
@@ -176,7 +183,7 @@ class TestFeatureManagerApply:
             mgr.apply(
                 input_files=["specs.yaml"],
                 config=None,
-                dry_run=False,
+                dry_run=True,
                 dev_mode=False,
                 overwrite=False,
                 allow_recreate=False,
@@ -1385,42 +1392,198 @@ class TestApplyWithPlanFile:
         assert isinstance(result, dict)
         mock_decl.load_specs.assert_called_once()
 
-
-class TestDirectoryMode:
-    """Tests that apply() sets full_directory_mode based on ./... pattern."""
-
-    def test_apply_with_dot_slash_ellipsis_enables_deletion(
-        self, mock_execute_query, mock_decl
+    def test_apply_from_plan_file_forwards_warehouse_from_connection(
+        self, mock_execute_query, mock_decl, tmp_path
     ):
-        """apply() with no_delete=False passes full_directory_mode=True to generate_plan.
+        """A6 (Bug C): when applying from a plan file in wet-run mode,
+        the manager must forward the *connection's* warehouse to
+        ``decl_api.execute_plan``, not the empty string currently
+        hardcoded in ``_apply_from_plan_file``.
 
-        The commands layer detects './...' and passes no_delete=False.
+        Plan files are warehouse-agnostic by design — they encode
+        ``target_database`` / ``target_schema`` (the destination of the
+        DDL), but the warehouse is a session-level execution detail
+        owned by the active ``snow`` connection.  The lazy
+        ``FeatureStore`` constructor needs a real warehouse for any
+        FV-bearing plan; an empty string fails it.
+
+        Pin: ``execute_plan`` is called with ``warehouse="TEST_WH"``
+        sourced from the autouse ``mock_cli_context`` fixture.
+
+        Expected on ``main``: warehouse is ``""`` (hardcoded). Test fails.
+        After Phase 1's Bug C fix: warehouse is ``"TEST_WH"``. Test
+        passes.
         """
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
+        plan_path = str(tmp_path / "plan.json")
+        self._write_plan_file(plan_path)
+
+        plan_file_obj = mock_decl.deserialize_plan.return_value
+        plan_file_obj.plan = mock_decl.generate_plan.return_value
+        plan_file_obj.target_database = "TEST_DB"
+        plan_file_obj.target_schema = "TEST_SCHEMA"
+
         mgr = FeatureManager()
         mgr.apply(
-            input_files=["./..."],
+            input_files=[],
             config=None,
             dry_run=False,
             dev_mode=False,
             overwrite=False,
             allow_recreate=False,
-            no_delete=False,  # ./... triggers this in commands.py
+            plan_file=plan_path,
         )
-        call_args = mock_decl.generate_plan.call_args
-        assert call_args is not None
-        options = (
-            call_args[0][2] if len(call_args[0]) >= 3 else call_args[1].get("options")
-        )
-        assert options is not None
-        assert options.full_directory_mode is True
 
-    def test_apply_with_specific_files_disables_deletion(
-        self, mock_execute_query, mock_decl
+        mock_decl.execute_plan.assert_called_once()
+        kwargs = mock_decl.execute_plan.call_args.kwargs
+        assert kwargs.get("warehouse") == "TEST_WH", (
+            "Bug C: _apply_from_plan_file must forward the connection's "
+            "warehouse to execute_plan, not the empty string hardcoded "
+            "today.  Plan files are warehouse-agnostic; the active "
+            "connection owns warehouse selection so the same plan can "
+            "run from any compatible warehouse.  See "
+            "'Apply Lifecycle Resilience' plan, A6 / Bug C."
+        )
+
+
+# ---------------------------------------------------------------------------
+# Apply lifecycle artifacts: required-plan, latest-wins, discard-older,
+# mark-applied / mark-failed-stays-unapplied, target-match (L1–L7).
+# Tests A1–A5 from the 'Apply Lifecycle Resilience' plan.
+# ---------------------------------------------------------------------------
+
+
+class TestApplyLifecycleArtifacts:
+    """L1–L7 invariants for ``apply <path>`` (no ``--plan``).
+
+    The new contract: ``apply`` is a pure plan-file consumer.  These
+    tests pin the plan-file lifecycle (unapplied → applied / discarded)
+    that replaces the wet-run re-plan branch.
+
+    All tests use ``tmp_path`` as a faux CWD (via ``monkeypatch.chdir``)
+    so that the ``.snowflake/plans/`` discovery resolves into a
+    sandboxed directory and never touches the real workspace.
+    """
+
+    @staticmethod
+    def _make_plan_json(
+        target_database: str = "TEST_DB",
+        target_schema: str = "TEST_SCHEMA",
+    ) -> str:
+        """Return a minimal valid PlanFile JSON envelope as a string."""
+        import json
+
+        return json.dumps(
+            {
+                "version": "1",
+                "created_at": "2026-05-07T00:00:00+00:00",
+                "target_database": target_database,
+                "target_schema": target_schema,
+                "source_files": ["specs.yaml"],
+                "plan": {"ops": [], "warnings": []},
+                "summary": {},
+            }
+        )
+
+    @staticmethod
+    def _make_plans_dir(cwd) -> "object":
+        """Create ``<cwd>/.snowflake/plans/`` and return the Path."""
+        plans_dir = cwd / ".snowflake" / "plans"
+        plans_dir.mkdir(parents=True, exist_ok=True)
+        return plans_dir
+
+    # --- A1: L1 — Required-Plan ---
+
+    def test_apply_without_plan_file_errors_when_no_plan_exists(
+        self, mock_execute_query, mock_decl, tmp_path, monkeypatch
     ):
-        """apply() with specific file paths passes full_directory_mode=False."""
+        """A1 (L1): ``apply <path>`` with no unapplied plan file must
+        fail fast with a clear error pointing the operator at
+        ``snow feature plan <path>``.
+
+        The new architecture removes the wet-run re-plan branch
+        entirely — there is no fallback.  If the plans directory is
+        empty (or absent), apply must NOT call ``generate_plan``,
+        ``execute_plan``, or any other planning primitive.  It must
+        return a structured ``status="no_plan"`` result whose error
+        text mentions ``plan`` so the user knows what to do next.
+
+        Expected on ``main``: today's wet-run branch silently re-plans
+        from source, so ``generate_plan`` IS called and the test
+        fails.  After Phase 1: the wet-run branch is gone, the test
+        passes.
+        """
         from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        monkeypatch.chdir(tmp_path)
+        # No .snowflake/plans/ at all — apply must error, not re-plan.
+
+        mgr = FeatureManager()
+        result = mgr.apply(
+            input_files=["specs.yaml"],
+            config=None,
+            dry_run=False,
+            dev_mode=False,
+            overwrite=False,
+            allow_recreate=False,
+        )
+
+        assert isinstance(result, dict)
+        assert result.get("status") == "no_plan", (
+            "L1 invariant violated: apply <path> with no unapplied plan "
+            "file must return status='no_plan'.  Got "
+            f"status={result.get('status')!r}.  See 'Apply Lifecycle "
+            "Resilience' plan, A1 / L1."
+        )
+        errors = result.get("errors", [])
+        assert errors, "L1: no_plan result must carry an error message"
+        joined = " ".join(errors).lower()
+        assert "plan" in joined, (
+            f"L1: no_plan error text must mention 'plan' to direct the "
+            f"operator at `snow feature plan`.  Got: {errors!r}"
+        )
+        # No re-planning, no execution.
+        mock_decl.generate_plan.assert_not_called()
+        mock_decl.execute_plan.assert_not_called()
+
+    # --- A2: L2 — Latest-Wins ---
+
+    def test_apply_picks_latest_unapplied_plan_file(
+        self, mock_execute_query, mock_decl, tmp_path, monkeypatch
+    ):
+        """A2 (L2): when multiple unapplied plans exist under
+        ``<cwd>/.snowflake/plans/``, ``apply`` picks the newest by
+        filename timestamp (lexicographic sort works because the format
+        ``feature_plan_<UTC YYYYMMDDTHHMMSS>.json`` is monotonic).
+
+        Pin: ``decl_api.deserialize_plan`` is called with the *content*
+        of the newer file, not the older one.  We disambiguate by
+        embedding distinct ``target_schema`` values in the two files
+        and asserting the JSON passed to ``deserialize_plan`` carries
+        the newer schema.
+
+        Expected on ``main``: no auto-discovery exists — the wet-run
+        branch re-plans from source instead.  Test fails.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        monkeypatch.chdir(tmp_path)
+        plans_dir = self._make_plans_dir(tmp_path)
+
+        older = plans_dir / "feature_plan_20260101T000000.json"
+        newer = plans_dir / "feature_plan_20260102T000000.json"
+        older.write_text(self._make_plan_json(target_schema="OLDER_SCHEMA"))
+        newer.write_text(self._make_plan_json(target_schema="TEST_SCHEMA"))
+
+        # Wire deserialize_plan to pretend it parses whatever JSON
+        # string the manager passes in — our pin is on the JSON
+        # *string* the manager hands to deserialize_plan, regardless of
+        # the structured PlanFile object.
+        plan_file_obj = mock_decl.deserialize_plan.return_value
+        plan_file_obj.plan = mock_decl.generate_plan.return_value
+        plan_file_obj.target_database = "TEST_DB"
+        plan_file_obj.target_schema = "TEST_SCHEMA"
 
         mgr = FeatureManager()
         mgr.apply(
@@ -1431,7 +1594,350 @@ class TestDirectoryMode:
             overwrite=False,
             allow_recreate=False,
         )
-        call_args = mock_decl.generate_plan.call_args
+
+        mock_decl.deserialize_plan.assert_called_once()
+        passed_json = mock_decl.deserialize_plan.call_args.args[0]
+        assert "TEST_SCHEMA" in passed_json, (
+            "L2: apply must pick the *newer* unapplied plan file.  "
+            "Got JSON content from the older file (carries OLDER_SCHEMA)."
+        )
+        assert (
+            "OLDER_SCHEMA" not in passed_json
+        ), "L2: the older plan file's content must NOT be loaded."
+
+    # --- A3: L3 — Discard-Older ---
+
+    def test_apply_renames_older_unapplied_plans_to_discarded(
+        self, mock_execute_query, mock_decl, tmp_path, monkeypatch
+    ):
+        """A3 (L3): when ``apply`` runs with multiple unapplied plans,
+        all plans except the newest are renamed to
+        ``<name>.discarded`` *before* execution begins.  This keeps
+        the plans directory in a normalised state (at most one
+        unapplied plan at any moment a user might inspect it).
+
+        Pin: after apply returns, the older file no longer exists at
+        its original name and a sibling ``<name>.discarded`` exists.
+
+        Expected on ``main``: no rename happens; older file still
+        exists.  Test fails.
+        """
+        from pathlib import Path
+
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        monkeypatch.chdir(tmp_path)
+        plans_dir = self._make_plans_dir(tmp_path)
+
+        older = plans_dir / "feature_plan_20260101T000000.json"
+        newer = plans_dir / "feature_plan_20260102T000000.json"
+        older.write_text(self._make_plan_json())
+        newer.write_text(self._make_plan_json())
+
+        plan_file_obj = mock_decl.deserialize_plan.return_value
+        plan_file_obj.plan = mock_decl.generate_plan.return_value
+        plan_file_obj.target_database = "TEST_DB"
+        plan_file_obj.target_schema = "TEST_SCHEMA"
+
+        mgr = FeatureManager()
+        mgr.apply(
+            input_files=["specs.yaml"],
+            config=None,
+            dry_run=False,
+            dev_mode=False,
+            overwrite=False,
+            allow_recreate=False,
+        )
+
+        older_discarded = Path(str(older) + ".discarded")
+        assert older_discarded.exists(), (
+            f"L3: older unapplied plan must be renamed to .discarded "
+            f"before execution.  Expected {older_discarded.name} to exist."
+        )
+        assert not older.exists(), (
+            f"L3: original older plan file must NOT survive after apply.  "
+            f"Got {older.name} still present."
+        )
+
+    # --- A4: L4 — Mark-Applied + L5 — Mark-Failed-Stays-Unapplied ---
+
+    def test_apply_renames_plan_to_applied_after_success(
+        self, mock_execute_query, mock_decl, tmp_path, monkeypatch
+    ):
+        """A4 (L4): on successful execution, the consumed plan file is
+        renamed to ``<name>.applied``.  Together with L3 this means
+        a typical ``plan; apply`` cycle leaves a single ``.applied``
+        file as a forensic record.
+
+        Pin: after apply (with a mocked ``execute_plan`` returning
+        ``status="applied"``), the bare ``.json`` is gone and
+        ``.json.applied`` exists.
+
+        Expected on ``main``: no rename; bare ``.json`` still exists.
+        Test fails.
+        """
+        from pathlib import Path
+
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        monkeypatch.chdir(tmp_path)
+        plans_dir = self._make_plans_dir(tmp_path)
+
+        plan_path = plans_dir / "feature_plan_20260507T120000.json"
+        plan_path.write_text(self._make_plan_json())
+
+        plan_file_obj = mock_decl.deserialize_plan.return_value
+        plan_file_obj.plan = mock_decl.generate_plan.return_value
+        plan_file_obj.target_database = "TEST_DB"
+        plan_file_obj.target_schema = "TEST_SCHEMA"
+        # execute_plan is already wired to return status="applied" by
+        # the autouse mock_decl fixture.
+
+        mgr = FeatureManager()
+        mgr.apply(
+            input_files=["specs.yaml"],
+            config=None,
+            dry_run=False,
+            dev_mode=False,
+            overwrite=False,
+            allow_recreate=False,
+        )
+
+        applied_marker = Path(str(plan_path) + ".applied")
+        assert applied_marker.exists(), (
+            f"L4: successful apply must rename plan to .applied.  "
+            f"Expected {applied_marker.name} to exist."
+        )
+        assert not plan_path.exists(), (
+            f"L4: original plan file must NOT survive after a "
+            f"successful apply.  Got {plan_path.name} still present."
+        )
+
+    def test_apply_leaves_plan_file_unrenamed_on_execution_failure(
+        self, mock_execute_query, mock_decl, tmp_path, monkeypatch
+    ):
+        """A4 companion (L5): if ``execute_plan`` raises (or returns a
+        non-applied status), the plan file is NOT renamed — the
+        operator can inspect, fix the underlying issue, and retry the
+        same plan file.
+
+        Pin: after a failing apply, the bare ``.json`` still exists at
+        its original name and there is NO ``.applied`` sibling.
+
+        Expected on ``main``: passes vacuously today (no rename logic
+        exists), but Phase 1 must preserve this contract while adding
+        the success-path rename.
+        """
+        from pathlib import Path
+
+        monkeypatch.chdir(tmp_path)
+        plans_dir = self._make_plans_dir(tmp_path)
+
+        plan_path = plans_dir / "feature_plan_20260507T120000.json"
+        plan_path.write_text(self._make_plan_json())
+
+        plan_file_obj = mock_decl.deserialize_plan.return_value
+        plan_file_obj.plan = mock_decl.generate_plan.return_value
+        plan_file_obj.target_database = "TEST_DB"
+        plan_file_obj.target_schema = "TEST_SCHEMA"
+        # Make execute_plan raise to simulate a partial failure mid-apply.
+        mock_decl.execute_plan.side_effect = RuntimeError("simulated failure")
+
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        try:
+            mgr.apply(
+                input_files=["specs.yaml"],
+                config=None,
+                dry_run=False,
+                dev_mode=False,
+                overwrite=False,
+                allow_recreate=False,
+            )
+        except RuntimeError:
+            pass  # expected — execute_plan raised
+        finally:
+            mock_decl.execute_plan.side_effect = None
+
+        applied_marker = Path(str(plan_path) + ".applied")
+        assert plan_path.exists(), (
+            f"L5: failed apply must leave plan file unrenamed for retry.  "
+            f"Expected {plan_path.name} to still exist."
+        )
+        assert not applied_marker.exists(), (
+            f"L5: failed apply must NOT mark plan as .applied.  "
+            f"Got unexpected {applied_marker.name}."
+        )
+
+    # --- A5: L6 — Target-Match ---
+
+    def test_apply_rejects_plan_with_target_database_mismatch(
+        self, mock_execute_query, mock_decl, tmp_path, monkeypatch
+    ):
+        """A5 (L6): ``apply`` must abort with a clear error if the
+        plan's ``target_database`` does not match the active
+        connection's database.  This prevents accidentally applying a
+        plan generated for store A against store B.
+
+        Pin: with a plan carrying ``target_database="OTHER_DB"`` and
+        ``mock_cli_context`` set to ``database="TEST_DB"``, apply
+        returns ``status="target_mismatch"`` whose error message names
+        both sides.  ``execute_plan`` is NOT called.  The plan file
+        stays unapplied so the operator can retry against the right
+        connection.
+
+        Expected on ``main``: no target-match check; apply proceeds
+        and ``execute_plan`` IS called.  Test fails.
+        """
+        from pathlib import Path
+
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        monkeypatch.chdir(tmp_path)
+        plans_dir = self._make_plans_dir(tmp_path)
+
+        plan_path = plans_dir / "feature_plan_20260507T120000.json"
+        plan_path.write_text(
+            self._make_plan_json(
+                target_database="OTHER_DB", target_schema="TEST_SCHEMA"
+            )
+        )
+
+        plan_file_obj = mock_decl.deserialize_plan.return_value
+        plan_file_obj.plan = mock_decl.generate_plan.return_value
+        plan_file_obj.target_database = "OTHER_DB"
+        plan_file_obj.target_schema = "TEST_SCHEMA"
+
+        mgr = FeatureManager()
+        result = mgr.apply(
+            input_files=["specs.yaml"],
+            config=None,
+            dry_run=False,
+            dev_mode=False,
+            overwrite=False,
+            allow_recreate=False,
+        )
+
+        assert result.get("status") == "target_mismatch", (
+            f"L6: target_database mismatch must yield "
+            f"status='target_mismatch'.  Got status={result.get('status')!r}."
+        )
+        errors = result.get("errors", [])
+        joined = " ".join(errors)
+        assert "OTHER_DB" in joined and "TEST_DB" in joined, (
+            f"L6: target-mismatch error must name both sides "
+            f"(OTHER_DB / TEST_DB).  Got: {errors!r}"
+        )
+        mock_decl.execute_plan.assert_not_called()
+        # Plan file stays unapplied so the operator can retry.
+        applied_marker = Path(str(plan_path) + ".applied")
+        assert plan_path.exists()
+        assert not applied_marker.exists()
+
+    def test_apply_rejects_plan_with_target_schema_mismatch(
+        self, mock_execute_query, mock_decl, tmp_path, monkeypatch
+    ):
+        """A5 companion (L6): same as the database mismatch test, but
+        the schema differs while the database matches.  Both halves
+        of the (database, schema) pair must agree."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        monkeypatch.chdir(tmp_path)
+        plans_dir = self._make_plans_dir(tmp_path)
+
+        plan_path = plans_dir / "feature_plan_20260507T120000.json"
+        plan_path.write_text(
+            self._make_plan_json(
+                target_database="TEST_DB", target_schema="OTHER_SCHEMA"
+            )
+        )
+
+        plan_file_obj = mock_decl.deserialize_plan.return_value
+        plan_file_obj.plan = mock_decl.generate_plan.return_value
+        plan_file_obj.target_database = "TEST_DB"
+        plan_file_obj.target_schema = "OTHER_SCHEMA"
+
+        mgr = FeatureManager()
+        result = mgr.apply(
+            input_files=["specs.yaml"],
+            config=None,
+            dry_run=False,
+            dev_mode=False,
+            overwrite=False,
+            allow_recreate=False,
+        )
+
+        assert result.get("status") == "target_mismatch", (
+            f"L6: target_schema mismatch must yield "
+            f"status='target_mismatch'.  Got {result.get('status')!r}."
+        )
+        joined = " ".join(result.get("errors", []))
+        assert "OTHER_SCHEMA" in joined and "TEST_SCHEMA" in joined, (
+            f"L6: schema-mismatch error must name both schemas.  "
+            f"Got: {result.get('errors')!r}"
+        )
+        mock_decl.execute_plan.assert_not_called()
+
+
+class TestDirectoryMode:
+    """Tests that ``apply()`` sets ``full_directory_mode`` based on the
+    ``./...`` pattern.
+
+    Under the apply-lifecycle architecture, the ``no_delete`` →
+    ``full_directory_mode`` plumbing lives in the dry-run branch (which
+    flows through ``generate_apply_sql`` to render the plan-display
+    UI).  Wet-run apply consumes a pre-generated plan file whose
+    deletion ops are already baked in by ``snow feature plan``, so the
+    options-passing behaviour is exercised at the dry-run boundary.
+    """
+
+    def test_apply_with_dot_slash_ellipsis_enables_deletion(
+        self, mock_execute_query, mock_decl
+    ):
+        """``apply(dry_run=True, no_delete=False)`` passes
+        ``full_directory_mode=True`` to ``generate_apply_sql``.
+
+        The commands layer detects ``./...`` and passes
+        ``no_delete=False``.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        mgr.apply(
+            input_files=["./..."],
+            config=None,
+            dry_run=True,
+            dev_mode=False,
+            overwrite=False,
+            allow_recreate=False,
+            no_delete=False,  # ./... triggers this in commands.py
+        )
+        call_args = mock_decl.generate_apply_sql.call_args
+        assert call_args is not None
+        options = (
+            call_args[0][2] if len(call_args[0]) >= 3 else call_args[1].get("options")
+        )
+        assert options is not None
+        assert options.full_directory_mode is True
+
+    def test_apply_with_specific_files_disables_deletion(
+        self, mock_execute_query, mock_decl
+    ):
+        """``apply(dry_run=True)`` with specific file paths passes
+        ``full_directory_mode=False``."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        mgr.apply(
+            input_files=["specs.yaml"],
+            config=None,
+            dry_run=True,
+            dev_mode=False,
+            overwrite=False,
+            allow_recreate=False,
+        )
+        call_args = mock_decl.generate_apply_sql.call_args
         assert call_args is not None
         options = (
             call_args[0][2] if len(call_args[0]) >= 3 else call_args[1].get("options")
@@ -1442,19 +1948,20 @@ class TestDirectoryMode:
     def test_apply_with_directory_disables_deletion(
         self, mock_execute_query, mock_decl, tmp_path
     ):
-        """apply() with a directory path (not ./...) passes full_directory_mode=False."""
+        """``apply(dry_run=True)`` with a directory path (not ``./...``)
+        passes ``full_directory_mode=False``."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         mgr = FeatureManager()
         mgr.apply(
             input_files=[str(tmp_path)],
             config=None,
-            dry_run=False,
+            dry_run=True,
             dev_mode=False,
             overwrite=False,
             allow_recreate=False,
         )
-        call_args = mock_decl.generate_plan.call_args
+        call_args = mock_decl.generate_apply_sql.call_args
         assert call_args is not None
         options = (
             call_args[0][2] if len(call_args[0]) >= 3 else call_args[1].get("options")
@@ -1465,9 +1972,11 @@ class TestDirectoryMode:
     def test_apply_with_subdir_ellipsis_enables_deletion(
         self, mock_execute_query, mock_decl
     ):
-        """apply() with no_delete=False passes full_directory_mode=True.
+        """``apply(dry_run=True, no_delete=False)`` passes
+        ``full_directory_mode=True``.
 
-        The commands layer detects 'mydir/...' and passes no_delete=False.
+        The commands layer detects ``mydir/...`` and passes
+        ``no_delete=False``.
         """
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
@@ -1475,13 +1984,13 @@ class TestDirectoryMode:
         mgr.apply(
             input_files=["mydir/..."],
             config=None,
-            dry_run=False,
+            dry_run=True,
             dev_mode=False,
             overwrite=False,
             allow_recreate=False,
             no_delete=False,  # mydir/... triggers this in commands.py
         )
-        call_args = mock_decl.generate_plan.call_args
+        call_args = mock_decl.generate_apply_sql.call_args
         assert call_args is not None
         options = (
             call_args[0][2] if len(call_args[0]) >= 3 else call_args[1].get("options")

@@ -166,8 +166,38 @@ class TestApplyDryRunIntegration:
 # ---------------------------------------------------------------------------
 
 
+def _write_minimal_plan_json(
+    path,
+    target_database: str = "TEST_DB",
+    target_schema: str = "TEST_SCHEMA",
+) -> None:
+    """Write a minimal valid PlanFile JSON envelope for wet-run apply tests.
+
+    Under the apply-lifecycle architecture, wet-run ``apply`` consumes a
+    pre-generated plan file rather than re-planning from source.  These
+    integration tests exercise the *real* ``deserialize_plan`` against
+    a minimally valid envelope, with ``execute_plan`` mocked to return
+    the desired ``ApplyResult``.
+    """
+    import json
+
+    with open(str(path), "w") as f:
+        json.dump(
+            {
+                "version": "1",
+                "created_at": "2026-05-07T00:00:00+00:00",
+                "target_database": target_database,
+                "target_schema": target_schema,
+                "source_files": [],
+                "plan": {"ops": [], "warnings": []},
+                "summary": {},
+            },
+            f,
+        )
+
+
 class TestApplyExecuteIntegration:
-    def test_apply_returns_applied_status(self, spec_dir, mock_execute_query):
+    def test_apply_returns_applied_status(self, spec_dir, mock_execute_query, tmp_path):
         from snowflake.cli._plugins.feature.manager import FeatureManager
         from snowflake.ml.feature_store.decl.types import ApplyResult
 
@@ -177,6 +207,9 @@ class TestApplyExecuteIntegration:
                 {"operation": "CREATE_FV", "name": "user_clicks", "status": "success"}
             ],
         )
+
+        plan_path = tmp_path / "plan.json"
+        _write_minimal_plan_json(plan_path)
 
         mgr = FeatureManager()
         with mock.patch.object(
@@ -192,10 +225,13 @@ class TestApplyExecuteIntegration:
                 dev_mode=False,
                 overwrite=False,
                 allow_recreate=False,
+                plan_file=str(plan_path),
             )
         assert result["status"] == "applied"
 
-    def test_apply_result_has_ops_and_executed_keys(self, spec_dir, mock_execute_query):
+    def test_apply_result_has_ops_and_executed_keys(
+        self, spec_dir, mock_execute_query, tmp_path
+    ):
         from snowflake.cli._plugins.feature.manager import FeatureManager
         from snowflake.ml.feature_store.decl.types import ApplyResult
 
@@ -207,6 +243,9 @@ class TestApplyExecuteIntegration:
             ],
         )
 
+        plan_path = tmp_path / "plan.json"
+        _write_minimal_plan_json(plan_path)
+
         mgr = FeatureManager()
         with mock.patch.object(
             mgr, "_build_session", return_value=mock.MagicMock()
@@ -221,6 +260,7 @@ class TestApplyExecuteIntegration:
                 dev_mode=False,
                 overwrite=False,
                 allow_recreate=False,
+                plan_file=str(plan_path),
             )
         assert "ops" in result
         assert isinstance(result["ops"], list)
@@ -447,8 +487,14 @@ class TestApplySqlUsesConnectionContext:
     """Connection db/schema/warehouse should be passed to execute_plan."""
 
     def test_execute_plan_receives_connection_context(
-        self, mock_execute_query, mock_cli_context
+        self, mock_execute_query, mock_cli_context, tmp_path
     ):
+        """Under the apply-lifecycle architecture, ``database`` /
+        ``schema`` come from the *plan file's* ``target_database`` /
+        ``target_schema`` (which match the connection context that
+        wrote the plan), and ``warehouse`` is sourced from the active
+        connection (Bug C fix — plan files are warehouse-agnostic).
+        """
         from snowflake.cli._plugins.feature.manager import FeatureManager
         from snowflake.ml.feature_store.decl.types import ApplyResult
 
@@ -465,31 +511,42 @@ class TestApplySqlUsesConnectionContext:
             ],
         )
 
-        with tempfile.TemporaryDirectory() as d:
-            Path(d, "entity.yaml").write_text(_ENTITY_NO_DB_YAML)
-            Path(d, "fv.yaml").write_text(_FV_NO_DB_YAML)
-            mgr = FeatureManager()
-            with mock.patch.object(
-                mgr, "_build_session", return_value=mock.MagicMock()
-            ) as mock_session, mock.patch(
-                "snowflake.ml.feature_store.decl.api.execute_plan",
-                return_value=mock_result,
-            ) as mock_exec:
-                mgr.apply(
-                    input_files=[f"{d}/*.yaml"],
-                    config=None,
-                    dry_run=False,
-                    dev_mode=True,
-                    overwrite=False,
-                    allow_recreate=False,
-                )
-            # Verify execute_plan was called with the connection context
-            mock_exec.assert_called_once()
-            call_kwargs = mock_exec.call_args
-            assert (
-                call_kwargs.kwargs.get("database") == "MY_DB"
-                or call_kwargs[0][2] == "MY_DB"
+        plan_path = tmp_path / "plan.json"
+        _write_minimal_plan_json(
+            plan_path, target_database="MY_DB", target_schema="MY_SCHEMA"
+        )
+
+        mgr = FeatureManager()
+        with mock.patch.object(
+            mgr, "_build_session", return_value=mock.MagicMock()
+        ), mock.patch(
+            "snowflake.ml.feature_store.decl.api.execute_plan",
+            return_value=mock_result,
+        ) as mock_exec:
+            mgr.apply(
+                input_files=[],
+                config=None,
+                dry_run=False,
+                dev_mode=True,
+                overwrite=False,
+                allow_recreate=False,
+                plan_file=str(plan_path),
             )
+
+        mock_exec.assert_called_once()
+        call_kwargs = mock_exec.call_args.kwargs
+        assert call_kwargs.get("database") == "MY_DB", (
+            f"database must match plan target_database. Got "
+            f"{call_kwargs.get('database')!r}."
+        )
+        assert call_kwargs.get("schema") == "MY_SCHEMA", (
+            f"schema must match plan target_schema. Got "
+            f"{call_kwargs.get('schema')!r}."
+        )
+        assert call_kwargs.get("warehouse") == "MY_WH", (
+            f"Bug C: warehouse must come from the active connection, "
+            f"not the plan file. Got {call_kwargs.get('warehouse')!r}."
+        )
 
 
 # ---------------------------------------------------------------------------

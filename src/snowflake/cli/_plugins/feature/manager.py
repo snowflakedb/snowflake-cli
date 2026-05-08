@@ -140,13 +140,44 @@ class FeatureManager(SqlExecutionMixin):
         plan_file: Optional[str] = None,
         no_delete: bool = True,
     ) -> dict[str, Any]:
-        """Load → validate → plan → generate SQL → (execute if not dry_run).
+        """Apply a feature-store spec set to Snowflake.
 
-        If *plan_file* is provided, skip spec loading and plan generation —
-        deserialize the pre-computed plan from the file and execute it.
+        Wet-run apply (``dry_run=False``) is a *pure plan-file consumer*:
+        either ``plan_file`` is given explicitly (the L7 escape hatch),
+        or the manager auto-discovers the latest unapplied plan under
+        ``<cwd>/.snowflake/plans/`` (L1–L4 invariants).  There is no
+        "re-plan from source" branch for wet-run — that path was the
+        proximate cause of the phantom-``CREATE_*`` failure mode and
+        was deleted in the "Apply Lifecycle Resilience" plan.
 
-        If *no_delete* is True, deletion detection is disabled — objects in
-        Snowflake not represented in the local spec files will NOT be dropped.
+        Dry-run (``dry_run=True``) keeps the legacy
+        "load → validate → plan → display" flow — it is read-only with
+        respect to Snowflake state and is the path used by
+        ``snow feature plan`` to render the op-stream UI before
+        ``write_plan`` persists the plan file to disk.  Both the
+        dry-run flow and ``write_plan`` already forward connection
+        context to ``generate_apply_sql`` / ``generate_plan`` (fixed in
+        the prior plan-file ⇄ UI op-stream parity PR), so they share
+        a single planning code path.
+
+        Args:
+            input_files: Spec file paths or glob patterns.
+            config: Jinja2 template variables, or ``None``.
+            dry_run: When True, render plan ops without touching state.
+            dev_mode: Apply dev-mode relaxed validation.
+            overwrite: Force CREATE OR REPLACE semantics.
+            allow_recreate: Permit recreate (drop-and-create) operations.
+            plan_file: Optional explicit plan file to apply (L7).  When
+                given, skips auto-discovery and target-mismatch checks
+                still apply.
+            no_delete: When True, deletion detection is disabled; only
+                affects the dry-run flow now (the wet-run flow consumes
+                a pre-generated plan file whose deletion ops are already
+                baked in).
+
+        Returns:
+            A result dict with ``status`` / ``ops`` / ``executed`` /
+            ``warnings`` / ``errors`` plus connection-target metadata.
         """
         self._ensure_session_setup()
 
@@ -161,7 +192,69 @@ class FeatureManager(SqlExecutionMixin):
 
         ctx = get_cli_context()
 
-        # 1. Fetch state via decl_api query strings
+        if dry_run:
+            return self._dry_run_apply(
+                input_files=input_files,
+                config=config,
+                ctx=ctx,
+                dev_mode=dev_mode,
+                overwrite=overwrite,
+                allow_recreate=allow_recreate,
+                no_delete=no_delete,
+            )
+
+        # Wet run with no explicit plan_file: discover the latest
+        # unapplied plan under ``<cwd>/.snowflake/plans/`` (L1–L3).  If
+        # none exists, return a structured ``no_plan`` result that
+        # points the operator at ``snow feature plan`` — we deliberately
+        # do NOT silently re-plan from source, because that was the
+        # parity-bug surface this plan eliminates.
+        discovered = self._discover_unapplied_plan()
+        if discovered is None:
+            return {
+                **self._target_info(),
+                "status": "no_plan",
+                "ops": [],
+                "executed": 0,
+                "warnings": [],
+                "errors": [
+                    "No unapplied plan file found under "
+                    "'.snowflake/plans/'. Run `snow feature plan <path>` "
+                    "first to generate a plan, then re-run apply."
+                ],
+            }
+        return self._apply_from_plan_file(
+            plan_file=discovered,
+            dry_run=dry_run,
+            dev_mode=dev_mode,
+            overwrite=overwrite,
+            allow_recreate=allow_recreate,
+        )
+
+    # ------------------------------------------------------------------
+    # _dry_run_apply (private helper)
+    # ------------------------------------------------------------------
+
+    def _dry_run_apply(
+        self,
+        input_files: Sequence[str],
+        config: Optional[dict[str, Any]],
+        ctx: Any,
+        dev_mode: bool,
+        overwrite: bool,
+        allow_recreate: bool,
+        no_delete: bool,
+    ) -> dict[str, Any]:
+        """Render plan ops for ``snow feature plan`` UI / dry-run apply.
+
+        Read-only with respect to Snowflake state — fetches the applied
+        state, loads specs, and forwards connection context to
+        ``generate_apply_sql`` (which itself forwards context to
+        ``generate_plan`` and ``validate_specs``, ensuring the
+        plan-file ⇄ UI op-stream parity contract).
+        """
+        from snowflake.ml.feature_store.decl.types import PlanOptions
+
         sqls = decl_api.state_queries(ctx.connection.database, ctx.connection.schema)
         raw_show = _rows_to_dicts(
             self.execute_query(sqls["show_ofts"], cursor_class=DictCursor)
@@ -169,17 +262,8 @@ class FeatureManager(SqlExecutionMixin):
         raw_tables = _rows_to_dicts(
             self.execute_query(sqls["show_tables"], cursor_class=DictCursor)
         )
-
-        # Per-OFT full spec JSON (DESCRIBE ... TYPE = SPECIFICATION) — the
-        # planner relies on these spec dicts for full-spec diffs.  The
-        # session is primed (above) so the call is guaranteed to be
-        # available; failures propagate per the strict-spec contract.
         specification_map = self._fetch_oft_state(raw_show, sqls)
-
-        # Entity tags drive Entity AppliedObjects (used by deletion detection
-        # in full_directory_mode).  Tolerate empty / unavailable tag schemas.
         entity_rows = self._fetch_entity_rows(ctx)
-
         applied_state = decl_api.fetch_applied_state(
             raw_show,
             raw_tables,
@@ -189,12 +273,8 @@ class FeatureManager(SqlExecutionMixin):
             default_schema=ctx.connection.schema or "",
         )
 
-        # 2. Load specs — also scan sibling directories for datasource YAMLs
         all_files = self._expand_with_datasources(list(input_files))
         batch = decl_api.load_specs(all_files, config)
-
-        # 3. Validate + plan + execute via imperative API
-        from snowflake.ml.feature_store.decl.types import PlanOptions
 
         options = PlanOptions(
             dev_mode=dev_mode,
@@ -203,64 +283,72 @@ class FeatureManager(SqlExecutionMixin):
             full_directory_mode=not no_delete,
         )
 
-        if dry_run:
-            # Dry run: generate plan + SQL for display only (no execution)
-            result = decl_api.generate_apply_sql(
-                batch,
-                applied_state,
-                options,
-                database=ctx.connection.database,
-                schema=ctx.connection.schema,
-                warehouse=ctx.connection.warehouse or "",
-            )
-            status = (
-                "validation_failed"
-                if result.status == "validation_failed"
-                else "dry_run"
-            )
-            return {
-                **self._target_info(),
-                "status": status,
-                "ops": result.ops,
-                "executed": 0,
-                "warnings": result.warnings,
-                "errors": result.errors,
-            }
-
-        # Wet run: validate → plan → execute via FeatureStore objects
-        validation_results = decl_api.validate_specs(batch, applied_state)
-        errors = [
-            r for r in validation_results if getattr(r, "severity", "") == "ERROR"
-        ]
-        if errors:
-            return {
-                **self._target_info(),
-                "status": "validation_failed",
-                "ops": [],
-                "executed": 0,
-                "warnings": [],
-                "errors": [str(e) for e in errors],
-            }
-
-        plan = decl_api.generate_plan(batch, applied_state, options)
-        session = self._build_session()
-        result = decl_api.execute_plan(
-            plan,
-            session,
+        result = decl_api.generate_apply_sql(
+            batch,
+            applied_state,
+            options,
             database=ctx.connection.database,
             schema=ctx.connection.schema,
             warehouse=ctx.connection.warehouse or "",
-            options=options,
         )
-
+        status = (
+            "validation_failed" if result.status == "validation_failed" else "dry_run"
+        )
         return {
             **self._target_info(),
-            "status": result.status,
+            "status": status,
             "ops": result.ops,
-            "executed": len([o for o in result.ops if o.get("status") == "success"]),
+            "executed": 0,
             "warnings": result.warnings,
             "errors": result.errors,
         }
+
+    # ------------------------------------------------------------------
+    # _discover_unapplied_plan (private helper, L1–L3 invariants)
+    # ------------------------------------------------------------------
+
+    def _discover_unapplied_plan(self) -> Optional[str]:
+        """Return the path of the newest unapplied plan, or ``None``.
+
+        Mirrors the default ``--out`` location used by
+        ``commands.py::plan_cmd`` (``<cwd>/.snowflake/plans/``).
+        Identifies unapplied plans as files matching
+        ``feature_plan_*.json`` whose names end in ``.json`` (i.e. NOT
+        ``.applied`` or ``.discarded``).  Sorts lexicographically — the
+        ``YYYYMMDDTHHMMSS`` UTC timestamp embedded in the filename is
+        monotonic at one-second resolution, which is far below human
+        workflow latency.
+
+        Side effect (L3 — Discard-Older): when more than one unapplied
+        plan exists, every plan except the newest is renamed to
+        ``<name>.discarded`` *before* the function returns.  This keeps
+        the plans directory in a normalised state — at most one
+        unapplied plan when execution begins — and matches the
+        operator-visible contract that ``apply`` commits to consume
+        only the latest plan.
+
+        Returns:
+            Path string of the newest unapplied plan, or ``None`` if
+            no candidates exist.
+        """
+        from pathlib import Path
+
+        plans_dir = Path.cwd() / ".snowflake" / "plans"
+        if not plans_dir.is_dir():
+            return None
+
+        candidates = sorted(
+            p
+            for p in plans_dir.glob("feature_plan_*.json")
+            if p.is_file() and p.suffix == ".json"
+        )
+        if not candidates:
+            return None
+
+        newest = candidates[-1]
+        for older in candidates[:-1]:
+            older.rename(older.parent / (older.name + ".discarded"))
+        return str(newest)
 
     # ------------------------------------------------------------------
     # _apply_from_plan_file (private helper)
@@ -274,16 +362,89 @@ class FeatureManager(SqlExecutionMixin):
         overwrite: bool,
         allow_recreate: bool,
     ) -> dict[str, Any]:
-        """Execute a pre-computed plan loaded from a JSON plan file."""
+        """Execute a pre-computed plan loaded from a JSON plan file.
+
+        Implements L4–L6 of the apply-lifecycle contract:
+
+        - **L4 (Mark-Applied):** on successful execution, rename the
+          plan file to ``<name>.applied``.
+        - **L5 (Mark-Failed-Stays-Unapplied):** on execution failure,
+          leave the plan file at its original name so the operator can
+          inspect, fix, and retry.
+        - **L6 (Target-Match):** before executing, verify the plan's
+          ``target_database`` / ``target_schema`` match the active
+          connection.  Mismatch returns a structured
+          ``status="target_mismatch"`` and skips execution.
+
+        Also fixes Bug C (warehouse propagation): the *connection's*
+        warehouse is forwarded to ``execute_plan`` (plan files are
+        warehouse-agnostic by design — connection context owns
+        warehouse selection so the same plan can run from any
+        compatible warehouse).
+
+        Args:
+            plan_file: Path to the plan JSON file to apply.
+            dry_run: When True, render plan ops without executing or
+                renaming the file.
+            dev_mode: Apply dev-mode relaxed validation.
+            overwrite: Force CREATE OR REPLACE semantics.
+            allow_recreate: Permit recreate (drop-and-create) operations.
+
+        Returns:
+            A result dict with ``status`` / ``ops`` / ``executed`` /
+            ``warnings`` / ``errors`` / ``plan_file`` (the latter is
+            updated to the ``.applied`` path on success).
+        """
         from pathlib import Path
 
         from snowflake.ml.feature_store.decl.types import PlanOptions
 
-        json_str = Path(plan_file).read_text()
+        plan_path = Path(plan_file)
+        json_str = plan_path.read_text()
         pf = decl_api.deserialize_plan(json_str)
         plan = pf.plan
-        database = pf.target_database
-        schema = pf.target_schema
+        plan_target_db = pf.target_database
+        plan_target_schema = pf.target_schema
+
+        ctx = get_cli_context()
+        conn_db = ctx.connection.database or ""
+        conn_schema = ctx.connection.schema or ""
+
+        # L6 (Target-Match): refuse to apply a plan generated for a
+        # different store than the one the active connection points at.
+        # Skip the check during dry-run so operators can inspect plans
+        # from any connection.
+        if not dry_run:
+            if plan_target_db and plan_target_db != conn_db:
+                return {
+                    **self._target_info(),
+                    "status": "target_mismatch",
+                    "ops": [],
+                    "executed": 0,
+                    "warnings": [],
+                    "errors": [
+                        f"Plan was generated for database "
+                        f"'{plan_target_db}' but the active connection "
+                        f"points at '{conn_db}'. Re-run plan or switch "
+                        f"connection."
+                    ],
+                    "plan_file": plan_file,
+                }
+            if plan_target_schema and plan_target_schema != conn_schema:
+                return {
+                    **self._target_info(),
+                    "status": "target_mismatch",
+                    "ops": [],
+                    "executed": 0,
+                    "warnings": [],
+                    "errors": [
+                        f"Plan was generated for schema "
+                        f"'{plan_target_schema}' but the active "
+                        f"connection points at '{conn_schema}'. Re-run "
+                        f"plan or switch connection."
+                    ],
+                    "plan_file": plan_file,
+                }
 
         options = PlanOptions(
             dev_mode=dev_mode,
@@ -311,21 +472,35 @@ class FeatureManager(SqlExecutionMixin):
             }
 
         session = self._build_session()
+        # Bug C fix: warehouse comes from the *active connection*, not
+        # the plan file (plan files are warehouse-agnostic by design).
         result = decl_api.execute_plan(
             plan,
             session,
-            database=database,
-            schema=schema,
-            warehouse="",
+            database=plan_target_db,
+            schema=plan_target_schema,
+            warehouse=ctx.connection.warehouse or "",
             options=options,
         )
+
+        # L4 (Mark-Applied): rename plan file to .applied on success.
+        # L5 (Mark-Failed-Stays-Unapplied): keep the original name on
+        # failure (any non-"applied" status, or an exception that would
+        # have already propagated above this line — Python's natural
+        # exception flow is the L5 mechanism).
+        result_plan_file = plan_file
+        if result.status == "applied":
+            applied_path = plan_path.parent / (plan_path.name + ".applied")
+            plan_path.rename(applied_path)
+            result_plan_file = str(applied_path)
+
         return {
             "status": result.status,
             "ops": result.ops,
             "executed": len([o for o in result.ops if o.get("status") == "success"]),
             "warnings": result.warnings,
             "errors": result.errors,
-            "plan_file": plan_file,
+            "plan_file": result_plan_file,
         }
 
     # ------------------------------------------------------------------
