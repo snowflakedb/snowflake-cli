@@ -144,8 +144,7 @@ def _poll_until(
             if error_states and result in error_states:
                 raise CliError(f"{timeout_message} (status={result})")
             if known_pending_states is not None and result not in known_pending_states:
-                cli_console.step(f"Unknown status: {result}")
-                return result
+                raise CliError(f"{timeout_message} (unexpected status={result})")
 
     raise CliError(
         f"{timeout_message} "
