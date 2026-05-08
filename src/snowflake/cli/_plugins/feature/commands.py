@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sys
 from datetime import date, datetime
 from decimal import Decimal
@@ -37,9 +38,35 @@ from snowflake.cli.api.output.types import (
 app = SnowTyperFactory(
     name="feature",
     help="Manages declarative feature-store objects in Snowflake.",
+    preview=True,
 )
 
 log = logging.getLogger(__name__)
+
+
+_PRE_RELEASE_WARNING = (
+    "WARNING: 'snow feature' is a pre-release tool. Breaking changes "
+    "may occur in future releases. Do not rely on its current API "
+    "surface for production workflows."
+)
+_ANSI_BOLD_RED = "\x1b[1;31m"
+_ANSI_RESET = "\x1b[0m"
+
+
+@app.callback()
+def _emit_pre_release_warning() -> None:
+    """Emit the red pre-release warning before every `snow feature` invocation.
+
+    Writes directly to ``sys.stderr`` so the banner never corrupts
+    structured (JSON / CSV) output that subcommands send to stdout.
+    ANSI colour codes are emitted only when stderr is a terminal and
+    the user has not opted out via the ``NO_COLOR`` standard env var.
+    """
+    use_color = sys.stderr.isatty() and os.environ.get("NO_COLOR") is None
+    prefix = _ANSI_BOLD_RED if use_color else ""
+    suffix = _ANSI_RESET if use_color else ""
+    sys.stderr.write(f"{prefix}{_PRE_RELEASE_WARNING}{suffix}\n")
+    sys.stderr.flush()
 
 
 def _safe_value(o):
