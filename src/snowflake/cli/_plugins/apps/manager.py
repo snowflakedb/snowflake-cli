@@ -220,6 +220,7 @@ def _resolve_deploy_defaults(
 
     # ── 2. SnowApps parameters (user-level) ──────────────────────────
     param_vals: Dict[str, Optional[str]] = {}
+    cli_console.step("Fetching SnowApps account parameters...")
     raw_params = manager.fetch_snow_apps_parameters()
     if raw_params:
         cli_console.step(
@@ -232,6 +233,7 @@ def _resolve_deploy_defaults(
     default_vals: Dict[str, Optional[str]] = {
         "artifact_repository": f"{app_name}_REPO",
     }
+    cli_console.step("Checking whether a personal database exists...")
     personal_db = manager.get_personal_database()
     if personal_db:
         default_vals["database"] = personal_db
