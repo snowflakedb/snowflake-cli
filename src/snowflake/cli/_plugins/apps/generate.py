@@ -122,7 +122,8 @@ def _generate_snowflake_yml(
                   - .git
                   - snowflake.log
 
-            query_warehouse: {warehouse}"""
+            query_warehouse: {warehouse}
+            forking: false"""
         + build_compute_pool_block
         + service_compute_pool_block
         + build_eai_block

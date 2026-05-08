@@ -258,3 +258,8 @@ class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
     dev_roles: Optional[List[str]] = Field(
         title="Development roles for the app", default=None
     )
+
+    forking: Optional[bool] = Field(
+        title="Whether to allow forking of this app's source code",
+        default=None,
+    )
