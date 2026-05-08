@@ -52,6 +52,7 @@
   host = "baz"
   region = "Kaszuby"
   port = 12345
+  protocol = ""
   database = "foo"
   schema = "bar"
   warehouse = "some warehouse"
@@ -73,6 +74,7 @@
               "host": "baz",
               "region": "Kaszuby",
               "port": 12345,
+              "protocol": "",
               "database": "foo",
               "schema": "bar",
               "warehouse": "some warehouse",
