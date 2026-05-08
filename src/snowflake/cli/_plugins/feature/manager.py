@@ -1041,6 +1041,14 @@ class FeatureManager(SqlExecutionMixin):
         each OFT's full spec JSON via ``DESCRIBE … TYPE = SPECIFICATION``
         through :meth:`_fetch_oft_state`.  Any per-OFT failure aborts the
         entire export — there is no column-DESCRIBE fallback.
+
+        Entity rows are fetched via the imperative
+        :func:`decl_api.fetch_entity_rows` facade and forwarded to the
+        exporter so orphan entity tags (registered via
+        ``FeatureStore.register_entity()`` without ever being attached to
+        an FV) survive the export → plan round-trip.  Without this
+        forwarding, full-directory plans would emit spurious
+        ``DROP_ENTITY`` ops for any unreferenced tag.
         """
         self._ensure_session_setup()
         ctx = get_cli_context()
@@ -1049,10 +1057,20 @@ class FeatureManager(SqlExecutionMixin):
         show_rows = _rows_to_dicts(
             self.execute_query(eq["show_ofts"], cursor_class=DictCursor)
         )
-        if not show_rows:
+
+        # Always fetch entity rows — the exporter needs them whether or
+        # not any FVs are deployed (a schema with only entities still
+        # requires their YAMLs on disk to plan as NO_CHANGE).
+        entity_rows = self._fetch_entity_rows(ctx)
+
+        # Skip the exporter only when the schema is genuinely empty
+        # (no FVs and no entity tags).  This preserves the pre-fix
+        # short-circuit for fresh-schema callers while still exporting
+        # entity-only schemas through the regular path.
+        if not show_rows and not entity_rows:
             return {"status": "exported", "directory": "", "files": []}
 
-        specification_map = self._fetch_oft_state(show_rows, eq)
+        specification_map = self._fetch_oft_state(show_rows, eq) if show_rows else {}
 
         return decl_api.export_specs(
             show_rows,
@@ -1061,6 +1079,7 @@ class FeatureManager(SqlExecutionMixin):
             ctx.connection.database,
             ctx.connection.schema,
             specification_map=specification_map,
+            entity_rows=entity_rows,
         )
 
     # ------------------------------------------------------------------
