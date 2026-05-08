@@ -14,9 +14,24 @@
 
 import string
 
+# The default string.Template pattern matches `&name` anywhere in the input,
+# so an ampersand embedded inside an identifier or string literal (for example
+# `Principal&Interest` in a semantic view synonym or COMMENT) is treated as a
+# variable reference. This pattern requires the bare `&name` form to appear at
+# a token boundary — start of input, or after a non-identifier character — so
+# that a `&` wedged inside a word is left alone. The braced `&{name}` form
+# stays explicit and works anywhere; `&&` is still the literal-ampersand escape.
+_SNOWSQL_PATTERN = (
+    r"\&(?P<escaped>\&)"
+    r"|(?<![A-Za-z0-9_])\&(?P<named>[_a-z][_a-z0-9]*)"
+    r"|\&\{(?P<braced>[_a-z][_a-z0-9]*)\}"
+    r"|(?<![A-Za-z0-9_])\&(?P<invalid>)"
+)
+
 
 class _SnowSQLTemplate(string.Template):
     delimiter = "&"
+    pattern = _SNOWSQL_PATTERN  # type: ignore[assignment]
 
 
 class _Mapper:

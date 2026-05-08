@@ -26,6 +26,7 @@
 * Fixed `SELECT *` output being corrupted when joined tables share column names. Duplicate column names are now disambiguated by appending a numeric suffix (e.g. `NAME`, `NAME_2`).
 * Fixed `snow connection generate-jwt` and `snow connection generate-workload-identity-token` failing with `Connection None is not configured` when used with `--temporary-connection`.
 * The internal connection cache now remembers failed connect attempts and re-raises the original exception on subsequent accesses within the same process, instead of re-dialing Snowflake every time a command accesses the shared connection. This fixes, among other cases, the customer-visible duplicate `LOGIN_HISTORY` events (and `OVERFLOW_FAILURE_EVENTS_ELIDED`) previously emitted when a `snow` invocation was rejected by an authentication policy.
+* SnowSQL-compatible `&name` variable substitution in `snow sql` now only fires at a token boundary (start of input or after a non-identifier character). An ampersand embedded inside an identifier or string literal — for example `Principal&Interest` in a semantic view `COMMENT` or `SYNONYMS` clause — is left alone instead of being treated as a variable reference and failing with `SQL template rendering error: 'Interest' is undefined`.
 
 
 # v3.17.0

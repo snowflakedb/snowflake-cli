@@ -397,6 +397,40 @@ def test_snowsql_compatibility(text, expected):
     assert transpile_snowsql_templates(text) == expected
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Issue #2714: embedded `&` must not be treated as a variable marker.
+        "Principal&Interest",
+        "principal&interest",
+        "COMMENT = 'Scheduled monthly payment amount with principal&interest'",
+        "WITH SYNONYMS ('Principal&Interest payment')",
+        # A `&` preceded by an identifier character is part of the surrounding
+        # token, not a template variable.
+        "abc&foo",
+        "abc_&foo",
+        "42&foo",
+    ],
+)
+def test_embedded_ampersand_is_not_a_variable(text):
+    assert transpile_snowsql_templates(text) == text
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        # The bare `&name` form only fires at a token boundary.
+        ("where col = &foo", "where col = &{ foo }"),
+        ("(&foo)", "(&{ foo })"),
+        ("&foo+&bar", "&{ foo }+&{ bar }"),
+        # The braced form keeps working next to identifier characters.
+        ("abc&{foo}", "abc&{ foo }"),
+    ],
+)
+def test_bare_variable_still_substitutes_at_token_boundary(text, expected):
+    assert transpile_snowsql_templates(text) == expected
+
+
 @pytest.mark.parametrize("template_start,template_end", [("&{", "}"), ("<%", "%>")])
 @mock.patch("snowflake.cli._plugins.sql.commands.SqlManager._execute_string")
 def test_uses_variables_from_snowflake_yml(
