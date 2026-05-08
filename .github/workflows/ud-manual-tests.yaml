@@ -58,6 +58,9 @@ jobs:
           pip install click==8.2.1 hatch==1.15.1 virtualenv==20.39.1
           hatch --version
 
+      - name: Patch dependencies for universal driver
+        run: python scripts/patch_universal_driver.py "${{ inputs.ud-branch }}"
+
       - name: Install and test UD
         run: |
           hatch config set dirs.env.virtual .hatch
