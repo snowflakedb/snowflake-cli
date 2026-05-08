@@ -672,7 +672,7 @@ class TestSnowflakeAppManagerQuerySpinner:
             assert result is cursor
             mock_spinner.assert_called_once_with()
             spinner.add_task.assert_called_once_with(
-                description="Running Snowflake query...",
+                description="",
                 total=None,
             )
             mock_super_execute.assert_called_once_with(
