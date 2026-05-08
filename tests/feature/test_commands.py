@@ -97,6 +97,193 @@ def test_apply_help_shows_all_options(mock_manager, runner):
 
 
 # ---------------------------------------------------------------------------
+# Status: header (apply / plan)
+# ---------------------------------------------------------------------------
+#
+# These tests pin the behaviour added when fixing the bug-bash step-6
+# TODO: ``apply succeeded (rc=0) but output missing 'Status: success'``.
+# The previous renderer emitted the ``Status: <status>`` line only on
+# the empty-ops branch of ``_ops_result``, so a successful CREATE_FV
+# (which renders as a non-empty ops table) left scripts and operators
+# without a single canonical success indicator.  ``_print_status_header``
+# now writes the line on stderr regardless of whether the payload
+# renders as a table or a summary message, mirroring
+# ``_print_mode_header`` / ``_print_target_header``.
+
+
+def test_print_status_header_emits_status_and_counts(capsys):
+    """Helper writes ``Status: <status>  Operations: N (executed: K)`` to stderr."""
+    from snowflake.cli._plugins.feature.commands import _print_status_header
+
+    _print_status_header(
+        {
+            "status": "applied",
+            "ops": [
+                {"operation": "CREATE_FV", "name": "X", "status": "success"},
+                {"operation": "NO_CHANGE", "name": "Y", "status": "skipped"},
+            ],
+            "executed": 1,
+        }
+    )
+    captured = capsys.readouterr()
+    assert "Status: applied" in captured.err
+    assert "Operations: 2" in captured.err
+    assert "executed: 1" in captured.err
+    assert captured.out == ""
+
+
+def test_print_status_header_empty_ops_still_emits_status(capsys):
+    """Empty ops list still emits the header — this is the explicit
+    counterpart to the bug-bash TODO: even ``no_plan`` must surface
+    a parseable status line on stderr."""
+    from snowflake.cli._plugins.feature.commands import _print_status_header
+
+    _print_status_header({"status": "no_plan", "ops": [], "executed": 0})
+    captured = capsys.readouterr()
+    assert "Status: no_plan" in captured.err
+    assert "Operations: 0" in captured.err
+    assert "executed: 0" in captured.err
+
+
+def test_print_status_header_derives_executed_from_ops_when_missing(capsys):
+    """When ``executed`` is absent from the result dict, the helper
+    falls back to counting ops with ``status == "success"``.  Pin this
+    so apply paths that don't bubble up an explicit ``executed`` count
+    (e.g. ``status: validation_failed`` results) still report a sane
+    number rather than a confusing ``executed: None``.
+    """
+    from snowflake.cli._plugins.feature.commands import _print_status_header
+
+    _print_status_header(
+        {
+            "status": "applied",
+            "ops": [
+                {"status": "success"},
+                {"status": "success"},
+                {"status": "skipped"},
+            ],
+        }
+    )
+    captured = capsys.readouterr()
+    assert "Status: applied" in captured.err
+    assert "Operations: 3" in captured.err
+    assert "executed: 2" in captured.err
+
+
+def test_print_status_header_silent_when_status_missing(capsys):
+    """No ``status`` field → no header.  Guards against a mid-pipeline
+    sub-result accidentally polluting stderr."""
+    from snowflake.cli._plugins.feature.commands import _print_status_header
+
+    _print_status_header({"ops": [], "executed": 0})
+    captured = capsys.readouterr()
+    assert "Status:" not in captured.err
+    assert captured.out == ""
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_apply_calls_print_status_header_on_success(mock_manager, runner):
+    """``snow feature apply`` must call ``_print_status_header`` so a
+    successful CREATE_FV no longer looks silent on stderr.  This is the
+    direct fix for bug-bash step 6's ``apply succeeded (rc=0) but output
+    missing 'Status: success'`` finding."""
+    mock_manager.return_value.apply.return_value = {
+        "status": "applied",
+        "ops": [{"operation": "CREATE_FV", "name": "X", "status": "success"}],
+        "executed": 1,
+    }
+    with mock.patch(
+        "snowflake.cli._plugins.feature.commands._print_status_header"
+    ) as mock_print_status:
+        result = runner.invoke(["feature", "apply", "specs.yaml"])
+    assert result.exit_code == 0, result.output
+    mock_print_status.assert_called_once()
+    passed = mock_print_status.call_args.args[0]
+    assert passed["status"] == "applied"
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_apply_calls_print_status_header_on_validation_failed(mock_manager, runner):
+    """Even on the validation-failed early-return branch, the header
+    must fire so the operator sees ``Status: validation_failed`` rather
+    than a silent zero exit code."""
+    mock_manager.return_value.apply.return_value = {
+        "status": "validation_failed",
+        "ops": [],
+        "errors": ["VERSION_CONFLICT: ..."],
+    }
+    with mock.patch(
+        "snowflake.cli._plugins.feature.commands._print_status_header"
+    ) as mock_print_status:
+        result = runner.invoke(["feature", "apply", "specs.yaml"])
+    assert result.exit_code == 0, result.output
+    mock_print_status.assert_called_once()
+    assert mock_print_status.call_args.args[0]["status"] == "validation_failed"
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_plan_calls_print_status_header_on_success(mock_manager, runner, tmp_path):
+    """``snow feature plan`` must also call ``_print_status_header`` so
+    its output is symmetric with ``snow feature apply`` and shell scripts
+    can grep for a single canonical success indicator across both."""
+    out_path = tmp_path / "plans" / "feature_plan_test.json"
+    mock_manager.return_value.apply.return_value = {
+        "status": "ready",
+        "ops": [{"operation": "NO_CHANGE", "name": "X"}],
+    }
+    mock_manager.return_value.write_plan.return_value = str(out_path)
+    with mock.patch(
+        "snowflake.cli._plugins.feature.commands._print_status_header"
+    ) as mock_print_status:
+        result = runner.invoke(
+            ["feature", "plan", "specs.yaml", "--out", str(out_path)]
+        )
+    assert result.exit_code == 0, result.output
+    mock_print_status.assert_called_once()
+    assert mock_print_status.call_args.args[0]["status"] == "ready"
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_plan_calls_print_status_header_on_validation_failed(
+    mock_manager, runner, tmp_path
+):
+    """``plan`` short-circuits on validation_failed and must still
+    fire the header before returning, so the operator sees the failure
+    on stderr rather than only inside the JSON-renderable result body."""
+    out_path = tmp_path / "plans" / "feature_plan_test.json"
+    mock_manager.return_value.apply.return_value = {
+        "status": "validation_failed",
+        "ops": [],
+        "errors": ["..."],
+    }
+    with mock.patch(
+        "snowflake.cli._plugins.feature.commands._print_status_header"
+    ) as mock_print_status:
+        result = runner.invoke(
+            ["feature", "plan", "specs.yaml", "--out", str(out_path)]
+        )
+    assert result.exit_code == 0, result.output
+    mock_print_status.assert_called_once()
+    assert mock_print_status.call_args.args[0]["status"] == "validation_failed"
+    mock_manager.return_value.write_plan.assert_not_called()
+
+
+def test_ops_result_message_body_no_longer_includes_status_line():
+    """The empty-ops summary message must NOT include ``Status:``
+    anymore.  The header is now emitted on stderr by
+    ``_print_status_header`` and duplicating it on stdout would
+    produce two ``Status:`` lines per invocation.  This test pins
+    that the body collapses to just ``Operations: 0`` (plus warnings),
+    preventing future regressions that re-add the duplicate."""
+    from snowflake.cli._plugins.feature.commands import _ops_result
+
+    cmd_result = _ops_result({"status": "applied", "ops": [], "warnings": []})
+    rendered = cmd_result.message
+    assert "Status:" not in rendered, rendered
+    assert "Operations: 0" in rendered, rendered
+
+
+# ---------------------------------------------------------------------------
 # plan
 # ---------------------------------------------------------------------------
 

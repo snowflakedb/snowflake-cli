@@ -189,13 +189,20 @@ def _to_message(text: str) -> CommandResult:
 
 
 def _ops_result(result: dict) -> CommandResult:
-    """Render plan/apply results: ops as a table, or a summary message."""
+    """Render plan/apply results: ops as a table, or a summary message.
+
+    The overall ``Status: <status>`` header is emitted on stderr by
+    ``_print_status_header`` at the call site (so it's present for
+    both the table path and the empty-ops path).  This message body
+    therefore omits the ``Status:`` line to avoid double-printing —
+    it carries only ``Operations: 0`` and any ``Warnings:`` so the
+    stdout payload stays compact.
+    """
     ops = result.get("ops", [])
     warnings = result.get("warnings", [])
-    status = result.get("status", "")
     if ops:
         return _to_collection(ops, all_columns=True)
-    parts = [f"Status: {status}", f"Operations: 0"]
+    parts = ["Operations: 0"]
     if warnings:
         parts.append("Warnings:")
         parts.extend(f"  - {w}" for w in warnings)
@@ -270,6 +277,49 @@ def _print_mode_header(full_sync: bool) -> None:
         sys.stderr.write("Mode: full sync (./...) — orphaned objects will be dropped\n")
     else:
         sys.stderr.write("Mode: incremental — only changes will be applied\n")
+    sys.stderr.flush()
+
+
+def _print_status_header(result: dict) -> None:
+    """Print the apply/plan overall status to stderr.
+
+    Mirrors ``_print_mode_header`` / ``_print_target_header`` /
+    ``_print_listing_scope_header``: header on stderr, payload on stdout.
+    Emitting on stderr means ``--format json`` callers are unaffected
+    (the JSON payload on stdout already carries ``status``) while
+    operators and shell-script consumers get a single canonical
+    ``Status: <status>`` line per invocation regardless of whether the
+    payload renders as an ops table (non-empty ``ops``) or as a
+    summary message (empty ``ops``).
+
+    Without this helper, ``Status:`` appeared only on the empty-ops
+    branch of ``_ops_result`` — which made ``snow feature apply`` look
+    silent on a successful CREATE_FV (the table carries per-op status
+    cells but no overall header), forcing every script to grep for
+    table cells instead of a single stable line.
+
+    The line carries three numbers:
+
+    * total ``Operations`` (table row count),
+    * ``executed`` (rows the runtime actually ran — derived from
+      ``result["executed"]`` when the manager reports it, otherwise
+      counted from ``ops[].status == "success"``).
+
+    A missing or empty ``status`` is silently skipped — the helper is
+    a no-op for results that legitimately don't carry one (e.g. raw
+    sub-results that bypass ``_ops_result``).
+    """
+    status = result.get("status", "")
+    if not status:
+        return
+    ops = result.get("ops", []) or []
+    total = len(ops)
+    executed_value = result.get("executed")
+    if executed_value is None:
+        executed_value = sum(1 for o in ops if o.get("status") == "success")
+    sys.stderr.write(
+        f"Status: {status}  Operations: {total} (executed: {executed_value})\n"
+    )
     sys.stderr.flush()
 
 
@@ -373,6 +423,7 @@ def apply(
         plan_file=plan,
         no_delete=not full_sync,
     )
+    _print_status_header(result)
     if result.get("status") == "validation_failed":
         return _to_object(result)
     return _ops_result(result)
@@ -442,6 +493,7 @@ def plan(
         no_delete=no_delete,
     )
     if result.get("status") == "validation_failed":
+        _print_status_header(result)
         return _to_object(result)
 
     # Validation passed → persist the plan to disk.
@@ -453,6 +505,7 @@ def plan(
         no_delete=no_delete,
     )
     result["plan_file"] = plan_path
+    _print_status_header(result)
     return _ops_result(result)
 
 
