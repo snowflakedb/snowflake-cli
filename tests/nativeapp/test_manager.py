@@ -236,6 +236,82 @@ def test_sync_deploy_root_with_stage_subdir(
     )
 
 
+STAGE_MANAGER_MODULE = "snowflake.cli._plugins.stage.manager.StageManager"
+
+
+@pytest.mark.parametrize("stage_exists", [True, False])
+@mock.patch(f"{STAGE_MANAGER_MODULE}.create")
+@mock.patch(f"{STAGE_MANAGER_MODULE}.stage_exists")
+@mock.patch(f"{ENTITIES_UTILS_MODULE}.compute_stage_diff")
+@mock.patch(f"{ENTITIES_UTILS_MODULE}.sync_local_diff_with_stage")
+def test_sync_deploy_root_with_stage_generic_path_skips_create_when_stage_exists(
+    mock_local_diff_with_stage,
+    mock_compute_stage_diff,
+    mock_stage_exists,
+    mock_create,
+    temporary_directory,
+    stage_exists,
+):
+    """Non-nativeapp callers (notebook, streamlit, DCM) must not issue
+    CREATE STAGE IF NOT EXISTS when the stage is already visible — that SQL
+    requires CREATE STAGE on the schema and fails for roles that only hold
+    USAGE/READ/WRITE on the stage."""
+    mock_stage_exists.return_value = stage_exists
+    mock_compute_stage_diff.return_value = DiffResult()
+    mock_local_diff_with_stage.return_value = None
+
+    sync_deploy_root_with_stage(
+        console=cc,
+        deploy_root=Path(temporary_directory),
+        bundle_map=mock.Mock(spec=BundleMap),
+        prune=False,
+        recursive=True,
+        stage_path_parts=DefaultStagePathParts.from_fqn("db.schema.my_stage"),
+    )
+
+    mock_stage_exists.assert_called_once()
+    called_fqn = mock_stage_exists.call_args.args[0]
+    assert called_fqn.name == "my_stage"
+    assert called_fqn.schema == "schema"
+    assert called_fqn.database == "db"
+    if stage_exists:
+        mock_create.assert_not_called()
+    else:
+        mock_create.assert_called_once()
+        assert mock_create.call_args.kwargs["temporary"] is False
+
+
+@mock.patch(f"{STAGE_MANAGER_MODULE}.create")
+@mock.patch(f"{STAGE_MANAGER_MODULE}.stage_exists")
+@mock.patch(f"{ENTITIES_UTILS_MODULE}.compute_stage_diff")
+@mock.patch(f"{ENTITIES_UTILS_MODULE}.sync_local_diff_with_stage")
+def test_sync_deploy_root_with_stage_temporary_stage_always_creates(
+    mock_local_diff_with_stage,
+    mock_compute_stage_diff,
+    mock_stage_exists,
+    mock_create,
+    temporary_directory,
+):
+    """Temporary stages are always created fresh; the existence pre-check
+    would be wrong here because a prior session's temp stage isn't visible."""
+    mock_compute_stage_diff.return_value = DiffResult()
+    mock_local_diff_with_stage.return_value = None
+
+    sync_deploy_root_with_stage(
+        console=cc,
+        deploy_root=Path(temporary_directory),
+        bundle_map=mock.Mock(spec=BundleMap),
+        prune=False,
+        recursive=True,
+        stage_path_parts=DefaultStagePathParts.from_fqn("db.schema.my_stage"),
+        use_temporary_stage=True,
+    )
+
+    mock_stage_exists.assert_not_called()
+    mock_create.assert_called_once()
+    assert mock_create.call_args.kwargs["temporary"] is True
+
+
 @mock.patch(SQL_FACADE_STAGE_EXISTS)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(f"{ENTITIES_UTILS_MODULE}.sync_local_diff_with_stage")

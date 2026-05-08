@@ -29,6 +29,11 @@ class StreamlitTestClass:
             "snowflake.cli._plugins.stage.manager.StageManager.create",
         ).start()
 
+        self.mock_stage_exists = mock.patch(
+            "snowflake.cli._plugins.stage.manager.StageManager.stage_exists",
+            return_value=False,
+        ).start()
+
         self.mock_list_files = mock.patch(
             "snowflake.cli._plugins.stage.manager.StageManager.list_files",
             return_value=MockCursor.from_input([], []),
