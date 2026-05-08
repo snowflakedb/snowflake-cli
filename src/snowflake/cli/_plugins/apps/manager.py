@@ -964,6 +964,17 @@ class SnowflakeAppManager(SqlExecutionMixin):
             query += f"\nTO VERSION {version}"
         self.execute_query(query)
 
+    def set_app_service_comment(
+        self,
+        service_fqn: FQN,
+        comment: str,
+    ) -> None:
+        """Set or update the comment on an application service."""
+        escaped = comment.replace("'", "''")
+        self.execute_query(
+            f"ALTER APPLICATION SERVICE {service_fqn.identifier} SET COMMENT = '{escaped}'"
+        )
+
     def is_application_service(self, service_fqn: FQN) -> bool:
         """Return True when settings should use the ``app-service`` URL segment.
 

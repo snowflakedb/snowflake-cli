@@ -667,6 +667,17 @@ def snowflake_app_deploy(
     if build_only:
         return MessageResult("Build completed successfully.")
 
+    # ── Clear source after build if forking is disabled ──────────────
+    if entity.forking is False:
+        if use_workspace:
+            cli_console.step(
+                f"Clearing workspace source (forking disabled): {storage_fqn.identifier}"
+            )
+            manager.clear_workspace_subdirectory(storage_fqn, app_name)
+        else:
+            cli_console.step(f"Clearing code stage (forking disabled): @{storage_fqn}")
+            manager.clear_stage(storage_fqn)
+
     # ── Deploy phase ──────────────────────────────────────────────────
 
     comment_data = {"appId": app_name}
@@ -676,6 +687,10 @@ def snowflake_app_deploy(
         comment_data["appDescription"] = app_description
     if app_icon:
         comment_data["appIcon"] = app_icon
+    if entity.forking is True:
+        comment_data[
+            "appSource"
+        ] = f"{storage_fqn.database}.{storage_fqn.schema}.{storage_fqn.name}"
     app_comment = json.dumps(comment_data)
 
     eai_list = [build_eai] if build_eai else None
@@ -702,6 +717,10 @@ def snowflake_app_deploy(
                 manager.upgrade_app_service(
                     service_fqn=service_fqn,
                     version="LATEST",
+                )
+                manager.set_app_service_comment(
+                    service_fqn=service_fqn,
+                    comment=app_comment,
                 )
                 did_upgrade = True
             else:

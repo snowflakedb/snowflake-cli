@@ -560,3 +560,23 @@ class TestSubModels:
         assert meta.title is None
         assert meta.description is None
         assert meta.icon is None
+
+    def test_forking_defaults_to_none(self):
+        """Forking field defaults to None when not specified."""
+        model = SnowflakeAppEntityModel(
+            type="snowflake-app",
+            identifier="my_app",
+            artifacts=["app/*"],
+        )
+        assert model.forking is None
+
+    @pytest.mark.parametrize("value", [True, False])
+    def test_forking_accepts_boolean(self, value):
+        """Forking field accepts explicit True and False."""
+        model = SnowflakeAppEntityModel(
+            type="snowflake-app",
+            identifier="my_app",
+            artifacts=["app/*"],
+            forking=value,
+        )
+        assert model.forking is value
