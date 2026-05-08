@@ -1,3 +1,4 @@
+import codecs
 import enum
 import io
 import re
@@ -23,6 +24,35 @@ COMMAND_PATTERN = re.compile(
 URL_PATTERN = re.compile(r"^(\w+?):\/(\/.*)", flags=re.IGNORECASE)
 
 ASYNC_SUFFIX = ";>"
+
+# Byte-order marks checked in descending length so that the 4-byte UTF-32 marks
+# are matched before the 2-byte UTF-16 marks they start with.
+_BOM_ENCODINGS: tuple[tuple[bytes, str], ...] = (
+    (codecs.BOM_UTF32_LE, "utf-32"),
+    (codecs.BOM_UTF32_BE, "utf-32"),
+    (codecs.BOM_UTF8, "utf-8-sig"),
+    (codecs.BOM_UTF16_LE, "utf-16"),
+    (codecs.BOM_UTF16_BE, "utf-16"),
+)
+
+
+def _read_sql_file(path: SecurePath) -> str:
+    """Read a SQL text file, honoring a UTF-8/16/32 BOM if present.
+
+    PowerShell's ``>`` redirect and many Windows editors write files with a
+    byte-order mark. Without BOM handling those files either crash with a
+    UnicodeDecodeError (UTF-16) or leak a stray U+FEFF into the first
+    statement (UTF-8 BOM). When no BOM is present we fall back to UTF-8,
+    matching how the CLI writes files elsewhere.
+    """
+    with path.open("rb", read_file_limit_mb=UNLIMITED) as f:
+        raw = f.read()
+    for bom, encoding in _BOM_ENCODINGS:
+        if raw.startswith(bom):
+            # ``utf-16``/``utf-32`` consume the BOM themselves; ``utf-8-sig``
+            # strips the UTF-8 BOM. Decode the full payload in each case.
+            return raw.decode(encoding)
+    return raw.decode("utf-8")
 
 
 # Regex that recognises SQL tokens whose contents must not be scanned for
@@ -214,7 +244,7 @@ class ParsedStatement:
         path = SecurePath(stripped_comments_path_part)
 
         if path.is_file():
-            payload = path.read_text(file_size_limit_mb=UNLIMITED)
+            payload = _read_sql_file(path)
             return cls(payload, StatementType.FILE, path.as_posix())
 
         error_msg = f"Could not read: {path_part}"
@@ -334,18 +364,17 @@ def files_reader(
 
     Returns a generator with statements."""
     for path in paths:
-        with path.open(read_file_limit_mb=UNLIMITED) as f:
-            content = f.read()
-            if pre_render:
-                content = pre_render(content)
-            stmts = split_statements(io.StringIO(content), remove_comments)
-            yield from recursive_statement_reader(
-                stmts,
-                [path.as_posix()],
-                operators,
-                remove_comments,
-                pre_render,
-            )
+        content = _read_sql_file(path)
+        if pre_render:
+            content = pre_render(content)
+        stmts = split_statements(io.StringIO(content), remove_comments)
+        yield from recursive_statement_reader(
+            stmts,
+            [path.as_posix()],
+            operators,
+            remove_comments,
+            pre_render,
+        )
 
 
 def query_reader(

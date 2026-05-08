@@ -26,6 +26,7 @@
 * Fixed `SELECT *` output being corrupted when joined tables share column names. Duplicate column names are now disambiguated by appending a numeric suffix (e.g. `NAME`, `NAME_2`).
 * Fixed `snow connection generate-jwt` and `snow connection generate-workload-identity-token` failing with `Connection None is not configured` when used with `--temporary-connection`.
 * The internal connection cache now remembers failed connect attempts and re-raises the original exception on subsequent accesses within the same process, instead of re-dialing Snowflake every time a command accesses the shared connection. This fixes, among other cases, the customer-visible duplicate `LOGIN_HISTORY` events (and `OVERFLOW_FAILURE_EVENTS_ELIDED`) previously emitted when a `snow` invocation was rejected by an authentication policy.
+* `snow sql -f <file>` and the `!source <file>` include directive now honor a UTF-8 / UTF-16 / UTF-32 byte-order mark at the start of a SQL file and decode it using the matching encoding. This fixes `snow sql` on Windows when the input was produced by a PowerShell `>` redirect (which writes UTF-16 LE with a BOM) or by an editor that prepends a UTF-8 BOM; previously these files crashed with `UnicodeDecodeError` or leaked U+FEFF into the first statement.
 
 
 # v3.17.0
