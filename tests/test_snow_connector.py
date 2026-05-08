@@ -182,7 +182,7 @@ def test_private_key_loading_and_aliases(
         )
         if expected_private_key_file_value is not None:
             mock_load_pem_from_file.assert_called_with(expected_private_key_file_value)
-            mock_load_pem_to_der.assert_called_with(key, config_passphrase=None)
+            mock_load_pem_to_der.assert_called_with(key, passphrase=None)
 
 
 @mock.patch.dict(os.environ, {}, clear=True)
