@@ -447,6 +447,12 @@ class SnowflakeAppManager(SqlExecutionMixin):
     ``FQN``-based parameters that already use ``.sql_identifier``.
     """
 
+    def execute_query(self, query: str, **kwargs):
+        """Execute a Snowflake query with CLI spinner feedback."""
+        with cli_console.spinner() as spinner:
+            spinner.add_task(description="Running Snowflake query...", total=None)
+            return super().execute_query(query, **kwargs)
+
     def get_personal_database(self) -> Optional[str]:
         """Return the personal database name for the current user.
 
