@@ -61,7 +61,6 @@ under the key `"feature"`.
 | `snow feature plan`     | `apply(dry_run=True)`| Alias for apply in dry-run mode      |
 | `snow feature list`     | `list_specs()`       | Files → from file; no args → Snowflake |
 | `snow feature describe` | `describe()`         | Single-object metadata lookup        |
-| `snow feature convert`  | `convert()`          | Python DSL → YAML or JSON            |
 
 ---
 
@@ -89,7 +88,7 @@ remains functional during parallel Phase 1 development.
 Every Snowflake-bound `FeatureManager` entry point (`apply_specs`,
 `write_plan`, `list_specs` (only when `input_files` is empty),
 `describe`, `export_specs`, `get_status`, `initialize_service`,
-`destroy_service`, and `convert` against Snowflake) calls
+and `destroy_service`) calls
 `self._ensure_session_setup()` as its first step. The helper is
 gated by `self._session_setup_done` so each `FeatureManager`
 instance primes once. It delegates to
@@ -236,9 +235,7 @@ define parameters with these names:
   `enhanced_exit_codes`.
 
 The `describe` command accepts `--database`/`--schema` via the global
-connection flags (not as custom parameters). The `convert` command uses
-`--file-format` (not `--format`) to avoid conflicting with the global output
-format flag.
+connection flags (not as custom parameters).
 
 ---
 

@@ -30,4 +30,4 @@ def test_feature_group_help_lists_all_commands(runner):
     assert "plan" in output
     assert "list" in output
     assert "describe" in output
-    assert "convert" in output
+    assert "export" in output

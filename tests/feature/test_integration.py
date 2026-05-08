@@ -310,40 +310,6 @@ class TestListSpecsIntegration:
 
 
 # ---------------------------------------------------------------------------
-# convert — real library
-# ---------------------------------------------------------------------------
-
-
-class TestConvertIntegration:
-    def test_convert_returns_converted_status(self, spec_dir, mock_execute_query):
-        from snowflake.cli._plugins.feature.manager import FeatureManager
-
-        mgr = FeatureManager()
-        result = mgr.convert(
-            input_files=[f"{spec_dir}/entity.yaml"],
-            file_format="yaml",
-            output_dir=None,
-            recursive=False,
-            config=None,
-        )
-        assert result["status"] == "converted"
-        assert result["format"] == "yaml"
-
-    def test_convert_reports_spec_count(self, spec_dir, mock_execute_query):
-        from snowflake.cli._plugins.feature.manager import FeatureManager
-
-        mgr = FeatureManager()
-        result = mgr.convert(
-            input_files=[f"{spec_dir}/*.yaml"],
-            file_format="json",
-            output_dir=None,
-            recursive=False,
-            config=None,
-        )
-        assert result["count"] >= 0
-
-
-# ---------------------------------------------------------------------------
 # Validation error path
 # ---------------------------------------------------------------------------
 

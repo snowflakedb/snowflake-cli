@@ -118,14 +118,6 @@ class FeatureManager(SqlExecutionMixin):
         }
 
     # ------------------------------------------------------------------
-    # generate_example
-    # ------------------------------------------------------------------
-
-    def generate_example(self, output_dir: str) -> dict[str, Any]:
-        """Write example YAML spec files under *output_dir*."""
-        return decl_api.generate_example(output_dir)
-
-    # ------------------------------------------------------------------
     # apply
     # ------------------------------------------------------------------
 
@@ -940,29 +932,6 @@ class FeatureManager(SqlExecutionMixin):
                                 result.append(extra)
                                 seen.add(extra)
         return result
-
-    # ------------------------------------------------------------------
-    # convert
-    # ------------------------------------------------------------------
-
-    def convert(
-        self,
-        input_files: Sequence[str],
-        file_format: str,
-        output_dir: Optional[str],
-        recursive: bool,
-        config: Optional[dict[str, Any]],
-    ) -> dict[str, Any]:
-        """Convert spec files from Python DSL to YAML or JSON."""
-        batch = decl_api.load_specs(list(input_files), config)
-        specs = getattr(batch, "specs", [])
-        return {
-            "status": "converted",
-            "format": file_format,
-            "output_dir": output_dir,
-            "recursive": recursive,
-            "count": len(specs),
-        }
 
     # ------------------------------------------------------------------
     # get_status

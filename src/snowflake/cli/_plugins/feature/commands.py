@@ -21,7 +21,6 @@ import logging
 import sys
 from datetime import date, datetime
 from decimal import Decimal
-from enum import Enum
 from typing import List, Optional
 
 import typer
@@ -497,83 +496,6 @@ def describe(
 # ---------------------------------------------------------------------------
 # drop
 # ---------------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------------
-# convert
-# ---------------------------------------------------------------------------
-
-
-class ConvertFormat(str, Enum):
-    yaml = "yaml"
-    json = "json"
-
-
-@app.command(requires_connection=True)
-def convert(
-    input_files: Optional[List[str]] = typer.Argument(
-        None,
-        help="Spec file paths (Python DSL) to convert.",
-        show_default=False,
-    ),
-    file_format: ConvertFormat = typer.Option(
-        ...,
-        "--file-format",
-        help="Target file format: yaml or json.",
-        show_default=False,
-    ),
-    out_dir: Optional[str] = typer.Option(
-        None,
-        "--out-dir",
-        help="Output directory for converted files.",
-        show_default=False,
-    ),
-    recursive: bool = typer.Option(
-        False,
-        "-R",
-        help="Retain relative directory structure in output.",
-    ),
-    config: Optional[str] = typer.Option(
-        None, "--config", help="Path to Jinja2 config file.", show_default=False
-    ),
-    **options,
-) -> CommandResult:
-    """Convert Python DSL spec files to YAML or JSON format."""
-    if not input_files:
-        raise typer.BadParameter(
-            "At least one file is required.", param_hint="INPUT_FILES"
-        )
-    result = FeatureManager().convert(
-        input_files=input_files,
-        file_format=file_format.value,
-        output_dir=out_dir,
-        recursive=recursive,
-        config=config,
-    )
-    return _to_object(result)
-
-
-# ---------------------------------------------------------------------------
-# example
-# ---------------------------------------------------------------------------
-
-
-@app.command()
-def example(
-    output_dir: Optional[str] = typer.Option(
-        None,
-        "--dir",
-        help="Directory to write example files into. Defaults to the current directory.",
-        show_default=False,
-    ),
-    **options,
-) -> CommandResult:
-    """Generate example YAML spec files for testing (no Snowflake connection required)."""
-    result = FeatureManager().generate_example(output_dir or ".")
-    files = result.get("files", [])
-    if files:
-        return _to_collection([{"file": f} for f in files], all_columns=True)
-    return _to_object(result)
 
 
 # ---------------------------------------------------------------------------

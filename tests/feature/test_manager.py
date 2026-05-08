@@ -493,21 +493,6 @@ class TestFeatureManagerDescribe:
         )
 
 
-class TestFeatureManagerConvert:
-    def test_convert_returns_dict(self, mock_execute_query, mock_decl):
-        from snowflake.cli._plugins.feature.manager import FeatureManager
-
-        mgr = FeatureManager()
-        result = mgr.convert(
-            input_files=["specs.py"],
-            file_format="yaml",
-            output_dir=None,
-            recursive=False,
-            config=None,
-        )
-        assert isinstance(result, dict)
-
-
 # ---------------------------------------------------------------------------
 # get_status
 # ---------------------------------------------------------------------------
