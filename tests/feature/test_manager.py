@@ -1067,6 +1067,107 @@ class TestFeatureManagerExportSpecs:
 
         mock_decl.export_specs.assert_not_called()
 
+    def test_export_specs_fetches_entity_rows(
+        self, mock_execute_query, mock_cli_context, mock_decl, tmp_path
+    ):
+        """export_specs must call decl_api.fetch_entity_rows so orphan tags are exported.
+
+        Without this call the exporter falls back to FV-derived entity
+        emission, which silently drops orphan tags and breaks the
+        export ↔ plan round-trip invariant in full-directory mode.
+        """
+        mock_decl.export_specs.return_value = {
+            "status": "exported",
+            "directory": str(tmp_path),
+            "files": [],
+        }
+        mock_decl.fetch_entity_rows.return_value = [
+            {
+                "name": "SNOWML_FEATURE_STORE_ENTITY_USER_ID",
+                "database_name": "TEST_DB",
+                "schema_name": "TEST_SCHEMA",
+                "allowed_values": '["USER_ID"]',
+            }
+        ]
+        self._setup_show_specification(mock_execute_query, [_SHOW_ROW_SINGLE])
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        mgr.export_specs(str(tmp_path))
+
+        assert mock_decl.fetch_entity_rows.called, (
+            "manager.export_specs must call decl_api.fetch_entity_rows so the "
+            "exporter has the authoritative list of registered entity tags"
+        )
+
+    def test_export_specs_forwards_entity_rows_to_decl_api(
+        self, mock_execute_query, mock_cli_context, mock_decl, tmp_path
+    ):
+        """The fetched entity_rows must be passed as entity_rows= kwarg to decl_api.export_specs."""
+        mock_decl.export_specs.return_value = {
+            "status": "exported",
+            "directory": str(tmp_path),
+            "files": [],
+        }
+        sentinel_rows = [
+            {
+                "name": "SNOWML_FEATURE_STORE_ENTITY_USER_ID",
+                "database_name": "TEST_DB",
+                "schema_name": "TEST_SCHEMA",
+                "allowed_values": '["USER_ID"]',
+                "comment": "user identifier",
+            },
+            {
+                "name": "SNOWML_FEATURE_STORE_ENTITY_ORPHAN_KEY",
+                "database_name": "TEST_DB",
+                "schema_name": "TEST_SCHEMA",
+                "allowed_values": '["ORPHAN_KEY"]',
+            },
+        ]
+        mock_decl.fetch_entity_rows.return_value = sentinel_rows
+        self._setup_show_specification(mock_execute_query, [_SHOW_ROW_SINGLE])
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        mgr.export_specs(str(tmp_path))
+
+        call = mock_decl.export_specs.call_args
+        assert (
+            "entity_rows" in call.kwargs
+        ), f"expected entity_rows keyword arg; got kwargs={list(call.kwargs)}"
+        assert call.kwargs["entity_rows"] is sentinel_rows, (
+            "manager must forward the rows from decl_api.fetch_entity_rows verbatim "
+            f"into decl_api.export_specs(entity_rows=...); got {call.kwargs['entity_rows']!r}"
+        )
+
+    def test_export_specs_forwards_empty_entity_rows_when_none_registered(
+        self, mock_execute_query, mock_cli_context, mock_decl, tmp_path
+    ):
+        """When no entities are registered, the manager still forwards the empty list.
+
+        An explicit empty list signals "no entities" — distinct from
+        ``None`` which would trigger the legacy fallback in the
+        exporter.  The manager must always call fetch_entity_rows and
+        always forward whatever it returns.
+        """
+        mock_decl.export_specs.return_value = {
+            "status": "exported",
+            "directory": str(tmp_path),
+            "files": [],
+        }
+        mock_decl.fetch_entity_rows.return_value = []
+        self._setup_show_specification(mock_execute_query, [_SHOW_ROW_SINGLE])
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mgr = FeatureManager()
+        mgr.export_specs(str(tmp_path))
+
+        call = mock_decl.export_specs.call_args
+        assert call.kwargs.get("entity_rows") == [], (
+            "manager must forward an empty list verbatim (not None) so the "
+            f"exporter can distinguish 'no entities' from 'caller forgot'; got {call.kwargs!r}"
+        )
+
 
 # ---------------------------------------------------------------------------
 # write_plan
