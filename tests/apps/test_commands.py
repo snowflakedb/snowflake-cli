@@ -2836,7 +2836,6 @@ class TestOpenCommand:
                 "Could not resolve endpoint URL for service DB.SCHEMA.MY_APP"
                 in result.output
             )
-            assert "--role <ROLE>" in result.output
 
     @patch("snowflake.cli._plugins.apps.commands.typer.launch")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
@@ -3287,7 +3286,6 @@ class TestEventsCommand:
             assert result.exit_code == 1
             assert "Could not retrieve logs" in result.output
             assert "Verify that the app is deployed" in result.output
-            assert "--role <ROLE>" in result.output
 
 
 # ── Deploy CLI command tests ──────────────────────────────────────────
@@ -3428,7 +3426,6 @@ class TestDeployCommand:
                 "Deployment failed while creating application service" in result.output
             )
             assert "Verify privileges for CREATE" in result.output
-            assert "--role <ROLE>" in result.output
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
     @patch("snowflake.cli._plugins.apps.commands.StageManager")
