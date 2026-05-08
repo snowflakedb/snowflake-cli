@@ -1,3 +1,4 @@
+import codecs
 from functools import partial
 
 import pytest
@@ -9,6 +10,7 @@ from snowflake.cli._plugins.sql.statement_reader import (
     ParsedStatement,
     StatementType,
     _protect_sql_comments,
+    _read_sql_file,
     compile_statements,
     files_reader,
     parse_statement,
@@ -541,3 +543,94 @@ def test_protect_comments_roundtrip_through_jinja():
     )
     restored = saved.restore(rendered)
     assert restored == "-- {{ not_a_var }}\nSELECT /* {{ also_not }} */ 1 WHERE x = 42;"
+
+
+# ---------------------------------------------------------------------------
+# BOM / encoding tests — regression coverage for SNOW-1528909
+#
+# PowerShell's ``>`` redirect writes UTF-16 LE by default, and many Windows
+# editors add a UTF-8 BOM. Without BOM handling the CLI either crashes with a
+# UnicodeDecodeError on UTF-16 or leaks a U+FEFF into the first statement.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("encoding", "bom"),
+    [
+        # BOM-emitting codec names — Python appends the BOM itself.
+        ("utf-16", b""),
+        ("utf-8-sig", b""),
+        ("utf-32", b""),
+        # No-BOM codec names — we prepend the BOM manually to mimic what
+        # PowerShell / Notepad actually write on Windows.
+        ("utf-16-le", codecs.BOM_UTF16_LE),
+        ("utf-16-be", codecs.BOM_UTF16_BE),
+        ("utf-32-le", codecs.BOM_UTF32_LE),
+        ("utf-32-be", codecs.BOM_UTF32_BE),
+    ],
+)
+def test_read_sql_file_decodes_bom_prefixed_file(
+    tmp_path_factory: pytest.TempPathFactory, encoding, bom
+):
+    f = tmp_path_factory.mktemp("a") / "f.sql"
+    # Non-ASCII content ensures a naive UTF-8 decode of a UTF-16/UTF-32 file
+    # would raise UnicodeDecodeError — before the fix this was exactly the
+    # failure mode reported in the issue for PowerShell-redirected files.
+    text = "-- コメント\nselect 1;"
+    f.write_bytes(bom + text.encode(encoding))
+
+    assert _read_sql_file(SecurePath(f)) == text
+
+
+def test_read_sql_file_utf8_without_bom(tmp_path_factory: pytest.TempPathFactory):
+    # Regression guard: plain UTF-8 (the common case) stays on the fast path.
+    f = tmp_path_factory.mktemp("a") / "f.sql"
+    text = "-- ascii only\nselect 3;"
+    f.write_bytes(text.encode("utf-8"))
+
+    assert _read_sql_file(SecurePath(f)) == text
+
+
+def test_read_sql_file_strips_utf8_bom(tmp_path_factory: pytest.TempPathFactory):
+    # If the UTF-8 BOM leaked through, the first statement would start with
+    # U+FEFF and Snowflake would reject it as a syntax error.
+    f = tmp_path_factory.mktemp("a") / "f.sql"
+    f.write_bytes(b"\xef\xbb\xbfselect 1;")
+
+    result = _read_sql_file(SecurePath(f))
+
+    assert result == "select 1;"
+    assert "﻿" not in result
+
+
+@pytest.mark.parametrize("encoding", ["utf-16", "utf-8-sig"])
+def test_files_reader_decodes_bom_prefixed_sql(
+    tmp_path_factory: pytest.TempPathFactory, encoding
+):
+    f = tmp_path_factory.mktemp("a") / "f.sql"
+    f.write_bytes("select 1;".encode(encoding))
+
+    errors, cnt, compiled = compile_statements(
+        files_reader((SecurePath(f),), WORKING_OPERATOR_FUNCS),
+    )
+
+    assert not errors, errors
+    assert cnt == 1
+    assert compiled == [CompiledStatement(statement="select 1;")]
+
+
+@pytest.mark.parametrize("encoding", ["utf-16", "utf-8-sig"])
+def test_source_directive_decodes_bom_prefixed_file(
+    tmp_path_factory: pytest.TempPathFactory, encoding
+):
+    # ``!source <file>`` goes through ParsedStatement.from_file, a different
+    # code path from files_reader. Both must honor BOMs.
+    included = tmp_path_factory.mktemp("a") / "included.sql"
+    included.write_bytes("select 2;\n".encode(encoding))
+
+    query = f"!source {included.as_posix()};"
+    source = parse_statement(query, WORKING_OPERATOR_FUNCS)
+
+    assert source.error is None
+    assert source.statement_type == StatementType.FILE
+    assert source.statement.read() == "select 2;\n"
