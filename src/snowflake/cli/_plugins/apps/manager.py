@@ -117,6 +117,11 @@ def _poll_until(
     Raises ``CliError`` on error or timeout.  Returns the final value on
     success.
     """
+
+    def _failure_message_from_timeout_message(message: str) -> str:
+        """Convert timeout-style wording into failure wording for terminal error states."""
+        return re.sub(r"\btimed out\b", "failed", message, count=1, flags=re.IGNORECASE)
+
     for _attempt in range(max_attempts):
         if on_poll is not None:
             for _ in range(interval_seconds):
@@ -136,16 +141,21 @@ def _poll_until(
             if is_done(result):
                 return result
             if is_error is not None and is_error(result):
-                raise CliError(f"{timeout_message} (status={format_status(result)})")
+                raise CliError(
+                    f"{_failure_message_from_timeout_message(timeout_message)} "
+                    f"(status={format_status(result)})"
+                )
         else:
             # ── State-set mode (original behaviour) ───────────────
             if done_states and result in done_states:
                 return result
             if error_states and result in error_states:
-                raise CliError(f"{timeout_message} (status={result})")
+                raise CliError(
+                    f"{_failure_message_from_timeout_message(timeout_message)} "
+                    f"(status={result})"
+                )
             if known_pending_states is not None and result not in known_pending_states:
-                cli_console.step(f"Unknown status: {result}")
-                return result
+                raise CliError(f"{timeout_message} (unexpected status={result})")
 
     raise CliError(
         f"{timeout_message} "
