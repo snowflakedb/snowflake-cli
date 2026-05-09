@@ -291,3 +291,89 @@ def _extract_doc_events_payload(bash_body: str) -> list[dict]:
         isinstance(payload, list) and payload
     ), f"events.json heredoc is not a non-empty list: {payload!r}"
     return payload
+
+
+# ---------------------------------------------------------------------------
+# Step 7 verifier-parser brittleness contract
+# ---------------------------------------------------------------------------
+#
+# Background.  scripts/verify_bug_bash.sh step 7 invokes
+#
+#   snow feature query USER_CLICK_STATS_DECL --version V1 --keys '...'
+#
+# and then attempts ``json.loads(text[first_brace:])`` on the captured
+# stdout.  Without ``--format JSON`` the snow CLI's ``ObjectResult``
+# renders a Rich key-value table whose ``rows`` cell contains a
+# Python ``repr()`` of a ``list[dict]`` (single-quoted, with surrounding
+# pipes / box-drawing characters).  The first ``[`` in the captured
+# text falls inside that cell, ``json.loads`` raises a
+# ``JSONDecodeError``, and the verifier reports a misleading
+# "[fail] query response missing expected feature columns" TODO —
+# even when the underlying Online Service query returned the right
+# data with the right column names.
+#
+# Steps 8 and 17 already pass ``--format JSON`` for exactly this
+# reason — their inline comments in scripts/verify_bug_bash.sh
+# (search for "deterministic substring search") call out the same
+# rationale.  The fix is to add ``--format JSON`` to the step-7
+# invocation so the captured stdout is unambiguous JSON and the
+# column-name assertions are stable.
+#
+# This test pins that contract so any future revert of the flag
+# fails CI.
+
+_STEP7_BANNER = "# Step 7 \u2014"
+_STEP8_BANNER = "# Step 8 \u2014"
+
+
+def _extract_step7_block_from_verify(text: str) -> str:
+    """Return the bash text bounded by the ``# Step 7 —`` and
+    ``# Step 8 —`` section banners in ``verify_bug_bash.sh``."""
+    start = text.find(_STEP7_BANNER)
+    assert start >= 0, f"verify_bug_bash.sh missing {_STEP7_BANNER!r} section banner"
+    end = text.find(_STEP8_BANNER, start)
+    assert end > start, "verify_bug_bash.sh missing # Step 8 — boundary banner"
+    return text[start:end]
+
+
+def test_bugbash_step7_query_uses_format_json():
+    """Step 7's ``snow feature query`` call must pass ``--format JSON``.
+
+    Without the flag, the verifier's downstream ``json.loads(text[start:])``
+    parser fails on a Rich-rendered ``ObjectResult`` whose ``rows`` cell
+    is a Python repr of a list-of-dicts (single-quoted, embedded inside
+    pipe-delimited table rows).  The result is a misleading
+    "[fail] query response missing expected feature columns" TODO even
+    when the underlying Online Service query returned the right data.
+    See the comment block immediately above this test for the full
+    failure cascade.
+    """
+    text = _VERIFY_SCRIPT.read_text()
+    block = _extract_step7_block_from_verify(text)
+    query_lines = [
+        ln
+        for ln in block.splitlines()
+        if "feature query" in ln and "USER_CLICK_STATS_DECL" in ln
+    ]
+    assert query_lines, (
+        "verify_bug_bash.sh step 7 no longer contains a "
+        "'feature query USER_CLICK_STATS_DECL' invocation — update "
+        "this test or fix the script."
+    )
+    invocation_lines = [ln for ln in query_lines if "snow_run" in ln or "$SNOW " in ln]
+    assert invocation_lines, (
+        "verify_bug_bash.sh step 7 has 'feature query USER_CLICK_STATS_DECL' "
+        "lines but none of them is the actual invocation (no snow_run / "
+        "$SNOW prefix found).  The test's heuristic is out of date — "
+        "update the matcher."
+    )
+    for ln in invocation_lines:
+        assert ("--format JSON" in ln) or ("--format json" in ln), (
+            "verify_bug_bash.sh step 7's 'snow feature query' invocation "
+            "must pass '--format JSON' so the captured stdout is "
+            "parseable JSON.  Without this flag, the verifier's "
+            "json.loads(text[start:]) parser fails on a Rich-rendered "
+            "key-value table whose 'rows' cell contains a Python repr "
+            "of a list-of-dicts.  See the comment block above this "
+            "test for the full failure cascade.  Found: " + ln.strip()
+        )
