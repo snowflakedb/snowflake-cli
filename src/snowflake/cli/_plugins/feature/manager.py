@@ -1172,18 +1172,22 @@ class FeatureManager(SqlExecutionMixin):
     def ingest(self, source_name: str, records: list[dict]) -> dict[str, Any]:
         """Stream records into a source via ``FeatureStore.stream_ingest``.
 
-        Delegates the entire wire path (URL resolution, PAT auth, schema
-        validation, partial-success reporting) to snowml-core.  The
-        manager's only job is to bind the connection-scoped
-        ``FeatureStore`` and shape the result envelope so downstream
-        CLI rendering matches the rest of the feature plugin
-        (``target_database`` / ``target_schema`` / ``target_warehouse``
-        triple, plus the new ``accepted_count`` field).
+        Delegates the wire path (URL resolution, PAT auth,
+        partial-success reporting) to snowml-core, but runs a
+        client-side per-record schema preflight first so the operator
+        gets a deterministic, named-field error with **zero HTTP
+        traffic** when records do not match the registered
+        ``StreamSource`` schema.  snowml-core's own
+        ``_validate_stream_ingest_record_keys`` becomes a redundant
+        defensive layer underneath the preflight; the bug-bash failure
+        mode (server-side ``MISSING_REQUIRED_FIELD: PAGE_URL`` after
+        the request reached the Online Service) is now caught locally
+        with the missing column named explicitly.
 
         Args:
             source_name: Registered streaming source name.
             records: Non-empty list of row dicts; each row's keys must
-                match the source schema exactly (snowml-core enforces).
+                match the source schema exactly.
 
         Returns:
             ``{**target_info, "accepted_count": int}`` where
@@ -1192,11 +1196,34 @@ class FeatureManager(SqlExecutionMixin):
             ``len(records)`` on partial success).
 
         Raises:
+            ValueError: when the preflight detects per-record key
+                divergence from the registered schema.  The message
+                names the missing/extra columns and the offending
+                record indices so operators can fix the payload
+                without consulting server logs.
             Exception: any error raised by
-                ``FeatureStore.stream_ingest`` (PAT missing, schema
-                mismatch, network failure, etc.) is propagated unchanged.
+                ``FeatureStore.stream_ingest`` (PAT missing, network
+                failure, etc.) is propagated unchanged.
         """
         fs = self._get_feature_store()
+
+        src = fs.get_stream_source(source_name)
+        expected = {col.name for col in src.schema.fields}
+        record_errors: list[str] = []
+        for i, row in enumerate(records):
+            keys = set(row.keys())
+            missing = sorted(expected - keys)
+            extra = sorted(keys - expected)
+            if missing or extra:
+                record_errors.append(
+                    f"record {i}: missing={missing!r}, extra={extra!r}"
+                )
+        if record_errors:
+            raise ValueError(
+                f"Records do not match {source_name!r} schema "
+                f"(expected={sorted(expected)!r}); " + "; ".join(record_errors)
+            )
+
         accepted = fs.stream_ingest(source_name, records)
         return {**self._target_info(), "accepted_count": accepted}
 

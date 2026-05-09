@@ -2022,16 +2022,30 @@ class TestFeatureManagerIngest:
     def _patch_fs(self, accepted: int = 1):
         """Return a context manager that patches ``_get_feature_store``
         on the class to yield a MagicMock with ``stream_ingest``
-        pre-wired to return ``accepted``.
+        pre-wired to return ``accepted`` and ``get_stream_source``
+        pre-wired with a permissive single-column ``col_a`` schema
+        that matches every legacy ``TestFeatureManagerIngest`` record
+        shape.
 
         ``create=True`` lets the tests run before the GREEN commit
         adds the helper (RED state) — the patch attaches a class-level
         attribute regardless of whether the underlying method exists.
+
+        Tests that need a different schema (e.g. the new preflight
+        tests below) overwrite ``mock_fs.get_stream_source.return_value``
+        directly after the call.
         """
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         mock_fs = mock.MagicMock(name="feature_store")
         mock_fs.stream_ingest.return_value = accepted
+        # Default schema: a single ``col_a`` column.  The preflight
+        # in ``FeatureManager.ingest`` reads this and short-circuits
+        # without raising for the legacy tests' ``{"col_a": …}``
+        # records.
+        mock_fs.get_stream_source.return_value = self._stream_source_with_schema(
+            ["col_a"]
+        )
         return (
             mock.patch.object(
                 FeatureManager,

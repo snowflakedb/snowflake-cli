@@ -785,7 +785,12 @@ def ingest(
 
     try:
         result = FeatureManager().ingest(source_name=source_name, records=records)
-    except RuntimeError as exc:
+    except (RuntimeError, ValueError) as exc:
+        # ``ValueError`` is the manager's preflight surface for
+        # per-record schema drift (e.g. missing ``PAGE_URL``); the
+        # operator needs a single ``ClickException`` error type
+        # regardless of whether the failure came from the local
+        # preflight or from snowml-core's transport layer.
         raise ClickException(str(exc))
     return _to_object(result)
 
