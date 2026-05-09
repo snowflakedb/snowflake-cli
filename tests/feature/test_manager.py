@@ -2114,6 +2114,248 @@ class TestFeatureManagerIngest:
             with pytest.raises(RuntimeError, match="SNOWFLAKE_PAT"):
                 mgr.ingest("MY_STREAM_SOURCE", [{"col_a": 1}])
 
+    # ------------------------------------------------------------------
+    # Preflight contract — pin the new client-side schema validation
+    # in ``FeatureManager.ingest``.  The preflight inspects
+    # ``fs.get_stream_source(name).schema.fields[].name`` and rejects
+    # any record whose key set diverges from the registered schema,
+    # ``before`` ``fs.stream_ingest`` is invoked.  These tests pin:
+    #
+    #   * named missing/extra fields surface in the error message,
+    #   * ``fs.stream_ingest`` is *never* called on bad input,
+    #   * exact-match payloads pass through unchanged,
+    #   * per-record errors are aggregated (so the operator sees every
+    #     bad row in one shot, not just the first).
+    #
+    # See [docs/BUG_BASH.md] step 7 — the operator-facing error today
+    # is a server-side 207 ``MISSING_REQUIRED_FIELD``; the preflight
+    # converts that into a deterministic client-side ``ValueError``
+    # naming the columns and the record indices, with zero HTTP
+    # traffic.
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _stream_source_with_schema(field_names: list[str]) -> mock.MagicMock:
+        """Build a mock ``StreamSource`` whose ``schema.fields[].name``
+        sequence matches ``field_names`` exactly.
+
+        The preflight reads ``src.schema.fields`` and picks ``.name``
+        off each entry; mirroring snowml-core's
+        ``_stream_source_schema_field_names`` helper keeps the test
+        contract aligned with the real wire shape.
+        """
+        fields = []
+        for fname in field_names:
+            f = mock.MagicMock(name=f"field_{fname}")
+            f.name = fname
+            fields.append(f)
+        schema = mock.MagicMock(name="schema")
+        schema.fields = fields
+        src = mock.MagicMock(name="stream_source")
+        src.schema = schema
+        return src
+
+    _CLICKSTREAM_6_COL = [
+        "USER_ID",
+        "SESSION_ID",
+        "PAGE_URL",
+        "EVENT_TYPE",
+        "TIMESTAMP",
+        "TIME_ON_PAGE_SECONDS",
+    ]
+
+    def test_ingest_preflight_rejects_records_missing_required_fields(
+        self, mock_execute_query, mock_decl, monkeypatch
+    ):
+        """A record missing a registered column (``PAGE_URL``) must
+        raise ``ValueError`` whose message names both the missing
+        column AND the offending record index — and ``stream_ingest``
+        must never be called (zero HTTP traffic on bad input)."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        monkeypatch.setenv("SNOWFLAKE_PAT", "test_pat")
+        patcher, mock_fs = self._patch_fs(accepted=0)
+        mock_fs.get_stream_source.return_value = self._stream_source_with_schema(
+            self._CLICKSTREAM_6_COL
+        )
+
+        with patcher:
+            mgr = FeatureManager()
+            with pytest.raises(ValueError) as excinfo:
+                mgr.ingest(
+                    "CLICKSTREAM_EVENTS",
+                    [
+                        {
+                            "USER_ID": "u1",
+                            "SESSION_ID": "s1",
+                            "EVENT_TYPE": "page_view",
+                            "TIMESTAMP": "2026-05-07T18:00:00Z",
+                            "TIME_ON_PAGE_SECONDS": 12,
+                        },
+                    ],
+                )
+
+        msg = str(excinfo.value)
+        assert (
+            "PAGE_URL" in msg
+        ), f"Preflight error must name the missing column.  Got: {msg!r}"
+        assert "0" in msg, (
+            f"Preflight error must name the offending record index "
+            f"(record 0 was bad).  Got: {msg!r}"
+        )
+        mock_fs.stream_ingest.assert_not_called()
+
+    def test_ingest_preflight_rejects_records_with_extra_fields(
+        self, mock_execute_query, mock_decl, monkeypatch
+    ):
+        """Records with extra keys (``IP_ADDRESS``) the registered
+        schema does not declare must also be rejected before any HTTP
+        call — extras are just as much a footgun as missing fields
+        because the server will silently drop or 400 on them."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        monkeypatch.setenv("SNOWFLAKE_PAT", "test_pat")
+        patcher, mock_fs = self._patch_fs(accepted=0)
+        mock_fs.get_stream_source.return_value = self._stream_source_with_schema(
+            self._CLICKSTREAM_6_COL
+        )
+
+        with patcher:
+            mgr = FeatureManager()
+            with pytest.raises(ValueError) as excinfo:
+                mgr.ingest(
+                    "CLICKSTREAM_EVENTS",
+                    [
+                        {
+                            "USER_ID": "u1",
+                            "SESSION_ID": "s1",
+                            "PAGE_URL": "https://example.com/p/1",
+                            "EVENT_TYPE": "page_view",
+                            "TIMESTAMP": "2026-05-07T18:00:00Z",
+                            "TIME_ON_PAGE_SECONDS": 12,
+                            "IP_ADDRESS": "10.0.0.1",
+                        },
+                    ],
+                )
+
+        msg = str(excinfo.value)
+        assert (
+            "IP_ADDRESS" in msg
+        ), f"Preflight error must name the extra column.  Got: {msg!r}"
+        mock_fs.stream_ingest.assert_not_called()
+
+    def test_ingest_preflight_passes_when_keys_exactly_match(
+        self, mock_execute_query, mock_decl, monkeypatch
+    ):
+        """Records whose key set exactly equals the registered schema
+        must pass straight through to ``fs.stream_ingest`` unchanged
+        and the manager must shape the standard
+        ``{**target_info, accepted_count: <int>}`` envelope.
+
+        This is the happy-path contract that step 7 of the bug bash
+        exercises after the GREEN reconcile lands.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        monkeypatch.setenv("SNOWFLAKE_PAT", "test_pat")
+        patcher, mock_fs = self._patch_fs(accepted=2)
+        mock_fs.get_stream_source.return_value = self._stream_source_with_schema(
+            self._CLICKSTREAM_6_COL
+        )
+
+        records = [
+            {
+                "USER_ID": "u1",
+                "SESSION_ID": "s1",
+                "PAGE_URL": "https://example.com/p/1",
+                "EVENT_TYPE": "page_view",
+                "TIMESTAMP": "2026-05-07T18:00:00Z",
+                "TIME_ON_PAGE_SECONDS": 12,
+            },
+            {
+                "USER_ID": "u2",
+                "SESSION_ID": "s2",
+                "PAGE_URL": "https://example.com/p/2",
+                "EVENT_TYPE": "click",
+                "TIMESTAMP": "2026-05-07T18:00:30Z",
+                "TIME_ON_PAGE_SECONDS": 5,
+            },
+        ]
+
+        with patcher:
+            mgr = FeatureManager()
+            result = mgr.ingest("CLICKSTREAM_EVENTS", records)
+
+        mock_fs.stream_ingest.assert_called_once_with("CLICKSTREAM_EVENTS", records)
+        assert (
+            result.get("accepted_count") == 2
+        ), f"Happy-path envelope must surface accepted_count.  Got: {result!r}"
+        assert result.get("target_database") == "TEST_DB"
+        assert result.get("target_schema") == "TEST_SCHEMA"
+        assert result.get("target_warehouse") == "TEST_WH"
+
+    def test_ingest_preflight_aggregates_per_record_errors(
+        self, mock_execute_query, mock_decl, monkeypatch
+    ):
+        """Multiple bad records must be reported in one
+        ``ValueError`` — the operator sees every divergent row and
+        the named columns in a single shot, not record-by-record on
+        successive runs.
+
+        Pins record indices 0 and 2 in the message; record 1 is
+        valid and must not appear as a finding.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        monkeypatch.setenv("SNOWFLAKE_PAT", "test_pat")
+        patcher, mock_fs = self._patch_fs(accepted=0)
+        mock_fs.get_stream_source.return_value = self._stream_source_with_schema(
+            self._CLICKSTREAM_6_COL
+        )
+
+        records = [
+            {
+                "USER_ID": "u1",
+                "SESSION_ID": "s1",
+                "EVENT_TYPE": "page_view",
+                "TIMESTAMP": "2026-05-07T18:00:00Z",
+                "TIME_ON_PAGE_SECONDS": 12,
+            },
+            {
+                "USER_ID": "u2",
+                "SESSION_ID": "s2",
+                "PAGE_URL": "https://example.com/p/2",
+                "EVENT_TYPE": "click",
+                "TIMESTAMP": "2026-05-07T18:00:30Z",
+                "TIME_ON_PAGE_SECONDS": 5,
+            },
+            {
+                "USER_ID": "u3",
+                "SESSION_ID": "s3",
+                "EVENT_TYPE": "purchase",
+                "TIMESTAMP": "2026-05-07T18:01:00Z",
+                "TIME_ON_PAGE_SECONDS": 30,
+            },
+        ]
+
+        with patcher:
+            mgr = FeatureManager()
+            with pytest.raises(ValueError) as excinfo:
+                mgr.ingest("CLICKSTREAM_EVENTS", records)
+
+        msg = str(excinfo.value)
+        assert (
+            "PAGE_URL" in msg
+        ), f"Aggregated error must name the missing column.  Got: {msg!r}"
+        # Both bad indices must appear; the valid record (index 1)
+        # must NOT be flagged.
+        assert "record 0" in msg, f"Aggregated error must flag record 0.  Got: {msg!r}"
+        assert "record 2" in msg, f"Aggregated error must flag record 2.  Got: {msg!r}"
+        assert (
+            "record 1" not in msg
+        ), f"Aggregated error must NOT flag the valid record 1.  Got: {msg!r}"
+        mock_fs.stream_ingest.assert_not_called()
+
 
 class TestFeatureManagerQuery:
     """``FeatureManager.query`` must delegate to

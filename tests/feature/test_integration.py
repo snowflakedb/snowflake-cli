@@ -652,3 +652,155 @@ class TestApplyWithPlanFileIntegration:
             assert (
                 "SHOW ONLINE FEATURE TABLES" not in sql
             ), f"State query executed unnecessarily: {sql}"
+
+
+# ---------------------------------------------------------------------------
+# ingest — client-side preflight against the registered StreamSource schema
+# ---------------------------------------------------------------------------
+
+
+class TestIngestSchemaPreflight:
+    """End-to-end tests covering the
+    CLI → ``FeatureManager.ingest`` → mocked ``FeatureStore`` path
+    when records do (or do not) match the registered StreamSource
+    schema.
+
+    Why this class lives here (alongside the other "real
+    FeatureManager + decl wired through the wheel" tests) instead of
+    in ``test_commands.py``: we exercise the actual
+    ``FeatureManager.ingest`` body — only ``_get_feature_store`` is
+    mocked, so the preflight code path runs verbatim.  The CLI
+    ``runner`` fixture (from ``tests/conftest.py``) gives us the real
+    Typer command-error mapping (``ClickException`` → non-zero exit
+    code with the message in stderr), which is the contract operators
+    actually see.
+    """
+
+    _SIX_COL = [
+        "USER_ID",
+        "SESSION_ID",
+        "PAGE_URL",
+        "EVENT_TYPE",
+        "TIMESTAMP",
+        "TIME_ON_PAGE_SECONDS",
+    ]
+
+    @staticmethod
+    def _stream_source_with_schema(field_names: list[str]) -> mock.MagicMock:
+        """Build a mock ``StreamSource`` whose ``schema.fields[].name``
+        sequence matches ``field_names`` exactly.  Mirrors the helper
+        in ``test_manager.py`` so the unit and integration tests use
+        an identical mock shape."""
+        fields = []
+        for fname in field_names:
+            f = mock.MagicMock(name=f"field_{fname}")
+            f.name = fname
+            fields.append(f)
+        schema = mock.MagicMock(name="schema")
+        schema.fields = fields
+        src = mock.MagicMock(name="stream_source")
+        src.schema = schema
+        return src
+
+    def _patch_fs(self, accepted: int = 0) -> tuple:
+        """Patch ``FeatureManager._get_feature_store`` to return a
+        ``MagicMock`` whose ``get_stream_source`` reports the
+        canonical 6-column schema and whose ``stream_ingest`` returns
+        ``accepted``.  The caller asserts on
+        ``mock_fs.stream_ingest`` to confirm it was (or wasn't)
+        invoked."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mock_fs = mock.MagicMock(name="feature_store")
+        mock_fs.get_stream_source.return_value = self._stream_source_with_schema(
+            self._SIX_COL
+        )
+        mock_fs.stream_ingest.return_value = accepted
+        patcher = mock.patch.object(
+            FeatureManager,
+            "_get_feature_store",
+            create=True,
+            return_value=mock_fs,
+        )
+        return patcher, mock_fs
+
+    def test_ingest_command_surfaces_missing_field_clickexception(
+        self, runner, tmp_path, monkeypatch
+    ):
+        """A 4-key events.json against a 6-column registered source
+        must fail at the CLI with a ``ClickException`` whose message
+        names the missing column (``PAGE_URL``).  Critically,
+        ``fs.stream_ingest`` must never be invoked: zero HTTP traffic
+        on bad input is the whole point of the preflight."""
+        monkeypatch.setenv("SNOWFLAKE_PAT", "test_pat")
+        events = tmp_path / "events.json"
+        events.write_text(
+            '[{"USER_ID": "u1", "SESSION_ID": "s1", '
+            '"EVENT_TYPE": "page_view", '
+            '"TIMESTAMP": "2026-05-07T18:00:00Z"}]'
+        )
+        patcher, mock_fs = self._patch_fs()
+
+        with patcher:
+            result = runner.invoke(
+                [
+                    "feature",
+                    "ingest",
+                    "CLICKSTREAM_EVENTS",
+                    "--data",
+                    str(events),
+                ]
+            )
+
+        assert result.exit_code != 0, (
+            f"Bad payload must yield non-zero exit, "
+            f"got exit_code=0; output={result.output!r}"
+        )
+        # ClickException prints to stderr (which click captures into
+        # ``result.output`` by default) — the missing-field name must
+        # appear so operators can act.
+        assert "PAGE_URL" in result.output, (
+            f"CLI error must name the missing column.  " f"Output: {result.output!r}"
+        )
+        mock_fs.stream_ingest.assert_not_called()
+
+    def test_ingest_command_succeeds_with_matching_schema(
+        self, runner, tmp_path, monkeypatch
+    ):
+        """A 6-key events.json against a 6-column registered source
+        passes the preflight and reaches ``fs.stream_ingest`` with
+        the records unchanged.  The CLI emits the standard
+        ``accepted_count`` envelope and exits 0."""
+        monkeypatch.setenv("SNOWFLAKE_PAT", "test_pat")
+        events = tmp_path / "events.json"
+        events.write_text(
+            "["
+            '{"USER_ID": "u1", "SESSION_ID": "s1", '
+            '"PAGE_URL": "https://example.com/p/1", '
+            '"EVENT_TYPE": "page_view", '
+            '"TIMESTAMP": "2026-05-07T18:00:00Z", '
+            '"TIME_ON_PAGE_SECONDS": 12}'
+            "]"
+        )
+        patcher, mock_fs = self._patch_fs(accepted=1)
+
+        with patcher:
+            result = runner.invoke(
+                [
+                    "feature",
+                    "ingest",
+                    "CLICKSTREAM_EVENTS",
+                    "--data",
+                    str(events),
+                ]
+            )
+
+        assert result.exit_code == 0, (
+            f"Happy-path ingest must exit 0, got "
+            f"exit_code={result.exit_code}; output={result.output!r}"
+        )
+        assert "accepted_count" in result.output, (
+            f"CLI output must surface the accepted_count envelope.  "
+            f"Output: {result.output!r}"
+        )
+        mock_fs.stream_ingest.assert_called_once()
