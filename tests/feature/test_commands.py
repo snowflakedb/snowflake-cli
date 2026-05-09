@@ -888,21 +888,42 @@ def test_query_requires_feature_view_name(mock_manager, runner):
 
 @mock.patch(FEATURE_MANAGER)
 def test_query_requires_keys(mock_manager, runner):
-    """query without --keys should exit with usage error (code 2)."""
-    result = runner.invoke(["feature", "query", "my_view"])
+    """query without --keys (but with --version) should exit with usage error (code 2)."""
+    result = runner.invoke(["feature", "query", "my_view", "--version", "V1"])
     assert result.exit_code == 2, result.output
 
 
 @mock.patch(FEATURE_MANAGER)
-def test_query_calls_manager_with_view_and_keys(mock_manager, runner):
-    """query should pass feature_view_name and parsed keys to manager."""
-    mock_manager.return_value.query.return_value = {"results": []}
+def test_query_requires_version(mock_manager, runner):
+    """query without --version should exit with usage error (code 2).
+
+    snowml-core's ``FeatureStore.get_feature_view(name, version)``
+    requires both args, so the CLI mirrors that surface — there is
+    no "latest version" fallback for a bare name.
+    """
+    result = runner.invoke(
+        ["feature", "query", "my_view", "--keys", '[{"USER_ID": "u1"}]']
+    )
+    assert result.exit_code == 2, result.output
+    # Typer emits "Missing option '--version'" (or similar) on stderr;
+    # asserting the option name appears in the help/error text catches
+    # accidental renames.
+    assert "--version" in result.output
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_query_calls_manager_with_view_version_and_keys(mock_manager, runner):
+    """query should pass feature_view_name, version, and parsed keys to manager."""
+    mock_manager.return_value.query.return_value = {"rows": []}
     keys_json = '[{"user_id": "u1"}]'
-    result = runner.invoke(["feature", "query", "my_view", "--keys", keys_json])
+    result = runner.invoke(
+        ["feature", "query", "my_view", "--version", "V1", "--keys", keys_json]
+    )
     assert result.exit_code == 0, result.output
     mock_manager.return_value.query.assert_called_once()
     call_kwargs = mock_manager.return_value.query.call_args[1]
     assert call_kwargs["feature_view_name"] == "my_view"
+    assert call_kwargs["version"] == "V1"
     assert call_kwargs["keys"] == [{"user_id": "u1"}]
 
 
@@ -912,16 +933,27 @@ def test_query_manager_error_propagates(mock_manager, runner):
     mock_manager.return_value.query.side_effect = RuntimeError(
         "SNOWFLAKE_PAT environment variable is required"
     )
-    result = runner.invoke(["feature", "query", "my_view", "--keys", '[{"id": "1"}]'])
+    result = runner.invoke(
+        [
+            "feature",
+            "query",
+            "my_view",
+            "--version",
+            "V1",
+            "--keys",
+            '[{"id": "1"}]',
+        ]
+    )
     assert result.exit_code != 0
 
 
 @mock.patch(FEATURE_MANAGER)
-def test_query_help_shows_keys_option(mock_manager, runner):
-    """query --help should show --keys option."""
+def test_query_help_shows_keys_and_version_options(mock_manager, runner):
+    """query --help should show both --keys and --version options."""
     result = runner.invoke(["feature", "query", "--help"])
     assert result.exit_code == 0, result.output
     assert "--keys" in result.output
+    assert "--version" in result.output
 
 
 # ---------------------------------------------------------------------------

@@ -802,6 +802,16 @@ def query(
         help="Name of the feature view to query.",
         show_default=False,
     ),
+    version: str = typer.Option(
+        ...,
+        "--version",
+        help=(
+            "Feature view version (e.g. 'V1').  Required because "
+            "snowml-core's online lookup is keyed on (name, version) — "
+            "there is no 'latest' fallback for a bare name."
+        ),
+        show_default=False,
+    ),
     keys: str = typer.Option(
         ...,
         "--keys",
@@ -818,7 +828,9 @@ def query(
 
     try:
         result = FeatureManager().query(
-            feature_view_name=feature_view_name, keys=parsed_keys
+            feature_view_name=feature_view_name,
+            version=version,
+            keys=parsed_keys,
         )
     except RuntimeError as exc:
         raise ClickException(str(exc))
