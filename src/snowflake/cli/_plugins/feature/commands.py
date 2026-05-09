@@ -377,7 +377,6 @@ def apply(
         help="Spec file paths or glob patterns to apply.",
         show_default=False,
     ),
-    dry: bool = typer.Option(False, "--dry", help="Show plan without executing."),
     dev: bool = typer.Option(
         False, "--dev", help="Apply in dev mode (relaxed validation)."
     ),
@@ -404,6 +403,10 @@ def apply(
     Use './...' as the path to enable full-sync mode: objects deployed in Snowflake
     but not present in local spec files will be dropped. Any other path (specific
     files, directories, or globs) runs in incremental mode — only changes are applied.
+
+    Apply is a pure plan-file consumer: it auto-discovers the latest unapplied
+    plan under ``<cwd>/.snowflake/plans/`` (or consumes ``--plan <path>``).  Use
+    ``snow feature plan`` to preview changes before applying.
     """
     if plan is None and not input_files:
         raise typer.BadParameter(
@@ -416,7 +419,6 @@ def apply(
     result = FeatureManager().apply(
         input_files=input_files or [],
         config=config,
-        dry_run=dry,
         dev_mode=dev,
         overwrite=overwrite,
         allow_recreate=allow_recreate,
