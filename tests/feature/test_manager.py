@@ -59,14 +59,6 @@ def mock_decl():
         m.fetch_entity_rows.return_value = []
         m.describe_specification_query.return_value = 'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."x" TYPE = SPECIFICATION'
         m.parse_specification_rows.return_value = None
-        # generate_apply_sql returns an ApplyResult-like mock (used for dry_run)
-        apply_result = mock.MagicMock()
-        apply_result.status = "ready"
-        apply_result.ops = []
-        apply_result.sql_statements = []
-        apply_result.warnings = []
-        apply_result.errors = []
-        m.generate_apply_sql.return_value = apply_result
         # execute_plan returns an ApplyResult-like mock (used for wet_run)
         exec_result = mock.MagicMock()
         exec_result.status = "applied"
@@ -116,103 +108,6 @@ def mock_build_session():
         return_value=mock.MagicMock(name="session"),
     ):
         yield
-
-
-class TestFeatureManagerApply:
-    def test_apply_dry_run_returns_dict(self, mock_execute_query, mock_decl):
-        from snowflake.cli._plugins.feature.manager import FeatureManager
-
-        mgr = FeatureManager()
-        result = mgr.apply(
-            input_files=["specs.yaml"],
-            config=None,
-            dry_run=True,
-            dev_mode=False,
-            overwrite=False,
-            allow_recreate=False,
-        )
-        assert isinstance(result, dict)
-
-    def test_apply_dry_run_does_not_execute_sql(self, mock_execute_query, mock_decl):
-        from snowflake.cli._plugins.feature.manager import FeatureManager
-
-        # Set up apply_result with SQL that should NOT be executed in dry_run
-        mock_decl.generate_apply_sql.return_value.sql_statements = ["CREATE TABLE t"]
-        mgr = FeatureManager()
-        mgr.apply(
-            input_files=["specs.yaml"],
-            config=None,
-            dry_run=True,
-            dev_mode=False,
-            overwrite=False,
-            allow_recreate=False,
-        )
-        # execute_query should only be called for state queries, not for DDL
-        for call in mock_execute_query.call_args_list:
-            sql = str(call[0][0]) if call[0] else ""
-            assert "CREATE" not in sql.upper(), f"DDL executed in dry_run: {sql}"
-
-    def test_apply_calls_load_specs(self, mock_execute_query, mock_decl):
-        """``apply(dry_run=True)`` calls ``load_specs`` to render the
-        plan-display UI.  Wet-run apply (``dry_run=False`` without an
-        explicit plan_file) deliberately does NOT call ``load_specs``
-        — it consumes a pre-generated plan file (L1–L4 invariants of
-        the apply-lifecycle contract)."""
-        from snowflake.cli._plugins.feature.manager import FeatureManager
-
-        mgr = FeatureManager()
-        mgr.apply(
-            input_files=["specs.yaml"],
-            config=None,
-            dry_run=True,
-            dev_mode=False,
-            overwrite=False,
-            allow_recreate=False,
-        )
-        mock_decl.load_specs.assert_called_once()
-
-    def test_apply_load_specs_error_propagates(self, mock_execute_query, mock_decl):
-        """If ``load_specs`` raises during a dry-run apply, the
-        exception propagates to the caller (dry-run is the only path
-        that loads specs under the new architecture)."""
-        from snowflake.cli._plugins.feature.manager import FeatureManager
-
-        mock_decl.load_specs.side_effect = ValueError("bad spec file")
-        mgr = FeatureManager()
-        with pytest.raises(ValueError, match="bad spec file"):
-            mgr.apply(
-                input_files=["specs.yaml"],
-                config=None,
-                dry_run=True,
-                dev_mode=False,
-                overwrite=False,
-                allow_recreate=False,
-            )
-
-    def test_apply_specs_runs_session_setup_once_per_instance(
-        self, mock_execute_query, mock_decl
-    ):
-        """apply() invokes multiple decl_api SQL factories — the priming
-        ALTER SESSION must run exactly once across the whole operation."""
-        _wire_real_session_setup(mock_decl)
-        from snowflake.cli._plugins.feature.manager import FeatureManager
-
-        mgr = FeatureManager()
-        mgr.apply(
-            input_files=["specs.yaml"],
-            config=None,
-            dry_run=True,
-            dev_mode=False,
-            overwrite=False,
-            allow_recreate=False,
-        )
-
-        sqls = _executed_sqls(mock_execute_query)
-        alter_count = sum(1 for s in sqls if s == _ALTER_SESSION_SQL)
-        assert alter_count == 1, (
-            f"expected exactly one ALTER SESSION priming call across the "
-            f"apply() flow; got {alter_count} (full call list: {sqls})"
-        )
 
 
 _ALTER_SESSION_SQL = (
@@ -670,15 +565,17 @@ def _make_describe_rows(entity_col="USER_ID"):
 
 
 class TestTargetInfo:
-    def test_apply_result_contains_target_database(self, mock_execute_query, mock_decl):
+    def test_apply_result_contains_target_database(
+        self, mock_execute_query, mock_decl, tmp_path, monkeypatch
+    ):
         """apply() result includes target_database from the CLI connection context."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
+        monkeypatch.chdir(tmp_path)
         mgr = FeatureManager()
         result = mgr.apply(
             input_files=["specs.yaml"],
             config=None,
-            dry_run=True,
             dev_mode=False,
             overwrite=False,
             allow_recreate=False,
@@ -686,15 +583,17 @@ class TestTargetInfo:
         assert "target_database" in result
         assert result["target_database"] == "TEST_DB"
 
-    def test_apply_result_contains_target_schema(self, mock_execute_query, mock_decl):
+    def test_apply_result_contains_target_schema(
+        self, mock_execute_query, mock_decl, tmp_path, monkeypatch
+    ):
         """apply() result includes target_schema from the CLI connection context."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
+        monkeypatch.chdir(tmp_path)
         mgr = FeatureManager()
         result = mgr.apply(
             input_files=["specs.yaml"],
             config=None,
-            dry_run=True,
             dev_mode=False,
             overwrite=False,
             allow_recreate=False,
@@ -703,16 +602,16 @@ class TestTargetInfo:
         assert result["target_schema"] == "TEST_SCHEMA"
 
     def test_apply_result_contains_target_warehouse(
-        self, mock_execute_query, mock_decl
+        self, mock_execute_query, mock_decl, tmp_path, monkeypatch
     ):
         """apply() result includes target_warehouse from the CLI connection context."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
+        monkeypatch.chdir(tmp_path)
         mgr = FeatureManager()
         result = mgr.apply(
             input_files=["specs.yaml"],
             config=None,
-            dry_run=True,
             dev_mode=False,
             overwrite=False,
             allow_recreate=False,
@@ -721,16 +620,16 @@ class TestTargetInfo:
         assert result["target_warehouse"] == "TEST_WH"
 
     def test_apply_wet_run_result_contains_target_info(
-        self, mock_execute_query, mock_decl
+        self, mock_execute_query, mock_decl, tmp_path, monkeypatch
     ):
-        """apply() wet run also returns target info."""
+        """apply() returns target info."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
+        monkeypatch.chdir(tmp_path)
         mgr = FeatureManager()
         result = mgr.apply(
             input_files=["specs.yaml"],
             config=None,
-            dry_run=False,
             dev_mode=False,
             overwrite=False,
             allow_recreate=False,
@@ -753,17 +652,17 @@ class TestTargetInfo:
         assert result["target_schema"] == "TEST_SCHEMA"
 
     def test_target_info_empty_when_connection_has_no_warehouse(
-        self, mock_execute_query, mock_decl, mock_cli_context
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path, monkeypatch
     ):
         """target_warehouse is empty string when connection warehouse is None."""
         mock_cli_context.return_value.connection.warehouse = None
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
+        monkeypatch.chdir(tmp_path)
         mgr = FeatureManager()
         result = mgr.apply(
             input_files=["specs.yaml"],
             config=None,
-            dry_run=True,
             dev_mode=False,
             overwrite=False,
             allow_recreate=False,
@@ -1292,19 +1191,18 @@ class TestWritePlan:
     ):
         """``write_plan`` must thread the active connection's database +
         schema into ``decl_api.generate_plan`` so the planner qualifies
-        every spec key against the same context the UI path
-        (``apply(dry_run=True)`` → ``generate_apply_sql``) qualifies
+        every spec key against the same context the planning path
+        (``manager.plan`` → ``decl_api.generate_plan``) qualifies
         against.
 
         Without this, the disk plan and the terminal-rendered plan
         diverge for any spec missing explicit ``database:`` /
         ``schema:`` (single-file invocations, bare entity YAMLs, etc.):
-        the UI path injects context via ``generate_apply_sql``'s spec
-        mutation while ``write_plan`` calls the planner with no
-        context, the unqualified key never collides with the
-        fully-qualified applied-state key, and every existing object
-        materialises as a phantom ``CREATE_*`` (and, in
-        full-directory mode, a phantom ``DROP_*``).
+        ``write_plan`` calls the planner with no context, the
+        unqualified key never collides with the fully-qualified
+        applied-state key, and every existing object materialises as
+        a phantom ``CREATE_*`` (and, in full-directory mode, a phantom
+        ``DROP_*``).
 
         The ``mock_cli_context`` fixture (autouse) installs
         ``database="TEST_DB"`` and ``schema="TEST_SCHEMA"`` on the CLI
@@ -1327,7 +1225,7 @@ class TestWritePlan:
         assert call_kwargs.get("database") == "TEST_DB", (
             f"write_plan failed to forward connection database to generate_plan; "
             f"got kwargs={call_kwargs}.  This is the parity bug: the disk plan "
-            f"will diverge from the apply(dry_run=True) UI plan whenever a spec "
+            f"will diverge from the planning UI plan whenever a spec "
             f"omits an explicit database field."
         )
         assert call_kwargs.get("schema") == "TEST_SCHEMA", (
@@ -1376,7 +1274,6 @@ class TestApplyWithPlanFile:
         result = mgr.apply(
             input_files=[],
             config=None,
-            dry_run=False,
             dev_mode=False,
             overwrite=False,
             allow_recreate=False,
@@ -1402,7 +1299,6 @@ class TestApplyWithPlanFile:
         mgr.apply(
             input_files=[],
             config=None,
-            dry_run=False,
             dev_mode=False,
             overwrite=False,
             allow_recreate=False,
@@ -1428,7 +1324,6 @@ class TestApplyWithPlanFile:
         mgr.apply(
             input_files=[],
             config=None,
-            dry_run=False,
             dev_mode=False,
             overwrite=False,
             allow_recreate=False,
@@ -1454,29 +1349,12 @@ class TestApplyWithPlanFile:
         mgr.apply(
             input_files=[],
             config=None,
-            dry_run=False,
             dev_mode=False,
             overwrite=False,
             allow_recreate=False,
             plan_file=plan_path,
         )
         mock_decl.generate_plan.assert_not_called()
-
-    def test_apply_without_plan_file_still_works(self, mock_execute_query, mock_decl):
-        """apply() with no plan_file uses the normal code path."""
-        from snowflake.cli._plugins.feature.manager import FeatureManager
-
-        mgr = FeatureManager()
-        result = mgr.apply(
-            input_files=["specs.yaml"],
-            config=None,
-            dry_run=True,
-            dev_mode=False,
-            overwrite=False,
-            allow_recreate=False,
-        )
-        assert isinstance(result, dict)
-        mock_decl.load_specs.assert_called_once()
 
     def test_apply_from_plan_file_forwards_warehouse_from_connection(
         self, mock_execute_query, mock_decl, tmp_path
@@ -1514,7 +1392,6 @@ class TestApplyWithPlanFile:
         mgr.apply(
             input_files=[],
             config=None,
-            dry_run=False,
             dev_mode=False,
             overwrite=False,
             allow_recreate=False,
@@ -1609,7 +1486,6 @@ class TestApplyLifecycleArtifacts:
         result = mgr.apply(
             input_files=["specs.yaml"],
             config=None,
-            dry_run=False,
             dev_mode=False,
             overwrite=False,
             allow_recreate=False,
@@ -1675,7 +1551,6 @@ class TestApplyLifecycleArtifacts:
         mgr.apply(
             input_files=["specs.yaml"],
             config=None,
-            dry_run=False,
             dev_mode=False,
             overwrite=False,
             allow_recreate=False,
@@ -1729,7 +1604,6 @@ class TestApplyLifecycleArtifacts:
         mgr.apply(
             input_files=["specs.yaml"],
             config=None,
-            dry_run=False,
             dev_mode=False,
             overwrite=False,
             allow_recreate=False,
@@ -1783,7 +1657,6 @@ class TestApplyLifecycleArtifacts:
         mgr.apply(
             input_files=["specs.yaml"],
             config=None,
-            dry_run=False,
             dev_mode=False,
             overwrite=False,
             allow_recreate=False,
@@ -1836,7 +1709,6 @@ class TestApplyLifecycleArtifacts:
             mgr.apply(
                 input_files=["specs.yaml"],
                 config=None,
-                dry_run=False,
                 dev_mode=False,
                 overwrite=False,
                 allow_recreate=False,
@@ -1899,7 +1771,6 @@ class TestApplyLifecycleArtifacts:
         result = mgr.apply(
             input_files=["specs.yaml"],
             config=None,
-            dry_run=False,
             dev_mode=False,
             overwrite=False,
             allow_recreate=False,
@@ -1948,7 +1819,6 @@ class TestApplyLifecycleArtifacts:
         result = mgr.apply(
             input_files=["specs.yaml"],
             config=None,
-            dry_run=False,
             dev_mode=False,
             overwrite=False,
             allow_recreate=False,
@@ -1964,125 +1834,6 @@ class TestApplyLifecycleArtifacts:
             f"Got: {result.get('errors')!r}"
         )
         mock_decl.execute_plan.assert_not_called()
-
-
-class TestDirectoryMode:
-    """Tests that ``apply()`` sets ``full_directory_mode`` based on the
-    ``./...`` pattern.
-
-    Under the apply-lifecycle architecture, the ``no_delete`` →
-    ``full_directory_mode`` plumbing lives in the dry-run branch (which
-    flows through ``generate_apply_sql`` to render the plan-display
-    UI).  Wet-run apply consumes a pre-generated plan file whose
-    deletion ops are already baked in by ``snow feature plan``, so the
-    options-passing behaviour is exercised at the dry-run boundary.
-    """
-
-    def test_apply_with_dot_slash_ellipsis_enables_deletion(
-        self, mock_execute_query, mock_decl
-    ):
-        """``apply(dry_run=True, no_delete=False)`` passes
-        ``full_directory_mode=True`` to ``generate_apply_sql``.
-
-        The commands layer detects ``./...`` and passes
-        ``no_delete=False``.
-        """
-        from snowflake.cli._plugins.feature.manager import FeatureManager
-
-        mgr = FeatureManager()
-        mgr.apply(
-            input_files=["./..."],
-            config=None,
-            dry_run=True,
-            dev_mode=False,
-            overwrite=False,
-            allow_recreate=False,
-            no_delete=False,  # ./... triggers this in commands.py
-        )
-        call_args = mock_decl.generate_apply_sql.call_args
-        assert call_args is not None
-        options = (
-            call_args[0][2] if len(call_args[0]) >= 3 else call_args[1].get("options")
-        )
-        assert options is not None
-        assert options.full_directory_mode is True
-
-    def test_apply_with_specific_files_disables_deletion(
-        self, mock_execute_query, mock_decl
-    ):
-        """``apply(dry_run=True)`` with specific file paths passes
-        ``full_directory_mode=False``."""
-        from snowflake.cli._plugins.feature.manager import FeatureManager
-
-        mgr = FeatureManager()
-        mgr.apply(
-            input_files=["specs.yaml"],
-            config=None,
-            dry_run=True,
-            dev_mode=False,
-            overwrite=False,
-            allow_recreate=False,
-        )
-        call_args = mock_decl.generate_apply_sql.call_args
-        assert call_args is not None
-        options = (
-            call_args[0][2] if len(call_args[0]) >= 3 else call_args[1].get("options")
-        )
-        assert options is not None
-        assert options.full_directory_mode is False
-
-    def test_apply_with_directory_disables_deletion(
-        self, mock_execute_query, mock_decl, tmp_path
-    ):
-        """``apply(dry_run=True)`` with a directory path (not ``./...``)
-        passes ``full_directory_mode=False``."""
-        from snowflake.cli._plugins.feature.manager import FeatureManager
-
-        mgr = FeatureManager()
-        mgr.apply(
-            input_files=[str(tmp_path)],
-            config=None,
-            dry_run=True,
-            dev_mode=False,
-            overwrite=False,
-            allow_recreate=False,
-        )
-        call_args = mock_decl.generate_apply_sql.call_args
-        assert call_args is not None
-        options = (
-            call_args[0][2] if len(call_args[0]) >= 3 else call_args[1].get("options")
-        )
-        assert options is not None
-        assert options.full_directory_mode is False
-
-    def test_apply_with_subdir_ellipsis_enables_deletion(
-        self, mock_execute_query, mock_decl
-    ):
-        """``apply(dry_run=True, no_delete=False)`` passes
-        ``full_directory_mode=True``.
-
-        The commands layer detects ``mydir/...`` and passes
-        ``no_delete=False``.
-        """
-        from snowflake.cli._plugins.feature.manager import FeatureManager
-
-        mgr = FeatureManager()
-        mgr.apply(
-            input_files=["mydir/..."],
-            config=None,
-            dry_run=True,
-            dev_mode=False,
-            overwrite=False,
-            allow_recreate=False,
-            no_delete=False,  # mydir/... triggers this in commands.py
-        )
-        call_args = mock_decl.generate_apply_sql.call_args
-        assert call_args is not None
-        options = (
-            call_args[0][2] if len(call_args[0]) >= 3 else call_args[1].get("options")
-        )
-        assert options is not None
-        assert options.full_directory_mode is True
 
 
 class TestFeatureManagerIngest:

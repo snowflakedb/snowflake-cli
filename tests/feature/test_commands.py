@@ -43,16 +43,6 @@ def test_apply_single_file(mock_manager, runner):
 
 
 @mock.patch(FEATURE_MANAGER)
-def test_apply_dry_flag(mock_manager, runner):
-    """apply --dry should pass dry_run=True to FeatureManager.apply."""
-    mock_manager.return_value.apply.return_value = {"status": "dry"}
-    result = runner.invoke(["feature", "apply", "specs.yaml", "--dry"])
-    assert result.exit_code == 0, result.output
-    call_kwargs = mock_manager.return_value.apply.call_args[1]
-    assert call_kwargs["dry_run"] is True
-
-
-@mock.patch(FEATURE_MANAGER)
 def test_apply_dev_flag(mock_manager, runner):
     """apply --dev should pass dev_mode=True."""
     mock_manager.return_value.apply.return_value = {}
@@ -84,11 +74,17 @@ def test_apply_allow_recreate_flag(mock_manager, runner):
 
 @mock.patch(FEATURE_MANAGER)
 def test_apply_help_shows_all_options(mock_manager, runner):
-    """apply --help must show all documented flags."""
+    """apply --help must show all documented flags.
+
+    ``--dry`` was removed when the dry-run apply path was deleted —
+    operators preview changes via ``snow feature plan`` instead.  Pin
+    that the flag is gone so a future contributor cannot silently
+    re-introduce it.
+    """
     result = runner.invoke(["feature", "apply", "--help"])
     assert result.exit_code == 0, result.output
     output = result.output.lower()
-    assert "--dry" in output
+    assert "--dry" not in output
     assert "--dev" in output
     assert "--overwrite" in output
     assert "--allow-recreate" in output
