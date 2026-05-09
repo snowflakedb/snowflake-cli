@@ -139,6 +139,184 @@ def _wire_real_session_setup(mock_decl):
     mock_decl.ensure_session_setup.side_effect = fake_ensure
 
 
+class TestFeatureManagerPlan:
+    """``FeatureManager.plan`` must run validate + generate_plan and
+    return ``{status, ops, warnings, errors}`` *without* generating
+    SQL or executing anything against Snowflake.
+
+    These tests pin the new validate-then-plan contract that replaces
+    the legacy ``apply(dry_run=True)`` → ``generate_apply_sql`` path.
+    Once Phase 3 lands, ``decl_api.generate_apply_sql`` and
+    ``decl/sql_generator.py`` are deleted; this suite is the lock-in
+    that prevents a contributor from re-introducing SQL generation
+    inside the planning code path.
+    """
+
+    def test_plan_returns_status_ready_with_ops_when_no_validation_errors(
+        self, mock_execute_query, mock_decl
+    ):
+        """Happy path: validate_specs returns no ERROR results,
+        generate_plan returns a Plan with two ops, manager.plan
+        returns ``{status: "ready", ops: [...], errors: []}``."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mock_decl.validate_specs.return_value = []  # no errors
+        from snowflake.ml.feature_store.decl.enums import OpKind
+
+        op_no_change = mock.MagicMock()
+        op_no_change.kind = OpKind.NO_CHANGE
+        op_no_change.name = "USER"
+        op_no_change.reason = ""
+        op_no_change.destructive = False
+        plan_obj = mock.MagicMock(name="plan", ops=[op_no_change], warnings=[])
+        mock_decl.generate_plan.return_value = plan_obj
+
+        mgr = FeatureManager()
+        result = mgr.plan(
+            input_files=["specs.yaml"],
+            config=None,
+            dev_mode=False,
+            allow_recreate=False,
+            no_delete=True,
+        )
+
+        assert result["status"] == "ready", (
+            f"plan() must return status=ready when validate_specs returns no "
+            f"ERROR results.  Got status={result.get('status')!r}."
+        )
+        assert result["errors"] == []
+        assert isinstance(result.get("ops"), list)
+        assert len(result["ops"]) == 1
+
+    def test_plan_returns_validation_failed_with_errors_when_validate_specs_returns_errors(
+        self, mock_execute_query, mock_decl
+    ):
+        """When validate_specs surfaces an ERROR, plan() must short-circuit:
+        return ``{status: validation_failed, errors: [...], ops: []}``
+        and NOT call generate_plan."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        err = mock.MagicMock()
+        err.severity = "ERROR"
+        err.code = "VERSION_CONFLICT"
+        err.message = "Version conflict on FV X"
+        err.__str__ = lambda self: "VERSION_CONFLICT: Version conflict on FV X"
+        warn = mock.MagicMock()
+        warn.severity = "WARNING"
+        warn.__str__ = lambda self: "WARNING: ..."
+        mock_decl.validate_specs.return_value = [err, warn]
+
+        mgr = FeatureManager()
+        result = mgr.plan(
+            input_files=["specs.yaml"],
+            config=None,
+            dev_mode=False,
+            allow_recreate=False,
+            no_delete=True,
+        )
+
+        assert result["status"] == "validation_failed"
+        assert result["errors"], "validation_failed must carry errors"
+        assert any(
+            "VERSION_CONFLICT" in str(e) for e in result["errors"]
+        ), f"validation errors must include the underlying code; got {result['errors']!r}"
+        assert result["ops"] == []
+        mock_decl.generate_plan.assert_not_called()
+
+    def test_plan_calls_resolve_datasource_columns(self, mock_execute_query, mock_decl):
+        """plan() must invoke ``decl_api.resolve_datasource_columns`` so
+        FV source refs carry the datasource's column schema before
+        validation/planning.  Promoting this from a private helper to
+        a public ``decl_api`` entry point also lets ``write_plan`` share
+        the same pre-pass (parity invariant)."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mock_decl.validate_specs.return_value = []
+
+        mgr = FeatureManager()
+        mgr.plan(
+            input_files=["specs.yaml"],
+            config=None,
+            dev_mode=False,
+            allow_recreate=False,
+            no_delete=True,
+        )
+
+        mock_decl.resolve_datasource_columns.assert_called_once()
+
+    def test_plan_calls_validate_specs_before_generate_plan(
+        self, mock_execute_query, mock_decl
+    ):
+        """Pin the order: validate must run before generate_plan so a
+        validation failure short-circuits without invoking the planner.
+        We assert this via a Mock side effect that records call order."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        call_order: list[str] = []
+
+        def record_validate(*_a, **_kw):
+            call_order.append("validate_specs")
+            return []
+
+        def record_plan(*_a, **_kw):
+            call_order.append("generate_plan")
+            return mock.MagicMock(ops=[], warnings=[])
+
+        mock_decl.validate_specs.side_effect = record_validate
+        mock_decl.generate_plan.side_effect = record_plan
+
+        mgr = FeatureManager()
+        mgr.plan(
+            input_files=["specs.yaml"],
+            config=None,
+            dev_mode=False,
+            allow_recreate=False,
+            no_delete=True,
+        )
+
+        assert call_order == [
+            "validate_specs",
+            "generate_plan",
+        ], f"validate_specs must run before generate_plan; got order={call_order!r}"
+
+    def test_plan_does_not_invoke_execute_plan_or_sql_generation(
+        self, mock_execute_query, mock_decl
+    ):
+        """plan() is read-only with respect to Snowflake state.  It must
+        never call ``decl_api.execute_plan`` (Snowflake-side-effecting)
+        and must not synthesise SQL strings via the (soon-to-be-deleted)
+        ``generate_apply_sql`` path.
+
+        The mock_decl fixture no longer wires ``generate_apply_sql`` at
+        all — this test pins that the manager-side code never touches
+        it during planning.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mock_decl.validate_specs.return_value = []
+
+        mgr = FeatureManager()
+        mgr.plan(
+            input_files=["specs.yaml"],
+            config=None,
+            dev_mode=False,
+            allow_recreate=False,
+            no_delete=True,
+        )
+
+        mock_decl.execute_plan.assert_not_called()
+        # generate_apply_sql is going away in Phase 3; if a future
+        # contributor accidentally re-introduces it inside plan(),
+        # this assertion will catch the regression.
+        assert (
+            not hasattr(mock_decl.generate_apply_sql, "called")
+            or not mock_decl.generate_apply_sql.called
+        ), (
+            "plan() must not invoke decl_api.generate_apply_sql — that "
+            "code path is being deleted in Phase 3."
+        )
+
+
 class TestFeatureManagerListSpecs:
     def test_list_specs_returns_dict(self, mock_execute_query, mock_decl):
         from snowflake.cli._plugins.feature.manager import FeatureManager

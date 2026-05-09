@@ -223,7 +223,7 @@ def test_plan_calls_print_status_header_on_success(mock_manager, runner, tmp_pat
     its output is symmetric with ``snow feature apply`` and shell scripts
     can grep for a single canonical success indicator across both."""
     out_path = tmp_path / "plans" / "feature_plan_test.json"
-    mock_manager.return_value.apply.return_value = {
+    mock_manager.return_value.plan.return_value = {
         "status": "ready",
         "ops": [{"operation": "NO_CHANGE", "name": "X"}],
     }
@@ -247,7 +247,7 @@ def test_plan_calls_print_status_header_on_validation_failed(
     fire the header before returning, so the operator sees the failure
     on stderr rather than only inside the JSON-renderable result body."""
     out_path = tmp_path / "plans" / "feature_plan_test.json"
-    mock_manager.return_value.apply.return_value = {
+    mock_manager.return_value.plan.return_value = {
         "status": "validation_failed",
         "ops": [],
         "errors": ["..."],
@@ -292,20 +292,25 @@ def test_plan_requires_at_least_one_file(mock_manager, runner):
 
 
 @mock.patch(FEATURE_MANAGER)
-def test_plan_calls_apply_with_dry_run(mock_manager, runner):
-    """plan should delegate to FeatureManager.apply(dry_run=True)."""
-    mock_manager.return_value.apply.return_value = {}
+def test_plan_calls_manager_plan(mock_manager, runner):
+    """plan should delegate to ``FeatureManager.plan`` (validate +
+    generate_plan, no SQL).  This replaces the legacy
+    ``apply(dry_run=True)`` delegation that the dry-run removal broke
+    by construction."""
+    mock_manager.return_value.plan.return_value = {"status": "ready", "ops": []}
     result = runner.invoke(["feature", "plan", "specs.yaml"])
     assert result.exit_code == 0, result.output
-    call_kwargs = mock_manager.return_value.apply.call_args[1]
-    assert call_kwargs["dry_run"] is True
+    mock_manager.return_value.plan.assert_called_once()
+    # Apply must NOT be called by `snow feature plan` — the two
+    # commands are now disjoint code paths.
+    mock_manager.return_value.apply.assert_not_called()
 
 
 @mock.patch(FEATURE_MANAGER)
 def test_plan_does_not_write_plan_file_on_validation_failed(
     mock_manager, runner, tmp_path
 ):
-    """plan must NOT write a plan file when apply returns validation_failed.
+    """plan must NOT write a plan file when manager.plan returns validation_failed.
 
     The previous flow wrote the plan file *before* running validation, so a
     failed plan still left a stale ``feature_plan_*.json`` on disk that
@@ -313,7 +318,7 @@ def test_plan_does_not_write_plan_file_on_validation_failed(
     first and short-circuits before ``write_plan`` is invoked.
     """
     out_path = tmp_path / "plans" / "feature_plan_test.json"
-    mock_manager.return_value.apply.return_value = {
+    mock_manager.return_value.plan.return_value = {
         "status": "validation_failed",
         "ops": [],
         "errors": ["VERSION_CONFLICT: ..."],
@@ -326,9 +331,9 @@ def test_plan_does_not_write_plan_file_on_validation_failed(
 
 @mock.patch(FEATURE_MANAGER)
 def test_plan_writes_plan_file_on_success(mock_manager, runner, tmp_path):
-    """plan must invoke write_plan when apply reports a non-failed status."""
+    """plan must invoke write_plan when manager.plan reports a non-failed status."""
     out_path = tmp_path / "plans" / "feature_plan_test.json"
-    mock_manager.return_value.apply.return_value = {
+    mock_manager.return_value.plan.return_value = {
         "status": "ready",
         "ops": [{"operation": "NO_CHANGE", "name": "x"}],
     }
