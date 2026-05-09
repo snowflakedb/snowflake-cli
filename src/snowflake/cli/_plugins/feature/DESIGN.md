@@ -57,8 +57,8 @@ under the key `"feature"`.
 | CLI command             | Manager method       | Notes                                |
 |-------------------------|----------------------|--------------------------------------|
 | `snow feature init`     | `init()`             | Creates schema/tags, scaffolds dirs  |
-| `snow feature apply`    | `apply()`            | Orchestrates full load→plan→execute  |
-| `snow feature plan`     | `apply(dry_run=True)`| Alias for apply in dry-run mode      |
+| `snow feature apply`    | `apply()`            | Pure plan-file consumer (auto-discovers latest `feature_plan_*.json` or honours `--plan`) |
+| `snow feature plan`     | `plan()`             | Validate + generate_plan; persists JSON via `write_plan()` on success |
 | `snow feature list`     | `list_specs()`       | Files → from file; no args → Snowflake |
 | `snow feature describe` | `describe()`         | Single-object metadata lookup        |
 
@@ -99,32 +99,56 @@ failure, `decl_api.SessionSetupError` propagates — the CLI does not
 catch it, so Click renders it as a normal command failure and no
 further state SQL runs.
 
-### apply() orchestration
+### apply() orchestration (pure plan-file consumer)
+
+`apply()` no longer re-plans from source.  It reads a serialised
+`Plan` from disk (auto-discovered or supplied via ``--plan``) and
+hands it to ``decl_api.execute_plan`` for execution:
+
+```
+1. self._ensure_session_setup()                                             → primes the session
+2. plan_file = explicit --plan path OR _discover_unapplied_plan()           → str (path)
+3. plan = decl_api.deserialize_plan(open(plan_file).read())                 → Plan
+4. Verify plan.target_database / target_schema match the active connection (L6)
+5. decl_api.execute_plan(
+       plan, session,
+       database=plan.target_database,
+       schema=plan.target_schema,
+       warehouse=ctx.connection.warehouse,   # Bug C: warehouse from connection, not the plan
+       options=...,
+   )
+   — the executor primes the borrowed Snowpark session via
+     apply_session_setup_to_session(session) before constructing
+     FeatureStore(...)
+6. On success, rename plan_file → plan_file + ".applied" (L4)
+7. On failure, leave plan_file untouched so the operator can retry (L5)
+8. Return result dict
+```
+
+### plan() orchestration
+
+`plan()` is the read-only validate-then-plan path that backs
+`snow feature plan`.  It never touches Snowflake side-effecting SQL:
 
 ```
 1. self._ensure_session_setup()                                             → primes the session
 2. Expand file globs
 3. decl_api.load_specs(files, config)                                       → SpecBatch
-4. queries = decl_api.state_queries(database, schema)
-   - execute_query(queries["show_ofts"])      → oft_rows
-   - execute_query(queries["show_tables"])    → table_rows
-   - execute_query(queries["show_entities"])  → entity_rows
-   - for each oft_row:
-       execute_query(queries["describe_specification_template"].format(name=...))
-       → decl_api.parse_specification_rows(rows) → specification_map[name]
-5. decl_api.fetch_applied_state(
-       oft_rows, table_rows,
-       describe_map=..., specification_map=..., entity_rows=...,
-       default_database=..., default_schema=...,
-   )                                                                        → AppliedState
-6. decl_api.validate_specs(batch, state)                                    → ValidationResult[]
-7. decl_api.generate_plan(batch, state, opts, database=..., schema=...)     → Plan
-8. Display plan ops
-9. If not dry_run: decl_api.execute_plan(plan, session, ...)
-   — the executor primes the borrowed Snowpark session via apply_session_setup_to_session(session)
-     before constructing FeatureStore(...)
-10. Return result dict
+4. decl_api.resolve_datasource_columns(batch)                               → mutates batch in place
+5. queries = decl_api.state_queries(database, schema)                       → fetch applied state
+6. decl_api.fetch_applied_state(...)                                        → AppliedState
+7. decl_api.validate_specs(batch, state, target_database=..., target_schema=...)
+   → if any ERROR results, return {status: "validation_failed", errors: [...], ops: []}
+8. decl_api.generate_plan(batch, state, opts, database=..., schema=...)     → Plan
+9. Return {**target_info, status: "ready", ops: [...], executed: 0, warnings: [...], errors: []}
 ```
+
+`commands.plan` then forwards the result to `manager.write_plan(...)`
+on success, persisting the same `Plan` object to disk for `apply()`
+to consume.  The two paths share the same `resolve_datasource_columns`
+→ `validate_specs` → `generate_plan` chain — the parity invariant
+between the UI op stream and the disk plan is structural, not
+trip-wire-policed.
 
 ### list_specs() flow (Snowflake-backed mode)
 
