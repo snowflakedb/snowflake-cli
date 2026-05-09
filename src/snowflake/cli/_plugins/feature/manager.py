@@ -848,6 +848,40 @@ class FeatureManager(SqlExecutionMixin):
 
         return Session.builder.configs({"connection": self._conn}).create()
 
+    def _get_feature_store(self) -> Any:
+        """Return a snowml-core ``FeatureStore`` bound to the active connection.
+
+        Mirrors :func:`imperative_executor._get_fs` (used by the apply
+        path): constructs ``FeatureStore`` lazily with
+        ``creation_mode=FAIL_IF_NOT_EXIST`` so the schema must already be
+        initialised as a SnowML feature store.  Session priming is run
+        first via :meth:`_ensure_session_setup` so subsequent
+        ``stream_ingest`` / ``read_feature_view`` calls inherit the
+        correct session settings.
+
+        The apply path inside ``imperative_executor.py`` keeps its own
+        ``_get_fs`` because the two callers want different semantics:
+        the executor defers construction until the first FV op and
+        wraps it in a single-element box, while the CLI's
+        ``ingest`` / ``query`` methods need a freshly-bound store on
+        each invocation.
+        """
+        self._ensure_session_setup()
+        ctx = get_cli_context()
+        session = self._build_session()
+        from snowflake.ml.feature_store.feature_store import (  # lazy
+            CreationMode,
+            FeatureStore,
+        )
+
+        return FeatureStore(
+            session,
+            ctx.connection.database,
+            ctx.connection.schema,
+            ctx.connection.warehouse or "",
+            creation_mode=CreationMode.FAIL_IF_NOT_EXIST,
+        )
+
     def _fetch_oft_state(
         self,
         oft_rows: list[dict[str, Any]],
@@ -1087,23 +1121,35 @@ class FeatureManager(SqlExecutionMixin):
     # ------------------------------------------------------------------
 
     def ingest(self, source_name: str, records: list[dict]) -> dict[str, Any]:
-        """Stream records into a source via the Online Service."""
-        pat = os.environ.get("SNOWFLAKE_PAT", "").strip()
-        if not pat:
-            raise RuntimeError(
-                "SNOWFLAKE_PAT environment variable is required for feature ingest."
-            )
+        """Stream records into a source via ``FeatureStore.stream_ingest``.
 
-        status = self.get_status()
-        url = decl_api.get_service_endpoint(status, "ingest")
-        if not url:
-            return {
-                "status": "error",
-                "error": "Feature store service is not running or has no ingest endpoint.",
-            }
+        Delegates the entire wire path (URL resolution, PAT auth, schema
+        validation, partial-success reporting) to snowml-core.  The
+        manager's only job is to bind the connection-scoped
+        ``FeatureStore`` and shape the result envelope so downstream
+        CLI rendering matches the rest of the feature plugin
+        (``target_database`` / ``target_schema`` / ``target_warehouse``
+        triple, plus the new ``accepted_count`` field).
 
-        body = decl_api.build_ingest_request(source_name, records)
-        return decl_api.post_service_json(url.rstrip("/") + "/api/v1/ingest", pat, body)
+        Args:
+            source_name: Registered streaming source name.
+            records: Non-empty list of row dicts; each row's keys must
+                match the source schema exactly (snowml-core enforces).
+
+        Returns:
+            ``{**target_info, "accepted_count": int}`` where
+            ``accepted_count`` is the integer returned by
+            ``FeatureStore.stream_ingest`` (may be less than
+            ``len(records)`` on partial success).
+
+        Raises:
+            Exception: any error raised by
+                ``FeatureStore.stream_ingest`` (PAT missing, schema
+                mismatch, network failure, etc.) is propagated unchanged.
+        """
+        fs = self._get_feature_store()
+        accepted = fs.stream_ingest(source_name, records)
+        return {**self._target_info(), "accepted_count": accepted}
 
     # ------------------------------------------------------------------
     # query
