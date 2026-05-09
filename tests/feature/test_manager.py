@@ -144,12 +144,11 @@ class TestFeatureManagerPlan:
     return ``{status, ops, warnings, errors}`` *without* generating
     SQL or executing anything against Snowflake.
 
-    These tests pin the new validate-then-plan contract that replaces
+    These tests pin the validate-then-plan contract that replaced
     the legacy ``apply(dry_run=True)`` → ``generate_apply_sql`` path.
-    Once Phase 3 lands, ``decl_api.generate_apply_sql`` and
-    ``decl/sql_generator.py`` are deleted; this suite is the lock-in
-    that prevents a contributor from re-introducing SQL generation
-    inside the planning code path.
+    ``decl_api.generate_apply_sql`` and ``decl/sql_generator.py`` have
+    been deleted; this suite is the lock-in that prevents a contributor
+    from re-introducing SQL generation inside the planning code path.
     """
 
     def test_plan_returns_status_ready_with_ops_when_no_validation_errors(
@@ -284,12 +283,12 @@ class TestFeatureManagerPlan:
     ):
         """plan() is read-only with respect to Snowflake state.  It must
         never call ``decl_api.execute_plan`` (Snowflake-side-effecting)
-        and must not synthesise SQL strings via the (soon-to-be-deleted)
+        and must not synthesise SQL strings via the deleted
         ``generate_apply_sql`` path.
 
         The mock_decl fixture no longer wires ``generate_apply_sql`` at
-        all — this test pins that the manager-side code never touches
-        it during planning.
+        all — this test pins that the manager-side code never re-introduces
+        SQL generation during planning.
         """
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
@@ -305,15 +304,12 @@ class TestFeatureManagerPlan:
         )
 
         mock_decl.execute_plan.assert_not_called()
-        # generate_apply_sql is going away in Phase 3; if a future
-        # contributor accidentally re-introduces it inside plan(),
-        # this assertion will catch the regression.
         assert (
             not hasattr(mock_decl.generate_apply_sql, "called")
             or not mock_decl.generate_apply_sql.called
         ), (
             "plan() must not invoke decl_api.generate_apply_sql — that "
-            "code path is being deleted in Phase 3."
+            "code path has been removed."
         )
 
 
