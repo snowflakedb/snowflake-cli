@@ -456,7 +456,7 @@ def plan(
     ),
     **options,
 ) -> CommandResult:
-    """Show what would change if the spec files were applied (dry-run of apply).
+    """Show what would change if the spec files were applied.
 
     Use './...' as the path to enable full-sync mode (deletion detection).
     The plan is also written to a JSON file so it can be applied later with
@@ -479,18 +479,16 @@ def plan(
         ts = _dt.now().strftime("%Y%m%dT%H%M%S")
         out = os.path.join(".snowflake", "plans", f"feature_plan_{ts}.json")
 
-    # Validate (dry-run apply) BEFORE writing the plan file so a failed
-    # plan never leaves a stale ``feature_plan_*.json`` on disk.  This
-    # mirrors the order ``snow feature apply`` already uses and matches
-    # the validate-before-emit invariant called out in the architecture
-    # docs (Step 6 — Validation).
+    # Validate BEFORE writing the plan file so a failed plan never
+    # leaves a stale ``feature_plan_*.json`` on disk.  ``manager.plan``
+    # is the explicit validate-then-plan code path that replaced the
+    # legacy ``apply(dry_run=True)`` hack in the dry-run-removal
+    # refactor.
     manager = FeatureManager()
-    result = manager.apply(
+    result = manager.plan(
         input_files=input_files,
         config=config,
-        dry_run=True,
         dev_mode=dev,
-        overwrite=False,
         allow_recreate=False,
         no_delete=no_delete,
     )

@@ -97,64 +97,62 @@ def mock_cli_context():
 
 
 # ---------------------------------------------------------------------------
-# apply — dry_run
+# manager.plan — read-only validate+plan path replacing apply(dry_run=True)
 # ---------------------------------------------------------------------------
 
 
-class TestApplyDryRunIntegration:
-    def test_dry_run_returns_status_dry_run(self, spec_dir, mock_execute_query):
+class TestPlanIntegration:
+    """End-to-end tests for ``manager.plan`` against the real decl
+    library (with mocked ``execute_query``).  These replaced the old
+    ``TestApplyDryRunIntegration`` suite when ``apply --dry`` was
+    deleted in favour of an explicit ``snow feature plan`` code path.
+    """
+
+    def test_plan_returns_status_ready(self, spec_dir, mock_execute_query):
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         mgr = FeatureManager()
-        result = mgr.apply(
+        result = mgr.plan(
             input_files=[f"{spec_dir}/*.yaml"],
             config=None,
-            dry_run=True,
             dev_mode=False,
-            overwrite=False,
             allow_recreate=False,
         )
-        assert result["status"] == "dry_run"
+        assert result["status"] == "ready"
 
-    def test_dry_run_executes_no_ddl(self, spec_dir, mock_execute_query):
+    def test_plan_executes_no_ddl(self, spec_dir, mock_execute_query):
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         mgr = FeatureManager()
-        result = mgr.apply(
+        result = mgr.plan(
             input_files=[f"{spec_dir}/*.yaml"],
             config=None,
-            dry_run=True,
             dev_mode=False,
-            overwrite=False,
             allow_recreate=False,
         )
         assert result["executed"] == 0
 
-    def test_dry_run_plans_ops(self, spec_dir, mock_execute_query):
+    def test_plan_returns_ops_list(self, spec_dir, mock_execute_query):
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         mgr = FeatureManager()
-        result = mgr.apply(
+        result = mgr.plan(
             input_files=[f"{spec_dir}/*.yaml"],
             config=None,
-            dry_run=True,
             dev_mode=False,
-            overwrite=False,
             allow_recreate=False,
         )
         assert isinstance(result["ops"], list)
         assert result["executed"] == 0
 
-    def test_dry_run_calls_show_queries(self, spec_dir, mock_execute_query):
+    def test_plan_calls_show_queries(self, spec_dir, mock_execute_query):
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         mgr = FeatureManager()
-        mgr.apply(
+        mgr.plan(
             input_files=[f"{spec_dir}/*.yaml"],
             config=None,
-            dry_run=True,
             dev_mode=False,
-            overwrite=False,
             allow_recreate=False,
         )
         calls = [c[0][0] for c in mock_execute_query.call_args_list]
@@ -221,7 +219,6 @@ class TestApplyExecuteIntegration:
             result = mgr.apply(
                 input_files=[f"{spec_dir}/*.yaml"],
                 config=None,
-                dry_run=False,
                 dev_mode=False,
                 overwrite=False,
                 allow_recreate=False,
@@ -256,7 +253,6 @@ class TestApplyExecuteIntegration:
             result = mgr.apply(
                 input_files=[f"{spec_dir}/*.yaml"],
                 config=None,
-                dry_run=False,
                 dev_mode=False,
                 overwrite=False,
                 allow_recreate=False,
@@ -338,12 +334,10 @@ class TestValidationErrorPath:
             from snowflake.cli._plugins.feature.manager import FeatureManager
 
             mgr = FeatureManager()
-            result = mgr.apply(
+            result = mgr.plan(
                 input_files=[f"{d}/bad.yaml"],
                 config=None,
-                dry_run=True,
                 dev_mode=False,
-                overwrite=False,
                 allow_recreate=False,
             )
         assert result["status"] == "validation_failed"
@@ -492,7 +486,6 @@ class TestApplySqlUsesConnectionContext:
             mgr.apply(
                 input_files=[],
                 config=None,
-                dry_run=False,
                 dev_mode=True,
                 overwrite=False,
                 allow_recreate=False,
@@ -613,7 +606,6 @@ class TestApplyWithPlanFileIntegration:
             result = mgr.apply(
                 input_files=[],
                 config=None,
-                dry_run=False,
                 dev_mode=False,
                 overwrite=False,
                 allow_recreate=False,
@@ -648,7 +640,6 @@ class TestApplyWithPlanFileIntegration:
             mgr.apply(
                 input_files=[],
                 config=None,
-                dry_run=False,
                 dev_mode=False,
                 overwrite=False,
                 allow_recreate=False,

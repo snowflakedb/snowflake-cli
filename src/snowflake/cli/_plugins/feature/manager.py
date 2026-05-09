@@ -423,6 +423,124 @@ class FeatureManager(SqlExecutionMixin):
         }
 
     # ------------------------------------------------------------------
+    # plan
+    # ------------------------------------------------------------------
+
+    def plan(
+        self,
+        input_files: Sequence[str],
+        config: Optional[dict[str, Any]],
+        dev_mode: bool,
+        allow_recreate: bool,
+        no_delete: bool = True,
+    ) -> dict[str, Any]:
+        """Render plan ops for ``snow feature plan`` (read-only).
+
+        The new explicit planning path that replaces the legacy
+        ``apply(dry_run=True)`` hack.  Validates specs against applied
+        state, generates a plan, and returns a structured result for
+        the terminal UI.  Does NOT generate SQL strings and does NOT
+        execute anything against Snowflake.
+
+        Steps:
+
+        1. Prime the session (``ALTER SESSION SET ENABLE_FEATURE_STORE_DESCRIBE_OFT_SPECIFICATION = TRUE``).
+        2. Fetch applied state via ``DESCRIBE … TYPE = SPECIFICATION``.
+        3. ``decl_api.load_specs(...)`` to parse the input files.
+        4. ``decl_api.resolve_datasource_columns(batch)`` to inject
+           datasource column schemas into FV source refs.
+        5. ``decl_api.validate_specs(...)`` — short-circuit on ERROR.
+        6. ``decl_api.generate_plan(...)`` to compute the op stream.
+
+        Args:
+            input_files: Spec file paths or glob patterns.
+            config: Jinja2 template variables, or ``None``.
+            dev_mode: Apply dev-mode relaxed validation.
+            allow_recreate: Permit recreate (drop-and-create) operations.
+            no_delete: When True, deletion detection is disabled.
+
+        Returns:
+            ``{status, ops, executed, warnings, errors, target_*}``.
+            ``status`` is ``"validation_failed"`` if validate_specs
+            surfaced any ERROR severities, otherwise ``"ready"``.
+        """
+        from snowflake.ml.feature_store.decl.types import PlanOptions
+
+        self._ensure_session_setup()
+
+        ctx = get_cli_context()
+        sqls = decl_api.state_queries(ctx.connection.database, ctx.connection.schema)
+        raw_show = _rows_to_dicts(
+            self.execute_query(sqls["show_ofts"], cursor_class=DictCursor)
+        )
+        raw_tables = _rows_to_dicts(
+            self.execute_query(sqls["show_tables"], cursor_class=DictCursor)
+        )
+        specification_map = self._fetch_oft_state(raw_show, sqls)
+        entity_rows = self._fetch_entity_rows(ctx)
+        applied_state = decl_api.fetch_applied_state(
+            raw_show,
+            raw_tables,
+            specification_map=specification_map,
+            entity_rows=entity_rows,
+            default_database=ctx.connection.database or "",
+            default_schema=ctx.connection.schema or "",
+        )
+
+        all_files = self._expand_with_datasources(list(input_files))
+        batch = decl_api.load_specs(all_files, config)
+        decl_api.resolve_datasource_columns(batch)
+
+        validation_results = decl_api.validate_specs(
+            batch,
+            applied_state,
+            target_database=ctx.connection.database or "",
+            target_schema=ctx.connection.schema or "",
+        )
+        errors = [r for r in validation_results if r.severity == "ERROR"]
+        warnings = [r for r in validation_results if r.severity == "WARNING"]
+        if errors:
+            return {
+                **self._target_info(),
+                "status": "validation_failed",
+                "ops": [],
+                "executed": 0,
+                "warnings": [str(w) for w in warnings],
+                "errors": [str(e) for e in errors],
+            }
+
+        options = PlanOptions(
+            dev_mode=dev_mode,
+            allow_recreate=allow_recreate,
+            full_directory_mode=not no_delete,
+        )
+        plan = decl_api.generate_plan(
+            batch,
+            applied_state,
+            options,
+            database=ctx.connection.database or "",
+            schema=ctx.connection.schema or "",
+        )
+
+        return {
+            **self._target_info(),
+            "status": "ready",
+            "ops": [
+                {
+                    "operation": op.kind.value,
+                    "name": op.name.lower(),
+                    "reason": op.reason,
+                    "destructive": op.destructive,
+                }
+                for op in getattr(plan, "ops", [])
+            ],
+            "executed": 0,
+            "warnings": [str(w) for w in warnings]
+            + list(getattr(plan, "warnings", [])),
+            "errors": [],
+        }
+
+    # ------------------------------------------------------------------
     # write_plan
     # ------------------------------------------------------------------
 
@@ -477,17 +595,21 @@ class FeatureManager(SqlExecutionMixin):
         # Load and expand specs
         all_files = self._expand_with_datasources(list(input_files))
         batch = decl_api.load_specs(all_files, config)
+        # Inject datasource columns into FV source refs so the planner
+        # sees the same enriched batch ``manager.plan`` does.  Without
+        # this pre-pass, FVs that reference a sibling datasource (case
+        # preserved from ``SPECIFICATION`` JSON) would be planned with
+        # empty ``sources[].columns``, breaking on-wire parity with the
+        # terminal-rendered op stream.
+        decl_api.resolve_datasource_columns(batch)
 
         options = PlanOptions(dev_mode=dev_mode, full_directory_mode=not no_delete)
         # Forward connection context so the planner qualifies bare specs
         # (single-file invocations, entity YAMLs without ``database:``)
-        # against the active ``snow`` connection.  Skipping this is the
-        # ``write_plan`` ⇄ ``apply(dry_run=True)`` parity bug: the
-        # apply path qualifies via ``generate_apply_sql`` while
-        # ``write_plan`` would otherwise hand unqualified spec keys to
-        # the planner — so an unchanged repo would render as
-        # ``NO_CHANGE`` in the terminal yet emit a wave of phantom
-        # ``CREATE_*`` / ``DROP_*`` ops in the on-disk plan file.
+        # against the active ``snow`` connection.  Both this method and
+        # ``manager.plan`` thread the same database/schema through the
+        # planner so the disk plan and the terminal-rendered op stream
+        # are byte-equivalent under the ``(kind, name)`` projection.
         plan = decl_api.generate_plan(
             batch,
             applied_state,
