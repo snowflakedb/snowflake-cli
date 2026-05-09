@@ -2188,3 +2188,189 @@ class TestFeatureManagerIngest:
             mgr = FeatureManager()
             with pytest.raises(RuntimeError, match="SNOWFLAKE_PAT"):
                 mgr.ingest("MY_STREAM_SOURCE", [{"col_a": 1}])
+
+
+class TestFeatureManagerQuery:
+    """``FeatureManager.query`` must delegate to
+    ``FeatureStore.read_feature_view`` (snowml-core) with positional
+    keys derived from the FV's join-key order.
+
+    These tests pin the GREEN-phase contract:
+
+    1. ``query`` requires both ``feature_view_name`` AND ``version``
+       because snowml-core's ``get_feature_view(name, version)``
+       requires both (no "latest" semantics for string names).
+    2. Dict-shaped CLI keys are translated to positional list-of-list
+       in the FV's declared join-key order.
+    3. The pandas DataFrame returned by snowml-core is rendered as
+       ``{"rows": [...]}`` via ``df.to_dict("records")``.
+    4. Missing join-key columns surface a clear ``ValueError`` —
+       not a Snowpark error from a wrong-shape positional list.
+    """
+
+    def _make_mock_fv(self, entities_join_keys: list[list[str]]) -> "mock.MagicMock":
+        """Build a MagicMock FeatureView with ``.entities`` configured
+        to expose the requested join-key layout.
+
+        Each inner list represents one Entity's ``join_keys``.  Stored
+        as plain strings so ``str(jk)`` round-trips unchanged (matches
+        snowml-core's ``Entity.join_keys: list[SqlIdentifier]`` since
+        ``SqlIdentifier.__str__`` returns the identifier string).
+        """
+        fv = mock.MagicMock(name="feature_view")
+        fv.entities = []
+        for jk_list in entities_join_keys:
+            ent = mock.MagicMock(name="entity")
+            ent.join_keys = jk_list
+            fv.entities.append(ent)
+        return fv
+
+    def _patch_fs(
+        self,
+        join_keys_per_entity: list[list[str]],
+        rows_records: list[dict] | None = None,
+    ):
+        """Return (patcher, mock_fs) prepped for query tests.
+
+        ``join_keys_per_entity`` controls the FV's entity layout.
+        ``rows_records`` becomes the pandas DataFrame returned from
+        ``fs.read_feature_view``; defaults to a single trivial row.
+        """
+        import pandas as pd
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        if rows_records is None:
+            rows_records = [{"USER_ID": "u1", "FEATURE_X": 42}]
+
+        mock_fv = self._make_mock_fv(join_keys_per_entity)
+        mock_fs = mock.MagicMock(name="feature_store")
+        mock_fs.get_feature_view.return_value = mock_fv
+        mock_fs.read_feature_view.return_value = pd.DataFrame(rows_records)
+        return (
+            mock.patch.object(
+                FeatureManager,
+                "_get_feature_store",
+                create=True,
+                return_value=mock_fs,
+            ),
+            mock_fs,
+        )
+
+    def test_query_passes_version_to_get_feature_view(
+        self, mock_execute_query, mock_decl
+    ):
+        """``query(name, version, keys)`` must invoke
+        ``fs.get_feature_view(name, version)`` with both arguments
+        verbatim — snowml-core has no "latest version" lookup for
+        string names.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        patcher, mock_fs = self._patch_fs([["USER_ID"]])
+        with patcher:
+            mgr = FeatureManager()
+            mgr.query("USER_CLICK_STATS_DECL", "V1", [{"USER_ID": "u1"}])
+
+        mock_fs.get_feature_view.assert_called_once_with("USER_CLICK_STATS_DECL", "V1")
+
+    def test_query_calls_read_feature_view_with_positional_keys(
+        self, mock_execute_query, mock_decl
+    ):
+        """Single-entity FV: input ``[{"USER_ID": "u1"}]`` is
+        translated to ``keys=[["u1"]]`` and ``read_feature_view`` is
+        called with ``store_type="ONLINE"`` and ``as_pandas=True``.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        patcher, mock_fs = self._patch_fs([["USER_ID"]])
+        with patcher:
+            mgr = FeatureManager()
+            mgr.query("FV_NAME", "V1", [{"USER_ID": "u1"}])
+
+        mock_fs.read_feature_view.assert_called_once()
+        call = mock_fs.read_feature_view.call_args
+        # First positional is the FV object returned by get_feature_view.
+        assert call.args[0] is mock_fs.get_feature_view.return_value
+        assert call.kwargs.get("keys") == [["u1"]], (
+            f"single-entity dict must translate to positional list-of-list; "
+            f"got {call.kwargs.get('keys')!r}"
+        )
+        # ``ONLINE`` is what snowml-core's StoreType enum accepts as a
+        # string.  ``as_pandas=True`` forces the pandas-DataFrame path.
+        assert call.kwargs.get("store_type") == "ONLINE"
+        assert call.kwargs.get("as_pandas") is True
+
+    def test_query_translates_multi_entity_keys_in_join_key_order(
+        self, mock_execute_query, mock_decl
+    ):
+        """Multi-entity FV with entities=[USER (USER_ID),
+        SESSION (SESSION_ID)] must translate
+        ``[{"USER_ID": "u1", "SESSION_ID": "s1"}]`` to
+        ``[["u1", "s1"]]`` (order from the FV's join_keys, NOT the
+        dict's iteration order)."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        patcher, mock_fs = self._patch_fs(
+            [["USER_ID"], ["SESSION_ID"]],
+            rows_records=[{"USER_ID": "u1", "SESSION_ID": "s1", "FEATURE_X": 1}],
+        )
+        with patcher:
+            mgr = FeatureManager()
+            # Provide the dict in the *opposite* order from the FV's
+            # entity declaration to prove the translator uses the FV
+            # order, not insertion order.
+            mgr.query("FV", "V1", [{"SESSION_ID": "s1", "USER_ID": "u1"}])
+
+        call = mock_fs.read_feature_view.call_args
+        assert call.kwargs.get("keys") == [["u1", "s1"]], (
+            "multi-entity translation must follow fv.entities[*].join_keys "
+            "order (USER_ID, SESSION_ID), regardless of input dict order; "
+            f"got {call.kwargs.get('keys')!r}"
+        )
+
+    def test_query_returns_rows_envelope(self, mock_execute_query, mock_decl):
+        """Result envelope is ``{**target_info, "rows": [...]}`` with
+        ``rows`` being ``df.to_dict("records")`` of the pandas
+        DataFrame returned from ``read_feature_view``.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        rows = [
+            {"USER_ID": "u1", "TOTAL_ENGAGEMENT_1H": 5},
+            {"USER_ID": "u2", "TOTAL_ENGAGEMENT_1H": 7},
+        ]
+        patcher, _ = self._patch_fs([["USER_ID"]], rows_records=rows)
+        with patcher:
+            mgr = FeatureManager()
+            result = mgr.query("FV", "V1", [{"USER_ID": "u1"}, {"USER_ID": "u2"}])
+
+        assert (
+            result.get("rows") == rows
+        ), f"GREEN must return df.to_dict('records'); got {result.get('rows')!r}"
+        assert result.get("target_database") == "TEST_DB"
+        assert result.get("target_schema") == "TEST_SCHEMA"
+        assert result.get("target_warehouse") == "TEST_WH"
+
+    def test_query_raises_clear_error_for_unknown_key_columns(
+        self, mock_execute_query, mock_decl
+    ):
+        """Input dict missing a declared join-key surfaces a
+        ``ValueError`` naming the missing column.  The translator must
+        fail loudly *before* calling ``read_feature_view`` so users
+        get a precise diagnostic instead of a Snowpark "wrong tuple
+        length" error from the wire.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        patcher, mock_fs = self._patch_fs(
+            [["USER_ID"], ["SESSION_ID"]],
+        )
+        with patcher:
+            mgr = FeatureManager()
+            with pytest.raises(ValueError, match="SESSION_ID"):
+                # Missing SESSION_ID — translator should refuse.
+                mgr.query("FV", "V1", [{"USER_ID": "u1"}])
+
+        # And in the failure case, read_feature_view must NOT be called
+        # — we want loud-fail, not silent-degrade.
+        mock_fs.read_feature_view.assert_not_called()
