@@ -40,6 +40,52 @@ def _rows_to_dicts(rows) -> list[dict[str, Any]]:
     return [dict(r) for r in rows]
 
 
+def _to_positional_keys(
+    keys: list[dict[str, Any]],
+    join_key_order: list[str],
+) -> list[list[Any]]:
+    """Translate the CLI's dict-shaped key payload to snowml-core's
+    positional list-of-list shape.
+
+    snowml-core's ``FeatureStore.read_feature_view`` accepts ``keys``
+    as a list of value-lists, one per row, with positional ordering
+    matching the FeatureView's declared join-key sequence
+    (``[jk for ent in fv.entities for jk in ent.join_keys]``).  The
+    CLI accepts JSON-friendly dicts for human ergonomics, e.g.
+    ``[{"USER_ID": "u1", "SESSION_ID": "s1"}]``.  This helper is the
+    single place that bridges the two surfaces.
+
+    Validation is strict: every input dict must carry every declared
+    join-key column.  A missing column raises a ``ValueError``
+    naming the column and the row index, so users get a precise
+    diagnostic instead of a "wrong tuple length" error from the
+    Online Service Query API.
+
+    Args:
+        keys: List of dicts as supplied by the CLI's ``--keys`` arg.
+        join_key_order: Flat list of join-key column names in the
+            order declared by the FeatureView's entities.
+
+    Returns:
+        List of positional value-lists ready to forward to
+        ``read_feature_view(keys=...)``.
+
+    Raises:
+        ValueError: If any input dict is missing a join-key column.
+    """
+    positional: list[list[Any]] = []
+    for i, row in enumerate(keys):
+        try:
+            positional.append([row[col] for col in join_key_order])
+        except KeyError as exc:
+            missing = exc.args[0]
+            raise ValueError(
+                f"Missing join key {missing!r} in keys[{i}]; "
+                f"feature view declares join keys {join_key_order!r}"
+            ) from exc
+    return positional
+
+
 class FeatureManager(SqlExecutionMixin):
     """Thin CLI adapter — delegates all business logic to decl_api."""
 
@@ -1155,21 +1201,52 @@ class FeatureManager(SqlExecutionMixin):
     # query
     # ------------------------------------------------------------------
 
-    def query(self, feature_view_name: str, keys: list[dict]) -> dict[str, Any]:
-        """Query online features via the Online Service."""
-        pat = os.environ.get("SNOWFLAKE_PAT", "").strip()
-        if not pat:
-            raise RuntimeError(
-                "SNOWFLAKE_PAT environment variable is required for feature query."
-            )
+    def query(
+        self,
+        feature_view_name: str,
+        version: str,
+        keys: list[dict],
+    ) -> dict[str, Any]:
+        """Online-lookup features via ``FeatureStore.read_feature_view``.
 
-        status = self.get_status()
-        url = decl_api.get_service_endpoint(status, "query")
-        if not url:
-            return {
-                "status": "error",
-                "error": "Feature store service is not running or has no query endpoint.",
-            }
+        ``version`` is required because snowml-core's
+        ``FeatureStore.get_feature_view(name, version)`` requires both
+        when the feature view is referenced by string — there is no
+        "latest version" lookup for a bare name.  The CLI surfaces
+        this as a required ``--version`` option (see ``commands.py``).
 
-        body = decl_api.build_query_request(feature_view_name, keys)
-        return decl_api.post_service_json(url.rstrip("/") + "/api/v1/query", pat, body)
+        The dict-shaped input ``keys`` is translated to snowml-core's
+        positional list-of-list shape via :func:`_to_positional_keys`,
+        using the FV's declared entity join-key order.  Missing
+        join-key columns raise a clear ``ValueError`` *before* any
+        wire call.
+
+        Args:
+            feature_view_name: Logical feature view name.
+            version: FeatureView version (e.g. ``"V1"``).
+            keys: List of dicts; each dict must carry every join-key
+                column declared by the FV.
+
+        Returns:
+            ``{**target_info, "rows": list[dict]}`` where ``rows`` is
+            ``df.to_dict("records")`` of the pandas DataFrame returned
+            by ``FeatureStore.read_feature_view`` (Postgres online path
+            renders directly to pandas).
+
+        Raises:
+            ValueError: If an input dict is missing a declared join-key.
+            Exception: Any error raised by ``read_feature_view``
+                (PAT missing, no online store, network failure, etc.)
+                is propagated unchanged.
+        """
+        fs = self._get_feature_store()
+        fv = fs.get_feature_view(feature_view_name, version)
+        join_key_order = [str(jk) for ent in fv.entities for jk in ent.join_keys]
+        positional_keys = _to_positional_keys(keys, join_key_order)
+        df = fs.read_feature_view(
+            fv,
+            keys=positional_keys,
+            store_type="ONLINE",
+            as_pandas=True,
+        )
+        return {**self._target_info(), "rows": df.to_dict("records")}
