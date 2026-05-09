@@ -2083,3 +2083,108 @@ class TestDirectoryMode:
         )
         assert options is not None
         assert options.full_directory_mode is True
+
+
+class TestFeatureManagerIngest:
+    """``FeatureManager.ingest`` must delegate to
+    ``FeatureStore.stream_ingest`` (snowml-core) instead of building a
+    REST envelope and POSTing through ``decl_api.post_service_json``.
+
+    These tests pin the new contract so the GREEN refactor cannot
+    silently regress the wire path or the result-envelope shape.
+    """
+
+    def _patch_fs(self, accepted: int = 1):
+        """Return a context manager that patches ``_get_feature_store``
+        on the class to yield a MagicMock with ``stream_ingest``
+        pre-wired to return ``accepted``.
+
+        ``create=True`` lets the tests run before the GREEN commit
+        adds the helper (RED state) — the patch attaches a class-level
+        attribute regardless of whether the underlying method exists.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mock_fs = mock.MagicMock(name="feature_store")
+        mock_fs.stream_ingest.return_value = accepted
+        return (
+            mock.patch.object(
+                FeatureManager,
+                "_get_feature_store",
+                create=True,
+                return_value=mock_fs,
+            ),
+            mock_fs,
+        )
+
+    def test_ingest_calls_fs_stream_ingest(
+        self, mock_execute_query, mock_decl, monkeypatch
+    ):
+        """``ingest(source, records)`` must invoke
+        ``FeatureStore.stream_ingest(source, records)`` exactly once
+        with the verbatim arguments the caller supplied — no
+        envelope-shape rewriting at the manager layer."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        monkeypatch.setenv("SNOWFLAKE_PAT", "test_pat")
+        patcher, mock_fs = self._patch_fs(accepted=3)
+
+        with patcher:
+            mgr = FeatureManager()
+            mgr.ingest("MY_STREAM_SOURCE", [{"col_a": 1}, {"col_a": 2}])
+
+        mock_fs.stream_ingest.assert_called_once_with(
+            "MY_STREAM_SOURCE", [{"col_a": 1}, {"col_a": 2}]
+        )
+
+    def test_ingest_returns_accepted_count_envelope(
+        self, mock_execute_query, mock_decl, monkeypatch
+    ):
+        """Result envelope is ``{**target_info, "accepted_count": <int>}``.
+
+        The chosen shape surfaces snowml-core's raw return value
+        (``int``) instead of synthesising a fake ``status: success``
+        field.  The verifier script (Phase 5) is updated to match.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        monkeypatch.setenv("SNOWFLAKE_PAT", "test_pat")
+        patcher, _ = self._patch_fs(accepted=100)
+
+        with patcher:
+            mgr = FeatureManager()
+            result = mgr.ingest("MY_STREAM_SOURCE", [{"col_a": 1}])
+
+        assert result.get("accepted_count") == 100, (
+            f"GREEN must return {{'accepted_count': 100, ...}}; " f"got {result!r}"
+        )
+        # Target-info envelope is preserved (apply / list / describe
+        # results all include this triple — ingest is no exception).
+        assert result.get("target_database") == "TEST_DB"
+        assert result.get("target_schema") == "TEST_SCHEMA"
+        assert result.get("target_warehouse") == "TEST_WH"
+
+    def test_ingest_surfaces_runtime_error_when_pat_missing(
+        self, mock_execute_query, mock_decl, monkeypatch
+    ):
+        """When ``stream_ingest`` raises (snowml-core's PAT enforcement
+        path, or any other transport failure), the manager re-raises
+        unchanged.
+
+        The CLI's previous local PAT preflight is removed in GREEN —
+        snowml-core owns the diagnosis.  This test pins that the
+        manager does not swallow snowml-core errors into a status
+        dict.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        monkeypatch.setenv("SNOWFLAKE_PAT", "test_pat")
+        patcher, mock_fs = self._patch_fs()
+        mock_fs.stream_ingest.side_effect = RuntimeError(
+            "SNOWFLAKE_PAT environment variable is required."
+        )
+
+        with patcher:
+            mgr = FeatureManager()
+            with pytest.raises(RuntimeError, match="SNOWFLAKE_PAT"):
+                mgr.ingest("MY_STREAM_SOURCE", [{"col_a": 1}])
