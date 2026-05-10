@@ -377,3 +377,181 @@ def test_bugbash_step7_query_uses_format_json():
             "of a list-of-dicts.  See the comment block above this "
             "test for the full failure cascade.  Found: " + ln.strip()
         )
+
+
+# ---------------------------------------------------------------------------
+# Step 17 declarative-cleanup contract
+# ---------------------------------------------------------------------------
+#
+# Background.  Step 17 historically taught operators to clean up the
+# bug-bash feature view with::
+#
+#   snow sql -q "DROP ONLINE FEATURE TABLE IF EXISTS USER_CLICK_STATS_DECL"
+#
+# That command drops only the OFT.  The wrapper view, the
+# ``$UDF_TRANSFORMED`` / ``$UDF_TRANSFORMED$BACKFILL`` tables, the
+# ``_FEATURE_STORE_METADATA`` row and the stream-source ref count all
+# survive, and the next ``snow feature apply`` silently no-ops the
+# CREATE_FV (snowml-core's ``register_feature_view`` hits the leftover
+# registration and routes through ``_get_feature_view_if_exists``).
+# ``get_feature_view`` then reports ``online=False`` because
+# ``_determine_online_config_from_oft`` derives ``enable`` from OFT
+# presence — and ``snow feature query`` fails with ``(2110) Online
+# store is not enabled``.
+#
+# The fix is to replace the raw SQL drop with a declarative cleanup —
+# remove the FV YAML/Python files from ``$DECL/`` and run ``snow
+# feature plan`` + ``snow feature apply``.  Full-sync mode emits
+# ``DROP_FV USER_CLICK_STATS_DECL``, which routes through
+# ``imperative_executor.py`` → ``fs.delete_feature_view``, the single
+# code path that drops *all* the FV's side-effects in one go.
+#
+# These two tests pin that contract on both surfaces (doc + verify
+# script) so any regression to the partial-teardown shape fails CI.
+
+_STEP17_HEADING = "## 17. Clean up the bug-bash feature view"
+_STEP18_HEADING = "## 18. Drop the runtime"
+# Match the section banner at the bottom of verify_bug_bash.sh, not the
+# ``# Step 17 (drop the bug-bash feature view) IS exercised on Path B``
+# comment that appears in the file's header docstring at the top.  The
+# em-dash (\u2014) in the banner uniquely identifies the section.
+_VERIFY_STEP17_BANNER = "# Step 17 \u2014"
+
+
+def _extract_step17_block_from_doc(text: str) -> str:
+    start = text.find(_STEP17_HEADING)
+    assert start >= 0, f"BUG_BASH.md missing {_STEP17_HEADING!r}"
+    end = text.find(_STEP18_HEADING, start)
+    assert end > start, f"BUG_BASH.md missing step 18 boundary heading"
+    return text[start:end]
+
+
+def _extract_step17_block_from_verify(text: str) -> str:
+    start = text.find(_VERIFY_STEP17_BANNER)
+    assert (
+        start >= 0
+    ), f"verify_bug_bash.sh missing {_VERIFY_STEP17_BANNER!r} section banner"
+    end = text.find("# Summary", start)
+    assert end > start, "verify_bug_bash.sh missing summary boundary banner"
+    return text[start:end]
+
+
+def _doc_step17_command_blocks(block: str) -> str:
+    """Concatenate the *executable* fenced code blocks from a step-17
+    section.  We deliberately skip prose so a discussion of the
+    anti-pattern (e.g. naming ``DROP ONLINE FEATURE TABLE`` in a
+    ``Why declarative…`` callout) does not trip the test.
+
+    Args:
+        block: The full step-17 markdown block.
+
+    Returns:
+        Concatenation of every ``bash`` fenced block's body.
+    """
+    parts: list[str] = []
+    for m in _FENCE_RE.finditer(block):
+        if m.group("lang") == "bash":
+            parts.append(m.group("body"))
+    return "\n".join(parts)
+
+
+def _bash_step17_executable_lines(block: str) -> str:
+    """Drop comment-only lines from a bash step-17 section so the
+    declarative-cleanup tests can grep for the *commands* the script
+    actually runs without tripping on prose-style block comments
+    that legitimately reference the anti-pattern.
+
+    Lines whose first non-whitespace character is ``#`` are removed.
+    Inline trailing comments are preserved (we don't try to be a
+    bash-aware tokenizer — keeping logic simple is more important
+    than handling pathological cases).
+
+    Args:
+        block: The full step-17 bash block (already extracted).
+
+    Returns:
+        Same block with comment-only lines stripped.
+    """
+    keep: list[str] = []
+    for line in block.splitlines():
+        if line.lstrip().startswith("#"):
+            continue
+        keep.append(line)
+    return "\n".join(keep)
+
+
+def test_bugbash_step17_doc_uses_declarative_cleanup(bug_bash_md):
+    """Step 17 in docs/BUG_BASH.md must use the declarative
+    ``rm YAML → snow feature plan → snow feature apply`` cleanup
+    instead of a raw ``DROP ONLINE FEATURE TABLE`` SQL command.
+
+    The raw SQL drops only the OFT and leaves the wrapper view,
+    UDF_TRANSFORMED / BACKFILL tables, and the FS metadata row in
+    place — see the docstring above for the full failure cascade
+    (``snow feature query`` fails with ``(2110) Online store is not
+    enabled``).
+    """
+    block = _extract_step17_block_from_doc(bug_bash_md)
+    commands = _doc_step17_command_blocks(block)
+    assert "DROP ONLINE FEATURE TABLE" not in commands, (
+        "docs/BUG_BASH.md step 17 still hands the operator a "
+        "'DROP ONLINE FEATURE TABLE' command — this is the "
+        "partial-teardown footgun.  Replace it with "
+        "rm $DECL/feature_views/USER_CLICK_STATS_DECL.{yaml,py} "
+        "followed by 'snow feature plan' and 'snow feature apply' "
+        "so the planner emits DROP_FV and snowml-core's "
+        "delete_feature_view drops every side-effect in one shot."
+    )
+    assert "rm " in commands and "USER_CLICK_STATS_DECL" in commands, (
+        "docs/BUG_BASH.md step 17 must instruct the operator to remove "
+        "the USER_CLICK_STATS_DECL spec files so full-sync apply emits "
+        "DROP_FV — no 'rm ... USER_CLICK_STATS_DECL ...' line found in "
+        "the executable bash blocks."
+    )
+    assert "snow feature plan" in commands, (
+        "docs/BUG_BASH.md step 17 must run 'snow feature plan' against "
+        "$DECL after removing the YAML so the operator can confirm the "
+        "DROP_FV op before it executes."
+    )
+    assert "snow feature apply" in commands, (
+        "docs/BUG_BASH.md step 17 must run 'snow feature apply' after "
+        "the plan so the declarative DROP_FV op actually executes."
+    )
+    assert "DROP_FV" in block, (
+        "docs/BUG_BASH.md step 17's ✓ Expect block must mention DROP_FV — "
+        "this is the contract: full-sync apply emits exactly one "
+        "DROP_FV USER_CLICK_STATS_DECL row."
+    )
+
+
+def test_bugbash_step17_verify_script_uses_declarative_cleanup():
+    """scripts/verify_bug_bash.sh step 17 must mirror the doc — no raw
+    ``DROP ONLINE FEATURE TABLE`` SQL, and a real declarative
+    ``rm`` / ``feature plan`` / ``feature apply`` sequence.
+    """
+    text = _VERIFY_SCRIPT.read_text()
+    block = _extract_step17_block_from_verify(text)
+    code = _bash_step17_executable_lines(block)
+    assert "DROP ONLINE FEATURE TABLE" not in code, (
+        "scripts/verify_bug_bash.sh step 17 still issues a raw "
+        "'DROP ONLINE FEATURE TABLE' SQL command — this is the same "
+        "partial-teardown footgun the doc fix removes.  Mirror the "
+        "doc's declarative cleanup instead."
+    )
+    assert "rm " in code and "USER_CLICK_STATS_DECL" in code, (
+        "scripts/verify_bug_bash.sh step 17 must rm the bug-bash FV "
+        "spec files from the workspace before re-running plan/apply."
+    )
+    assert "feature plan" in code, (
+        "scripts/verify_bug_bash.sh step 17 must run 'snow feature plan' "
+        "after removing the YAML to surface the DROP_FV op."
+    )
+    assert "feature apply" in code, (
+        "scripts/verify_bug_bash.sh step 17 must run 'snow feature apply' "
+        "after the plan so the declarative DROP_FV is actually executed."
+    )
+    assert "DROP_FV" in code, (
+        "scripts/verify_bug_bash.sh step 17 must assert the plan shows "
+        "DROP_FV USER_CLICK_STATS_DECL — without this the declarative "
+        "contract is not pinned."
+    )
