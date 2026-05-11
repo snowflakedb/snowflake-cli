@@ -220,6 +220,7 @@ def _resolve_deploy_defaults(
 
     # ── 2. SnowApps parameters (user-level) ──────────────────────────
     param_vals: Dict[str, Optional[str]] = {}
+    cli_console.step("Fetching SnowApps account parameters...")
     raw_params = manager.fetch_snow_apps_parameters()
     if raw_params:
         cli_console.step(
@@ -232,6 +233,7 @@ def _resolve_deploy_defaults(
     default_vals: Dict[str, Optional[str]] = {
         "artifact_repository": f"{app_name}_REPO",
     }
+    cli_console.step("Checking whether a personal database exists...")
     personal_db = manager.get_personal_database()
     if personal_db:
         default_vals["database"] = personal_db
@@ -444,6 +446,12 @@ class SnowflakeAppManager(SqlExecutionMixin):
     ``IDENTIFIER(to_string_literal(name))`` for consistency with the
     ``FQN``-based parameters that already use ``.sql_identifier``.
     """
+
+    def execute_query(self, query: str, **kwargs):
+        """Execute a Snowflake query with CLI spinner feedback."""
+        with cli_console.spinner() as spinner:
+            spinner.add_task(description="", total=None)
+            return super().execute_query(query, **kwargs)
 
     def get_personal_database(self) -> Optional[str]:
         """Return the personal database name for the current user.

@@ -654,6 +654,32 @@ class TestGenerateSnowflakeYml:
 # ── SnowflakeAppManager tests ─────────────────────────────────────────
 
 
+class TestSnowflakeAppManagerQuerySpinner:
+    def test_execute_query_wraps_query_with_spinner(self):
+        manager = SnowflakeAppManager()
+        with patch(
+            "snowflake.cli._plugins.apps.manager.cli_console.spinner"
+        ) as mock_spinner, patch(
+            "snowflake.cli.api.sql_execution.BaseSqlExecutor.execute_query"
+        ) as mock_super_execute:
+            cursor = Mock()
+            spinner = Mock()
+            mock_super_execute.return_value = cursor
+            mock_spinner.return_value.__enter__.return_value = spinner
+
+            result = manager.execute_query("SELECT 1", cursor_class=DictCursor)
+
+            assert result is cursor
+            mock_spinner.assert_called_once_with()
+            spinner.add_task.assert_called_once_with(
+                description="",
+                total=None,
+            )
+            mock_super_execute.assert_called_once_with(
+                "SELECT 1", cursor_class=DictCursor
+            )
+
+
 class TestDatabaseExists:
     @patch(EXECUTE_QUERY)
     def test_returns_true_when_database_found(self, mock_execute):
