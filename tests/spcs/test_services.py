@@ -27,6 +27,7 @@ from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli._plugins.spcs.common import NoPropertiesProvidedError
 from snowflake.cli._plugins.spcs.services.commands import _service_name_callback
 from snowflake.cli._plugins.spcs.services.manager import ServiceManager
+from snowflake.cli._plugins.stage.manager import InternalStageEncryptionType
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import to_string_literal
@@ -1550,71 +1551,6 @@ def test_resume_cli(mock_resume, mock_cursor, runner):
     assert "Statement executed successfully" in result.output
 
 
-@pytest.mark.parametrize(
-    "if_exists, force, expected_query",
-    [
-        (False, False, "drop service test_service"),
-        (True, False, "drop service if exists test_service"),
-        (False, True, "drop service test_service force"),
-        (True, True, "drop service if exists test_service force"),
-    ],
-)
-@patch(EXECUTE_QUERY)
-def test_drop(mock_execute_query, if_exists, force, expected_query):
-    service_name = "test_service"
-    cursor = Mock(spec=SnowflakeCursor)
-    mock_execute_query.return_value = cursor
-    result = ServiceManager().drop(
-        service_name=service_name, if_exists=if_exists, force=force
-    )
-    mock_execute_query.assert_called_once_with(expected_query)
-    assert result == cursor
-
-
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.drop")
-def test_drop_cli_default(mock_drop, mock_cursor, runner):
-    service_name = "test_service"
-    cursor = mock_cursor(
-        rows=[["Statement executed successfully."]], columns=["status"]
-    )
-    mock_drop.return_value = cursor
-    result = runner.invoke(["spcs", "service", "drop", service_name])
-    assert result.exit_code == 0, result.output
-    mock_drop.assert_called_once_with(
-        service_name=f"IDENTIFIER('{service_name}')", if_exists=False, force=False
-    )
-
-
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.drop")
-def test_drop_cli_force(mock_drop, mock_cursor, runner):
-    service_name = "test_service"
-    cursor = mock_cursor(
-        rows=[["Statement executed successfully."]], columns=["status"]
-    )
-    mock_drop.return_value = cursor
-    result = runner.invoke(["spcs", "service", "drop", service_name, "--force"])
-    assert result.exit_code == 0, result.output
-    mock_drop.assert_called_once_with(
-        service_name=f"IDENTIFIER('{service_name}')", if_exists=False, force=True
-    )
-
-
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.drop")
-def test_drop_cli_if_exists_and_force(mock_drop, mock_cursor, runner):
-    service_name = "test_service"
-    cursor = mock_cursor(
-        rows=[["Statement executed successfully."]], columns=["status"]
-    )
-    mock_drop.return_value = cursor
-    result = runner.invoke(
-        ["spcs", "service", "drop", service_name, "--if-exists", "--force"]
-    )
-    assert result.exit_code == 0, result.output
-    mock_drop.assert_called_once_with(
-        service_name=f"IDENTIFIER('{service_name}')", if_exists=True, force=True
-    )
-
-
 @patch(EXECUTE_QUERY)
 def test_set_property(mock_execute_query):
     service_name = "test_service"
@@ -1999,8 +1935,52 @@ def test_build_image(mock_execute_query, mock_get_account):
     assert container["env"]["IMAGE_NAME"] == image_name
     assert container["env"]["IMAGE_TAG"] == image_tag
     assert container["env"]["BUILD_CONTEXT"] == "/app"
+    # WORKLOAD_TYPE must NOT be set when the caller did not pass it: the
+    # runner treats absence as "skip validation entirely" and we never want
+    # to silently opt callers into a wrong ruleset.
+    assert "WORKLOAD_TYPE" not in container["env"]
 
     assert result == cursor
+
+
+@patch("snowflake.cli._plugins.connection.util.get_account")
+@patch(EXECUTE_QUERY)
+def test_build_image_with_workload_type(mock_execute_query, mock_get_account):
+    """Passing workload_type propagates to the WORKLOAD_TYPE env var."""
+    mock_org_cursor = Mock()
+    mock_org_cursor.fetchone.return_value = {"CURRENT_ORGANIZATION_NAME()": "TEST_ORG"}
+    mock_conn = Mock()
+    mock_conn.execute_string.return_value = (None, mock_org_cursor)
+    mock_conn.database = None
+    mock_conn.schema = None
+    mock_conn.account = "test_account"
+    mock_get_account.return_value = "test_account"
+
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_query.return_value = cursor
+
+    manager = ServiceManager(connection=mock_conn)
+    manager.build_image(
+        job_service_name="test_build_job",
+        compute_pool="test_pool",
+        image_repository="db.schema.repo",
+        image_name="my_image",
+        image_tag="v1.0",
+        stage="test_stage",
+        build_context_path="ctx",
+        external_access_integrations=None,
+        async_mode=True,
+        workload_type="notebook",
+    )
+
+    spec_arg = mock_execute_query.mock_calls[0].args[0]
+    import re
+
+    match = re.search(r"\$\$\s*(\{.*?\})\s*\$\$", spec_arg, re.DOTALL)
+    assert match is not None
+    spec = json.loads(match.group(1))
+    env = spec["spec"]["containers"][0]["env"]
+    assert env["WORKLOAD_TYPE"] == "notebook"
 
 
 @patch("snowflake.cli._plugins.connection.util.get_account")
@@ -2190,6 +2170,220 @@ def test_build_image_cli_parameter_validation(runner, temporary_directory):
     )
     assert result.exit_code != 0
     assert "Invalid job name" in result.output
+
+    # Test 4: Invalid workload type (path-traversal-style value rejected before
+    # we ever shell anything out, in addition to the runner's fail-fast).
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "build-image",
+            "--compute-pool",
+            "test_pool",
+            "--image-repository",
+            "db.schema.repo",
+            "--image-name",
+            "my_image",
+            "--image-tag",
+            "v1.0",
+            "--build-context-dir",
+            str(build_context),
+            "--workload-type",
+            "../etc/passwd",
+        ],
+        catch_exceptions=False,
+    )
+    assert result.exit_code != 0
+    assert "Invalid workload type" in result.output
+
+    # Test 5: Invalid stage encryption
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "build-image",
+            "--compute-pool",
+            "test_pool",
+            "--image-repository",
+            "db.schema.repo",
+            "--image-name",
+            "my_image",
+            "--image-tag",
+            "v1.0",
+            "--build-context-dir",
+            str(build_context),
+            "--stage-encryption",
+            "NOT_A_REAL_TYPE",
+        ],
+        catch_exceptions=False,
+    )
+    assert result.exit_code != 0
+    assert "Invalid --stage-encryption" in result.output
+
+
+@pytest.mark.parametrize(
+    "stage_encryption_cli, expect_encryption_kw",
+    [
+        ("snowflake_sse", InternalStageEncryptionType.SNOWFLAKE_SSE),
+        ("SNOWFLAKE_FULL", InternalStageEncryptionType.SNOWFLAKE_FULL),
+        (None, None),
+    ],
+)
+@patch("time.sleep")
+@patch(
+    "snowflake.cli._plugins.spcs.services.commands.ObjectManager",
+)
+@patch(
+    "snowflake.cli._plugins.spcs.services.commands.ServiceManager",
+)
+@patch(
+    "snowflake.cli._plugins.stage.manager.StageManager.put",
+)
+@patch(
+    "snowflake.cli._plugins.stage.manager.StageManager.execute_query",
+)
+@patch(
+    "snowflake.cli._plugins.stage.manager.StageManager.create",
+)
+def test_build_image_cli_temp_stage_encryption_option(
+    mock_stage_create,
+    mock_stage_execute_query,
+    mock_stage_put,
+    mock_service_manager_class,
+    mock_object_manager_class,
+    mock_sleep,
+    stage_encryption_cli,
+    expect_encryption_kw,
+    runner,
+    temporary_directory,
+):
+    """--stage-encryption is forwarded when the CLI creates a temporary stage; omit for legacy CREATE STAGE."""
+    build_context = Path(temporary_directory) / "build_context"
+    build_context.mkdir()
+    (build_context / "Dockerfile").write_text("FROM alpine\n")
+
+    mock_stage_put.return_value = Mock(fetchall=lambda: [])
+
+    mock_service_manager = Mock()
+    mock_service_manager_class.return_value = mock_service_manager
+    mock_build_cursor = Mock(spec=SnowflakeCursor)
+    mock_build_cursor.__iter__ = Mock(return_value=iter([]))
+    mock_build_cursor.fetchone.return_value = {"status": "DONE"}
+    mock_build_cursor.description = []
+    mock_build_cursor.query = ""
+    mock_service_manager.build_image.return_value = mock_build_cursor
+    mock_service_manager.stream_logs.return_value = iter(
+        [("__TERMINAL_STATUS__", "DONE")]
+    )
+
+    mock_object_manager = Mock()
+    mock_object_manager_class.return_value = mock_object_manager
+    mock_describe_cursor = Mock()
+    mock_describe_cursor.fetchone.return_value = {"status": "RUNNING"}
+    mock_object_manager.describe.return_value = mock_describe_cursor
+
+    cmd = [
+        "spcs",
+        "service",
+        "build-image",
+        "--compute-pool",
+        "test_pool",
+        "--image-repository",
+        "db.schema.repo",
+        "--image-name",
+        "my_image",
+        "--image-tag",
+        "v1.0",
+        "--build-context-dir",
+        str(build_context),
+    ]
+    if stage_encryption_cli is not None:
+        cmd.extend(["--stage-encryption", stage_encryption_cli])
+
+    result = runner.invoke(cmd, catch_exceptions=False)
+    assert result.exit_code == 0, f"Command failed with output: {result.output}"
+    mock_stage_create.assert_called_once()
+    if expect_encryption_kw is not None:
+        assert mock_stage_create.call_args.kwargs["encryption"] == expect_encryption_kw
+    else:
+        assert "encryption" not in mock_stage_create.call_args.kwargs
+
+
+@patch("time.sleep")
+@patch(
+    "snowflake.cli._plugins.spcs.services.commands.ObjectManager",
+)
+@patch(
+    "snowflake.cli._plugins.spcs.services.commands.ServiceManager",
+)
+@patch(
+    "snowflake.cli._plugins.stage.manager.StageManager.put",
+)
+@patch(
+    "snowflake.cli._plugins.stage.manager.StageManager.execute_query",
+)
+@patch(
+    "snowflake.cli._plugins.stage.manager.StageManager.create",
+)
+def test_build_image_cli_explicit_stage_does_not_call_create(
+    mock_stage_create,
+    mock_stage_execute_query,
+    mock_stage_put,
+    mock_service_manager_class,
+    mock_object_manager_class,
+    mock_sleep,
+    runner,
+    temporary_directory,
+):
+    """With --stage, StageManager.create is not used (--stage-encryption ignored)."""
+    build_context = Path(temporary_directory) / "build_context"
+    build_context.mkdir()
+    (build_context / "Dockerfile").write_text("FROM alpine\n")
+
+    mock_stage_put.return_value = Mock(fetchall=lambda: [])
+
+    mock_service_manager = Mock()
+    mock_service_manager_class.return_value = mock_service_manager
+    mock_build_cursor = Mock(spec=SnowflakeCursor)
+    mock_build_cursor.__iter__ = Mock(return_value=iter([]))
+    mock_build_cursor.fetchone.return_value = {"status": "DONE"}
+    mock_build_cursor.description = []
+    mock_build_cursor.query = ""
+    mock_service_manager.build_image.return_value = mock_build_cursor
+    mock_service_manager.stream_logs.return_value = iter(
+        [("__TERMINAL_STATUS__", "DONE")]
+    )
+
+    mock_object_manager = Mock()
+    mock_object_manager_class.return_value = mock_object_manager
+    mock_describe_cursor = Mock()
+    mock_describe_cursor.fetchone.return_value = {"status": "RUNNING"}
+    mock_object_manager.describe.return_value = mock_describe_cursor
+
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "build-image",
+            "--compute-pool",
+            "test_pool",
+            "--image-repository",
+            "db.schema.repo",
+            "--image-name",
+            "my_image",
+            "--image-tag",
+            "v1.0",
+            "--build-context-dir",
+            str(build_context),
+            "--stage",
+            "test_stage",
+            "--stage-encryption",
+            "SNOWFLAKE_SSE",
+        ],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, f"Command failed with output: {result.output}"
+    mock_stage_create.assert_not_called()
 
 
 # Tests for check_terminal_status parameter in stream_logs
@@ -2431,3 +2625,504 @@ def test_build_image_hidden_by_default(runner):
     result = runner.invoke(["spcs", "service", "--help"])
     assert result.exit_code == 0
     assert "build-image" not in result.output
+
+
+# Tests for the post-push image-validation flow.
+# Layered as: build_image_registry_url helper -> start/cleanup helpers -> the
+# CLI integration that wires them together. The integration tests use the same
+# build-image runner harness as test_build_image_cli_recursive_upload_with_nested_dirs.
+
+
+@patch("snowflake.cli._plugins.connection.util.get_account")
+def test_build_image_registry_url(mock_get_account):
+    """build_image_registry_url builds the canonical <org>-<acct>/<db>/<schema>/<repo> URL."""
+    mock_org_cursor = Mock()
+    mock_org_cursor.fetchone.return_value = {"CURRENT_ORGANIZATION_NAME()": "TEST_ORG"}
+    mock_conn = Mock()
+    mock_conn.execute_string.return_value = (None, mock_org_cursor)
+    mock_conn.database = None
+    mock_conn.schema = None
+    mock_conn.account = "test_account"
+    mock_get_account.return_value = "test_account"
+
+    manager = ServiceManager(connection=mock_conn)
+    url = manager.build_image_registry_url("MyDB.MySchema.MyRepo")
+    assert (
+        url
+        == "test_org-test_account.registry-local.snowflakecomputing.com/mydb/myschema/myrepo"
+    )
+
+
+@patch("snowflake.cli._plugins.connection.util.get_account")
+def test_build_image_registry_url_missing_parts(mock_get_account):
+    mock_org_cursor = Mock()
+    mock_org_cursor.fetchone.return_value = {"CURRENT_ORGANIZATION_NAME()": "TEST_ORG"}
+    mock_conn = Mock()
+    mock_conn.execute_string.return_value = (None, mock_org_cursor)
+    mock_conn.database = None
+    mock_conn.schema = None
+    mock_conn.account = "test_account"
+    mock_get_account.return_value = "test_account"
+
+    manager = ServiceManager(connection=mock_conn)
+    with pytest.raises(ValueError, match="Image repository requires database and schema"):
+        manager.build_image_registry_url("repo_only")
+
+
+@patch("snowflake.cli._plugins.connection.util.get_account")
+@patch(EXECUTE_QUERY)
+def test_build_image_skip_validation_propagates_env(mock_execute_query, mock_get_account):
+    """--skip-validation must inject SKIP_VALIDATION=true on the runner job env."""
+    mock_org_cursor = Mock()
+    mock_org_cursor.fetchone.return_value = {"CURRENT_ORGANIZATION_NAME()": "TEST_ORG"}
+    mock_conn = Mock()
+    mock_conn.execute_string.return_value = (None, mock_org_cursor)
+    mock_conn.database = None
+    mock_conn.schema = None
+    mock_conn.account = "test_account"
+    mock_get_account.return_value = "test_account"
+
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_query.return_value = cursor
+
+    manager = ServiceManager(connection=mock_conn)
+    manager.build_image(
+        job_service_name="job",
+        compute_pool="pool",
+        image_repository="db.schema.repo",
+        image_name="img",
+        image_tag="v1",
+        stage="stg",
+        build_context_path="ctx",
+        external_access_integrations=None,
+        async_mode=True,
+        workload_type="ml_job",
+        skip_validation=True,
+    )
+
+    spec_arg = mock_execute_query.mock_calls[0].args[0]
+    match = re.search(r"\$\$\s*(\{.*?\})\s*\$\$", spec_arg, re.DOTALL)
+    assert match is not None
+    env = json.loads(match.group(1))["spec"]["containers"][0]["env"]
+    assert env["SKIP_VALIDATION"] == "true"
+    # Workload type still propagates so the smoke test (post-push) can be invoked
+    # if the user later re-runs without --skip-validation; the runner side just
+    # honours SKIP_VALIDATION=true and bypasses its own checks.
+    assert env["WORKLOAD_TYPE"] == "ml_job"
+
+
+@patch(EXECUTE_QUERY)
+def test_start_image_validation_service_parses_payload(mock_execute_query):
+    cursor = Mock(spec=SnowflakeCursor)
+    cursor.fetchone.return_value = (
+        '{"status":"started","service_name":"IMG123","schema_fqn":"DB.SCH",'
+        '"stage_fqn":"@DB.SCH._SNOWFLAKE_IMAGE_VALIDATION_PAYLOAD_IMG123",'
+        '"workload_type":"ML_JOB"}',
+    )
+    mock_execute_query.return_value = cursor
+
+    manager = ServiceManager(connection=Mock())
+    payload = manager.start_image_validation_service(
+        image_url="org-acct.registry-local.snowflakecomputing.com/db/sch/repo/img:v1",
+        workload_type="ML_JOB",
+    )
+
+    assert payload["status"] == "started"
+    assert payload["service_name"] == "IMG123"
+
+    sql = mock_execute_query.mock_calls[0].args[0]
+    assert "SYSTEM$START_IMAGE_VALIDATION_SERVICE" in sql
+    assert "PARSE_JSON" in sql
+    # to_string_literal wraps in single quotes
+    assert "'org-acct.registry-local.snowflakecomputing.com/db/sch/repo/img:v1'" in sql
+    assert "'ML_JOB'" in sql
+
+
+@patch(EXECUTE_QUERY)
+def test_start_image_validation_service_skipped(mock_execute_query):
+    cursor = Mock(spec=SnowflakeCursor)
+    cursor.fetchone.return_value = (
+        '{"status":"skipped","workload_type":"ML_JOB"}',
+    )
+    mock_execute_query.return_value = cursor
+
+    manager = ServiceManager(connection=Mock())
+    payload = manager.start_image_validation_service(
+        image_url="org-acct.registry-local.snowflakecomputing.com/db/sch/repo/img:v1",
+        workload_type="ML_JOB",
+    )
+    assert payload["status"] == "skipped"
+
+
+@patch(EXECUTE_QUERY)
+def test_cleanup_image_validation_service_parses_payload(mock_execute_query):
+    cursor = Mock(spec=SnowflakeCursor)
+    cursor.fetchone.return_value = (
+        '{"dropped_service":true,"dropped_stage":true}',
+    )
+    mock_execute_query.return_value = cursor
+
+    manager = ServiceManager(connection=Mock())
+    payload = manager.cleanup_image_validation_service(service_name="IMG123")
+
+    assert payload == {"dropped_service": True, "dropped_stage": True}
+    sql = mock_execute_query.mock_calls[0].args[0]
+    assert "SYSTEM$CLEANUP_IMAGE_VALIDATION_SERVICE" in sql
+    assert "'IMG123'" in sql
+
+
+@patch(EXECUTE_QUERY)
+def test_cleanup_image_validation_service_no_rows(mock_execute_query):
+    cursor = Mock(spec=SnowflakeCursor)
+    cursor.fetchone.return_value = None
+    mock_execute_query.return_value = cursor
+
+    manager = ServiceManager(connection=Mock())
+    payload = manager.cleanup_image_validation_service(service_name="IMG_GONE")
+    assert payload["dropped_service"] is False
+    assert payload["dropped_stage"] is False
+    assert "no rows returned" in payload["error"]
+
+
+def _make_validation_runner_mocks(
+    *,
+    start_payload: dict,
+    cleanup_payload: dict,
+    describe_status_seq: list,
+    stream_log_seq: list,
+):
+    """Shared harness for the build-image CLI validation-flow tests.
+
+    Builds the same Mock-graph as test_build_image_cli_recursive_upload_with_nested_dirs
+    but additionally lets each test choose how the validation start, describe, stream,
+    and cleanup calls behave.
+    """
+    mock_service_manager = Mock()
+    mock_build_cursor = Mock(spec=SnowflakeCursor)
+    mock_build_cursor.__iter__ = Mock(return_value=iter([]))
+    mock_build_cursor.fetchone.return_value = {"status": "DONE"}
+    mock_build_cursor.description = []
+    mock_build_cursor.query = ""
+    mock_service_manager.build_image.return_value = mock_build_cursor
+    mock_service_manager.stream_logs.side_effect = [
+        iter([("__TERMINAL_STATUS__", "DONE")]),  # build-image stream
+        iter(stream_log_seq),  # validation stream
+    ]
+    mock_service_manager.build_image_registry_url.return_value = (
+        "org-acct.registry-local.snowflakecomputing.com/db/sch/repo"
+    )
+    mock_service_manager.start_image_validation_service.return_value = start_payload
+    mock_service_manager.cleanup_image_validation_service.return_value = cleanup_payload
+    return mock_service_manager, describe_status_seq
+
+
+@patch("time.sleep")
+@patch("snowflake.cli._plugins.spcs.services.commands.ObjectManager")
+@patch("snowflake.cli._plugins.spcs.services.commands.ServiceManager")
+@patch("snowflake.cli._plugins.stage.manager.StageManager.put")
+@patch("snowflake.cli._plugins.stage.manager.StageManager.execute_query")
+def test_build_image_cli_validation_pass(
+    mock_stage_execute_query,
+    mock_stage_put,
+    mock_service_manager_class,
+    mock_object_manager_class,
+    mock_sleep,
+    runner,
+    temporary_directory,
+):
+    """When the validation service hits DONE the CLI exits 0 and runs cleanup once."""
+    build_context = Path(temporary_directory) / "build_context"
+    build_context.mkdir()
+    (build_context / "Dockerfile").write_text("FROM python:3.10-alpine")
+    mock_stage_put.return_value = Mock(fetchall=lambda: [])
+
+    mock_service_manager, _ = _make_validation_runner_mocks(
+        start_payload={
+            "status": "started",
+            "service_name": "IMG123",
+            "schema_fqn": "DB.SCH",
+            "stage_fqn": "@DB.SCH._SNOWFLAKE_IMAGE_VALIDATION_PAYLOAD_IMG123",
+            "workload_type": "ML_JOB",
+        },
+        cleanup_payload={"dropped_service": True, "dropped_stage": True},
+        describe_status_seq=[{"status": "RUNNING"}, {"status": "RUNNING"}],
+        stream_log_seq=[
+            "validation log line 1",
+            ("__TERMINAL_STATUS__", "DONE"),
+        ],
+    )
+    mock_service_manager_class.return_value = mock_service_manager
+
+    mock_object_manager = Mock()
+    mock_object_manager_class.return_value = mock_object_manager
+    # Two describe paths: the build job (which the CLI polls first) and the
+    # validation service. Both leave PENDING immediately.
+    describe_cursor = Mock()
+    describe_cursor.fetchone.return_value = {"status": "RUNNING"}
+    mock_object_manager.describe.return_value = describe_cursor
+
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "build-image",
+            "--compute-pool",
+            "test_pool",
+            "--image-repository",
+            "db.schema.repo",
+            "--image-name",
+            "my_image",
+            "--image-tag",
+            "v1.0",
+            "--build-context-dir",
+            str(build_context),
+            "--stage",
+            "test_stage",
+            "--workload-type",
+            "ml_job",
+        ],
+        catch_exceptions=False,
+    )
+
+    assert result.exit_code == 0, f"unexpected exit; output: {result.output}"
+    mock_service_manager.start_image_validation_service.assert_called_once()
+    mock_service_manager.cleanup_image_validation_service.assert_called_once_with(
+        service_name="IMG123"
+    )
+    assert "Image validation passed" in result.output
+
+
+@patch("time.sleep")
+@patch("snowflake.cli._plugins.spcs.services.commands.ObjectManager")
+@patch("snowflake.cli._plugins.spcs.services.commands.ServiceManager")
+@patch("snowflake.cli._plugins.stage.manager.StageManager.put")
+@patch("snowflake.cli._plugins.stage.manager.StageManager.execute_query")
+def test_build_image_cli_validation_failed(
+    mock_stage_execute_query,
+    mock_stage_put,
+    mock_service_manager_class,
+    mock_object_manager_class,
+    mock_sleep,
+    runner,
+    temporary_directory,
+):
+    """When the validation service hits FAILED the CLI exits 2 (validation fail)."""
+    build_context = Path(temporary_directory) / "build_context"
+    build_context.mkdir()
+    (build_context / "Dockerfile").write_text("FROM python:3.10-alpine")
+    mock_stage_put.return_value = Mock(fetchall=lambda: [])
+
+    mock_service_manager, _ = _make_validation_runner_mocks(
+        start_payload={
+            "status": "started",
+            "service_name": "IMG456",
+            "schema_fqn": "DB.SCH",
+            "stage_fqn": "@DB.SCH._SNOWFLAKE_IMAGE_VALIDATION_PAYLOAD_IMG456",
+            "workload_type": "ML_JOB",
+        },
+        cleanup_payload={"dropped_service": True, "dropped_stage": True},
+        describe_status_seq=[{"status": "RUNNING"}],
+        stream_log_seq=[("__TERMINAL_STATUS__", "FAILED")],
+    )
+    mock_service_manager_class.return_value = mock_service_manager
+    mock_object_manager = Mock()
+    mock_object_manager_class.return_value = mock_object_manager
+    describe_cursor = Mock()
+    describe_cursor.fetchone.return_value = {"status": "RUNNING"}
+    mock_object_manager.describe.return_value = describe_cursor
+
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "build-image",
+            "--compute-pool",
+            "test_pool",
+            "--image-repository",
+            "db.schema.repo",
+            "--image-name",
+            "my_image",
+            "--image-tag",
+            "v1.0",
+            "--build-context-dir",
+            str(build_context),
+            "--stage",
+            "test_stage",
+            "--workload-type",
+            "ml_job",
+        ],
+        catch_exceptions=False,
+    )
+
+    # _EXIT_VALIDATION_FAILED == 2
+    assert result.exit_code == 2, f"unexpected exit; output: {result.output}"
+    mock_service_manager.cleanup_image_validation_service.assert_called_once_with(
+        service_name="IMG456"
+    )
+    assert "Image validation FAILED" in result.output
+
+
+@patch("time.sleep")
+@patch("snowflake.cli._plugins.spcs.services.commands.ObjectManager")
+@patch("snowflake.cli._plugins.spcs.services.commands.ServiceManager")
+@patch("snowflake.cli._plugins.stage.manager.StageManager.put")
+@patch("snowflake.cli._plugins.stage.manager.StageManager.execute_query")
+def test_build_image_cli_skip_validation(
+    mock_stage_execute_query,
+    mock_stage_put,
+    mock_service_manager_class,
+    mock_object_manager_class,
+    mock_sleep,
+    runner,
+    temporary_directory,
+):
+    """--skip-validation propagates SKIP_VALIDATION=true AND skips the post-push smoke test."""
+    build_context = Path(temporary_directory) / "build_context"
+    build_context.mkdir()
+    (build_context / "Dockerfile").write_text("FROM python:3.10-alpine")
+    mock_stage_put.return_value = Mock(fetchall=lambda: [])
+
+    mock_service_manager = Mock()
+    mock_build_cursor = Mock(spec=SnowflakeCursor)
+    mock_build_cursor.__iter__ = Mock(return_value=iter([]))
+    mock_build_cursor.fetchone.return_value = {"status": "DONE"}
+    mock_build_cursor.description = []
+    mock_build_cursor.query = ""
+    mock_service_manager.build_image.return_value = mock_build_cursor
+    mock_service_manager.stream_logs.return_value = iter(
+        [("__TERMINAL_STATUS__", "DONE")]
+    )
+    mock_service_manager_class.return_value = mock_service_manager
+
+    mock_object_manager = Mock()
+    mock_object_manager_class.return_value = mock_object_manager
+    describe_cursor = Mock()
+    describe_cursor.fetchone.return_value = {"status": "RUNNING"}
+    mock_object_manager.describe.return_value = describe_cursor
+
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "build-image",
+            "--compute-pool",
+            "test_pool",
+            "--image-repository",
+            "db.schema.repo",
+            "--image-name",
+            "my_image",
+            "--image-tag",
+            "v1.0",
+            "--build-context-dir",
+            str(build_context),
+            "--stage",
+            "test_stage",
+            "--workload-type",
+            "ml_job",
+            "--skip-validation",
+        ],
+        catch_exceptions=False,
+    )
+
+    assert result.exit_code == 0, f"unexpected exit; output: {result.output}"
+    # The runner-side flag was passed to build_image:
+    build_image_kwargs = mock_service_manager.build_image.call_args.kwargs
+    assert build_image_kwargs["skip_validation"] is True
+    assert build_image_kwargs["workload_type"] == "ml_job"
+    # And the post-push smoke test was NOT invoked:
+    mock_service_manager.start_image_validation_service.assert_not_called()
+    mock_service_manager.cleanup_image_validation_service.assert_not_called()
+
+
+@patch("time.sleep")
+@patch("snowflake.cli._plugins.spcs.services.commands.ObjectManager")
+@patch("snowflake.cli._plugins.spcs.services.commands.ServiceManager")
+@patch("snowflake.cli._plugins.stage.manager.StageManager.put")
+@patch("snowflake.cli._plugins.stage.manager.StageManager.execute_query")
+def test_build_image_cli_validation_keyboard_interrupt(
+    mock_stage_execute_query,
+    mock_stage_put,
+    mock_service_manager_class,
+    mock_object_manager_class,
+    mock_sleep,
+    runner,
+    temporary_directory,
+):
+    """Ctrl-C during log streaming still triggers cleanup and reports transient."""
+    build_context = Path(temporary_directory) / "build_context"
+    build_context.mkdir()
+    (build_context / "Dockerfile").write_text("FROM python:3.10-alpine")
+    mock_stage_put.return_value = Mock(fetchall=lambda: [])
+
+    mock_service_manager = Mock()
+    mock_build_cursor = Mock(spec=SnowflakeCursor)
+    mock_build_cursor.__iter__ = Mock(return_value=iter([]))
+    mock_build_cursor.fetchone.return_value = {"status": "DONE"}
+    mock_build_cursor.description = []
+    mock_build_cursor.query = ""
+    mock_service_manager.build_image.return_value = mock_build_cursor
+
+    def _stream_then_interrupt():
+        # Build-image stream returns DONE quickly, then validation stream raises.
+        if not getattr(_stream_then_interrupt, "called_once", False):
+            _stream_then_interrupt.called_once = True
+            return iter([("__TERMINAL_STATUS__", "DONE")])
+
+        def gen():
+            yield "validation log line"
+            raise KeyboardInterrupt()
+
+        return gen()
+
+    mock_service_manager.stream_logs.side_effect = lambda *a, **kw: _stream_then_interrupt()
+    mock_service_manager.build_image_registry_url.return_value = (
+        "org-acct.registry-local.snowflakecomputing.com/db/sch/repo"
+    )
+    mock_service_manager.start_image_validation_service.return_value = {
+        "status": "started",
+        "service_name": "IMG_INTR",
+        "schema_fqn": "DB.SCH",
+        "stage_fqn": "@DB.SCH._SNOWFLAKE_IMAGE_VALIDATION_PAYLOAD_IMG_INTR",
+        "workload_type": "ML_JOB",
+    }
+    mock_service_manager.cleanup_image_validation_service.return_value = {
+        "dropped_service": True,
+        "dropped_stage": True,
+    }
+    mock_service_manager_class.return_value = mock_service_manager
+
+    mock_object_manager = Mock()
+    mock_object_manager_class.return_value = mock_object_manager
+    describe_cursor = Mock()
+    describe_cursor.fetchone.return_value = {"status": "RUNNING"}
+    mock_object_manager.describe.return_value = describe_cursor
+
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "build-image",
+            "--compute-pool",
+            "test_pool",
+            "--image-repository",
+            "db.schema.repo",
+            "--image-name",
+            "my_image",
+            "--image-tag",
+            "v1.0",
+            "--build-context-dir",
+            str(build_context),
+            "--stage",
+            "test_stage",
+            "--workload-type",
+            "ml_job",
+        ],
+        catch_exceptions=False,
+    )
+
+    # Ctrl-C => transient (exit 3); cleanup must still run exactly once.
+    assert result.exit_code == 3, f"unexpected exit; output: {result.output}"
+    mock_service_manager.cleanup_image_validation_service.assert_called_once_with(
+        service_name="IMG_INTR"
+    )
+    assert "could not run to completion" in result.output

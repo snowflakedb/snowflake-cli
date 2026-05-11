@@ -46,6 +46,7 @@ from snowflake.cli.api.artifacts.utils import bundle_artifacts
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.entities.common import Artifacts
+from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
@@ -304,50 +305,26 @@ class ServiceManager(SqlExecutionMixin):
             replicas=replicas,
         )
 
-    def build_image(
+    def build_image_registry_url(
         self,
-        job_service_name: str,
-        compute_pool: str,
         image_repository: str,
-        image_name: str,
-        image_tag: str,
-        stage: str,
-        build_context_path: str,
-        external_access_integrations: Optional[List[str]],
-        async_mode: bool = True,
-    ) -> SnowflakeCursor:
-        """
-        Builds a container image using EXECUTE JOB SERVICE with the Snowflake image builder.
+    ) -> str:
+        """Build the canonical image-registry URL for ``image_repository``.
 
-        Args:
-            job_service_name: Name for the build job service
-            compute_pool: Compute pool to run the build job
-            image_repository: Repository path in format [db.][schema.]repo_name
-            image_name: Name for the built image
-            image_tag: Tag for the built image
-            stage: Stage where the build context is uploaded
-            build_context_path: Path on stage where build context is located
-            external_access_integrations: List of EAI names
-            async_mode: Whether to run the build asynchronously
+        Returns ``<org>-<account>.registry-local.snowflakecomputing.com/<db>/<schema>/<repo>``,
+        the same shape ``build_image`` injects as the ``IMAGE_REGISTRY_URL`` env var. Exposed
+        separately so the post-push validation hook can build the URL it passes to
+        ``SYSTEM$START_IMAGE_VALIDATION_SERVICE`` without re-implementing FQN parsing.
+
+        Raises ``ValueError`` if ``image_repository`` is missing the database or schema parts.
         """
-        # Get organization name
-        # Using execute_string (same as get_account) for consistency
         *_, org_cursor = self._conn.execute_string(
             "SELECT CURRENT_ORGANIZATION_NAME()", cursor_class=DictCursor
         )
         org_name = org_cursor.fetchone()["CURRENT_ORGANIZATION_NAME()"].lower()
-
-        # Get account name using existing utility function
         account_name = get_account(self._conn)
 
-        # Parse the image repository using FQN utility
-        # This handles [db.][schema.]repo_name format automatically
         repo_fqn = FQN.from_string(image_repository).using_connection(self._conn)
-
-        # Validate that we have all required parts
-        # Note: FQN parsing gives us: "db.schema.repo" → both present,
-        # "schema.repo" → only schema, "repo" → neither
-        # It's impossible to have database without schema
         if not repo_fqn.database or not repo_fqn.schema:
             missing_parts = []
             if not repo_fqn.database:
@@ -362,26 +339,76 @@ class ServiceManager(SqlExecutionMixin):
                 f"Provided: '{image_repository}'"
             )
 
-        # Build the image registry URL
-        # Format: <org>-<account-name>.registry-local.snowflakecomputing.com/<db>/<schema>/<repo>
-        image_registry_url = (
+        return (
             f"{org_name}-{account_name}.registry-local.snowflakecomputing.com/"
             f"{repo_fqn.database.lower()}/{repo_fqn.schema.lower()}/{repo_fqn.name.lower()}"
         )
 
-        # Create the specification for the image build job
+    def build_image(
+        self,
+        job_service_name: str,
+        compute_pool: str,
+        image_repository: str,
+        image_name: str,
+        image_tag: str,
+        stage: str,
+        build_context_path: str,
+        external_access_integrations: Optional[List[str]],
+        async_mode: bool = True,
+        workload_type: Optional[str] = None,
+        skip_validation: bool = False,
+    ) -> SnowflakeCursor:
+        """
+        Builds a container image using EXECUTE JOB SERVICE with the Snowflake image builder.
+
+        Args:
+            job_service_name: Name for the build job service
+            compute_pool: Compute pool to run the build job
+            image_repository: Repository path in format [db.][schema.]repo_name
+            image_name: Name for the built image
+            image_tag: Tag for the built image
+            stage: Stage where the build context is uploaded
+            build_context_path: Path on stage where build context is located
+            external_access_integrations: List of EAI names
+            async_mode: Whether to run the build asynchronously
+            workload_type: Optional workload identifier (e.g. "notebook", "ml_job")
+                that selects which validation YAML the sf-image-build runner
+                applies. Propagated as the WORKLOAD_TYPE env var; the runner
+                resolves it to /etc/sf-image-build/configs/<workload>.yaml and
+                fails fast if no such file is baked into the runner image.
+                When None, the WORKLOAD_TYPE env var is omitted, which causes
+                the runner to skip validation entirely (with a logged warning).
+            skip_validation: When True, propagated as ``SKIP_VALIDATION=true`` on
+                the runner job's env. The runner reads this flag and bypasses the
+                advisory in-process validation phases entirely. Independent of
+                ``workload_type`` -- callers can still pass a workload type for
+                the post-push smoke test path while skipping the runner-side
+                advisory checks.
+        """
+        image_registry_url = self.build_image_registry_url(image_repository)
+
+        env_vars = {
+            "IMAGE_REGISTRY_URL": image_registry_url,
+            "IMAGE_NAME": image_name,
+            "IMAGE_TAG": image_tag,
+            "BUILD_CONTEXT": "/app",
+        }
+        if workload_type:
+            # Opts the runner into validation against
+            # /etc/sf-image-build/configs/<workload_type>.yaml. Setting an
+            # unknown workload type causes the runner to fail fast with a
+            # message listing every YAML baked into the runner image.
+            env_vars["WORKLOAD_TYPE"] = workload_type
+        if skip_validation:
+            env_vars["SKIP_VALIDATION"] = "true"
+
         spec = {
             "spec": {
                 "containers": [
                     {
                         "name": "main",
                         "image": "/snowflake/images/snowflake_images/sf-image-build:0.0.1",
-                        "env": {
-                            "IMAGE_REGISTRY_URL": image_registry_url,
-                            "IMAGE_NAME": image_name,
-                            "IMAGE_TAG": image_tag,
-                            "BUILD_CONTEXT": "/app",
-                        },
+                        "env": env_vars,
                         "volumeMounts": [
                             {
                                 "name": "code-volume",
@@ -409,6 +436,61 @@ class ServiceManager(SqlExecutionMixin):
             external_access_integrations=external_access_integrations,
             async_mode=async_mode,
         )
+
+    def start_image_validation_service(
+        self, image_url: str, workload_type: str
+    ) -> dict:
+        """
+        Start a server-side image validation smoke service.
+
+        Wraps ``SELECT SYSTEM$START_IMAGE_VALIDATION_SERVICE(?, ?)`` and parses its JSON
+        return value. The system function provisions a per-service stage with the
+        workload-specific smoke driver, submits an SPCS service against ``image_url``, and
+        returns ``{"status": "started"|"skipped", "service_name": ..., "schema_fqn": ...,
+        "stage_fqn": ..., "workload_type": ...}``. Callers tail the service's logs via
+        ``stream_logs`` and call ``cleanup_image_validation_service`` once the service
+        reaches a terminal state.
+        """
+        query = (
+            "SELECT PARSE_JSON(SYSTEM$START_IMAGE_VALIDATION_SERVICE("
+            f"{to_string_literal(image_url)}, {to_string_literal(workload_type)}"
+            ")) AS payload"
+        )
+        cursor = self.execute_query(query)
+        row = cursor.fetchone()
+        if row is None:
+            raise ProgrammingError(
+                "SYSTEM$START_IMAGE_VALIDATION_SERVICE returned no rows; check the"
+                " session has CURRENT_DATABASE/CURRENT_SCHEMA set and the workload"
+                " type is supported."
+            )
+        payload = row[0]
+        if isinstance(payload, str):
+            payload = json.loads(payload)
+        return payload
+
+    def cleanup_image_validation_service(self, service_name: str) -> dict:
+        """
+        Drop the validation service and its per-service payload stage.
+
+        Wraps ``SELECT SYSTEM$CLEANUP_IMAGE_VALIDATION_SERVICE(?)`` and parses its JSON
+        return value. Returns ``{"dropped_service": bool, "dropped_stage": bool, "error":
+        str|None}``. Designed to be called from a ``finally`` block so a Ctrl-C or
+        unexpected exception during log streaming still triggers cleanup.
+        """
+        query = (
+            "SELECT PARSE_JSON(SYSTEM$CLEANUP_IMAGE_VALIDATION_SERVICE("
+            f"{to_string_literal(service_name)}"
+            ")) AS payload"
+        )
+        cursor = self.execute_query(query)
+        row = cursor.fetchone()
+        if row is None:
+            return {"dropped_service": False, "dropped_stage": False, "error": "no rows returned"}
+        payload = row[0]
+        if isinstance(payload, str):
+            payload = json.loads(payload)
+        return payload
 
     def _read_yaml(self, path: Path) -> str:
         # TODO(aivanou): Add validation towards schema
@@ -710,15 +792,6 @@ class ServiceManager(SqlExecutionMixin):
 
     def resume(self, service_name: str):
         return self.execute_query(f"alter service {service_name} resume")
-
-    def drop(
-        self, service_name: str, if_exists: bool = False, force: bool = False
-    ) -> SnowflakeCursor:
-        if_exists_clause = " if exists" if if_exists else ""
-        force_clause = " force" if force else ""
-        return self.execute_query(
-            f"drop service{if_exists_clause} {service_name}{force_clause}"
-        )
 
     def set_property(
         self,
