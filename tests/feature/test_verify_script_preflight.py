@@ -195,9 +195,7 @@ class TestVerifyScriptPreflight:
             f"output; got stdout={result.stdout!r} stderr={result.stderr!r}"
         )
 
-    def test_preflight_remediation_command_is_correct(
-        self, fake_install_and_wheel
-    ):
+    def test_preflight_remediation_command_is_correct(self, fake_install_and_wheel):
         """The stale-state remediation block must print the exact
         ``pip install --force-reinstall build/*.whl build/*.whl``
         shape.
