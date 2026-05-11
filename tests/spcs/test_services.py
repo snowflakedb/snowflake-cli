@@ -27,6 +27,7 @@ from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli._plugins.spcs.common import NoPropertiesProvidedError
 from snowflake.cli._plugins.spcs.services.commands import _service_name_callback
 from snowflake.cli._plugins.spcs.services.manager import ServiceManager
+from snowflake.cli._plugins.stage.manager import InternalStageEncryptionType
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import to_string_literal
@@ -2190,6 +2191,195 @@ def test_build_image_cli_parameter_validation(runner, temporary_directory):
     )
     assert result.exit_code != 0
     assert "Invalid job name" in result.output
+
+    # Test 4: Invalid stage encryption
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "build-image",
+            "--compute-pool",
+            "test_pool",
+            "--image-repository",
+            "db.schema.repo",
+            "--image-name",
+            "my_image",
+            "--image-tag",
+            "v1.0",
+            "--build-context-dir",
+            str(build_context),
+            "--stage-encryption",
+            "NOT_A_REAL_TYPE",
+        ],
+        catch_exceptions=False,
+    )
+    assert result.exit_code != 0
+    assert "Invalid --stage-encryption" in result.output
+
+
+@pytest.mark.parametrize(
+    "stage_encryption_cli, expect_encryption_kw",
+    [
+        ("snowflake_sse", InternalStageEncryptionType.SNOWFLAKE_SSE),
+        ("SNOWFLAKE_FULL", InternalStageEncryptionType.SNOWFLAKE_FULL),
+        (None, None),
+    ],
+)
+@patch("time.sleep")
+@patch(
+    "snowflake.cli._plugins.spcs.services.commands.ObjectManager",
+)
+@patch(
+    "snowflake.cli._plugins.spcs.services.commands.ServiceManager",
+)
+@patch(
+    "snowflake.cli._plugins.stage.manager.StageManager.put",
+)
+@patch(
+    "snowflake.cli._plugins.stage.manager.StageManager.execute_query",
+)
+@patch(
+    "snowflake.cli._plugins.stage.manager.StageManager.create",
+)
+def test_build_image_cli_temp_stage_encryption_option(
+    mock_stage_create,
+    mock_stage_execute_query,
+    mock_stage_put,
+    mock_service_manager_class,
+    mock_object_manager_class,
+    mock_sleep,
+    stage_encryption_cli,
+    expect_encryption_kw,
+    runner,
+    temporary_directory,
+):
+    """--stage-encryption is forwarded when the CLI creates a temporary stage; omit for legacy CREATE STAGE."""
+    build_context = Path(temporary_directory) / "build_context"
+    build_context.mkdir()
+    (build_context / "Dockerfile").write_text("FROM alpine\n")
+
+    mock_stage_put.return_value = Mock(fetchall=lambda: [])
+
+    mock_service_manager = Mock()
+    mock_service_manager_class.return_value = mock_service_manager
+    mock_build_cursor = Mock(spec=SnowflakeCursor)
+    mock_build_cursor.__iter__ = Mock(return_value=iter([]))
+    mock_build_cursor.fetchone.return_value = {"status": "DONE"}
+    mock_build_cursor.description = []
+    mock_build_cursor.query = ""
+    mock_service_manager.build_image.return_value = mock_build_cursor
+    mock_service_manager.stream_logs.return_value = iter(
+        [("__TERMINAL_STATUS__", "DONE")]
+    )
+
+    mock_object_manager = Mock()
+    mock_object_manager_class.return_value = mock_object_manager
+    mock_describe_cursor = Mock()
+    mock_describe_cursor.fetchone.return_value = {"status": "RUNNING"}
+    mock_object_manager.describe.return_value = mock_describe_cursor
+
+    cmd = [
+        "spcs",
+        "service",
+        "build-image",
+        "--compute-pool",
+        "test_pool",
+        "--image-repository",
+        "db.schema.repo",
+        "--image-name",
+        "my_image",
+        "--image-tag",
+        "v1.0",
+        "--build-context-dir",
+        str(build_context),
+    ]
+    if stage_encryption_cli is not None:
+        cmd.extend(["--stage-encryption", stage_encryption_cli])
+
+    result = runner.invoke(cmd, catch_exceptions=False)
+    assert result.exit_code == 0, f"Command failed with output: {result.output}"
+    mock_stage_create.assert_called_once()
+    if expect_encryption_kw is not None:
+        assert mock_stage_create.call_args.kwargs["encryption"] == expect_encryption_kw
+    else:
+        assert "encryption" not in mock_stage_create.call_args.kwargs
+
+
+@patch("time.sleep")
+@patch(
+    "snowflake.cli._plugins.spcs.services.commands.ObjectManager",
+)
+@patch(
+    "snowflake.cli._plugins.spcs.services.commands.ServiceManager",
+)
+@patch(
+    "snowflake.cli._plugins.stage.manager.StageManager.put",
+)
+@patch(
+    "snowflake.cli._plugins.stage.manager.StageManager.execute_query",
+)
+@patch(
+    "snowflake.cli._plugins.stage.manager.StageManager.create",
+)
+def test_build_image_cli_explicit_stage_does_not_call_create(
+    mock_stage_create,
+    mock_stage_execute_query,
+    mock_stage_put,
+    mock_service_manager_class,
+    mock_object_manager_class,
+    mock_sleep,
+    runner,
+    temporary_directory,
+):
+    """With --stage, StageManager.create is not used (--stage-encryption ignored)."""
+    build_context = Path(temporary_directory) / "build_context"
+    build_context.mkdir()
+    (build_context / "Dockerfile").write_text("FROM alpine\n")
+
+    mock_stage_put.return_value = Mock(fetchall=lambda: [])
+
+    mock_service_manager = Mock()
+    mock_service_manager_class.return_value = mock_service_manager
+    mock_build_cursor = Mock(spec=SnowflakeCursor)
+    mock_build_cursor.__iter__ = Mock(return_value=iter([]))
+    mock_build_cursor.fetchone.return_value = {"status": "DONE"}
+    mock_build_cursor.description = []
+    mock_build_cursor.query = ""
+    mock_service_manager.build_image.return_value = mock_build_cursor
+    mock_service_manager.stream_logs.return_value = iter(
+        [("__TERMINAL_STATUS__", "DONE")]
+    )
+
+    mock_object_manager = Mock()
+    mock_object_manager_class.return_value = mock_object_manager
+    mock_describe_cursor = Mock()
+    mock_describe_cursor.fetchone.return_value = {"status": "RUNNING"}
+    mock_object_manager.describe.return_value = mock_describe_cursor
+
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "build-image",
+            "--compute-pool",
+            "test_pool",
+            "--image-repository",
+            "db.schema.repo",
+            "--image-name",
+            "my_image",
+            "--image-tag",
+            "v1.0",
+            "--build-context-dir",
+            str(build_context),
+            "--stage",
+            "test_stage",
+            "--stage-encryption",
+            "SNOWFLAKE_SSE",
+        ],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, f"Command failed with output: {result.output}"
+    mock_stage_create.assert_not_called()
 
 
 # Tests for check_terminal_status parameter in stream_logs
