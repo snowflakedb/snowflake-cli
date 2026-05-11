@@ -528,7 +528,16 @@ class FeatureManager(SqlExecutionMixin):
             "ops": [
                 {
                     "operation": op.kind.value,
-                    "name": op.name.lower(),
+                    # Preserve the spec's original-case name so the
+                    # rendered plan UI, the on-disk JSON written by
+                    # ``write_plan`` (via ``serialize_plan``), and the
+                    # apply-time per-op rendering all share one
+                    # canonical identifier.  Lowercasing here was the
+                    # source of the BUG_BASH §11 false-fail where
+                    # ``verify_bug_bash.sh`` greps for the
+                    # doc-aligned uppercase ``UPDATE_ENTITY USER_ID``
+                    # row but the renderer emitted ``user_id``.
+                    "name": op.name,
                     "reason": op.reason,
                     "destructive": op.destructive,
                 }
