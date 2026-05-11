@@ -12,8 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for 'snow feature' CLI commands."""
+"""Tests for ``snow feature`` Typer commands (Phase 3+4 manifest-driven surface).
 
+The CLI surface mirrors DCM (D3 / D5 / D8 in
+``MANIFEST_YML_LAYOUT_DECISIONS.md``):
+
+* Every state-driving command takes ``--from <dir>`` (default cwd)
+  to locate ``manifest.yml`` and ``--target <name>`` (default
+  ``manifest.default_target``).
+* ``apply`` is a *pure plan-file consumer*: no positional spec
+  paths, no ``--config``, no ``--overwrite``.  Plans are produced
+  by ``snow feature plan`` and discovered from
+  ``<project_root>/out/plan/`` (or passed via ``--plan <path>``).
+* ``plan`` writes its envelope to ``<project_root>/out/plan/`` by
+  default, with ``--out`` as the only override.
+* ``--variable -D key=value`` is the only template-variable
+  surface (``--config`` is gone).
+* ``init`` derives the manifest from the live connection and is
+  fail-fast on a pre-existing ``manifest.yml`` (no ``--force``).
+"""
+
+from pathlib import Path
 from unittest import mock
 
 FEATURE_MANAGER = "snowflake.cli._plugins.feature.commands.FeatureManager"
@@ -25,71 +44,121 @@ FEATURE_MANAGER = "snowflake.cli._plugins.feature.commands.FeatureManager"
 
 
 @mock.patch(FEATURE_MANAGER)
-def test_apply_requires_at_least_one_file(mock_manager, runner):
-    """apply with no files should exit with a usage error (code 2)."""
+def test_apply_no_positional_args_runs_with_defaults(mock_manager, runner):
+    """``apply`` accepts zero positional arguments — the new surface
+    is fully flag-driven (``--from``, ``--target``, ``--plan``).
+
+    The legacy contract was the opposite: ``apply`` required at
+    least one ``INPUT_FILE`` positional and exited with usage code 2
+    otherwise.  Phase 3+4 deletes the positional surface entirely
+    (D1) so re-running the bare command must succeed and delegate
+    to the manager — confirming the positional argument really is
+    gone, not just optional.
+    """
+    mock_manager.return_value.apply.return_value = {
+        "status": "no_plan",
+        "ops": [],
+        "executed": 0,
+    }
     result = runner.invoke(["feature", "apply"])
-    assert result.exit_code == 2, result.output
+    assert result.exit_code == 0, result.output
+    mock_manager.return_value.apply.assert_called_once()
 
 
 @mock.patch(FEATURE_MANAGER)
-def test_apply_single_file(mock_manager, runner):
-    """apply with one file should call FeatureManager.apply."""
-    mock_manager.return_value.apply.return_value = {"status": "ok"}
-    result = runner.invoke(["feature", "apply", "my_specs.yaml"])
+def test_apply_passes_from_target_and_plan_flags(mock_manager, runner, tmp_path):
+    """``apply --from <dir> --target NAME --plan FILE`` forwards each
+    flag on the manager call exactly once, in the new kwarg shape.
+    """
+    plan_file = tmp_path / "feature_plan.json"
+    plan_file.write_text("{}")
+    mock_manager.return_value.apply.return_value = {
+        "status": "applied",
+        "ops": [],
+        "executed": 0,
+    }
+    result = runner.invoke(
+        [
+            "feature",
+            "apply",
+            "--from",
+            str(tmp_path),
+            "--target",
+            "PROD",
+            "--plan",
+            str(plan_file),
+        ]
+    )
     assert result.exit_code == 0, result.output
-    mock_manager.return_value.apply.assert_called_once()
-    call_kwargs = mock_manager.return_value.apply.call_args[1]
-    assert "my_specs.yaml" in call_kwargs["input_files"]
+    call_kwargs = mock_manager.return_value.apply.call_args.kwargs
+    assert call_kwargs["from_dir"] == Path(str(tmp_path))
+    assert call_kwargs["target_name"] == "PROD"
+    assert call_kwargs["plan_file"] == str(plan_file)
 
 
 @mock.patch(FEATURE_MANAGER)
 def test_apply_dev_flag(mock_manager, runner):
-    """apply --dev should pass dev_mode=True."""
-    mock_manager.return_value.apply.return_value = {}
-    result = runner.invoke(["feature", "apply", "specs.yaml", "--dev"])
+    """``apply --dev`` propagates ``dev_mode=True`` to the manager."""
+    mock_manager.return_value.apply.return_value = {"status": "applied", "ops": []}
+    result = runner.invoke(["feature", "apply", "--dev"])
     assert result.exit_code == 0, result.output
-    call_kwargs = mock_manager.return_value.apply.call_args[1]
-    assert call_kwargs["dev_mode"] is True
-
-
-@mock.patch(FEATURE_MANAGER)
-def test_apply_overwrite_flag(mock_manager, runner):
-    """apply --overwrite should pass overwrite=True."""
-    mock_manager.return_value.apply.return_value = {}
-    result = runner.invoke(["feature", "apply", "specs.yaml", "--overwrite"])
-    assert result.exit_code == 0, result.output
-    call_kwargs = mock_manager.return_value.apply.call_args[1]
-    assert call_kwargs["overwrite"] is True
+    assert mock_manager.return_value.apply.call_args.kwargs["dev_mode"] is True
 
 
 @mock.patch(FEATURE_MANAGER)
 def test_apply_allow_recreate_flag(mock_manager, runner):
-    """apply --allow-recreate should pass allow_recreate=True."""
-    mock_manager.return_value.apply.return_value = {}
-    result = runner.invoke(["feature", "apply", "specs.yaml", "--allow-recreate"])
+    """``apply --allow-recreate`` propagates ``allow_recreate=True``."""
+    mock_manager.return_value.apply.return_value = {"status": "applied", "ops": []}
+    result = runner.invoke(["feature", "apply", "--allow-recreate"])
     assert result.exit_code == 0, result.output
-    call_kwargs = mock_manager.return_value.apply.call_args[1]
-    assert call_kwargs["allow_recreate"] is True
+    assert mock_manager.return_value.apply.call_args.kwargs["allow_recreate"] is True
 
 
 @mock.patch(FEATURE_MANAGER)
-def test_apply_help_shows_all_options(mock_manager, runner):
-    """apply --help must show all documented flags.
+def test_apply_rejects_overwrite_flag(mock_manager, runner):
+    """``--overwrite`` was removed in Phase 3+4 (D1).
 
-    ``--dry`` was removed when the dry-run apply path was deleted —
-    operators preview changes via ``snow feature plan`` instead.  Pin
-    that the flag is gone so a future contributor cannot silently
-    re-introduce it.
+    Rolling back to the legacy "wipe + reapply" semantics is no longer
+    possible from the CLI — operators must drop / reapply explicitly.
+    Pin the rejection so a future contributor cannot silently
+    re-introduce the destructive flag.
+    """
+    result = runner.invoke(["feature", "apply", "--overwrite"])
+    assert result.exit_code != 0, result.output
+    assert "--overwrite" in result.output
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_apply_rejects_config_flag(mock_manager, runner):
+    """``--config`` was removed in Phase 3+4 (D5) — ``-D key=value``
+    is the only template-variable surface now."""
+    result = runner.invoke(["feature", "apply", "--config", "vars.yaml"])
+    assert result.exit_code != 0, result.output
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_apply_help_shows_dcm_strict_surface(mock_manager, runner):
+    """``apply --help`` must surface the new flag set and prove the
+    deleted flags are gone.
+
+    Acceptance #8 in the requirement file: ``--from``, ``--target``,
+    and ``--variable`` appear on every relevant command's ``--help``.
+    The deleted flags (``--overwrite``, ``--config``, ``--dry``)
+    must NOT appear or a regression has slipped a legacy code path
+    back in.
     """
     result = runner.invoke(["feature", "apply", "--help"])
     assert result.exit_code == 0, result.output
     output = result.output.lower()
-    assert "--dry" not in output
+    assert "--from" in output
+    assert "--target" in output
+    assert "--variable" in output
     assert "--dev" in output
-    assert "--overwrite" in output
     assert "--allow-recreate" in output
-    assert "--config" in output
-    assert "--verbose" in output
+    assert "--plan" in output
+    assert "--dry" not in output
+    assert "--overwrite" not in output
+    assert "--config" not in output
 
 
 # ---------------------------------------------------------------------------
@@ -98,13 +167,6 @@ def test_apply_help_shows_all_options(mock_manager, runner):
 #
 # These tests pin the behaviour added when fixing the bug-bash step-6
 # TODO: ``apply succeeded (rc=0) but output missing 'Status: success'``.
-# The previous renderer emitted the ``Status: <status>`` line only on
-# the empty-ops branch of ``_ops_result``, so a successful CREATE_FV
-# (which renders as a non-empty ops table) left scripts and operators
-# without a single canonical success indicator.  ``_print_status_header``
-# now writes the line on stderr regardless of whether the payload
-# renders as a table or a summary message, mirroring
-# ``_print_mode_header`` / ``_print_target_header``.
 
 
 def test_print_status_header_emits_status_and_counts(capsys):
@@ -143,11 +205,7 @@ def test_print_status_header_empty_ops_still_emits_status(capsys):
 
 def test_print_status_header_derives_executed_from_ops_when_missing(capsys):
     """When ``executed`` is absent from the result dict, the helper
-    falls back to counting ops with ``status == "success"``.  Pin this
-    so apply paths that don't bubble up an explicit ``executed`` count
-    (e.g. ``status: validation_failed`` results) still report a sane
-    number rather than a confusing ``executed: None``.
-    """
+    falls back to counting ops with ``status == "success"``."""
     from snowflake.cli._plugins.feature.commands import _print_status_header
 
     _print_status_header(
@@ -177,12 +235,48 @@ def test_print_status_header_silent_when_status_missing(capsys):
     assert captured.out == ""
 
 
+def test_print_target_header_includes_target_name_when_present(capsys):
+    """``_print_target_header`` includes the resolved ``target_name``
+    in the rendered header — the target-name surface introduced in
+    Phase 3+4 (D3) is what lets operators distinguish multiple
+    manifest profiles in a single shell scrollback.
+    """
+    from snowflake.cli._plugins.feature.commands import _print_target_header
+
+    _print_target_header(
+        {
+            "target_database": "DB",
+            "target_schema": "SCH",
+            "target_warehouse": "WH",
+            "target_name": "PROD",
+        }
+    )
+    captured = capsys.readouterr()
+    assert "Target: PROD @ DB.SCH (warehouse: WH)" in captured.err
+
+
+def test_print_target_header_falls_back_when_no_target_name(capsys):
+    """Pre-target legacy results (no ``target_name`` key) still render
+    a sensible header rather than printing ``Target:  @ DB.SCH``."""
+    from snowflake.cli._plugins.feature.commands import _print_target_header
+
+    _print_target_header(
+        {
+            "target_database": "DB",
+            "target_schema": "SCH",
+            "target_warehouse": "WH",
+        }
+    )
+    captured = capsys.readouterr()
+    assert "Target: DB.SCH (warehouse: WH)" in captured.err
+    assert "@" not in captured.err
+
+
 @mock.patch(FEATURE_MANAGER)
 def test_apply_calls_print_status_header_on_success(mock_manager, runner):
-    """``snow feature apply`` must call ``_print_status_header`` so a
-    successful CREATE_FV no longer looks silent on stderr.  This is the
-    direct fix for bug-bash step 6's ``apply succeeded (rc=0) but output
-    missing 'Status: success'`` finding."""
+    """``snow feature apply`` calls ``_print_status_header`` on a
+    successful CREATE_FV — the bug-bash step-6 finding.
+    """
     mock_manager.return_value.apply.return_value = {
         "status": "applied",
         "ops": [{"operation": "CREATE_FV", "name": "X", "status": "success"}],
@@ -191,18 +285,16 @@ def test_apply_calls_print_status_header_on_success(mock_manager, runner):
     with mock.patch(
         "snowflake.cli._plugins.feature.commands._print_status_header"
     ) as mock_print_status:
-        result = runner.invoke(["feature", "apply", "specs.yaml"])
+        result = runner.invoke(["feature", "apply"])
     assert result.exit_code == 0, result.output
     mock_print_status.assert_called_once()
-    passed = mock_print_status.call_args.args[0]
-    assert passed["status"] == "applied"
+    assert mock_print_status.call_args.args[0]["status"] == "applied"
 
 
 @mock.patch(FEATURE_MANAGER)
 def test_apply_calls_print_status_header_on_validation_failed(mock_manager, runner):
     """Even on the validation-failed early-return branch, the header
-    must fire so the operator sees ``Status: validation_failed`` rather
-    than a silent zero exit code."""
+    must fire so the operator sees ``Status: validation_failed``."""
     mock_manager.return_value.apply.return_value = {
         "status": "validation_failed",
         "ops": [],
@@ -211,7 +303,7 @@ def test_apply_calls_print_status_header_on_validation_failed(mock_manager, runn
     with mock.patch(
         "snowflake.cli._plugins.feature.commands._print_status_header"
     ) as mock_print_status:
-        result = runner.invoke(["feature", "apply", "specs.yaml"])
+        result = runner.invoke(["feature", "apply"])
     assert result.exit_code == 0, result.output
     mock_print_status.assert_called_once()
     assert mock_print_status.call_args.args[0]["status"] == "validation_failed"
@@ -219,9 +311,8 @@ def test_apply_calls_print_status_header_on_validation_failed(mock_manager, runn
 
 @mock.patch(FEATURE_MANAGER)
 def test_plan_calls_print_status_header_on_success(mock_manager, runner, tmp_path):
-    """``snow feature plan`` must also call ``_print_status_header`` so
-    its output is symmetric with ``snow feature apply`` and shell scripts
-    can grep for a single canonical success indicator across both."""
+    """``snow feature plan`` also fires ``_print_status_header`` so
+    its output is symmetric with ``snow feature apply``."""
     out_path = tmp_path / "plans" / "feature_plan_test.json"
     mock_manager.return_value.plan.return_value = {
         "status": "ready",
@@ -231,9 +322,7 @@ def test_plan_calls_print_status_header_on_success(mock_manager, runner, tmp_pat
     with mock.patch(
         "snowflake.cli._plugins.feature.commands._print_status_header"
     ) as mock_print_status:
-        result = runner.invoke(
-            ["feature", "plan", "specs.yaml", "--out", str(out_path)]
-        )
+        result = runner.invoke(["feature", "plan", "--out", str(out_path)])
     assert result.exit_code == 0, result.output
     mock_print_status.assert_called_once()
     assert mock_print_status.call_args.args[0]["status"] == "ready"
@@ -243,9 +332,8 @@ def test_plan_calls_print_status_header_on_success(mock_manager, runner, tmp_pat
 def test_plan_calls_print_status_header_on_validation_failed(
     mock_manager, runner, tmp_path
 ):
-    """``plan`` short-circuits on validation_failed and must still
-    fire the header before returning, so the operator sees the failure
-    on stderr rather than only inside the JSON-renderable result body."""
+    """``plan`` short-circuits on ``validation_failed`` and must fire
+    the header before returning."""
     out_path = tmp_path / "plans" / "feature_plan_test.json"
     mock_manager.return_value.plan.return_value = {
         "status": "validation_failed",
@@ -255,9 +343,7 @@ def test_plan_calls_print_status_header_on_validation_failed(
     with mock.patch(
         "snowflake.cli._plugins.feature.commands._print_status_header"
     ) as mock_print_status:
-        result = runner.invoke(
-            ["feature", "plan", "specs.yaml", "--out", str(out_path)]
-        )
+        result = runner.invoke(["feature", "plan", "--out", str(out_path)])
     assert result.exit_code == 0, result.output
     mock_print_status.assert_called_once()
     assert mock_print_status.call_args.args[0]["status"] == "validation_failed"
@@ -266,11 +352,9 @@ def test_plan_calls_print_status_header_on_validation_failed(
 
 def test_ops_result_message_body_no_longer_includes_status_line():
     """The empty-ops summary message must NOT include ``Status:``
-    anymore.  The header is now emitted on stderr by
-    ``_print_status_header`` and duplicating it on stdout would
-    produce two ``Status:`` lines per invocation.  This test pins
-    that the body collapses to just ``Operations: 0`` (plus warnings),
-    preventing future regressions that re-add the duplicate."""
+    anymore — the header is emitted on stderr by
+    ``_print_status_header``; duplicating it on stdout would
+    produce two ``Status:`` lines per invocation."""
     from snowflake.cli._plugins.feature.commands import _ops_result
 
     cmd_result = _ops_result({"status": "applied", "ops": [], "warnings": []})
@@ -285,24 +369,29 @@ def test_ops_result_message_body_no_longer_includes_status_line():
 
 
 @mock.patch(FEATURE_MANAGER)
-def test_plan_requires_at_least_one_file(mock_manager, runner):
-    """plan with no files should exit with a usage error."""
+def test_plan_no_positional_args_runs_with_defaults(mock_manager, runner):
+    """``plan`` accepts zero positional arguments — D1 deletes the
+    legacy ``INPUT_FILES`` surface.  Bare ``snow feature plan`` runs
+    against the project rooted at the current working directory.
+    """
+    mock_manager.return_value.plan.return_value = {"status": "ready", "ops": []}
+    mock_manager.return_value.write_plan.return_value = "out/plan/feature_plan_x.json"
     result = runner.invoke(["feature", "plan"])
-    assert result.exit_code == 2, result.output
+    assert result.exit_code == 0, result.output
+    mock_manager.return_value.plan.assert_called_once()
 
 
 @mock.patch(FEATURE_MANAGER)
 def test_plan_calls_manager_plan(mock_manager, runner):
-    """plan should delegate to ``FeatureManager.plan`` (validate +
-    generate_plan, no SQL).  This replaces the legacy
-    ``apply(dry_run=True)`` delegation that the dry-run removal broke
-    by construction."""
+    """``plan`` delegates to ``FeatureManager.plan`` (validate +
+    generate_plan, no SQL).  ``apply`` MUST NOT be called by the
+    plan command — the two commands are now disjoint code paths.
+    """
     mock_manager.return_value.plan.return_value = {"status": "ready", "ops": []}
-    result = runner.invoke(["feature", "plan", "specs.yaml"])
+    mock_manager.return_value.write_plan.return_value = "out/plan/feature_plan_x.json"
+    result = runner.invoke(["feature", "plan"])
     assert result.exit_code == 0, result.output
     mock_manager.return_value.plan.assert_called_once()
-    # Apply must NOT be called by `snow feature plan` — the two
-    # commands are now disjoint code paths.
     mock_manager.return_value.apply.assert_not_called()
 
 
@@ -310,11 +399,11 @@ def test_plan_calls_manager_plan(mock_manager, runner):
 def test_plan_does_not_write_plan_file_on_validation_failed(
     mock_manager, runner, tmp_path
 ):
-    """plan must NOT write a plan file when manager.plan returns validation_failed.
-
-    The previous flow wrote the plan file *before* running validation, so a
-    failed plan still left a stale ``feature_plan_*.json`` on disk that
-    operators could mistake for a successful run.  The fix runs validation
+    """``plan`` must NOT write a plan file when ``manager.plan``
+    returns ``validation_failed``.  The previous flow wrote the
+    plan file *before* running validation, so a failed plan still
+    left a stale ``feature_plan_*.json`` on disk that operators
+    could mistake for a successful run.  The fix runs validation
     first and short-circuits before ``write_plan`` is invoked.
     """
     out_path = tmp_path / "plans" / "feature_plan_test.json"
@@ -323,7 +412,7 @@ def test_plan_does_not_write_plan_file_on_validation_failed(
         "ops": [],
         "errors": ["VERSION_CONFLICT: ..."],
     }
-    result = runner.invoke(["feature", "plan", "specs.yaml", "--out", str(out_path)])
+    result = runner.invoke(["feature", "plan", "--out", str(out_path)])
     assert result.exit_code == 0, result.output
     mock_manager.return_value.write_plan.assert_not_called()
     assert not out_path.exists()
@@ -331,61 +420,66 @@ def test_plan_does_not_write_plan_file_on_validation_failed(
 
 @mock.patch(FEATURE_MANAGER)
 def test_plan_writes_plan_file_on_success(mock_manager, runner, tmp_path):
-    """plan must invoke write_plan when manager.plan reports a non-failed status."""
+    """``plan`` invokes ``write_plan`` when ``manager.plan`` reports
+    a non-failed status."""
     out_path = tmp_path / "plans" / "feature_plan_test.json"
     mock_manager.return_value.plan.return_value = {
         "status": "ready",
         "ops": [{"operation": "NO_CHANGE", "name": "x"}],
     }
     mock_manager.return_value.write_plan.return_value = str(out_path)
-    result = runner.invoke(["feature", "plan", "specs.yaml", "--out", str(out_path)])
+    result = runner.invoke(["feature", "plan", "--out", str(out_path)])
     assert result.exit_code == 0, result.output
     mock_manager.return_value.write_plan.assert_called_once()
 
 
 @mock.patch(FEATURE_MANAGER)
-def test_bare_directory_triggers_full_sync_mode(mock_manager, runner, tmp_path):
-    """Bare directory arguments are auto-expanded to ``<dir>/...`` and run full-sync.
-
-    Previously a bare directory silently loaded zero files because the loader's
-    ``glob.glob`` branch returned the directory path itself and ``process_file``
-    then crashed with ``IsADirectoryError``, swallowed by the loader's bare
-    ``except``.  The fix auto-expands bare directories to ``<dir>/...``; this
-    test pins the CLI mode header and ``no_delete=False`` propagation so the
-    mode shown to the user matches what the loader actually does.
+def test_plan_passes_variables_via_dash_d_flag(mock_manager, runner):
+    """``-D key=value`` (and the long form ``--variable``) are the
+    only template-variable surface (D5).  The list of values is
+    forwarded verbatim to the manager so the underlying
+    ``decl_api.parse_variables`` sees the same string the operator
+    typed.
     """
-    real_dir = tmp_path / "specs"
-    real_dir.mkdir()
-    (real_dir / "fv.yaml").write_text("kind: StreamingFeatureView\nname: x\n")
-
-    mock_manager.return_value.apply.return_value = {}
-    result = runner.invoke(["feature", "apply", str(real_dir)])
+    mock_manager.return_value.plan.return_value = {"status": "ready", "ops": []}
+    mock_manager.return_value.write_plan.return_value = "out/plan/feature_plan_x.json"
+    result = runner.invoke(
+        ["feature", "plan", "-D", "env=prod", "--variable", "region=us-west-2"]
+    )
     assert result.exit_code == 0, result.output
-    call_kwargs = mock_manager.return_value.apply.call_args[1]
-    assert call_kwargs["no_delete"] is False, call_kwargs
+    call_kwargs = mock_manager.return_value.plan.call_args.kwargs
+    assert call_kwargs["variables"] == ["env=prod", "region=us-west-2"]
 
 
 @mock.patch(FEATURE_MANAGER)
-def test_specific_file_stays_incremental(mock_manager, runner, tmp_path):
-    """A specific file argument runs in INCREMENTAL mode (``no_delete=True``)."""
-    p = tmp_path / "fv.yaml"
-    p.write_text("kind: StreamingFeatureView\nname: x\n")
-
-    mock_manager.return_value.apply.return_value = {}
-    result = runner.invoke(["feature", "apply", str(p)])
+def test_plan_passes_target_name(mock_manager, runner, tmp_path):
+    """``plan --from <dir> --target NAME`` propagates both flags."""
+    mock_manager.return_value.plan.return_value = {"status": "ready", "ops": []}
+    mock_manager.return_value.write_plan.return_value = "out/plan/feature_plan_x.json"
+    result = runner.invoke(
+        ["feature", "plan", "--from", str(tmp_path), "--target", "STAGING"]
+    )
     assert result.exit_code == 0, result.output
-    call_kwargs = mock_manager.return_value.apply.call_args[1]
-    assert call_kwargs["no_delete"] is True, call_kwargs
+    call_kwargs = mock_manager.return_value.plan.call_args.kwargs
+    assert call_kwargs["from_dir"] == Path(str(tmp_path))
+    assert call_kwargs["target_name"] == "STAGING"
 
 
 @mock.patch(FEATURE_MANAGER)
-def test_plan_help_does_not_show_overwrite(mock_manager, runner):
-    """plan --help must NOT show --overwrite or --allow-recreate."""
+def test_plan_help_shows_dcm_strict_surface(mock_manager, runner):
+    """``plan --help`` surfaces ``--from`` / ``--target`` /
+    ``--variable`` and hides the deleted flags."""
     result = runner.invoke(["feature", "plan", "--help"])
     assert result.exit_code == 0, result.output
     output = result.output.lower()
+    assert "--from" in output
+    assert "--target" in output
+    assert "--variable" in output
+    assert "--out" in output
+    assert "--no-delete" in output
     assert "--overwrite" not in output
     assert "--allow-recreate" not in output
+    assert "--config" not in output
 
 
 # ---------------------------------------------------------------------------
@@ -395,22 +489,36 @@ def test_plan_help_does_not_show_overwrite(mock_manager, runner):
 
 @mock.patch(FEATURE_MANAGER)
 def test_list_no_files_lists_deployed(mock_manager, runner):
-    """list with no file args should call list_specs with empty file list."""
-    mock_manager.return_value.list_specs.return_value = {}
+    """Bare ``snow feature list`` calls the manager with the
+    default ``--from`` (cwd) and a ``None`` target — the manager
+    resolves both from the manifest.
+    """
+    mock_manager.return_value.list_specs.return_value = {"specs": []}
     result = runner.invoke(["feature", "list"])
     assert result.exit_code == 0, result.output
-    call_kwargs = mock_manager.return_value.list_specs.call_args[1]
-    assert call_kwargs["input_files"] == ()
+    call_kwargs = mock_manager.return_value.list_specs.call_args.kwargs
+    assert "from_dir" in call_kwargs
+    assert call_kwargs["target_name"] is None
 
 
 @mock.patch(FEATURE_MANAGER)
-def test_list_with_file_passes_files(mock_manager, runner):
-    """list with a file arg should pass that file to list_specs."""
-    mock_manager.return_value.list_specs.return_value = {}
-    result = runner.invoke(["feature", "list", "my_specs.yaml"])
+def test_list_passes_from_and_target(mock_manager, runner, tmp_path):
+    """``list --from <dir> --target NAME`` propagates both flags."""
+    mock_manager.return_value.list_specs.return_value = {"specs": []}
+    result = runner.invoke(
+        ["feature", "list", "--from", str(tmp_path), "--target", "PROD"]
+    )
     assert result.exit_code == 0, result.output
-    call_kwargs = mock_manager.return_value.list_specs.call_args[1]
-    assert "my_specs.yaml" in call_kwargs["input_files"]
+    call_kwargs = mock_manager.return_value.list_specs.call_args.kwargs
+    assert call_kwargs["from_dir"] == Path(str(tmp_path))
+    assert call_kwargs["target_name"] == "PROD"
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_list_rejects_positional_arguments(mock_manager, runner):
+    """``list`` no longer accepts positional spec paths (D1)."""
+    result = runner.invoke(["feature", "list", "my_specs.yaml"])
+    assert result.exit_code != 0, result.output
 
 
 def test_list_table_display_columns_include_type():
@@ -425,9 +533,7 @@ def test_list_table_display_columns_omits_scheduling_state():
     """``scheduling_state`` is intentionally excluded from the table
     display columns: it is duplicated inside the ``details`` cell for
     FeatureView rows and is empty for Entity / Datasource rows, so
-    surfacing it as its own column was pure noise.  The runtime status
-    the user actually cares about is in ``details.scheduling_state``
-    (FeatureView) and ``snow feature online-service status``."""
+    surfacing it as its own column was pure noise."""
     from snowflake.cli._plugins.feature.commands import _TABLE_DISPLAY_COLUMNS
 
     assert "scheduling_state" not in _TABLE_DISPLAY_COLUMNS
@@ -435,11 +541,10 @@ def test_list_table_display_columns_omits_scheduling_state():
 
 def test_list_table_display_columns_omits_database_and_schema():
     """``database_name`` and ``schema_name`` are uniform across every
-    row of a single ``snow feature list`` invocation (the connection
-    has one current database/schema), so duplicating them in every
-    table row was wasted width.  They are now surfaced once, above the
-    table, by the ``Database: ... Schema: ...`` header line printed by
-    ``_print_listing_scope_header``."""
+    row of a single ``snow feature list`` invocation, so duplicating
+    them in every table row was wasted width.  They are now surfaced
+    once, above the table, by the ``Database: ... Schema: ...``
+    header line printed by ``_print_listing_scope_header``."""
     from snowflake.cli._plugins.feature.commands import _TABLE_DISPLAY_COLUMNS
 
     assert "database_name" not in _TABLE_DISPLAY_COLUMNS
@@ -481,29 +586,18 @@ def test_listing_scope_mixed_rows_returns_multiple_marker():
 
 def test_listing_scope_returns_none_for_empty_or_unscoped():
     """Empty inputs (no rows) and rows that lack both database_name
-    and schema_name (e.g. file-mode listings) signal that no header
-    should be printed."""
+    and schema_name signal that no header should be printed."""
     from snowflake.cli._plugins.feature.commands import _listing_scope
 
     assert _listing_scope([]) is None
     assert _listing_scope([{"name": "a"}, {"name": "b"}]) is None
-    # Empty strings count as "missing" — they should not be rendered
-    # as the scope value.
     assert _listing_scope([{"database_name": "", "schema_name": ""}]) is None
 
 
 def test_project_columns_aligns_heterogeneous_rows():
     """Every projected row must carry **all** display columns in the
     canonical ``_TABLE_DISPLAY_COLUMNS`` order, with empty strings for
-    fields a particular row does not populate.
-
-    Without this guarantee the underlying table renderer (which uses
-    each row's dict iteration order to position values) shifts the
-    Entity / Datasource type and name values into columns that belong
-    to FeatureView-only fields like ``created_on``.  The user-visible
-    symptom is "the type shows up in the first column, ``created_on``"
-    — see the column-alignment fix that introduced this test.
-    """
+    fields a particular row does not populate."""
     from snowflake.cli._plugins.feature.commands import (
         _TABLE_DISPLAY_COLUMNS,
         _project_columns,
@@ -543,21 +637,16 @@ def test_project_columns_aligns_heterogeneous_rows():
 
     assert len(projected) == 3
     for row in projected:
-        # Every row carries the full display column set …
         assert list(row.keys()) == _TABLE_DISPLAY_COLUMNS, (
             f"Expected canonical column order {_TABLE_DISPLAY_COLUMNS}, "
             f"got {list(row.keys())}"
         )
-        # … and the columns we deliberately moved to header / details
-        # are *not* projected per-row.
         assert "scheduling_state" not in row
         assert "database_name" not in row
         assert "schema_name" not in row
 
     fv_proj, entity_proj, ds_proj = projected
 
-    # FV columns survive untouched (the upstream scheduling_state value
-    # is preserved inside ``details`` for the FeatureView row).
     assert fv_proj["type"] == "FeatureView"
     assert fv_proj["name"] == "click_fv"
     assert fv_proj["version"] == "v1"
@@ -565,9 +654,6 @@ def test_project_columns_aligns_heterogeneous_rows():
     assert fv_proj["created_on"] == "2024-01-01"
     assert fv_proj["details"] == {"scheduling_state": "ACTIVE"}
 
-    # Entity row's type/name land in the right keys, and FV-only
-    # columns are empty strings — proving column-by-column alignment
-    # against the canonical ``_TABLE_DISPLAY_COLUMNS`` order.
     assert entity_proj["type"] == "Entity"
     assert entity_proj["name"] == "user_id"
     assert entity_proj["entities"] == "USER_ID"
@@ -578,13 +664,6 @@ def test_project_columns_aligns_heterogeneous_rows():
         "comment": "User identity entity",
     }
 
-    # Datasource row: same alignment guarantees — type/name in the
-    # right slots, FV-only columns blanked out, spec-derived details
-    # carried through verbatim.  The ``type`` column surfaces the
-    # specific source type (``OfflineTable``) instead of the generic
-    # ``Datasource`` so operators can distinguish stream vs table
-    # backings at a glance — see
-    # ``test_project_columns_surfaces_datasource_source_type_in_type_column``.
     assert ds_proj["type"] == "OfflineTable"
     assert ds_proj["name"] == "click_events_offline"
     assert ds_proj["entities"] == ""
@@ -596,25 +675,6 @@ def test_project_columns_aligns_heterogeneous_rows():
 def test_project_columns_surfaces_datasource_source_type_in_type_column():
     """Datasource rows surface ``details.source_type`` in the rendered
     ``type`` column instead of the generic ``Datasource`` label.
-
-    This mirrors how FeatureView rows already render the specific
-    subkind (``StreamingFeatureView`` / ``RealtimeFeatureView`` /
-    ``BatchFeatureView``) in the ``type`` column.  Operators reading
-    ``snow feature list`` see the backing kind (``Stream`` vs
-    ``OfflineTable``) at a glance without having to expand the
-    ``details`` cell.
-
-    Behavior:
-
-    * ``details.source_type == "Stream"``      → ``type`` renders ``Stream``
-    * ``details.source_type == "OfflineTable"``→ ``type`` renders ``OfflineTable``
-    * missing / empty ``details.source_type``  → ``type`` falls back to
-      the canonical ``Datasource`` so the row remains visibly a
-      datasource even when the source type is unknown.
-
-    Internal model (``AppliedObject.kind``) is unchanged — the swap is
-    a display-time projection only.  Code paths that group by
-    ``kind == "Datasource"`` continue to work untouched.
     """
     from snowflake.cli._plugins.feature.commands import _project_columns
 
@@ -647,8 +707,6 @@ def test_project_columns_surfaces_datasource_source_type_in_type_column():
     assert no_st_proj["type"] == "Datasource"
     assert no_det_proj["type"] == "Datasource"
 
-    # Non-datasource rows are never rewritten — the swap only fires
-    # when the canonical ``Datasource`` value is present.
     fv_row = {"type": "StreamingFeatureView", "name": "x"}
     entity_row = {"type": "Entity", "name": "user_id"}
     fv_proj, ent_proj = _project_columns([fv_row, entity_row])
@@ -698,23 +756,13 @@ def test_list_renders_multi_kind_rows(mock_manager, runner):
     }
     result = runner.invoke(["feature", "list"])
     assert result.exit_code == 0, result.output
-    # The table now displays only 6 columns (type, name, version,
-    # entities, created_on, details); database/schema are surfaced
-    # once above the table by the ``Database: ... Schema: ...`` header
-    # line.  Check for prefixes short enough to land inside a single
-    # column cell.
     assert "Entity" in result.output
     assert "Dataso" in result.output  # Datasource wraps as "Dataso\nurce"
     assert "Featur" in result.output  # FeatureView wraps as "Featur\neView"
-    assert "click_" in result.output  # FV name appears (may wrap)
-    assert "user_e" in result.output  # datasource name appears (may wrap)
-    # ``scheduling_state`` is no longer a column header — it lives
-    # inside ``details`` for FeatureView rows.
+    assert "click_" in result.output
+    assert "user_e" in result.output
     header_block = result.output.split("|--")[0]
     assert "scheduling_state" not in header_block
-    # ``database_name`` / ``schema_name`` are no longer column headers
-    # either — but the header line above the table still surfaces
-    # the uniform DB / schema once.
     assert "database_name" not in header_block
     assert "schema_name" not in header_block
     assert "Database: DB" in result.output
@@ -734,38 +782,27 @@ def test_describe_requires_name(mock_manager, runner):
 
 
 @mock.patch(FEATURE_MANAGER)
-def test_describe_passes_name(mock_manager, runner):
-    """describe MY_ENTITY should call FeatureManager.describe(name='MY_ENTITY')."""
+def test_describe_passes_name_with_from_and_target(mock_manager, runner, tmp_path):
+    """``describe NAME --from <dir> --target NAME`` forwards each
+    flag on the manager call exactly once, in the new kwarg shape.
+    """
     mock_manager.return_value.describe.return_value = {}
-    result = runner.invoke(["feature", "describe", "MY_ENTITY"])
+    result = runner.invoke(
+        [
+            "feature",
+            "describe",
+            "MY_ENTITY",
+            "--from",
+            str(tmp_path),
+            "--target",
+            "PROD",
+        ]
+    )
     assert result.exit_code == 0, result.output
-    call_kwargs = mock_manager.return_value.describe.call_args[1]
+    call_kwargs = mock_manager.return_value.describe.call_args.kwargs
     assert call_kwargs["name"] == "MY_ENTITY"
-
-
-# ---------------------------------------------------------------------------
-# drop
-# ---------------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------------
-# status
-# ---------------------------------------------------------------------------
-
-
-@mock.patch(FEATURE_MANAGER)
-def test_online_service_no_flags_returns_status(mock_manager, runner):
-    """online-service with no flags should show runtime status."""
-    mock_manager.return_value.get_status.return_value = {
-        "status": "RUNNING",
-        "compute_pool": "active",
-        "postgres": "active",
-        "service": "active",
-        "endpoints": [],
-    }
-    result = runner.invoke(["feature", "online-service"])
-    assert result.exit_code == 0, result.output
-    mock_manager.return_value.get_status.assert_called_once()
+    assert call_kwargs["from_dir"] == Path(str(tmp_path))
+    assert call_kwargs["target_name"] == "PROD"
 
 
 # ---------------------------------------------------------------------------
@@ -774,20 +811,36 @@ def test_online_service_no_flags_returns_status(mock_manager, runner):
 
 
 @mock.patch(FEATURE_MANAGER)
+def test_online_service_no_flags_returns_status(mock_manager, runner):
+    """online-service with no flags should show runtime status."""
+    mock_manager.return_value.get_status.return_value = {
+        "status": "RUNNING",
+        "compute_pool": {"status": "ACTIVE", "name": "POOL"},
+        "postgres": {"status": "READY", "name": "PG"},
+        "service": {"status": "RUNNING", "name": "SVC"},
+        "endpoints": [],
+    }
+    result = runner.invoke(["feature", "online-service"])
+    assert result.exit_code == 0, result.output
+    mock_manager.return_value.get_status.assert_called_once()
+
+
+@mock.patch(FEATURE_MANAGER)
 def test_online_service_create_already_running_is_noop(mock_manager, runner):
     """online-service --create should be a no-op when status is already RUNNING."""
+    mock_manager.return_value.get_status.return_value = {"status": "RUNNING"}
     mock_manager.return_value.initialize_service.return_value = {
         "status": "RUNNING",
         "message": "Service already initialized",
     }
     result = runner.invoke(["feature", "online-service", "--create"])
     assert result.exit_code == 0, result.output
-    mock_manager.return_value.initialize_service.assert_called_once()
 
 
 @mock.patch(FEATURE_MANAGER)
 def test_online_service_create_and_polls(mock_manager, runner):
     """online-service --create should create the runtime and poll until RUNNING."""
+    mock_manager.return_value.get_status.return_value = {"status": "STOPPED"}
     mock_manager.return_value.initialize_service.return_value = {
         "status": "RUNNING",
         "message": "Service initialized successfully",
@@ -836,7 +889,7 @@ def test_ingest_reads_data_from_file(mock_manager, runner, tmp_path):
     result = runner.invoke(["feature", "ingest", "my_source", "--data", str(data_file)])
     assert result.exit_code == 0, result.output
     mock_manager.return_value.ingest.assert_called_once()
-    call_kwargs = mock_manager.return_value.ingest.call_args[1]
+    call_kwargs = mock_manager.return_value.ingest.call_args.kwargs
     assert call_kwargs["source_name"] == "my_source"
     assert call_kwargs["records"] == [{"user_id": "u1", "val": 42}]
 
@@ -850,7 +903,7 @@ def test_ingest_reads_from_stdin(mock_manager, runner):
         input='[{"a": 1}, {"a": 2}]',
     )
     assert result.exit_code == 0, result.output
-    call_kwargs = mock_manager.return_value.ingest.call_args[1]
+    call_kwargs = mock_manager.return_value.ingest.call_args.kwargs
     assert len(call_kwargs["records"]) == 2
 
 
@@ -906,9 +959,6 @@ def test_query_requires_version(mock_manager, runner):
         ["feature", "query", "my_view", "--keys", '[{"USER_ID": "u1"}]']
     )
     assert result.exit_code == 2, result.output
-    # Typer emits "Missing option '--version'" (or similar) on stderr;
-    # asserting the option name appears in the help/error text catches
-    # accidental renames.
     assert "--version" in result.output
 
 
@@ -922,7 +972,7 @@ def test_query_calls_manager_with_view_version_and_keys(mock_manager, runner):
     )
     assert result.exit_code == 0, result.output
     mock_manager.return_value.query.assert_called_once()
-    call_kwargs = mock_manager.return_value.query.call_args[1]
+    call_kwargs = mock_manager.return_value.query.call_args.kwargs
     assert call_kwargs["feature_view_name"] == "my_view"
     assert call_kwargs["version"] == "V1"
     assert call_kwargs["keys"] == [{"user_id": "u1"}]
@@ -973,7 +1023,7 @@ def test_init_help_shows_command(mock_manager, runner):
 
 @mock.patch(FEATURE_MANAGER)
 def test_init_calls_manager_init(mock_manager, runner):
-    """init should call FeatureManager.init()."""
+    """init should call FeatureManager.init() with from_dir = cwd."""
     mock_manager.return_value.init.return_value = {
         "status": "initialized",
         "database": "DB",
@@ -983,6 +1033,8 @@ def test_init_calls_manager_init(mock_manager, runner):
     result = runner.invoke(["feature", "init"])
     assert result.exit_code == 0, result.output
     mock_manager.return_value.init.assert_called_once()
+    call_kwargs = mock_manager.return_value.init.call_args.kwargs
+    assert "from_dir" in call_kwargs
 
 
 @mock.patch(FEATURE_MANAGER)
@@ -996,8 +1048,7 @@ def test_init_no_scaffold_flag(mock_manager, runner):
     }
     result = runner.invoke(["feature", "init", "--no-scaffold"])
     assert result.exit_code == 0, result.output
-    call_kwargs = mock_manager.return_value.init.call_args[1]
-    assert call_kwargs["no_scaffold"] is True
+    assert mock_manager.return_value.init.call_args.kwargs["no_scaffold"] is True
 
 
 @mock.patch(FEATURE_MANAGER)
@@ -1011,8 +1062,23 @@ def test_init_default_no_scaffold_is_false(mock_manager, runner):
     }
     result = runner.invoke(["feature", "init"])
     assert result.exit_code == 0, result.output
-    call_kwargs = mock_manager.return_value.init.call_args[1]
-    assert call_kwargs["no_scaffold"] is False
+    assert mock_manager.return_value.init.call_args.kwargs["no_scaffold"] is False
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_init_passes_from_dir_to_manager(mock_manager, runner, tmp_path):
+    """``init --from <dir>`` propagates the path on the manager call."""
+    mock_manager.return_value.init.return_value = {
+        "status": "initialized",
+        "database": "DB",
+        "schema": "SCH",
+        "directories": [],
+    }
+    result = runner.invoke(["feature", "init", "--from", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    assert mock_manager.return_value.init.call_args.kwargs["from_dir"] == Path(
+        str(tmp_path)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1021,8 +1087,10 @@ def test_init_default_no_scaffold_is_false(mock_manager, runner):
 
 
 @mock.patch(FEATURE_MANAGER)
-def test_export_calls_manager(mock_manager, runner, tmp_path):
-    """export should call FeatureManager.export_specs with the given dir."""
+def test_export_calls_manager_with_kwargs(mock_manager, runner, tmp_path):
+    """``export --dir <path>`` calls ``FeatureManager.export_specs``
+    with the new kwarg shape (``from_dir``, ``target_name``,
+    ``output_dir``)."""
     mock_manager.return_value.export_specs.return_value = {
         "status": "exported",
         "directory": str(tmp_path),
@@ -1030,12 +1098,16 @@ def test_export_calls_manager(mock_manager, runner, tmp_path):
     }
     result = runner.invoke(["feature", "export", "--dir", str(tmp_path)])
     assert result.exit_code == 0, result.output
-    mock_manager.return_value.export_specs.assert_called_once_with(str(tmp_path))
+    mock_manager.return_value.export_specs.assert_called_once()
+    call_kwargs = mock_manager.return_value.export_specs.call_args.kwargs
+    assert call_kwargs["output_dir"] == str(tmp_path)
+    assert call_kwargs["target_name"] is None
+    assert "from_dir" in call_kwargs
 
 
 @mock.patch(FEATURE_MANAGER)
 def test_export_default_dir(mock_manager, runner):
-    """export without --dir should call export_specs with '.'."""
+    """``export`` without ``--dir`` defaults to ``"."``."""
     mock_manager.return_value.export_specs.return_value = {
         "status": "exported",
         "directory": ".",
@@ -1043,7 +1115,7 @@ def test_export_default_dir(mock_manager, runner):
     }
     result = runner.invoke(["feature", "export"])
     assert result.exit_code == 0, result.output
-    mock_manager.return_value.export_specs.assert_called_once_with(".")
+    assert mock_manager.return_value.export_specs.call_args.kwargs["output_dir"] == "."
 
 
 @mock.patch(FEATURE_MANAGER)

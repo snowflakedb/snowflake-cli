@@ -12,43 +12,78 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Integration tests: CLI FeatureManager wired to the real decl library.
+"""Integration tests: ``FeatureManager`` wired to the real ``decl_api``.
 
-The Snowflake connection (execute_query) is mocked; all decl library calls
-use the real implementation installed from the decl wheel.
+The Snowflake connection (``execute_query`` / ``_build_session``) is
+mocked; every call to the declarative library
+(:mod:`snowflake.ml.feature_store.decl.api`) runs against the real
+implementation installed from the ``snowflake_ml_feature_store_decl``
+wheel.
+
+The CLI surface is the Phase 3+4 manifest-driven shape:
+
+* ``--from <dir>`` locates ``manifest.yml`` (default: cwd).
+* ``--target <name>`` selects the target (default:
+  ``manifest.default_target``).
+* No positional spec arguments, no ``--config``, no ``--overwrite``.
+
+Spec trees live under ``<project_root>/sources/{entities,
+datasources, feature_views}/``; UDF Python source lives under a
+non-canonical sub-directory the project loader does NOT walk
+(``sources/udfs/`` here) so a bare ``pd.DataFrame`` annotation in
+the UDF body cannot trip ``importlib`` during spec discovery.
 """
 
 from __future__ import annotations
 
-import tempfile
+import json
 import textwrap
 from pathlib import Path
 from unittest import mock
 
 import pytest
 
+from tests.feature.test_manager import (  # noqa: F401 (autouse fixtures)
+    mock_account_identifier,
+    mock_build_session,
+    mock_cli_context,
+)
+
 # ---------------------------------------------------------------------------
-# Helpers
+# Manifest project helpers
 # ---------------------------------------------------------------------------
+
+
+_MANIFEST_YAML = textwrap.dedent(
+    """\
+    manifest_version: 1
+    type: feature_store
+    default_target: DEFAULT
+    targets:
+      DEFAULT:
+        account_identifier: TEST_ORG-TEST_ACCT
+        database: TEST_DB
+        schema: TEST_SCHEMA
+        role: TEST_ROLE
+    """
+)
+
 
 _ENTITY_YAML = textwrap.dedent(
     """\
     kind: Entity
     name: user
-    database: DB
-    schema: SCH
     join_keys:
       - name: user_id
         type: StringType
     """
 )
 
+
 _FV_YAML = textwrap.dedent(
     """\
     kind: StreamingFeatureView
     name: user_clicks
-    database: DB
-    schema: SCH
     version: V1
     ordered_entity_column_names:
       - user_id
@@ -64,18 +99,73 @@ _FV_YAML = textwrap.dedent(
 )
 
 
+def _write_minimal_project(project_root: Path) -> Path:
+    """Lay out a Phase 3+4 manifest project under *project_root*.
+
+    Tree::
+
+        <project_root>/
+          manifest.yml
+          sources/
+            entities/user.yaml
+            datasources/  (empty — keeps the loader happy)
+            feature_views/user_clicks.yaml
+
+    Returns:
+        Path to *project_root* (the dir the manager resolves via
+        ``_resolve_project``).
+    """
+    project_root.mkdir(parents=True, exist_ok=True)
+    (project_root / "manifest.yml").write_text(_MANIFEST_YAML)
+    sources = project_root / "sources"
+    (sources / "entities").mkdir(parents=True)
+    (sources / "datasources").mkdir(parents=True)
+    (sources / "feature_views").mkdir(parents=True)
+    (sources / "entities" / "user.yaml").write_text(_ENTITY_YAML)
+    (sources / "feature_views" / "user_clicks.yaml").write_text(_FV_YAML)
+    return project_root
+
+
+def _write_minimal_plan_json(
+    path: Path,
+    target_database: str = "TEST_DB",
+    target_schema: str = "TEST_SCHEMA",
+    target_name: str = "DEFAULT",
+) -> None:
+    """Write a minimal valid ``PlanFile`` JSON envelope for wet-run apply tests.
+
+    Wet-run ``apply`` is a *pure plan-file consumer* (Phase 3+4 D1):
+    it deserializes the on-disk envelope and hands it to
+    ``decl_api.execute_plan``.  These integration tests exercise the
+    real ``deserialize_plan`` against a minimally-valid envelope while
+    mocking ``execute_plan`` to return the desired ``ApplyResult``.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "version": "1",
+                "created_at": "2026-05-11T00:00:00+00:00",
+                "target_database": target_database,
+                "target_schema": target_schema,
+                "target_name": target_name,
+                "source_files": [],
+                "plan": {"ops": [], "warnings": []},
+                "summary": {},
+            }
+        )
+    )
+
+
 @pytest.fixture
-def spec_dir():
-    """Temporary directory with two YAML spec files."""
-    with tempfile.TemporaryDirectory() as d:
-        Path(d, "entity.yaml").write_text(_ENTITY_YAML)
-        Path(d, "fv.yaml").write_text(_FV_YAML)
-        yield d
+def project_dir(tmp_path):
+    """Provide a tmp_path containing a minimal manifest project."""
+    return _write_minimal_project(tmp_path)
 
 
 @pytest.fixture
 def mock_execute_query():
-    """Patch FeatureManager.execute_query to avoid a real Snowflake connection."""
+    """Patch ``FeatureManager.execute_query`` so tests don't need a real connection."""
     with mock.patch(
         "snowflake.cli._plugins.feature.manager.FeatureManager.execute_query"
     ) as m:
@@ -83,122 +173,79 @@ def mock_execute_query():
         yield m
 
 
-@pytest.fixture(autouse=True)
-def mock_cli_context():
-    """Patch get_cli_context for all integration tests that call apply()."""
-    with mock.patch("snowflake.cli._plugins.feature.manager.get_cli_context") as m:
-        ctx = mock.MagicMock()
-        ctx.connection.database = "TEST_DB"
-        ctx.connection.schema = "TEST_SCHEMA"
-        ctx.connection.warehouse = "TEST_WH"
-        ctx.connection.role = "TEST_ROLE"
-        m.return_value = ctx
-        yield m
-
-
 # ---------------------------------------------------------------------------
-# manager.plan — read-only validate+plan path replacing apply(dry_run=True)
+# manager.plan — read-only validate+plan path
 # ---------------------------------------------------------------------------
 
 
 class TestPlanIntegration:
     """End-to-end tests for ``manager.plan`` against the real decl
-    library (with mocked ``execute_query``).  These replaced the old
-    ``TestApplyDryRunIntegration`` suite when ``apply --dry`` was
-    deleted in favour of an explicit ``snow feature plan`` code path.
+    library (with mocked ``execute_query``).
     """
 
-    def test_plan_returns_status_ready(self, spec_dir, mock_execute_query):
+    def test_plan_returns_status_ready(self, project_dir, mock_execute_query):
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        mgr = FeatureManager()
-        result = mgr.plan(
-            input_files=[f"{spec_dir}/*.yaml"],
-            config=None,
+        result = FeatureManager().plan(
+            from_dir=project_dir,
+            target_name=None,
+            variables=[],
             dev_mode=False,
             allow_recreate=False,
         )
         assert result["status"] == "ready"
 
-    def test_plan_executes_no_ddl(self, spec_dir, mock_execute_query):
+    def test_plan_executes_no_ddl(self, project_dir, mock_execute_query):
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        mgr = FeatureManager()
-        result = mgr.plan(
-            input_files=[f"{spec_dir}/*.yaml"],
-            config=None,
+        result = FeatureManager().plan(
+            from_dir=project_dir,
+            target_name=None,
+            variables=[],
             dev_mode=False,
             allow_recreate=False,
         )
         assert result["executed"] == 0
 
-    def test_plan_returns_ops_list(self, spec_dir, mock_execute_query):
+    def test_plan_returns_ops_list(self, project_dir, mock_execute_query):
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        mgr = FeatureManager()
-        result = mgr.plan(
-            input_files=[f"{spec_dir}/*.yaml"],
-            config=None,
+        result = FeatureManager().plan(
+            from_dir=project_dir,
+            target_name=None,
+            variables=[],
             dev_mode=False,
             allow_recreate=False,
         )
         assert isinstance(result["ops"], list)
         assert result["executed"] == 0
 
-    def test_plan_calls_show_queries(self, spec_dir, mock_execute_query):
+    def test_plan_calls_show_queries(self, project_dir, mock_execute_query):
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        mgr = FeatureManager()
-        mgr.plan(
-            input_files=[f"{spec_dir}/*.yaml"],
-            config=None,
+        FeatureManager().plan(
+            from_dir=project_dir,
+            target_name=None,
+            variables=[],
             dev_mode=False,
             allow_recreate=False,
         )
-        calls = [c[0][0] for c in mock_execute_query.call_args_list]
-        assert any("SHOW" in sql.upper() for sql in calls)
+        calls = [c.args[0] for c in mock_execute_query.call_args_list if c.args]
+        assert any("SHOW" in str(sql).upper() for sql in calls)
 
 
 # ---------------------------------------------------------------------------
-# apply — non-dry-run (executes via imperative FeatureStore objects)
+# apply — wet-run via plan-file consumer surface
 # ---------------------------------------------------------------------------
-
-
-def _write_minimal_plan_json(
-    path,
-    target_database: str = "TEST_DB",
-    target_schema: str = "TEST_SCHEMA",
-) -> None:
-    """Write a minimal valid PlanFile JSON envelope for wet-run apply tests.
-
-    Under the apply-lifecycle architecture, wet-run ``apply`` consumes a
-    pre-generated plan file rather than re-planning from source.  These
-    integration tests exercise the *real* ``deserialize_plan`` against
-    a minimally valid envelope, with ``execute_plan`` mocked to return
-    the desired ``ApplyResult``.
-    """
-    import json
-
-    with open(str(path), "w") as f:
-        json.dump(
-            {
-                "version": "1",
-                "created_at": "2026-05-07T00:00:00+00:00",
-                "target_database": target_database,
-                "target_schema": target_schema,
-                "source_files": [],
-                "plan": {"ops": [], "warnings": []},
-                "summary": {},
-            },
-            f,
-        )
 
 
 class TestApplyExecuteIntegration:
-    def test_apply_returns_applied_status(self, spec_dir, mock_execute_query, tmp_path):
+    def test_apply_returns_applied_status(self, project_dir, mock_execute_query):
         from snowflake.cli._plugins.feature.manager import FeatureManager
         from snowflake.ml.feature_store.decl.types import ApplyResult
 
+        plan_path = project_dir / "out" / "plan" / "feature_plan.json"
+        _write_minimal_plan_json(plan_path)
         mock_result = ApplyResult(
             status="applied",
             ops=[
@@ -206,32 +253,27 @@ class TestApplyExecuteIntegration:
             ],
         )
 
-        plan_path = tmp_path / "plan.json"
-        _write_minimal_plan_json(plan_path)
-
-        mgr = FeatureManager()
-        with mock.patch.object(
-            mgr, "_build_session", return_value=mock.MagicMock()
-        ), mock.patch(
+        with mock.patch(
             "snowflake.ml.feature_store.decl.api.execute_plan",
             return_value=mock_result,
         ):
-            result = mgr.apply(
-                input_files=[f"{spec_dir}/*.yaml"],
-                config=None,
-                dev_mode=False,
-                overwrite=False,
-                allow_recreate=False,
+            result = FeatureManager().apply(
+                from_dir=project_dir,
+                target_name=None,
                 plan_file=str(plan_path),
+                dev_mode=False,
+                allow_recreate=False,
             )
         assert result["status"] == "applied"
 
     def test_apply_result_has_ops_and_executed_keys(
-        self, spec_dir, mock_execute_query, tmp_path
+        self, project_dir, mock_execute_query
     ):
         from snowflake.cli._plugins.feature.manager import FeatureManager
         from snowflake.ml.feature_store.decl.types import ApplyResult
 
+        plan_path = project_dir / "out" / "plan" / "feature_plan.json"
+        _write_minimal_plan_json(plan_path)
         mock_result = ApplyResult(
             status="applied",
             ops=[
@@ -240,23 +282,16 @@ class TestApplyExecuteIntegration:
             ],
         )
 
-        plan_path = tmp_path / "plan.json"
-        _write_minimal_plan_json(plan_path)
-
-        mgr = FeatureManager()
-        with mock.patch.object(
-            mgr, "_build_session", return_value=mock.MagicMock()
-        ), mock.patch(
+        with mock.patch(
             "snowflake.ml.feature_store.decl.api.execute_plan",
             return_value=mock_result,
         ):
-            result = mgr.apply(
-                input_files=[f"{spec_dir}/*.yaml"],
-                config=None,
-                dev_mode=False,
-                overwrite=False,
-                allow_recreate=False,
+            result = FeatureManager().apply(
+                from_dir=project_dir,
+                target_name=None,
                 plan_file=str(plan_path),
+                dev_mode=False,
+                allow_recreate=False,
             )
         assert "ops" in result
         assert isinstance(result["ops"], list)
@@ -270,39 +305,27 @@ class TestApplyExecuteIntegration:
 
 
 class TestListSpecsIntegration:
-    def test_list_specs_from_files_returns_source_files(
-        self, spec_dir, mock_execute_query
-    ):
+    """``list_specs`` always reads from Snowflake under the
+    Phase 3+4 manifest-driven surface (D1 deletes the file-positional
+    surface).  The result envelope's ``source`` field is always
+    ``"snowflake"`` — the legacy file-mode listings live on as
+    ``snow feature export`` instead.
+    """
+
+    def test_list_specs_returns_source_snowflake(self, project_dir, mock_execute_query):
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        mgr = FeatureManager()
-        result = mgr.list_specs(
-            input_files=(f"{spec_dir}/entity.yaml",),
-            config=None,
-        )
-        assert result["source"] == "files"
-        assert "specs" in result
-
-    def test_list_specs_from_snowflake_returns_source_snowflake(
-        self, mock_execute_query
-    ):
-        from snowflake.cli._plugins.feature.manager import FeatureManager
-
-        mgr = FeatureManager()
-        result = mgr.list_specs(input_files=(), config=None)
+        result = FeatureManager().list_specs(from_dir=project_dir, target_name=None)
         assert result["source"] == "snowflake"
 
-    def test_list_specs_bad_file_returns_empty(self, mock_execute_query):
+    def test_list_specs_yields_dict_envelope(self, project_dir, mock_execute_query):
+        """Even on an empty deployed schema the envelope is shaped
+        ``{"source": "snowflake", "specs": [...]}``."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        mgr = FeatureManager()
-        result = mgr.list_specs(
-            input_files=("/nonexistent/path/spec.yaml",),
-            config=None,
-        )
-        # Loader silently skips unresolvable files — returns empty spec list
-        assert result["source"] == "files"
-        assert result["specs"] == []
+        result = FeatureManager().list_specs(from_dir=project_dir, target_name=None)
+        assert "specs" in result
+        assert isinstance(result["specs"], list)
 
 
 # ---------------------------------------------------------------------------
@@ -310,36 +333,38 @@ class TestListSpecsIntegration:
 # ---------------------------------------------------------------------------
 
 
+_BAD_FV_YAML = textwrap.dedent(
+    """\
+    kind: StreamingFeatureView
+    name: bad_fv
+    version: null
+    ordered_entity_column_names: []
+    sources: []
+    features: []
+    """
+)
+
+
 class TestValidationErrorPath:
-    def test_validation_error_returns_validation_failed(self, mock_execute_query):
+    def test_validation_error_returns_validation_failed(
+        self, tmp_path, mock_execute_query
+    ):
         """A spec with MISSING_VERSION should surface as validation_failed."""
-        import tempfile
-        import textwrap
-        from pathlib import Path
-
-        bad_fv = textwrap.dedent(
-            """\
-            kind: StreamingFeatureView
-            name: bad_fv
-            database: DB
-            schema: SCH
-            version: null
-            ordered_entity_column_names: []
-            sources: []
-            features: []
-            """
+        project_dir = _write_minimal_project(tmp_path)
+        # Replace the well-formed FV with one that fails validation.
+        (project_dir / "sources" / "feature_views" / "user_clicks.yaml").write_text(
+            _BAD_FV_YAML
         )
-        with tempfile.TemporaryDirectory() as d:
-            Path(d, "bad.yaml").write_text(bad_fv)
-            from snowflake.cli._plugins.feature.manager import FeatureManager
 
-            mgr = FeatureManager()
-            result = mgr.plan(
-                input_files=[f"{d}/bad.yaml"],
-                config=None,
-                dev_mode=False,
-                allow_recreate=False,
-            )
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        result = FeatureManager().plan(
+            from_dir=project_dir,
+            target_name=None,
+            variables=[],
+            dev_mode=False,
+            allow_recreate=False,
+        )
         assert result["status"] == "validation_failed"
         assert "errors" in result
 
@@ -350,155 +375,152 @@ class TestValidationErrorPath:
 
 
 class TestInitIntegration:
-    def test_init_returns_initialized_status(
-        self, mock_execute_query, tmp_path, monkeypatch
-    ):
-        """init() end-to-end returns status='initialized' with mocked FeatureStore."""
+    """``init`` end-to-end against the real FeatureStore class.
+
+    The autouse ``mock_cli_context`` fixture (imported from
+    test_manager.py) supplies the connection's account /
+    db / schema / role — the manifest scaffolder reads these to
+    auto-derive the default-target body (D6 fail-fast on existing
+    manifest, no ``--force``).
+    """
+
+    def test_init_returns_initialized_status(self, mock_execute_query, tmp_path):
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        monkeypatch.chdir(tmp_path)
-        mgr = FeatureManager()
-        with mock.patch.object(
-            mgr, "_build_session", return_value=mock.MagicMock()
-        ), mock.patch(
+        with mock.patch(
             "snowflake.ml.feature_store.feature_store.FeatureStore"
         ), mock.patch(
             "snowflake.ml.feature_store.feature_store.CreationMode"
         ) as mock_cm:
             mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
-            result = mgr.init(no_scaffold=True)
+            result = FeatureManager().init(from_dir=tmp_path, no_scaffold=False)
         assert result["status"] == "initialized"
 
-    def test_init_scaffold_creates_directories(
-        self, mock_execute_query, tmp_path, monkeypatch
-    ):
-        """init() creates the 3 scaffold directories when no_scaffold=False."""
+    def test_init_scaffold_creates_directories(self, mock_execute_query, tmp_path):
+        """Default ``init`` scaffolds the three canonical sub-dirs
+        under ``sources/`` plus an empty ``out/plan/`` placeholder
+        with a committable ``.gitkeep`` (D7 / D8)."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        monkeypatch.chdir(tmp_path)
-        mgr = FeatureManager()
-        with mock.patch.object(
-            mgr, "_build_session", return_value=mock.MagicMock()
-        ), mock.patch(
+        with mock.patch(
             "snowflake.ml.feature_store.feature_store.FeatureStore"
         ), mock.patch(
             "snowflake.ml.feature_store.feature_store.CreationMode"
         ) as mock_cm:
             mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
-            result = mgr.init(no_scaffold=False)
-        assert set(result["directories"]) == {
-            "entities",
-            "datasources",
-            "feature_views",
-        }
+            FeatureManager().init(from_dir=tmp_path, no_scaffold=False)
         for d in ("entities", "datasources", "feature_views"):
-            assert (tmp_path / d).is_dir()
+            assert (
+                tmp_path / "sources" / d
+            ).is_dir(), f"sources/{d}/ must exist after scaffold"
+        assert (tmp_path / "out" / "plan").is_dir()
 
-    def test_init_no_scaffold_skips_directories(
-        self, mock_execute_query, tmp_path, monkeypatch
+    def test_init_no_scaffold_skips_manifest_and_dirs(
+        self, mock_execute_query, tmp_path
     ):
-        """init(no_scaffold=True) returns empty directories list."""
+        """``--no-scaffold`` skips both the manifest write AND every
+        directory creation (D6).  The on-disk tree must look exactly
+        the same before and after the call."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        monkeypatch.chdir(tmp_path)
-        mgr = FeatureManager()
-        with mock.patch.object(
-            mgr, "_build_session", return_value=mock.MagicMock()
-        ), mock.patch(
+        with mock.patch(
             "snowflake.ml.feature_store.feature_store.FeatureStore"
         ), mock.patch(
             "snowflake.ml.feature_store.feature_store.CreationMode"
         ) as mock_cm:
             mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
-            result = mgr.init(no_scaffold=True)
-        assert result["directories"] == []
+            result = FeatureManager().init(from_dir=tmp_path, no_scaffold=True)
+        assert result["status"] == "skipped"
+        assert not (tmp_path / "manifest.yml").exists()
+        assert not (tmp_path / "sources").exists()
+        assert not (tmp_path / "out").exists()
+
+    def test_init_writes_out_plan_gitkeep(self, mock_execute_query, tmp_path):
+        """Acceptance #10: ``init`` writes ``out/plan/.gitkeep`` so the
+        relocated plan-file lifecycle (D8) has a deterministic,
+        committable home in fresh projects."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        with mock.patch(
+            "snowflake.ml.feature_store.feature_store.FeatureStore"
+        ), mock.patch(
+            "snowflake.ml.feature_store.feature_store.CreationMode"
+        ) as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(from_dir=tmp_path, no_scaffold=False)
+        assert (tmp_path / "out" / "plan" / ".gitkeep").is_file()
+
+    def test_init_fails_fast_on_existing_manifest(self, mock_execute_query, tmp_path):
+        """Acceptance D6: ``init`` refuses to overwrite an existing
+        ``manifest.yml`` — there is no ``--force`` escape."""
+        (tmp_path / "manifest.yml").write_text(_MANIFEST_YAML)
+
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        with pytest.raises(CliError):
+            FeatureManager().init(from_dir=tmp_path, no_scaffold=False)
 
 
-_FV_NO_DB_YAML = textwrap.dedent(
-    """\
-    kind: StreamingFeatureView
-    name: my_features
-    version: V1
-    ordered_entity_column_names:
-      - user_id
-    sources: []
-    features:
-      - source_column:
-          name: event
-          type: StringType
-        output_column:
-          name: event
-          type: StringType
-    """
-)
-
-_ENTITY_NO_DB_YAML = textwrap.dedent(
-    """\
-    kind: Entity
-    name: user
-    join_keys:
-      - name: user_id
-        type: StringType
-    """
-)
+# ---------------------------------------------------------------------------
+# Connection context wiring through to execute_plan
+# ---------------------------------------------------------------------------
 
 
 class TestApplySqlUsesConnectionContext:
-    """Connection db/schema/warehouse should be passed to execute_plan."""
+    """Connection ``warehouse`` must reach ``execute_plan`` while
+    ``database`` / ``schema`` come from the *plan file's*
+    ``target_database`` / ``target_schema`` (which were sourced from
+    the manifest target when the plan was written).  Bug C: plan
+    files are warehouse-agnostic — the warehouse is always pulled
+    from the active connection at apply time (D2 / D4).
+    """
 
     def test_execute_plan_receives_connection_context(
         self, mock_execute_query, mock_cli_context, tmp_path
     ):
-        """Under the apply-lifecycle architecture, ``database`` /
-        ``schema`` come from the *plan file's* ``target_database`` /
-        ``target_schema`` (which match the connection context that
-        wrote the plan), and ``warehouse`` is sourced from the active
-        connection (Bug C fix — plan files are warehouse-agnostic).
-        """
         from snowflake.cli._plugins.feature.manager import FeatureManager
         from snowflake.ml.feature_store.decl.types import ApplyResult
 
+        project_dir = _write_minimal_project(tmp_path)
+
         # Override the autouse mock with specific values
         ctx = mock_cli_context.return_value
-        ctx.connection.database = "MY_DB"
-        ctx.connection.schema = "MY_SCHEMA"
+        ctx.connection.database = "TEST_DB"
+        ctx.connection.schema = "TEST_SCHEMA"
         ctx.connection.warehouse = "MY_WH"
 
         mock_result = ApplyResult(
             status="applied",
-            ops=[
-                {"operation": "CREATE_FV", "name": "my_features", "status": "success"}
-            ],
+            ops=[{"operation": "CREATE_FV", "name": "x", "status": "success"}],
         )
 
-        plan_path = tmp_path / "plan.json"
+        plan_path = project_dir / "out" / "plan" / "feature_plan.json"
         _write_minimal_plan_json(
-            plan_path, target_database="MY_DB", target_schema="MY_SCHEMA"
+            plan_path,
+            target_database="TEST_DB",
+            target_schema="TEST_SCHEMA",
         )
 
-        mgr = FeatureManager()
-        with mock.patch.object(
-            mgr, "_build_session", return_value=mock.MagicMock()
-        ), mock.patch(
+        with mock.patch(
             "snowflake.ml.feature_store.decl.api.execute_plan",
             return_value=mock_result,
         ) as mock_exec:
-            mgr.apply(
-                input_files=[],
-                config=None,
-                dev_mode=True,
-                overwrite=False,
-                allow_recreate=False,
+            FeatureManager().apply(
+                from_dir=project_dir,
+                target_name=None,
                 plan_file=str(plan_path),
+                dev_mode=True,
+                allow_recreate=False,
             )
 
         mock_exec.assert_called_once()
         call_kwargs = mock_exec.call_args.kwargs
-        assert call_kwargs.get("database") == "MY_DB", (
+        assert call_kwargs.get("database") == "TEST_DB", (
             f"database must match plan target_database. Got "
             f"{call_kwargs.get('database')!r}."
         )
-        assert call_kwargs.get("schema") == "MY_SCHEMA", (
+        assert call_kwargs.get("schema") == "TEST_SCHEMA", (
             f"schema must match plan target_schema. Got "
             f"{call_kwargs.get('schema')!r}."
         )
@@ -514,119 +536,120 @@ class TestApplySqlUsesConnectionContext:
 
 
 class TestWritePlanIntegration:
-    """Integration tests: write_plan() uses real decl library, mocked SQL."""
+    """``write_plan()`` end-to-end: real validator / planner /
+    serializer against the manifest project.
+    """
 
-    def test_write_plan_creates_json_file(self, spec_dir, mock_execute_query, tmp_path):
-        """write_plan() produces a valid JSON plan file on disk."""
-        import json
-
+    def test_write_plan_creates_json_file(
+        self, project_dir, mock_execute_query, tmp_path
+    ):
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        out_path = str(tmp_path / "plan.json")
-        mgr = FeatureManager()
-        mgr.write_plan(
-            input_files=[f"{spec_dir}/*.yaml"],
-            config=None,
+        out_path = tmp_path / "plan.json"
+        FeatureManager().write_plan(
+            from_dir=project_dir,
+            target_name=None,
+            variables=[],
             dev_mode=True,
-            out_path=out_path,
+            out_path=str(out_path),
         )
-        content = (tmp_path / "plan.json").read_text()
-        parsed = json.loads(content)
+        parsed = json.loads(out_path.read_text())
         assert parsed["version"] == "1"
         assert "plan" in parsed
         assert "ops" in parsed["plan"]
         assert "summary" in parsed
 
     def test_write_plan_records_source_files(
-        self, spec_dir, mock_execute_query, tmp_path
+        self, project_dir, mock_execute_query, tmp_path
     ):
-        """write_plan() records the input file paths in source_files."""
-        import json
-
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        out_path = str(tmp_path / "plan.json")
-        mgr = FeatureManager()
-        mgr.write_plan(
-            input_files=[f"{spec_dir}/*.yaml"],
-            config=None,
+        out_path = tmp_path / "plan.json"
+        FeatureManager().write_plan(
+            from_dir=project_dir,
+            target_name=None,
+            variables=[],
             dev_mode=True,
-            out_path=out_path,
+            out_path=str(out_path),
         )
-        parsed = json.loads((tmp_path / "plan.json").read_text())
+        parsed = json.loads(out_path.read_text())
         assert isinstance(parsed["source_files"], list)
 
     def test_write_plan_records_target_info(
-        self, spec_dir, mock_execute_query, mock_cli_context, tmp_path
+        self, project_dir, mock_execute_query, mock_cli_context, tmp_path
     ):
-        """write_plan() records target_database and target_schema from connection."""
-        import json
-
+        """Plan envelope records ``target_database`` /
+        ``target_schema`` / ``target_name`` from the resolved
+        manifest target — NOT from the active connection.  This is
+        what lets ``apply`` later refuse a ``target_mismatch`` if
+        the plan was written against a different target than the
+        operator now requests (L6 / D4)."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        out_path = str(tmp_path / "plan.json")
-        mgr = FeatureManager()
-        mgr.write_plan(
-            input_files=[f"{spec_dir}/*.yaml"],
-            config=None,
+        out_path = tmp_path / "plan.json"
+        FeatureManager().write_plan(
+            from_dir=project_dir,
+            target_name=None,
+            variables=[],
             dev_mode=True,
-            out_path=out_path,
+            out_path=str(out_path),
         )
-        parsed = json.loads((tmp_path / "plan.json").read_text())
+        parsed = json.loads(out_path.read_text())
         assert parsed["target_database"] == "TEST_DB"
         assert parsed["target_schema"] == "TEST_SCHEMA"
+        assert parsed["target_name"] == "DEFAULT"
 
 
 class TestApplyWithPlanFileIntegration:
-    """Integration tests: apply(plan_file=...) reads JSON and executes the plan."""
+    """``apply(plan_file=...)`` end-to-end: deserialize the on-disk
+    envelope and execute it through the real ``decl_api`` (with
+    ``execute_plan`` mocked to surface the result without touching
+    Snowflake)."""
 
     def test_apply_from_plan_file_returns_dict(
-        self, spec_dir, mock_execute_query, mock_cli_context, tmp_path
+        self, project_dir, mock_execute_query, mock_cli_context, tmp_path
     ):
-        """apply(plan_file=...) with a real plan file returns a result dict."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
         from snowflake.ml.feature_store.decl.types import ApplyResult
 
-        # First generate a plan file via write_plan
-        plan_path = str(tmp_path / "plan.json")
-        mgr = FeatureManager()
-        mgr.write_plan(
-            input_files=[f"{spec_dir}/*.yaml"],
-            config=None,
+        plan_path = tmp_path / "plan.json"
+        FeatureManager().write_plan(
+            from_dir=project_dir,
+            target_name=None,
+            variables=[],
             dev_mode=True,
-            out_path=plan_path,
+            out_path=str(plan_path),
         )
 
-        # Now apply from the plan file
         mock_result = ApplyResult(status="applied", ops=[])
         with mock.patch(
             "snowflake.ml.feature_store.decl.api.execute_plan",
             return_value=mock_result,
-        ), mock.patch.object(mgr, "_build_session", return_value=mock.MagicMock()):
-            result = mgr.apply(
-                input_files=[],
-                config=None,
+        ):
+            result = FeatureManager().apply(
+                from_dir=project_dir,
+                target_name=None,
+                plan_file=str(plan_path),
                 dev_mode=False,
-                overwrite=False,
                 allow_recreate=False,
-                plan_file=plan_path,
             )
         assert isinstance(result, dict)
 
     def test_apply_from_plan_file_skips_state_queries(
-        self, spec_dir, mock_execute_query, mock_cli_context, tmp_path
+        self, project_dir, mock_execute_query, mock_cli_context, tmp_path
     ):
-        """apply(plan_file=...) skips SHOW queries since state is pre-computed."""
+        """``apply(plan_file=...)`` skips SHOW queries since state is
+        pre-computed in the envelope — the lifecycle invariant L5."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
         from snowflake.ml.feature_store.decl.types import ApplyResult
 
-        plan_path = str(tmp_path / "plan.json")
-        mgr = FeatureManager()
-        mgr.write_plan(
-            input_files=[f"{spec_dir}/*.yaml"],
-            config=None,
+        plan_path = tmp_path / "plan.json"
+        FeatureManager().write_plan(
+            from_dir=project_dir,
+            target_name=None,
+            variables=[],
             dev_mode=True,
-            out_path=plan_path,
+            out_path=str(plan_path),
         )
 
         # Reset call count after write_plan
@@ -636,19 +659,17 @@ class TestApplyWithPlanFileIntegration:
         with mock.patch(
             "snowflake.ml.feature_store.decl.api.execute_plan",
             return_value=mock_result,
-        ), mock.patch.object(mgr, "_build_session", return_value=mock.MagicMock()):
-            mgr.apply(
-                input_files=[],
-                config=None,
+        ):
+            FeatureManager().apply(
+                from_dir=project_dir,
+                target_name=None,
+                plan_file=str(plan_path),
                 dev_mode=False,
-                overwrite=False,
                 allow_recreate=False,
-                plan_file=plan_path,
             )
 
-        # No SHOW queries should be run when using a pre-computed plan
         for call in mock_execute_query.call_args_list:
-            sql = str(call[0][0]) if call[0] else ""
+            sql = str(call.args[0]) if call.args else ""
             assert (
                 "SHOW ONLINE FEATURE TABLES" not in sql
             ), f"State query executed unnecessarily: {sql}"
@@ -660,20 +681,15 @@ class TestApplyWithPlanFileIntegration:
 
 
 class TestIngestSchemaPreflight:
-    """End-to-end tests covering the
-    CLI → ``FeatureManager.ingest`` → mocked ``FeatureStore`` path
-    when records do (or do not) match the registered StreamSource
-    schema.
+    """End-to-end CLI → ``FeatureManager.ingest`` →
+    mocked ``FeatureStore`` happy-path / sad-path against the
+    registered StreamSource schema.
 
-    Why this class lives here (alongside the other "real
-    FeatureManager + decl wired through the wheel" tests) instead of
-    in ``test_commands.py``: we exercise the actual
-    ``FeatureManager.ingest`` body — only ``_get_feature_store`` is
-    mocked, so the preflight code path runs verbatim.  The CLI
-    ``runner`` fixture (from ``tests/conftest.py``) gives us the real
-    Typer command-error mapping (``ClickException`` → non-zero exit
-    code with the message in stderr), which is the contract operators
-    actually see.
+    Only ``_get_feature_store`` is mocked, so the preflight code path
+    runs verbatim.  The CLI ``runner`` fixture (from
+    ``tests/conftest.py``) gives us the real Typer command-error
+    mapping (``ClickException`` → non-zero exit code with the message
+    in stderr), which is the contract operators actually see.
     """
 
     _SIX_COL = [
@@ -706,9 +722,7 @@ class TestIngestSchemaPreflight:
         """Patch ``FeatureManager._get_feature_store`` to return a
         ``MagicMock`` whose ``get_stream_source`` reports the
         canonical 6-column schema and whose ``stream_ingest`` returns
-        ``accepted``.  The caller asserts on
-        ``mock_fs.stream_ingest`` to confirm it was (or wasn't)
-        invoked."""
+        ``accepted``."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         mock_fs = mock.MagicMock(name="feature_store")
@@ -725,7 +739,7 @@ class TestIngestSchemaPreflight:
         return patcher, mock_fs
 
     def test_ingest_command_surfaces_missing_field_clickexception(
-        self, runner, tmp_path, monkeypatch
+        self, runner, project_dir, monkeypatch
     ):
         """A 4-key events.json against a 6-column registered source
         must fail at the CLI with a ``ClickException`` whose message
@@ -733,7 +747,7 @@ class TestIngestSchemaPreflight:
         ``fs.stream_ingest`` must never be invoked: zero HTTP traffic
         on bad input is the whole point of the preflight."""
         monkeypatch.setenv("SNOWFLAKE_PAT", "test_pat")
-        events = tmp_path / "events.json"
+        events = project_dir / "events.json"
         events.write_text(
             '[{"USER_ID": "u1", "SESSION_ID": "s1", '
             '"EVENT_TYPE": "page_view", '
@@ -747,6 +761,8 @@ class TestIngestSchemaPreflight:
                     "feature",
                     "ingest",
                     "CLICKSTREAM_EVENTS",
+                    "--from",
+                    str(project_dir),
                     "--data",
                     str(events),
                 ]
@@ -756,23 +772,20 @@ class TestIngestSchemaPreflight:
             f"Bad payload must yield non-zero exit, "
             f"got exit_code=0; output={result.output!r}"
         )
-        # ClickException prints to stderr (which click captures into
-        # ``result.output`` by default) — the missing-field name must
-        # appear so operators can act.
-        assert "PAGE_URL" in result.output, (
-            f"CLI error must name the missing column.  " f"Output: {result.output!r}"
-        )
+        assert (
+            "PAGE_URL" in result.output
+        ), f"CLI error must name the missing column.  Output: {result.output!r}"
         mock_fs.stream_ingest.assert_not_called()
 
     def test_ingest_command_succeeds_with_matching_schema(
-        self, runner, tmp_path, monkeypatch
+        self, runner, project_dir, monkeypatch
     ):
         """A 6-key events.json against a 6-column registered source
         passes the preflight and reaches ``fs.stream_ingest`` with
         the records unchanged.  The CLI emits the standard
         ``accepted_count`` envelope and exits 0."""
         monkeypatch.setenv("SNOWFLAKE_PAT", "test_pat")
-        events = tmp_path / "events.json"
+        events = project_dir / "events.json"
         events.write_text(
             "["
             '{"USER_ID": "u1", "SESSION_ID": "s1", '
@@ -790,6 +803,8 @@ class TestIngestSchemaPreflight:
                     "feature",
                     "ingest",
                     "CLICKSTREAM_EVENTS",
+                    "--from",
+                    str(project_dir),
                     "--data",
                     str(events),
                 ]

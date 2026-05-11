@@ -12,17 +12,56 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""FeatureManager — thin CLI adapter delegating all logic to decl_api."""
+"""FeatureManager — thin CLI adapter delegating all logic to decl_api.
+
+Phase 3+4 manifest-driven shape (see
+``plans/manifest_layout/phase3_4_cli_and_manager.md`` and
+``plans/MANIFEST_YML_LAYOUT_DECISIONS.md``):
+
+* Every Snowflake-bound entry-point takes ``from_dir`` (project root
+  start) and ``target_name`` (manifest target name; ``None`` resolves
+  to ``default_target``).  The manifest is the source of truth for
+  ``database`` / ``schema`` / ``role`` / ``account_identifier``.
+* ``warehouse`` is **never** read from the manifest — it always comes
+  from the active connection (D2).
+* Plan-file lifecycle (L1–L7) lives under
+  ``<project_root>/out/plan/`` (D8).  See the apply-lifecycle
+  section of ``DESIGN.md`` for the L1–L7 invariants.
+* ``init`` writes the manifest auto-derived from the active
+  connection (D6) and fails fast when ``manifest.yml`` is already
+  present (init-exist locked decision).
+* The boundary rule from ``docs/DEVELOPMENT_STANDARDS.md`` still
+  holds: this module contains no SQL strings — every state query is
+  built by ``decl_api`` and executed via ``self.execute_query``.
+"""
 
 from __future__ import annotations
 
 import logging
-import os
-from typing import Any, Optional, Sequence, Tuple
+from pathlib import Path
+from typing import Any, List, Optional, Sequence, Tuple
 
+from snowflake.cli._plugins.connection.util import get_account_identifier
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.commands.utils import parse_key_value_variables
+from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.identifiers import AccountIdentifier
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import DictCursor
+
+# Manifest helpers are dataclasses + a YAML loader — no SQL, no
+# session, no Snowflake imports.  We import them directly (rather
+# than through ``decl_api``) because the test suite mocks
+# ``decl_api`` to assert the manager's SQL/business-logic seam, not
+# the manifest-loading seam.  The DCM plugin follows the same
+# pattern (``DCMManifest.load(...)`` is called directly from
+# commands.py).
+from snowflake.ml.feature_store.decl.manifest import (
+    FSManifest,
+    FSTarget,
+    ManifestNotFoundError,
+)
+from snowflake.ml.feature_store.decl.project_paths import FSProjectPaths
 
 try:
     from snowflake.ml.feature_store.decl import api as decl_api
@@ -49,17 +88,7 @@ def _to_positional_keys(
 
     snowml-core's ``FeatureStore.read_feature_view`` accepts ``keys``
     as a list of value-lists, one per row, with positional ordering
-    matching the FeatureView's declared join-key sequence
-    (``[jk for ent in fv.entities for jk in ent.join_keys]``).  The
-    CLI accepts JSON-friendly dicts for human ergonomics, e.g.
-    ``[{"USER_ID": "u1", "SESSION_ID": "s1"}]``.  This helper is the
-    single place that bridges the two surfaces.
-
-    Validation is strict: every input dict must carry every declared
-    join-key column.  A missing column raises a ``ValueError``
-    naming the column and the row index, so users get a precise
-    diagnostic instead of a "wrong tuple length" error from the
-    Online Service Query API.
+    matching the FeatureView's declared join-key sequence.
 
     Args:
         keys: List of dicts as supplied by the CLI's ``--keys`` arg.
@@ -86,6 +115,57 @@ def _to_positional_keys(
     return positional
 
 
+def _parse_variables(variables: Optional[Sequence[str]]) -> dict[str, Any]:
+    """Parse ``--variable key=value`` repeats into a dict.
+
+    Args:
+        variables: Sequence of ``key=value`` strings (or ``None``).
+
+    Returns:
+        Dict mapping each ``key`` to its (string) ``value``.  Empty
+        dict when *variables* is ``None`` / empty.
+    """
+    parsed = parse_key_value_variables(list(variables or []))
+    return {v.key: v.value for v in parsed}
+
+
+_DEFAULT_MANIFEST_TARGET = "DEFAULT"
+_DEFAULT_MANIFEST_TEMPLATE = """\
+manifest_version: 1
+type: feature_store
+default_target: {target}
+targets:
+  {target}:
+    account_identifier: {account_identifier}
+    database: {database}
+    schema: {schema}
+{role_line}\
+"""
+
+
+def _render_default_manifest(
+    *,
+    account_identifier: str,
+    database: str,
+    schema: str,
+    role: str,
+    target: str = _DEFAULT_MANIFEST_TARGET,
+) -> str:
+    """Render the default ``manifest.yml`` body from connection fields.
+
+    The result intentionally omits ``warehouse`` (D2) — the active
+    connection is the sole source of truth for warehouse selection.
+    """
+    role_line = f"    role: {role}\n" if role else ""
+    return _DEFAULT_MANIFEST_TEMPLATE.format(
+        target=target,
+        account_identifier=account_identifier,
+        database=database,
+        schema=schema,
+        role_line=role_line,
+    )
+
+
 class FeatureManager(SqlExecutionMixin):
     """Thin CLI adapter — delegates all business logic to decl_api."""
 
@@ -110,140 +190,306 @@ class FeatureManager(SqlExecutionMixin):
         decl_api.ensure_session_setup(self.execute_query)
         self._session_setup_done = True
 
-    def _target_info(self) -> dict[str, str]:
-        """Return connection target db/schema/warehouse for result dicts."""
+    # ------------------------------------------------------------------
+    # _resolve_project — manifest discovery + account match (D4)
+    # ------------------------------------------------------------------
+
+    def _resolve_project(
+        self,
+        from_dir: Path,
+        target_name: Optional[str],
+    ) -> Tuple[FSProjectPaths, FSManifest, FSTarget]:
+        """Walk up from *from_dir* to the project root, load the manifest,
+        resolve the requested target, and assert account match (D4).
+
+        Args:
+            from_dir: Starting directory (or file) for manifest
+                discovery.  ``FSProjectPaths.discover`` walks up from
+                here until it finds ``manifest.yml`` (or hits the
+                filesystem root).
+            target_name: Optional explicit target name.  When ``None``
+                the manifest's ``default_target`` is used (auto-derived
+                for single-target manifests, per Phase 1A).
+
+        Returns:
+            ``(FSProjectPaths, FSManifest, FSTarget)`` triple — every
+            downstream method threads the manifest target's
+            ``database`` / ``schema`` / ``role`` and the connection's
+            ``warehouse`` from there.
+
+        Raises:
+            CliError: When ``manifest.yml`` is not found, the requested
+                target is not declared, the manifest is malformed, OR
+                the active connection's account identifier does not
+                match the resolved target's ``account_identifier``
+                (D4 / L6-extension).
+        """
+        try:
+            paths = FSProjectPaths.discover(from_dir)
+        except ManifestNotFoundError as exc:
+            raise CliError(
+                f"Could not locate manifest.yml starting from "
+                f"{Path(from_dir).resolve()!s}: {exc}"
+            ) from exc
+
+        try:
+            manifest = FSManifest.load(paths.project_root)
+        except (
+            ManifestNotFoundError,
+            Exception,
+        ) as exc:
+            if isinstance(exc, CliError):
+                raise
+            raise CliError(str(exc)) from exc
+
+        try:
+            target = manifest.get_effective_target(target_name)
+        except Exception as exc:
+            raise CliError(str(exc)) from exc
+
+        # L6-extension / D4: refuse to operate when the active
+        # connection's account ≠ the manifest target's
+        # ``account_identifier``.  This check lives in the manager
+        # (not the manifest loader) because account identity is a
+        # connection-level concern.
+        try:
+            current_account = get_account_identifier(get_cli_context().connection)
+        except Exception as exc:
+            log.debug("Could not determine account identifier: %s", exc)
+            current_account = None
+
+        if current_account is not None and target.account_identifier:
+            expected = AccountIdentifier.from_string(target.account_identifier)
+            if current_account != expected:
+                raise CliError(
+                    f"Account mismatch: the manifest target "
+                    f"'{target.name}' specifies account_identifier "
+                    f"'{target.account_identifier}', but the active "
+                    f"connection reports account '{current_account!s}'. "
+                    f"Switch connection or update the manifest."
+                )
+
+        return paths, manifest, target
+
+    def _target_info(self, target: FSTarget) -> dict[str, str]:
+        """Return ``{target_database, target_schema, target_warehouse,
+        target_name}`` for result envelopes.
+
+        Per D2: ``database`` / ``schema`` come from the manifest
+        target; ``warehouse`` always comes from the active connection
+        (the manifest has no ``warehouse`` field).
+        """
         ctx = get_cli_context()
         return {
-            "target_database": ctx.connection.database or "",
-            "target_schema": ctx.connection.schema or "",
+            "target_database": target.database,
+            "target_schema": target.schema,
             "target_warehouse": ctx.connection.warehouse or "",
+            "target_name": target.name,
         }
 
     # ------------------------------------------------------------------
-    # init
+    # init — D6 auto-derive + init-exist fail-fast
     # ------------------------------------------------------------------
 
-    def init(self, no_scaffold: bool = False) -> dict[str, Any]:
-        """Initialize a feature store: create schema, tags, metadata tables.
+    def init(
+        self,
+        from_dir: Path,
+        no_scaffold: bool = False,
+    ) -> dict[str, Any]:
+        """Initialize a feature-store project under *from_dir*.
 
-        If *no_scaffold* is False, also creates local project directories
-        ``entities/``, ``datasources/``, and ``feature_views/`` in the
-        current working directory.
+        When *no_scaffold* is False (default) this method:
+
+        1. Refuses to overwrite an existing ``manifest.yml`` (init-exist
+           locked decision; no ``--force`` escape).
+        2. Writes a default ``manifest.yml`` whose single ``DEFAULT``
+           target is auto-derived from the active connection
+           (``account_identifier`` / ``database`` / ``schema`` /
+           ``role``).  ``warehouse`` is never written (D2).
+        3. Creates ``sources/{entities,datasources,feature_views}/``
+           and ``out/plan/.gitkeep`` so the plan-discovery directory is
+           git-trackable but not pre-populated.
+        4. Calls ``FeatureStore(..., creation_mode=CREATE_IF_NOT_EXIST)``
+           to do the Snowflake-side schema / tag / metadata setup.
+
+        With ``--no-scaffold`` every step above is skipped (manifest
+        write, dir scaffolding, AND Snowflake-side init) — this is the
+        escape hatch for operators driving ``init`` purely as a noop
+        in test harnesses.
+
+        Args:
+            from_dir: Directory to initialise.  Becomes the project
+                root.  Must exist.
+            no_scaffold: When True, skip every side effect.
+
+        Returns:
+            ``{status, project_root, manifest_path, target}`` for a
+            successful init; ``{status: "skipped"}`` for ``no_scaffold``.
+
+        Raises:
+            CliError: When ``manifest.yml`` is already present at
+                ``<from_dir>/manifest.yml``.
         """
         ctx = get_cli_context()
-        db = ctx.connection.database
-        schema = ctx.connection.schema
-        wh = ctx.connection.warehouse or ""
+        project_root = Path(from_dir).resolve()
 
-        session = self._build_session()
-        # Lazy import to avoid heavy deps at module level
+        if no_scaffold:
+            return {
+                "status": "skipped",
+                "project_root": str(project_root),
+            }
+
+        manifest_path = project_root / "manifest.yml"
+        if manifest_path.exists():
+            raise CliError(
+                f"manifest.yml already exists at {manifest_path}. Refusing "
+                f"to overwrite (init is fail-fast by design — there is no "
+                f"--force escape)."
+            )
+
+        project_root.mkdir(parents=True, exist_ok=True)
+
+        manifest_text = _render_default_manifest(
+            account_identifier=str(ctx.connection.account or ""),
+            database=str(ctx.connection.database or ""),
+            schema=str(ctx.connection.schema or ""),
+            role=str(ctx.connection.role or ""),
+        )
+        manifest_path.write_text(manifest_text)
+
+        sources_root = project_root / "sources"
+        for sub in ("entities", "datasources", "feature_views"):
+            (sources_root / sub).mkdir(parents=True, exist_ok=True)
+
+        plans_dir = project_root / "out" / "plan"
+        plans_dir.mkdir(parents=True, exist_ok=True)
+        (plans_dir / ".gitkeep").write_text("")
+
+        # Snowflake-side init: lazy-import to keep the heavy
+        # snowml-core deps off the import path of plain ``init``.
         from snowflake.ml.feature_store.feature_store import (
             CreationMode,
             FeatureStore,
         )
 
+        session = self._build_session()
         FeatureStore(
             session,
-            db,
-            schema,
-            wh,
+            ctx.connection.database,
+            ctx.connection.schema,
+            ctx.connection.warehouse or "",
             creation_mode=CreationMode.CREATE_IF_NOT_EXIST,
         )
 
-        dirs_created: list[str] = []
-        if not no_scaffold:
-            for d in ["entities", "datasources", "feature_views"]:
-                os.makedirs(d, exist_ok=True)
-                dirs_created.append(d)
-
         return {
             "status": "initialized",
-            "database": db,
-            "schema": schema,
-            "directories": dirs_created,
+            "project_root": str(project_root),
+            "manifest_path": str(manifest_path),
+            "target": _DEFAULT_MANIFEST_TARGET,
         }
 
     # ------------------------------------------------------------------
-    # apply
+    # apply — L1–L7 plan-file lifecycle, relocated to out/plan/
     # ------------------------------------------------------------------
 
     def apply(
         self,
-        input_files: Sequence[str],
-        config: Optional[dict[str, Any]],
+        from_dir: Path,
+        target_name: Optional[str],
+        plan_file: Optional[str],
         dev_mode: bool,
-        overwrite: bool,
         allow_recreate: bool,
-        plan_file: Optional[str] = None,
-        no_delete: bool = True,
     ) -> dict[str, Any]:
-        """Apply a feature-store spec set to Snowflake.
+        """Apply the discovered (or explicit) plan file.
 
         Apply is a *pure plan-file consumer*: either ``plan_file`` is
         given explicitly (the L7 escape hatch), or the manager
         auto-discovers the latest unapplied plan under
-        ``<cwd>/.snowflake/plans/`` (L1–L4 invariants).  There is no
-        "re-plan from source" branch — that path was the proximate
-        cause of the phantom-``CREATE_*`` failure mode and was deleted
-        in the "Apply Lifecycle Resilience" plan.
+        ``<project_root>/out/plan/`` (L1–L4).  There is no
+        "re-plan from source" branch.
 
         Operators preview changes via ``snow feature plan`` (which
-        runs ``manager.plan`` + ``manager.write_plan`` to validate
-        specs against applied state and persist the resulting plan
-        file to ``<cwd>/.snowflake/plans/`` for ``apply`` to consume).
+        runs ``manager.plan`` + ``manager.write_plan``).
 
         Args:
-            input_files: Spec file paths or glob patterns.
-            config: Jinja2 template variables, or ``None``.
-            dev_mode: Apply dev-mode relaxed validation.
-            overwrite: Force CREATE OR REPLACE semantics.
+            from_dir: Project-root start (manifest discovery walks up
+                from here).
+            target_name: Optional manifest target name.  ``None``
+                resolves to the manifest's ``default_target``.
+            plan_file: Optional explicit plan file (L7).  When given,
+                auto-discovery is skipped but L6 (account +
+                ``target_name`` match) still runs.
+            dev_mode: Apply in dev-mode relaxed validation.
             allow_recreate: Permit recreate (drop-and-create) operations.
-            plan_file: Optional explicit plan file to apply (L7).  When
-                given, skips auto-discovery and target-mismatch checks
-                still apply.
-            no_delete: When True, deletion detection is disabled.  Only
-                used when generating a plan from source (``manager.plan``);
-                wet-run apply consumes a pre-generated plan file whose
-                deletion ops are already baked in.
 
         Returns:
-            A result dict with ``status`` / ``ops`` / ``executed`` /
-            ``warnings`` / ``errors`` plus connection-target metadata.
+            Result dict with ``status`` / ``ops`` / ``executed`` /
+            ``warnings`` / ``errors`` / ``plan_file`` plus
+            connection-target metadata.
         """
+        try:
+            paths, _, target = self._resolve_project(from_dir, target_name)
+        except CliError:
+            # Explicit account mismatch → return as a structured
+            # ``target_mismatch`` status so ``snow feature apply`` does
+            # not exit the process abruptly (operators script around
+            # the status string per ``docs/ARCHITECTURE.md`` Apply
+            # Lifecycle table).
+            ctx = get_cli_context()
+            try:
+                current_account = get_account_identifier(ctx.connection)
+            except Exception:
+                current_account = None
+            return {
+                "target_database": "",
+                "target_schema": "",
+                "target_warehouse": ctx.connection.warehouse or "",
+                "target_name": target_name or "",
+                "status": "target_mismatch",
+                "ops": [],
+                "executed": 0,
+                "warnings": [],
+                "errors": [
+                    f"Account mismatch resolving manifest target "
+                    f"{target_name or '(default)'!s}; "
+                    f"connection reports {current_account!s}."
+                ],
+            }
+
         self._ensure_session_setup()
 
         if plan_file is not None:
             return self._apply_from_plan_file(
                 plan_file=plan_file,
+                target=target,
+                requested_target_name=target_name,
                 dev_mode=dev_mode,
-                overwrite=overwrite,
                 allow_recreate=allow_recreate,
             )
 
         # No explicit plan_file: discover the latest unapplied plan
-        # under ``<cwd>/.snowflake/plans/`` (L1–L3).  If none exists,
-        # return a structured ``no_plan`` result that points the
-        # operator at ``snow feature plan`` — we deliberately do NOT
-        # silently re-plan from source, because that was the parity-bug
-        # surface the apply-lifecycle plan eliminated.
-        discovered = self._discover_unapplied_plan()
+        # under ``<project_root>/out/plan/`` (L1–L3).  If none exists,
+        # return a structured ``no_plan`` result.
+        discovered = self._discover_unapplied_plan(paths.plans_dir)
         if discovered is None:
             return {
-                **self._target_info(),
+                **self._target_info(target),
                 "status": "no_plan",
                 "ops": [],
                 "executed": 0,
                 "warnings": [],
                 "errors": [
-                    "No unapplied plan file found under "
-                    "'.snowflake/plans/'. Run `snow feature plan <path>` "
-                    "first to generate a plan, then re-run apply."
+                    f"No unapplied plan file found under "
+                    f"'{paths.plans_dir}' (out/plan/). Run "
+                    f"`snow feature plan --from <dir>` first to "
+                    f"generate a plan, then re-run apply."
                 ],
             }
         return self._apply_from_plan_file(
             plan_file=discovered,
+            target=target,
+            requested_target_name=target_name,
             dev_mode=dev_mode,
-            overwrite=overwrite,
             allow_recreate=allow_recreate,
         )
 
@@ -251,33 +497,28 @@ class FeatureManager(SqlExecutionMixin):
     # _discover_unapplied_plan (private helper, L1–L3 invariants)
     # ------------------------------------------------------------------
 
-    def _discover_unapplied_plan(self) -> Optional[str]:
+    def _discover_unapplied_plan(self, plans_dir: Path) -> Optional[str]:
         """Return the path of the newest unapplied plan, or ``None``.
 
-        Mirrors the default ``--out`` location used by
-        ``commands.py::plan_cmd`` (``<cwd>/.snowflake/plans/``).
-        Identifies unapplied plans as files matching
-        ``feature_plan_*.json`` whose names end in ``.json`` (i.e. NOT
-        ``.applied`` or ``.discarded``).  Sorts lexicographically — the
-        ``YYYYMMDDTHHMMSS`` UTC timestamp embedded in the filename is
-        monotonic at one-second resolution, which is far below human
-        workflow latency.
+        Walks ``plans_dir`` (= ``<project_root>/out/plan/`` per D8) for
+        files matching ``feature_plan_*.json`` whose suffix is
+        ``.json`` (i.e. not ``.applied`` / ``.discarded``).  Sorts
+        lexicographically — the ``YYYYMMDDTHHMMSS`` UTC timestamp
+        embedded in the filename is monotonic at one-second resolution.
 
         Side effect (L3 — Discard-Older): when more than one unapplied
         plan exists, every plan except the newest is renamed to
         ``<name>.discarded`` *before* the function returns.  This keeps
         the plans directory in a normalised state — at most one
-        unapplied plan when execution begins — and matches the
-        operator-visible contract that ``apply`` commits to consume
-        only the latest plan.
+        unapplied plan when execution begins.
+
+        Args:
+            plans_dir: ``<project_root>/out/plan/``.
 
         Returns:
             Path string of the newest unapplied plan, or ``None`` if
             no candidates exist.
         """
-        from pathlib import Path
-
-        plans_dir = Path.cwd() / ".snowflake" / "plans"
         if not plans_dir.is_dir():
             return None
 
@@ -301,8 +542,9 @@ class FeatureManager(SqlExecutionMixin):
     def _apply_from_plan_file(
         self,
         plan_file: str,
+        target: FSTarget,
+        requested_target_name: Optional[str],
         dev_mode: bool,
-        overwrite: bool,
         allow_recreate: bool,
     ) -> dict[str, Any]:
         """Execute a pre-computed plan loaded from a JSON plan file.
@@ -312,32 +554,29 @@ class FeatureManager(SqlExecutionMixin):
         - **L4 (Mark-Applied):** on successful execution, rename the
           plan file to ``<name>.applied``.
         - **L5 (Mark-Failed-Stays-Unapplied):** on execution failure,
-          leave the plan file at its original name so the operator can
-          inspect, fix, and retry.
-        - **L6 (Target-Match):** before executing, verify the plan's
-          ``target_database`` / ``target_schema`` match the active
-          connection.  Mismatch returns a structured
-          ``status="target_mismatch"`` and skips execution.
+          leave the plan file at its original name.
+        - **L6 (Target-Match):** widened in Phase 3+4 (D4-ext): refuses
+          a plan when ``plan.target_name`` ≠ the requested
+          ``--target`` (the account-mismatch branch is checked one
+          layer up by ``_resolve_project``).
 
-        Also fixes Bug C (warehouse propagation): the *connection's*
-        warehouse is forwarded to ``execute_plan`` (plan files are
-        warehouse-agnostic by design — connection context owns
-        warehouse selection so the same plan can run from any
-        compatible warehouse).
+        Per D2, the connection's warehouse is forwarded to
+        ``execute_plan`` (plan files are warehouse-agnostic).
 
         Args:
             plan_file: Path to the plan JSON file to apply.
+            target: Resolved manifest target (db / schema source).
+            requested_target_name: The ``--target`` argument the
+                operator supplied (``None`` if defaulted).  Used for
+                the L6 ``target_name`` mismatch check.
             dev_mode: Apply dev-mode relaxed validation.
-            overwrite: Force CREATE OR REPLACE semantics.
             allow_recreate: Permit recreate (drop-and-create) operations.
 
         Returns:
-            A result dict with ``status`` / ``ops`` / ``executed`` /
-            ``warnings`` / ``errors`` / ``plan_file`` (the latter is
-            updated to the ``.applied`` path on success).
+            Result dict with ``status`` / ``ops`` / ``executed`` /
+            ``warnings`` / ``errors`` / ``plan_file``.  ``plan_file``
+            is updated to the ``.applied`` path on success.
         """
-        from pathlib import Path
-
         from snowflake.ml.feature_store.decl.types import PlanOptions
 
         plan_path = Path(plan_file)
@@ -346,67 +585,86 @@ class FeatureManager(SqlExecutionMixin):
         plan = pf.plan
         plan_target_db = pf.target_database
         plan_target_schema = pf.target_schema
+        plan_target_name = getattr(pf, "target_name", "") or ""
 
         ctx = get_cli_context()
-        conn_db = ctx.connection.database or ""
-        conn_schema = ctx.connection.schema or ""
 
-        # L6 (Target-Match): refuse to apply a plan generated for a
-        # different store than the one the active connection points at.
-        if plan_target_db and plan_target_db != conn_db:
+        # L6 (Target-Match) — D4-ext: plan envelope ``target_name``
+        # must match the requested ``--target`` (case-insensitive).
+        # An empty plan ``target_name`` means "legacy / pre-D4-ext"
+        # and is accepted unconditionally (apply --plan stays a usable
+        # escape hatch for older plan files).
+        if plan_target_name:
+            requested = (requested_target_name or target.name or "").upper()
+            if requested and requested != plan_target_name.upper():
+                return {
+                    **self._target_info(target),
+                    "status": "target_mismatch",
+                    "ops": [],
+                    "executed": 0,
+                    "warnings": [],
+                    "errors": [
+                        f"Plan was generated for target "
+                        f"'{plan_target_name}' but apply was invoked "
+                        f"with --target '{requested}'. Re-run plan or "
+                        f"use --target {plan_target_name}."
+                    ],
+                    "plan_file": plan_file,
+                }
+
+        # L6 (Target-Match) — legacy shape: db/schema must also match
+        # so the active connection's working schema collides with the
+        # plan's ``compile_to_spec(...)`` results.
+        if plan_target_db and plan_target_db != target.database:
             return {
-                **self._target_info(),
+                **self._target_info(target),
                 "status": "target_mismatch",
                 "ops": [],
                 "executed": 0,
                 "warnings": [],
                 "errors": [
                     f"Plan was generated for database "
-                    f"'{plan_target_db}' but the active connection "
-                    f"points at '{conn_db}'. Re-run plan or switch "
-                    f"connection."
+                    f"'{plan_target_db}' but the resolved manifest "
+                    f"target points at '{target.database}'."
                 ],
                 "plan_file": plan_file,
             }
-        if plan_target_schema and plan_target_schema != conn_schema:
+        if plan_target_schema and plan_target_schema != target.schema:
             return {
-                **self._target_info(),
+                **self._target_info(target),
                 "status": "target_mismatch",
                 "ops": [],
                 "executed": 0,
                 "warnings": [],
                 "errors": [
                     f"Plan was generated for schema "
-                    f"'{plan_target_schema}' but the active "
-                    f"connection points at '{conn_schema}'. Re-run "
-                    f"plan or switch connection."
+                    f"'{plan_target_schema}' but the resolved "
+                    f"manifest target points at '{target.schema}'."
                 ],
                 "plan_file": plan_file,
             }
 
         options = PlanOptions(
             dev_mode=dev_mode,
-            overwrite=overwrite,
             allow_recreate=allow_recreate,
         )
 
         session = self._build_session()
-        # Bug C fix: warehouse comes from the *active connection*, not
-        # the plan file (plan files are warehouse-agnostic by design).
+        # D2 / Bug C: warehouse comes from the *active connection*,
+        # not the plan file (plan files are warehouse-agnostic).
         result = decl_api.execute_plan(
             plan,
             session,
-            database=plan_target_db,
-            schema=plan_target_schema,
+            database=target.database,
+            schema=target.schema,
             warehouse=ctx.connection.warehouse or "",
             options=options,
         )
 
         # L4 (Mark-Applied): rename plan file to .applied on success.
         # L5 (Mark-Failed-Stays-Unapplied): keep the original name on
-        # failure (any non-"applied" status, or an exception that would
-        # have already propagated above this line — Python's natural
-        # exception flow is the L5 mechanism).
+        # any non-"applied" status (or any exception, which propagates
+        # naturally above this line).
         result_plan_file = plan_file
         if result.status == "applied":
             applied_path = plan_path.parent / (plan_path.name + ".applied")
@@ -414,6 +672,7 @@ class FeatureManager(SqlExecutionMixin):
             result_plan_file = str(applied_path)
 
         return {
+            **self._target_info(target),
             "status": result.status,
             "ops": result.ops,
             "executed": len([o for o in result.ops if o.get("status") == "success"]),
@@ -428,35 +687,38 @@ class FeatureManager(SqlExecutionMixin):
 
     def plan(
         self,
-        input_files: Sequence[str],
-        config: Optional[dict[str, Any]],
+        from_dir: Path,
+        target_name: Optional[str],
+        variables: Optional[Sequence[str]],
         dev_mode: bool,
         allow_recreate: bool,
         no_delete: bool = True,
     ) -> dict[str, Any]:
         """Render plan ops for ``snow feature plan`` (read-only).
 
-        The new explicit planning path that replaces the legacy
-        ``apply(dry_run=True)`` hack.  Validates specs against applied
-        state, generates a plan, and returns a structured result for
-        the terminal UI.  Does NOT generate SQL strings and does NOT
-        execute anything against Snowflake.
+        Validates specs against applied state, generates a plan, and
+        returns a structured result for the terminal UI.  Does NOT
+        generate SQL strings and does NOT execute anything against
+        Snowflake.
 
         Steps:
 
-        1. Prime the session (``ALTER SESSION SET ENABLE_FEATURE_STORE_DESCRIBE_OFT_SPECIFICATION = TRUE``).
-        2. Fetch applied state via ``DESCRIBE … TYPE = SPECIFICATION``.
-        3. ``decl_api.load_specs(...)`` to parse the input files.
-        4. ``decl_api.resolve_datasource_columns(batch)`` to inject
-           datasource column schemas into FV source refs.
-        5. ``decl_api.validate_specs(...)`` — short-circuit on ERROR.
-        6. ``decl_api.generate_plan(...)`` to compute the op stream.
+        1. Resolve the manifest project + target.
+        2. Prime the session.
+        3. Fetch applied state via ``DESCRIBE … TYPE = SPECIFICATION``.
+        4. Load the project via ``decl_api.load_project`` (manifest-aware
+           sources walk).
+        5. ``decl_api.resolve_datasource_columns`` to inject FV source
+           column schemas.
+        6. ``decl_api.validate_specs`` — short-circuit on ERROR.
+        7. ``decl_api.generate_plan`` to compute the op stream.
 
         Args:
-            input_files: Spec file paths or glob patterns.
-            config: Jinja2 template variables, or ``None``.
+            from_dir: Project-root start.
+            target_name: Optional manifest target name.
+            variables: ``--variable key=value`` repeats.
             dev_mode: Apply dev-mode relaxed validation.
-            allow_recreate: Permit recreate (drop-and-create) operations.
+            allow_recreate: Permit recreate (drop-and-create) ops.
             no_delete: When True, deletion detection is disabled.
 
         Returns:
@@ -466,10 +728,13 @@ class FeatureManager(SqlExecutionMixin):
         """
         from snowflake.ml.feature_store.decl.types import PlanOptions
 
+        paths, _, target = self._resolve_project(from_dir, target_name)
+        runtime_vars = _parse_variables(variables)
+
         self._ensure_session_setup()
 
         ctx = get_cli_context()
-        sqls = decl_api.state_queries(ctx.connection.database, ctx.connection.schema)
+        sqls = decl_api.state_queries(target.database, target.schema)
         raw_show = _rows_to_dicts(
             self.execute_query(sqls["show_ofts"], cursor_class=DictCursor)
         )
@@ -477,31 +742,34 @@ class FeatureManager(SqlExecutionMixin):
             self.execute_query(sqls["show_tables"], cursor_class=DictCursor)
         )
         specification_map = self._fetch_oft_state(raw_show, sqls)
-        entity_rows = self._fetch_entity_rows(ctx)
+        entity_rows = self._fetch_entity_rows(target)
         applied_state = decl_api.fetch_applied_state(
             raw_show,
             raw_tables,
             specification_map=specification_map,
             entity_rows=entity_rows,
-            default_database=ctx.connection.database or "",
-            default_schema=ctx.connection.schema or "",
+            default_database=target.database,
+            default_schema=target.schema,
         )
 
-        all_files = self._expand_with_datasources(list(input_files))
-        batch = decl_api.load_specs(all_files, config)
+        batch = decl_api.load_project(
+            paths.project_root,
+            target=target,
+            runtime_vars=runtime_vars or None,
+        )
         decl_api.resolve_datasource_columns(batch)
 
         validation_results = decl_api.validate_specs(
             batch,
             applied_state,
-            target_database=ctx.connection.database or "",
-            target_schema=ctx.connection.schema or "",
+            target_database=target.database,
+            target_schema=target.schema,
         )
         errors = [r for r in validation_results if r.severity == "ERROR"]
         warnings = [r for r in validation_results if r.severity == "WARNING"]
         if errors:
             return {
-                **self._target_info(),
+                **self._target_info(target),
                 "status": "validation_failed",
                 "ops": [],
                 "executed": 0,
@@ -518,25 +786,25 @@ class FeatureManager(SqlExecutionMixin):
             batch,
             applied_state,
             options,
-            database=ctx.connection.database or "",
-            schema=ctx.connection.schema or "",
+            database=target.database,
+            schema=target.schema,
         )
 
+        # Suppress unused-warning so the linter doesn't complain about
+        # ``ctx`` (kept for symmetry with other entry-points and to
+        # surface a connection in case downstream wiring is added).
+        del ctx
+
         return {
-            **self._target_info(),
+            **self._target_info(target),
             "status": "ready",
             "ops": [
                 {
                     "operation": op.kind.value,
                     # Preserve the spec's original-case name so the
                     # rendered plan UI, the on-disk JSON written by
-                    # ``write_plan`` (via ``serialize_plan``), and the
-                    # apply-time per-op rendering all share one
-                    # canonical identifier.  Lowercasing here was the
-                    # source of the BUG_BASH §11 false-fail where
-                    # ``verify_bug_bash.sh`` greps for the
-                    # doc-aligned uppercase ``UPDATE_ENTITY USER_ID``
-                    # row but the renderer emitted ``user_id``.
+                    # ``write_plan``, and the apply-time per-op
+                    # rendering all share one canonical identifier.
                     "name": op.name,
                     "reason": op.reason,
                     "destructive": op.destructive,
@@ -555,35 +823,43 @@ class FeatureManager(SqlExecutionMixin):
 
     def write_plan(
         self,
-        input_files: Sequence[str],
-        config: Optional[dict[str, Any]],
+        from_dir: Path,
+        target_name: Optional[str],
+        variables: Optional[Sequence[str]],
         dev_mode: bool,
-        out_path: str,
+        out_path: Optional[str],
         no_delete: bool = True,
     ) -> str:
-        """Generate a plan and write it as JSON to *out_path*.
+        """Generate a plan and write it as JSON.
+
+        When *out_path* is ``None`` the plan lands under
+        ``<project_root>/out/plan/feature_plan_<UTC ts>.json`` (D8
+        relocated).  The serialised envelope carries ``target_name``
+        so apply can later reject mismatched plans (D4-ext).
 
         Args:
-            input_files: Spec file paths or glob patterns.
-            config: Jinja2 template variables, or ``None``.
+            from_dir: Project-root start.
+            target_name: Optional manifest target name.
+            variables: ``--variable key=value`` repeats.
             dev_mode: Apply dev-mode relaxed validation.
-            out_path: Destination path for the JSON plan file.  Parent
-                directories are created automatically.
+            out_path: Destination path.  Parent directories are
+                created automatically.  When ``None`` the default
+                location under ``out/plan/`` is used.
             no_delete: When True, disable deletion detection.
 
         Returns:
             The absolute path to the written plan file.
         """
-        from pathlib import Path
+        from datetime import datetime as _dt
 
         from snowflake.ml.feature_store.decl.types import PlanOptions
 
+        paths, _, target = self._resolve_project(from_dir, target_name)
+        runtime_vars = _parse_variables(variables)
+
         self._ensure_session_setup()
 
-        ctx = get_cli_context()
-
-        # Fetch applied state (full spec JSON via DESCRIBE TYPE = SPECIFICATION).
-        sqls = decl_api.state_queries(ctx.connection.database, ctx.connection.schema)
+        sqls = decl_api.state_queries(target.database, target.schema)
         raw_show = _rows_to_dicts(
             self.execute_query(sqls["show_ofts"], cursor_class=DictCursor)
         )
@@ -591,51 +867,53 @@ class FeatureManager(SqlExecutionMixin):
             self.execute_query(sqls["show_tables"], cursor_class=DictCursor)
         )
         specification_map = self._fetch_oft_state(raw_show, sqls)
-        entity_rows = self._fetch_entity_rows(ctx)
+        entity_rows = self._fetch_entity_rows(target)
         applied_state = decl_api.fetch_applied_state(
             raw_show,
             raw_tables,
             specification_map=specification_map,
             entity_rows=entity_rows,
-            default_database=ctx.connection.database or "",
-            default_schema=ctx.connection.schema or "",
+            default_database=target.database,
+            default_schema=target.schema,
         )
 
-        # Load and expand specs
-        all_files = self._expand_with_datasources(list(input_files))
-        batch = decl_api.load_specs(all_files, config)
-        # Inject datasource columns into FV source refs so the planner
-        # sees the same enriched batch ``manager.plan`` does.  Without
-        # this pre-pass, FVs that reference a sibling datasource (case
-        # preserved from ``SPECIFICATION`` JSON) would be planned with
-        # empty ``sources[].columns``, breaking on-wire parity with the
-        # terminal-rendered op stream.
+        batch = decl_api.load_project(
+            paths.project_root,
+            target=target,
+            runtime_vars=runtime_vars or None,
+        )
         decl_api.resolve_datasource_columns(batch)
 
         options = PlanOptions(dev_mode=dev_mode, full_directory_mode=not no_delete)
-        # Forward connection context so the planner qualifies bare specs
-        # (single-file invocations, entity YAMLs without ``database:``)
-        # against the active ``snow`` connection.  Both this method and
-        # ``manager.plan`` thread the same database/schema through the
-        # planner so the disk plan and the terminal-rendered op stream
-        # are byte-equivalent under the ``(kind, name)`` projection.
         plan = decl_api.generate_plan(
             batch,
             applied_state,
             options,
-            database=ctx.connection.database or "",
-            schema=ctx.connection.schema or "",
+            database=target.database,
+            schema=target.schema,
         )
 
+        source_files = sorted(
+            str(p)
+            for p in paths.sources_dir.rglob("*")
+            if p.is_file() and p.suffix in (".yaml", ".yml", ".py", ".json")
+        )
         json_str = decl_api.serialize_plan(
             plan,
-            ctx.connection.database,
-            ctx.connection.schema,
-            all_files,
+            target.database,
+            target.schema,
+            source_files,
+            target_name=target.name,
         )
 
-        dest = Path(out_path)
-        dest.parent.mkdir(parents=True, exist_ok=True)
+        if out_path is None:
+            ts = _dt.utcnow().strftime("%Y%m%dT%H%M%S")
+            paths.plans_dir.mkdir(parents=True, exist_ok=True)
+            dest = paths.plans_dir / f"feature_plan_{ts}.json"
+        else:
+            dest = Path(out_path)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+
         dest.write_text(json_str)
         return str(dest)
 
@@ -645,42 +923,30 @@ class FeatureManager(SqlExecutionMixin):
 
     def list_specs(
         self,
-        input_files: Tuple[str, ...],
-        config: Optional[dict[str, Any]],
+        from_dir: Path,
+        target_name: Optional[str],
     ) -> dict[str, Any]:
-        """List specs from files or deployed objects from Snowflake.
+        """List deployed feature-store objects from Snowflake.
 
-        When listing from Snowflake, this surfaces three object kinds in a
-        single result:
+        Surfaces three object kinds in a single result:
 
-        - ``FeatureView`` rows from ``SHOW ONLINE FEATURE TABLES``, enriched
-          with the full spec JSON returned by
-          ``DESCRIBE ONLINE FEATURE TABLE <name> TYPE = SPECIFICATION``.
-        - ``Entity`` rows from ``SHOW TAGS LIKE 'SNOWML_FEATURE_STORE_ENTITY_%'``.
-        - ``Datasource`` rows derived by unioning ``spec.sources[]`` across
-          every recovered FV spec (datasources are virtual — they have no
-          dedicated SHOW command).
+        - ``FeatureView`` rows from ``SHOW ONLINE FEATURE TABLES``,
+          enriched with the full spec JSON returned by ``DESCRIBE
+          ONLINE FEATURE TABLE <name> TYPE = SPECIFICATION``.
+        - ``Entity`` rows from
+          ``SHOW TAGS LIKE 'SNOWML_FEATURE_STORE_ENTITY_%'``.
+        - ``Datasource`` rows derived from FV ``spec.sources[]``.
         """
-        if input_files:
-            batch = decl_api.load_specs(list(input_files), config)
-            specs = getattr(batch, "specs", [])
-            return {"source": "files", "specs": [str(s) for s in specs]}
-
-        # Snowflake-bound branch: prime the session before any state query.
-        # SessionSetupError is intentionally raised outside the try/except
-        # below so the command aborts cleanly.
+        _, _, target = self._resolve_project(from_dir, target_name)
         self._ensure_session_setup()
 
-        ctx = get_cli_context()
         try:
-            queries = decl_api.list_state_queries(
-                ctx.connection.database, ctx.connection.schema
-            )
+            queries = decl_api.list_state_queries(target.database, target.schema)
             oft_rows = _rows_to_dicts(
                 self.execute_query(queries["show_ofts"], cursor_class=DictCursor)
             )
 
-            entity_rows = self._fetch_entity_rows(ctx)
+            entity_rows = self._fetch_entity_rows(target)
 
             specification_map = self._fetch_oft_state(oft_rows, queries)
 
@@ -689,7 +955,11 @@ class FeatureManager(SqlExecutionMixin):
                 entity_rows=entity_rows,
                 specification_map=specification_map,
             )
-            return {**self._target_info(), "source": "snowflake", "specs": enriched}
+            return {
+                **self._target_info(target),
+                "source": "snowflake",
+                "specs": enriched,
+            }
         except Exception as exc:
             log.warning("list query raised %s: %s", type(exc).__name__, exc)
             return {"status": "error", "error": str(exc)}
@@ -698,14 +968,17 @@ class FeatureManager(SqlExecutionMixin):
     # describe
     # ------------------------------------------------------------------
 
-    def describe(self, name: str) -> dict[str, Any]:
+    def describe(
+        self,
+        from_dir: Path,
+        target_name: Optional[str],
+        name: str,
+    ) -> dict[str, Any]:
         """Return metadata for a named feature view (resolves to OFT name)."""
+        _, _, target = self._resolve_project(from_dir, target_name)
         self._ensure_session_setup()
 
-        ctx = get_cli_context()
-
-        # Resolve feature view name → OFT name via SHOW lookup
-        sqls = decl_api.state_queries(ctx.connection.database, ctx.connection.schema)
+        sqls = decl_api.state_queries(target.database, target.schema)
         raw_show = _rows_to_dicts(
             self.execute_query(sqls["show_ofts"], cursor_class=DictCursor)
         )
@@ -719,7 +992,6 @@ class FeatureManager(SqlExecutionMixin):
             if base_name.upper() == name.upper():
                 oft_name = candidate
                 break
-            # Also allow passing the full OFT name directly
             if candidate.upper() == name.upper():
                 oft_name = candidate
                 break
@@ -731,7 +1003,6 @@ class FeatureManager(SqlExecutionMixin):
                 "error": f"{name}: not found in deployed feature views",
             }
 
-        # Find the SHOW row for metadata
         show_row = None
         for row in raw_show:
             if row.get("name", "") == oft_name:
@@ -739,19 +1010,15 @@ class FeatureManager(SqlExecutionMixin):
                 break
 
         try:
-            sql = decl_api.describe_query(
-                oft_name, ctx.connection.database, ctx.connection.schema
-            )
+            sql = decl_api.describe_query(oft_name, target.database, target.schema)
             rows = list(self.execute_query(sql, cursor_class=DictCursor))
             desc_rows = _rows_to_dicts(rows)
         except Exception as exc:
             log.warning("describe raised %s: %s", type(exc).__name__, exc)
             return {"status": "error", "name": name, "error": str(exc)}
 
-        # Parse feature view name and entities from the OFT name / DESCRIBE
         fv_name, version = _parse_oft_name(oft_name)
 
-        # Extract entity (primary key) columns
         pk_cols = []
         for col in desc_rows:
             is_pk = False
@@ -763,21 +1030,19 @@ class FeatureManager(SqlExecutionMixin):
             if is_pk:
                 pk_cols.append(col.get("name", col.get("NAME", "")))
 
-        # Build example curl commands if service is running
         examples: list[str] = []
+        spec: Optional[dict[str, Any]] = None
         try:
             status = self.get_status()
             ingest_url = decl_api.get_service_endpoint(status, "ingest")
             query_url = decl_api.get_service_endpoint(status, "query")
 
-            # Try to find local spec for accurate column info
             spec = self._find_spec(fv_name)
-            source_name = fv_name  # default fallback
+            source_name = fv_name
             if spec:
                 sources = spec.get("sources", [])
                 if sources and isinstance(sources, list) and sources[0].get("name"):
                     source_name = sources[0]["name"]
-                    # If source has no columns, look for a datasource YAML
                     if not sources[0].get("columns"):
                         ds_spec = self._find_datasource(source_name)
                         if ds_spec and ds_spec.get("columns"):
@@ -799,8 +1064,8 @@ class FeatureManager(SqlExecutionMixin):
             "name": name,
             "feature_view": fv_name.lower(),
             "version": version.lower(),
-            "database": ctx.connection.database,
-            "schema": ctx.connection.schema,
+            "database": target.database,
+            "schema": target.schema,
             "oft_name": oft_name,
             "entities": pk_cols,
             "rows": desc_rows,
@@ -808,12 +1073,11 @@ class FeatureManager(SqlExecutionMixin):
         if examples:
             result["examples"] = examples
 
-        # Build rich formatted display
         result["_display"] = decl_api.format_describe_display(
             fv_name=fv_name.lower(),
             version=version.lower(),
-            database=ctx.connection.database or "",
-            schema=ctx.connection.schema or "",
+            database=target.database,
+            schema=target.schema,
             oft_name=oft_name,
             entities=pk_cols,
             describe_rows=desc_rows,
@@ -824,19 +1088,9 @@ class FeatureManager(SqlExecutionMixin):
 
         return result
 
-    # ------------------------------------------------------------------
-    # _find_source_name (helper for describe examples)
-    # ------------------------------------------------------------------
-
     @staticmethod
     def _find_spec(fv_name: str) -> Optional[dict[str, Any]]:
-        """Try to find a local YAML spec for a feature view by name.
-
-        Searches YAML files in the current directory and common subdirs for
-        a spec whose ``name`` matches *fv_name* (case-insensitive).
-
-        Returns the parsed spec dict, or ``None`` if not found.
-        """
+        """Try to find a local YAML spec for a feature view by name."""
         import glob as _glob
 
         try:
@@ -844,7 +1098,13 @@ class FeatureManager(SqlExecutionMixin):
         except ImportError:
             return None
 
-        search_dirs = [".", "feature_views", "specs", "example_store/feature_views"]
+        search_dirs = [
+            ".",
+            "feature_views",
+            "specs",
+            "sources/feature_views",
+            "example_store/feature_views",
+        ]
         for d in search_dirs:
             for path in _glob.glob(f"{d}/*.yaml") + _glob.glob(f"{d}/*.yml"):
                 try:
@@ -861,13 +1121,7 @@ class FeatureManager(SqlExecutionMixin):
 
     @staticmethod
     def _find_datasource(source_name: str) -> Optional[dict[str, Any]]:
-        """Try to find a local datasource YAML by source name.
-
-        Searches YAML files in common datasource directories for a spec
-        whose ``name`` matches *source_name* (case-insensitive).
-
-        Returns the parsed datasource dict, or ``None`` if not found.
-        """
+        """Try to find a local datasource YAML by source name."""
         import glob as _glob
 
         try:
@@ -879,6 +1133,7 @@ class FeatureManager(SqlExecutionMixin):
             ".",
             "datasources",
             "sources",
+            "sources/datasources",
             "example_store/datasources",
             "example_store/sources",
         ]
@@ -897,45 +1152,30 @@ class FeatureManager(SqlExecutionMixin):
         return None
 
     def _build_session(self) -> Any:
-        """Construct a Snowpark Session from the CLI's existing connection.
-
-        The Session wraps the snowflake-connector connection already managed
-        by ``SqlExecutionMixin``, so no new connection is created.
-        """
+        """Construct a Snowpark Session from the CLI's existing connection."""
         from snowflake.snowpark import Session
 
         return Session.builder.configs({"connection": self._conn}).create()
 
-    def _get_feature_store(self) -> Any:
+    def _get_feature_store(self, target: FSTarget) -> Any:
         """Return a snowml-core ``FeatureStore`` bound to the active connection.
 
-        Mirrors :func:`imperative_executor._get_fs` (used by the apply
-        path): constructs ``FeatureStore`` lazily with
-        ``creation_mode=FAIL_IF_NOT_EXIST`` so the schema must already be
-        initialised as a SnowML feature store.  Session priming is run
-        first via :meth:`_ensure_session_setup` so subsequent
-        ``stream_ingest`` / ``read_feature_view`` calls inherit the
-        correct session settings.
-
-        The apply path inside ``imperative_executor.py`` keeps its own
-        ``_get_fs`` because the two callers want different semantics:
-        the executor defers construction until the first FV op and
-        wraps it in a single-element box, while the CLI's
-        ``ingest`` / ``query`` methods need a freshly-bound store on
-        each invocation.
+        Constructs ``FeatureStore`` lazily with
+        ``creation_mode=FAIL_IF_NOT_EXIST`` so the schema must already
+        be initialised as a SnowML feature store.
         """
         self._ensure_session_setup()
         ctx = get_cli_context()
         session = self._build_session()
-        from snowflake.ml.feature_store.feature_store import (  # lazy
+        from snowflake.ml.feature_store.feature_store import (
             CreationMode,
             FeatureStore,
         )
 
         return FeatureStore(
             session,
-            ctx.connection.database,
-            ctx.connection.schema,
+            target.database,
+            target.schema,
             ctx.connection.warehouse or "",
             creation_mode=CreationMode.FAIL_IF_NOT_EXIST,
         )
@@ -945,14 +1185,7 @@ class FeatureManager(SqlExecutionMixin):
         oft_rows: list[dict[str, Any]],
         state_sqls: dict[str, str],
     ) -> dict[str, dict[str, Any]]:
-        """Fetch per-OFT spec JSON via ``DESCRIBE … TYPE = SPECIFICATION``.
-
-        The session must already be primed (see :meth:`_ensure_session_setup`),
-        so the SPECIFICATION call is the authoritative source of truth for
-        every OFT.  Per the strict-spec contract, both ``execute_query``
-        failures and ``decl_api.parse_specification_rows`` failures
-        propagate to the caller — there is no column-DESCRIBE fallback.
-        """
+        """Fetch per-OFT spec JSON via ``DESCRIBE … TYPE = SPECIFICATION``."""
         specification_map: dict[str, dict[str, Any]] = {}
         spec_template = state_sqls.get("describe_specification_template")
         if not spec_template:
@@ -970,67 +1203,35 @@ class FeatureManager(SqlExecutionMixin):
                 specification_map[name] = parsed
         return specification_map
 
-    def _fetch_entity_rows(self, ctx: Any) -> list[dict[str, Any]]:
-        """Fetch entity tag rows via the imperative ``list_entities()`` facade.
-
-        Delegates to :func:`decl_api.fetch_entity_rows`, which lazy-imports
-        the imperative ``FeatureStore`` inside ``imperative_executor.py``
-        — the only declarative module permitted to do so.  The CLI no
-        longer issues a raw ``SHOW TAGS`` query of its own.
-
-        Failures are tolerated (logged and converted to an empty list) so
-        that missing-privilege paths still let ``snow feature list``
-        complete with FeatureView rows only, mirroring the prior raw-SQL
-        behaviour.
-        """
+    def _fetch_entity_rows(self, target: FSTarget) -> list[dict[str, Any]]:
+        """Fetch entity tag rows via the imperative ``list_entities()`` facade."""
+        ctx = get_cli_context()
         try:
             session = self._build_session()
             return decl_api.fetch_entity_rows(
                 session,
-                ctx.connection.database,
-                ctx.connection.schema,
+                target.database,
+                target.schema,
                 ctx.connection.warehouse or "",
             )
         except Exception as exc:
             log.debug("fetch_entity_rows failed (treating as empty): %s", exc)
             return []
 
-    @staticmethod
-    def _expand_with_datasources(input_files: list[str]) -> list[str]:
-        """Expand input file list to include datasource YAMLs from sibling dirs.
-
-        For each input file, checks for ``datasources/``, ``sources/``, and
-        ``entities/`` directories alongside or one level up, and adds any YAML
-        files found there. This ensures the loader picks up datasource definitions
-        that feature views reference by name.
-        """
-        import glob as _glob
-        from pathlib import Path
-
-        result = list(input_files)
-        seen = set(result)
-
-        for f in input_files:
-            p = Path(f)
-            # Check sibling directories
-            for sibling_name in ("datasources", "sources", "entities"):
-                for parent in [p.parent, p.parent.parent]:
-                    sibling = parent / sibling_name
-                    if sibling.is_dir():
-                        for extra in _glob.glob(str(sibling / "*.yaml")) + _glob.glob(
-                            str(sibling / "*.yml")
-                        ):
-                            if extra not in seen:
-                                result.append(extra)
-                                seen.add(extra)
-        return result
-
     # ------------------------------------------------------------------
     # get_status
     # ------------------------------------------------------------------
 
     def get_status(self) -> dict[str, Any]:
-        """Query and parse the feature store runtime status."""
+        """Query and parse the feature store runtime status.
+
+        ``get_status`` is intentionally connection-only — it reads the
+        active connection's database/schema rather than a manifest
+        target.  Operators query the runtime status before manifest
+        scaffolding (``snow feature online-service`` runs without a
+        ``--from`` flag), so requiring a manifest here would be
+        circular.
+        """
         self._ensure_session_setup()
         ctx = get_cli_context()
         sqls = decl_api.service_sql(ctx.connection.database, ctx.connection.schema)
@@ -1040,7 +1241,6 @@ class FeatureManager(SqlExecutionMixin):
             if not raw:
                 return {"status": "error", "error": "No response from system function"}
             result = decl_api.parse_service_status(raw)
-            # Add connection context for display
             result["_user"] = ctx.connection.user or ""
             result["_database"] = ctx.connection.database or ""
             result["_schema"] = ctx.connection.schema or ""
@@ -1050,7 +1250,7 @@ class FeatureManager(SqlExecutionMixin):
             return {"status": "error", "error": str(exc)}
 
     # ------------------------------------------------------------------
-    # initialize_service
+    # initialize_service / destroy_service
     # ------------------------------------------------------------------
 
     def initialize_service(
@@ -1083,10 +1283,6 @@ class FeatureManager(SqlExecutionMixin):
 
         return {"status": "CREATING", "message": f"Create requested for {location}"}
 
-    # ------------------------------------------------------------------
-    # destroy_service
-    # ------------------------------------------------------------------
-
     def destroy_service(self) -> dict[str, Any]:
         """Drop all OFTs then drop the feature store runtime."""
         self._ensure_session_setup()
@@ -1111,8 +1307,8 @@ class FeatureManager(SqlExecutionMixin):
                         log.warning("drop OFT %s: %s", name, exc)
                         errors.append(f"{name}: {exc}")
         except Exception as exc:
-            log.warning("SHOW OFTs raised %s: %s", type(exc).__name__, exc)
-            errors.append(f"SHOW OFTs: {exc}")
+            log.warning("show OFTs raised %s: %s", type(exc).__name__, exc)
+            errors.append(f"show OFTs: {exc}")
 
         try:
             self.execute_query(sqls["drop"])
@@ -1126,39 +1322,31 @@ class FeatureManager(SqlExecutionMixin):
     # export_specs
     # ------------------------------------------------------------------
 
-    def export_specs(self, output_dir: str) -> dict[str, Any]:
+    def export_specs(
+        self,
+        from_dir: Path,
+        target_name: Optional[str],
+        output_dir: str,
+    ) -> dict[str, Any]:
         """Export deployed feature-store objects as YAML spec files.
 
-        Strict full-fidelity flow: prime the session, list OFTs, then fetch
-        each OFT's full spec JSON via ``DESCRIBE … TYPE = SPECIFICATION``
-        through :meth:`_fetch_oft_state`.  Any per-OFT failure aborts the
-        entire export — there is no column-DESCRIBE fallback.
-
-        Entity rows are fetched via the imperative
-        :func:`decl_api.fetch_entity_rows` facade and forwarded to the
-        exporter so orphan entity tags (registered via
-        ``FeatureStore.register_entity()`` without ever being attached to
-        an FV) survive the export → plan round-trip.  Without this
-        forwarding, full-directory plans would emit spurious
-        ``DROP_ENTITY`` ops for any unreferenced tag.
+        Strict full-fidelity flow: prime the session, list OFTs, then
+        fetch each OFT's full spec JSON via ``DESCRIBE … TYPE =
+        SPECIFICATION`` through :meth:`_fetch_oft_state`.  Any per-OFT
+        failure aborts the entire export — there is no column-DESCRIBE
+        fallback.
         """
+        _, _, target = self._resolve_project(from_dir, target_name)
         self._ensure_session_setup()
-        ctx = get_cli_context()
-        eq = decl_api.export_queries(ctx.connection.database, ctx.connection.schema)
+
+        eq = decl_api.export_queries(target.database, target.schema)
 
         show_rows = _rows_to_dicts(
             self.execute_query(eq["show_ofts"], cursor_class=DictCursor)
         )
 
-        # Always fetch entity rows — the exporter needs them whether or
-        # not any FVs are deployed (a schema with only entities still
-        # requires their YAMLs on disk to plan as NO_CHANGE).
-        entity_rows = self._fetch_entity_rows(ctx)
+        entity_rows = self._fetch_entity_rows(target)
 
-        # Skip the exporter only when the schema is genuinely empty
-        # (no FVs and no entity tags).  This preserves the pre-fix
-        # short-circuit for fresh-schema callers while still exporting
-        # entity-only schemas through the regular path.
         if not show_rows and not entity_rows:
             return {"status": "exported", "directory": "", "files": []}
 
@@ -1168,8 +1356,8 @@ class FeatureManager(SqlExecutionMixin):
             show_rows,
             {},
             output_dir,
-            ctx.connection.database,
-            ctx.connection.schema,
+            target.database,
+            target.schema,
             specification_map=specification_map,
             entity_rows=entity_rows,
         )
@@ -1178,43 +1366,35 @@ class FeatureManager(SqlExecutionMixin):
     # ingest
     # ------------------------------------------------------------------
 
-    def ingest(self, source_name: str, records: list[dict]) -> dict[str, Any]:
+    def ingest(
+        self,
+        from_dir: Path,
+        target_name: Optional[str],
+        source_name: str,
+        records: List[dict],
+    ) -> dict[str, Any]:
         """Stream records into a source via ``FeatureStore.stream_ingest``.
 
         Delegates the wire path (URL resolution, PAT auth,
         partial-success reporting) to snowml-core, but runs a
-        client-side per-record schema preflight first so the operator
-        gets a deterministic, named-field error with **zero HTTP
-        traffic** when records do not match the registered
-        ``StreamSource`` schema.  snowml-core's own
-        ``_validate_stream_ingest_record_keys`` becomes a redundant
-        defensive layer underneath the preflight; the bug-bash failure
-        mode (server-side ``MISSING_REQUIRED_FIELD: PAGE_URL`` after
-        the request reached the Online Service) is now caught locally
-        with the missing column named explicitly.
+        client-side per-record schema preflight first.
 
         Args:
+            from_dir: Project-root start.
+            target_name: Optional manifest target name.
             source_name: Registered streaming source name.
             records: Non-empty list of row dicts; each row's keys must
                 match the source schema exactly.
 
         Returns:
-            ``{**target_info, "accepted_count": int}`` where
-            ``accepted_count`` is the integer returned by
-            ``FeatureStore.stream_ingest`` (may be less than
-            ``len(records)`` on partial success).
+            ``{**target_info, "accepted_count": int}``.
 
         Raises:
-            ValueError: when the preflight detects per-record key
-                divergence from the registered schema.  The message
-                names the missing/extra columns and the offending
-                record indices so operators can fix the payload
-                without consulting server logs.
-            Exception: any error raised by
-                ``FeatureStore.stream_ingest`` (PAT missing, network
-                failure, etc.) is propagated unchanged.
+            ValueError: When the preflight detects per-record key
+                divergence from the registered schema.
         """
-        fs = self._get_feature_store()
+        _, _, target = self._resolve_project(from_dir, target_name)
+        fs = self._get_feature_store(target)
 
         src = fs.get_stream_source(source_name)
         expected = {col.name for col in src.schema.fields}
@@ -1234,7 +1414,7 @@ class FeatureManager(SqlExecutionMixin):
             )
 
         accepted = fs.stream_ingest(source_name, records)
-        return {**self._target_info(), "accepted_count": accepted}
+        return {**self._target_info(target), "accepted_count": accepted}
 
     # ------------------------------------------------------------------
     # query
@@ -1242,43 +1422,34 @@ class FeatureManager(SqlExecutionMixin):
 
     def query(
         self,
+        from_dir: Path,
+        target_name: Optional[str],
         feature_view_name: str,
         version: str,
-        keys: list[dict],
+        keys: List[dict],
     ) -> dict[str, Any]:
         """Online-lookup features via ``FeatureStore.read_feature_view``.
 
         ``version`` is required because snowml-core's
         ``FeatureStore.get_feature_view(name, version)`` requires both
-        when the feature view is referenced by string — there is no
-        "latest version" lookup for a bare name.  The CLI surfaces
-        this as a required ``--version`` option (see ``commands.py``).
-
-        The dict-shaped input ``keys`` is translated to snowml-core's
-        positional list-of-list shape via :func:`_to_positional_keys`,
-        using the FV's declared entity join-key order.  Missing
-        join-key columns raise a clear ``ValueError`` *before* any
-        wire call.
+        when the feature view is referenced by string.
 
         Args:
+            from_dir: Project-root start.
+            target_name: Optional manifest target name.
             feature_view_name: Logical feature view name.
             version: FeatureView version (e.g. ``"V1"``).
             keys: List of dicts; each dict must carry every join-key
                 column declared by the FV.
 
         Returns:
-            ``{**target_info, "rows": list[dict]}`` where ``rows`` is
-            ``df.to_dict("records")`` of the pandas DataFrame returned
-            by ``FeatureStore.read_feature_view`` (Postgres online path
-            renders directly to pandas).
+            ``{**target_info, "rows": list[dict]}``.
 
         Raises:
             ValueError: If an input dict is missing a declared join-key.
-            Exception: Any error raised by ``read_feature_view``
-                (PAT missing, no online store, network failure, etc.)
-                is propagated unchanged.
         """
-        fs = self._get_feature_store()
+        _, _, target = self._resolve_project(from_dir, target_name)
+        fs = self._get_feature_store(target)
         fv = fs.get_feature_view(feature_view_name, version)
         join_key_order = [str(jk) for ent in fv.entities for jk in ent.join_keys]
         positional_keys = _to_positional_keys(keys, join_key_order)
@@ -1288,4 +1459,4 @@ class FeatureManager(SqlExecutionMixin):
             store_type="ONLINE",
             as_pandas=True,
         )
-        return {**self._target_info(), "rows": df.to_dict("records")}
+        return {**self._target_info(target), "rows": df.to_dict("records")}

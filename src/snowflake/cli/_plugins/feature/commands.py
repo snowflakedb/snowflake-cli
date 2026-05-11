@@ -12,7 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Typer commands for 'snow feature'."""
+"""Typer commands for 'snow feature' (manifest-driven, Phase 3+4).
+
+The CLI surface mirrors DCM (D3): every command takes a
+``--from <dir>`` flag (default cwd) and a ``--target <name>`` flag
+(default = the manifest's ``default_target``).  ``--variable
+key=value`` is the only template-variable mechanism (D5: the legacy
+``--config`` flag is removed).  Apply consumes plan files only —
+neither ``apply`` nor ``plan`` accepts positional spec paths or the
+``./...`` recursive marker (D1).
+"""
 
 from __future__ import annotations
 
@@ -22,6 +31,7 @@ import os
 import sys
 from datetime import date, datetime
 from decimal import Decimal
+from pathlib import Path
 from typing import List, Optional
 
 import typer
@@ -59,14 +69,53 @@ def _emit_pre_release_warning() -> None:
 
     Writes directly to ``sys.stderr`` so the banner never corrupts
     structured (JSON / CSV) output that subcommands send to stdout.
-    ANSI colour codes are emitted only when stderr is a terminal and
-    the user has not opted out via the ``NO_COLOR`` standard env var.
     """
     use_color = sys.stderr.isatty() and os.environ.get("NO_COLOR") is None
     prefix = _ANSI_BOLD_RED if use_color else ""
     suffix = _ANSI_RESET if use_color else ""
     sys.stderr.write(f"{prefix}{_PRE_RELEASE_WARNING}{suffix}\n")
     sys.stderr.flush()
+
+
+# ---------------------------------------------------------------------------
+# Shared options (DCM-strict surface)
+# ---------------------------------------------------------------------------
+
+
+def _from_option_callback(value: Optional[Path]) -> Path:
+    """Default ``--from`` to the current working directory."""
+    if value is None:
+        return Path.cwd()
+    return Path(value)
+
+
+from_option = typer.Option(
+    None,
+    "--from",
+    help="Local directory containing the feature-store project (must "
+    "contain manifest.yml). Omit to use the current directory.",
+    show_default=False,
+    callback=_from_option_callback,
+)
+
+
+target_option = typer.Option(
+    None,
+    "--target",
+    help="Target profile from manifest.yml to use. Uses default_target "
+    "when not specified.",
+    show_default=False,
+)
+
+
+variables_option = typer.Option(
+    None,
+    "--variable",
+    "-D",
+    help="Variables for the project's templating context, e.g. "
+    '`-D "<key>=<value>"`. May be repeated.',
+    show_default=False,
+)
 
 
 def _safe_value(o):
@@ -90,33 +139,6 @@ def _to_object(data: dict) -> CommandResult:
     return ObjectResult(_sanitize_dict(data))
 
 
-# Columns to surface for ``snow feature list`` results.  The Snowflake path
-# returns a single multi-kind list (FeatureView, Entity, Datasource), each
-# tagged with a ``type`` column.  ``details`` is included so that
-# ``--format json`` round-trips the kind-specific extras (e.g.
-# ``details.source_type``, ``details.referenced_by``, and — for FeatureView
-# rows — ``details.scheduling_state``).  In table mode the ``details`` cell
-# renders as a compact dict, which is a deliberate trade-off — operators
-# inspecting the table see at-a-glance what the runtime status is, while
-# scripts consuming JSON get the full structured data they need.
-#
-# Datasource rows surface ``details.source_type`` (``Stream`` /
-# ``OfflineTable`` / etc.) in the rendered ``type`` column instead of the
-# generic ``Datasource`` label, mirroring how FeatureView rows already
-# render the specific subkind (``StreamingFeatureView`` etc.).  See
-# ``_project_columns`` for the swap.  ``AppliedObject.kind`` is unchanged
-# in the underlying data; the swap is display-only.
-#
-# Two upstream-row fields are intentionally *not* projected:
-#
-# * ``scheduling_state`` — only meaningful for FeatureView rows (Entity /
-#   Datasource leave it empty).  The value is already carried inside
-#   ``details`` for FV rows.
-# * ``database_name`` / ``schema_name`` — uniform across every row of a
-#   single ``snow feature list`` invocation, since the Snowflake
-#   connection has one current database and schema.  These are surfaced
-#   once above the table by ``_print_listing_scope_header`` instead of
-#   being repeated in every row.
 _TABLE_DISPLAY_COLUMNS = [
     "type",
     "name",
@@ -128,33 +150,11 @@ _TABLE_DISPLAY_COLUMNS = [
 
 
 def _project_columns(rows: list[dict]) -> list[dict]:
-    """Project rows onto ``_TABLE_DISPLAY_COLUMNS`` with stable order.
-
-    Every output row carries **all** display columns in the canonical
-    ``_TABLE_DISPLAY_COLUMNS`` order, with ``""`` substituted for any
-    field a row does not populate.  This is critical for the table
-    renderer, which positions cells by each row's dict iteration
-    order: heterogeneous rows (FeatureView vs Entity vs Datasource)
-    would otherwise misalign — e.g. the Entity ``type`` value
-    landing under the FeatureView-only ``created_on`` column.
-
-    Datasource ``type`` rewrite: when a row carries the canonical
-    ``Datasource`` kind and ``details.source_type`` is populated, the
-    rendered ``type`` cell is swapped to the specific source type
-    (``Stream`` / ``OfflineTable`` / etc.) so operators can
-    distinguish stream vs table backings at a glance — mirroring how
-    FeatureView rows already render the specific subkind
-    (``StreamingFeatureView`` etc.).  This is a display-only
-    transformation; ``AppliedObject.kind`` is unchanged in the
-    underlying data, so internal grouping (``kind == "Datasource"``)
-    continues to work.  When ``source_type`` is missing or empty, the
-    fallback is the original ``Datasource`` label.
-    """
+    """Project rows onto ``_TABLE_DISPLAY_COLUMNS`` with stable order."""
     if not rows:
         return rows
     out: list[dict] = []
     for row in rows:
-        # Case-insensitive lookup of this row's actual keys.
         lower_to_actual = {k.lower(): k for k in row}
         new_row: dict = {}
         for col in _TABLE_DISPLAY_COLUMNS:
@@ -172,11 +172,7 @@ def _project_columns(rows: list[dict]) -> list[dict]:
 
 
 def _to_collection(rows: list[dict], *, all_columns: bool = False) -> CommandResult:
-    """Multi-row result — renders as a table with column headers.
-
-    By default, only the display columns are shown. Pass all_columns=True
-    to include everything (used for non-Snowflake results).
-    """
+    """Multi-row result — renders as a table with column headers."""
     sanitized = [_sanitize_dict(r) for r in rows]
     if not all_columns:
         sanitized = _project_columns(sanitized)
@@ -189,15 +185,7 @@ def _to_message(text: str) -> CommandResult:
 
 
 def _ops_result(result: dict) -> CommandResult:
-    """Render plan/apply results: ops as a table, or a summary message.
-
-    The overall ``Status: <status>`` header is emitted on stderr by
-    ``_print_status_header`` at the call site (so it's present for
-    both the table path and the empty-ops path).  This message body
-    therefore omits the ``Status:`` line to avoid double-printing —
-    it carries only ``Operations: 0`` and any ``Warnings:`` so the
-    stdout payload stays compact.
-    """
+    """Render plan/apply results: ops as a table, or a summary message."""
     ops = result.get("ops", [])
     warnings = result.get("warnings", [])
     if ops:
@@ -210,32 +198,20 @@ def _ops_result(result: dict) -> CommandResult:
 
 
 def _print_target_header(result: dict) -> None:
-    """Print the target database.schema and warehouse header to stderr."""
+    """Print the resolved manifest target + warehouse to stderr."""
     db = result.get("target_database", "")
     schema = result.get("target_schema", "")
     wh = result.get("target_warehouse", "")
-    sys.stderr.write(f"\nTarget: {db}.{schema} (warehouse: {wh})\n\n")
+    name = result.get("target_name", "")
+    if name:
+        sys.stderr.write(f"\nTarget: {name} @ {db}.{schema} (warehouse: {wh})\n\n")
+    else:
+        sys.stderr.write(f"\nTarget: {db}.{schema} (warehouse: {wh})\n\n")
     sys.stderr.flush()
 
 
 def _listing_scope(rows: list[dict]) -> Optional[tuple[str, str]]:
-    """Inspect list rows and derive the database / schema scope label.
-
-    Args:
-        rows: The result rows from ``FeatureManager.list_specs``.  Each
-            row may carry ``database_name`` and ``schema_name`` fields
-            (Snowflake-mode listings always do; file-mode listings do
-            not).
-
-    Returns:
-        A two-tuple ``(database_label, schema_label)`` suitable for
-        rendering above the table.  Each label is the uniform value
-        when every row agrees, or ``"(multiple)"`` when at least two
-        rows disagree on that field.  Returns ``None`` if no row has
-        a non-empty ``database_name`` or ``schema_name`` (file-mode
-        output, or empty input), signaling that no scope header
-        should be printed.
-    """
+    """Inspect list rows and derive the database / schema scope label."""
     if not rows:
         return None
     dbs: set[str] = {str(r["database_name"]) for r in rows if r.get("database_name")}
@@ -248,21 +224,7 @@ def _listing_scope(rows: list[dict]) -> Optional[tuple[str, str]]:
 
 
 def _print_listing_scope_header(rows: list[dict]) -> None:
-    """Write a one-line ``Database: X  Schema: Y`` header to stderr.
-
-    The header is written on stderr (separate from the table on stdout
-    or the JSON payload from ``--format json``) so it remains visible
-    in both rendering modes without polluting machine-readable output.
-    Skipped silently when ``_listing_scope(rows)`` returns ``None``
-    (e.g. file-mode listings that have no Snowflake scope).
-
-    Args:
-        rows: The result rows from ``FeatureManager.list_specs``.
-
-    Returns:
-        None.  The header is emitted to ``sys.stderr`` as a side
-        effect.
-    """
+    """Write a one-line ``Database: X  Schema: Y`` header to stderr."""
     scope = _listing_scope(rows)
     if scope is None:
         return
@@ -271,43 +233,13 @@ def _print_listing_scope_header(rows: list[dict]) -> None:
     sys.stderr.flush()
 
 
-def _print_mode_header(full_sync: bool) -> None:
-    """Print deletion detection mode to stderr."""
-    if full_sync:
-        sys.stderr.write("Mode: full sync (./...) — orphaned objects will be dropped\n")
-    else:
-        sys.stderr.write("Mode: incremental — only changes will be applied\n")
-    sys.stderr.flush()
-
-
 def _print_status_header(result: dict) -> None:
     """Print the apply/plan overall status to stderr.
 
-    Mirrors ``_print_mode_header`` / ``_print_target_header`` /
-    ``_print_listing_scope_header``: header on stderr, payload on stdout.
-    Emitting on stderr means ``--format json`` callers are unaffected
-    (the JSON payload on stdout already carries ``status``) while
-    operators and shell-script consumers get a single canonical
-    ``Status: <status>`` line per invocation regardless of whether the
-    payload renders as an ops table (non-empty ``ops``) or as a
-    summary message (empty ``ops``).
-
-    Without this helper, ``Status:`` appeared only on the empty-ops
-    branch of ``_ops_result`` — which made ``snow feature apply`` look
-    silent on a successful CREATE_FV (the table carries per-op status
-    cells but no overall header), forcing every script to grep for
-    table cells instead of a single stable line.
-
-    The line carries three numbers:
-
-    * total ``Operations`` (table row count),
-    * ``executed`` (rows the runtime actually ran — derived from
-      ``result["executed"]`` when the manager reports it, otherwise
-      counted from ``ops[].status == "success"``).
-
-    A missing or empty ``status`` is silently skipped — the helper is
-    a no-op for results that legitimately don't carry one (e.g. raw
-    sub-results that bypass ``_ops_result``).
+    Header on stderr, payload on stdout: scripts and JSON-mode
+    callers read the structured payload from stdout, while operators
+    see the canonical ``Status: <status>  Operations: N (executed: M)``
+    line on stderr regardless of how the payload renders.
     """
     status = result.get("status", "")
     if not status:
@@ -323,31 +255,6 @@ def _print_status_header(result: dict) -> None:
     sys.stderr.flush()
 
 
-def _is_full_sync(input_files: list) -> bool:
-    """Return True if *input_files* indicates full-sync mode.
-
-    Full-sync triggers when:
-
-    - any element ends in ``/...`` (or is ``./...``) — explicit recursive
-      marker, or
-    - any element points to an existing directory on disk — bare directory
-      paths are auto-expanded to ``<dir>/...`` by the loader and we mirror
-      that here so the CLI mode header and ``no_delete`` flag stay
-      consistent with the actual file walk.
-    """
-    import os as _os
-
-    if not input_files:
-        return False
-    for f in input_files:
-        stripped = f.rstrip("/")
-        if stripped.endswith("/...") or f == "./...":
-            return True
-        if _os.path.isdir(stripped):
-            return True
-    return False
-
-
 # ---------------------------------------------------------------------------
 # init
 # ---------------------------------------------------------------------------
@@ -355,13 +262,23 @@ def _is_full_sync(input_files: list) -> bool:
 
 @app.command(requires_connection=True)
 def init(
+    from_location: Path = from_option,
     no_scaffold: bool = typer.Option(
-        False, "--no-scaffold", help="Skip local directory creation."
+        False,
+        "--no-scaffold",
+        help="Skip both manifest scaffolding and the Snowflake-side init.",
     ),
     **options,
 ) -> CommandResult:
-    """Initialize a feature store in the current database and schema."""
-    result = FeatureManager().init(no_scaffold=no_scaffold)
+    """Initialize a feature-store project (manifest.yml + sources/ + Snowflake).
+
+    Writes a default ``manifest.yml`` derived from the active
+    connection (account_identifier / database / schema / role) and
+    creates ``sources/{entities,datasources,feature_views}/`` plus
+    ``out/plan/.gitkeep``.  Refuses to overwrite an existing
+    ``manifest.yml`` (no ``--force`` escape).
+    """
+    result = FeatureManager().init(from_dir=from_location, no_scaffold=no_scaffold)
     return _to_object(result)
 
 
@@ -372,134 +289,105 @@ def init(
 
 @app.command(requires_connection=True)
 def apply(
-    input_files: Optional[List[str]] = typer.Argument(
-        None,
-        help="Spec file paths or glob patterns to apply.",
-        show_default=False,
-    ),
+    from_location: Path = from_option,
+    target: Optional[str] = target_option,
+    variables: Optional[List[str]] = variables_option,
     dev: bool = typer.Option(
         False, "--dev", help="Apply in dev mode (relaxed validation)."
     ),
-    overwrite: bool = typer.Option(
-        False, "--overwrite", help="Overwrite existing objects."
-    ),
     allow_recreate: bool = typer.Option(
         False, "--allow-recreate", help="Allow destructive recreation of objects."
-    ),
-    config: Optional[str] = typer.Option(
-        None, "--config", help="Path to Jinja2 config file.", show_default=False
     ),
     plan: Optional[str] = typer.Option(
         None,
         "--plan",
         help="Path to a pre-computed plan JSON file (from 'snow feature plan'). "
-        "When provided, spec files are not re-loaded and state is not re-queried.",
+        "When provided, skips the auto-discovery of out/plan/.",
         show_default=False,
     ),
     **options,
 ) -> CommandResult:
-    """Apply spec files to Snowflake, creating or updating feature-store objects.
+    """Apply the discovered (or explicit) plan against Snowflake.
 
-    Use './...' as the path to enable full-sync mode: objects deployed in Snowflake
-    but not present in local spec files will be dropped. Any other path (specific
-    files, directories, or globs) runs in incremental mode — only changes are applied.
-
-    Apply is a pure plan-file consumer: it auto-discovers the latest unapplied
-    plan under ``<cwd>/.snowflake/plans/`` (or consumes ``--plan <path>``).  Use
-    ``snow feature plan`` to preview changes before applying.
+    Apply is a *pure plan-file consumer*: it auto-discovers the
+    latest unapplied plan under ``<project_root>/out/plan/`` (or
+    consumes ``--plan <path>``).  Use ``snow feature plan`` to
+    preview changes and produce a plan file first.
     """
-    if plan is None and not input_files:
-        raise typer.BadParameter(
-            "At least one file is required (or --plan <path>).",
-            param_hint="INPUT_FILES",
-        )
-    full_sync = _is_full_sync(input_files or [])
-    if plan is None:
-        _print_mode_header(full_sync)
+    # ``--variable`` is forwarded to apply only so the surface stays
+    # uniform across plan / apply (Acceptance #8).  Apply itself does
+    # not currently consume runtime variables — the plan envelope it
+    # consumes is already fully resolved — but we keep the flag so
+    # operators can use the same invocation form for both commands
+    # without surprises.
+    del variables
+
     result = FeatureManager().apply(
-        input_files=input_files or [],
-        config=config,
-        dev_mode=dev,
-        overwrite=overwrite,
-        allow_recreate=allow_recreate,
+        from_dir=from_location,
+        target_name=target,
         plan_file=plan,
-        no_delete=not full_sync,
+        dev_mode=dev,
+        allow_recreate=allow_recreate,
     )
+    _print_target_header(result)
     _print_status_header(result)
-    if result.get("status") == "validation_failed":
-        return _to_object(result)
     return _ops_result(result)
 
 
+# ---------------------------------------------------------------------------
+# plan
 # ---------------------------------------------------------------------------
 
 
 @app.command(requires_connection=True)
 def plan(
-    input_files: Optional[List[str]] = typer.Argument(
-        None,
-        help="Spec file paths or glob patterns to plan.",
-        show_default=False,
-    ),
+    from_location: Path = from_option,
+    target: Optional[str] = target_option,
+    variables: Optional[List[str]] = variables_option,
     dev: bool = typer.Option(
         False, "--dev", help="Plan in dev mode (relaxed validation)."
-    ),
-    config: Optional[str] = typer.Option(
-        None, "--config", help="Path to Jinja2 config file.", show_default=False
     ),
     out: Optional[str] = typer.Option(
         None,
         "--out",
         help="Path to write the plan JSON file. Defaults to "
-        ".snowflake/plans/feature_plan_<timestamp>.json.",
+        "<project_root>/out/plan/feature_plan_<timestamp>.json.",
         show_default=False,
+    ),
+    no_delete: bool = typer.Option(
+        False,
+        "--no-delete",
+        help="Disable deletion detection.  By default, ``plan`` runs "
+        "in full-sync mode against the manifest project.",
     ),
     **options,
 ) -> CommandResult:
-    """Show what would change if the spec files were applied.
+    """Show what would change if the project were applied (read-only).
 
-    Use './...' as the path to enable full-sync mode (deletion detection).
-    The plan is also written to a JSON file so it can be applied later with
-    'snow feature apply --plan <path>'.
+    Plans run against the manifest project: ``--from <dir>`` locates
+    ``manifest.yml`` and ``--target <name>`` selects the target.  The
+    plan is also written to a JSON file under
+    ``<project_root>/out/plan/`` so it can be applied later with
+    ``snow feature apply``.
     """
-    if not input_files:
-        raise typer.BadParameter(
-            "At least one file is required.", param_hint="INPUT_FILES"
-        )
-
-    import os
-
-    full_sync = _is_full_sync(input_files or [])
-    _print_mode_header(full_sync)
-    no_delete = not full_sync
-
-    from datetime import datetime as _dt
-
-    if out is None:
-        ts = _dt.now().strftime("%Y%m%dT%H%M%S")
-        out = os.path.join(".snowflake", "plans", f"feature_plan_{ts}.json")
-
-    # Validate BEFORE writing the plan file so a failed plan never
-    # leaves a stale ``feature_plan_*.json`` on disk.  ``manager.plan``
-    # is the explicit validate-then-plan code path that replaced the
-    # legacy ``apply(dry_run=True)`` hack in the dry-run-removal
-    # refactor.
     manager = FeatureManager()
     result = manager.plan(
-        input_files=input_files,
-        config=config,
+        from_dir=from_location,
+        target_name=target,
+        variables=variables,
         dev_mode=dev,
         allow_recreate=False,
         no_delete=no_delete,
     )
+    _print_target_header(result)
     if result.get("status") == "validation_failed":
         _print_status_header(result)
         return _to_object(result)
 
-    # Validation passed → persist the plan to disk.
     plan_path = manager.write_plan(
-        input_files=input_files,
-        config=config,
+        from_dir=from_location,
+        target_name=target,
+        variables=variables,
         dev_mode=dev,
         out_path=out,
         no_delete=no_delete,
@@ -516,21 +404,14 @@ def plan(
 
 @app.command(name="list", requires_connection=True)
 def list_cmd(
-    input_files: Optional[List[str]] = typer.Argument(
-        None,
-        help="Optional spec files; omit to list deployed objects from Snowflake.",
-        show_default=False,
-    ),
-    config: Optional[str] = typer.Option(
-        None, "--config", help="Path to Jinja2 config file.", show_default=False
-    ),
+    from_location: Path = from_option,
+    target: Optional[str] = target_option,
+    variables: Optional[List[str]] = variables_option,
     **options,
 ) -> CommandResult:
-    """List feature-store specs from files or deployed objects from Snowflake."""
-    result = FeatureManager().list_specs(
-        input_files=tuple(input_files) if input_files else (),
-        config=config,
-    )
+    """List deployed feature-store objects from Snowflake."""
+    del variables  # accepted for surface uniformity; not consumed here.
+    result = FeatureManager().list_specs(from_dir=from_location, target_name=target)
     specs = result.get("specs", [])
     if isinstance(specs, list) and specs and isinstance(specs[0], dict):
         _print_listing_scope_header(specs)
@@ -551,20 +432,22 @@ def describe(
         "Also accepts the full OFT name (NAME$VERSION$ONLINE).",
         show_default=False,
     ),
+    from_location: Path = from_option,
+    target: Optional[str] = target_option,
+    variables: Optional[List[str]] = variables_option,
     **options,
 ) -> CommandResult:
     """Describe a single feature-store object."""
-    result = FeatureManager().describe(name=name)
+    del variables
+    result = FeatureManager().describe(
+        from_dir=from_location, target_name=target, name=name
+    )
 
-    # Print rich display to stderr (not captured by CLI result rendering)
     display = result.pop("_display", None)
     if display:
-        import sys
-
         sys.stderr.write(display + "\n")
         sys.stderr.flush()
 
-    # Remove internal keys from JSON output
     result.pop("examples", None)
 
     rows = result.get("rows", [])
@@ -574,17 +457,15 @@ def describe(
 
 
 # ---------------------------------------------------------------------------
-# drop
-# ---------------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------------
 # export
 # ---------------------------------------------------------------------------
 
 
 @app.command(requires_connection=True)
 def export(
+    from_location: Path = from_option,
+    target: Optional[str] = target_option,
+    variables: Optional[List[str]] = variables_option,
     output_dir: Optional[str] = typer.Option(
         None,
         "--dir",
@@ -594,7 +475,12 @@ def export(
     **options,
 ) -> CommandResult:
     """Export deployed feature-store objects from Snowflake as YAML spec files."""
-    result = FeatureManager().export_specs(output_dir or ".")
+    del variables
+    result = FeatureManager().export_specs(
+        from_dir=from_location,
+        target_name=target,
+        output_dir=output_dir or ".",
+    )
     files = result.get("files", [])
     return _to_collection([{"file": f} for f in files], all_columns=True)
 
@@ -628,15 +514,20 @@ def online_service(
     ),
     **options,
 ) -> CommandResult:
-    """Manage the feature store online service. Shows status by default."""
+    """Manage the feature store online service. Shows status by default.
+
+    ``online-service`` is intentionally connection-only — it does not
+    take ``--from`` / ``--target`` because operators query / create /
+    drop the service before / after manifest scaffolding (the
+    service is shared across every project that points at the same
+    Snowflake schema).
+    """
     if create and drop:
         raise typer.BadParameter(
             "Cannot use --create and --drop together.", param_hint="--create/--drop"
         )
     if create:
         mgr = FeatureManager()
-
-        # Check if already running before doing anything
         pre_status = mgr.get_status()
         if pre_status.get("status") == "RUNNING":
             return _to_object(
@@ -647,16 +538,13 @@ def online_service(
             )
 
         import itertools
-        import sys
         import threading
         import time
 
         stop_event = threading.Event()
-        # Shared state for spinner to display current stage
         stage_info = {"status": "CREATING", "message": "Sending create request..."}
 
         def _spin():
-            """Background thread: animate spinner on stderr with current stage."""
             chars = itertools.cycle(["|", "/", "-", "\\"])
             start = time.monotonic()
             while not stop_event.is_set():
@@ -667,17 +555,14 @@ def online_service(
                 line = f"\r  {c} [{elapsed}s] {st}"
                 if msg:
                     line += f": {msg}"
-                # Pad to overwrite previous longer lines
                 line = line.ljust(80)
                 sys.stderr.write(line)
                 sys.stderr.flush()
                 stop_event.wait(0.5)
 
-        # Start spinner immediately
         spinner_thread = threading.Thread(target=_spin, daemon=True)
         spinner_thread.start()
 
-        # Send CREATE on main thread (has Click context)
         result = mgr.initialize_service(
             producer_role=producer_role,
             consumer_role=consumer_role,
@@ -697,7 +582,6 @@ def online_service(
             sys.stderr.flush()
             return _to_object(result)
 
-        # Poll on main thread until RUNNING or timeout
         stage_info["message"] = "Waiting for service to start..."
         deadline = time.monotonic() + 600
         while time.monotonic() < deadline:
@@ -730,11 +614,8 @@ def online_service(
     elif drop:
         result = FeatureManager().destroy_service()
     else:
-        # Status mode: show rich formatted display
         result = FeatureManager().get_status()
         if result.get("status") != "error":
-            import sys
-
             from snowflake.ml.feature_store.decl import api as decl_api
 
             display = decl_api.format_status_display(
@@ -760,6 +641,9 @@ def ingest(
         help="Name of the streaming source to ingest records into.",
         show_default=False,
     ),
+    from_location: Path = from_option,
+    target: Optional[str] = target_option,
+    variables: Optional[List[str]] = variables_option,
     data: str = typer.Option(
         "-",
         "--data",
@@ -769,6 +653,7 @@ def ingest(
     **options,
 ) -> CommandResult:
     """Ingest records into a streaming feature source via the Online Service."""
+    del variables
     if data == "-":
         content = sys.stdin.read()
     else:
@@ -784,13 +669,13 @@ def ingest(
         raise typer.BadParameter(f"Invalid JSON: {exc}", param_hint="--data")
 
     try:
-        result = FeatureManager().ingest(source_name=source_name, records=records)
+        result = FeatureManager().ingest(
+            from_dir=from_location,
+            target_name=target,
+            source_name=source_name,
+            records=records,
+        )
     except (RuntimeError, ValueError) as exc:
-        # ``ValueError`` is the manager's preflight surface for
-        # per-record schema drift (e.g. missing ``PAGE_URL``); the
-        # operator needs a single ``ClickException`` error type
-        # regardless of whether the failure came from the local
-        # preflight or from snowml-core's transport layer.
         raise ClickException(str(exc))
     return _to_object(result)
 
@@ -807,6 +692,9 @@ def query(
         help="Name of the feature view to query.",
         show_default=False,
     ),
+    from_location: Path = from_option,
+    target: Optional[str] = target_option,
+    variables: Optional[List[str]] = variables_option,
     version: str = typer.Option(
         ...,
         "--version",
@@ -826,6 +714,7 @@ def query(
     **options,
 ) -> CommandResult:
     """Query online features for a feature view via the Online Service."""
+    del variables
     try:
         parsed_keys = json.loads(keys)
     except json.JSONDecodeError as exc:
@@ -833,6 +722,8 @@ def query(
 
     try:
         result = FeatureManager().query(
+            from_dir=from_location,
+            target_name=target,
             feature_view_name=feature_view_name,
             version=version,
             keys=parsed_keys,
