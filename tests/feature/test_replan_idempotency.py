@@ -496,3 +496,121 @@ class TestReplanIdenticalSpec:
             "not produce non-NO_CHANGE ops on identical-spec re-plan; got "
             f"non-NO_CHANGE ops={non_no_change!r}"
         )
+
+
+# ---------------------------------------------------------------------------
+# BUG_BASH §11 — manager.plan op stream must preserve original-case names
+# ---------------------------------------------------------------------------
+
+
+class TestPlanPreservesNameCase:
+    """``manager.plan`` op-stream names must match the on-disk JSON case.
+
+    The op-stream returned by ``manager.plan`` (and rendered as the
+    user-facing plan table) must carry the spec's original-case name so
+    operators / scripts grepping for ``UPDATE_ENTITY USER_ID`` see the
+    same identifier the disk plan and the apply path use.  Without this
+    parity, ``scripts/verify_bug_bash.sh`` step 11's grep for the
+    canonical ``UPDATE_ENTITY USER_ID`` row mis-fires (the entity row
+    is rendered as ``user_id`` and never matches the doc-aligned
+    uppercase pattern), and the fix at the planner / fingerprint /
+    applied-state layer is masked behind a UI-only formatting bug.
+    """
+
+    def test_update_entity_op_preserves_uppercase_name(
+        self,
+        tmp_path,
+        bug_bash_cli_context,
+        bug_bash_io,
+    ):
+        """Edited entity description must surface as ``UPDATE_ENTITY USER_ID``.
+
+        Override the fetched entity row's ``comment`` to a value
+        different from the local YAML's ``description:`` so the
+        Entity-aware fingerprint widening flips the row to
+        ``UPDATE_ENTITY``.  The op's ``name`` must equal ``"USER_ID"``
+        (uppercase) — matching the spec's authoring case and the disk
+        plan's ``op["name"]``.  A regression to ``op.name.lower()`` in
+        ``manager.plan`` would surface here as ``"user_id"``.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        # Make the deployed entity's comment diverge from the YAML's
+        # description so the planner emits a non-destructive
+        # UPDATE_ENTITY for USER_ID (rather than NO_CHANGE).
+        diverged_entity_row = dict(_bug_bash_entity_row())
+        diverged_entity_row["comment"] = "Bug-bash user identifier — older version."
+        bug_bash_io["fetch_entity_rows"].return_value = [diverged_entity_row]
+
+        fv_dir = _write_bug_bash_tree(tmp_path)
+
+        result = FeatureManager().plan(
+            input_files=[str(fv_dir / f"{_BUG_BASH_FV_NAME}.yaml")],
+            config=None,
+            dev_mode=False,
+            allow_recreate=False,
+            no_delete=False,
+        )
+
+        assert result["status"] == "ready", (
+            f"expected status='ready'; got status={result['status']!r} "
+            f"errors={result.get('errors')!r}"
+        )
+
+        update_entity_ops = [
+            op for op in result["ops"] if op["operation"] == "UPDATE_ENTITY"
+        ]
+        assert len(update_entity_ops) == 1, (
+            "expected exactly one UPDATE_ENTITY op when the deployed "
+            "entity's COMMENT differs from the local YAML's description; "
+            f"got ops={[(o['operation'], o['name']) for o in result['ops']]!r}"
+        )
+        assert update_entity_ops[0]["name"] == "USER_ID", (
+            "manager.plan op stream must preserve the spec's original-case "
+            "name (USER_ID) so verify_bug_bash.sh step 11's "
+            "'UPDATE_ENTITY USER_ID' grep matches the rendered output and "
+            "the disk JSON plan share one canonical identifier; got "
+            f"name={update_entity_ops[0]['name']!r}"
+        )
+
+    def test_no_change_op_preserves_uppercase_fv_name(
+        self,
+        tmp_path,
+        bug_bash_cli_context,
+        bug_bash_io,
+    ):
+        """Identical-spec NO_CHANGE row for a FV must keep its uppercase name.
+
+        Regression guard: the same lowercasing surface that masked
+        ``UPDATE_ENTITY USER_ID`` also turns ``USER_CLICK_STATS_DECL``
+        into ``user_click_stats_decl``, breaking step 11's
+        ``NO_CHANGE.*USER_CLICK_STATS_DECL`` grep.  Pin the contract on
+        the FV row too so the case-preservation invariant covers both
+        kinds the verify script asserts on.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        fv_dir = _write_bug_bash_tree(tmp_path)
+
+        result = FeatureManager().plan(
+            input_files=[str(fv_dir / f"{_BUG_BASH_FV_NAME}.yaml")],
+            config=None,
+            dev_mode=False,
+            allow_recreate=False,
+            no_delete=False,
+        )
+
+        assert result["status"] == "ready", (
+            f"expected status='ready'; got status={result['status']!r} "
+            f"errors={result.get('errors')!r}"
+        )
+
+        fv_ops = [op for op in result["ops"] if op["name"].upper() == _BUG_BASH_FV_NAME]
+        assert fv_ops, (
+            f"expected at least one op naming {_BUG_BASH_FV_NAME}; got "
+            f"ops={[(o['operation'], o['name']) for o in result['ops']]!r}"
+        )
+        assert fv_ops[0]["name"] == _BUG_BASH_FV_NAME, (
+            "manager.plan op stream must preserve the spec's original-case "
+            f"FV name ({_BUG_BASH_FV_NAME}); got name={fv_ops[0]['name']!r}"
+        )
