@@ -64,7 +64,7 @@ typing-extensions==4.14.1
 typing-inspection==0.4.2
 tzdata==2025.2 ; sys_platform == 'win32'
 tzlocal==5.3.1
-urllib3==2.6.3
+urllib3==2.7.0
 wcwidth==0.2.13
 websocket-client==1.9.0
 wheel==0.45.1
