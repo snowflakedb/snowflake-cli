@@ -1902,6 +1902,211 @@ class TestApplyLifecycleArtifacts:
             f"Got unexpected {applied_marker.name}."
         )
 
+    # --- A4 / A4 companion: refused-status (apply-time allow_recreate gate) ---
+
+    def test_apply_destructive_plan_without_flag_returns_refused_and_keeps_plan_unrenamed(
+        self, mock_execute_query, mock_decl, tmp_path, monkeypatch
+    ):
+        """Refused-status companion to L5 (Mark-Failed-Stays-Unapplied):
+        when ``decl_api.execute_plan`` returns
+        ``ApplyResult(status="refused", ...)`` because the plan
+        carried at least one ``destructive=True`` op and the operator
+        omitted ``--allow-recreate``, the manager must:
+
+        1. Surface ``status="refused"`` to the caller (so the CLI
+           ``Status:`` header renders ``refused``).
+        2. Forward the ``--allow-recreate`` directive in ``errors``.
+        3. NOT rename the plan file to ``.applied`` — the operator
+           needs the same ``feature_plan_*.json`` available to retry
+           with ``--allow-recreate``.
+
+        This pins the BUG_BASH §14 fix: today's main consumes the
+        plan and marks it ``.applied`` even on a destructive plain
+        apply (because ``imperative_executor.execute_plan`` runs
+        destructive ops unconditionally), so the next
+        ``apply --allow-recreate`` discovers no unapplied plan and
+        reports ``Status: no_plan``.
+
+        See plans/apply_allow_recreate_destructive_gate_*.plan.md.
+        """
+        from pathlib import Path
+
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        monkeypatch.chdir(tmp_path)
+        plans_dir = self._make_plans_dir(tmp_path)
+
+        plan_path = plans_dir / "feature_plan_20260507T120000.json"
+        plan_path.write_text(self._make_plan_json())
+
+        plan_file_obj = mock_decl.deserialize_plan.return_value
+        plan_file_obj.plan = mock_decl.generate_plan.return_value
+        plan_file_obj.target_database = "TEST_DB"
+        plan_file_obj.target_schema = "TEST_SCHEMA"
+
+        # Wire ``execute_plan`` to mimic the post-fix executor's refuse
+        # response for a destructive plan with ``allow_recreate=False``.
+        refused_result = mock.MagicMock()
+        refused_result.status = "refused"
+        refused_result.ops = [
+            {
+                "operation": "RECREATE_FV",
+                "name": "USER_CLICK_STATS_DECL",
+                "reason": "Full-spec change detected (UDF source).",
+                "destructive": True,
+                "status": "refused",
+            }
+        ]
+        refused_result.warnings = []
+        refused_result.errors = [
+            "Apply refused: 1 destructive operation(s) require "
+            "--allow-recreate. Re-run with `snow feature apply "
+            "--allow-recreate <path>`."
+        ]
+        mock_decl.execute_plan.return_value = refused_result
+
+        mgr = FeatureManager()
+        result = mgr.apply(
+            input_files=["specs.yaml"],
+            config=None,
+            dev_mode=False,
+            overwrite=False,
+            allow_recreate=False,
+        )
+
+        assert result.get("status") == "refused", (
+            f"Refused execute_plan status must be threaded straight to "
+            f"the caller.  Got status={result.get('status')!r}."
+        )
+        joined_errors = " ".join(result.get("errors", []))
+        assert "--allow-recreate" in joined_errors, (
+            f"Refused error must direct operator at --allow-recreate.  "
+            f"Got errors={result.get('errors')!r}."
+        )
+
+        # L5 invariant for the refused branch: plan stays unrenamed.
+        applied_marker = Path(str(plan_path) + ".applied")
+        assert plan_path.exists(), (
+            f"Refused apply must leave the plan file unrenamed so the "
+            f"operator can retry with --allow-recreate.  Expected "
+            f"{plan_path.name} to still exist."
+        )
+        assert not applied_marker.exists(), (
+            f"Refused apply must NOT mark plan as .applied.  "
+            f"Got unexpected {applied_marker.name}."
+        )
+
+        # Plan file path threaded back unchanged for the operator.
+        assert result.get("plan_file") == str(plan_path)
+
+    def test_apply_then_apply_with_allow_recreate_consumes_same_plan_file(
+        self, mock_execute_query, mock_decl, tmp_path, monkeypatch
+    ):
+        """End-to-end pin for the BUG_BASH §14 retry workflow: a plain
+        ``apply`` that refuses leaves the plan file in place, and a
+        follow-up ``apply --allow-recreate`` consumes the SAME file
+        (L4 rename to ``.applied`` only on success).
+
+        This is the test that would have caught the original cascade
+        before it shipped: today on ``main`` the first apply silently
+        executes the destructive op, renames the plan ``.applied``,
+        and the second call with ``--allow-recreate`` discovers no
+        unapplied plan and returns ``no_plan``.
+        """
+        from pathlib import Path
+
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        monkeypatch.chdir(tmp_path)
+        plans_dir = self._make_plans_dir(tmp_path)
+
+        plan_path = plans_dir / "feature_plan_20260507T120000.json"
+        plan_path.write_text(self._make_plan_json())
+
+        plan_file_obj = mock_decl.deserialize_plan.return_value
+        plan_file_obj.plan = mock_decl.generate_plan.return_value
+        plan_file_obj.target_database = "TEST_DB"
+        plan_file_obj.target_schema = "TEST_SCHEMA"
+
+        # First call: plain apply → execute_plan returns refused.
+        refused_result = mock.MagicMock()
+        refused_result.status = "refused"
+        refused_result.ops = [
+            {
+                "operation": "RECREATE_FV",
+                "name": "USER_CLICK_STATS_DECL",
+                "reason": "Full-spec change detected (UDF source).",
+                "destructive": True,
+                "status": "refused",
+            }
+        ]
+        refused_result.warnings = []
+        refused_result.errors = [
+            "Apply refused: 1 destructive operation(s) require " "--allow-recreate."
+        ]
+        mock_decl.execute_plan.return_value = refused_result
+
+        mgr = FeatureManager()
+        first_result = mgr.apply(
+            input_files=["specs.yaml"],
+            config=None,
+            dev_mode=False,
+            overwrite=False,
+            allow_recreate=False,
+        )
+
+        assert first_result.get("status") == "refused"
+        assert plan_path.exists(), (
+            "After plain apply with refused status, the plan file "
+            "must remain at its original .json path so the operator "
+            "can retry with --allow-recreate."
+        )
+
+        # Second call: apply --allow-recreate → execute_plan returns
+        # applied.  The manager must re-discover the SAME plan file
+        # (L1: Required-Plan + L2: Latest-Wins; only one unapplied
+        # plan in the directory) and rename it to ``.applied`` (L4).
+        applied_result = mock.MagicMock()
+        applied_result.status = "applied"
+        applied_result.ops = [
+            {
+                "operation": "RECREATE_FV",
+                "name": "USER_CLICK_STATS_DECL",
+                "status": "success",
+            }
+        ]
+        applied_result.warnings = []
+        applied_result.errors = []
+        mock_decl.execute_plan.return_value = applied_result
+        mock_decl.execute_plan.reset_mock()
+
+        # Reset deserialize_plan call args between calls so we can
+        # inspect the second call's path independently.
+        mock_decl.deserialize_plan.reset_mock()
+
+        second_result = mgr.apply(
+            input_files=["specs.yaml"],
+            config=None,
+            dev_mode=False,
+            overwrite=False,
+            allow_recreate=True,
+        )
+
+        assert second_result.get("status") == "applied"
+        # The deserialize_plan call must have been driven by the same
+        # plan-file content (we only have one plan file in the dir).
+        mock_decl.deserialize_plan.assert_called_once()
+        # L4: the consumed plan is renamed .applied on success.
+        applied_marker = Path(str(plan_path) + ".applied")
+        assert applied_marker.exists(), (
+            "Successful apply --allow-recreate must rename the same "
+            "plan file to .applied (L4)."
+        )
+        assert (
+            not plan_path.exists()
+        ), "L4: original plan must NOT survive a successful retry."
+        assert second_result.get("plan_file") == str(applied_marker)
+
     # --- A5: L6 — Target-Match ---
 
     def test_apply_rejects_plan_with_target_database_mismatch(
