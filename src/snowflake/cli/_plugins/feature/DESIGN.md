@@ -125,6 +125,29 @@ hands it to ``decl_api.execute_plan`` for execution:
 8. Return result dict
 ```
 
+`status` values returned to the CLI:
+
+- `"applied"`  — every op executed successfully; plan file renamed `.applied` (L4).
+- `"refused"`  — the plan carried at least one `destructive=True` op
+  and `--allow-recreate` was not set; **no op was executed**, and the
+  plan file stays unrenamed under L5 so a follow-up
+  `snow feature apply --allow-recreate <path>` consumes the same file.
+  The gate is enforced inside `decl_api.execute_plan` (single source
+  of truth); the manager simply threads the status through.  `errors`
+  carries a single human-readable directive naming the destructive op
+  count and the `--allow-recreate` remediation.
+- `"target_mismatch"`  — the plan's `target_database` /
+  `target_schema` does not match the active connection (L6); plan
+  file untouched.
+- `"validation_failed"`  — planner-side ERROR severities surfaced
+  (only reachable when `apply` is in a hypothetical re-plan path; the
+  pure-consumer `apply` returns this only when `deserialize_plan`
+  itself raises).
+- `"partial_failure"`  — one or more ops raised at execution time;
+  plan file untouched (L5).
+- `"no_plan"`  — auto-discovery found no unapplied plan under
+  `<cwd>/.snowflake/plans/` (L1).
+
 ### plan() orchestration
 
 `plan()` is the read-only validate-then-plan path that backs
