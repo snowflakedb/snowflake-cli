@@ -186,7 +186,7 @@ def _bug_bash_fv_yaml() -> str:
         "      type: BooleanType\n"
         "    - name: ENGAGEMENT_SCORE\n"
         "      type: DoubleType\n"
-        f"  file: ../udfs/{_BUG_BASH_FV_NAME}.py\n"
+        f"  file: {_BUG_BASH_FV_NAME}.py\n"
     )
 
 
@@ -199,11 +199,11 @@ def _bug_bash_udf_py() -> str:
     # NO_CHANGE invariant collapses into a destructive RECREATE_FV.
     #
     # The bare ``pd.DataFrame`` annotation is unbound at module load time,
-    # which is why this file lives under ``sources/udfs/`` (a non-canonical
-    # sub-directory the project-mode loader never walks) instead of beside
-    # the YAML in ``sources/feature_views/``.  ``compiler.inline_udf_source``
-    # resolves the YAML's ``udf.file: ../udfs/...`` path and reads the file
-    # without ever importing it as a Python module.
+    # but the project-mode loader's UDF-companion rule
+    # (``_is_udf_companion_py``) detects this ``.py`` as the body for the
+    # sibling ``USER_CLICK_STATS_DECL.yaml`` (whose ``udf.file:`` matches
+    # this basename) and skips ``importlib`` entirely. The compiler's
+    # ``inline_udf_source`` reads the file as text instead.
     return (
         "def compute_engagement_metrics(clickstream: pd.DataFrame) -> pd.DataFrame:\n"
         '    """Compute engagement metrics from click-stream events."""\n'
@@ -236,17 +236,17 @@ def _write_bug_bash_project(tmp_path: Path) -> Path:
             entities/USER_ID.yaml
             datasources/CLICKSTREAM_EVENTS.yaml
             feature_views/
-              USER_CLICK_STATS_DECL.yaml      (references ../udfs/...py)
-            udfs/
-              USER_CLICK_STATS_DECL.py        (NOT walked by the loader)
+              USER_CLICK_STATS_DECL.yaml   (udf.file: USER_CLICK_STATS_DECL.py)
+              USER_CLICK_STATS_DECL.py     (UDF companion - not importlib-loaded)
           out/plan/  (created by write_plan)
 
-    The UDF body lives under ``sources/udfs/`` — a non-canonical
-    sub-directory the project-mode loader (``decl.loader.load_from_project``)
-    deliberately ignores.  Co-locating it with the YAML under
-    ``feature_views/`` would trip ``load_python_file`` on the bare
-    ``pd.DataFrame`` annotation; the file is meant for inlining via
-    ``compiler.inline_udf_source``, never for ``importlib`` evaluation.
+    The UDF body sits beside its YAML inside ``sources/feature_views/``.
+    The project-mode loader's UDF-companion rule
+    (``_is_udf_companion_py``) sees that the YAML's ``udf.file:`` basename
+    equals the ``.py`` basename and skips ``importlib`` entirely so the
+    bare ``pd.DataFrame`` annotation never crashes the walk.
+    ``compiler.inline_udf_source`` reads the file as text via the YAML
+    pointer.
 
     Returns:
         Path to ``tmp_path`` (the project root the manager resolves
@@ -257,15 +257,13 @@ def _write_bug_bash_project(tmp_path: Path) -> Path:
     entity_dir = sources / "entities"
     source_dir = sources / "datasources"
     fv_dir = sources / "feature_views"
-    udf_dir = sources / "udfs"
     entity_dir.mkdir(parents=True)
     source_dir.mkdir(parents=True)
     fv_dir.mkdir(parents=True)
-    udf_dir.mkdir(parents=True)
     (entity_dir / "USER_ID.yaml").write_text(_bug_bash_entity_yaml())
     (source_dir / "CLICKSTREAM_EVENTS.yaml").write_text(_bug_bash_source_yaml())
     (fv_dir / f"{_BUG_BASH_FV_NAME}.yaml").write_text(_bug_bash_fv_yaml())
-    (udf_dir / f"{_BUG_BASH_FV_NAME}.py").write_text(_bug_bash_udf_py())
+    (fv_dir / f"{_BUG_BASH_FV_NAME}.py").write_text(_bug_bash_udf_py())
     return tmp_path
 
 

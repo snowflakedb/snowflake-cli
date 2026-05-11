@@ -28,10 +28,13 @@ The CLI surface is the Phase 3+4 manifest-driven shape:
 * No positional spec arguments, no ``--config``, no ``--overwrite``.
 
 Spec trees live under ``<project_root>/sources/{entities,
-datasources, feature_views}/``; UDF Python source lives under a
-non-canonical sub-directory the project loader does NOT walk
-(``sources/udfs/`` here) so a bare ``pd.DataFrame`` annotation in
-the UDF body cannot trip ``importlib`` during spec discovery.
+datasources, feature_views}/``. UDF ``.py`` source files sit beside
+their YAML peer (``sources/feature_views/<NAME>.py`` next to
+``sources/feature_views/<NAME>.yaml``); the project-mode loader's
+companion rule (``decl/loader.py::_is_udf_companion_py``) detects
+the YAML's ``udf.file:`` pointer and skips ``importlib`` for the
+``.py`` so unresolved annotations like ``pd.DataFrame`` cannot trip
+the spec walk.
 """
 
 from __future__ import annotations
