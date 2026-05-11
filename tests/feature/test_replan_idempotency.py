@@ -30,21 +30,27 @@ This module drives the full CLI pipeline — ``manager.plan`` and
   golden}`` (the captured DESCRIBE TYPE = SPECIFICATION payload).
 - ``_fetch_entity_rows`` returns one ``SHOW TAGS``-shaped row for
   ``USER_ID``.
-- ``get_cli_context`` reports ``database=JKEW_DB``, ``schema=JKEW_SCHEMA``.
+- ``get_cli_context`` reports ``database=JKEW_DB``, ``schema=JKEW_SCHEMA``
+  (matching the manifest written under ``tmp_path``).
 
-Each test then writes the BUG_BASH §5 spec tree to ``tmp_path`` and
-invokes ``manager.plan(...)`` (or ``manager.write_plan(...)``).  This
-is the path the live ``snow feature plan`` actually executes after
-step 6 deploy.  A regression in any of the four planner code paths
-(``manager.plan`` adding a second ``generate_plan`` call site,
-``_full_spec_hash`` skipping the strip-before-hash contract, the
-nested-features lookup re-breaking, or the strict-``<`` version
-semantics flipping back) surfaces here.
+Each test then writes the BUG_BASH §5 spec tree under
+``<tmp_path>/sources/`` (Phase 3+4 layout: ``entities/``,
+``datasources/``, ``feature_views/``) along with a ``manifest.yml``
+pointing at JKEW_DB.JKEW_SCHEMA, and invokes
+``manager.plan(from_dir=tmp_path, target_name=None, ...)`` (or
+``manager.write_plan(from_dir=tmp_path, ...)``).  This is the path the
+live ``snow feature plan`` actually executes after step 6 deploy.  A
+regression in any of the four planner code paths (``manager.plan``
+adding a second ``generate_plan`` call site, ``_full_spec_hash``
+skipping the strip-before-hash contract, the nested-features lookup
+re-breaking, or the strict-``<`` version semantics flipping back)
+surfaces here.
 """
 
 from __future__ import annotations
 
 import json
+import textwrap
 from pathlib import Path
 from typing import Any
 from unittest import mock
@@ -52,6 +58,7 @@ from unittest import mock
 import pytest
 
 from tests.feature.test_manager import (  # noqa: F401 (autouse fixtures)
+    mock_account_identifier,
     mock_build_session,
     mock_cli_context,
 )
@@ -67,6 +74,27 @@ _BUG_BASH_SCHEMA = "JKEW_SCHEMA"
 _BUG_BASH_FV_NAME = "USER_CLICK_STATS_DECL"
 _BUG_BASH_FV_VERSION = "V1"
 _BUG_BASH_OFT_NAME = f"{_BUG_BASH_FV_NAME}${_BUG_BASH_FV_VERSION}$ONLINE"
+
+
+def _bug_bash_manifest_yaml() -> str:
+    """Phase 3+4 manifest pointing at JKEW_DB.JKEW_SCHEMA.
+
+    ``account_identifier`` matches the autouse
+    ``mock_account_identifier`` fixture (TEST_ORG-TEST_ACCT) so
+    ``_resolve_project`` does not refuse the request.
+    """
+    return textwrap.dedent(
+        f"""\
+        manifest_version: 1
+        type: feature_store
+        default_target: BUG_BASH
+        targets:
+          BUG_BASH:
+            account_identifier: TEST_ORG-TEST_ACCT
+            database: {_BUG_BASH_DB}
+            schema: {_BUG_BASH_SCHEMA}
+        """
+    )
 
 
 def _bug_bash_entity_yaml() -> str:
@@ -184,22 +212,30 @@ def _bug_bash_udf_py() -> str:
     )
 
 
-def _write_bug_bash_tree(tmp_path: Path) -> Path:
-    """Lay out the BUG_BASH §5 working directory under *tmp_path*.
+def _write_bug_bash_project(tmp_path: Path) -> Path:
+    """Lay out the BUG_BASH §5 working directory as a Phase 3+4 project.
 
-    Args:
-        tmp_path: pytest tmp dir.
+    Tree::
+
+        <tmp_path>/
+          manifest.yml
+          sources/
+            entities/USER_ID.yaml
+            datasources/CLICKSTREAM_EVENTS.yaml
+            feature_views/
+              USER_CLICK_STATS_DECL.yaml
+              USER_CLICK_STATS_DECL.py
+          out/plan/  (created by write_plan)
 
     Returns:
-        Path to the ``$DECL_DIR/feature_views`` directory the
-        ``manager.plan`` invocation reads from (we pass the FV YAML
-        path so ``_expand_with_datasources`` walks sibling
-        ``entities/`` and ``datasources/`` trees).
+        Path to ``tmp_path`` (the project root the manager resolves
+        via ``_resolve_project``).
     """
-    decl_dir = tmp_path / f"{_BUG_BASH_DB}.{_BUG_BASH_SCHEMA}"
-    entity_dir = decl_dir / "entities"
-    source_dir = decl_dir / "datasources"
-    fv_dir = decl_dir / "feature_views"
+    (tmp_path / "manifest.yml").write_text(_bug_bash_manifest_yaml())
+    sources = tmp_path / "sources"
+    entity_dir = sources / "entities"
+    source_dir = sources / "datasources"
+    fv_dir = sources / "feature_views"
     entity_dir.mkdir(parents=True)
     source_dir.mkdir(parents=True)
     fv_dir.mkdir(parents=True)
@@ -207,7 +243,7 @@ def _write_bug_bash_tree(tmp_path: Path) -> Path:
     (source_dir / "CLICKSTREAM_EVENTS.yaml").write_text(_bug_bash_source_yaml())
     (fv_dir / f"{_BUG_BASH_FV_NAME}.yaml").write_text(_bug_bash_fv_yaml())
     (fv_dir / f"{_BUG_BASH_FV_NAME}.py").write_text(_bug_bash_udf_py())
-    return fv_dir
+    return tmp_path
 
 
 def _golden_specification() -> dict[str, Any]:
@@ -310,6 +346,7 @@ def bug_bash_cli_context():
         ctx.connection.schema = _BUG_BASH_SCHEMA
         ctx.connection.warehouse = "TEST_WH"
         ctx.connection.role = "TEST_ROLE"
+        ctx.connection.account = "TEST_ORG-TEST_ACCT"
         m.return_value = ctx
         yield m
 
@@ -370,14 +407,14 @@ class TestReplanIdenticalSpec:
         """
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        fv_dir = _write_bug_bash_tree(tmp_path)
+        _write_bug_bash_project(tmp_path)
 
         result = FeatureManager().plan(
-            input_files=[str(fv_dir / f"{_BUG_BASH_FV_NAME}.yaml")],
-            config=None,
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
             dev_mode=False,
             allow_recreate=False,
-            no_delete=False,
         )
 
         assert result["status"] == "ready", (
@@ -415,15 +452,15 @@ class TestReplanIdenticalSpec:
         """
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        fv_dir = _write_bug_bash_tree(tmp_path)
+        _write_bug_bash_project(tmp_path)
         out_path = tmp_path / "feature_plan.json"
 
         written = FeatureManager().write_plan(
-            input_files=[str(fv_dir / f"{_BUG_BASH_FV_NAME}.yaml")],
-            config=None,
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
             dev_mode=False,
             out_path=str(out_path),
-            no_delete=False,
         )
 
         assert Path(written).exists(), f"plan file not written at {written!r}"
@@ -475,14 +512,14 @@ class TestReplanIdenticalSpec:
             _BUG_BASH_OFT_NAME: divergent,
         }
 
-        fv_dir = _write_bug_bash_tree(tmp_path)
+        _write_bug_bash_project(tmp_path)
 
         result = FeatureManager().plan(
-            input_files=[str(fv_dir / f"{_BUG_BASH_FV_NAME}.yaml")],
-            config=None,
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
             dev_mode=False,
             allow_recreate=False,
-            no_delete=False,
         )
 
         assert result["status"] == "ready", (
@@ -542,14 +579,14 @@ class TestPlanPreservesNameCase:
         diverged_entity_row["comment"] = "Bug-bash user identifier — older version."
         bug_bash_io["fetch_entity_rows"].return_value = [diverged_entity_row]
 
-        fv_dir = _write_bug_bash_tree(tmp_path)
+        _write_bug_bash_project(tmp_path)
 
         result = FeatureManager().plan(
-            input_files=[str(fv_dir / f"{_BUG_BASH_FV_NAME}.yaml")],
-            config=None,
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
             dev_mode=False,
             allow_recreate=False,
-            no_delete=False,
         )
 
         assert result["status"] == "ready", (
@@ -590,14 +627,14 @@ class TestPlanPreservesNameCase:
         """
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        fv_dir = _write_bug_bash_tree(tmp_path)
+        _write_bug_bash_project(tmp_path)
 
         result = FeatureManager().plan(
-            input_files=[str(fv_dir / f"{_BUG_BASH_FV_NAME}.yaml")],
-            config=None,
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
             dev_mode=False,
             allow_recreate=False,
-            no_delete=False,
         )
 
         assert result["status"] == "ready", (
