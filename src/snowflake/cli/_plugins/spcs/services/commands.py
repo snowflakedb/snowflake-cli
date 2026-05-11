@@ -80,20 +80,6 @@ app = SnowTyperFactory(
     short_help="Manages services.",
 )
 
-# Exit codes used by the post-push image-validation hook in build-image.
-# Distinct from the default Click "command failed" exit (1) so callers / CI can
-# tell apart "image push failed" (1), "image was pushed but workload-image
-# smoke test reported the image is broken" (_EXIT_VALIDATION_FAILED), and
-# "smoke test could not run to completion (transient infra)" (_EXIT_VALIDATION_TRANSIENT).
-_EXIT_VALIDATION_FAILED = 2
-_EXIT_VALIDATION_TRANSIENT = 3
-
-# Status strings the validator uses to label terminal outcomes for the user.
-_VALIDATION_STATUS_PASS = "pass"
-_VALIDATION_STATUS_FAIL = "fail"
-_VALIDATION_STATUS_TRANSIENT = "transient"
-_VALIDATION_STATUS_SKIPPED = "skipped"
-
 # Define common options
 container_name_option = typer.Option(
     ...,
@@ -720,32 +706,6 @@ def build_image(
         "--eai-name",
         help="Identifies external access integrations (EAI) that the build job can access. This option may be specified multiple times for multiple EAIs.",
     ),
-    workload_type: Optional[str] = typer.Option(
-        None,
-        "--workload-type",
-        help=(
-            "Workload identifier (e.g. 'notebook', 'ml_job') that selects "
-            "which validation YAML the sf-image-build runner applies and, "
-            "after a successful push, which server-side smoke test the CLI "
-            "asks for via SYSTEM$START_IMAGE_VALIDATION_SERVICE. Propagated "
-            "to the build job as the WORKLOAD_TYPE env var. If omitted, both "
-            "the runner-side advisory checks and the post-push smoke test "
-            "are skipped."
-        ),
-        show_default=False,
-    ),
-    skip_validation: bool = typer.Option(
-        False,
-        "--skip-validation",
-        help=(
-            "Skip both the runner-side advisory validation and the post-push "
-            "server-side smoke test. The CLI propagates SKIP_VALIDATION=true "
-            "into the build job's env (which the sf-image-build runner reads "
-            "to bypass its in-process checks) and short-circuits before the "
-            "smoke-test system function is called. Image is built and pushed "
-            "as usual."
-        ),
-    ),
     **options,
 ) -> CommandResult:
     """
@@ -793,18 +753,6 @@ def build_image(
     if not image_tag.replace("_", "").replace("-", "").replace(".", "").isalnum():
         raise CliArgumentError(
             f"Invalid image tag '{image_tag}'. Must contain only alphanumeric characters, hyphens, underscores, and dots."
-        )
-
-    # Defensive validation: workload_type becomes a JSON env value that is then
-    # used by the runner to construct /etc/sf-image-build/configs/<value>.yaml.
-    # Restricting to alphanumerics + _ - . prevents path traversal and shell
-    # metacharacters from sneaking through. The runner validates further by
-    # rejecting any value that does not map to an existing baked-in YAML.
-    if workload_type is not None and not workload_type.replace("_", "").replace(
-        "-", ""
-    ).replace(".", "").isalnum():
-        raise CliArgumentError(
-            f"Invalid workload type '{workload_type}'. Must contain only alphanumeric characters, hyphens, underscores, and dots."
         )
 
     # Generate a unique identifier for this build operation
@@ -878,8 +826,6 @@ def build_image(
         build_context_path=build_context_stage_path,
         external_access_integrations=external_access_integrations,
         async_mode=True,  # Always async so we can stream logs
-        workload_type=workload_type,
-        skip_validation=skip_validation,
     )
 
     cli_console.step(f"Waiting for job to start...")
@@ -1023,219 +969,4 @@ def build_image(
         except ProgrammingError as e:
             cli_console.warning(f"Failed to clean up build context files: {e}")
 
-    # Post-push image validation: only if (a) the build job actually finished
-    # successfully (otherwise the image isn't even there to validate), (b) the
-    # caller opted in via --workload-type, and (c) they didn't explicitly
-    # disable validation via --skip-validation.
-    if (
-        final_status == "DONE"
-        and workload_type is not None
-        and not skip_validation
-    ):
-        validation_result = _run_image_validation(
-            service_manager=service_manager,
-            image_repository=image_repository,
-            image_name=image_name,
-            image_tag=image_tag,
-            workload_type=workload_type,
-        )
-        _report_validation_result(validation_result)
-        status = validation_result.get("status")
-        if status == _VALIDATION_STATUS_FAIL:
-            raise typer.Exit(_EXIT_VALIDATION_FAILED)
-        if status == _VALIDATION_STATUS_TRANSIENT:
-            raise typer.Exit(_EXIT_VALIDATION_TRANSIENT)
-
     return SingleQueryResult(cursor)
-
-
-def _run_image_validation(
-    service_manager: ServiceManager,
-    image_repository: str,
-    image_name: str,
-    image_tag: str,
-    workload_type: str,
-) -> dict:
-    """
-    Server-orchestrated post-push smoke test.
-
-    Calls SYSTEM$START_IMAGE_VALIDATION_SERVICE to provision a per-workload smoke
-    service against the just-pushed image, polls DESCRIBE SERVICE until it leaves
-    PENDING, streams its logs to the terminal, classifies the terminal status, and
-    always calls SYSTEM$CLEANUP_IMAGE_VALIDATION_SERVICE in a finally so a Ctrl-C
-    or unexpected exception still triggers cleanup.
-
-    Returns ``{"status": "pass"|"fail"|"transient"|"skipped", ...}`` so the caller
-    can translate to a CLI exit code.
-    """
-    image_url = service_manager.build_image_registry_url(
-        image_repository=image_repository,
-    )
-    image_url_with_tag = f"{image_url}/{image_name}:{image_tag}"
-
-    cli_console.step(
-        f"Starting server-side image validation for workload type '{workload_type}'..."
-    )
-    try:
-        start_payload = service_manager.start_image_validation_service(
-            image_url=image_url_with_tag,
-            workload_type=workload_type,
-        )
-    except ProgrammingError as e:
-        # Treat any infra-level error from the start function as transient: the
-        # image was pushed, but we couldn't even kick off validation. The user
-        # can re-run validation manually.
-        cli_console.warning(f"Could not start image validation: {e}")
-        return {
-            "status": _VALIDATION_STATUS_TRANSIENT,
-            "reason": str(e),
-            "workload_type": workload_type,
-        }
-
-    if start_payload.get("status") == "skipped":
-        return {
-            "status": _VALIDATION_STATUS_SKIPPED,
-            "reason": start_payload.get("reason")
-            or f"validation not enabled for workload {workload_type}",
-            "workload_type": workload_type,
-        }
-
-    service_name = start_payload.get("service_name")
-    if not service_name:
-        return {
-            "status": _VALIDATION_STATUS_TRANSIENT,
-            "reason": "validation start response missing service_name",
-            "workload_type": workload_type,
-            "raw": start_payload,
-        }
-
-    cli_console.message(f"Validation service: {service_name}")
-
-    final_status: Optional[str] = None
-    try:
-        final_status = _poll_then_stream_validation_logs(service_manager, service_name)
-    except KeyboardInterrupt:
-        cli_console.warning(
-            f"\nImage validation '{service_name}' interrupted; attempting cleanup."
-        )
-        return _classify_validation_status("CANCELLED", service_name, workload_type)
-    finally:
-        try:
-            cleanup_payload = service_manager.cleanup_image_validation_service(
-                service_name=service_name,
-            )
-            if cleanup_payload.get("error"):
-                cli_console.warning(
-                    f"Cleanup of validation service '{service_name}' reported: "
-                    f"{cleanup_payload['error']}"
-                )
-        except ProgrammingError as e:
-            cli_console.warning(
-                f"Cleanup of validation service '{service_name}' failed: {e}"
-            )
-
-    return _classify_validation_status(final_status, service_name, workload_type)
-
-
-def _poll_then_stream_validation_logs(
-    service_manager: ServiceManager, service_name: str
-) -> Optional[str]:
-    """Mirror the build-image polling/streaming loop for the validation service."""
-    object_manager = ObjectManager()
-    fqn = FQN.from_string(service_name)
-    poll_interval = 5
-    max_wait_time = 300
-    elapsed = 0
-    current_status: Optional[str] = None
-    while elapsed < max_wait_time:
-        try:
-            describe_result = object_manager.describe(
-                object_type="service", fqn=fqn, cursor_class=DictCursor
-            )
-            row = describe_result.fetchone()
-            if row and "status" in row:
-                current_status = row["status"]
-            if current_status and current_status != "PENDING":
-                break
-        except Exception:
-            cli_console.message(
-                f"Waiting for validation service to be available... ({elapsed}s elapsed)"
-            )
-        time.sleep(poll_interval)
-        elapsed += poll_interval
-
-    if current_status is None or current_status == "PENDING":
-        cli_console.warning(
-            f"Validation service did not leave PENDING within {max_wait_time}s"
-            f" (current: {current_status or 'UNKNOWN'})"
-        )
-        return None
-
-    cli_console.step(f"Validation service status: {current_status}. Streaming logs...")
-    final_status: Optional[str] = None
-    log_stream = service_manager.stream_logs(
-        service_name=service_name,
-        instance_id="0",
-        container_name="main",
-        num_lines=1000,
-        since_timestamp="",
-        include_timestamps=False,
-        interval_seconds=2,
-        check_terminal_status=True,
-    )
-    for log_entry in log_stream:
-        if isinstance(log_entry, tuple) and log_entry[0] == "__TERMINAL_STATUS__":
-            final_status = log_entry[1]
-            break
-        cli_console.message(log_entry)
-
-    return final_status or current_status
-
-
-def _classify_validation_status(
-    final_status: Optional[str], service_name: str, workload_type: str
-) -> dict:
-    if final_status == "DONE":
-        return {
-            "status": _VALIDATION_STATUS_PASS,
-            "service_name": service_name,
-            "workload_type": workload_type,
-        }
-    if final_status == "FAILED":
-        return {
-            "status": _VALIDATION_STATUS_FAIL,
-            "service_name": service_name,
-            "workload_type": workload_type,
-            "reason": "validation service reached FAILED state",
-        }
-    # CANCELLED, INTERNAL_ERROR, timed-out, no-status -- transient.
-    return {
-        "status": _VALIDATION_STATUS_TRANSIENT,
-        "service_name": service_name,
-        "workload_type": workload_type,
-        "reason": (
-            f"validation service did not reach DONE (final={final_status or 'UNKNOWN'})"
-        ),
-    }
-
-
-def _report_validation_result(result: dict) -> None:
-    status = result.get("status")
-    workload_type = result.get("workload_type", "?")
-    if status == _VALIDATION_STATUS_PASS:
-        cli_console.message(
-            f"✓ Image validation passed (workload: {workload_type})."
-        )
-    elif status == _VALIDATION_STATUS_FAIL:
-        cli_console.warning(
-            f"✗ Image validation FAILED (workload: {workload_type}): {result.get('reason', '')}"
-        )
-    elif status == _VALIDATION_STATUS_TRANSIENT:
-        cli_console.warning(
-            f"! Image validation could not run to completion (workload:"
-            f" {workload_type}): {result.get('reason', '')}"
-        )
-    elif status == _VALIDATION_STATUS_SKIPPED:
-        cli_console.message(
-            f"Image validation skipped (workload: {workload_type}): {result.get('reason', '')}"
-        )

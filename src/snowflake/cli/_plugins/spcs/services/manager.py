@@ -46,7 +46,6 @@ from snowflake.cli.api.artifacts.utils import bundle_artifacts
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.entities.common import Artifacts
-from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
@@ -355,8 +354,6 @@ class ServiceManager(SqlExecutionMixin):
         build_context_path: str,
         external_access_integrations: Optional[List[str]],
         async_mode: bool = True,
-        workload_type: Optional[str] = None,
-        skip_validation: bool = False,
     ) -> SnowflakeCursor:
         """
         Builds a container image using EXECUTE JOB SERVICE with the Snowflake image builder.
@@ -371,19 +368,6 @@ class ServiceManager(SqlExecutionMixin):
             build_context_path: Path on stage where build context is located
             external_access_integrations: List of EAI names
             async_mode: Whether to run the build asynchronously
-            workload_type: Optional workload identifier (e.g. "notebook", "ml_job")
-                that selects which validation YAML the sf-image-build runner
-                applies. Propagated as the WORKLOAD_TYPE env var; the runner
-                resolves it to /etc/sf-image-build/configs/<workload>.yaml and
-                fails fast if no such file is baked into the runner image.
-                When None, the WORKLOAD_TYPE env var is omitted, which causes
-                the runner to skip validation entirely (with a logged warning).
-            skip_validation: When True, propagated as ``SKIP_VALIDATION=true`` on
-                the runner job's env. The runner reads this flag and bypasses the
-                advisory in-process validation phases entirely. Independent of
-                ``workload_type`` -- callers can still pass a workload type for
-                the post-push smoke test path while skipping the runner-side
-                advisory checks.
         """
         image_registry_url = self.build_image_registry_url(image_repository)
 
@@ -393,14 +377,6 @@ class ServiceManager(SqlExecutionMixin):
             "IMAGE_TAG": image_tag,
             "BUILD_CONTEXT": "/app",
         }
-        if workload_type:
-            # Opts the runner into validation against
-            # /etc/sf-image-build/configs/<workload_type>.yaml. Setting an
-            # unknown workload type causes the runner to fail fast with a
-            # message listing every YAML baked into the runner image.
-            env_vars["WORKLOAD_TYPE"] = workload_type
-        if skip_validation:
-            env_vars["SKIP_VALIDATION"] = "true"
 
         spec = {
             "spec": {
@@ -436,61 +412,6 @@ class ServiceManager(SqlExecutionMixin):
             external_access_integrations=external_access_integrations,
             async_mode=async_mode,
         )
-
-    def start_image_validation_service(
-        self, image_url: str, workload_type: str
-    ) -> dict:
-        """
-        Start a server-side image validation smoke service.
-
-        Wraps ``SELECT SYSTEM$START_IMAGE_VALIDATION_SERVICE(?, ?)`` and parses its JSON
-        return value. The system function provisions a per-service stage with the
-        workload-specific smoke driver, submits an SPCS service against ``image_url``, and
-        returns ``{"status": "started"|"skipped", "service_name": ..., "schema_fqn": ...,
-        "stage_fqn": ..., "workload_type": ...}``. Callers tail the service's logs via
-        ``stream_logs`` and call ``cleanup_image_validation_service`` once the service
-        reaches a terminal state.
-        """
-        query = (
-            "SELECT PARSE_JSON(SYSTEM$START_IMAGE_VALIDATION_SERVICE("
-            f"{to_string_literal(image_url)}, {to_string_literal(workload_type)}"
-            ")) AS payload"
-        )
-        cursor = self.execute_query(query)
-        row = cursor.fetchone()
-        if row is None:
-            raise ProgrammingError(
-                "SYSTEM$START_IMAGE_VALIDATION_SERVICE returned no rows; check the"
-                " session has CURRENT_DATABASE/CURRENT_SCHEMA set and the workload"
-                " type is supported."
-            )
-        payload = row[0]
-        if isinstance(payload, str):
-            payload = json.loads(payload)
-        return payload
-
-    def cleanup_image_validation_service(self, service_name: str) -> dict:
-        """
-        Drop the validation service and its per-service payload stage.
-
-        Wraps ``SELECT SYSTEM$CLEANUP_IMAGE_VALIDATION_SERVICE(?)`` and parses its JSON
-        return value. Returns ``{"dropped_service": bool, "dropped_stage": bool, "error":
-        str|None}``. Designed to be called from a ``finally`` block so a Ctrl-C or
-        unexpected exception during log streaming still triggers cleanup.
-        """
-        query = (
-            "SELECT PARSE_JSON(SYSTEM$CLEANUP_IMAGE_VALIDATION_SERVICE("
-            f"{to_string_literal(service_name)}"
-            ")) AS payload"
-        )
-        cursor = self.execute_query(query)
-        row = cursor.fetchone()
-        if row is None:
-            return {"dropped_service": False, "dropped_stage": False, "error": "no rows returned"}
-        payload = row[0]
-        if isinstance(payload, str):
-            payload = json.loads(payload)
-        return payload
 
     def _read_yaml(self, path: Path) -> str:
         # TODO(aivanou): Add validation towards schema
