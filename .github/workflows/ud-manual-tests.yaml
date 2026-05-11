@@ -59,7 +59,7 @@ jobs:
           hatch --version
 
       - name: Patch dependencies for universal driver
-        run: python scripts/patch_universal_driver.py "${{ inputs.ud-branch }}"
+        run: python scripts/patch_universal_driver.py
 
       - name: Install and test UD
         run: |

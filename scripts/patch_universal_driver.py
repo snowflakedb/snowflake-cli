@@ -1,24 +1,23 @@
 """Patch pyproject.toml to use the Snowflake universal driver instead of snowflake-connector-python.
 
 Usage:
-    python scripts/patch_universal_driver.py <git-ref>
+    python scripts/patch_universal_driver.py
 
 Removes snowflake-connector-python from [project].dependencies and injects
-a pip install of the universal driver into [tool.hatch.envs.ud] pre-install-commands.
+a UD pip install into [tool.hatch.envs.ud] pre-install-commands using the
+{env:UD_BRANCH:main} hatch variable (so the branch is controlled at runtime).
 Also patches test plugin pyproject.toml files to remove the snowflake-cli dependency,
 preventing pip from re-resolving the CLI's dependency tree during plugin installation.
 """
 
 import glob
 import re
-import sys
 
 
-def patch_pyproject(path="pyproject.toml", *, ud_ref: str):
+def patch_pyproject(path="pyproject.toml"):
     with open(path) as f:
         content = f.read()
 
-    # 1. Remove snowflake-connector-python from [project].dependencies
     original = content
     content = re.sub(
         r'^\s*["\']snowflake-connector-python[^"\']*["\'],?\n',
@@ -29,8 +28,7 @@ def patch_pyproject(path="pyproject.toml", *, ud_ref: str):
     if content == original:
         print("WARNING: snowflake-connector-python not found in dependencies")
 
-    # 2. Add UD pip install to [tool.hatch.envs.ud] pre-install-commands
-    ud_pip = f'pip install "git+https://github.com/snowflakedb/universal-driver@{ud_ref}#subdirectory=python"'
+    ud_pip = 'pip install "git+https://github.com/snowflakedb/universal-driver@{env:UD_BRANCH:main}#subdirectory=python"'
     content = content.replace(
         "[tool.hatch.envs.ud]\n"
         'template = "ud"\n'
@@ -43,18 +41,6 @@ def patch_pyproject(path="pyproject.toml", *, ud_ref: str):
         '  "pip install pytest-xdist",\n'
         f"  '{ud_pip}',\n"
         "]",
-    )
-
-    # 3. Simplify [tool.hatch.envs.ud.scripts] check — keep only the pytest command.
-    #    The old script uninstalls connector and installs UD, but that's now handled
-    #    by pre-install-commands (and uninstalling would remove UD itself).
-    content = re.sub(
-        r"(\[tool\.hatch\.envs\.ud\.scripts\]\ncheck = \[)\n"
-        r".*?"
-        r"\n(\s*'pytest )",
-        r"\1\n\2",
-        content,
-        flags=re.DOTALL,
     )
 
     with open(path, "w") as f:
@@ -115,11 +101,6 @@ def show_results(path="pyproject.toml"):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print(f"Usage: {sys.argv[0]} <universal-driver-git-ref>", file=sys.stderr)
-        sys.exit(1)
-
-    ref = sys.argv[1]
-    patch_pyproject(ud_ref=ref)
+    patch_pyproject()
     patch_plugins()
     show_results()
