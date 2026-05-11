@@ -19,14 +19,9 @@
 ## Deprecations
 
 ## New additions
-* Added a `--secondary-roles` option (plus matching `SNOWFLAKE_SECONDARY_ROLES` env var and `secondary_roles` config key) to `snow connection add` and the global connection overrides. The value is forwarded to `snowflake-connector-python` and accepts `ALL` or `NONE`, so sessions can be pinned to the primary role without running an extra `USE SECONDARY ROLES` statement.
-* Added `--force` flag to `snow spcs service drop` to allow dropping services that contain block storage volumes.
 
 ## Fixes and improvements
 * Fixed macOS arm64 installer incorrectly requiring Rosetta 2. The `Distribution.xml` package metadata now declares `hostArchitectures="arm64,x86_64"`, so the installer is recognized as native on Apple Silicon.
-* Fixed `SELECT *` output being corrupted when joined tables share column names. Duplicate column names are now disambiguated by appending a numeric suffix (e.g. `NAME`, `NAME_2`).
-* Fixed `snow connection generate-jwt` and `snow connection generate-workload-identity-token` failing with `Connection None is not configured` when used with `--temporary-connection`.
-* The internal connection cache now remembers failed connect attempts and re-raises the original exception on subsequent accesses within the same process, instead of re-dialing Snowflake every time a command accesses the shared connection. This fixes, among other cases, the customer-visible duplicate `LOGIN_HISTORY` events (and `OVERFLOW_FAILURE_EVENTS_ELIDED`) previously emitted when a `snow` invocation was rejected by an authentication policy.
 
 
 # v3.17.0
@@ -43,12 +38,17 @@
   CLI validates these against the current session and prints a warning on mismatch:
   * `account_identifier` is checked for all manifest-based commands
   * `project_owner` is checked for `snow dcm create`
+* Added a `--secondary-roles` option (plus matching `SNOWFLAKE_SECONDARY_ROLES` env var and `secondary_roles` config key) to `snow connection add` and the global connection overrides. The value is forwarded to `snowflake-connector-python` and accepts `ALL` or `NONE`, so sessions can be pinned to the primary role without running an extra `USE SECONDARY ROLES` statement.
+* Added `--force` flag to `snow spcs service drop` to allow dropping services that contain block storage volumes.
 
 ## Fixes and improvements
 * Significantly improved DCM files upload performance
 * Fixed `snow streamlit deploy` failing with a collision error when `pages/*.py` glob in `additional_source_files` overlaps with the automatically-included `pages/` directory. Overlapping glob patterns are now deduplicated during v1-to-v2 definition conversion.
 * Updated `snowflake-connector-python` to version 4.4.0. Connector python 4.x series introduced stricter permission checks. In future versions of Snowflake CLI strict configuration file permissions will become mandatory. To test if your files have correct permissions set SNOWFLAKE_CLI_FEATURES_ENFORCE_STRICT_CONFIG_PERMISSIONS=1 before running CLI commands.
 * Fixed error message when `PRIVATE_KEY_PASSPHRASE` environment variable is set to an empty string.
+* Fixed `SELECT *` output being corrupted when joined tables share column names. Duplicate column names are now disambiguated by appending a numeric suffix (e.g. `NAME`, `NAME_2`).
+* Fixed `snow connection generate-jwt` and `snow connection generate-workload-identity-token` failing with `Connection None is not configured` when used with `--temporary-connection`.
+* The internal connection cache now remembers failed connect attempts and re-raises the original exception on subsequent accesses within the same process, instead of re-dialing Snowflake every time a command accesses the shared connection. This fixes, among other cases, the customer-visible duplicate `LOGIN_HISTORY` events (and `OVERFLOW_FAILURE_EVENTS_ELIDED`) previously emitted when a `snow` invocation was rejected by an authentication policy.
 * Fixed session/master token connections created from environment variables or named connection config not enabling token keep-alive settings. This could cause follow-up commands to fail with `251007: Session and master tokens invalid`.
 
 # v3.16.0
