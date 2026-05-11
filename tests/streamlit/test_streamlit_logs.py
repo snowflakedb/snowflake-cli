@@ -88,7 +88,8 @@ class TestGetDeveloperApiToken:
         assert "abc123" not in str(result.token)
         assert result.resource_uri == "https://my-app.snowflakecomputing.com"
         mock_cursor.execute.assert_called_once_with(
-            "CALL SYSTEM$GET_STREAMLIT_DEVELOPER_API_TOKEN('DB.SCHEMA.APP', false);"
+            "CALL SYSTEM$GET_STREAMLIT_DEVELOPER_API_TOKEN(%s, false);",
+            ("DB.SCHEMA.APP",),
         )
         mock_cursor.close.assert_called_once()
 
@@ -124,11 +125,23 @@ class TestGetDeveloperApiToken:
         with pytest.raises(CliSqlError, match="Empty resourceUri"):
             get_developer_api_token(mock_conn, "DB.SCHEMA.APP")
 
-    def test_single_quote_in_fqn_raises(self):
+    def test_fqn_passed_as_bind_parameter(self):
+        # Hostile fqn characters must reach the connector as a bind value, not
+        # interpolated into SQL, so injection cannot escape the quoting.
+        hostile_fqn = "DB.SCHEMA.APP'; DROP TABLE --"
+        mock_cursor = mock.Mock()
+        mock_cursor.fetchone.return_value = (
+            '{"token": "t", "resourceUri": "https://x"}',
+        )
         mock_conn = mock.Mock()
+        mock_conn.cursor.return_value = mock_cursor
 
-        with pytest.raises(CliArgumentError, match="single quotes"):
-            get_developer_api_token(mock_conn, "DB.SCHEMA.APP'; DROP TABLE --")
+        get_developer_api_token(mock_conn, hostile_fqn)
+
+        mock_cursor.execute.assert_called_once_with(
+            "CALL SYSTEM$GET_STREAMLIT_DEVELOPER_API_TOKEN(%s, false);",
+            (hostile_fqn,),
+        )
 
     def test_cursor_closed_on_error(self):
         mock_cursor = mock.Mock()
@@ -175,12 +188,12 @@ class TestDecodeLogEntry:
 
     def test_decode_app_log(self):
         data = self._make_pb2_log_entry(
-            log_source=1,  # LOG_SOURCE_APP
+            log_source=LOG_SOURCE_APP,
             content="Hello from app",
             seconds=1700000000,
             nanos=500000000,
             sequence=42,
-            level=2,  # LOG_LEVEL_INFO
+            level=LOG_LEVEL_INFO,
         )
         entry = decode_log_entry(data)
 
@@ -193,12 +206,12 @@ class TestDecodeLogEntry:
 
     def test_decode_manager_log(self):
         data = self._make_pb2_log_entry(
-            log_source=2,  # LOG_SOURCE_MANAGER
+            log_source=LOG_SOURCE_MANAGER,
             content="Manager message",
             seconds=1700000000,
             nanos=0,
             sequence=1,
-            level=3,  # LOG_LEVEL_WARN
+            level=LOG_LEVEL_WARN,
         )
         entry = decode_log_entry(data)
 
@@ -537,22 +550,13 @@ class TestValidateSpcsV2Runtime:
         )
         return mock_cursor
 
-    def _patch_object_manager(self, mock_cursor):
-        """Patch ObjectManager so describe(...) returns the given cursor."""
-        patcher = mock.patch(
-            "snowflake.cli._plugins.streamlit.log_streaming.ObjectManager"
-        )
-        mock_cls = patcher.start()
-        mock_cls.return_value.describe.return_value = mock_cursor
-        return patcher, mock_cls
-
     def test_passes_for_spcs_v2_runtime(self):
         mock_cursor = self._mock_describe_cursor(self.SPCS_V2)
-        patcher, mock_cls = self._patch_object_manager(mock_cursor)
-        try:
+        with mock.patch(
+            "snowflake.cli._plugins.streamlit.log_streaming.ObjectManager"
+        ) as mock_cls:
+            mock_cls.return_value.describe.return_value = mock_cursor
             validate_spcs_v2_runtime(mock.Mock(), self.FQN)
-        finally:
-            patcher.stop()
 
         mock_cls.return_value.describe.assert_called_once()
         call_kwargs = mock_cls.return_value.describe.call_args.kwargs
@@ -562,34 +566,34 @@ class TestValidateSpcsV2Runtime:
 
     def test_raises_for_non_spcs_v2_runtime(self):
         mock_cursor = self._mock_describe_cursor(None)
-        patcher, _ = self._patch_object_manager(mock_cursor)
-        try:
+        with mock.patch(
+            "snowflake.cli._plugins.streamlit.log_streaming.ObjectManager"
+        ) as mock_cls:
+            mock_cls.return_value.describe.return_value = mock_cursor
             with pytest.raises(CliError, match="only supported for Streamlit apps"):
                 validate_spcs_v2_runtime(mock.Mock(), self.FQN)
-        finally:
-            patcher.stop()
 
         mock_cursor.close.assert_called_once()
 
     def test_raises_for_wrong_runtime_name(self):
         mock_cursor = self._mock_describe_cursor("SOME_OTHER_RUNTIME")
-        patcher, _ = self._patch_object_manager(mock_cursor)
-        try:
+        with mock.patch(
+            "snowflake.cli._plugins.streamlit.log_streaming.ObjectManager"
+        ) as mock_cls:
+            mock_cls.return_value.describe.return_value = mock_cursor
             with pytest.raises(CliError, match="SOME_OTHER_RUNTIME"):
                 validate_spcs_v2_runtime(mock.Mock(), self.FQN)
-        finally:
-            patcher.stop()
 
     def test_raises_for_empty_describe_result(self):
         mock_cursor = mock.Mock()
         mock_cursor.fetchone.return_value = None
         mock_cursor.description = None
-        patcher, _ = self._patch_object_manager(mock_cursor)
-        try:
+        with mock.patch(
+            "snowflake.cli._plugins.streamlit.log_streaming.ObjectManager"
+        ) as mock_cls:
+            mock_cls.return_value.describe.return_value = mock_cursor
             with pytest.raises(CliSqlError, match="Could not describe"):
                 validate_spcs_v2_runtime(mock.Mock(), self.FQN)
-        finally:
-            patcher.stop()
 
         mock_cursor.close.assert_called_once()
 
@@ -602,9 +606,6 @@ class TestValidateSpcsV2Runtime:
             mock_cls.return_value.describe.side_effect = Exception("SQL error")
             with pytest.raises(Exception, match="SQL error"):
                 validate_spcs_v2_runtime(mock.Mock(), self.FQN)
-
-
-SPCS_V2_NAME = "SYSTEM$ST_CONTAINER_RUNTIME_PY3_11"
 
 
 class TestStreamlitLogsCommand:

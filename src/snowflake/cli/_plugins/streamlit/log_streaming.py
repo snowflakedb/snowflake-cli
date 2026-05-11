@@ -40,7 +40,6 @@ from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import (
-    CliArgumentError,
     CliConnectionError,
     CliError,
     CliSqlError,
@@ -72,17 +71,14 @@ def get_developer_api_token(conn: SnowflakeConnection, fqn: str) -> DeveloperApi
     Calls SYSTEM$GET_STREAMLIT_DEVELOPER_API_TOKEN and returns a
     DeveloperApiToken with the token and resource URI.
     """
-    if "'" in fqn:
-        raise CliArgumentError(
-            f"Invalid Streamlit app name: {fqn}. Name must not contain single quotes."
-        )
-
-    query = f"CALL SYSTEM$GET_STREAMLIT_DEVELOPER_API_TOKEN('{fqn}', false);"
     log.debug("Fetching developer API token for %s", fqn)
 
     cursor = conn.cursor()
     try:
-        cursor.execute(query)
+        cursor.execute(
+            "CALL SYSTEM$GET_STREAMLIT_DEVELOPER_API_TOKEN(%s, false);",
+            (fqn,),
+        )
         row = cursor.fetchone()
         if not row:
             raise CliSqlError(
@@ -239,6 +235,11 @@ def stream_logs(
                 break
             elif opcode == websocket.ABNF.OPCODE_PING:
                 ws.pong(data)
+            else:
+                # TEXT frames or any other opcode we don't expect from this
+                # server. Log so an unexpected auth/error payload is at least
+                # visible in --debug instead of being silently dropped.
+                log.debug("Ignoring unexpected WebSocket opcode %s from server", opcode)
 
     except KeyboardInterrupt:
         pass
