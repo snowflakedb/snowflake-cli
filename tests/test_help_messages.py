@@ -81,7 +81,10 @@ def test_help_messages_no_help_flag(runner, snapshot, command):
     Check help messages against the snapshot
     """
     result = runner.invoke(command)
-    assert result.exit_code == 0
+    # Root command uses invoke_without_command=True (exits 0); sub-groups use no_args_is_help=True
+    # which click 8.2+ exits with code 2 instead of 0
+    expected_exit_code = 0 if not command else 2
+    assert result.exit_code == expected_exit_code
     assert result.output == snapshot
 
 
@@ -123,7 +126,7 @@ def test_cortex_help_messages_for_312(runner):
 )
 def test_cortex_help_messages_for_312_no_help_flag(runner):
     result = runner.invoke(["cortex"])
-    assert result.exit_code == 0
+    assert result.exit_code == 2  # click 8.2+ returns 2 when help shown via no_args_is_help
     assert SNOW_CORTEX_HELP in result.output
     assert SNOW_CORTEX_COMPLETE in result.output
     assert SNOW_CORTEX_SEARCH not in result.output
@@ -147,7 +150,7 @@ def test_cortex_help_messages_for_311_and_less(runner):
 )
 def test_cortex_help_messages_for_311_and_less_no_help_flag(runner):
     result = runner.invoke(["cortex"])
-    assert result.exit_code == 0
+    assert result.exit_code == 2  # click 8.2+ returns 2 when help shown via no_args_is_help
     assert SNOW_CORTEX_HELP in result.output
     assert SNOW_CORTEX_COMPLETE in result.output
     assert SNOW_CORTEX_SEARCH in result.output

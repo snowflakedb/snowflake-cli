@@ -162,7 +162,7 @@
   :samp:`--secondary-roles {TEXT}`
     Secondary roles mode applied when the session starts. Supported values are `ALL` and `NONE`; pass `NONE` to run the session only with the primary role.
   
-  :samp:`--format [TABLE|JSON|JSON_EXT|CSV]`
+  :samp:`--format [table|json|json_ext|csv]`
     Specifies the output format. Default: TABLE.
   
   :samp:`--verbose, -v`

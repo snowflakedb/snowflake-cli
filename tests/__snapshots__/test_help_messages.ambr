@@ -78,8 +78,8 @@
   | --help               -h            Show this message and exit.               |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -328,8 +328,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -483,8 +483,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -720,8 +720,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -891,8 +891,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -1133,8 +1133,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -1296,8 +1296,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -1458,8 +1458,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -1616,8 +1616,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -1779,8 +1779,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -1941,8 +1941,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -2098,8 +2098,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -2286,8 +2286,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -2455,8 +2455,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -2620,8 +2620,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -2794,8 +2794,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -2954,8 +2954,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -3227,8 +3227,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -3381,8 +3381,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -3582,8 +3582,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -3748,8 +3748,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -3976,8 +3976,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -4162,8 +4162,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -4316,8 +4316,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -4416,8 +4416,8 @@
   | --help  -h                     Show this message and exit.                   |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -4532,8 +4532,8 @@
   | --help                                          Show this message and exit.  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -4673,8 +4673,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -4816,8 +4816,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -4860,8 +4860,8 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -4905,8 +4905,8 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -4951,8 +4951,8 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -5092,8 +5092,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -5170,8 +5170,8 @@
   | --help                  -h        Show this message and exit.                |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -5373,8 +5373,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -5518,8 +5518,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -5665,8 +5665,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -5820,8 +5820,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -6001,8 +6001,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -6182,8 +6182,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -6363,8 +6363,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -6544,8 +6544,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -6725,8 +6725,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -6906,8 +6906,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -7087,8 +7087,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -7268,8 +7268,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -7449,8 +7449,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -7630,8 +7630,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -7811,8 +7811,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -7992,8 +7992,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -8172,8 +8172,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -8349,8 +8349,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -8508,8 +8508,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -8661,8 +8661,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -8823,8 +8823,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -8978,8 +8978,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -9131,8 +9131,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -9289,8 +9289,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -9447,8 +9447,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -9606,8 +9606,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -9783,8 +9783,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -9940,8 +9940,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -10096,8 +10096,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -10252,8 +10252,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -10446,8 +10446,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -10591,8 +10591,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -10738,8 +10738,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -10905,8 +10905,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -11051,8 +11051,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -11201,8 +11201,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -11352,8 +11352,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -11502,8 +11502,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -11656,8 +11656,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -11814,8 +11814,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -11901,8 +11901,8 @@
   | --help             -h            Show this message and exit.                 |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -12062,8 +12062,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -12211,8 +12211,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -12369,8 +12369,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -12515,8 +12515,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -12661,8 +12661,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -12807,8 +12807,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -12995,8 +12995,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -13148,8 +13148,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -13303,8 +13303,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -13469,8 +13469,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -13534,8 +13534,8 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -13578,8 +13578,8 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -13619,8 +13619,8 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -13801,8 +13801,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -13963,8 +13963,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -14114,8 +14114,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -14267,8 +14267,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -14420,8 +14420,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -14578,8 +14578,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -14738,8 +14738,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -14883,8 +14883,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -15031,8 +15031,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -15286,8 +15286,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -15437,8 +15437,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -15583,8 +15583,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -15731,8 +15731,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -15877,8 +15877,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -16023,8 +16023,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -16189,8 +16189,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -16336,8 +16336,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -16482,8 +16482,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -16629,8 +16629,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -16784,8 +16784,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -16961,8 +16961,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -17105,8 +17105,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -17258,8 +17258,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -17428,8 +17428,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -17577,8 +17577,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -17725,8 +17725,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -17875,8 +17875,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -18027,8 +18027,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -18181,8 +18181,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -18327,8 +18327,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -18547,8 +18547,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -18750,8 +18750,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -18902,8 +18902,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -19047,8 +19047,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -19197,8 +19197,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -19368,8 +19368,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -19513,8 +19513,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -19658,8 +19658,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -19803,8 +19803,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -19948,8 +19948,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -20102,8 +20102,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -20259,8 +20259,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -20414,8 +20414,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -20559,8 +20559,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -20751,8 +20751,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -20900,8 +20900,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -21045,8 +21045,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -21207,8 +21207,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -21354,8 +21354,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -21503,9 +21503,9 @@
   |                                                            applied.          |
   |                                                            [default:         |
   |                                                            no-single-transa… |
-  | --enable-templa…                          [LEGACY|STANDAR  Syntax used to    |
-  |                                           D|JINJA|ALL|NON  resolve variables |
-  |                                           E]               before passing    |
+  | --enable-templa…                          [legacy|standar  Syntax used to    |
+  |                                           d|jinja|all|non  resolve variables |
+  |                                           e]               before passing    |
   |                                                            queries to        |
   |                                                            Snowflake.        |
   |                                                            [default: LEGACY, |
@@ -21627,8 +21627,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -21804,8 +21804,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -21958,8 +21958,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -22103,8 +22103,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -22250,8 +22250,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -22397,8 +22397,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -22561,8 +22561,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -22710,8 +22710,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -22864,8 +22864,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -23011,8 +23011,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -23204,8 +23204,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -23350,8 +23350,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -23498,8 +23498,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -23644,8 +23644,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -23791,8 +23791,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -23945,8 +23945,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -24113,8 +24113,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -24261,8 +24261,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -24385,7 +24385,6 @@
   | set-accounts      Sets accounts for a release channel.                       |
   +------------------------------------------------------------------------------+
   
-  
   '''
 # ---
 # name: test_help_messages_no_help_flag[app.release-directive]
@@ -24409,7 +24408,6 @@
   | unset             Unsets a release directive.                                |
   +------------------------------------------------------------------------------+
   
-  
   '''
 # ---
 # name: test_help_messages_no_help_flag[app.version]
@@ -24431,7 +24429,6 @@
   |          manifest.yml file. Dropping patches is not allowed.                 |
   | list     Lists all versions defined in an application package.               |
   +------------------------------------------------------------------------------+
-  
   
   '''
 # ---
@@ -24466,7 +24463,6 @@
   | version             Manages versions defined in an application package       |
   +------------------------------------------------------------------------------+
   
-  
   '''
 # ---
 # name: test_help_messages_no_help_flag[auth.oidc]
@@ -24484,7 +24480,6 @@
   |              auto-detect available providers.                                |
   +------------------------------------------------------------------------------+
   
-  
   '''
 # ---
 # name: test_help_messages_no_help_flag[auth]
@@ -24500,7 +24495,6 @@
   +- Commands -------------------------------------------------------------------+
   | oidc   Manages OIDC authentication.                                          |
   +------------------------------------------------------------------------------+
-  
   
   '''
 # ---
@@ -24531,7 +24525,6 @@
   | test                               Tests the connection to Snowflake.        |
   +------------------------------------------------------------------------------+
   
-  
   '''
 # ---
 # name: test_help_messages_no_help_flag[custom-image]
@@ -24548,7 +24541,6 @@
   | validate   Validates a Docker image against Snowflake custom image           |
   |            requirements.                                                     |
   +------------------------------------------------------------------------------+
-  
   
   '''
 # ---
@@ -24677,8 +24669,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -24730,7 +24722,6 @@
   |                 parameters following it will be passed over to dbt.          |
   +------------------------------------------------------------------------------+
   
-  
   '''
 # ---
 # name: test_help_messages_no_help_flag[dbt]
@@ -24752,7 +24743,6 @@
   |            parameters following it will be passed over to dbt.               |
   | list       Lists all available dbt projects.                                 |
   +------------------------------------------------------------------------------+
-  
   
   '''
 # ---
@@ -24788,7 +24778,6 @@
   |                    only to deployed objects.                                 |
   +------------------------------------------------------------------------------+
   
-  
   '''
 # ---
 # name: test_help_messages_no_help_flag[git]
@@ -24818,7 +24807,6 @@
   | setup           Sets up a git repository object.                             |
   +------------------------------------------------------------------------------+
   
-  
   '''
 # ---
 # name: test_help_messages_no_help_flag[notebook]
@@ -24840,7 +24828,6 @@
   | open      Opens a notebook in default browser                                |
   +------------------------------------------------------------------------------+
   
-  
   '''
 # ---
 # name: test_help_messages_no_help_flag[object]
@@ -24861,7 +24848,6 @@
   | list       Lists all available Snowflake objects of given type.              |
   +------------------------------------------------------------------------------+
   
-  
   '''
 # ---
 # name: test_help_messages_no_help_flag[plugin]
@@ -24879,7 +24865,6 @@
   | enable    Enables a plugin with a given name.                                |
   | list      Lists all installed plugins.                                       |
   +------------------------------------------------------------------------------+
-  
   
   '''
 # ---
@@ -24900,7 +24885,6 @@
   | upload   Uploads a Python package zip file to a Snowflake stage so it can be |
   |          referenced in the imports of a procedure or function.               |
   +------------------------------------------------------------------------------+
-  
   
   '''
 # ---
@@ -24932,7 +24916,6 @@
   | package    Manages custom Python packages for Snowpark                       |
   +------------------------------------------------------------------------------+
   
-  
   '''
 # ---
 # name: test_help_messages_no_help_flag[spcs.compute-pool]
@@ -24962,7 +24945,6 @@
   |            default value(s).                                                 |
   +------------------------------------------------------------------------------+
   
-  
   '''
 # ---
 # name: test_help_messages_no_help_flag[spcs.image-registry]
@@ -24982,7 +24964,6 @@
   |         connection.                                                          |
   | url     Gets the image registry URL for the current account.                 |
   +------------------------------------------------------------------------------+
-  
   
   '''
 # ---
@@ -25009,7 +24990,6 @@
   |               in a future release. Use list-images instead.                  |
   | url           Returns the URL for the given repository.                      |
   +------------------------------------------------------------------------------+
-  
   
   '''
 # ---
@@ -25059,7 +25039,6 @@
   |                   specification file.                                        |
   +------------------------------------------------------------------------------+
   
-  
   '''
 # ---
 # name: test_help_messages_no_help_flag[spcs]
@@ -25079,7 +25058,6 @@
   | image-repository   Manages image repositories.                               |
   | service            Manages services.                                         |
   +------------------------------------------------------------------------------+
-  
   
   '''
 # ---
@@ -25107,7 +25085,6 @@
   | list-files   Lists the stage contents.                                       |
   | remove       Removes a file from a stage.                                    |
   +------------------------------------------------------------------------------+
-  
   
   '''
 # ---
@@ -25137,7 +25114,6 @@
   | logs       Streams live logs from a deployed Streamlit app to your terminal. |
   | share      Shares a Streamlit app with another role.                         |
   +------------------------------------------------------------------------------+
-  
   
   '''
 # ---
