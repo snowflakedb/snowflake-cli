@@ -165,8 +165,8 @@ def _verify_script_events_json_keys() -> set[str]:
 # Anchors — keep these aligned with docs/BUG_BASH.md headings.
 # ---------------------------------------------------------------------------
 
-_DATASOURCE_HEADING = "### `$DECL/datasources/CLICKSTREAM_EVENTS.yaml`"
-_FV_HEADING = "### `$DECL/feature_views/USER_CLICK_STATS_DECL.yaml`"
+_DATASOURCE_HEADING = "### `sources/datasources/CLICKSTREAM_EVENTS.yaml`"
+_FV_HEADING = "### `sources/feature_views/USER_CLICK_STATS_DECL.yaml`"
 _EVENTS_JSON_PROSE = "▶ Write a tiny payload of synthetic click events"
 
 
@@ -400,8 +400,8 @@ def test_bugbash_step7_query_uses_format_json():
 # store is not enabled``.
 #
 # The fix is to replace the raw SQL drop with a declarative cleanup —
-# remove the FV YAML/Python files from ``$DECL/`` and run ``snow
-# feature plan`` + ``snow feature apply``.  Full-sync mode emits
+# remove the FV YAML/Python files from ``sources/feature_views/`` and
+# run ``snow feature plan`` + ``snow feature apply``.  Full-sync mode emits
 # ``DROP_FV USER_CLICK_STATS_DECL``, which routes through
 # ``imperative_executor.py`` → ``fs.delete_feature_view``, the single
 # code path that drops *all* the FV's side-effects in one go.
@@ -497,7 +497,7 @@ def test_bugbash_step17_doc_uses_declarative_cleanup(bug_bash_md):
         "docs/BUG_BASH.md step 17 still hands the operator a "
         "'DROP ONLINE FEATURE TABLE' command — this is the "
         "partial-teardown footgun.  Replace it with "
-        "rm $DECL/feature_views/USER_CLICK_STATS_DECL.{yaml,py} "
+        "rm sources/feature_views/USER_CLICK_STATS_DECL.{yaml,py} "
         "followed by 'snow feature plan' and 'snow feature apply' "
         "so the planner emits DROP_FV and snowml-core's "
         "delete_feature_view drops every side-effect in one shot."
@@ -510,8 +510,8 @@ def test_bugbash_step17_doc_uses_declarative_cleanup(bug_bash_md):
     )
     assert "snow feature plan" in commands, (
         "docs/BUG_BASH.md step 17 must run 'snow feature plan' against "
-        "$DECL after removing the YAML so the operator can confirm the "
-        "DROP_FV op before it executes."
+        "the manifest project after removing the YAML so the operator "
+        "can confirm the DROP_FV op before it executes."
     )
     assert "snow feature apply" in commands, (
         "docs/BUG_BASH.md step 17 must run 'snow feature apply' after "
