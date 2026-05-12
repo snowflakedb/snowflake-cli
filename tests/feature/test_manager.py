@@ -450,17 +450,32 @@ class TestFeatureManagerInit:
         assert "DEFAULT" in parsed["targets"]
 
     def test_init_populates_manifest_from_active_connection(
-        self, mock_execute_query, mock_cli_context, tmp_path
+        self, mock_execute_query, mock_cli_context, mock_account_identifier, tmp_path
     ):
-        """D6 auto-derive: account / db / schema / role come from the connection."""
+        """D6 auto-derive: db / schema / role come from the connection;
+        ``account_identifier`` comes from
+        :func:`get_account_identifier` (the canonical
+        ``<ORG>-<ACCOUNT>`` form), NOT ``connection.account``.
+
+        ``connection.account`` is the host-prefix used to log in
+        (e.g. ``"feature_store_vnext2"``), which is not the canonical
+        Snowflake account identifier and would fail every subsequent
+        L6 ``get_account_identifier``-based mismatch check.
+        """
         import yaml
         from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.identifiers import AccountIdentifier
 
-        # Override connection identity for this test.
-        mock_cli_context.return_value.connection.account = "MY_ORG-MY_ACCT"
+        # Connection's bare ``account`` looks like a host prefix —
+        # this is what ``connections.toml`` stores for most users.
+        mock_cli_context.return_value.connection.account = "my_acct"
         mock_cli_context.return_value.connection.database = "MY_DB"
         mock_cli_context.return_value.connection.schema = "MY_SCHEMA"
         mock_cli_context.return_value.connection.role = "MY_ROLE"
+
+        # ``get_account_identifier`` returns the canonical form by
+        # querying ``CURRENT_ORGANIZATION_NAME / CURRENT_ACCOUNT_NAME``.
+        mock_account_identifier.return_value = AccountIdentifier("MY_ORG", "MY_ACCT")
 
         with mock.patch(
             "snowflake.ml.feature_store.feature_store.FeatureStore"
@@ -472,10 +487,72 @@ class TestFeatureManagerInit:
 
         parsed = yaml.safe_load((tmp_path / "manifest.yml").read_text())
         target = parsed["targets"]["DEFAULT"]
+        # Canonical org-account form, NOT the host-prefix
+        # ``my_acct`` from ``connection.account``.
         assert target["account_identifier"] == "MY_ORG-MY_ACCT"
         assert target["database"] == "MY_DB"
         assert target["schema"] == "MY_SCHEMA"
         assert target["role"] == "MY_ROLE"
+
+    def test_init_account_identifier_uses_canonical_org_account_form(
+        self, mock_execute_query, mock_cli_context, mock_account_identifier, tmp_path
+    ):
+        """Regression for the live smoke-test bug: ``connection.account``
+        is the host-prefix (``feature_store_vnext2``); the manifest
+        MUST instead store the canonical form returned by
+        :func:`get_account_identifier`
+        (``SFENGINEERING-FEATURE_STORE_VNEXT2``) so the L6 account
+        check at apply time matches.
+        """
+        import yaml
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.identifiers import AccountIdentifier
+
+        mock_cli_context.return_value.connection.account = "feature_store_vnext2"
+        mock_account_identifier.return_value = AccountIdentifier(
+            "SFENGINEERING", "FEATURE_STORE_VNEXT2"
+        )
+
+        with mock.patch(
+            "snowflake.ml.feature_store.feature_store.FeatureStore"
+        ), mock.patch(
+            "snowflake.ml.feature_store.feature_store.CreationMode"
+        ) as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(from_dir=tmp_path, no_scaffold=False)
+
+        parsed = yaml.safe_load((tmp_path / "manifest.yml").read_text())
+        assert (
+            parsed["targets"]["DEFAULT"]["account_identifier"]
+            == "SFENGINEERING-FEATURE_STORE_VNEXT2"
+        )
+
+    def test_init_account_identifier_falls_back_when_query_fails(
+        self, mock_execute_query, mock_cli_context, mock_account_identifier, tmp_path
+    ):
+        """If :func:`get_account_identifier` raises (e.g., a session
+        issue), ``init`` must still produce a writable manifest using
+        the connection's ``account`` field so the operator can
+        manually correct the value rather than losing the scaffold.
+        """
+        import yaml
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mock_cli_context.return_value.connection.account = "fallback_acct"
+        mock_account_identifier.side_effect = RuntimeError("simulated session failure")
+
+        with mock.patch(
+            "snowflake.ml.feature_store.feature_store.FeatureStore"
+        ), mock.patch(
+            "snowflake.ml.feature_store.feature_store.CreationMode"
+        ) as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(from_dir=tmp_path, no_scaffold=False)
+
+        parsed = yaml.safe_load((tmp_path / "manifest.yml").read_text())
+        # Best-effort fallback to ``connection.account`` so the
+        # scaffold lands; the operator can edit the manifest after.
+        assert parsed["targets"]["DEFAULT"]["account_identifier"] == "fallback_acct"
 
     def test_init_does_not_write_warehouse_field(
         self, mock_execute_query, mock_cli_context, tmp_path
