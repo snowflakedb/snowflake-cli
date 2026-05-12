@@ -1008,129 +1008,141 @@ def test_query_help_shows_keys_and_version_options(mock_manager, runner):
 
 
 # ---------------------------------------------------------------------------
-# init
+# init — the unified bootstrap (subsumes the deleted `feature export` cmd)
 # ---------------------------------------------------------------------------
 
 
+_INIT_RESULT_STUB = {
+    "status": "initialized",
+    "project_root": "/tmp/proj",
+    "manifest_path": "/tmp/proj/manifest.yml",
+    "target": "DEFAULT",
+    "manifest_written": True,
+    "export": {"status": "exported", "directory": "", "files": []},
+}
+
+
 @mock.patch(FEATURE_MANAGER)
-def test_init_help_shows_command(mock_manager, runner):
-    """init --help should show the init command with --no-scaffold option."""
+def test_init_help_lists_new_flags_and_drops_old_ones(mock_manager, runner):
+    """``snow feature init --help`` shows the new flags and NOT the old ones."""
     result = runner.invoke(["feature", "init", "--help"])
     assert result.exit_code == 0, result.output
-    output = result.output.lower()
-    assert "--no-scaffold" in output
+    text = result.output
+
+    # The new init surface.
+    assert "--target" in text
+    assert "--database" in text
+    assert "--schema" in text
+
+    # Removed flags.
+    assert "--no-scaffold" not in text
+    assert "--from" not in text
 
 
 @mock.patch(FEATURE_MANAGER)
-def test_init_calls_manager_init(mock_manager, runner):
-    """init should call FeatureManager.init() with from_dir = cwd."""
-    mock_manager.return_value.init.return_value = {
-        "status": "initialized",
-        "database": "DB",
-        "schema": "SCH",
-        "directories": ["entities", "datasources", "feature_views"],
-    }
+def test_init_calls_manager_with_cwd_project_root(mock_manager, runner):
+    """``snow feature init`` passes ``Path.cwd()`` as ``project_root``."""
+    mock_manager.return_value.init.return_value = _INIT_RESULT_STUB
     result = runner.invoke(["feature", "init"])
     assert result.exit_code == 0, result.output
+
     mock_manager.return_value.init.assert_called_once()
-    call_kwargs = mock_manager.return_value.init.call_args.kwargs
-    assert "from_dir" in call_kwargs
+    kwargs = mock_manager.return_value.init.call_args.kwargs
+    # project_root is mandatory; default = current working directory.
+    assert "project_root" in kwargs
+    assert isinstance(kwargs["project_root"], Path)
+    assert kwargs["project_root"] == Path.cwd()
 
 
 @mock.patch(FEATURE_MANAGER)
-def test_init_no_scaffold_flag(mock_manager, runner):
-    """init --no-scaffold should pass no_scaffold=True to FeatureManager.init."""
-    mock_manager.return_value.init.return_value = {
-        "status": "initialized",
-        "database": "DB",
-        "schema": "SCH",
-        "directories": [],
-    }
+def test_init_no_longer_accepts_no_scaffold_flag(mock_manager, runner):
+    """``--no-scaffold`` is removed; passing it must error."""
+    mock_manager.return_value.init.return_value = _INIT_RESULT_STUB
     result = runner.invoke(["feature", "init", "--no-scaffold"])
-    assert result.exit_code == 0, result.output
-    assert mock_manager.return_value.init.call_args.kwargs["no_scaffold"] is True
+    assert result.exit_code != 0, result.output
+    assert "--no-scaffold" in result.output or "no such option" in result.output.lower()
 
 
 @mock.patch(FEATURE_MANAGER)
-def test_init_default_no_scaffold_is_false(mock_manager, runner):
-    """init without --no-scaffold should pass no_scaffold=False."""
-    mock_manager.return_value.init.return_value = {
-        "status": "initialized",
-        "database": "DB",
-        "schema": "SCH",
-        "directories": ["entities", "datasources", "feature_views"],
-    }
+def test_init_no_longer_accepts_from_flag(mock_manager, runner, tmp_path):
+    """``--from`` is removed; passing it must error."""
+    mock_manager.return_value.init.return_value = _INIT_RESULT_STUB
+    result = runner.invoke(["feature", "init", "--from", str(tmp_path)])
+    assert result.exit_code != 0, result.output
+    assert "--from" in result.output or "no such option" in result.output.lower()
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_init_target_flag_passes_through(mock_manager, runner):
+    """``--target STAGING`` propagates as ``target_name=STAGING``."""
+    mock_manager.return_value.init.return_value = _INIT_RESULT_STUB
+    result = runner.invoke(["feature", "init", "--target", "STAGING"])
+    assert result.exit_code == 0, result.output
+    assert mock_manager.return_value.init.call_args.kwargs["target_name"] == "STAGING"
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_init_database_and_schema_flags_pass_through(mock_manager, runner):
+    """``--database`` / ``--schema`` propagate as ``database`` / ``schema`` kwargs."""
+    mock_manager.return_value.init.return_value = _INIT_RESULT_STUB
+    result = runner.invoke(
+        [
+            "feature",
+            "init",
+            "--database",
+            "OVERRIDE_DB",
+            "--schema",
+            "OVERRIDE_SCHEMA",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    kwargs = mock_manager.return_value.init.call_args.kwargs
+    assert kwargs["database"] == "OVERRIDE_DB"
+    assert kwargs["schema"] == "OVERRIDE_SCHEMA"
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_init_default_target_database_schema_are_none(mock_manager, runner):
+    """All three new flags default to ``None`` so the manager picks defaults."""
+    mock_manager.return_value.init.return_value = _INIT_RESULT_STUB
     result = runner.invoke(["feature", "init"])
     assert result.exit_code == 0, result.output
-    assert mock_manager.return_value.init.call_args.kwargs["no_scaffold"] is False
+    kwargs = mock_manager.return_value.init.call_args.kwargs
+    assert kwargs["target_name"] is None
+    assert kwargs["database"] is None
+    assert kwargs["schema"] is None
 
 
-@mock.patch(FEATURE_MANAGER)
-def test_init_passes_from_dir_to_manager(mock_manager, runner, tmp_path):
-    """``init --from <dir>`` propagates the path on the manager call."""
-    mock_manager.return_value.init.return_value = {
-        "status": "initialized",
-        "database": "DB",
-        "schema": "SCH",
-        "directories": [],
-    }
-    result = runner.invoke(["feature", "init", "--from", str(tmp_path)])
+# ---------------------------------------------------------------------------
+# export — command no longer registered
+# ---------------------------------------------------------------------------
+
+
+def test_export_command_no_longer_registered(runner):
+    """``snow feature export`` must be gone after init subsumes it."""
+    result = runner.invoke(["feature", "export", "--help"])
+    # Typer / click reports an unknown subcommand with a non-zero exit.
+    assert result.exit_code != 0, result.output
+
+
+def test_export_command_not_in_feature_help(runner):
+    """``snow feature --help`` must not list the deleted ``export`` command."""
+    result = runner.invoke(["feature", "--help"])
     assert result.exit_code == 0, result.output
-    assert mock_manager.return_value.init.call_args.kwargs["from_dir"] == Path(
-        str(tmp_path)
+    # Match a standalone ``export`` subcommand entry only — avoid
+    # false-positive matches against unrelated text like
+    # ``export-into`` in another command's help.
+    lines = [line.strip() for line in result.output.splitlines()]
+    assert not any(line.startswith("export ") or line == "export" for line in lines), (
+        "'export' should no longer appear as a standalone subcommand in "
+        "`snow feature --help`"
     )
 
 
-# ---------------------------------------------------------------------------
-# export
-# ---------------------------------------------------------------------------
+def test_export_typer_command_function_no_longer_present():
+    """Belt-and-suspenders: the ``export`` function is removed from commands."""
+    from snowflake.cli._plugins.feature import commands
 
-
-@mock.patch(FEATURE_MANAGER)
-def test_export_calls_manager_with_kwargs(mock_manager, runner, tmp_path):
-    """``export --dir <path>`` calls ``FeatureManager.export_specs``
-    with the new kwarg shape (``from_dir``, ``target_name``,
-    ``output_dir``)."""
-    mock_manager.return_value.export_specs.return_value = {
-        "status": "exported",
-        "directory": str(tmp_path),
-        "files": [str(tmp_path / "feature_views/my_fv.yaml")],
-    }
-    result = runner.invoke(["feature", "export", "--dir", str(tmp_path)])
-    assert result.exit_code == 0, result.output
-    mock_manager.return_value.export_specs.assert_called_once()
-    call_kwargs = mock_manager.return_value.export_specs.call_args.kwargs
-    assert call_kwargs["output_dir"] == str(tmp_path)
-    assert call_kwargs["target_name"] is None
-    assert "from_dir" in call_kwargs
-
-
-@mock.patch(FEATURE_MANAGER)
-def test_export_default_dir(mock_manager, runner):
-    """``export`` without ``--dir`` defaults to ``"."``."""
-    mock_manager.return_value.export_specs.return_value = {
-        "status": "exported",
-        "directory": ".",
-        "files": [],
-    }
-    result = runner.invoke(["feature", "export"])
-    assert result.exit_code == 0, result.output
-    assert mock_manager.return_value.export_specs.call_args.kwargs["output_dir"] == "."
-
-
-@mock.patch(FEATURE_MANAGER)
-def test_export_returns_file_list(mock_manager, runner, tmp_path):
-    """export should render the list of written files."""
-    files = [
-        str(tmp_path / "feature_views/my_fv.yaml"),
-        str(tmp_path / "entities/user_id.yaml"),
-        str(tmp_path / "datasources/click_events.yaml"),
-    ]
-    mock_manager.return_value.export_specs.return_value = {
-        "status": "exported",
-        "directory": str(tmp_path),
-        "files": files,
-    }
-    result = runner.invoke(["feature", "export", "--dir", str(tmp_path)])
-    assert result.exit_code == 0, result.output
-    assert "my_fv.yaml" in result.output
+    assert not hasattr(
+        commands, "export"
+    ), "commands.export must be deleted; init now subsumes the export pipeline"
