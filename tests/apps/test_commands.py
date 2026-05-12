@@ -1231,6 +1231,23 @@ class TestSnowflakeAppManager:
         assert "DB.SCHEMA" in query
 
     @patch(EXECUTE_QUERY)
+    def test_artifact_repo_exists_quotes_database_and_schema_independently(
+        self, mock_execute
+    ):
+        mock_cursor = Mock()
+        mock_cursor.__iter__ = Mock(return_value=iter([]))
+        mock_execute.return_value = mock_cursor
+
+        SnowflakeAppManager().artifact_repo_exists(
+            database="my db", schema='my "schema"', repo_name="MY_REPO"
+        )
+
+        query = mock_execute.call_args[0][0]
+        assert 'IN SCHEMA "my db"."my ""schema"""' in query
+        assert "IDENTIFIER(" not in query
+        assert mock_execute.call_args.kwargs["cursor_class"] is DictCursor
+
+    @patch(EXECUTE_QUERY)
     def test_create_artifact_repo(self, mock_execute):
         SnowflakeAppManager().create_artifact_repo(
             database="DB", schema="SCHEMA", repo_name="MY_REPO"

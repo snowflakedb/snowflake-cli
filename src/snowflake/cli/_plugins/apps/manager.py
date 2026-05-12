@@ -869,13 +869,14 @@ class SnowflakeAppManager(SqlExecutionMixin):
         """Return True if the artifact repository already exists."""
         from snowflake.cli.api.project.util import (
             identifier_to_show_like_pattern,
+            to_identifier,
             unquote_identifier,
         )
 
-        schema_fqn = FQN(database=None, schema=database, name=schema)
+        schema_identifier = f"{to_identifier(database)}.{to_identifier(schema)}"
         cursor = self.execute_query(
             f"SHOW ARTIFACT REPOSITORIES LIKE {identifier_to_show_like_pattern(repo_name)}"
-            f" IN SCHEMA {schema_fqn.sql_identifier}",
+            f" IN SCHEMA {schema_identifier}",
             cursor_class=DictCursor,
         )
         unqualified = unquote_identifier(repo_name).upper()
