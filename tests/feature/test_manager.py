@@ -765,6 +765,57 @@ class TestFeatureManagerPlan:
 
         mock_decl.load_project.assert_called_once()
 
+    def test_plan_dev_mode_threads_into_validate_specs(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``--dev`` MUST forward into ``decl_api.validate_specs`` so
+        relaxed version validation actually applies. A regression here
+        surfaces as ``MISSING_VERSION`` errors on a freshly-authored
+        feature view despite ``--dev``.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+
+        FeatureManager().plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            dev_mode=True,
+            allow_recreate=False,
+        )
+
+        kwargs = mock_decl.validate_specs.call_args.kwargs
+        assert kwargs.get("dev_mode") is True, (
+            "manager.plan must forward dev_mode=True to "
+            f"decl_api.validate_specs; got kwargs={kwargs!r}"
+        )
+
+    def test_plan_dev_mode_false_threads_into_validate_specs(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """The strict-mode path must explicitly pass ``dev_mode=False``
+        rather than relying on the api's default, so the contract is
+        exercised in both directions.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+
+        FeatureManager().plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            dev_mode=False,
+            allow_recreate=False,
+        )
+
+        kwargs = mock_decl.validate_specs.call_args.kwargs
+        assert kwargs.get("dev_mode") is False, (
+            "manager.plan must forward dev_mode=False explicitly to "
+            f"decl_api.validate_specs; got kwargs={kwargs!r}"
+        )
+
     def test_plan_runtime_variables_flow_through_to_load_project(
         self, mock_execute_query, mock_decl, tmp_path
     ):

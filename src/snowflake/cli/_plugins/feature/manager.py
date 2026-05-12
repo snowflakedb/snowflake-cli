@@ -784,6 +784,7 @@ class FeatureManager(SqlExecutionMixin):
             applied_state,
             target_database=target.database,
             target_schema=target.schema,
+            dev_mode=dev_mode,
         )
         errors = [r for r in validation_results if r.severity == "ERROR"]
         warnings = [r for r in validation_results if r.severity == "WARNING"]
