@@ -382,7 +382,7 @@ def _validate_passphrase(passphrase: SecretType) -> None:
         )
     if passphrase.value == "":
         raise CliError(
-            "PRIVATE_KEY_PASSPHRASE environment variable is set but empty. "
+            "Passphrase is set but empty. "
             "Provide a non-empty passphrase or use an unencrypted private key."
         )
 
