@@ -15,11 +15,11 @@
  -->
 # Unreleased version
 ## Backward incompatibility
-* `snow --docs` now emits MDX files (`usage-<cmd>.mdx`, `definition_<section>.mdx`) instead of RST-flavored `.txt` files. The generator output targets `snowflake-eng/snowflake-prod-docs`, which migrated to MDX; any in-house tooling still reading the old `.txt` files must be updated to consume MDX.
 
 ## Deprecations
 
 ## New additions
+* `snow --docs` (internal docs generator) now emits MDX fragments (`usage-<cmd>.mdx`, `definition_<section>.mdx`) for consumption by `snowflake-eng/snowflake-prod-docs`.
 
 ## Fixes and improvements
 * Fixed macOS arm64 installer incorrectly requiring Rosetta 2. The `Distribution.xml` package metadata now declares `hostArchitectures="arm64,x86_64"`, so the installer is recognized as native on Apple Silicon.

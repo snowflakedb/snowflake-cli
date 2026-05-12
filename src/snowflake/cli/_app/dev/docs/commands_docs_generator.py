@@ -82,8 +82,8 @@ def _render_command_usage(
         else:
             options.append(param)
 
-    # MDX include fragments that hand-authored command-reference pages import
-    # via Sphinx-style include directives in snowflake-prod-docs.
+    # MDX include fragments that hand-authored command-reference pages in
+    # snowflake-prod-docs compose via MDX imports.
     file_path = root / f"usage-{command_name}.mdx"
     log.info("Creating %s", file_path)
     command_help_params = _split_docstring(command.help)

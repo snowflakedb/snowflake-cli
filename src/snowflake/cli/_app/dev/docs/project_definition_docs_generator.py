@@ -49,8 +49,8 @@ def generate_project_definition_docs(root: SecurePath):
 def _render_definition_description(root: SecurePath, section: Dict[str, Any]) -> None:
     env = get_template_environment()
 
-    # MDX include fragments that hand-authored project-definition pages import
-    # via Sphinx-style include directives in snowflake-prod-docs.
+    # MDX include fragments that hand-authored project-definition pages in
+    # snowflake-prod-docs compose via MDX imports.
     file_path = root / f"definition_{section['name']}.mdx"
     log.info("Creating %s", file_path)
     template = env.get_template(DEFINITION_DESCRIPTION)
