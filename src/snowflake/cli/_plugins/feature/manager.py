@@ -288,125 +288,213 @@ class FeatureManager(SqlExecutionMixin):
         }
 
     # ------------------------------------------------------------------
-    # init — D6 auto-derive + init-exist fail-fast
+    # init — idempotent bootstrap that subsumes the old `export` command
     # ------------------------------------------------------------------
 
     def init(
         self,
-        from_dir: Path,
-        no_scaffold: bool = False,
+        project_root: Path,
+        target_name: Optional[str] = None,
+        database: Optional[str] = None,
+        schema: Optional[str] = None,
     ) -> dict[str, Any]:
-        """Initialize a feature-store project under *from_dir*.
+        """Idempotent project bootstrap that pulls deployed artifacts.
 
-        When *no_scaffold* is False (default) this method:
+        ``init`` always runs (in this fixed order) under *project_root*:
 
-        1. Refuses to overwrite an existing ``manifest.yml`` (init-exist
-           locked decision; no ``--force`` escape).
-        2. Writes a default ``manifest.yml`` whose single ``DEFAULT``
-           target is auto-derived from the active connection
-           (``account_identifier`` / ``database`` / ``schema`` /
-           ``role``).  ``warehouse`` is never written (D2).
-        3. Creates ``sources/{entities,datasources,feature_views}/``
-           and ``out/plan/.gitkeep`` so the plan-discovery directory is
-           git-trackable but not pre-populated.
-        4. Calls ``FeatureStore(..., creation_mode=CREATE_IF_NOT_EXIST)``
-           to do the Snowflake-side schema / tag / metadata setup.
+        1. Resolve target.  If ``manifest.yml`` is already present:
+           load it and pick *target_name* (or the manifest's
+           ``default_target``).  If absent: build a brand-new target
+           using *target_name* (defaults to ``DEFAULT``) plus
+           *database* / *schema* (defaults to the active connection's
+           db/schema).
+        2. Write ``manifest.yml`` only when it does NOT exist; the file
+           is never overwritten.
+        3. Scaffold ``sources/{entities,datasources,feature_views}/``
+           and ``out/plan/.gitkeep`` (``mkdir -p`` semantics).
+        4. Call ``FeatureStore(..., creation_mode=CREATE_IF_NOT_EXIST)``
+           against the resolved target's db/schema to seed the
+           Snowflake-side runtime.
+        5. Run the export pipeline against the target's db/schema and
+           write YAMLs into ``<project_root>/sources/{entities,
+           datasources,feature_views}/`` (the manifest project tree).
 
-        With ``--no-scaffold`` every step above is skipped (manifest
-        write, dir scaffolding, AND Snowflake-side init) — this is the
-        escape hatch for operators driving ``init`` purely as a noop
-        in test harnesses.
+        Re-running ``init`` is a noop on step 2 only — every other
+        step re-runs idempotently so the on-disk view stays in sync
+        with the deployed runtime.
 
         Args:
-            from_dir: Directory to initialise.  Becomes the project
-                root.  Must exist.
-            no_scaffold: When True, skip every side effect.
+            project_root: Project-root directory.  The new Typer
+                command always resolves this to ``Path.cwd()``.
+            target_name: Optional manifest target name.  On a brand-new
+                manifest this names the only target (default
+                ``DEFAULT``).  On a re-init this picks which existing
+                manifest target to export from (default = manifest's
+                ``default_target``).
+            database: Optional database override for a brand-new
+                manifest.  Ignored on a re-init (the manifest's target
+                db is the source of truth).
+            schema: Optional schema override for a brand-new manifest.
+                Ignored on a re-init.
 
         Returns:
-            ``{status, project_root, manifest_path, target}`` for a
-            successful init; ``{status: "skipped"}`` for ``no_scaffold``.
+            ``{status, project_root, manifest_path, target,
+            manifest_written, export}`` envelope.  ``manifest_written``
+            is ``False`` on a re-init.  ``export`` carries the
+            envelope returned by ``decl_api.export_specs(...)``.
 
         Raises:
-            CliError: When ``manifest.yml`` is already present at
-                ``<from_dir>/manifest.yml``.
+            CliError: When the manifest exists but cannot be parsed,
+                or when the resolved target points at a different
+                Snowflake account than the active connection.
         """
         ctx = get_cli_context()
-        project_root = Path(from_dir).resolve()
-
-        if no_scaffold:
-            return {
-                "status": "skipped",
-                "project_root": str(project_root),
-            }
-
-        manifest_path = project_root / "manifest.yml"
-        if manifest_path.exists():
-            raise CliError(
-                f"manifest.yml already exists at {manifest_path}. Refusing "
-                f"to overwrite (init is fail-fast by design — there is no "
-                f"--force escape)."
-            )
-
+        project_root = Path(project_root).resolve()
         project_root.mkdir(parents=True, exist_ok=True)
 
-        # Build the session BEFORE writing the manifest so we can ask
-        # Snowflake for the canonical ``<ORG>-<ACCOUNT>`` identifier
-        # (matching the format ``get_account_identifier`` returns at
-        # apply time).  ``connection.account`` is the host-prefix form
-        # operators put in ``connections.toml`` (e.g.
-        # ``feature_store_vnext2``); writing that into ``manifest.yml``
-        # would fail every L6 account-mismatch check.
-        # Snowflake-side init: lazy-import to keep the heavy
-        # snowml-core deps off the import path of plain ``init``.
+        manifest_path = project_root / "manifest.yml"
+        manifest_existed = manifest_path.exists()
+
+        # Lazy-import snowml-core to keep the heavy deps off the
+        # import path of users who never call init.
         from snowflake.ml.feature_store.feature_store import (
             CreationMode,
             FeatureStore,
         )
 
-        session = self._build_session()
-
-        # Best-effort canonical form; fall back to ``connection.account``
-        # if the round-trip fails so the scaffold still lands and the
-        # operator can edit the manifest manually.
-        try:
-            account_identifier = str(get_account_identifier(ctx.connection))
-        except Exception as exc:  # pragma: no cover — defensive
-            log.debug(
-                "Could not query canonical account identifier; "
-                "falling back to connection.account: %s",
-                exc,
+        if manifest_existed:
+            # Re-init: the manifest is the source of truth.  Resolve
+            # the requested target (or default) and ignore any
+            # --database / --schema overrides — they're meaningful only
+            # on first init.
+            _, _, target = self._resolve_project(project_root, target_name)
+            target_db = target.database
+            target_sch = target.schema
+            resolved_target_name = target.name
+        else:
+            # Fresh init: build a brand-new manifest from the active
+            # connection, with optional --target / --database / --schema
+            # overrides.
+            resolved_target_name = target_name or _DEFAULT_MANIFEST_TARGET
+            target_db = (
+                database if database is not None else str(ctx.connection.database or "")
             )
-            account_identifier = str(ctx.connection.account or "")
+            target_sch = (
+                schema if schema is not None else str(ctx.connection.schema or "")
+            )
 
-        manifest_text = _render_default_manifest(
-            account_identifier=account_identifier,
-            database=str(ctx.connection.database or ""),
-            schema=str(ctx.connection.schema or ""),
-            role=str(ctx.connection.role or ""),
-        )
-        manifest_path.write_text(manifest_text)
+            try:
+                account_identifier = str(get_account_identifier(ctx.connection))
+            except Exception as exc:  # pragma: no cover — defensive
+                log.debug(
+                    "Could not query canonical account identifier; "
+                    "falling back to connection.account: %s",
+                    exc,
+                )
+                account_identifier = str(ctx.connection.account or "")
 
+            manifest_text = _render_default_manifest(
+                account_identifier=account_identifier,
+                database=target_db,
+                schema=target_sch,
+                role=str(ctx.connection.role or ""),
+                target=resolved_target_name,
+            )
+            manifest_path.write_text(manifest_text)
+
+        # Steps 3 + 4 + 5 always re-run (idempotent).
         sources_root = project_root / "sources"
         for sub in ("entities", "datasources", "feature_views"):
             (sources_root / sub).mkdir(parents=True, exist_ok=True)
 
         plans_dir = project_root / "out" / "plan"
         plans_dir.mkdir(parents=True, exist_ok=True)
-        (plans_dir / ".gitkeep").write_text("")
+        gitkeep = plans_dir / ".gitkeep"
+        if not gitkeep.exists():
+            gitkeep.write_text("")
+
+        session = self._build_session()
         FeatureStore(
             session,
-            ctx.connection.database,
-            ctx.connection.schema,
+            target_db,
+            target_sch,
             ctx.connection.warehouse or "",
             creation_mode=CreationMode.CREATE_IF_NOT_EXIST,
+        )
+
+        export_envelope = self._export_into_sources(
+            project_root=project_root,
+            database=target_db,
+            schema=target_sch,
         )
 
         return {
             "status": "initialized",
             "project_root": str(project_root),
             "manifest_path": str(manifest_path),
-            "target": _DEFAULT_MANIFEST_TARGET,
+            "target": resolved_target_name,
+            "manifest_written": not manifest_existed,
+            "export": export_envelope,
         }
+
+    def _export_into_sources(
+        self,
+        *,
+        project_root: Path,
+        database: str,
+        schema: str,
+    ) -> dict[str, Any]:
+        """Run the deployed-state export pipeline into ``<project_root>/sources/``.
+
+        Mirrors the body of the (now-removed) public ``export_specs``
+        method, but pinned to the ``layout="sources"`` exporter mode so
+        the YAMLs land directly in the manifest project tree.
+
+        Args:
+            project_root: Project-root directory.  YAMLs are written
+                under ``<project_root>/sources/{entities,datasources,
+                feature_views}/``.
+            database: Snowflake database to export from.
+            schema: Snowflake schema to export from.
+
+        Returns:
+            The envelope returned by :func:`decl_api.export_specs`.
+        """
+        self._ensure_session_setup()
+
+        eq = decl_api.export_queries(database, schema)
+
+        show_rows = _rows_to_dicts(
+            self.execute_query(eq["show_ofts"], cursor_class=DictCursor)
+        )
+
+        # Re-use the manifest target's db/schema to fetch entity tags;
+        # the imperative facade drops them onto the active connection's
+        # warehouse.  Build a synthetic FSTarget so we don't have to
+        # discover the manifest a second time.
+        synthetic_target = FSTarget(
+            name="__init_export__",
+            account_identifier="",
+            database=database,
+            schema=schema,
+        )
+        entity_rows = self._fetch_entity_rows(synthetic_target)
+
+        # Always delegate to ``decl_api.export_specs`` — it owns the
+        # "empty input → noop envelope" semantics so the manager
+        # doesn't second-guess the library boundary.
+        specification_map = self._fetch_oft_state(show_rows, eq) if show_rows else {}
+
+        return decl_api.export_specs(
+            show_rows,
+            {},
+            str(project_root),
+            database,
+            schema,
+            specification_map=specification_map,
+            entity_rows=entity_rows,
+            layout="sources",
+        )
 
     # ------------------------------------------------------------------
     # apply — L1–L7 plan-file lifecycle, relocated to out/plan/
@@ -1338,50 +1426,6 @@ class FeatureManager(SqlExecutionMixin):
             errors.append(f"drop_runtime: {exc}")
 
         return {"status": "destroyed", "dropped_ofts": dropped_ofts, "errors": errors}
-
-    # ------------------------------------------------------------------
-    # export_specs
-    # ------------------------------------------------------------------
-
-    def export_specs(
-        self,
-        from_dir: Path,
-        target_name: Optional[str],
-        output_dir: str,
-    ) -> dict[str, Any]:
-        """Export deployed feature-store objects as YAML spec files.
-
-        Strict full-fidelity flow: prime the session, list OFTs, then
-        fetch each OFT's full spec JSON via ``DESCRIBE … TYPE =
-        SPECIFICATION`` through :meth:`_fetch_oft_state`.  Any per-OFT
-        failure aborts the entire export — there is no column-DESCRIBE
-        fallback.
-        """
-        _, _, target = self._resolve_project(from_dir, target_name)
-        self._ensure_session_setup()
-
-        eq = decl_api.export_queries(target.database, target.schema)
-
-        show_rows = _rows_to_dicts(
-            self.execute_query(eq["show_ofts"], cursor_class=DictCursor)
-        )
-
-        entity_rows = self._fetch_entity_rows(target)
-
-        if not show_rows and not entity_rows:
-            return {"status": "exported", "directory": "", "files": []}
-
-        specification_map = self._fetch_oft_state(show_rows, eq) if show_rows else {}
-
-        return decl_api.export_specs(
-            show_rows,
-            {},
-            output_dir,
-            target.database,
-            target.schema,
-            specification_map=specification_map,
-            entity_rows=entity_rows,
-        )
 
     # ------------------------------------------------------------------
     # ingest
