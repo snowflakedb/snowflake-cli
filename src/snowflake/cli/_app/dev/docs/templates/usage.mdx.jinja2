@@ -29,6 +29,8 @@ snow {% for part in path %}{{ part }}{{ " " if not loop.last }}{% endfor %}
 </em></code></dt>
 <dd>
 
+*{{ "Required" if param.required else "Optional" }}*
+
 {% if param.help %}{{ param.help | replace("\n", " ") }}{% if param.help[-1] != '.' %}.{% endif %}{% if param.default %} Default: {{ param.default }}.{% endif %}{% else %}TBD{% endif %}
 
 </dd>
