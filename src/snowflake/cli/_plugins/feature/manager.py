@@ -349,8 +349,37 @@ class FeatureManager(SqlExecutionMixin):
 
         project_root.mkdir(parents=True, exist_ok=True)
 
+        # Build the session BEFORE writing the manifest so we can ask
+        # Snowflake for the canonical ``<ORG>-<ACCOUNT>`` identifier
+        # (matching the format ``get_account_identifier`` returns at
+        # apply time).  ``connection.account`` is the host-prefix form
+        # operators put in ``connections.toml`` (e.g.
+        # ``feature_store_vnext2``); writing that into ``manifest.yml``
+        # would fail every L6 account-mismatch check.
+        # Snowflake-side init: lazy-import to keep the heavy
+        # snowml-core deps off the import path of plain ``init``.
+        from snowflake.ml.feature_store.feature_store import (
+            CreationMode,
+            FeatureStore,
+        )
+
+        session = self._build_session()
+
+        # Best-effort canonical form; fall back to ``connection.account``
+        # if the round-trip fails so the scaffold still lands and the
+        # operator can edit the manifest manually.
+        try:
+            account_identifier = str(get_account_identifier(ctx.connection))
+        except Exception as exc:  # pragma: no cover — defensive
+            log.debug(
+                "Could not query canonical account identifier; "
+                "falling back to connection.account: %s",
+                exc,
+            )
+            account_identifier = str(ctx.connection.account or "")
+
         manifest_text = _render_default_manifest(
-            account_identifier=str(ctx.connection.account or ""),
+            account_identifier=account_identifier,
             database=str(ctx.connection.database or ""),
             schema=str(ctx.connection.schema or ""),
             role=str(ctx.connection.role or ""),
@@ -364,15 +393,6 @@ class FeatureManager(SqlExecutionMixin):
         plans_dir = project_root / "out" / "plan"
         plans_dir.mkdir(parents=True, exist_ok=True)
         (plans_dir / ".gitkeep").write_text("")
-
-        # Snowflake-side init: lazy-import to keep the heavy
-        # snowml-core deps off the import path of plain ``init``.
-        from snowflake.ml.feature_store.feature_store import (
-            CreationMode,
-            FeatureStore,
-        )
-
-        session = self._build_session()
         FeatureStore(
             session,
             ctx.connection.database,
