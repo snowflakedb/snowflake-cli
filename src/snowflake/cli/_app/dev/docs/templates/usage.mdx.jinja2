@@ -1,3 +1,4 @@
+{%- from "_macros.mdx.jinja2" import render_option_list -%}
 {{ help | replace("\n", " ") }}
 
 ## Syntax
@@ -42,27 +43,7 @@ None
 
 {%- if options %}
 
-<dl>
-{%- for param in options if not param.hidden %}
-{%- if param.is_flag %}
-<dt>`
-    {%- for p in param.opts %}{{ p }}{{ ", " if not loop.last }}{% endfor %}
-    {%- if param.secondary_opts|length > 0  %} {{ "/ " }}{{ param.secondary_opts[0] }}{% endif -%}
-`</dt>
-{%- elif param.type.name == "choice" %}
-<dt>`
-    {%- for p in param.opts %}{{ p }}{{ ", " if not loop.last }}{% endfor %} {{ param.make_metavar() }}`</dt>
-{%- else %}
-<dt><code className="samp">
-    {%- for p in param.opts %}{{ p }}{{ ", " if not loop.last }}{% endfor %} <em>{{ param.make_metavar() }}</em></code></dt>
-{%- endif %}
-<dd>
-
-{% if param.help %}{{ param.help | replace("\n", " ") }}{% if param.help[-1] != '.' %}.{% endif %}{% if param.default is not none and param.default != "" %} Default: {{ param.default }}.{% endif %}{% else %}TBD{% endif %}
-
-</dd>
-{%- endfor %}
-</dl>
+{{ render_option_list(options) }}
 {% else %}
 
 None
