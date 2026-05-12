@@ -1029,7 +1029,8 @@ def test_init_help_lists_new_flags_and_drops_old_ones(mock_manager, runner):
     assert result.exit_code == 0, result.output
     text = result.output
 
-    # The new init surface.
+    # The new init surface — local --target plus the global --database
+    # / --schema connection flags (provided by `requires_connection`).
     assert "--target" in text
     assert "--database" in text
     assert "--schema" in text
@@ -1082,8 +1083,19 @@ def test_init_target_flag_passes_through(mock_manager, runner):
 
 
 @mock.patch(FEATURE_MANAGER)
-def test_init_database_and_schema_flags_pass_through(mock_manager, runner):
-    """``--database`` / ``--schema`` propagate as ``database`` / ``schema`` kwargs."""
+def test_init_default_target_is_none(mock_manager, runner):
+    """``--target`` defaults to ``None`` so the manager picks the default."""
+    mock_manager.return_value.init.return_value = _INIT_RESULT_STUB
+    result = runner.invoke(["feature", "init"])
+    assert result.exit_code == 0, result.output
+    assert mock_manager.return_value.init.call_args.kwargs["target_name"] is None
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_init_does_not_pass_database_schema_kwargs(mock_manager, runner):
+    """The Typer command leaves ``database`` / ``schema`` to the active
+    connection (via the global ``--database`` / ``--schema`` flags); it
+    does NOT forward them as direct kwargs to ``FeatureManager.init``."""
     mock_manager.return_value.init.return_value = _INIT_RESULT_STUB
     result = runner.invoke(
         [
@@ -1097,20 +1109,11 @@ def test_init_database_and_schema_flags_pass_through(mock_manager, runner):
     )
     assert result.exit_code == 0, result.output
     kwargs = mock_manager.return_value.init.call_args.kwargs
-    assert kwargs["database"] == "OVERRIDE_DB"
-    assert kwargs["schema"] == "OVERRIDE_SCHEMA"
-
-
-@mock.patch(FEATURE_MANAGER)
-def test_init_default_target_database_schema_are_none(mock_manager, runner):
-    """All three new flags default to ``None`` so the manager picks defaults."""
-    mock_manager.return_value.init.return_value = _INIT_RESULT_STUB
-    result = runner.invoke(["feature", "init"])
-    assert result.exit_code == 0, result.output
-    kwargs = mock_manager.return_value.init.call_args.kwargs
-    assert kwargs["target_name"] is None
-    assert kwargs["database"] is None
-    assert kwargs["schema"] is None
+    # The override flows through the connection (set by the global
+    # decorator); the Typer command does NOT bake it into a manager
+    # kwarg, so the manager picks it up via ``ctx.connection.database``.
+    assert "database" not in kwargs
+    assert "schema" not in kwargs
 
 
 # ---------------------------------------------------------------------------

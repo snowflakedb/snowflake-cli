@@ -256,29 +256,45 @@ def _print_status_header(result: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
-# init
+# init — single bootstrap command (subsumes the deleted `export` command)
 # ---------------------------------------------------------------------------
 
 
 @app.command(requires_connection=True)
 def init(
-    from_location: Path = from_option,
-    no_scaffold: bool = typer.Option(
-        False,
-        "--no-scaffold",
-        help="Skip both manifest scaffolding and the Snowflake-side init.",
+    target: Optional[str] = typer.Option(
+        None,
+        "--target",
+        help=(
+            "Manifest target name.  On a brand-new manifest this names "
+            "the only target (default 'DEFAULT').  On a re-init, picks "
+            "which existing manifest target to export from "
+            "(default = manifest's default_target)."
+        ),
+        show_default=False,
     ),
     **options,
 ) -> CommandResult:
-    """Initialize a feature-store project (manifest.yml + sources/ + Snowflake).
+    """Bootstrap a feature-store project and pull deployed artifacts.
 
-    Writes a default ``manifest.yml`` derived from the active
-    connection (account_identifier / database / schema / role) and
-    creates ``sources/{entities,datasources,feature_views}/`` plus
-    ``out/plan/.gitkeep``.  Refuses to overwrite an existing
-    ``manifest.yml`` (no ``--force`` escape).
+    Always runs in the current directory.  On a fresh init, writes
+    ``manifest.yml`` derived from the active connection (use the
+    global ``--database`` / ``--schema`` flags to point the new
+    target at a different schema than the connection's default),
+    scaffolds ``sources/{entities,datasources,feature_views}/`` plus
+    ``out/plan/.gitkeep``, runs the Snowflake-side ``FeatureStore``
+    bootstrap (CREATE_IF_NOT_EXIST), and pulls every deployed object
+    into ``sources/`` as YAML.
+
+    Re-running ``init`` is fully idempotent: the existing manifest is
+    preserved, the FS bootstrap re-runs, and the export refreshes the
+    on-disk artifacts so they stay in sync with the deployed runtime.
     """
-    result = FeatureManager().init(from_dir=from_location, no_scaffold=no_scaffold)
+    del options
+    result = FeatureManager().init(
+        project_root=Path.cwd(),
+        target_name=target,
+    )
     return _to_object(result)
 
 
@@ -454,35 +470,6 @@ def describe(
     if isinstance(rows, list) and rows:
         return _to_collection(rows)
     return _to_object(result)
-
-
-# ---------------------------------------------------------------------------
-# export
-# ---------------------------------------------------------------------------
-
-
-@app.command(requires_connection=True)
-def export(
-    from_location: Path = from_option,
-    target: Optional[str] = target_option,
-    variables: Optional[List[str]] = variables_option,
-    output_dir: Optional[str] = typer.Option(
-        None,
-        "--dir",
-        help="Base output directory. Defaults to current directory.",
-        show_default=False,
-    ),
-    **options,
-) -> CommandResult:
-    """Export deployed feature-store objects from Snowflake as YAML spec files."""
-    del variables
-    result = FeatureManager().export_specs(
-        from_dir=from_location,
-        target_name=target,
-        output_dir=output_dir or ".",
-    )
-    files = result.get("files", [])
-    return _to_collection([{"file": f} for f in files], all_columns=True)
 
 
 # ---------------------------------------------------------------------------

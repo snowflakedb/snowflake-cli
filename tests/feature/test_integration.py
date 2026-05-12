@@ -383,8 +383,11 @@ class TestInitIntegration:
     The autouse ``mock_cli_context`` fixture (imported from
     test_manager.py) supplies the connection's account /
     db / schema / role — the manifest scaffolder reads these to
-    auto-derive the default-target body (D6 fail-fast on existing
-    manifest, no ``--force``).
+    auto-derive the default-target body.
+
+    Init is now idempotent (the init-subsumes-export plan): the
+    manifest is written only when absent, but the FS bootstrap and
+    the export-into-``sources/`` always re-run.
     """
 
     def test_init_returns_initialized_status(self, mock_execute_query, tmp_path):
@@ -396,13 +399,13 @@ class TestInitIntegration:
             "snowflake.ml.feature_store.feature_store.CreationMode"
         ) as mock_cm:
             mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
-            result = FeatureManager().init(from_dir=tmp_path, no_scaffold=False)
+            result = FeatureManager().init(project_root=tmp_path)
         assert result["status"] == "initialized"
 
     def test_init_scaffold_creates_directories(self, mock_execute_query, tmp_path):
         """Default ``init`` scaffolds the three canonical sub-dirs
         under ``sources/`` plus an empty ``out/plan/`` placeholder
-        with a committable ``.gitkeep`` (D7 / D8)."""
+        with a committable ``.gitkeep``."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         with mock.patch(
@@ -411,37 +414,16 @@ class TestInitIntegration:
             "snowflake.ml.feature_store.feature_store.CreationMode"
         ) as mock_cm:
             mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
-            FeatureManager().init(from_dir=tmp_path, no_scaffold=False)
+            FeatureManager().init(project_root=tmp_path)
         for d in ("entities", "datasources", "feature_views"):
             assert (
                 tmp_path / "sources" / d
             ).is_dir(), f"sources/{d}/ must exist after scaffold"
         assert (tmp_path / "out" / "plan").is_dir()
 
-    def test_init_no_scaffold_skips_manifest_and_dirs(
-        self, mock_execute_query, tmp_path
-    ):
-        """``--no-scaffold`` skips both the manifest write AND every
-        directory creation (D6).  The on-disk tree must look exactly
-        the same before and after the call."""
-        from snowflake.cli._plugins.feature.manager import FeatureManager
-
-        with mock.patch(
-            "snowflake.ml.feature_store.feature_store.FeatureStore"
-        ), mock.patch(
-            "snowflake.ml.feature_store.feature_store.CreationMode"
-        ) as mock_cm:
-            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
-            result = FeatureManager().init(from_dir=tmp_path, no_scaffold=True)
-        assert result["status"] == "skipped"
-        assert not (tmp_path / "manifest.yml").exists()
-        assert not (tmp_path / "sources").exists()
-        assert not (tmp_path / "out").exists()
-
     def test_init_writes_out_plan_gitkeep(self, mock_execute_query, tmp_path):
-        """Acceptance #10: ``init`` writes ``out/plan/.gitkeep`` so the
-        relocated plan-file lifecycle (D8) has a deterministic,
-        committable home in fresh projects."""
+        """``init`` writes ``out/plan/.gitkeep`` so the relocated plan-file
+        lifecycle has a deterministic, committable home in fresh projects."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         with mock.patch(
@@ -450,19 +432,43 @@ class TestInitIntegration:
             "snowflake.ml.feature_store.feature_store.CreationMode"
         ) as mock_cm:
             mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
-            FeatureManager().init(from_dir=tmp_path, no_scaffold=False)
+            FeatureManager().init(project_root=tmp_path)
         assert (tmp_path / "out" / "plan" / ".gitkeep").is_file()
 
-    def test_init_fails_fast_on_existing_manifest(self, mock_execute_query, tmp_path):
-        """Acceptance D6: ``init`` refuses to overwrite an existing
-        ``manifest.yml`` — there is no ``--force`` escape."""
-        (tmp_path / "manifest.yml").write_text(_MANIFEST_YAML)
+    def test_init_idempotent_on_existing_manifest(self, mock_execute_query, tmp_path):
+        """``init`` re-runs cleanly when ``manifest.yml`` already exists
+        (init-subsumes-export plan): the manifest is preserved
+        bytes-identical, the FS bootstrap re-runs, and the export
+        re-fetches the deployed artifacts."""
+        original = _MANIFEST_YAML
+        (tmp_path / "manifest.yml").write_text(original)
 
         from snowflake.cli._plugins.feature.manager import FeatureManager
-        from snowflake.cli.api.exceptions import CliError
 
-        with pytest.raises(CliError):
-            FeatureManager().init(from_dir=tmp_path, no_scaffold=False)
+        with mock.patch(
+            "snowflake.ml.feature_store.feature_store.FeatureStore"
+        ) as mock_fs_cls, mock.patch(
+            "snowflake.ml.feature_store.feature_store.CreationMode"
+        ) as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            result = FeatureManager().init(project_root=tmp_path)
+
+        assert result["status"] == "initialized"
+        assert result["manifest_written"] is False
+        assert (tmp_path / "manifest.yml").read_text() == original
+        # FS bootstrap must still re-run on a re-init.  ``FeatureStore``
+        # is also instantiated again from inside the export pipeline
+        # (``_fetch_entity_rows`` → ``fetch_entity_rows``); we only
+        # care that the init bootstrap fired with CREATE_IF_NOT_EXIST.
+        bootstrap_calls = [
+            c
+            for c in mock_fs_cls.call_args_list
+            if c.kwargs.get("creation_mode") == "CREATE_IF_NOT_EXIST"
+        ]
+        assert len(bootstrap_calls) == 1, (
+            f"expected 1 CREATE_IF_NOT_EXIST bootstrap, got "
+            f"{len(bootstrap_calls)}: {bootstrap_calls!r}"
+        )
 
 
 # ---------------------------------------------------------------------------

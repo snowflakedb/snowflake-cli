@@ -22,7 +22,11 @@ def test_feature_group_is_registered(runner):
 
 
 def test_feature_group_help_lists_all_commands(runner):
-    """'snow feature --help' should list key sub-commands (drop removed)."""
+    """'snow feature --help' should list key sub-commands.
+
+    The standalone ``export`` command is gone — its functionality is
+    now part of ``init`` (init-subsumes-export plan).
+    """
     result = runner.invoke(["feature", "--help"])
     assert result.exit_code == 0, result.output
     output = result.output.lower()
@@ -30,4 +34,8 @@ def test_feature_group_help_lists_all_commands(runner):
     assert "plan" in output
     assert "list" in output
     assert "describe" in output
-    assert "export" in output
+    assert "init" in output
+    # ``export`` is no longer a standalone subcommand; the export
+    # pipeline runs as part of ``init`` instead.
+    lines = [line.strip() for line in result.output.splitlines()]
+    assert not any(line.startswith("export ") or line == "export" for line in lines)
