@@ -393,7 +393,10 @@ class ServiceManager(SqlExecutionMixin):
                 "volumes": [
                     {
                         "name": "code-volume",
-                        "source": f"@{stage}/{build_context_path}",
+                        "source": "stage",
+                        "stageConfig": {
+                            "name": f"@{stage}/{build_context_path}",
+                        },
                         "uid": 65532,
                     }
                 ],
