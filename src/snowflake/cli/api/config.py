@@ -96,6 +96,9 @@ FEATURE_FLAGS_SECTION_PATH = [CLI_SECTION, "features"]
 LEGACY_OAUTH_PKCE_KEY: Literal["oatuh_enable_pkce"] = "oatuh_enable_pkce"
 LEGACY_CONNECTION_SETTING_ALIASES: Final[dict[str, str]] = {
     LEGACY_OAUTH_PKCE_KEY: "oauth_enable_pkce",
+    # `private_key_file_pwd` is the name supported by snowflake-connector-python
+    # in connections.toml; normalize it to the CLI-native `private_key_passphrase`.
+    "private_key_file_pwd": "private_key_passphrase",
 }
 
 

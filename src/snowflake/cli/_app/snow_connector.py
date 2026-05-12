@@ -91,7 +91,12 @@ SUPPORTED_ENV_OVERRIDES = [
 ]
 
 # mapping of found key -> key to set
-CONNECTION_KEY_ALIASES = {"private_key_path": "private_key_file"}
+CONNECTION_KEY_ALIASES = {
+    "private_key_path": "private_key_file",
+    # `private_key_file_pwd` is the name used by the snowflake-connector-python
+    # TOML config; we normalize it to the CLI-native `private_key_passphrase`.
+    "private_key_file_pwd": "private_key_passphrase",
+}
 
 
 class _BufferedMirrorStream(io.StringIO):
@@ -308,9 +313,13 @@ def _load_private_key(connection_parameters: Dict, private_key_var_name: str) ->
         private_key_pem = _load_pem_from_file(
             connection_parameters[private_key_var_name]
         )
-        private_key = _load_pem_to_der(private_key_pem)
+        private_key = _load_pem_to_der(
+            private_key_pem,
+            passphrase=connection_parameters.get("private_key_passphrase"),
+        )
         connection_parameters["private_key"] = private_key.value
         del connection_parameters[private_key_var_name]
+        connection_parameters.pop("private_key_passphrase", None)
     else:
         raise CliError(
             "Private Key authentication requires authenticator set to SNOWFLAKE_JWT"
@@ -324,9 +333,13 @@ def _load_private_key_from_parameters(
         private_key_pem = _load_pem_from_parameters(
             connection_parameters[private_key_var_name]
         )
-        private_key = _load_pem_to_der(private_key_pem)
+        private_key = _load_pem_to_der(
+            private_key_pem,
+            passphrase=connection_parameters.get("private_key_passphrase"),
+        )
         connection_parameters["private_key"] = private_key.value
         del connection_parameters[private_key_var_name]
+        connection_parameters.pop("private_key_passphrase", None)
     else:
         raise CliError(
             "Private Key authentication requires authenticator set to SNOWFLAKE_JWT"
@@ -363,8 +376,9 @@ def _load_pem_from_parameters(private_key_raw: str) -> SecretType:
 def _validate_passphrase(passphrase: SecretType) -> None:
     if passphrase.value is None:
         raise CliError(
-            "Encrypted private key, you must provide the "
-            "passphrase in the environment variable PRIVATE_KEY_PASSPHRASE."
+            "Encrypted private key, you must provide the passphrase via the "
+            "`private_key_file_pwd` key in your connection config or the "
+            "`PRIVATE_KEY_PASSPHRASE` environment variable."
         )
     if passphrase.value == "":
         raise CliError(
@@ -373,23 +387,30 @@ def _validate_passphrase(passphrase: SecretType) -> None:
         )
 
 
-def _load_pem_to_der(private_key_pem: SecretType) -> SecretType:
+def _load_pem_to_der(
+    private_key_pem: SecretType, passphrase: Optional[str] = None
+) -> SecretType:
     """
     Given a private key file path (in PEM format), decode key data into DER
-    format
+    format. The ``PRIVATE_KEY_PASSPHRASE`` env var takes precedence over the
+    ``passphrase`` argument (sourced from ``private_key_file_pwd`` /
+    ``private_key_passphrase`` in the connection config) so existing setups
+    keep working.
     """
-    private_key_passphrase = SecretType(os.getenv("PRIVATE_KEY_PASSPHRASE", None))
+    env_passphrase = os.getenv("PRIVATE_KEY_PASSPHRASE")
+    resolved_passphrase = env_passphrase if env_passphrase is not None else passphrase
+    passphrase_secret = SecretType(resolved_passphrase)
 
     if private_key_pem.value.startswith(ENCRYPTED_PKCS8_PK_HEADER):
-        _validate_passphrase(private_key_passphrase)
+        _validate_passphrase(passphrase_secret)
     elif private_key_pem.value.startswith(UNENCRYPTED_PKCS8_PK_HEADER):
-        private_key_passphrase = SecretType(None)
+        passphrase_secret = SecretType(None)
     else:
         raise CliError(
             "Private key provided is not in PKCS#8 format. Please use correct format."
         )
 
-    return prepare_private_key(private_key_pem, private_key_passphrase)
+    return prepare_private_key(private_key_pem, passphrase_secret)
 
 
 def prepare_private_key(
