@@ -704,11 +704,6 @@ def test_externalbrowser_authenticator_is_case_insensitive(
     assert stdout_stream._mirror is not None  # noqa: SLF001
 
 
-# ---------------------------------------------------------------------------
-# SNOW-3520530: private_key_passphrase must not leak into connector.connect()
-# ---------------------------------------------------------------------------
-
-
 @mock.patch.dict(os.environ, {}, clear=True)
 def test_load_private_key_pops_passphrase_from_parameters():
     """SNOW-3520530: _load_private_key() must remove private_key_passphrase from
