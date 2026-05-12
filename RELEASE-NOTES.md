@@ -19,7 +19,6 @@
 ## Deprecations
 
 ## New additions
-* `snow --docs` (internal docs generator) now emits MDX fragments (`usage-<cmd>.mdx`, `definition_<section>.mdx`) for consumption by `snowflake-eng/snowflake-prod-docs`.
 
 ## Fixes and improvements
 * Fixed macOS arm64 installer incorrectly requiring Rosetta 2. The `Distribution.xml` package metadata now declares `hostArchitectures="arm64,x86_64"`, so the installer is recognized as native on Apple Silicon.
