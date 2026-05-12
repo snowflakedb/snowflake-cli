@@ -50,7 +50,6 @@ from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
     find_entity,
     force_project_definition_v2,
     native_app_only,
-    set_app_flow,
     with_app_flow_routing,
 )
 from snowflake.cli._plugins.nativeapp.version.commands import app as versions_app
@@ -89,13 +88,21 @@ app.add_typer(release_channels_app)
 
 @app.callback()
 def _app_group_callback() -> None:
-    """Default the telemetry ``app_flow`` to ``snowflake_app`` for every
-    ``snow app *`` invocation so new commands are correctly attributed by
-    default. Native-App routing decorators (``with_app_flow_routing``,
-    ``force_project_definition_v2``, ``native_app_only``) override this
-    when they detect or assert a Native App project.
+    """Typer group callback for ``snow app *``.
+
+    Previously this set ``app_flow = snowflake_app`` as a blanket default.
+    That caused incorrect telemetry: the ``executing_command`` event (emitted
+    before the command body runs) reported ``app_flow = snowflake_app`` even
+    for native-app projects. The routing decorators (``with_app_flow_routing``,
+    ``native_app_only``) set the correct value inside the command callable,
+    which is after ``executing_command`` fires but before
+    ``result_executing_command``.
+
+    We no longer set a default here. The ``app_flow`` field will be absent on
+    ``executing_command`` events (matching the documented contract in
+    telemetry.py) and present with the correct value on result/error events.
     """
-    set_app_flow(AppFlow.SNOWFLAKE_APP)
+    pass
 
 
 log = logging.getLogger(__name__)
