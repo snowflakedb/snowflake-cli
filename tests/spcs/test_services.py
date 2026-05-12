@@ -2225,6 +2225,7 @@ def test_build_image_cli_parameter_validation(runner, temporary_directory):
         (None, None),
     ],
 )
+@patch("snowflake.cli.api.cli_global_context.get_cli_context")
 @patch("time.sleep")
 @patch(
     "snowflake.cli._plugins.spcs.services.commands.ObjectManager",
@@ -2233,32 +2234,32 @@ def test_build_image_cli_parameter_validation(runner, temporary_directory):
     "snowflake.cli._plugins.spcs.services.commands.ServiceManager",
 )
 @patch(
-    "snowflake.cli._plugins.stage.manager.StageManager.put",
-)
-@patch(
-    "snowflake.cli._plugins.stage.manager.StageManager.execute_query",
-)
-@patch(
-    "snowflake.cli._plugins.stage.manager.StageManager.create",
+    "snowflake.cli._plugins.spcs.services.commands.StageManager",
 )
 def test_build_image_cli_temp_stage_encryption_option(
-    mock_stage_create,
-    mock_stage_execute_query,
-    mock_stage_put,
+    mock_stage_manager_class,
     mock_service_manager_class,
     mock_object_manager_class,
     mock_sleep,
+    mock_get_cli_context,
     stage_encryption_cli,
     expect_encryption_kw,
     runner,
     temporary_directory,
 ):
     """--stage-encryption is forwarded when the CLI creates a temporary stage; omit for legacy CREATE STAGE."""
+    mock_ctx = Mock()
+    mock_ctx.connection = Mock(database="TESTDB", schema="PUBLIC")
+    mock_get_cli_context.return_value = mock_ctx
+
     build_context = Path(temporary_directory) / "build_context"
     build_context.mkdir()
     (build_context / "Dockerfile").write_text("FROM alpine\n")
 
-    mock_stage_put.return_value = Mock(fetchall=lambda: [])
+    mock_stage = Mock()
+    mock_stage_manager_class.return_value = mock_stage
+    mock_stage.put_recursive.return_value = iter([])
+    mock_stage.create.return_value = Mock()
 
     mock_service_manager = Mock()
     mock_service_manager_class.return_value = mock_service_manager
@@ -2298,11 +2299,11 @@ def test_build_image_cli_temp_stage_encryption_option(
 
     result = runner.invoke(cmd, catch_exceptions=False)
     assert result.exit_code == 0, f"Command failed with output: {result.output}"
-    mock_stage_create.assert_called_once()
+    mock_stage.create.assert_called_once()
     if expect_encryption_kw is not None:
-        assert mock_stage_create.call_args.kwargs["encryption"] == expect_encryption_kw
+        assert mock_stage.create.call_args.kwargs["encryption"] == expect_encryption_kw
     else:
-        assert "encryption" not in mock_stage_create.call_args.kwargs
+        assert "encryption" not in mock_stage.create.call_args.kwargs
 
 
 @patch("time.sleep")
@@ -2313,18 +2314,10 @@ def test_build_image_cli_temp_stage_encryption_option(
     "snowflake.cli._plugins.spcs.services.commands.ServiceManager",
 )
 @patch(
-    "snowflake.cli._plugins.stage.manager.StageManager.put",
-)
-@patch(
-    "snowflake.cli._plugins.stage.manager.StageManager.execute_query",
-)
-@patch(
-    "snowflake.cli._plugins.stage.manager.StageManager.create",
+    "snowflake.cli._plugins.spcs.services.commands.StageManager",
 )
 def test_build_image_cli_explicit_stage_does_not_call_create(
-    mock_stage_create,
-    mock_stage_execute_query,
-    mock_stage_put,
+    mock_stage_manager_class,
     mock_service_manager_class,
     mock_object_manager_class,
     mock_sleep,
@@ -2336,7 +2329,10 @@ def test_build_image_cli_explicit_stage_does_not_call_create(
     build_context.mkdir()
     (build_context / "Dockerfile").write_text("FROM alpine\n")
 
-    mock_stage_put.return_value = Mock(fetchall=lambda: [])
+    mock_stage = Mock()
+    mock_stage_manager_class.return_value = mock_stage
+    mock_stage.put_recursive.return_value = iter([])
+    mock_stage.create.return_value = Mock()
 
     mock_service_manager = Mock()
     mock_service_manager_class.return_value = mock_service_manager
@@ -2379,7 +2375,7 @@ def test_build_image_cli_explicit_stage_does_not_call_create(
         catch_exceptions=False,
     )
     assert result.exit_code == 0, f"Command failed with output: {result.output}"
-    mock_stage_create.assert_not_called()
+    mock_stage.create.assert_not_called()
 
 
 # Tests for check_terminal_status parameter in stream_logs
@@ -2529,14 +2525,10 @@ def test_stream_logs_without_terminal_status_check(mock_sleep, mock_logs):
     "snowflake.cli._plugins.spcs.services.commands.ServiceManager",
 )
 @patch(
-    "snowflake.cli._plugins.stage.manager.StageManager.put",
-)
-@patch(
-    "snowflake.cli._plugins.stage.manager.StageManager.execute_query",
+    "snowflake.cli._plugins.spcs.services.commands.StageManager",
 )
 def test_build_image_cli_recursive_upload_with_nested_dirs(
-    mock_stage_execute_query,
-    mock_stage_put,
+    mock_stage_manager_class,
     mock_service_manager_class,
     mock_object_manager_class,
     mock_sleep,
@@ -2557,7 +2549,10 @@ def test_build_image_cli_recursive_upload_with_nested_dirs(
     partials_dir.mkdir()
     (partials_dir / "header.html").write_text("<header>Header</header>")
 
-    mock_stage_put.return_value = Mock(fetchall=lambda: [])
+    mock_stage = Mock()
+    mock_stage_manager_class.return_value = mock_stage
+    mock_stage.put_recursive.return_value = iter([])
+    mock_stage.create.return_value = Mock()
 
     mock_service_manager = Mock()
     mock_service_manager_class.return_value = mock_service_manager
@@ -2600,7 +2595,7 @@ def test_build_image_cli_recursive_upload_with_nested_dirs(
     assert result.exit_code == 0, f"Command failed with output: {result.output}"
 
     stage_paths = set()
-    for c in mock_stage_put.call_args_list:
+    for c in mock_stage.put_recursive.call_args_list:
         sp = c.kwargs.get("stage_path", None)
         if sp is not None:
             stage_paths.add(str(sp))
