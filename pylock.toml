@@ -268,9 +268,9 @@ wheels = [{ url = "https://files.pythonhosted.org/packages/a0/61/5c78b91c3143ed5
 
 [[packages]]
 name = "gitpython"
-version = "3.1.44"
-sdist = { url = "https://files.pythonhosted.org/packages/c0/89/37df0b71473153574a5cdef8f242de422a0f5d26d7a9e231e6f169b4ad14/gitpython-3.1.44.tar.gz", upload-time = 2025-01-02T07:32:43Z, size = 214196, hashes = { sha256 = "c87e30b26253bf5418b01b0660f818967f3c503193838337fe5e573331249269" } }
-wheels = [{ url = "https://files.pythonhosted.org/packages/1d/9a/4114a9057db2f1462d5c8f8390ab7383925fe1ac012eaa42402ad65c2963/GitPython-3.1.44-py3-none-any.whl", upload-time = 2025-01-02T07:32:40Z, size = 207599, hashes = { sha256 = "9e0e10cda9bed1ee64bc9a6de50e7e38a9c9943241cd7f585f6df3ed28011110" } }]
+version = "3.1.50"
+sdist = { url = "https://files.pythonhosted.org/packages/33/f6/354ae6491228b5eb40e10d89c4d13c651fe1cf7556e35ebdded50cff57ce/gitpython-3.1.50.tar.gz", upload-time = 2026-05-06T04:01:26Z, size = 219798, hashes = { sha256 = "80da2d12504d52e1f998772dc5baf6e553f8d2fcfe1fcc226c9d9a2ee3372dcc" } }
+wheels = [{ url = "https://files.pythonhosted.org/packages/20/7a/1c6e3562dfd8950adbb11ffbc65d21e7c89d01a6e4f137fa981056de25c5/gitpython-3.1.50-py3-none-any.whl", upload-time = 2026-05-06T04:01:23Z, size = 212507, hashes = { sha256 = "d352abe2908d07355014abdd21ddf798c2a961469239afec4962e9da884858f9" } }]
 
 [[packages]]
 name = "id"
