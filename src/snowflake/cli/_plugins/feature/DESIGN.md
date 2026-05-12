@@ -54,13 +54,35 @@ under the key `"feature"`.
 
 ## Command → FeatureManager mapping
 
+All non-`init` Snowflake-bound commands take `--from <project_root>` (default cwd) and `--target <manifest target>` (default `manifest.default_target`). There are no positional spec-file arguments — the manifest is the single project descriptor. `--variable / -D key=value` repeats override the manifest's `templating:` block.
+
 | CLI command             | Manager method       | Notes                                |
 |-------------------------|----------------------|--------------------------------------|
-| `snow feature init`     | `init()`             | Creates schema/tags, scaffolds dirs  |
-| `snow feature apply`    | `apply()`            | Pure plan-file consumer (auto-discovers latest `feature_plan_*.json` or honours `--plan`) |
-| `snow feature plan`     | `plan()`             | Validate + generate_plan; persists JSON via `write_plan()` on success |
-| `snow feature list`     | `list_specs()`       | Files → from file; no args → Snowflake |
+| `snow feature init`     | `init()`             | Auto-derives `manifest.yml` from the active connection (D6: queries `get_account_identifier(connection)` for the canonical `<ORG>-<ACCOUNT>` form, copies `database`/`schema`/`role`); scaffolds `sources/{entities,datasources,feature_views}/` + `out/plan/.gitkeep`; calls `FeatureStore(creation_mode=CREATE_IF_NOT_EXIST)`. Fail-fast: errors if `manifest.yml` already exists (no `--force`). |
+| `snow feature apply`    | `apply()`            | Pure plan-file consumer (auto-discovers latest `feature_plan_*.json` under `<project_root>/out/plan/` or honours `--plan`). L6 now checks BOTH (a) `target.account_identifier` matches `get_account_identifier(connection)` and (b) plan envelope's `target_name` matches `--target` (D4-ext). |
+| `snow feature plan`     | `plan()` + `write_plan()` | Validate + generate_plan; persists JSON to `<project_root>/out/plan/feature_plan_<ts>.json` on success. `--dev` threads through to `decl_api.validate_specs(dev_mode=...)` so version invariants are properly relaxed. |
+| `snow feature list`     | `list_specs()`       | Lists Snowflake state for the resolved manifest target. |
 | `snow feature describe` | `describe()`         | Single-object metadata lookup        |
+
+### Manifest discovery + target resolution (`_resolve_project`)
+
+Every Snowflake-bound entry point that needs a target (`apply`, `plan`,
+`list_specs`, `describe`, `export_specs`) goes through
+`FeatureManager._resolve_project(from_dir, target_name)` first, which:
+
+1. Calls `decl_api.discover_project(from_dir)` to walk up to
+   `manifest.yml`.  Raises `ManifestNotFoundError` (rendered by the
+   CLI as a `CliError`) when no manifest exists.
+2. Calls `decl_api.resolve_target(manifest, target_name)`.  When
+   `target_name` is None, falls back to `manifest.default_target`;
+   raises if neither is set.
+3. Asserts `AccountIdentifier.from_string(target.account_identifier)
+   == get_account_identifier(connection)` (D4 match-account-override-rest).
+   On mismatch, returns `target_mismatch` to the caller without
+   priming the session — the operator picks a different connection
+   or fixes the manifest.
+
+`_resolve_project` returns `(FSProjectPaths, FSManifest, TargetContext)`.  The caller threads the target's `database` / `schema` / `role` through every downstream `decl_api.*` call (D4 override-rest); `warehouse` is read from `ctx.connection.warehouse` (plan files are warehouse-agnostic by design).
 
 ---
 
@@ -102,27 +124,30 @@ further state SQL runs.
 ### apply() orchestration (pure plan-file consumer)
 
 `apply()` no longer re-plans from source.  It reads a serialised
-`Plan` from disk (auto-discovered or supplied via ``--plan``) and
-hands it to ``decl_api.execute_plan`` for execution:
+`Plan` from disk (auto-discovered under `<project_root>/out/plan/`,
+or supplied via ``--plan``) and hands it to ``decl_api.execute_plan``
+for execution:
 
 ```
-1. self._ensure_session_setup()                                             → primes the session
-2. plan_file = explicit --plan path OR _discover_unapplied_plan()           → str (path)
-3. plan = decl_api.deserialize_plan(open(plan_file).read())                 → Plan
-4. Verify plan.target_database / target_schema match the active connection (L6)
-5. decl_api.execute_plan(
+1. paths, manifest, target = self._resolve_project(from_dir, target_name)
+   — manifest discovery + L6 account-match assertion (D4)
+2. self._ensure_session_setup()                                             → primes the session
+3. plan_file = explicit --plan path OR _discover_unapplied_plan(paths.plans_dir)
+4. plan = decl_api.deserialize_plan(open(plan_file).read())                 → Plan
+5. Verify plan.target_name == target.name (D4-ext name-strict)
+6. decl_api.execute_plan(
        plan, session,
-       database=plan.target_database,
-       schema=plan.target_schema,
-       warehouse=ctx.connection.warehouse,   # Bug C: warehouse from connection, not the plan
+       database=target.database,            # from manifest, not the plan envelope
+       schema=target.schema,                # from manifest, not the plan envelope
+       warehouse=ctx.connection.warehouse,  # warehouse-agnostic plan files
        options=...,
    )
    — the executor primes the borrowed Snowpark session via
      apply_session_setup_to_session(session) before constructing
      FeatureStore(...)
-6. On success, rename plan_file → plan_file + ".applied" (L4)
-7. On failure, leave plan_file untouched so the operator can retry (L5)
-8. Return result dict
+7. On success, rename plan_file → plan_file + ".applied" (L4)
+8. On failure, leave plan_file untouched so the operator can retry (L5)
+9. Return result dict
 ```
 
 `status` values returned to the CLI:
@@ -131,14 +156,15 @@ hands it to ``decl_api.execute_plan`` for execution:
 - `"refused"`  — the plan carried at least one `destructive=True` op
   and `--allow-recreate` was not set; **no op was executed**, and the
   plan file stays unrenamed under L5 so a follow-up
-  `snow feature apply --allow-recreate <path>` consumes the same file.
+  `snow feature apply --allow-recreate` consumes the same file.
   The gate is enforced inside `decl_api.execute_plan` (single source
   of truth); the manager simply threads the status through.  `errors`
   carries a single human-readable directive naming the destructive op
   count and the `--allow-recreate` remediation.
-- `"target_mismatch"`  — the plan's `target_database` /
-  `target_schema` does not match the active connection (L6); plan
-  file untouched.
+- `"target_mismatch"`  — either (a) the manifest target's
+  `account_identifier` does not match `get_account_identifier(connection)`
+  (D4), or (b) the plan envelope's `target_name` differs from the
+  requested `--target` (D4-ext); plan file untouched.
 - `"validation_failed"`  — planner-side ERROR severities surfaced
   (only reachable when `apply` is in a hypothetical re-plan path; the
   pure-consumer `apply` returns this only when `deserialize_plan`
@@ -146,7 +172,7 @@ hands it to ``decl_api.execute_plan`` for execution:
 - `"partial_failure"`  — one or more ops raised at execution time;
   plan file untouched (L5).
 - `"no_plan"`  — auto-discovery found no unapplied plan under
-  `<cwd>/.snowflake/plans/` (L1).
+  `<project_root>/out/plan/` (L1).
 
 ### plan() orchestration
 
@@ -154,24 +180,38 @@ hands it to ``decl_api.execute_plan`` for execution:
 `snow feature plan`.  It never touches Snowflake side-effecting SQL:
 
 ```
-1. self._ensure_session_setup()                                             → primes the session
-2. Expand file globs
-3. decl_api.load_specs(files, config)                                       → SpecBatch
-4. decl_api.resolve_datasource_columns(batch)                               → mutates batch in place
-5. queries = decl_api.state_queries(database, schema)                       → fetch applied state
-6. decl_api.fetch_applied_state(...)                                        → AppliedState
-7. decl_api.validate_specs(batch, state, target_database=..., target_schema=...)
+1. paths, manifest, target = self._resolve_project(from_dir, target_name)
+   — manifest discovery + L6 account-match assertion (D4)
+2. self._ensure_session_setup()                                             → primes the session
+3. queries = decl_api.state_queries(target.database, target.schema)         → fetch applied state
+4. decl_api.fetch_applied_state(...)                                        → AppliedState
+5. batch = decl_api.load_project(
+       paths.project_root,
+       target=target,
+       runtime_vars=_parse_variables(variables) or None,
+   )                                                                        → SpecBatch
+   — walks sources/{entities,datasources,feature_views}/, applies
+     templating with merged precedence, skips UDF companion .py files
+6. decl_api.resolve_datasource_columns(batch)                               → mutates batch in place
+7. decl_api.validate_specs(batch, state,
+       target_database=target.database,
+       target_schema=target.schema,
+       dev_mode=dev_mode,
+   )
    → if any ERROR results, return {status: "validation_failed", errors: [...], ops: []}
-8. decl_api.generate_plan(batch, state, opts, database=..., schema=...)     → Plan
+8. decl_api.generate_plan(batch, state, opts,
+       database=target.database, schema=target.schema)                      → Plan
 9. Return {**target_info, status: "ready", ops: [...], executed: 0, warnings: [...], errors: []}
 ```
 
 `commands.plan` then forwards the result to `manager.write_plan(...)`
-on success, persisting the same `Plan` object to disk for `apply()`
-to consume.  The two paths share the same `resolve_datasource_columns`
-→ `validate_specs` → `generate_plan` chain — the parity invariant
-between the UI op stream and the disk plan is structural, not
-trip-wire-policed.
+on success, persisting the same `Plan` object to
+`<project_root>/out/plan/feature_plan_<UTC ts>.json` (or to `--out
+<path>` if specified) with `target_name` populated in the envelope
+for `apply()` to consume.  The two paths share the same
+`load_project` → `resolve_datasource_columns` → `validate_specs` →
+`generate_plan` chain — the parity invariant between the UI op
+stream and the disk plan is structural, not trip-wire-policed.
 
 ### list_specs() flow (Snowflake-backed mode)
 

@@ -420,26 +420,49 @@ class TestResolveProject:
 
 
 class TestFeatureManagerInit:
-    """``FeatureManager.init`` writes ``manifest.yml`` (D6 auto-derive),
-    scaffolds ``sources/{entities,datasources,feature_views}/`` +
-    ``out/plan/.gitkeep``, then calls ``FeatureStore(...,
-    creation_mode=CREATE_IF_NOT_EXIST)`` for the Snowflake-side setup.
+    """``FeatureManager.init`` is the single bootstrap entry point.
+
+    The init-subsumes-export contract is:
+
+    1. Always operate in CWD (no ``from_dir``).  Callers pass a project
+       root via ``project_root``; the new Typer command always resolves
+       it to ``Path.cwd()``.
+    2. ``--no-scaffold`` is gone.  Init is idempotent end-to-end: the
+       manifest is written only when absent, but the FS bootstrap and
+       the export-into-``sources/`` always re-run.
+    3. ``--target NAME`` names the manifest target on a fresh init
+       (default ``DEFAULT``); on a re-init it picks which existing
+       manifest target to export from.
+    4. ``--database`` / ``--schema`` override the active connection's
+       defaults when a fresh manifest is being scaffolded.  They are
+       ignored on a re-init (the manifest is the source of truth).
+    5. After scaffolding, the export pipeline lands its YAMLs under
+       ``<project_root>/sources/{entities,datasources,feature_views}/``
+       via ``decl_api.export_specs(..., layout="sources")``.
     """
 
+    def _patch_feature_store(self):
+        """Convenience: patch the imperative ``FeatureStore`` + ``CreationMode``."""
+        return (
+            mock.patch("snowflake.ml.feature_store.feature_store.FeatureStore"),
+            mock.patch("snowflake.ml.feature_store.feature_store.CreationMode"),
+        )
+
+    # ------------------------------------------------------------------
+    # Fresh init — manifest creation
+    # ------------------------------------------------------------------
+
     def test_init_writes_manifest_yml(
-        self, mock_execute_query, mock_cli_context, tmp_path
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
     ):
         """Happy path: a fresh ``init`` writes a parseable ``manifest.yml``."""
         import yaml
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        with mock.patch(
-            "snowflake.ml.feature_store.feature_store.FeatureStore"
-        ), mock.patch(
-            "snowflake.ml.feature_store.feature_store.CreationMode"
-        ) as mock_cm:
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
             mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
-            FeatureManager().init(from_dir=tmp_path, no_scaffold=False)
+            FeatureManager().init(project_root=tmp_path)
 
         manifest_path = tmp_path / "manifest.yml"
         assert manifest_path.is_file()
@@ -450,90 +473,50 @@ class TestFeatureManagerInit:
         assert "DEFAULT" in parsed["targets"]
 
     def test_init_populates_manifest_from_active_connection(
-        self, mock_execute_query, mock_cli_context, mock_account_identifier, tmp_path
+        self,
+        mock_execute_query,
+        mock_decl,
+        mock_cli_context,
+        mock_account_identifier,
+        tmp_path,
     ):
-        """D6 auto-derive: db / schema / role come from the connection;
+        """db / schema / role come from the connection;
         ``account_identifier`` comes from
-        :func:`get_account_identifier` (the canonical
-        ``<ORG>-<ACCOUNT>`` form), NOT ``connection.account``.
-
-        ``connection.account`` is the host-prefix used to log in
-        (e.g. ``"feature_store_vnext2"``), which is not the canonical
-        Snowflake account identifier and would fail every subsequent
-        L6 ``get_account_identifier``-based mismatch check.
+        :func:`get_account_identifier` (canonical ``<ORG>-<ACCOUNT>``).
         """
         import yaml
         from snowflake.cli._plugins.feature.manager import FeatureManager
         from snowflake.cli.api.identifiers import AccountIdentifier
 
-        # Connection's bare ``account`` looks like a host prefix —
-        # this is what ``connections.toml`` stores for most users.
         mock_cli_context.return_value.connection.account = "my_acct"
         mock_cli_context.return_value.connection.database = "MY_DB"
         mock_cli_context.return_value.connection.schema = "MY_SCHEMA"
         mock_cli_context.return_value.connection.role = "MY_ROLE"
-
-        # ``get_account_identifier`` returns the canonical form by
-        # querying ``CURRENT_ORGANIZATION_NAME / CURRENT_ACCOUNT_NAME``.
         mock_account_identifier.return_value = AccountIdentifier("MY_ORG", "MY_ACCT")
 
-        with mock.patch(
-            "snowflake.ml.feature_store.feature_store.FeatureStore"
-        ), mock.patch(
-            "snowflake.ml.feature_store.feature_store.CreationMode"
-        ) as mock_cm:
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
             mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
-            FeatureManager().init(from_dir=tmp_path, no_scaffold=False)
+            FeatureManager().init(project_root=tmp_path)
 
         parsed = yaml.safe_load((tmp_path / "manifest.yml").read_text())
         target = parsed["targets"]["DEFAULT"]
-        # Canonical org-account form, NOT the host-prefix
-        # ``my_acct`` from ``connection.account``.
         assert target["account_identifier"] == "MY_ORG-MY_ACCT"
         assert target["database"] == "MY_DB"
         assert target["schema"] == "MY_SCHEMA"
         assert target["role"] == "MY_ROLE"
 
-    def test_init_account_identifier_uses_canonical_org_account_form(
-        self, mock_execute_query, mock_cli_context, mock_account_identifier, tmp_path
-    ):
-        """Regression for the live smoke-test bug: ``connection.account``
-        is the host-prefix (``feature_store_vnext2``); the manifest
-        MUST instead store the canonical form returned by
-        :func:`get_account_identifier`
-        (``SFENGINEERING-FEATURE_STORE_VNEXT2``) so the L6 account
-        check at apply time matches.
-        """
-        import yaml
-        from snowflake.cli._plugins.feature.manager import FeatureManager
-        from snowflake.cli.api.identifiers import AccountIdentifier
-
-        mock_cli_context.return_value.connection.account = "feature_store_vnext2"
-        mock_account_identifier.return_value = AccountIdentifier(
-            "SFENGINEERING", "FEATURE_STORE_VNEXT2"
-        )
-
-        with mock.patch(
-            "snowflake.ml.feature_store.feature_store.FeatureStore"
-        ), mock.patch(
-            "snowflake.ml.feature_store.feature_store.CreationMode"
-        ) as mock_cm:
-            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
-            FeatureManager().init(from_dir=tmp_path, no_scaffold=False)
-
-        parsed = yaml.safe_load((tmp_path / "manifest.yml").read_text())
-        assert (
-            parsed["targets"]["DEFAULT"]["account_identifier"]
-            == "SFENGINEERING-FEATURE_STORE_VNEXT2"
-        )
-
     def test_init_account_identifier_falls_back_when_query_fails(
-        self, mock_execute_query, mock_cli_context, mock_account_identifier, tmp_path
+        self,
+        mock_execute_query,
+        mock_decl,
+        mock_cli_context,
+        mock_account_identifier,
+        tmp_path,
     ):
-        """If :func:`get_account_identifier` raises (e.g., a session
-        issue), ``init`` must still produce a writable manifest using
-        the connection's ``account`` field so the operator can
-        manually correct the value rather than losing the scaffold.
+        """If :func:`get_account_identifier` raises, init still writes a
+        manifest using the connection's ``account`` so the operator can
+        edit it.
         """
         import yaml
         from snowflake.cli._plugins.feature.manager import FeatureManager
@@ -541,49 +524,121 @@ class TestFeatureManagerInit:
         mock_cli_context.return_value.connection.account = "fallback_acct"
         mock_account_identifier.side_effect = RuntimeError("simulated session failure")
 
-        with mock.patch(
-            "snowflake.ml.feature_store.feature_store.FeatureStore"
-        ), mock.patch(
-            "snowflake.ml.feature_store.feature_store.CreationMode"
-        ) as mock_cm:
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
             mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
-            FeatureManager().init(from_dir=tmp_path, no_scaffold=False)
+            FeatureManager().init(project_root=tmp_path)
 
         parsed = yaml.safe_load((tmp_path / "manifest.yml").read_text())
-        # Best-effort fallback to ``connection.account`` so the
-        # scaffold lands; the operator can edit the manifest after.
         assert parsed["targets"]["DEFAULT"]["account_identifier"] == "fallback_acct"
 
     def test_init_does_not_write_warehouse_field(
-        self, mock_execute_query, mock_cli_context, tmp_path
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
     ):
         """D2: ``warehouse`` MUST NOT appear in the generated manifest."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        with mock.patch(
-            "snowflake.ml.feature_store.feature_store.FeatureStore"
-        ), mock.patch(
-            "snowflake.ml.feature_store.feature_store.CreationMode"
-        ) as mock_cm:
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
             mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
-            FeatureManager().init(from_dir=tmp_path, no_scaffold=False)
+            FeatureManager().init(project_root=tmp_path)
 
         text = (tmp_path / "manifest.yml").read_text()
         assert "warehouse" not in text.lower()
 
+    # ------------------------------------------------------------------
+    # Fresh init — --target / --database / --schema overrides
+    # ------------------------------------------------------------------
+
+    def test_init_target_name_overrides_default_in_fresh_manifest(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """``--target STAGING`` names the only target ``STAGING`` (not
+        ``DEFAULT``) and sets it as ``default_target`` on a brand-new
+        manifest."""
+        import yaml
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path, target_name="STAGING")
+
+        parsed = yaml.safe_load((tmp_path / "manifest.yml").read_text())
+        assert parsed["default_target"] == "STAGING"
+        assert "STAGING" in parsed["targets"]
+        assert "DEFAULT" not in parsed["targets"]
+
+    def test_init_database_and_schema_overrides_supersede_connection(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """``--database`` / ``--schema`` win over the active connection's
+        defaults when scaffolding a brand-new manifest."""
+        import yaml
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mock_cli_context.return_value.connection.database = "CONN_DB"
+        mock_cli_context.return_value.connection.schema = "CONN_SCHEMA"
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(
+                project_root=tmp_path,
+                database="OVERRIDE_DB",
+                schema="OVERRIDE_SCHEMA",
+            )
+
+        parsed = yaml.safe_load((tmp_path / "manifest.yml").read_text())
+        target = parsed["targets"][parsed["default_target"]]
+        assert target["database"] == "OVERRIDE_DB"
+        assert target["schema"] == "OVERRIDE_SCHEMA"
+
+    def test_init_overrides_drive_feature_store_and_export(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """Overrides flow into both the FS bootstrap AND the export call."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mock_cli_context.return_value.connection.database = "CONN_DB"
+        mock_cli_context.return_value.connection.schema = "CONN_SCHEMA"
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch as mock_fs_cls, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(
+                project_root=tmp_path,
+                database="OVERRIDE_DB",
+                schema="OVERRIDE_SCHEMA",
+            )
+
+        # FeatureStore is built against the override db/schema.
+        positional = mock_fs_cls.call_args.args
+        assert "OVERRIDE_DB" in positional
+        assert "OVERRIDE_SCHEMA" in positional
+
+        # Export is called against the override db/schema, in sources layout.
+        export_call = mock_decl.export_specs.call_args
+        assert export_call is not None, "init must run the export pipeline"
+        # signature: (show_rows, describe, output_dir, db, schema, **kwargs)
+        assert export_call.args[3] == "OVERRIDE_DB"
+        assert export_call.args[4] == "OVERRIDE_SCHEMA"
+        assert export_call.kwargs.get("layout") == "sources"
+
+    # ------------------------------------------------------------------
+    # Scaffold side effects (always-on; no --no-scaffold escape).
+    # ------------------------------------------------------------------
+
     def test_init_scaffolds_sources_subdirs(
-        self, mock_execute_query, mock_cli_context, tmp_path
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
     ):
         """``sources/{entities,datasources,feature_views}/`` exist after init."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        with mock.patch(
-            "snowflake.ml.feature_store.feature_store.FeatureStore"
-        ), mock.patch(
-            "snowflake.ml.feature_store.feature_store.CreationMode"
-        ) as mock_cm:
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
             mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
-            FeatureManager().init(from_dir=tmp_path, no_scaffold=False)
+            FeatureManager().init(project_root=tmp_path)
 
         for sub in ("entities", "datasources", "feature_views"):
             assert (
@@ -591,99 +646,248 @@ class TestFeatureManagerInit:
             ).is_dir(), f"Expected sources/{sub}/ to exist after init scaffold"
 
     def test_init_writes_out_plan_gitkeep(
-        self, mock_execute_query, mock_cli_context, tmp_path
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
     ):
-        """Acceptance #10: ``init`` writes ``out/plan/.gitkeep`` so the
-        plan-discovery directory is git-trackable but doesn't pollute
-        later plan-discovery."""
+        """``out/plan/.gitkeep`` is written so plan-discovery is tracked."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        with mock.patch(
-            "snowflake.ml.feature_store.feature_store.FeatureStore"
-        ), mock.patch(
-            "snowflake.ml.feature_store.feature_store.CreationMode"
-        ) as mock_cm:
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
             mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
-            FeatureManager().init(from_dir=tmp_path, no_scaffold=False)
+            FeatureManager().init(project_root=tmp_path)
 
         gitkeep = tmp_path / "out" / "plan" / ".gitkeep"
-        assert gitkeep.is_file(), (
-            "init must write out/plan/.gitkeep so the directory is "
-            "tracked but not polluted with a stray plan file"
-        )
+        assert gitkeep.is_file()
 
     def test_init_calls_feature_store_with_create_if_not_exist(
-        self, mock_execute_query, mock_cli_context, tmp_path
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
     ):
         """Snowflake-side init runs ``FeatureStore(..., CREATE_IF_NOT_EXIST)``."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        with mock.patch(
-            "snowflake.ml.feature_store.feature_store.FeatureStore"
-        ) as mock_fs_cls, mock.patch(
-            "snowflake.ml.feature_store.feature_store.CreationMode"
-        ) as mock_cm:
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch as mock_fs_cls, cm_patch as mock_cm:
             mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
-            FeatureManager().init(from_dir=tmp_path, no_scaffold=False)
+            FeatureManager().init(project_root=tmp_path)
 
         mock_fs_cls.assert_called_once()
         kwargs = mock_fs_cls.call_args[1]
         assert kwargs["creation_mode"] == mock_cm.CREATE_IF_NOT_EXIST
 
-    def test_init_returns_status_initialized(
-        self, mock_execute_query, mock_cli_context, tmp_path
+    def test_init_runs_export_into_sources_layout(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
     ):
-        """init() returns ``{status, project_root, manifest_path, target}``."""
+        """Init pulls deployed artifacts into ``<project_root>/sources/``."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        with mock.patch(
-            "snowflake.ml.feature_store.feature_store.FeatureStore"
-        ), mock.patch(
-            "snowflake.ml.feature_store.feature_store.CreationMode"
-        ) as mock_cm:
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
             mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
-            result = FeatureManager().init(from_dir=tmp_path, no_scaffold=False)
+            FeatureManager().init(project_root=tmp_path)
+
+        mock_decl.export_specs.assert_called_once()
+        call = mock_decl.export_specs.call_args
+        # The output dir handed to decl_api.export_specs is the project
+        # root (NOT a per-DB subdir): the exporter then writes into
+        # <project_root>/sources/{...}/ when layout="sources".
+        output_dir = call.args[2]
+        assert Path(output_dir) == tmp_path.resolve()
+        assert call.kwargs.get("layout") == "sources"
+
+    def test_init_returns_status_initialized(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """init() returns ``{status, project_root, manifest_path, target, export}``."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            result = FeatureManager().init(project_root=tmp_path)
 
         assert result["status"] == "initialized"
         assert Path(result["project_root"]) == tmp_path.resolve()
         assert Path(result["manifest_path"]) == (tmp_path / "manifest.yml").resolve()
         assert result["target"] == "DEFAULT"
+        # Export envelope is surfaced so the operator sees what landed.
+        assert "export" in result
+        assert result["export"]["status"] == "exported"
 
-    def test_init_fails_fast_when_manifest_exists(
-        self, mock_execute_query, mock_cli_context, tmp_path
+    # ------------------------------------------------------------------
+    # Idempotent re-init — manifest preserved, FS + export re-run.
+    # ------------------------------------------------------------------
+
+    def test_init_with_existing_manifest_does_not_overwrite_it(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
     ):
-        """init-exist (locked decision): ``manifest.yml`` already there →
-        ``CliError`` with the canonical message; NO ``--force`` escape."""
-        from snowflake.cli._plugins.feature.manager import FeatureManager
-        from snowflake.cli.api.exceptions import CliError
-
-        # Pre-existing manifest (contents irrelevant — even invalid blocks).
-        (tmp_path / "manifest.yml").write_text("invalid: yaml: content:\n")
-
-        with mock.patch("snowflake.ml.feature_store.feature_store.FeatureStore"):
-            with pytest.raises(CliError) as excinfo:
-                FeatureManager().init(from_dir=tmp_path, no_scaffold=False)
-        msg = str(excinfo.value)
-        assert "manifest.yml" in msg
-        assert "already exists" in msg
-        assert str(tmp_path.resolve()) in msg or "manifest.yml" in msg
-
-    def test_init_no_scaffold_skips_manifest_and_dirs_and_feature_store(
-        self, mock_execute_query, mock_cli_context, tmp_path
-    ):
-        """``--no-scaffold`` skips manifest write, dir scaffolding, AND
-        the Snowflake-side FeatureStore init."""
+        """A re-init must NEVER overwrite an existing ``manifest.yml``."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        with mock.patch(
-            "snowflake.ml.feature_store.feature_store.FeatureStore"
-        ) as mock_fs_cls:
-            FeatureManager().init(from_dir=tmp_path, no_scaffold=True)
+        original = _DEFAULT_MANIFEST_YAML
+        _write_manifest(tmp_path, yaml_text=original)
 
-        assert not (tmp_path / "manifest.yml").exists()
-        assert not (tmp_path / "sources").exists()
-        assert not (tmp_path / "out").exists()
-        mock_fs_cls.assert_not_called()
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path)
+
+        # Bytes-identical preservation.
+        assert (tmp_path / "manifest.yml").read_text() == original
+
+    def test_init_with_existing_manifest_returns_skipped_manifest_status(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """The result envelope flags that the manifest write was skipped."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            result = FeatureManager().init(project_root=tmp_path)
+
+        # Status reports the idempotent re-init shape.
+        assert result["status"] == "initialized"
+        assert result["manifest_written"] is False
+
+    def test_init_with_existing_manifest_still_runs_feature_store_bootstrap(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """FS bootstrap must re-run on a re-init (idempotent CREATE_IF_NOT_EXIST)."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch as mock_fs_cls, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path)
+
+        mock_fs_cls.assert_called_once()
+        kwargs = mock_fs_cls.call_args[1]
+        assert kwargs["creation_mode"] == mock_cm.CREATE_IF_NOT_EXIST
+
+    def test_init_with_existing_manifest_still_runs_export(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """Export must re-run on a re-init so artifacts stay fresh."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path)
+
+        mock_decl.export_specs.assert_called_once()
+        assert mock_decl.export_specs.call_args.kwargs.get("layout") == "sources"
+
+    def test_init_with_existing_manifest_uses_manifest_target_db_schema(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """A re-init MUST export against the manifest target's db/schema,
+        ignoring ``--database`` / ``--schema`` overrides (the manifest
+        is the source of truth)."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)  # manifest target = TEST_DB / TEST_SCHEMA
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch as mock_fs_cls, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(
+                project_root=tmp_path,
+                database="IGNORED_DB",
+                schema="IGNORED_SCHEMA",
+            )
+
+        # Export honours the manifest target, not the (ignored) flags.
+        export_call = mock_decl.export_specs.call_args
+        assert export_call.args[3] == "TEST_DB"
+        assert export_call.args[4] == "TEST_SCHEMA"
+        # Same for the FS bootstrap.
+        positional = mock_fs_cls.call_args.args
+        assert "TEST_DB" in positional
+        assert "TEST_SCHEMA" in positional
+
+    def test_init_with_existing_manifest_resolves_named_target(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """``--target NAME`` on a re-init picks the matching manifest target."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        multi_target_yaml = textwrap.dedent(
+            """\
+            manifest_version: 1
+            type: feature_store
+            default_target: DEFAULT
+            targets:
+              DEFAULT:
+                account_identifier: TEST_ORG-TEST_ACCT
+                database: TEST_DB
+                schema: TEST_SCHEMA
+              STAGING:
+                account_identifier: TEST_ORG-TEST_ACCT
+                database: STAGING_DB
+                schema: STAGING_SCHEMA
+            """
+        )
+        _write_manifest(tmp_path, yaml_text=multi_target_yaml)
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path, target_name="STAGING")
+
+        export_call = mock_decl.export_specs.call_args
+        assert export_call.args[3] == "STAGING_DB"
+        assert export_call.args[4] == "STAGING_SCHEMA"
+
+    def test_init_is_idempotent_on_repeated_calls(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """Two consecutive ``init`` calls produce the same on-disk shape."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path)
+            first_text = (tmp_path / "manifest.yml").read_text()
+            FeatureManager().init(project_root=tmp_path)
+            second_text = (tmp_path / "manifest.yml").read_text()
+
+        assert first_text == second_text
+        for sub in ("entities", "datasources", "feature_views"):
+            assert (tmp_path / "sources" / sub).is_dir()
+
+    # ------------------------------------------------------------------
+    # Surface deletions — old kwargs are gone.
+    # ------------------------------------------------------------------
+
+    def test_init_no_longer_accepts_no_scaffold_kwarg(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """The ``--no-scaffold`` escape hatch is removed."""
+        import inspect
+
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        sig = inspect.signature(FeatureManager.init)
+        assert "no_scaffold" not in sig.parameters
+
+    def test_init_no_longer_accepts_from_dir_kwarg(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """The ``--from`` / ``from_dir`` arg is removed; init runs in CWD."""
+        import inspect
+
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        sig = inspect.signature(FeatureManager.init)
+        assert "from_dir" not in sig.parameters
 
 
 # ===========================================================================
@@ -1446,48 +1650,21 @@ class TestFeatureManagerDescribe:
             FeatureManager().describe(from_dir=tmp_path, target_name=None, name="X")
 
 
-class TestFeatureManagerExportSpecs:
-    """Strict full-fidelity SPECIFICATION flow, manifest-driven."""
+class TestFeatureManagerExportSpecsRemoved:
+    """The public ``FeatureManager.export_specs`` is gone (init subsumes it).
 
-    def _setup_show_specification(
-        self, mock_execute_query, show_rows, specification_rows=None
-    ):
-        spec_rows = (
-            specification_rows
-            if specification_rows is not None
-            else [{"specification": "{}"}]
-        )
+    The export pipeline is still reachable, but only as a private
+    helper invoked from :meth:`FeatureManager.init` — operators no
+    longer call ``export`` directly.
+    """
 
-        def side_effect(query, **kwargs):
-            if "SHOW ONLINE FEATURE TABLES" in query:
-                return iter(show_rows)
-            if "TYPE = SPECIFICATION" in query:
-                return iter(list(spec_rows))
-            return iter([])
-
-        mock_execute_query.side_effect = side_effect
-
-    def test_export_specs_returns_dict(self, mock_execute_query, mock_decl, tmp_path):
+    def test_export_specs_method_no_longer_present(self):
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
-        _write_manifest(tmp_path)
-        self._setup_show_specification(mock_execute_query, show_rows=[])
-
-        result = FeatureManager().export_specs(
-            from_dir=tmp_path, target_name=None, output_dir=str(tmp_path / "out")
+        assert not hasattr(FeatureManager, "export_specs"), (
+            "FeatureManager.export_specs must be removed; the export "
+            "pipeline now runs only as part of FeatureManager.init"
         )
-        assert isinstance(result, dict)
-
-    def test_export_specs_missing_manifest_raises_cli_error(
-        self, mock_execute_query, mock_decl, tmp_path
-    ):
-        from snowflake.cli._plugins.feature.manager import FeatureManager
-        from snowflake.cli.api.exceptions import CliError
-
-        with pytest.raises(CliError):
-            FeatureManager().export_specs(
-                from_dir=tmp_path, target_name=None, output_dir="."
-            )
 
 
 # ===========================================================================
