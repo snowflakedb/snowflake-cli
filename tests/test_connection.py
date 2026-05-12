@@ -914,6 +914,66 @@ def test_key_pair_authentication_from_config(
 
 
 @mock.patch.dict(os.environ, {}, clear=True)
+@pytest.mark.parametrize(
+    "passphrase_key", ["private_key_file_pwd", "private_key_passphrase"]
+)
+@mock.patch("snowflake.connector.connect")
+def test_key_pair_authentication_passphrase_from_config(
+    mock_connector, mock_ctx, runner, passphrase_key
+):
+    """SNOW-3012806: encrypted private key files work when the passphrase is
+    stored in connections.toml (under `private_key_file_pwd` or
+    `private_key_passphrase`), without PRIVATE_KEY_PASSPHRASE set."""
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    passphrase = "from-config-pass"
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    encrypted_pem = key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.BestAvailableEncryption(
+            passphrase.encode("utf-8")
+        ),
+    )
+    expected_der = serialization.load_pem_private_key(
+        encrypted_pem, passphrase.encode("utf-8"), default_backend()
+    ).private_bytes(
+        encoding=serialization.Encoding.DER,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+
+    with NamedTemporaryFile("wb", suffix=".p8") as pk_file:
+        pk_file.write(encrypted_pem)
+        pk_file.flush()
+
+        connection_details = {
+            "account": "my_account",
+            "user": "jdoe",
+            "authenticator": "SNOWFLAKE_JWT",
+            "private_key_file": pk_file.name,
+            passphrase_key: passphrase,
+        }
+        data = tomlkit.dumps({"connections": {"jwt": connection_details}})
+
+        with NamedTemporaryFile("w+", suffix=".toml") as toml_file:
+            toml_file.write(data)
+            toml_file.flush()
+            result = runner.invoke_with_config_file(
+                toml_file.name,
+                ["object", "list", "warehouse", "-c", "jwt"],
+            )
+
+    assert result.exit_code == 0, result.output
+    kwargs = mock_connector.call_args.kwargs
+    assert kwargs["private_key"] == expected_der
+    # Config passphrase and its alias must not leak into connector kwargs.
+    assert "private_key_file_pwd" not in kwargs
+    assert "private_key_passphrase" not in kwargs
+
+
+@mock.patch.dict(os.environ, {}, clear=True)
 def test_key_pair_authentication_no_passphrase_error(
     mock_ctx, temporary_directory, runner
 ):
@@ -1492,6 +1552,89 @@ def test_generate_jwt_with_pass_phrase_from_env(
     assert result.output == "funny token\n"
     mocked_get_token.assert_called_once_with(
         user="FooBar", account="account1", privatekey_path=str(f), key_password="123"
+    )
+
+
+@pytest.mark.parametrize(
+    "passphrase_key", ["private_key_file_pwd", "private_key_passphrase"]
+)
+@mock.patch.dict(os.environ, {}, clear=True)
+@mock.patch(
+    "snowflake.cli._plugins.connection.commands.connector.auth.get_token_from_private_key"
+)
+def test_generate_jwt_with_pass_phrase_from_config(
+    mocked_get_token, runner, named_temporary_file, passphrase_key
+):
+    """SNOW-3012806: generate-jwt reads the passphrase from
+    `private_key_file_pwd` (connector-python name) or `private_key_passphrase`
+    (CLI-native) in connections.toml when the env var is not set."""
+    mocked_get_token.return_value = "funny token"
+
+    with named_temporary_file() as f:
+        f.write_text("secret from file")
+        connection_details = {
+            "account": "account1",
+            "user": "FooBar",
+            "authenticator": "SNOWFLAKE_JWT",
+            "private_key_file": str(f),
+            passphrase_key: "from-config",
+        }
+        data = tomlkit.dumps({"connections": {"jwt": connection_details}})
+
+        with NamedTemporaryFile("w+", suffix="toml") as tmp_file:
+            tmp_file.write(data)
+            tmp_file.flush()
+            result = runner.invoke_with_config_file(
+                tmp_file.name,
+                ["connection", "generate-jwt", "-c", "jwt"],
+            )
+
+    assert result.exit_code == 0, result.output
+    assert result.output == "funny token\n"
+    mocked_get_token.assert_called_once_with(
+        user="FooBar",
+        account="account1",
+        privatekey_path=str(f),
+        key_password="from-config",
+    )
+
+
+@mock.patch.dict(os.environ, {"PRIVATE_KEY_PASSPHRASE": "from-env"}, clear=True)
+@mock.patch(
+    "snowflake.cli._plugins.connection.commands.connector.auth.get_token_from_private_key"
+)
+def test_generate_jwt_env_passphrase_takes_precedence_over_config(
+    mocked_get_token, runner, named_temporary_file
+):
+    """PRIVATE_KEY_PASSPHRASE continues to win over the config-sourced
+    passphrase so existing setups are not broken by SNOW-3012806."""
+    mocked_get_token.return_value = "funny token"
+
+    with named_temporary_file() as f:
+        f.write_text("secret from file")
+        connection_details = {
+            "account": "account1",
+            "user": "FooBar",
+            "authenticator": "SNOWFLAKE_JWT",
+            "private_key_file": str(f),
+            "private_key_file_pwd": "from-config",
+        }
+        data = tomlkit.dumps({"connections": {"jwt": connection_details}})
+
+        with NamedTemporaryFile("w+", suffix="toml") as tmp_file:
+            tmp_file.write(data)
+            tmp_file.flush()
+            result = runner.invoke_with_config_file(
+                tmp_file.name,
+                ["connection", "generate-jwt", "-c", "jwt"],
+            )
+
+    assert result.exit_code == 0, result.output
+    mocked_get_token.assert_called_once_with(
+        user="FooBar",
+        account="account1",
+        privatekey_path=str(f),
+        key_password="from-env",
     )
 
 
