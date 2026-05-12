@@ -116,8 +116,8 @@
   |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  | --format                       [table|json|json_ext|  Specifies the output   |
+  |                                csv]                   format.                |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |

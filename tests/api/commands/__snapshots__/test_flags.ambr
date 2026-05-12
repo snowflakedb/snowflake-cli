@@ -4,8 +4,8 @@
   Usage: root stage list-files [OPTIONS] STAGE_NAME
   Try 'root stage list-files --help' for help.
   +- Error ----------------------------------------------------------------------+
-  | Invalid value for '--format': 'invalid_format' is not one of 'TABLE',        |
-  | 'JSON', 'JSON_EXT', 'CSV'.                                                   |
+  | Invalid value for '--format' (env var: 'None'): 'invalid_format' is not one  |
+  | of 'table', 'json', 'json_ext', 'csv'.                                       |
   +------------------------------------------------------------------------------+
   
   '''

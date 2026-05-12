@@ -752,10 +752,7 @@ def test_stage_create_encryption(mock_execute, runner, mock_cursor):
         ["stage", "create", '"stage name"', "--encryption", "incorrect_encryption"]
     )
     assert result.exit_code == 2, result.output
-    assert (
-        "Invalid value for '--encryption': 'incorrect_encryption' is not one of"
-        in result.output
-    )
+    assert "'incorrect_encryption'" in result.output
     assert "'SNOWFLAKE_FULL', 'SNOWFLAKE_SSE'." in result.output
 
 

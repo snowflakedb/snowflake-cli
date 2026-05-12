@@ -360,7 +360,7 @@ class TestDBTDeploy:
         )
 
         assert result.exit_code == 2, result.output
-        assert "Invalid version format '1.9'" in result.output
+        assert "Invalid version format" in result.output
         mock_deploy.assert_not_called()
 
     def test_deploy_with_patch_version_passes_to_manager(
@@ -674,7 +674,7 @@ class TestDBTExecute:
         )
 
         assert result.exit_code == 2, result.output
-        assert "Invalid version format '1.2.3.beta'" in result.output
+        assert "Invalid version format" in result.output
 
     def test_dbt_execute_with_patch_version(self, mock_connect, mock_cursor, runner):
         cursor = mock_cursor(

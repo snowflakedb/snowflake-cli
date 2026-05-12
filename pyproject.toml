@@ -26,7 +26,7 @@ description = "Snowflake CLI"
 readme = "README.md"
 dependencies = [
   # Actual project dependencies, from which we generate [project.dependencies] section serving as a lockfile for PyPi
-  "click==8.1.8",
+  "click==8.2.0",
   "GitPython==3.1.44",
   "PyYAML==6.0.2",
   "id==1.5.0",

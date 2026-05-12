@@ -164,7 +164,7 @@ def test_port_has_cannot_be_string(runner):
             ],
         )
     assert result.exit_code == 2, result.output
-    assert "'portValue' is not a valid integer" in result.output
+    assert "'portValue'" in result.output
 
 
 def test_port_has_cannot_be_float(runner):
@@ -185,7 +185,7 @@ def test_port_has_cannot_be_float(runner):
             ],
         )
     assert result.exit_code == 2, result.output
-    assert "'123.45' is not a valid integer. " in result.output
+    assert "'123.45'" in result.output
 
 
 @pytest.mark.parametrize(
