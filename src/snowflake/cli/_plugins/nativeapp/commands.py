@@ -479,8 +479,8 @@ def app_deploy(
     upload_only: bool = typer.Option(
         False,
         "--upload-only",
-        help="(Snowflake Apps Deploy only) Bundle and upload source artifacts to the stage, then stop. "
-        "Skips the build and deploy phases.",
+        help="(Snowflake Apps Deploy only) Bundle and upload source artifacts to the configured code location "
+        "(stage or workspace), then stop. Skips the build and deploy phases.",
     ),
     build_only: bool = typer.Option(
         False,
@@ -491,7 +491,7 @@ def app_deploy(
     deploy_only: bool = typer.Option(
         False,
         "--deploy-only",
-        help="(Snowflake Apps Deploy only) Run only the deploy phase (assumes the container image has already been built). "
+        help="(Snowflake Apps Deploy only) Run only the deploy phase (assumes a previous build phase has already completed). "
         "Skips the upload and build phases.",
     ),
     **options,
@@ -506,10 +506,11 @@ def app_deploy(
       for ``snow app deploy --prune --recursive``.
 
     For Snowflake Apps Deploy projects (snowflake-app entities):
-      Builds and deploys a containerized Snowflake Apps Deploy. The pipeline has
-      three phases (upload, build, deploy). By default all three run in
-      sequence; use ``--upload-only`` / ``--build-only`` / ``--deploy-only``
-      to run a single phase.
+      Uploads bundled source artifacts, runs the server-side artifact repository
+      build, then deploys the application service. The pipeline has three phases
+      (upload, build, deploy). By default all three run in sequence; use
+      ``--upload-only`` / ``--build-only`` / ``--deploy-only`` to run a single
+      phase.
     """
     app_flow: AppFlow = options["app_flow"]
     if app_flow == AppFlow.SNOWFLAKE_APP:
@@ -581,9 +582,8 @@ def app_validate(
       Validates a deployed Snowflake Native App's setup script.
 
     For Snowflake Apps Deploy projects (snowflake-app entities):
-      Bundles the project, checks that a Dockerfile with an EXPOSE
-      directive exists, and verifies that the current role has the BIND
-      SERVICE ENDPOINT privilege required for deployment.
+      Bundles the local project and verifies that configured database/schema
+      targets (when provided in ``snowflake.yml``) are accessible.
     """
     app_flow: AppFlow = options["app_flow"]
     if app_flow == AppFlow.SNOWFLAKE_APP:
