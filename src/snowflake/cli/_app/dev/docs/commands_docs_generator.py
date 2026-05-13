@@ -24,8 +24,8 @@ from typer.core import TyperArgument
 
 log = logging.getLogger(__name__)
 
-CMD_USAGE_TMPL = "usage.mdx.jinja2"
-OVERVIEW_TMPL = "overview.mdx.jinja2"
+CMD_USAGE_TMPL = "usage.rst.jinja2"
+OVERVIEW_TMPL = "overview.rst.jinja2"
 
 
 def generate_command_docs(
@@ -33,7 +33,7 @@ def generate_command_docs(
 ):
     """
     Iterates recursively through commands info. Creates a file structure resembling
-    commands structure. For each terminal command creates a "usage" MDX file.
+    commands structure. For each terminal command creates a "usage" rst file.
     """
     if getattr(command, "hidden", False):
         return
@@ -82,9 +82,9 @@ def _render_command_usage(
         else:
             options.append(param)
 
-    # MDX include fragments that hand-authored command-reference pages in
-    # snowflake-prod-docs compose via MDX imports.
-    file_path = root / f"usage-{command_name}.mdx"
+    # RST files are presumed to be standalone pages in the docs with a matching item in the left nav.
+    # Included files, which these are, need to use the .txt extension.
+    file_path = root / f"usage-{command_name}.txt"
     log.info("Creating %s", file_path)
     command_help_params = _split_docstring(command.help)
     template_params = {

@@ -43,7 +43,9 @@ jobs:
       runs-on: ${{ matrix.os }}
       python-version: ${{ matrix.python-version }}
       python-env: integration
-      hatch-run: integration:test
+      # Narrow to Snowflake Apps deploy e2e + build logs while debugging this branch;
+      # revert to integration:test before merging to main.
+      hatch-run: ${{ github.event_name == 'pull_request' && github.head_ref == 'gbloom/snow-app-deploy-tests' && 'integration:test_snowflake_apps_deploy_e2e' || 'integration:test' }}
     secrets: inherit
 
   # Repo owner has commented /ok-to-test on a (fork-based) pull request

@@ -94,8 +94,13 @@ def test_role(snowflake_session):
         snowflake_session.execute_string(f"drop role if exists {role_name}")
 
 
-@pytest.fixture(scope="session")
-def snowflake_session() -> SnowflakeConnection:
+def new_integration_connection() -> SnowflakeConnection:
+    """Open a new Snowflake connection using integration-test env configuration.
+
+    Use when a second concurrent connection is needed (for example background
+    SQL while the session-scoped ``snowflake_session`` is busy on another
+    thread).
+    """
     config = {
         "application": "INTEGRATION_TEST",
         "authenticator": "SNOWFLAKE_JWT",
@@ -109,7 +114,12 @@ def snowflake_session() -> SnowflakeConnection:
     }
     config = {k: v for k, v in config.items() if v is not None}
     update_connection_details_with_private_key(config)
-    connection = connector.connect(**config)
+    return connector.connect(**config)
+
+
+@pytest.fixture(scope="session")
+def snowflake_session() -> SnowflakeConnection:
+    connection = new_integration_connection()
     yield connection
     connection.close()
 

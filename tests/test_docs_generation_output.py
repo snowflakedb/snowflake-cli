@@ -66,65 +66,48 @@ def test_definition_file_format_generated_from_json(
         Path(temporary_directory)
         / "gen_docs"
         / "project_definition"
-        / "definition_section_demo.mdx"
+        / "definition_section_demo.txt"
     )
 
     assert project_definition_path.read_text() == dedent(
         """\
-## SECTION_TITLE
+SECTION_TITLE
 
-### Project definition structure
+Project definition structure
+===============================================================================
 
-```
-
-  propertyA:
+.. code-block::
+    
+    
+  propertyA: 
     - propertyB: <string>
-```
 
-### Project definition properties
 
+Project definition properties
+===============================================================================
 The following table describes the project definition properties.
+    
+.. list-table:: Project definition properties
+  :widths: 30 70
+  :header-rows: 1
+    
+  * - Property
+    - Definition
 
-<Table>
-  <thead>
-    <tr>
-      <th>Property</th>
-      <th>Definition</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>
+  * - **propertyA**
 
-**propertyA**
+      *Optional*
 
-*Optional*
+    - Title of property A
+ 
+  * - **propertyA.propertyB**
 
-      </td>
-      <td>
+      *Required*, *string*
 
-Title of property A
+    - Title of property B
+    
+      Description of property B
 
-      </td>
-    </tr>
-    <tr>
-      <td>
-
-**propertyA.propertyB**
-
-*Required*, *string*
-
-      </td>
-      <td>
-
-Title of property B
-
-Description of property B
-
-      </td>
-    </tr>
-  </tbody>
-</Table>
 """
     )
 
@@ -142,7 +125,7 @@ def test_files_generated_for_each_optional_project_definition_property(
     for property_name in model_json["properties"]:
         if property_name in model_json["required"]:
             continue
-        if not (project_definition_path / f"definition_{property_name}.mdx").exists():
+        if not (project_definition_path / f"definition_{property_name}.txt").exists():
             errors.append(f"Section `{property_name}` was not properly generated")
 
     assert len(errors) == 0, "\n".join(errors)
@@ -171,7 +154,7 @@ def test_all_commands_have_generated_files(
                 )
                 _check(command_info, new_directory_path, [*command_path, command_name])
         else:
-            if not (directory_path / f"usage-{command.name}.mdx").exists():
+            if not (directory_path / f"usage-{command.name}.txt").exists():
                 errors.append(
                     f"Command `{' '.join(command_path)}` documentation was not properly generated"
                 )
@@ -196,7 +179,7 @@ def test_flags_have_default_values(runner, temporary_directory, snapshot):
         / "gen_docs"
         / "commands"
         / "cortex"
-        / "usage-complete.mdx"
+        / "usage-complete.txt"
     )
     assert example_generated_file.exists()
     assert example_generated_file.read_text() == snapshot

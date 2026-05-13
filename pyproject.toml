@@ -169,6 +169,12 @@ test_container_services = [
 test_qa = [
   "pytest -m 'integration and not no_qa' -n5 --dist=worksteal --deflake-test-type=integration tests_integration/",
 ]
+# Snowflake Apps Deploy end-to-end only (heavy; no xdist). Use while iterating on
+# deploy integration tests instead of the full ``integration:test`` suite.
+# ``-s`` surfaces print() from the build-log poller thread in CI output.
+test_snowflake_apps_deploy_e2e = [
+  'pytest tests_integration/apps/test_snowflake_app_deploy.py -m "integration and snow_app_deploy_debug" -n0 -s --deflake-test-type=integration {args}',
+]
 
 [tool.hatch.envs.ud]
 template = "ud"
@@ -219,6 +225,8 @@ markers = [
   "integration_experimental: experimental integration test",
   "no_qa: mark test as not to be run in QA",
   "qa_only: mark test as to be run only in QA",
+  "snowflake_apps_deploy_e2e: Snowflake Apps deploy end-to-end (resource-heavy; run alone)",
+  "snow_app_deploy_debug: Snowflake Apps deploy e2e targeted for narrow CI / debugging",
 ]
 
 

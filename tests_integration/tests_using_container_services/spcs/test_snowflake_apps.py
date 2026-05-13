@@ -23,6 +23,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from snowflake.connector.cursor import DictCursor
 
 COMPUTE_POOL = "snowcli_compute_pool"
 DATABASE = os.environ.get("SNOWFLAKE_CONNECTIONS_INTEGRATION_DATABASE", "SNOWCLI_DB")
@@ -125,10 +126,14 @@ def test_snowflake_apps_setup_and_deploy(
         assert "App ready at" in result.output
 
         # ── Verify service exists via SQL ─────────────────────────────
-        rows = snowflake_session.execute_string(
-            f"SHOW SERVICES IN SCHEMA {DATABASE}.{schema_name}"
-        )
-        service_names = [row[1] for row in rows[-1]]  # "name" is second column
+        # SHOW SERVICES columns: name is first, status is second; do not use row[1] as name.
+        cur = snowflake_session.cursor(DictCursor)
+        try:
+            cur.execute(f"SHOW SERVICES IN SCHEMA {DATABASE}.{schema_name}")
+            result_rows = cur.fetchall()
+        finally:
+            cur.close()
+        service_names = [r["name"] for r in result_rows]
         assert (
             "TEST_APP" in service_names
         ), f"Expected TEST_APP in services, got: {service_names}"

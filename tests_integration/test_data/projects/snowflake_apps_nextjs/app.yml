@@ -1,0 +1,7 @@
+install:
+  commands:
+    # npm install (no package-lock.json in repo fixture)
+    - ["npm", "install", "--include=dev"]
+
+run:
+  command: ["node", ".next/standalone/server.js"]
