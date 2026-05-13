@@ -1070,7 +1070,7 @@ class TestSnowflakeAppManager:
         assert desc["url"] == "my-app.snowflakecomputing.app"
         assert desc["is_upgrading"] == "false"
         query = mock_execute.call_args[0][0]
-        assert "DESCRIBE APPLICATION SERVICE DB.SCHEMA.my_app" in query
+        assert "DESCRIBE APPLICATION SERVICE IDENTIFIER('DB.SCHEMA.my_app')" in query
 
     @patch(EXECUTE_QUERY)
     def test_describe_app_service_empty(self, mock_execute):
@@ -1328,7 +1328,8 @@ class TestSnowflakeAppManager:
         assert url == "https://my-endpoint.snowflakecomputing.app"
         mock_execute.assert_called_once()
         assert (
-            mock_execute.call_args[0][0] == "DESCRIBE APPLICATION SERVICE DB.SCHEMA.SVC"
+            mock_execute.call_args[0][0]
+            == "DESCRIBE APPLICATION SERVICE IDENTIFIER('DB.SCHEMA.SVC')"
         )
 
     @patch(EXECUTE_QUERY)
@@ -1355,7 +1356,8 @@ class TestSnowflakeAppManager:
         assert url is None
         mock_execute.assert_called_once()
         assert (
-            "DESCRIBE APPLICATION SERVICE DB.SCHEMA.SVC" in mock_execute.call_args[0][0]
+            "DESCRIBE APPLICATION SERVICE IDENTIFIER('DB.SCHEMA.SVC')"
+            in mock_execute.call_args[0][0]
         )
 
     @patch(EXECUTE_QUERY)
@@ -4121,6 +4123,82 @@ class TestDeployCommand:
         mock_mgr.create_app_service.assert_called_once()
         mock_mgr.build_app_artifact_repo.assert_not_called()
         mock_mgr.stage_exists.assert_not_called()
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": None,
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": None,
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_upgrade_timeout_hint_uses_fully_qualified_service_name(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.code_workspace = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.artifact_repository = None
+        mock_get_entity.return_value = entity
+
+        already_exists_error = ProgrammingError("already exists")
+        already_exists_error.errno = 2002
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.create_app_service.side_effect = already_exists_error
+        mock_mgr.resolve_application_service_url_from_describe.return_value = (
+            "https://my-app.snowflakecomputing.app"
+        )
+        mock_poll.return_value = {
+            "url": "my-app.snowflakecomputing.app",
+            "is_upgrading": "false",
+        }
+
+        from tests_common import change_directory
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "deploy", "--deploy-only"])
+            assert result.exit_code == 0, result.output
+
+        mock_mgr.upgrade_app_service.assert_called_once_with(
+            service_fqn=FQN(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP"),
+            version="LATEST",
+        )
+        _, poll_kwargs = mock_poll.call_args
+        assert (
+            "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('TEST_DB.TEST_SCHEMA.MY_APP')"
+            in poll_kwargs["timeout_message"]
+        )
 
     @patch("snowflake.cli._plugins.apps.commands.StageManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
