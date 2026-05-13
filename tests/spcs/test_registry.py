@@ -266,7 +266,11 @@ def test_docker_registry_login(mock_check_output, mock_get_url, mock_get_token):
 
     result = RegistryManager().docker_registry_login()
     mock_check_output.assert_called_once_with(
-        expected_command, input=json.dumps(test_token), text=True, stderr=PIPE
+        expected_command,
+        input=json.dumps(test_token),
+        text=True,
+        encoding=None,
+        stderr=PIPE,
     )
     mock_get_url.assert_called_once_with(False)
     mock_get_token.assert_called_once_with()
@@ -402,7 +406,11 @@ def test_docker_registry_login_private_link_manager(
 
     result = RegistryManager().docker_registry_login(private_link=True)
     mock_check_output.assert_called_once_with(
-        expected_command, input=json.dumps(test_token), text=True, stderr=PIPE
+        expected_command,
+        input=json.dumps(test_token),
+        text=True,
+        encoding=None,
+        stderr=PIPE,
     )
     mock_get_url.assert_called_once_with(True)
     mock_get_token.assert_called_once_with()

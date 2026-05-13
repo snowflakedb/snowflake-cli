@@ -57,6 +57,7 @@ from snowflake.cli.api.project.schemas.entities.common import (
     ProcessorMapping,
 )
 from snowflake.cli.api.rendering.jinja import jinja_render_from_file
+from snowflake.cli.api.secure_path import SecurePath
 
 DEFAULT_TIMEOUT = 30
 TEMPLATE_PATH = Path(__file__).parent / "callback_source.py.jinja"
@@ -218,7 +219,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
                 if grant_statements is not None:
                     collected_output.append(grant_statements)
 
-                with open(sql_file, "a") as file:
+                with SecurePath(sql_file).open("a") as file:
                     if insert_newline:
                         file.write("\n")
                     insert_newline = True
@@ -503,7 +504,7 @@ def edit_setup_script_with_exec_imm_sql(
         return
 
     # For every SQL file, add SQL statement 'execute immediate' to __generated.sql script.
-    with open(generated_file_path, "a") as file:
+    with SecurePath(generated_file_path).open("a") as file:
         for sql_file in collected_sql_files:
             sql_file_relative_path = sql_file.relative_to(
                 deploy_root
