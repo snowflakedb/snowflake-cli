@@ -50,6 +50,7 @@ from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
     find_entity,
     force_project_definition_v2,
     native_app_only,
+    set_app_flow,
     with_app_flow_routing,
 )
 from snowflake.cli._plugins.nativeapp.version.commands import app as versions_app
@@ -183,6 +184,7 @@ def app_setup(
     ``snowflake-app`` entity preconfigured from account parameters and the
     current connection. This command does not apply to Native App projects.
     """
+    set_app_flow(AppFlow.SNOWFLAKE_APP)
     return snowflake_app_setup(app_name, dry_run, compute_pool, build_eai)
 
 
