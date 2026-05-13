@@ -25,6 +25,7 @@ neither ``apply`` nor ``plan`` accepts positional spec paths or the
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
 import os
@@ -32,7 +33,7 @@ import sys
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Callable, List, Optional, TypeVar
 
 import typer
 from click import ClickException
@@ -44,6 +45,70 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     ObjectResult,
 )
+
+# ``FeatureStoreNotInitializedError`` is the declarative-layer wrapper
+# raised by :func:`decl_api.assert_feature_store_initialized` when a
+# command runs against a schema that has not been bootstrapped via
+# ``snow feature init``.  Imported at the module top so the wrapping
+# decorator (:func:`_surface_init_required_as_click_exception`) can
+# catch it for every command — see Phase 6 of
+# ``plans/remove_duplicate_entity_tag_prefix_ec78aade.plan.md``.
+try:
+    from snowflake.ml.feature_store.decl.errors import (
+        FeatureStoreNotInitializedError,
+    )
+
+    _HAS_FS_NOT_INIT_ERROR = True
+except ImportError:  # pragma: no cover — wheel-isolation fallback
+
+    class FeatureStoreNotInitializedError(Exception):  # type: ignore[no-redef]
+        """Fallback stub when the snowml decl wheel is too old to ship
+        :class:`FeatureStoreNotInitializedError`.
+
+        Older decl wheels never raise this exception, so the
+        ``except`` clause in
+        :func:`_surface_init_required_as_click_exception` is effectively
+        a no-op.  The stub exists only so the import does not fail
+        on those wheels.
+        """
+
+    _HAS_FS_NOT_INIT_ERROR = False
+
+
+_F = TypeVar("_F", bound=Callable[..., Any])
+
+
+def _surface_init_required_as_click_exception(fn: _F) -> _F:
+    """Wrap a Typer command so :class:`FeatureStoreNotInitializedError`
+    becomes a top-level :class:`ClickException`.
+
+    Pin NT6 from the plan: every ``snow feature`` subcommand except
+    ``init`` must convert the snowml-layer init-required error into
+    an actionable CLI error.  The message produced by
+    ``FeatureStoreNotInitializedError.__str__`` already contains the
+    operator-facing remediation
+    (``"Run \\`snow feature init\\` against this target to bootstrap"``),
+    so we propagate it verbatim — Click's default handler renders the
+    message on stderr and exits with code 1.
+
+    Args:
+        fn: The Typer command function to wrap.
+
+    Returns:
+        The wrapped function — behaviourally identical except that
+        :class:`FeatureStoreNotInitializedError` is caught and
+        re-raised as :class:`ClickException`.
+    """
+
+    @functools.wraps(fn)
+    def _wrapper(*args: Any, **kwargs: Any) -> Any:
+        try:
+            return fn(*args, **kwargs)
+        except FeatureStoreNotInitializedError as exc:
+            raise ClickException(str(exc)) from exc
+
+    return _wrapper  # type: ignore[return-value]
+
 
 app = SnowTyperFactory(
     name="feature",
@@ -304,6 +369,7 @@ def init(
 
 
 @app.command(requires_connection=True)
+@_surface_init_required_as_click_exception
 def apply(
     from_location: Path = from_option,
     target: Optional[str] = target_option,
@@ -356,6 +422,7 @@ def apply(
 
 
 @app.command(requires_connection=True)
+@_surface_init_required_as_click_exception
 def plan(
     from_location: Path = from_option,
     target: Optional[str] = target_option,
@@ -419,6 +486,7 @@ def plan(
 
 
 @app.command(name="list", requires_connection=True)
+@_surface_init_required_as_click_exception
 def list_cmd(
     from_location: Path = from_option,
     target: Optional[str] = target_option,
@@ -441,6 +509,7 @@ def list_cmd(
 
 
 @app.command(requires_connection=True)
+@_surface_init_required_as_click_exception
 def describe(
     name: str = typer.Argument(
         ...,
@@ -622,6 +691,7 @@ def online_service(
 
 
 @app.command(requires_connection=True)
+@_surface_init_required_as_click_exception
 def ingest(
     source_name: str = typer.Argument(
         ...,
@@ -673,6 +743,7 @@ def ingest(
 
 
 @app.command(requires_connection=True)
+@_surface_init_required_as_click_exception
 def query(
     feature_view_name: str = typer.Argument(
         ...,

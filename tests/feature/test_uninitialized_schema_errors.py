@@ -115,13 +115,25 @@ def _assert_actionable_message(output: str) -> None:
     If either half is missing the operator has to guess at the next
     step from a backend stack trace — exactly the regression this
     phase exists to prevent.
+
+    The Click error renderer wraps long messages across multiple
+    lines inside a box (``+- Error -+ | ... |``), which means the
+    literal phrase ``snow feature init`` may be broken by a line
+    break.  Normalise whitespace before checking so the assertion is
+    robust to box-wrapping.
     """
-    combined = output.lower()
+    import re
+
+    # Strip Click's box-drawing pipes (``| ... |``) before collapsing
+    # whitespace so a phrase that crosses a wrap boundary stays intact:
+    # ``| ... `snow  |\n| feature init` ...``  →  ``... snow feature init ...``
+    cleaned = re.sub(r"\s*\|\s*", " ", output)
+    normalised = re.sub(r"\s+", " ", cleaned).lower()
     assert (
-        "test_db" in combined and "test_schema" in combined
+        "test_db" in normalised and "test_schema" in normalised
     ), f"Error message must name the target database/schema; got: {output!r}"
     assert (
-        "snow feature init" in output.lower()
+        "snow feature init" in normalised
     ), f"Error message must direct operator at `snow feature init`; got: {output!r}"
 
 
@@ -295,4 +307,8 @@ class TestInitNotBlockedByUninitialisedSchema:
         # The init guard regression check: under no circumstance may
         # the init command surface the "Run snow feature init first"
         # message — that would be circular.
-        assert "Run `snow feature init`" not in result.output
+        import re
+
+        cleaned = re.sub(r"\s*\|\s*", " ", result.output)
+        normalised = re.sub(r"\s+", " ", cleaned).lower()
+        assert "run `snow feature init`" not in normalised

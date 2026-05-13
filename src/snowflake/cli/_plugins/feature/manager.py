@@ -1046,6 +1046,10 @@ class FeatureManager(SqlExecutionMixin):
           ``SHOW TAGS LIKE 'SNOWML_FEATURE_STORE_ENTITY_%'``.
         - ``Datasource`` rows derived from FV ``spec.sources[]``.
         """
+        from snowflake.ml.feature_store.decl.errors import (
+            FeatureStoreNotInitializedError,
+        )
+
         _, _, target = self._resolve_project(from_dir, target_name)
         self._ensure_session_setup()
 
@@ -1069,6 +1073,12 @@ class FeatureManager(SqlExecutionMixin):
                 "source": "snowflake",
                 "specs": enriched,
             }
+        except FeatureStoreNotInitializedError:
+            # Surface init-required as the operator-facing
+            # "run snow feature init" error rather than burying it
+            # in a status="error" envelope; the CLI wrapper renders
+            # it as a top-level ``ClickException``.
+            raise
         except Exception as exc:
             log.warning("list query raised %s: %s", type(exc).__name__, exc)
             return {"status": "error", "error": str(exc)}
@@ -1313,7 +1323,19 @@ class FeatureManager(SqlExecutionMixin):
         return specification_map
 
     def _fetch_entity_rows(self, target: FSTarget) -> list[dict[str, Any]]:
-        """Fetch entity tag rows via the imperative ``list_entities()`` facade."""
+        """Fetch entity tag rows via the imperative ``list_entities()`` facade.
+
+        Raises:
+            decl_api.FeatureStoreNotInitializedError: When the target
+                schema lacks the bootstrap feature-store tags.  The
+                command-level wrapper in ``commands.py`` converts this
+                into a ``ClickException`` whose message directs the
+                operator at ``snow feature init``.
+        """
+        from snowflake.ml.feature_store.decl.errors import (
+            FeatureStoreNotInitializedError,
+        )
+
         ctx = get_cli_context()
         try:
             session = self._build_session()
@@ -1323,6 +1345,13 @@ class FeatureManager(SqlExecutionMixin):
                 target.schema,
                 ctx.connection.warehouse or "",
             )
+        except FeatureStoreNotInitializedError:
+            # Init-required is a first-class error — let it propagate
+            # so the CLI handler renders the actionable message
+            # instead of silently returning an empty list (which would
+            # mask the bug and surface as a confusing "no entities"
+            # downstream).
+            raise
         except Exception as exc:
             log.debug("fetch_entity_rows failed (treating as empty): %s", exc)
             return []
