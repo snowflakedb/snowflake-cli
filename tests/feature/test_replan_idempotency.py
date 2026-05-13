@@ -388,16 +388,24 @@ def bug_bash_io():
         "snowflake.cli._plugins.feature.manager.FeatureManager._fetch_entity_rows"
     ) as ent, mock.patch(
         "snowflake.cli._plugins.feature.manager.FeatureManager._ensure_session_setup"
-    ) as setup:
+    ) as setup, mock.patch(
+        "snowflake.cli._plugins.feature.manager.FeatureManager._assert_initialized"
+    ) as assert_init:
         exec_q.return_value = iter([_bug_bash_show_oft_row()])
         oft.return_value = {_BUG_BASH_OFT_NAME: _golden_specification()}
         ent.return_value = [_bug_bash_entity_row()]
         setup.return_value = None
+        # Bypass the Phase 8 init-first guard so these idempotency
+        # tests can exercise plan/write_plan without a live Snowflake
+        # connection.  The negative-path tests for the guard live in
+        # ``tests/feature/test_uninitialized_schema_errors.py``.
+        assert_init.return_value = None
         yield {
             "execute_query": exec_q,
             "fetch_oft_state": oft,
             "fetch_entity_rows": ent,
             "ensure_session_setup": setup,
+            "assert_initialized": assert_init,
         }
 
 

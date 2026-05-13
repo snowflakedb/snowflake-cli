@@ -176,6 +176,48 @@ def mock_execute_query():
         yield m
 
 
+@pytest.fixture(autouse=True)
+def bypass_init_first_guard():
+    """Make the manager's init-first guard a no-op for integration tests.
+
+    These tests intentionally exercise the real ``decl_api`` (not the
+    ``mock_decl`` fixture used in ``test_manager.py``), but they still
+    don't have a live Snowflake connection — ``mock_execute_query``
+    only stubs ``FeatureManager.execute_query``, not the snowml-core
+    ``FeatureStore`` constructor that
+    ``decl_api.assert_feature_store_initialized`` reaches into.
+    Without these patches the manager's new
+    ``_assert_initialized`` call (Phase 8 init-first guard) and the
+    ``_fetch_entity_rows`` → ``decl_api.fetch_entity_rows`` →
+    ``imperative_executor.assert_feature_store_initialized`` chain
+    would both raise ``FeatureStoreNotInitializedError`` against the
+    mock session before the real plan/list/describe code under test
+    ever runs.
+
+    Two patches:
+
+    1. ``decl_api.assert_feature_store_initialized`` — covers
+       ``_assert_initialized`` + ``_get_feature_store``.
+    2. ``decl_api.fetch_entity_rows`` — covers the entity read path,
+       which calls ``imperative_executor.assert_feature_store_initialized``
+       via the same-module reference (so the first patch does not
+       intercept it).
+
+    Tests that want to exercise the negative path explicitly assign
+    ``side_effect=FeatureStoreNotInitializedError(...)`` to the
+    returned mock.
+    """
+    with mock.patch(
+        "snowflake.cli._plugins.feature.manager.decl_api"
+        ".assert_feature_store_initialized"
+    ) as m_assert, mock.patch(
+        "snowflake.cli._plugins.feature.manager.decl_api.fetch_entity_rows"
+    ) as m_fetch:
+        m_assert.return_value = mock.MagicMock(name="FeatureStore")
+        m_fetch.return_value = []
+        yield m_assert
+
+
 # ---------------------------------------------------------------------------
 # manager.plan — read-only validate+plan path
 # ---------------------------------------------------------------------------

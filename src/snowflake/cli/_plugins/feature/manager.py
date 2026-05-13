@@ -565,6 +565,10 @@ class FeatureManager(SqlExecutionMixin):
             }
 
         self._ensure_session_setup()
+        # Init-first guard: fail fast against an uninitialised schema
+        # with the actionable "run `snow feature init`" error before
+        # touching any plan file or executing any DDL.
+        self._assert_initialized(target)
 
         if plan_file is not None:
             return self._apply_from_plan_file(
@@ -840,6 +844,10 @@ class FeatureManager(SqlExecutionMixin):
         runtime_vars = _parse_variables(variables)
 
         self._ensure_session_setup()
+        # Init-first guard: fail fast against an uninitialised schema
+        # with the actionable "run `snow feature init`" error before
+        # issuing any state SQL or running the loader.
+        self._assert_initialized(target)
 
         ctx = get_cli_context()
         sqls = decl_api.state_queries(target.database, target.schema)
@@ -1052,6 +1060,11 @@ class FeatureManager(SqlExecutionMixin):
 
         _, _, target = self._resolve_project(from_dir, target_name)
         self._ensure_session_setup()
+        # Init-first guard: fail fast against an uninitialised schema
+        # so `snow feature list` does not silently return an empty
+        # specs list (which previously masked the "you forgot to run
+        # `snow feature init`" diagnostic).
+        self._assert_initialized(target)
 
         try:
             queries = decl_api.list_state_queries(target.database, target.schema)
@@ -1096,6 +1109,12 @@ class FeatureManager(SqlExecutionMixin):
         """Return metadata for a named feature view (resolves to OFT name)."""
         _, _, target = self._resolve_project(from_dir, target_name)
         self._ensure_session_setup()
+        # Init-first guard: surface the actionable "run `snow feature
+        # init`" error against an uninitialised schema instead of the
+        # generic "not found in deployed feature views" envelope that
+        # `describe` would otherwise return (because the SHOW OFTs
+        # call against an uninit schema returns an empty list).
+        self._assert_initialized(target)
 
         sqls = decl_api.state_queries(target.database, target.schema)
         raw_show = _rows_to_dicts(
@@ -1279,24 +1298,57 @@ class FeatureManager(SqlExecutionMixin):
     def _get_feature_store(self, target: FSTarget) -> Any:
         """Return a snowml-core ``FeatureStore`` bound to the active connection.
 
-        Constructs ``FeatureStore`` lazily with
-        ``creation_mode=FAIL_IF_NOT_EXIST`` so the schema must already
-        be initialised as a SnowML feature store.
+        Constructs the ``FeatureStore`` via
+        :func:`decl_api.assert_feature_store_initialized`, so the
+        target schema must already carry the SnowML bootstrap tags
+        (``SNOWML_FEATURE_STORE_OBJECT`` /
+        ``SNOWML_FEATURE_VIEW_METADATA``).  When the tags are missing,
+        the helper rewraps the snowml-core ``NOT_FOUND`` as
+        :class:`decl_api.FeatureStoreNotInitializedError`, which the
+        command-layer wrapper in ``commands.py`` converts into a
+        ``ClickException`` directing the operator at
+        ``snow feature init``.
         """
         self._ensure_session_setup()
         ctx = get_cli_context()
         session = self._build_session()
-        from snowflake.ml.feature_store.feature_store import (
-            CreationMode,
-            FeatureStore,
-        )
-
-        return FeatureStore(
+        return decl_api.assert_feature_store_initialized(
             session,
             target.database,
             target.schema,
             ctx.connection.warehouse or "",
-            creation_mode=CreationMode.FAIL_IF_NOT_EXIST,
+        )
+
+    def _assert_initialized(self, target: FSTarget) -> None:
+        """Init-first guard — every ``snow feature`` command except
+        ``init`` calls this before issuing any read/write SQL.
+
+        Constructs (and immediately discards) a
+        ``FeatureStore(FAIL_IF_NOT_EXIST)`` via
+        :func:`decl_api.assert_feature_store_initialized`.  On an
+        uninitialised schema the helper raises
+        :class:`decl_api.FeatureStoreNotInitializedError`, which the
+        command-layer wrapper converts to a top-level
+        ``ClickException`` carrying the "run ``snow feature init``"
+        message.  On a healthy schema the call is a single
+        ``SHOW TAGS`` round-trip (per snowml-core's
+        ``_check_internal_objects_exist_or_throw``).
+
+        Args:
+            target: Resolved manifest target.  Database / schema /
+                warehouse threading mirrors ``_get_feature_store``.
+
+        Raises:
+            decl_api.FeatureStoreNotInitializedError: When the target
+                schema lacks the bootstrap feature-store tags.
+        """
+        ctx = get_cli_context()
+        session = self._build_session()
+        decl_api.assert_feature_store_initialized(
+            session,
+            target.database,
+            target.schema,
+            ctx.connection.warehouse or "",
         )
 
     def _fetch_oft_state(

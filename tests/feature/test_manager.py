@@ -177,6 +177,23 @@ def mock_decl():
             "directory": "",
             "files": [],
         }
+
+        # ``assert_feature_store_initialized`` is the init-first guard
+        # (docs/DEVELOPMENT_STANDARDS.md rule #11).  ``MagicMock``
+        # special-cases any attribute that starts with ``assert_``
+        # (treats it as one of mock's built-in assertion helpers,
+        # which raises ``AttributeError`` when called), so we must
+        # assign a regular ``MagicMock`` to that name explicitly to
+        # override the auto-attribute magic.  Default behaviour:
+        # no-op (return a fake FeatureStore), i.e. "the schema is
+        # already initialised, proceed with the test".  Tests that
+        # need to drive the negative path overwrite this directly:
+        # ``mock_decl.assert_feature_store_initialized.side_effect =
+        #   decl_api.FeatureStoreNotInitializedError(...)``.
+        m.assert_feature_store_initialized = mock.MagicMock(
+            name="assert_feature_store_initialized",
+            return_value=mock.MagicMock(name="FeatureStore"),
+        )
         yield m
 
 
