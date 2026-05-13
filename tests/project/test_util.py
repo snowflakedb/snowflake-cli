@@ -209,11 +209,11 @@ def test_is_valid_string_literal(literal, valid):
     [
         ("abc", "'abc'"),
         # Single quotes escaped by doubling them (Snowflake's native escape mechanism).
-        # Backslash escaping is unsafe when STANDARD_ESCAPE_SEQUENCES=FALSE (the default).
         ("'abc'", "'''abc'''"),
         ("_aBc_$", "'_aBc_$'"),
         ('"abc"', "'\"abc\"'"),
-        # Non-quote characters (including control characters) are preserved verbatim.
+        # Non-quote characters (including control characters and bare backslashes)
+        # are preserved verbatim under STANDARD_ESCAPE_SEQUENCES=FALSE.
         ("a\bbc", "'a\bbc'"),
         ("a\fbc", "'a\fbc'"),
         ("a\nbc", "'a\nbc'"),
@@ -221,16 +221,25 @@ def test_is_valid_string_literal(literal, valid):
         ("a\tbc", "'a\tbc'"),
         ("a\vbc", "'a\vbc'"),
         ("\xf6", "'\xf6'"),
+        ("a\\b", "'a\\b'"),  # bare backslash passes through
+        ("C:\\Users\\RUNNER~1", "'C:\\Users\\RUNNER~1'"),
         ("'abc", "'''abc'"),  # leading unterminated single quote
         ("a'c", "'a''c'"),  # nested single quote
         ("abc'", "'abc'''"),  # trailing single quote
         ('a"bc', "'a\"bc'"),  # double quote
+        # Backslash immediately before a quote is doubled so the connector's
+        # client-side split_statements cannot consume our '' quote-doubling as
+        # an escape pair.
+        ("a\\'b", "'a\\\\''b'"),
         # SQL injection payloads are neutralised by quote-doubling.
         (
             "x'; GRANT ROLE ACCOUNTADMIN TO USER attacker; --",
             "'x''; GRANT ROLE ACCOUNTADMIN TO USER attacker; --'",
         ),
         ("'; DROP TABLE t; --", "'''; DROP TABLE t; --'"),
+        # Backslash-quote payload: the connector's splitter would otherwise treat
+        # \' as an escape pair and slice on the injected ;.
+        ("x\\';DROP TABLE t;--", "'x\\\\'';DROP TABLE t;--'"),
     ],
 )
 def test_to_string_literal(raw_string, literal):
@@ -272,6 +281,11 @@ def test_escape_like_pattern(raw_string, escaped):
         ('"a\'b"', "'a''b'"),
         # Multiple embedded single quotes are each doubled.
         ("\"a'b'c\"", "'a''b''c'"),
+        # Backslash-then-quote payload: the connector's client-side
+        # split_statements treats \' as an escape pair. Doubling the backslash
+        # (\\) keeps the '' quote-doubling effective and blocks statement
+        # slicing on the injected ';'.
+        ('"x\\\';DROP TABLE t;--"', "'x\\\\'';DROP TABLE t;--'"),
     ],
 )
 def test_identifier_to_show_like_pattern(identifier, expected):
