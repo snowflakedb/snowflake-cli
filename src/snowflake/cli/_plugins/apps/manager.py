@@ -624,45 +624,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
         normalized_directory = directory_name.strip("/")
         return f"{self.workspace_last_uri(workspace_fqn)}/{normalized_directory}"
 
-    def get_default_workspace_version_uri(self, workspace_fqn: FQN) -> str:
-        """Return URI for the workspace default version."""
-        cursor = self.execute_query(
-            f"DESCRIBE WORKSPACE {workspace_fqn.sql_identifier}",
-            cursor_class=DictCursor,
-        )
-        row = cursor.fetchone()
-        if row is None:
-            raise CliError(
-                f"Could not describe workspace {workspace_fqn.identifier} "
-                "to resolve default version."
-            )
-        location_uri = (
-            row.get("default_version_location_uri")
-            or row.get("DEFAULT_VERSION_LOCATION_URI")
-            or ""
-        )
-        if not location_uri:
-            version_name = row.get("default_version_name") or row.get(
-                "DEFAULT_VERSION_NAME"
-            )
-            if version_name:
-                location_uri = f"snow://workspace/{workspace_fqn.identifier}/versions/{version_name}/"
-        if not location_uri:
-            raise CliError(
-                f"Could not resolve default version for workspace {workspace_fqn.identifier}."
-            )
-        return str(location_uri).rstrip("/")
-
-    def get_default_workspace_version_subdirectory_uri(
-        self, workspace_fqn: FQN, directory_name: str
-    ) -> str:
-        """Return URI for *directory_name* under the workspace default version."""
-        normalized_directory = directory_name.strip("/")
-        return (
-            f"{self.get_default_workspace_version_uri(workspace_fqn)}"
-            f"/{normalized_directory}"
-        )
-
     def clear_workspace_subdirectory(
         self, workspace_fqn: FQN, directory_name: str
     ) -> None:
