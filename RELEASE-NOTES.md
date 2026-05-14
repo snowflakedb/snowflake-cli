@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Added functionality for `snow spcs service build-image` command to use the new SPCS stage volume implementation. The older SPCS spec created used to go through the V0 implementation, which doesn't have some of the features like SNOWFLAKE_FULL support for Azure.
 * Added `snow streamlit logs` command to stream live logs from a Streamlit-in-Snowflake app running on the SPCSv2 container runtime. Supports `--tail` for historical lines, `--name` to target apps without a project definition, and honors the global `--format` flag (plain / JSON / CSV) for downstream piping.
 
 ## Fixes and improvements
