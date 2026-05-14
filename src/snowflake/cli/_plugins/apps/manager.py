@@ -864,7 +864,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         schema: str = "",
         runtime_image: str = "",
         build_eai: Optional[str] = None,
-        project_type: str = "nodejs",
+        project_type: str = "",
         source_uri: Optional[str] = None,
     ) -> str:
         """Build an app using SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO.

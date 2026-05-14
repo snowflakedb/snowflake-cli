@@ -608,6 +608,7 @@ def snowflake_app_deploy(
                 )
 
             cli_console.step("Building app using artifact repository...")
+            project_type_override = getattr(entity, "spcs_test_project_type", None)
             build_kwargs: dict = dict(
                 artifact_repo_fqn=artifact_repo_fqn_str,
                 app_id=app_name,
@@ -616,6 +617,11 @@ def snowflake_app_deploy(
                 schema=schema,
                 runtime_image=entity.runtime_image,
                 build_eai=build_eai,
+                project_type=(
+                    project_type_override
+                    if isinstance(project_type_override, str)
+                    else ""
+                ),
             )
             if use_workspace:
                 build_kwargs["source_uri"] = manager.workspace_last_subdirectory_uri(
