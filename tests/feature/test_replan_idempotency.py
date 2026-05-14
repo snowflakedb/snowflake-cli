@@ -680,3 +680,163 @@ class TestPlanPreservesNameCase:
             "manager.plan op stream must preserve the spec's original-case "
             f"FV name ({_BUG_BASH_FV_NAME}); got name={fv_ops[0]['name']!r}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Branch P integration — leftover BatchFV from a prior bug-bash run must
+# not block re-plan with BATCH_FV_TILING_* errors.
+# ---------------------------------------------------------------------------
+
+
+_BATCH_FV_DECL_NAME = "MY_BATCH_FV_BATCH_DECL"
+_BATCH_FV_DECL_VERSION = "V1"
+
+
+def _bug_bash_batch_entity_yaml() -> str:
+    return (
+        "kind: Entity\n"
+        "name: USER_BATCH_DECL\n"
+        "join_keys:\n"
+        "  - name: USER_ID\n"
+        "    type: StringType\n"
+    )
+
+
+def _bug_bash_batch_fv_exported_yaml() -> str:
+    """Mirror the YAML ``snow feature init`` writes when re-exporting a
+    deployed non-tiled BatchFV.
+
+    The shape matches the actual export captured under
+    ``/private/var/folders/.../bugbash-verify-*.bF6bi8H7kt/bash/sources/
+    feature_views/MY_BATCH_FV_BATCH_DECL.yaml`` from the failing run that
+    motivated this fix:
+
+    - The authoring YAML originally declared *no* ``features:`` block
+      (see ``docs/BATCH_FV_BUG_BASH.md`` §5) — but the
+      ``DESCRIBE … TYPE = SPECIFICATION`` round-trip synthesises N 1:1
+      passthrough features keyed off the BatchSource columns, and the
+      exporter renders those back into the YAML.
+    - ``sources: []`` and ``timestamp_field`` / ``feature_granularity_sec``
+      / ``feature_aggregation_method`` / ``batch_schedule`` are all
+      *missing* — the FV is non-tiled and the SPECIFICATION payload
+      carries none of those keys.
+    - ``target_lag_sec`` is the imperative-shape unit conversion of
+      ``target_lag: 1 minute``.
+
+    Without the ``_check_batch_feature_view_constraints`` strip-before-
+    check fix on the snowml side, every ``snow feature plan`` against
+    this exported tree fires BATCH_FV_TILING_TIMESTAMP / _GRANULARITY /
+    _AGG_METHOD and pushes the plan into ``validation_failed``.
+    """
+    return (
+        "kind: BatchFeatureView\n"
+        f"name: {_BATCH_FV_DECL_NAME}\n"
+        f"version: {_BATCH_FV_DECL_VERSION}\n"
+        f"database: {_BUG_BASH_DB}\n"
+        f"schema: {_BUG_BASH_SCHEMA}\n"
+        "online: true\n"
+        "scheduling_state: RUNNING\n"
+        "ordered_entity_column_names:\n"
+        "  - USER_ID\n"
+        "sources: []\n"
+        "features:\n"
+        "  - output_column:\n"
+        "      name: EVENT_TS\n"
+        "      type: TimestampType\n"
+        "    source_column:\n"
+        "      name: EVENT_TS\n"
+        "      type: TimestampType\n"
+        "  - output_column:\n"
+        "      name: METRIC_VAL\n"
+        "      type: DoubleType\n"
+        "    source_column:\n"
+        "      name: METRIC_VAL\n"
+        "      type: DoubleType\n"
+        "target_lag_sec: 60\n"
+    )
+
+
+def _write_bug_bash_batch_only_project(tmp_path: Path) -> Path:
+    """Write a project tree carrying ONLY the leftover BatchFV trio.
+
+    Mirrors the minimum surface ``snow feature init`` would produce for
+    a runtime that has just ``MY_BATCH_FV_BATCH_DECL`` deployed and no
+    other authoring objects — exactly the cascade the verify script
+    walks through against ``JKEW_DB.JKEW_SCHEMA``.
+    """
+    (tmp_path / "manifest.yml").write_text(_bug_bash_manifest_yaml())
+    sources = tmp_path / "sources"
+    entity_dir = sources / "entities"
+    fv_dir = sources / "feature_views"
+    entity_dir.mkdir(parents=True)
+    fv_dir.mkdir(parents=True)
+    (entity_dir / "USER_BATCH_DECL.yaml").write_text(_bug_bash_batch_entity_yaml())
+    (fv_dir / f"{_BATCH_FV_DECL_NAME}.yaml").write_text(
+        _bug_bash_batch_fv_exported_yaml()
+    )
+    return tmp_path
+
+
+class TestBatchFvAutoDerivedFeaturesPlanIntegration:
+    """``manager.plan`` against a re-exported non-tiled BatchFV must clear
+    validation cleanly — the BATCH_FV_TILING_* checks must not fire on
+    snowml-core's auto-derived 1:1 passthrough features.
+
+    Pairs with the snowml-side unit test
+    ``test_batch_fv_passthrough_auto_derived_features_skip_tiling_checks``
+    in ``snowml/.../tests/test_batch_feature_view_validation.py`` and
+    pins the entire snow-CLI → decl_api → invariants pipeline against
+    the BUG_BASH §step-6 cascade.  Regressing
+    ``_check_batch_feature_view_constraints`` to its pre-fix shape
+    surfaces here as ``status='validation_failed'`` with at least one
+    ``BATCH_FV_TILING_*`` error.
+    """
+
+    def test_plan_against_reexported_batch_fv_does_not_fire_tiling_errors(
+        self,
+        tmp_path,
+        bug_bash_cli_context,
+        bug_bash_io,
+    ):
+        """A re-exported non-tiled BatchFV YAML must validate cleanly.
+
+        The applied state is empty (no OFT row, no entity row) so the
+        plan is a fresh CREATE — but the validator still walks every
+        spec in the batch, and the BatchFV constraint check is the
+        first invariant to fire if the strip-before-check fix has
+        regressed.  Asserting zero ``BATCH_FV_TILING_*`` errors is
+        the narrowest possible pin on this contract; the CREATE
+        op-stream is incidental.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        # No deployed BatchFV — the planner must clear the validator
+        # even when the only thing in the project tree is the export
+        # shape that previously tripped BATCH_FV_TILING_*.
+        bug_bash_io["fetch_oft_state"].return_value = {}
+        bug_bash_io["fetch_entity_rows"].return_value = []
+        bug_bash_io["execute_query"].return_value = iter([])
+
+        _write_bug_bash_batch_only_project(tmp_path)
+
+        result = FeatureManager().plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            dev_mode=False,
+            allow_recreate=False,
+        )
+
+        tiling_errors = [
+            err for err in result.get("errors") or [] if "BATCH_FV_TILING_" in str(err)
+        ]
+        assert tiling_errors == [], (
+            "manager.plan must not fire BATCH_FV_TILING_* against a "
+            "re-exported non-tiled BatchFV (auto-derived 1:1 passthrough "
+            f"features must be stripped before the tiling checks); got "
+            f"errors={tiling_errors!r}"
+        )
+        assert result["status"] != "validation_failed", (
+            "expected the BatchFV constraint check to clear; got "
+            f"status={result['status']!r} errors={result.get('errors')!r}"
+        )
