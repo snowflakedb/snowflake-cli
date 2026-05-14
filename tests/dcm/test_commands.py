@@ -861,9 +861,7 @@ class TestDCMPlan:
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().plan.return_value = mock_cursor(
-            rows=[("[]",)], columns=("operations",)
-        )
+        mock_dcm_manager().plan.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
