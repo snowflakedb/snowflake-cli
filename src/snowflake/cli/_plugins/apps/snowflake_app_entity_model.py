@@ -225,6 +225,20 @@ class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
         default="",
     )
 
+    spcs_test_project_type: Optional[str] = Field(
+        title="Project type override for SPCS_TEST builds",
+        default=None,
+    )
+
+    @field_validator("spcs_test_project_type", mode="before")
+    @classmethod
+    def _validate_spcs_test_project_type(cls, value):
+        if value is None or value == "null":
+            return None
+        if not isinstance(value, str):
+            raise ValueError("spcs_test_project_type must be a string or null")
+        return value.strip()
+
     build_image: Optional[str] = Field(
         title="Custom container image for building the app",
         default=None,
