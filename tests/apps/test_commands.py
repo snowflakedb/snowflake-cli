@@ -819,67 +819,19 @@ class TestSnowflakeAppManager:
         with pytest.raises(ProgrammingError):
             SnowflakeAppManager().ensure_workspace_live_version(fqn)
 
-    @patch(EXECUTE_QUERY)
-    def test_get_default_workspace_version_uri(self, mock_execute):
-        cursor = Mock()
-        cursor.fetchone.return_value = {
-            "default_version_name": "VERSION$7",
-            "default_version_location_uri": (
-                "snow://workspace/DB.SCHEMA.WORKSPACE/versions/version$7/"
-            ),
-        }
-        mock_execute.return_value = cursor
+    def test_workspace_last_uri(self):
         fqn = FQN(database="DB", schema="SCHEMA", name="WORKSPACE")
         assert (
-            SnowflakeAppManager().get_default_workspace_version_uri(fqn)
-            == "snow://workspace/DB.SCHEMA.WORKSPACE/versions/version$7"
-        )
-        mock_execute.assert_called_once_with(
-            "DESCRIBE WORKSPACE IDENTIFIER('DB.SCHEMA.WORKSPACE')",
-            cursor_class=DictCursor,
+            SnowflakeAppManager().workspace_last_uri(fqn)
+            == "snow://workspace/DB.SCHEMA.WORKSPACE/versions/last"
         )
 
-    @patch(EXECUTE_QUERY)
-    def test_get_default_workspace_version_uri_uses_name_fallback(self, mock_execute):
-        cursor = Mock()
-        cursor.fetchone.return_value = {
-            "default_version_name": "VERSION$9",
-            "default_version_location_uri": "",
-        }
-        mock_execute.return_value = cursor
+    def test_workspace_last_subdirectory_uri_normalizes_directory_name(self):
         fqn = FQN(database="DB", schema="SCHEMA", name="WORKSPACE")
         assert (
-            SnowflakeAppManager().get_default_workspace_version_uri(fqn)
-            == "snow://workspace/DB.SCHEMA.WORKSPACE/versions/VERSION$9"
+            SnowflakeAppManager().workspace_last_subdirectory_uri(fqn, "/MY_APP/")
+            == "snow://workspace/DB.SCHEMA.WORKSPACE/versions/last/MY_APP"
         )
-
-    @patch(EXECUTE_QUERY)
-    def test_get_default_workspace_version_uri_raises_when_describe_returns_no_row(
-        self, mock_execute
-    ):
-        cursor = Mock()
-        cursor.fetchone.return_value = None
-        mock_execute.return_value = cursor
-        fqn = FQN(database="DB", schema="SCHEMA", name="WORKSPACE")
-        with pytest.raises(
-            CliError,
-            match=r"Could not describe workspace DB\.SCHEMA\.WORKSPACE",
-        ):
-            SnowflakeAppManager().get_default_workspace_version_uri(fqn)
-
-    @patch(EXECUTE_QUERY)
-    def test_get_default_workspace_version_uri_raises_when_missing(self, mock_execute):
-        cursor = Mock()
-        cursor.fetchone.return_value = {
-            "default_version_name": "",
-            "default_version_location_uri": "",
-        }
-        mock_execute.return_value = cursor
-        fqn = FQN(database="DB", schema="SCHEMA", name="WORKSPACE")
-        with pytest.raises(
-            CliError, match="Could not resolve default version for workspace"
-        ):
-            SnowflakeAppManager().get_default_workspace_version_uri(fqn)
 
     @staticmethod
     def _find_query(call_args_list, substr):
@@ -3353,9 +3305,9 @@ RESOLVE_DEPLOY_DEFAULTS = (
     "snowflake.cli._plugins.apps.commands._resolve_deploy_defaults"
 )
 
-# Shape must include ``/versions/<id>/`` — deploy parses this for the build step message.
+# Workspace builds use the committed ``last`` alias directly.
 _WORKSPACE_BUILD_SOURCE_URI = (
-    "snow://workspace/TEST_DB.TEST_SCHEMA.MY_APP_CODE/versions/version$1/MY_APP"
+    "snow://workspace/TEST_DB.TEST_SCHEMA.MY_APP_CODE/versions/last/MY_APP"
 )
 
 
@@ -3555,7 +3507,7 @@ class TestDeployCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
-        mock_mgr.get_default_workspace_version_subdirectory_uri.return_value = (
+        mock_mgr.workspace_last_subdirectory_uri.return_value = (
             _WORKSPACE_BUILD_SOURCE_URI
         )
         mock_mgr.artifact_repo_exists.return_value = False
@@ -3595,7 +3547,7 @@ class TestDeployCommand:
         )
         mock_mgr.create_stage.assert_not_called()
         mock_mgr.build_app_artifact_repo.assert_called_once_with(
-            source_uri=mock_mgr.get_default_workspace_version_subdirectory_uri.return_value,
+            source_uri=mock_mgr.workspace_last_subdirectory_uri.return_value,
             artifact_repo_fqn="TEST_DB.TEST_SCHEMA.MY_APP_REPO",
             app_id="MY_APP",
             compute_pool="BUILD_POOL",
@@ -3604,7 +3556,7 @@ class TestDeployCommand:
             runtime_image="runtime:latest",
             build_eai="MY_EAI",
         )
-        mock_mgr.get_default_workspace_version_subdirectory_uri.assert_called_once_with(
+        mock_mgr.workspace_last_subdirectory_uri.assert_called_once_with(
             FQN(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP_CODE"),
             "MY_APP",
         )
@@ -3787,7 +3739,7 @@ class TestDeployCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
-        mock_mgr.get_default_workspace_version_subdirectory_uri.return_value = (
+        mock_mgr.workspace_last_subdirectory_uri.return_value = (
             _WORKSPACE_BUILD_SOURCE_URI
         )
         mock_mgr.artifact_repo_exists.return_value = True
@@ -3891,7 +3843,7 @@ class TestDeployCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
-        mock_mgr.get_default_workspace_version_subdirectory_uri.return_value = (
+        mock_mgr.workspace_last_subdirectory_uri.return_value = (
             _WORKSPACE_BUILD_SOURCE_URI
         )
         mock_mgr.stage_exists.return_value = False
@@ -4040,7 +3992,7 @@ class TestDeployCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
-        mock_mgr.get_default_workspace_version_subdirectory_uri.return_value = (
+        mock_mgr.workspace_last_subdirectory_uri.return_value = (
             _WORKSPACE_BUILD_SOURCE_URI
         )
         mock_mgr.artifact_repo_exists.return_value = False
@@ -4301,7 +4253,7 @@ class TestDeployCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = True
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
-        mock_mgr.get_default_workspace_version_subdirectory_uri.return_value = (
+        mock_mgr.workspace_last_subdirectory_uri.return_value = (
             _WORKSPACE_BUILD_SOURCE_URI
         )
         mock_mgr.artifact_repo_exists.return_value = False
@@ -4404,7 +4356,7 @@ class TestDeployCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = True
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
-        mock_mgr.get_default_workspace_version_subdirectory_uri.return_value = (
+        mock_mgr.workspace_last_subdirectory_uri.return_value = (
             _WORKSPACE_BUILD_SOURCE_URI
         )
         mock_mgr.artifact_repo_exists.return_value = False
@@ -4510,7 +4462,7 @@ class TestDeployCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = True
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = True
-        mock_mgr.get_default_workspace_version_subdirectory_uri.return_value = (
+        mock_mgr.workspace_last_subdirectory_uri.return_value = (
             _WORKSPACE_BUILD_SOURCE_URI
         )
         mock_mgr.artifact_repo_exists.return_value = False
