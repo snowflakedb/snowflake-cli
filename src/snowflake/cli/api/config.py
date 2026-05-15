@@ -34,6 +34,7 @@ import tomlkit
 from click import ClickException
 from snowflake.cli.api.exceptions import (
     ConfigFileTooWidePermissionsError,
+    InvalidConnectionConfigurationError,
     MissingConfigurationError,
     UnsupportedConfigSectionTypeError,
 )
@@ -139,6 +140,13 @@ class ConnectionConfig:
 
     @classmethod
     def from_dict(cls, config_dict: dict) -> ConnectionConfig:
+        if not isinstance(config_dict, dict):
+            raise InvalidConnectionConfigurationError(
+                "Expected a TOML table with key/value pairs "
+                f"(e.g. `[connections.my_conn]`), got {type(config_dict).__name__}. "
+                "Check your config.toml for a connection entry that was written as a "
+                "plain value instead of a table."
+            )
         known_settings = {}
         other_settings = {}
         for key, value in config_dict.items():

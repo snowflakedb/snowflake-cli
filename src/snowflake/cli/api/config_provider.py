@@ -32,6 +32,31 @@ ALTERNATIVE_CONFIG_ENV_VAR: Final[str] = "SNOWFLAKE_CLI_CONFIG_V2_ENABLED"
 log = logging.getLogger(__name__)
 
 
+def _is_connection_table(name: str, config: Any) -> bool:
+    """Return True if ``config`` is a mapping suitable for ``ConnectionConfig.from_dict``.
+
+    A connection entry in ``config.toml`` must be a TOML table (e.g.
+    ``[connections.my_conn]``). If a user writes a plain value under
+    ``[connections]`` — for example ``my_conn = "value"`` at the top of the
+    section — downstream code crashes with ``AttributeError: 'String' object
+    has no attribute 'items'``. Skip those entries with a warning so
+    ``snow connection list`` still surfaces the valid ones.
+
+    ``tomlkit.items.Table`` inherits from ``dict``, so ``isinstance(x, dict)``
+    accepts the types we actually get from parsed config files.
+    """
+    if isinstance(config, dict):
+        return True
+    from snowflake.cli.api.console import cli_console
+
+    cli_console.warning(
+        f"Skipping connection '{name}' in config: expected a table "
+        f"(e.g. [connections.{name}]), got {type(config).__name__}. "
+        "Fix or remove this entry to silence this warning."
+    )
+    return False
+
+
 class ConfigProvider(ABC):
     """
     Abstract base class for configuration providers.
@@ -143,6 +168,7 @@ class LegacyConfigProvider(ConfigProvider):
         return {
             name: ConnectionConfig.from_dict(config)
             for name, config in connections.items()
+            if _is_connection_table(name, config)
         }
 
 
@@ -490,6 +516,7 @@ class AlternativeConfigProvider(ConfigProvider):
         return {
             name: ConnectionConfig.from_dict(config)
             for name, config in connections_dict.items()
+            if _is_connection_table(name, config)
         }
 
     def _get_file_based_connections(self) -> dict:
@@ -551,7 +578,7 @@ class AlternativeConfigProvider(ConfigProvider):
         filtered_connections: Dict[str, Dict[str, Any]] = {}
         if isinstance(raw_connections, dict):
             for conn_name, conn_config in raw_connections.items():
-                if isinstance(conn_config, dict):
+                if _is_connection_table(conn_name, conn_config):
                     filtered_connections[conn_name] = conn_config
 
         if general_params:
