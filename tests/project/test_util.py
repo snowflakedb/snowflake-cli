@@ -240,6 +240,10 @@ def test_is_valid_string_literal(literal, valid):
         # Backslash-quote payload: the connector's splitter would otherwise treat
         # \' as an escape pair and slice on the injected ;.
         ("x\\';DROP TABLE t;--", "'x\\\\'';DROP TABLE t;--'"),
+        # Even-backslash-before-quote: two backslashes before a quote.
+        # split_statements consumes \\ (pair), then \' (pair), leaving the bare '
+        # to exit the string unless the entire run is doubled.
+        ("x\\\\';DROP TABLE t;--", "'x\\\\\\\\'';DROP TABLE t;--'"),
     ],
 )
 def test_to_string_literal(raw_string, literal):

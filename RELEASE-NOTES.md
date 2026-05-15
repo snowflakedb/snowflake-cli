@@ -28,6 +28,7 @@
 * Fixed SQL string literal escaping in `identifier_to_show_like_pattern` and `to_string_literal` to use Snowflake's standard single-quote doubling (`''`) instead of backslash escaping, which is not interpreted under the default `STANDARD_ESCAPE_SEQUENCES=FALSE` session setting. This closes SQL injection vectors through `SHOW ... LIKE` queries driven by a project-controlled `snowflake.yml` or `manifest.yml`.
 * Upgraded `pip` to version 26.1.1.
 * Fixed `snow connection list` crashing with `AttributeError` when `config.toml` contains a scalar value directly under `[connections]`. Such entries are now skipped with a warning so valid connections are still listed.
+* Fixed SQL injection via `FQN.sql_identifier`.
 
 
 # v3.17.1
