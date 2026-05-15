@@ -29,8 +29,10 @@ from snowflake.cli._plugins.apps.manager import (
     _resolve_entity_id,
     perform_bundle,
 )
+from snowflake.cli.api.cli_global_context import get_cli_context_manager
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.metrics import CLIMetrics, CLIMetricsSpan
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.connector.cursor import DictCursor
 from snowflake.connector.errors import ProgrammingError
@@ -64,6 +66,21 @@ def _write_snowflake_app_yml(path):
     flow when the CLI is invoked from ``path``.
     """
     (path / "snowflake.yml").write_text(_SNOWFLAKE_APP_YML)
+
+
+def _reset_command_metrics():
+    get_cli_context_manager().metrics = CLIMetrics()
+
+
+def _get_completed_span(span_name: str) -> dict:
+    spans = get_cli_context_manager().metrics.completed_spans
+    for span in spans:
+        if span[CLIMetricsSpan.NAME_KEY] == span_name:
+            return span
+    raise AssertionError(
+        f"Span {span_name!r} not found. Recorded spans: "
+        f"{[span[CLIMetricsSpan.NAME_KEY] for span in spans]}"
+    )
 
 
 # ── Helper function tests ─────────────────────────────────────────────
@@ -2864,12 +2881,15 @@ class TestOpenCommand:
 
         with change_directory(tmp_path):
             _write_snowflake_app_yml(tmp_path)
+            _reset_command_metrics()
             result = runner.invoke(["app", "open"])
             assert result.exit_code == 1
             assert (
                 "Could not resolve endpoint URL for service DB.SCHEMA.MY_APP"
                 in result.output
             )
+            span = _get_completed_span("snowflake_app.open.resolve_endpoint")
+            assert span[CLIMetricsSpan.ERROR_KEY] == ProgrammingError.__name__
 
     @patch("snowflake.cli._plugins.apps.commands.typer.launch")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
@@ -3316,10 +3336,13 @@ class TestEventsCommand:
 
         with change_directory(tmp_path):
             _write_snowflake_app_yml(tmp_path)
+            _reset_command_metrics()
             result = runner.invoke(["app", "events"])
             assert result.exit_code == 1
             assert "Could not retrieve logs" in result.output
             assert "Verify that the app is deployed" in result.output
+            span = _get_completed_span("snowflake_app.events.fetch_logs")
+            assert span[CLIMetricsSpan.ERROR_KEY] == ProgrammingError.__name__
 
 
 # ── Deploy CLI command tests ──────────────────────────────────────────
@@ -3454,12 +3477,87 @@ class TestDeployCommand:
 
         with change_directory(tmp_path):
             _write_snowflake_app_yml(tmp_path)
+            _reset_command_metrics()
             result = runner.invoke(["app", "deploy", "--deploy-only"])
             assert result.exit_code == 1
             assert (
                 "Deployment failed while creating application service" in result.output
             )
             assert "Verify privileges for CREATE" in result.output
+            create_span = _get_completed_span("snowflake_app.deploy_service.create")
+            assert create_span[CLIMetricsSpan.ERROR_KEY] == ProgrammingError.__name__
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": None,
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": None,
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_service_upgrade_error_records_upgrade_span(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.code_workspace = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.artifact_repository = None
+        mock_get_entity.return_value = entity
+
+        create_error = ProgrammingError("already exists")
+        create_error.errno = 2002
+        upgrade_error = ProgrammingError("permission denied")
+        upgrade_error.errno = 2043
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.create_app_service.side_effect = create_error
+        mock_mgr.upgrade_app_service.side_effect = upgrade_error
+        mock_poll.return_value = {
+            "url": "my-app.snowflakecomputing.app",
+            "is_upgrading": "false",
+        }
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            _reset_command_metrics()
+            result = runner.invoke(["app", "deploy", "--deploy-only"])
+            assert result.exit_code == 1
+            assert (
+                "Deployment failed while upgrading application service" in result.output
+            )
+            create_span = _get_completed_span("snowflake_app.deploy_service.create")
+            upgrade_span = _get_completed_span("snowflake_app.deploy_service.upgrade")
+            assert create_span[CLIMetricsSpan.ERROR_KEY] == ProgrammingError.__name__
+            assert upgrade_span[CLIMetricsSpan.ERROR_KEY] == ProgrammingError.__name__
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
     @patch("snowflake.cli._plugins.apps.commands.StageManager")
