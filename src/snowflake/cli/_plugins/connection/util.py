@@ -124,8 +124,9 @@ def get_host_region(host: str) -> str | None:
         *.local                                                      -> LOCAL_DEPLOYMENT_REGION
 
     Regionless aliases (<org>-<account>.<deployment>.snowflakecomputing.com, recognizable
-    by a dash in the account component) return None so callers fall back to the allowlist
-    lookup to find the real regioned host.
+    by a dash in the account component of a 4- or 5-part host) return None so callers
+    fall back to the allowlist lookup to find the real regioned host. 6-part VPS hosts
+    with dashed accounts are not ambiguous and are still parsed as regioned.
     """
     host_parts = host.split(".")
     if host_parts[-1] == "local":
@@ -136,7 +137,11 @@ def get_host_region(host: str) -> str | None:
     if len(remaining) < 2:
         return None
     account, region_parts = remaining[0], remaining[1:]
-    if "-" in account:
+    # The regionless-alias / regioned-host ambiguity only exists for 4- and 5-part
+    # hosts (where the leading token could be either `<org>-<account>` or a plain
+    # account). 6-part VPS/PrivateLink hosts are unambiguously regioned, so a dash
+    # in the account component there is a real account, not an alias marker.
+    if "-" in account and len(region_parts) <= 2:
         return None
     if len(region_parts) == 1:
         return region_parts[0]

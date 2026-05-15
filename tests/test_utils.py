@@ -26,6 +26,7 @@ from snowflake.cli._plugins.connection.util import (
     UIParameter,
     get_context,
     get_host_region,
+    get_region,
     get_ui_parameter,
     get_ui_parameters,
     guess_regioned_host_from_allowlist,
@@ -262,6 +263,23 @@ def test_get_account_identifier(mock_get_account):
             ],
             "myacct.x.y.z.snowflakecomputing.com",
         ),
+        # 4-part regioned host in the allowlist is also picked up — the
+        # broadened parser recognizes it, so it should be returned just
+        # like the 6-part case above.
+        (
+            [
+                {
+                    "host": "myorg-myacct.nonregioned.snowflakecomputing.com",
+                    "type": "SNOWFLAKE_DEPLOYMENT",
+                },
+                {
+                    "host": "myacct.us-east-1.snowflakecomputing.com",
+                    "type": "SNOWFLAKE_DEPLOYMENT",
+                },
+                {"type": "unrelated"},
+            ],
+            "myacct.us-east-1.snowflakecomputing.com",
+        ),
         (
             [
                 {"type": "unrelated"},
@@ -277,6 +295,18 @@ def test_guess_regioned_host_from_allowlist(allowlist, expected, mock_cursor):
         mock_cursor([{"SYSTEM$ALLOWLIST()": json.dumps(allowlist)}], []),
     )
     assert guess_regioned_host_from_allowlist(mock_conn) == expected
+
+
+@patch("snowflake.cli._plugins.connection.util.guess_regioned_host_from_allowlist")
+def test_get_region_parses_4_part_host_without_allowlist(
+    guess_regioned_host_from_allowlist,
+):
+    # The primary fix: a regioned 4-part host should resolve directly through
+    # get_host_region without ever needing the SYSTEM$ALLOWLIST fallback.
+    mock_conn = mock.MagicMock(spec=SnowflakeConnection)
+    mock_conn.host = "myacct.us-east-1.snowflakecomputing.com"
+    assert get_region(mock_conn) == "us-east-1"
+    guess_regioned_host_from_allowlist.assert_not_called()
 
 
 @patch("snowflake.cli._plugins.connection.util.is_regionless_redirect")
@@ -322,6 +352,10 @@ def test_get_context_local_non_regionless_gets_local_region(
         ("acct.us-central1.gcp.snowflakecomputing.com", "us-central1.gcp"),
         # 6-part regioned host (VPS / PrivateLink).
         ("account.x.us-west-2.aws.snowflakecomputing.com", "x.us-west-2.aws"),
+        # 6-part VPS host with a dashed account is unambiguously regioned (the
+        # regionless-alias collision only exists for 4- and 5-part hosts), so
+        # the dash in the account component must not suppress the parse.
+        ("acct-foo.x.us-west-2.aws.snowflakecomputing.com", "x.us-west-2.aws"),
         # Non-Snowsight hosts (internal/legacy zones) return None so callers fall back.
         ("test_account.az.int.snowflakecomputing.com", None),
         ("frozenweb.prod3.external-zone.snowflakecomputing.com", None),

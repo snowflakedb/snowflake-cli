@@ -29,6 +29,7 @@
 * Upgraded `pip` to version 26.1.1.
 * Fixed `snow connection list` crashing with `AttributeError` when `config.toml` contains a scalar value directly under `[connections]`. Such entries are now skipped with a warning so valid connections are still listed.
 * Fixed SQL injection via `FQN.sql_identifier`.
+* Fixed Snowsight URL generation (used by `snow streamlit deploy`, `snow streamlit get-url`, `snow app run`, `snow notebook`, and similar commands) for accounts whose host is 4-part (e.g. `<account>.us-east-1.snowflakecomputing.com`) or 5-part with a cloud suffix (e.g. `<account>.<region>.aws.snowflakecomputing.com`). These hosts now resolve to the correct regioned Snowsight URL instead of raising `"host (...) was missing or not in the expected format"`.
 
 
 # v3.17.1
@@ -43,7 +44,6 @@
 * Fixed `SELECT *` output being corrupted when joined tables share column names. Duplicate column names are now disambiguated by appending a numeric suffix (e.g. `NAME`, `NAME_2`).
 * Fixed `snow connection generate-jwt` and `snow connection generate-workload-identity-token` failing with `Connection None is not configured` when used with `--temporary-connection`.
 * The internal connection cache now remembers failed connect attempts and re-raises the original exception on subsequent accesses within the same process, instead of re-dialing Snowflake every time a command accesses the shared connection. This fixes, among other cases, the customer-visible duplicate `LOGIN_HISTORY` events (and `OVERFLOW_FAILURE_EVENTS_ELIDED`) previously emitted when a `snow` invocation was rejected by an authentication policy.
-* Fixed Snowsight URL generation (used by `snow streamlit deploy`, `snow streamlit get-url`, `snow app run`, `snow notebook`, and similar commands) for accounts whose host is 4-part (e.g. `<account>.us-east-1.snowflakecomputing.com`) or 5-part with a cloud suffix (e.g. `<account>.<region>.aws|azure|gcp.snowflakecomputing.com`). These hosts now resolve to the correct regioned Snowsight URL instead of raising `"host (...) was missing or not in the expected format"`.
 
 
 # v3.17.0
