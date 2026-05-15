@@ -29,7 +29,10 @@ from snowflake.cli.api.config import (
     get_env_variable_name,
     set_config_value,
 )
-from snowflake.cli.api.exceptions import MissingConfigurationError
+from snowflake.cli.api.exceptions import (
+    InvalidConnectionConfigurationError,
+    MissingConfigurationError,
+)
 from snowflake.cli.api.feature_flags import FeatureFlag
 
 from tests.testing_utils.files_and_dirs import assert_file_permissions_are_strict
@@ -690,8 +693,6 @@ def test_get_env_variable_name(path, key, expected):
 
 @pytest.mark.parametrize("bad_value", ["just-a-string", 42, True, ["a", "b"]])
 def test_connection_config_from_dict_rejects_non_mapping(bad_value):
-    from snowflake.cli.api.exceptions import InvalidConnectionConfigurationError
-
     with pytest.raises(InvalidConnectionConfigurationError) as exc_info:
         ConnectionConfig.from_dict(bad_value)
     assert "TOML table" in exc_info.value.message
