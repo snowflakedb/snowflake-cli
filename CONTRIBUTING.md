@@ -57,10 +57,6 @@ Please keep in mind that you need these python versions available in your `$PATH
 
 Every user-visible change should get one line in `RELEASE-NOTES.md` under `# Unreleased version`, in the appropriate subsection (`## Backward incompatibility`, `## Deprecations`, `## New additions`, or `## Fixes and improvements`).
 
-Conflicts between PRs that each append a bullet are resolved automatically by the `merge=union` attribute in `.gitattributes` — no manual resolution needed.
-
-The one case the auto-merge cannot handle is a **release cut overlap**: if your branch added bullets under "Unreleased version" and `main` has since moved those bullets into a new `# vX.Y.Z` section, merging `main` can leave the same bullet in both sections. The `check-release-notes-duplicates` pre-commit hook flags this; fix it by removing the duplicated bullet from "Unreleased version" (it's already documented under the released version).
-
 ## Unit tests
 
 Unit tests are executed in random order. If tests fail after your change, you can re-execute them in the same order using `pytest --randomly-seed=<number>`, where number is a seed printed at the beginning of the test execution output.
