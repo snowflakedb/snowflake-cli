@@ -37,9 +37,24 @@ git checkout <your-branch>
 git rebase sfcli/main
 ```
 
-A maintainer will review and merge your PR after approval. If your PR is
-approved and all checks pass but you cannot merge, contact a maintainer via
+A maintainer will review and merge your PR after approval using **squash and
+merge**. If your PR is approved and all checks pass but you cannot merge,
+contact a maintainer via
 [GitHub Issues](https://github.com/snowflakedb/snowflake-cli/issues).
+
+## Commit message format
+
+The squash commit title becomes the permanent commit message on `main`. Follow
+[Conventional Commits](https://www.conventionalcommits.org/) and include the
+ticket number:
+
+```
+feat: [SNOW-1234567] add support for X
+fix: [SNOW-1234567] correct Y when Z is empty
+chore: [SNOW-1234567] bump dependency versions
+```
+
+Common types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`.
 
 ## PR checklist
 

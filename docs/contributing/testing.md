@@ -98,6 +98,36 @@ the test run:
 hatch run pytest tests/ --randomly-seed=<number>
 ```
 
+## Integration test environment setup
+
+Integration tests connect using a dedicated `integration` connection. Set these
+environment variables before running them:
+
+```bash
+SNOWFLAKE_CONNECTIONS_INTEGRATION_AUTHENTICATOR=SNOWFLAKE_JWT
+SNOWFLAKE_CONNECTIONS_INTEGRATION_HOST=<host>
+SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT=<account>
+SNOWFLAKE_CONNECTIONS_INTEGRATION_USER=<user>
+SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_FILE=<path>   # preferred
+# SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_PATH=<path> # alternative
+# SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_RAW=<key>   # load key from env
+SNOWFLAKE_CONNECTIONS_INTEGRATION_ROLE=<role>
+SNOWFLAKE_CONNECTIONS_INTEGRATION_DATABASE=<database>
+SNOWFLAKE_CONNECTIONS_INTEGRATION_WAREHOUSE=<warehouse>
+```
+
+To prepare the account, run the setup script with `ACCOUNTADMIN`:
+
+```bash
+snow sql \
+  -f tests_integration/scripts/integration_account_setup.sql \
+  -D "user=${SNOWFLAKE_CONNECTIONS_INTEGRATION_USER}" \
+  -D "role=${SNOWFLAKE_CONNECTIONS_INTEGRATION_ROLE}" \
+  -D "warehouse=${SNOWFLAKE_CONNECTIONS_INTEGRATION_WAREHOUSE}" \
+  -D "main_database=${SNOWFLAKE_CONNECTIONS_INTEGRATION_DATABASE}" \
+  -c <your_connection_name>
+```
+
 ## Pytest markers
 
 | Marker | Meaning |

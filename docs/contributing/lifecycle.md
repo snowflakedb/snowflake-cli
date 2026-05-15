@@ -178,6 +178,65 @@ hatch run pytest tests/ --snapshot-update
 
 Always review the `.ambr` diff in `tests/__snapshots__/` before committing.
 
+## Backward compatibility
+
+Once a feature reaches PuPr, the following are covered by the backward
+compatibility guarantee:
+
+- Command and subcommand names
+- Flag names (both long form `--flag` and short form `-f`)
+- Flag default values
+- `config.toml` fields
+- `snowflake.yml` schema fields
+
+Structured output (`--format json`) is **not** guaranteed — the CLI passes
+through server responses and their shape is outside CLI's control.
+
+Any change that breaks the above requires a `## Backward incompatibility` entry
+in `RELEASE-NOTES.md` and must not land in a minor version.
+
+## Deprecating commands and flags
+
+### Deprecating a command
+
+Mark the command with `deprecated=True`. Click will print a deprecation warning
+automatically when the command is invoked:
+
+```python
+@app.command(deprecated=True)
+def my_old_command():
+    ...
+```
+
+Add a release note entry under `## Deprecations`.
+
+### Deprecating a flag
+
+Use `deprecated_flag_callback` from `snowflake.cli.api.commands.flags` — do not
+roll your own callback:
+
+```python
+from snowflake.cli.api.commands.flags import deprecated_flag_callback
+
+@app.command()
+def my_command(
+    old_option: Optional[str] = typer.Option(
+        None,
+        callback=deprecated_flag_callback("Use --new-option instead."),
+        is_eager=True,
+    ),
+):
+    ...
+```
+
+Add a release note entry under `## Deprecations`.
+
+### Removal policy
+
+Deprecated commands and flags are not removed between minor versions. Removal
+may happen in a major version bump, but is not guaranteed to happen in the next
+one.
+
 ## Release notes format
 
 The full release notes format and per-stage rules are in
@@ -191,3 +250,6 @@ The full release notes format and per-stage rules are in
 ```
 
 All unreleased changes go under `# Unreleased version` at the top of the file.
+
+Entries should describe user-facing impact, not implementation details. Focus on
+what changed for the user, not how it was implemented.

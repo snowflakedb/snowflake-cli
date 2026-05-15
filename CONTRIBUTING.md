@@ -58,6 +58,7 @@ The required Python version is 3.10 or later. We recommend
 ```bash
 pip install -U hatch==1.15.1 virtualenv==20.39.1
 hatch run pre-commit
+pre-commit install
 ```
 
 To create an environment pinned to a specific Python version:

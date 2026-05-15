@@ -62,7 +62,7 @@ terminal. They may contain ANSI escape sequences or terminal control characters.
 cc.step(f"Object name: {server_response['name']}")
 
 # CORRECT
-from snowflake.cli.api.output.formats import sanitize_for_terminal
+from snowflake.cli.api.sanitizers import sanitize_for_terminal
 cc.step(f"Object name: {sanitize_for_terminal(server_response['name'])}")
 ```
 
