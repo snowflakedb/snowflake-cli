@@ -29,6 +29,7 @@
 * Upgraded `pip` to version 26.1.1.
 * Fixed `snow connection list` crashing with `AttributeError` when `config.toml` contains a scalar value directly under `[connections]`. Such entries are now skipped with a warning so valid connections are still listed.
 * Fixed SQL injection via `FQN.sql_identifier`.
+* Fixed a `UnicodeDecodeError` when checking file permissions on Windows systems with non-Latin usernames or ACL groups (e.g. Arabic, Chinese, or Cyrillic). The issue was caused by `subprocess.check_output(..., text=True)` using the default Windows encoding (`cp1252`) when parsing `icacls` output. Updated the call to use `encoding="utf-8", errors="replace"` so permission checks handle all Unicode characters correctly.
 
 
 # v3.17.1
