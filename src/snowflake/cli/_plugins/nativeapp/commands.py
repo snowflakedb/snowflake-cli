@@ -50,6 +50,7 @@ from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
     find_entity,
     force_project_definition_v2,
     native_app_only,
+    set_app_flow,
     with_app_flow_routing,
 )
 from snowflake.cli._plugins.nativeapp.version.commands import app as versions_app
@@ -84,6 +85,26 @@ app = SnowTyperFactory(
 app.add_typer(versions_app)
 app.add_typer(release_directives_app)
 app.add_typer(release_channels_app)
+
+
+@app.callback()
+def _app_group_callback() -> None:
+    """Typer group callback for ``snow app *``.
+
+    Previously this set ``app_flow = snowflake_app`` as a blanket default.
+    That caused incorrect telemetry: the ``executing_command`` event (emitted
+    before the command body runs) reported ``app_flow = snowflake_app`` even
+    for native-app projects. The routing decorators (``with_app_flow_routing``,
+    ``native_app_only``) set the correct value inside the command callable,
+    which is after ``executing_command`` fires but before
+    ``result_executing_command``.
+
+    We no longer set a default here. The ``app_flow`` field will be absent on
+    ``executing_command`` events (matching the documented contract in
+    telemetry.py) and present with the correct value on result/error events.
+    """
+    pass
+
 
 log = logging.getLogger(__name__)
 
@@ -163,6 +184,7 @@ def app_setup(
     ``snowflake-app`` entity preconfigured from account parameters and the
     current connection. This command does not apply to Native App projects.
     """
+    set_app_flow(AppFlow.SNOWFLAKE_APP)
     return snowflake_app_setup(app_name, dry_run, compute_pool, build_eai)
 
 
@@ -466,8 +488,8 @@ def app_deploy(
     upload_only: bool = typer.Option(
         False,
         "--upload-only",
-        help="(Snowflake Apps Deploy only) Bundle and upload source artifacts to the stage, then stop. "
-        "Skips the build and deploy phases.",
+        help="(Snowflake Apps Deploy only) Bundle and upload source artifacts to the configured code location "
+        "(stage or workspace), then stop. Skips the build and deploy phases.",
     ),
     build_only: bool = typer.Option(
         False,
@@ -478,7 +500,7 @@ def app_deploy(
     deploy_only: bool = typer.Option(
         False,
         "--deploy-only",
-        help="(Snowflake Apps Deploy only) Run only the deploy phase (assumes the container image has already been built). "
+        help="(Snowflake Apps Deploy only) Run only the deploy phase (assumes a previous build phase has already completed). "
         "Skips the upload and build phases.",
     ),
     **options,
@@ -493,10 +515,11 @@ def app_deploy(
       for ``snow app deploy --prune --recursive``.
 
     For Snowflake Apps Deploy projects (snowflake-app entities):
-      Builds and deploys a containerized Snowflake Apps Deploy. The pipeline has
-      three phases (upload, build, deploy). By default all three run in
-      sequence; use ``--upload-only`` / ``--build-only`` / ``--deploy-only``
-      to run a single phase.
+      Uploads bundled source artifacts, runs the server-side artifact repository
+      build, then deploys the application service. The pipeline has three phases
+      (upload, build, deploy). By default all three run in sequence; use
+      ``--upload-only`` / ``--build-only`` / ``--deploy-only`` to run a single
+      phase.
     """
     app_flow: AppFlow = options["app_flow"]
     if app_flow == AppFlow.SNOWFLAKE_APP:
@@ -568,9 +591,8 @@ def app_validate(
       Validates a deployed Snowflake Native App's setup script.
 
     For Snowflake Apps Deploy projects (snowflake-app entities):
-      Bundles the project, checks that a Dockerfile with an EXPOSE
-      directive exists, and verifies that the current role has the BIND
-      SERVICE ENDPOINT privilege required for deployment.
+      Bundles the local project and verifies that configured database/schema
+      targets (when provided in ``snowflake.yml``) are accessible.
     """
     app_flow: AppFlow = options["app_flow"]
     if app_flow == AppFlow.SNOWFLAKE_APP:

@@ -17,6 +17,8 @@ from unittest import mock
 
 import pytest
 from snowflake.cli.api.connections import ConnectionContext, OpenConnectionCache
+from snowflake.cli.api.exceptions import InvalidConnectionConfigurationError
+from snowflake.connector.errors import DatabaseError
 
 
 @pytest.fixture
@@ -72,6 +74,30 @@ def test_clone_connection_context():
         assert getattr(old_ctx, key) == "value"
 
 
+@mock.patch("snowflake.cli.api.connections.get_connection_dict")
+def test_update_from_config_skips_load_for_temporary_connection(
+    mock_get_connection_dict,
+):
+    """Regression test for SNOW-3000366: update_from_config must not look up
+    a named connection when temporary_connection is set, since there is
+    nothing to merge and get_connection_dict(None) raises."""
+    ctx = ConnectionContext(
+        temporary_connection=True,
+        account="acct",
+        user="user",
+        private_key_file="/key",
+    )
+
+    result = ctx.update_from_config()
+
+    assert result is ctx
+    mock_get_connection_dict.assert_not_called()
+    # Ensure the explicit fields are preserved unchanged
+    assert ctx.account == "acct"
+    assert ctx.user == "user"
+    assert ctx.private_key_file == "/key"
+
+
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._app.snow_connector.command_info")
 def test_connection_cache_caches(
@@ -98,3 +124,87 @@ def test_connection_cache_caches(
         password="dummy_password",
         application_name="snowcli",
     )
+
+
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+def test_connection_cache_caches_failures(
+    mock_command_info, mock_connect, local_connection_cache, test_snowcli_config
+):
+    """Once a connect() call fails, subsequent accesses must re-raise without
+    re-dialing — otherwise auth-policy rejection logs duplicate LOGIN_HISTORY
+    events (one per access of the CLI's global connection: pre-command
+    telemetry, command body, error handler, post-command telemetry).
+    """
+    mock_command_info.return_value = "application"
+    mock_connect.side_effect = DatabaseError(
+        msg="Failed to connect to DB: host:port. Sign-in disallowed by authentication policy",
+        errno=250001,
+    )
+
+    from snowflake.cli.api.config import config_init
+
+    config_init(test_snowcli_config)
+
+    ctx = ConnectionContext(connection_name="default")
+
+    cached_exc = None
+    for _ in range(3):
+        with pytest.raises(InvalidConnectionConfigurationError) as excinfo:
+            local_connection_cache[ctx]
+        if cached_exc is None:
+            cached_exc = excinfo.value
+        else:
+            assert excinfo.value is cached_exc
+
+    assert mock_connect.call_count == 1
+
+
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+def test_connection_cache_clear_failures_allows_retry(
+    mock_command_info, mock_connect, local_connection_cache, test_snowcli_config
+):
+    mock_command_info.return_value = "application"
+    mock_connect.side_effect = [
+        DatabaseError(msg="boom", errno=250001),
+        mock_connect.mocked_ctx,
+    ]
+
+    from snowflake.cli.api.config import config_init
+
+    config_init(test_snowcli_config)
+
+    ctx = ConnectionContext(connection_name="default")
+
+    with pytest.raises(InvalidConnectionConfigurationError):
+        local_connection_cache[ctx]
+    assert mock_connect.call_count == 1
+
+    local_connection_cache.clear_failures()
+
+    local_connection_cache[ctx]
+    assert mock_connect.call_count == 2
+
+
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+def test_connection_cache_clear_also_forgets_failures(
+    mock_command_info, mock_connect, local_connection_cache, test_snowcli_config
+):
+    mock_command_info.return_value = "application"
+    mock_connect.side_effect = [
+        DatabaseError(msg="boom", errno=250001),
+        mock_connect.mocked_ctx,
+    ]
+
+    from snowflake.cli.api.config import config_init
+
+    config_init(test_snowcli_config)
+
+    ctx = ConnectionContext(connection_name="default")
+
+    with pytest.raises(InvalidConnectionConfigurationError):
+        local_connection_cache[ctx]
+
+    local_connection_cache.clear()
+
+    local_connection_cache[ctx]
+    assert mock_connect.call_count == 2

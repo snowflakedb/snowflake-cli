@@ -34,6 +34,7 @@ import tomlkit
 from click import ClickException
 from snowflake.cli.api.exceptions import (
     ConfigFileTooWidePermissionsError,
+    InvalidConnectionConfigurationError,
     MissingConfigurationError,
     UnsupportedConfigSectionTypeError,
 )
@@ -96,6 +97,9 @@ FEATURE_FLAGS_SECTION_PATH = [CLI_SECTION, "features"]
 LEGACY_OAUTH_PKCE_KEY: Literal["oatuh_enable_pkce"] = "oatuh_enable_pkce"
 LEGACY_CONNECTION_SETTING_ALIASES: Final[dict[str, str]] = {
     LEGACY_OAUTH_PKCE_KEY: "oauth_enable_pkce",
+    # `private_key_file_pwd` is the name supported by snowflake-connector-python
+    # in connections.toml; normalize it to the CLI-native `private_key_passphrase`.
+    "private_key_file_pwd": "private_key_passphrase",
 }
 
 
@@ -130,11 +134,19 @@ class ConnectionConfig:
     oauth_enable_refresh_tokens: Optional[bool] = None
     oauth_enable_single_use_refresh_tokens: Optional[bool] = None
     client_store_temporary_credential: Optional[bool] = None
+    secondary_roles: Optional[str] = None
 
     _other_settings: dict = field(default_factory=lambda: {})
 
     @classmethod
     def from_dict(cls, config_dict: dict) -> ConnectionConfig:
+        if not isinstance(config_dict, dict):
+            raise InvalidConnectionConfigurationError(
+                "Expected a TOML table with key/value pairs "
+                f"(e.g. `[connections.my_conn]`), got {type(config_dict).__name__}. "
+                "Check your config.toml for a connection entry that was written as a "
+                "plain value instead of a table."
+            )
         known_settings = {}
         other_settings = {}
         for key, value in config_dict.items():

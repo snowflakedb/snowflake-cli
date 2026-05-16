@@ -28,6 +28,7 @@ from snowflake.cli.api.project.util import (
     VALID_IDENTIFIER_REGEX,
     identifier_for_url,
     sanitize_identifier,
+    to_string_literal,
     unquote_identifier,
 )
 
@@ -89,8 +90,8 @@ class FQN:
     @property
     def sql_identifier(self) -> str:
         if self.signature:
-            return f"IDENTIFIER('{self.identifier}'){self.signature}"
-        return f"IDENTIFIER('{self.identifier}')"
+            return f"IDENTIFIER({to_string_literal(self.identifier)}){self.signature}"
+        return f"IDENTIFIER({to_string_literal(self.identifier)})"
 
     def __str__(self):
         return self.identifier

@@ -17,7 +17,7 @@ from typing import List, Literal, Optional, Union
 # Default port exposed by Snowflake Apps Deploy services
 DEFAULT_APP_PORT = 3000
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBaseWithArtifacts,
     MetaField,
@@ -103,6 +103,18 @@ class CodeStageReference(UpdatableModel):
     )
 
 
+class CodeWorkspaceReference(UpdatableModel):
+    """Reference to a code workspace."""
+
+    name: str = IdentifierField(title="Name of the code workspace")
+    schema_: Optional[str] = IdentifierField(
+        title="Schema of the code workspace", alias="schema", default=None
+    )
+    database: Optional[str] = IdentifierField(
+        title="Database of the code workspace", default=None
+    )
+
+
 class SnowflakeAppMetaField(MetaField):
     """Extended meta field for Snowflake Apps Deploy with title, description, icon."""
 
@@ -172,16 +184,18 @@ class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
         title="Stage for storing code artifacts", default=None
     )
 
-    @field_validator("code_stage", mode="before")
+    code_workspace: Optional[CodeWorkspaceReference] = Field(
+        title="Workspace for storing code artifacts", default=None
+    )
+
+    @field_validator("code_stage", "code_workspace", mode="before")
     @classmethod
-    def _validate_code_stage(cls, value):
-        """Accept either a dict, a plain stage name, or a ``DB.SCHEMA.STAGE`` identifier.
+    def _validate_code_storage(cls, value):
+        """Accept either a dict, a plain name, or a ``DB.SCHEMA.NAME`` identifier.
 
         When a string is provided it is parsed as an FQN.  Any missing
         database/schema components are left as ``None`` and resolved to the
-        app's database/schema at deploy time — this preserves
-        backwards-compatibility with existing apps that configure
-        ``code_stage`` as a bare name.
+        app's database/schema at deploy time.
         """
         if value is None or value == "null":
             return None
@@ -197,12 +211,33 @@ class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
             return parsed
         return value
 
+    @model_validator(mode="after")
+    def _validate_single_code_storage(self):
+        """``code_stage`` and ``code_workspace`` are mutually exclusive."""
+        if self.code_stage is not None and self.code_workspace is not None:
+            raise ValueError("Specify either code_stage or code_workspace, not both.")
+        return self
+
     app_port: int = Field(title="Port the app listens on", default=DEFAULT_APP_PORT)
 
     runtime_image: str = Field(
         title="Runtime image used by SPCS artifact repo build/run",
         default="",
     )
+
+    spcs_test_project_type: Optional[str] = Field(
+        title="Project type override for SPCS_TEST builds",
+        default=None,
+    )
+
+    @field_validator("spcs_test_project_type", mode="before")
+    @classmethod
+    def _validate_spcs_test_project_type(cls, value):
+        if value is None or value == "null":
+            return None
+        if not isinstance(value, str):
+            raise ValueError("spcs_test_project_type must be a string or null")
+        return value.strip()
 
     build_image: Optional[str] = Field(
         title="Custom container image for building the app",

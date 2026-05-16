@@ -259,6 +259,10 @@ class Repl:
                 except Exception as e:
                     log.debug("error occurred: %s", e)
                     cli_console.warning(f"\nError occurred: {e}")
+                    # Connect failures are cached by OpenConnectionCache; drop
+                    # the cache so the next query can redial after the user
+                    # fixes config or a transient blip clears.
+                    get_cli_context_manager().connection_cache.clear_failures()
 
             except KeyboardInterrupt:  # a.k.a Ctrl-C
                 log.debug("user interrupted with Ctrl-C")
@@ -274,6 +278,7 @@ class Repl:
 
             except Exception as e:
                 cli_console.warning(f"\nError occurred: {e}")
+                get_cli_context_manager().connection_cache.clear_failures()
 
     def set_next_input(self, text: str) -> None:
         """Set the text that will be used as the next REPL input."""
