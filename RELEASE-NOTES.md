@@ -41,9 +41,6 @@
 
 ## Fixes and improvements
 * Encrypted private key files no longer require `PRIVATE_KEY_PASSPHRASE` to be set in the environment. The passphrase can now be read from `private_key_file_pwd` (the name used by `snowflake-connector-python`) or `private_key_passphrase` in `connections.toml` / `config.toml`. The `PRIVATE_KEY_PASSPHRASE` environment variable continues to take precedence when set. This also fixes a regression in 3.17.0 where commands using key-pair authentication with `private_key_passphrase` in `connections.toml` failed with `argument 'password': Cannot convert "<class 'str'>" instance to a buffer`.
-* Fixed `SELECT *` output being corrupted when joined tables share column names. Duplicate column names are now disambiguated by appending a numeric suffix (e.g. `NAME`, `NAME_2`).
-* Fixed `snow connection generate-jwt` and `snow connection generate-workload-identity-token` failing with `Connection None is not configured` when used with `--temporary-connection`.
-* The internal connection cache now remembers failed connect attempts and re-raises the original exception on subsequent accesses within the same process, instead of re-dialing Snowflake every time a command accesses the shared connection. This fixes, among other cases, the customer-visible duplicate `LOGIN_HISTORY` events (and `OVERFLOW_FAILURE_EVENTS_ELIDED`) previously emitted when a `snow` invocation was rejected by an authentication policy.
 
 
 # v3.17.0
