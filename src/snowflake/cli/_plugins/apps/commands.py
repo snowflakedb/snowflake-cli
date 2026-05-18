@@ -273,23 +273,27 @@ def snowflake_app_validate(entity_id: Optional[str]) -> CommandResult:
     schema = fqn.schema
 
     manager = SnowflakeAppManager()
+    metrics = get_cli_context().metrics
 
     if database:
-        if not manager.database_exists(database):
-            raise CliError(
-                f"Database '{database}' does not exist or is not accessible."
-            )
-        if schema:
-            if not manager.schema_exists(database, schema):
+        with metrics.span("snowflake_app.validate.check_database"):
+            if not manager.database_exists(database):
                 raise CliError(
-                    f"Schema '{database}.{schema}' does not exist "
-                    f"or is not accessible."
+                    f"Database '{database}' does not exist or is not accessible."
                 )
+        if schema:
+            with metrics.span("snowflake_app.validate.check_schema"):
+                if not manager.schema_exists(database, schema):
+                    raise CliError(
+                        f"Schema '{database}.{schema}' does not exist "
+                        f"or is not accessible."
+                    )
 
     # ── Validate project can bundle artifacts ─────────────────────────
     project_paths = None
     try:
-        project_paths = perform_bundle(resolved_entity_id, entity)
+        with metrics.span("snowflake_app.validate.bundle"):
+            project_paths = perform_bundle(resolved_entity_id, entity)
     finally:
         if project_paths is not None:
             project_paths.clean_up_output()
@@ -307,6 +311,7 @@ def snowflake_app_open(
 
     fqn = entity.fqn
     ctx = get_cli_context()
+    metrics = ctx.metrics
 
     db = fqn.database or ctx.connection_context.database
     schema = fqn.schema or ctx.connection_context.schema
@@ -319,17 +324,22 @@ def snowflake_app_open(
         )
 
     if settings:
-        app_id = (
-            f"{identifier_for_url(db)}"
-            f".{identifier_for_url(schema)}"
-            f".{identifier_for_url(fqn.name)}"
-        )
-        service_fqn = FQN(database=db, schema=schema, name=fqn.name)
-        manager = SnowflakeAppManager()
-        segment = (
-            "app-service" if manager.is_application_service(service_fqn) else "service"
-        )
-        url = make_snowsight_url(ctx.connection, f"#/apps/{segment}/{app_id}/details")
+        with metrics.span("snowflake_app.open.resolve_settings_url"):
+            app_id = (
+                f"{identifier_for_url(db)}"
+                f".{identifier_for_url(schema)}"
+                f".{identifier_for_url(fqn.name)}"
+            )
+            service_fqn = FQN(database=db, schema=schema, name=fqn.name)
+            manager = SnowflakeAppManager()
+            segment = (
+                "app-service"
+                if manager.is_application_service(service_fqn)
+                else "service"
+            )
+            url = make_snowsight_url(
+                ctx.connection, f"#/apps/{segment}/{app_id}/details"
+            )
     else:
         service_fqn = FQN(
             database=db,
@@ -339,18 +349,18 @@ def snowflake_app_open(
 
         manager = SnowflakeAppManager()
         try:
-            url = manager.get_service_endpoint_url(service_fqn)
+            with metrics.span("snowflake_app.open.resolve_endpoint"):
+                url = manager.get_service_endpoint_url(service_fqn)
+                if not url:
+                    raise CliError(
+                        f"No endpoint URL found for service {service_fqn}. "
+                        f"Is the app deployed? Run 'snow app deploy' first."
+                    )
         except ProgrammingError as err:
             raise CliError(
                 f"Could not resolve endpoint URL for service {service_fqn.identifier}. "
                 "This may indicate missing privileges on the target schema or application service."
             ) from err
-
-        if not url:
-            raise CliError(
-                f"No endpoint URL found for service {service_fqn}. "
-                f"Is the app deployed? Run 'snow app deploy' first."
-            )
 
     if not print_only:
         typer.launch(url)
@@ -372,8 +382,10 @@ def snowflake_app_events(
     effective_last = last if last is not None else DEFAULT_SNOWFLAKE_APP_EVENTS_LAST
 
     manager = SnowflakeAppManager()
+    metrics = get_cli_context().metrics
     try:
-        logs = manager.get_service_logs(service_fqn, last=effective_last)
+        with metrics.span("snowflake_app.events.fetch_logs"):
+            logs = manager.get_service_logs(service_fqn, last=effective_last)
     except ProgrammingError:
         raise ClickException(
             f"Could not retrieve logs for '{service_fqn.identifier}'. "
@@ -542,49 +554,56 @@ def snowflake_app_deploy(
         try:
             with metrics.span("snowflake_app.upload"):
                 if use_workspace:
-                    cli_console.step(f"Creating workspace {storage_fqn}")
-                    manager.create_workspace(storage_fqn)
-                    cli_console.step(
-                        f"Clearing existing workspace files in {workspace_source_uri}/"
-                    )
-                    manager.clear_workspace_subdirectory(storage_fqn, app_name)
-                    cli_console.step(
-                        f"Uploading bundled files to {workspace_source_uri}"
-                    )
-                    for result in manager.upload_to_workspace(
-                        local_root=project_paths.bundle_root,
-                        workspace_fqn=storage_fqn,
-                        target_subdirectory=app_name,
-                        overwrite=True,
-                    ):
+                    with metrics.span("snowflake_app.upload.prepare_workspace"):
+                        cli_console.step(f"Creating workspace {storage_fqn}")
+                        manager.create_workspace(storage_fqn)
                         cli_console.step(
-                            f"  Uploaded {result['source']} -> {result['target']}"
+                            f"Clearing existing workspace files in {workspace_source_uri}/"
                         )
-                    cli_console.step(
-                        f"Committing workspace live version for {storage_fqn}"
-                    )
-                    manager.commit_workspace_live_version(storage_fqn)
-                    cli_console.step(f"Creating a fresh live version for {storage_fqn}")
-                    manager.ensure_workspace_live_version(storage_fqn)
+                        manager.clear_workspace_subdirectory(storage_fqn, app_name)
+                    with metrics.span("snowflake_app.upload.push_workspace_files"):
+                        cli_console.step(
+                            f"Uploading bundled files to {workspace_source_uri}"
+                        )
+                        for result in manager.upload_to_workspace(
+                            local_root=project_paths.bundle_root,
+                            workspace_fqn=storage_fqn,
+                            target_subdirectory=app_name,
+                            overwrite=True,
+                        ):
+                            cli_console.step(
+                                f"  Uploaded {result['source']} -> {result['target']}"
+                            )
+                    with metrics.span("snowflake_app.upload.commit_workspace"):
+                        cli_console.step(
+                            f"Committing workspace live version for {storage_fqn}"
+                        )
+                        manager.commit_workspace_live_version(storage_fqn)
+                        cli_console.step(
+                            f"Creating a fresh live version for {storage_fqn}"
+                        )
+                        manager.ensure_workspace_live_version(storage_fqn)
                 else:
-                    if manager.stage_exists(storage_fqn):
-                        cli_console.step(f"Clearing existing stage @{storage_fqn}")
-                        manager.clear_stage(storage_fqn)
-                    else:
-                        cli_console.step(f"Creating stage @{storage_fqn}")
-                        manager.create_stage(storage_fqn, encryption_type)
+                    with metrics.span("snowflake_app.upload.prepare_stage"):
+                        if manager.stage_exists(storage_fqn):
+                            cli_console.step(f"Clearing existing stage @{storage_fqn}")
+                            manager.clear_stage(storage_fqn)
+                        else:
+                            cli_console.step(f"Creating stage @{storage_fqn}")
+                            manager.create_stage(storage_fqn, encryption_type)
 
-                    cli_console.step(f"Uploading bundled files to @{storage_fqn}")
-                    for result in stage_manager.put_recursive(
-                        local_path=project_paths.bundle_root,
-                        stage_path=f"@{storage_fqn}",
-                        overwrite=True,
-                        auto_compress=False,
-                        temp_directory=project_paths.bundle_root,
-                    ):
-                        cli_console.step(
-                            f"  Uploaded {result['source']} -> {result['target']}"
-                        )
+                    with metrics.span("snowflake_app.upload.push_stage_files"):
+                        cli_console.step(f"Uploading bundled files to @{storage_fqn}")
+                        for result in stage_manager.put_recursive(
+                            local_path=project_paths.bundle_root,
+                            stage_path=f"@{storage_fqn}",
+                            overwrite=True,
+                            auto_compress=False,
+                            temp_directory=project_paths.bundle_root,
+                        ):
+                            cli_console.step(
+                                f"  Uploaded {result['source']} -> {result['target']}"
+                            )
         finally:
             project_paths.clean_up_output()
 
@@ -597,79 +616,69 @@ def snowflake_app_deploy(
 
     if run_build:
         with metrics.span("snowflake_app.build"):
-            if not manager.artifact_repo_exists(
-                database=ar_database, schema=ar_schema, repo_name=ar_name
-            ):
-                cli_console.step(
-                    f"Creating artifact repository: {artifact_repo_fqn_str}"
-                )
-                manager.create_artifact_repo(
+            with metrics.span("snowflake_app.build.ensure_artifact_repo"):
+                if not manager.artifact_repo_exists(
                     database=ar_database, schema=ar_schema, repo_name=ar_name
-                )
+                ):
+                    cli_console.step(
+                        f"Creating artifact repository: {artifact_repo_fqn_str}"
+                    )
+                    manager.create_artifact_repo(
+                        database=ar_database, schema=ar_schema, repo_name=ar_name
+                    )
 
-            cli_console.step("Building app using artifact repository...")
-            build_kwargs: dict = dict(
-                artifact_repo_fqn=artifact_repo_fqn_str,
-                app_id=app_name,
-                compute_pool=build_compute_pool,
-                database=database,
-                schema=schema,
-                runtime_image=entity.runtime_image,
-                build_eai=build_eai,
-            )
-            if use_workspace:
-                # NOTE: We intentionally do not use ``.../versions/last/...`` here.
-                # Due to a current SPCS_TEST_BUILD_APP_ARTIFACT_REPO issue, that
-                # alias path can fail. Resolve the workspace default version URI
-                # from ``DESCRIBE WORKSPACE`` and pass that exact version location.
-                workspace_build_source_uri = (
-                    manager.get_default_workspace_version_subdirectory_uri(
-                        storage_fqn, app_name
-                    )
+            with metrics.span("snowflake_app.build.submit"):
+                cli_console.step("Building app using artifact repository...")
+                project_type_override = getattr(entity, "spcs_test_project_type", None)
+                build_kwargs: dict = dict(
+                    artifact_repo_fqn=artifact_repo_fqn_str,
+                    app_id=app_name,
+                    compute_pool=build_compute_pool,
+                    database=database,
+                    schema=schema,
+                    runtime_image=entity.runtime_image,
+                    build_eai=build_eai,
+                    project_type=(
+                        project_type_override
+                        if isinstance(project_type_override, str)
+                        else ""
+                    ),
                 )
-                workspace_build_source_uri_str = str(workspace_build_source_uri)
-                version_match = re.search(
-                    r"/versions/([^/]+)/", workspace_build_source_uri_str
-                )
-                if not version_match:
-                    raise CliError(
-                        "Could not parse workspace version from default version URI "
-                        f"(unexpected format): {workspace_build_source_uri_str!r}"
-                    )
-                workspace_version = version_match.group(1)
+                if use_workspace:
+                    build_kwargs[
+                        "source_uri"
+                    ] = manager.workspace_last_subdirectory_uri(storage_fqn, app_name)
+                else:
+                    build_kwargs["stage_fqn"] = storage_fqn
+                build_result = manager.build_app_artifact_repo(**build_kwargs)
                 cli_console.step(
-                    f"Using workspace version for build: {workspace_version}"
+                    f"SPCS_TEST_BUILD_APP_ARTIFACT_REPO output:\n{build_result}"
                 )
-                build_kwargs["source_uri"] = workspace_build_source_uri
-            else:
-                build_kwargs["stage_fqn"] = storage_fqn
-            build_result = manager.build_app_artifact_repo(**build_kwargs)
-            cli_console.step(
-                f"SPCS_TEST_BUILD_APP_ARTIFACT_REPO output:\n{build_result}"
-            )
 
-            match = re.search(r"Build job submitted:\s*(\S+)", build_result)
-            if not match:
-                raise CliError(
-                    f"Could not parse build job name from output: {build_result}"
+                match = re.search(r"Build job submitted:\s*(\S+)", build_result)
+                if not match:
+                    raise CliError(
+                        f"Could not parse build job name from output: {build_result}"
+                    )
+                artifact_build_job_fqn = FQN.from_string(match.group(1))
+                cli_console.step(
+                    f"Waiting for artifact repo build to complete: "
+                    f"{artifact_build_job_fqn}..."
                 )
-            artifact_build_job_fqn = FQN.from_string(match.group(1))
-            cli_console.step(
-                f"Waiting for artifact repo build to complete: "
-                f"{artifact_build_job_fqn}..."
-            )
-            _poll_until(
-                poll_fn=lambda: manager.get_build_status(artifact_build_job_fqn),
-                done_states={"DONE"},
-                error_states={"FAILED", "IDLE"},
-                known_pending_states={"PENDING", "RUNNING"},
-                timeout_message=(
-                    f"Artifact repo build timed out. Check build logs:\n"
-                    f"  SELECT * FROM TABLE("
-                    f"{artifact_build_job_fqn.identifier}!SPCS_GET_LOGS())"
-                ),
-                on_poll=_make_build_log_streamer(manager, artifact_build_job_fqn),
-            )
+
+            with metrics.span("snowflake_app.build.wait"):
+                _poll_until(
+                    poll_fn=lambda: manager.get_build_status(artifact_build_job_fqn),
+                    done_states={"DONE"},
+                    error_states={"FAILED", "IDLE"},
+                    known_pending_states={"PENDING", "RUNNING"},
+                    timeout_message=(
+                        f"Artifact repo build timed out. Check build logs:\n"
+                        f"  SELECT * FROM TABLE("
+                        f"{artifact_build_job_fqn.identifier}!SPCS_GET_LOGS())"
+                    ),
+                    on_poll=_make_build_log_streamer(manager, artifact_build_job_fqn),
+                )
 
     if build_only:
         return MessageResult("Build completed successfully.")
@@ -691,26 +700,28 @@ def snowflake_app_deploy(
     with metrics.span("snowflake_app.deploy_service"):
         cli_console.step("Creating application service...")
         try:
-            manager.create_app_service(
-                service_fqn=service_fqn,
-                artifact_repo_fqn=artifact_repo_fqn_str,
-                package_name=app_name,
-                compute_pool=service_compute_pool,
-                version="LATEST",
-                query_warehouse=query_warehouse,
-                external_access_integrations=eai_list,
-                comment=app_comment,
-            )
+            with metrics.span("snowflake_app.deploy_service.create"):
+                manager.create_app_service(
+                    service_fqn=service_fqn,
+                    artifact_repo_fqn=artifact_repo_fqn_str,
+                    package_name=app_name,
+                    compute_pool=service_compute_pool,
+                    version="LATEST",
+                    query_warehouse=query_warehouse,
+                    external_access_integrations=eai_list,
+                    comment=app_comment,
+                )
         except ProgrammingError as e:
             if e.errno == 2002 and "already exists" in str(e).lower():
                 cli_console.step(
                     f"Application service {app_name} already exists. Upgrading..."
                 )
                 try:
-                    manager.upgrade_app_service(
-                        service_fqn=service_fqn,
-                        version="LATEST",
-                    )
+                    with metrics.span("snowflake_app.deploy_service.upgrade"):
+                        manager.upgrade_app_service(
+                            service_fqn=service_fqn,
+                            version="LATEST",
+                        )
                 except ProgrammingError as upgrade_error:
                     raise CliError(
                         "Deployment failed while upgrading application service "
@@ -737,30 +748,32 @@ def snowflake_app_deploy(
     with metrics.span("snowflake_app.endpoint_provision"):
         if did_upgrade:
             cli_console.step("Waiting for upgrade to complete...")
-            desc = _poll_until(
-                poll_fn=lambda: manager.describe_app_service(service_fqn),
-                is_done=_url_is_ready,
-                is_error=_svc_has_failed,
-                format_status=lambda d: (
-                    "upgrading" if _svc_is_upgrading(d) else "ready"
-                ),
-                timeout_message=(
-                    f"Upgrade timed out. Check logs:\n"
-                    f"  CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{app_name}')"
-                ),
-            )
+            with metrics.span("snowflake_app.endpoint_provision.wait_for_upgrade"):
+                desc = _poll_until(
+                    poll_fn=lambda: manager.describe_app_service(service_fqn),
+                    is_done=_url_is_ready,
+                    is_error=_svc_has_failed,
+                    format_status=lambda d: (
+                        "upgrading" if _svc_is_upgrading(d) else "ready"
+                    ),
+                    timeout_message=(
+                        f"Upgrade timed out. Check logs:\n"
+                        f"  CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{app_name}')"
+                    ),
+                )
         else:
             cli_console.step("Waiting for application service endpoint...")
-            desc = _poll_until(
-                poll_fn=lambda: manager.describe_app_service(service_fqn),
-                is_done=_url_is_ready,
-                is_error=_svc_has_failed,
-                format_status=lambda d: d.get("url") or "url not yet available",
-                timeout_message=(
-                    f"Endpoint provisioning timed out. "
-                    f"Check: DESCRIBE APPLICATION SERVICE {service_fqn.identifier}"
-                ),
-            )
+            with metrics.span("snowflake_app.endpoint_provision.wait_for_endpoint"):
+                desc = _poll_until(
+                    poll_fn=lambda: manager.describe_app_service(service_fqn),
+                    is_done=_url_is_ready,
+                    is_error=_svc_has_failed,
+                    format_status=lambda d: d.get("url") or "url not yet available",
+                    timeout_message=(
+                        f"Endpoint provisioning timed out. "
+                        f"Check: DESCRIBE APPLICATION SERVICE {service_fqn.identifier}"
+                    ),
+                )
 
     endpoint_url = manager.resolve_application_service_url_from_describe(desc)
     if not endpoint_url:
@@ -781,7 +794,9 @@ def snowflake_app_teardown(
 
     fqn = entity.fqn
     manager = SnowflakeAppManager()
-    defaults = _resolve_deploy_defaults(entity, manager, app_name=fqn.name)
+    metrics = get_cli_context().metrics
+    with metrics.span("snowflake_app.teardown.resolve_defaults"):
+        defaults = _resolve_deploy_defaults(entity, manager, app_name=fqn.name)
 
     db = defaults.get("database")
     schema = defaults.get("schema")
@@ -824,10 +839,11 @@ def snowflake_app_teardown(
             return MessageResult("Teardown cancelled.")
 
     cli_console.step(f"Dropping {object_kind} {service_fqn.identifier}")
-    if use_artifact_repo:
-        manager.drop_app_service_if_exists(service_fqn)
-    else:
-        manager.drop_service_if_exists(service_fqn)
+    with metrics.span("snowflake_app.teardown.drop_service"):
+        if use_artifact_repo:
+            manager.drop_app_service_if_exists(service_fqn)
+        else:
+            manager.drop_service_if_exists(service_fqn)
 
     if use_workspace:
         # The workspace may be shared across apps (e.g. the default
@@ -836,14 +852,17 @@ def snowflake_app_teardown(
         cli_console.step(
             f"Clearing workspace files for {app_name} in {storage_fqn.identifier}"
         )
-        manager.clear_workspace_subdirectory(storage_fqn, app_name)
+        with metrics.span("snowflake_app.teardown.clear_workspace"):
+            manager.clear_workspace_subdirectory(storage_fqn, app_name)
     else:
         cli_console.step(f"Dropping stage {storage_fqn.identifier}")
-        manager.drop_stage_if_exists(storage_fqn)
+        with metrics.span("snowflake_app.teardown.drop_stage"):
+            manager.drop_stage_if_exists(storage_fqn)
 
     if not use_artifact_repo:
         cli_console.step(f"Dropping build job service {build_job_fqn.identifier}")
-        manager.drop_service_if_exists(build_job_fqn)
+        with metrics.span("snowflake_app.teardown.drop_build_job"):
+            manager.drop_service_if_exists(build_job_fqn)
 
     return MessageResult(
         f"Successfully dropped {object_kind} {service_fqn.identifier}."

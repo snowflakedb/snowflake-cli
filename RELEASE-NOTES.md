@@ -22,8 +22,15 @@
 * Added `snow streamlit logs` command to stream live logs from a Streamlit-in-Snowflake app running on the SPCSv2 container runtime. Supports `--tail` for historical lines, `--name` to target apps without a project definition, and honors the global `--format` flag (plain / JSON / CSV) for downstream piping.
 
 ## Fixes and improvements
+* Updated `snowflake-connector-python` to version 4.5.0.
+* Updated `gitpython` to version 3.1.50.
 * Fixed macOS arm64 installer incorrectly requiring Rosetta 2. The `Distribution.xml` package metadata now declares `hostArchitectures="arm64,x86_64"`, so the installer is recognized as native on Apple Silicon.
 * Fixed `snow spcs service build-image` on Azure accounts to work with stages using SNOWFLAKE_FULL encryption.
+* Fixed SQL string literal escaping in `identifier_to_show_like_pattern` and `to_string_literal` to use Snowflake's standard single-quote doubling (`''`) instead of backslash escaping, which is not interpreted under the default `STANDARD_ESCAPE_SEQUENCES=FALSE` session setting. This closes SQL injection vectors through `SHOW ... LIKE` queries driven by a project-controlled `snowflake.yml` or `manifest.yml`.
+* Upgraded `pip` to version 26.1.1.
+* Fixed `snow connection list` crashing with `AttributeError` when `config.toml` contains a scalar value directly under `[connections]`. Such entries are now skipped with a warning so valid connections are still listed.
+* Fixed SQL injection via `FQN.sql_identifier`.
+* Fixed Snowsight URL generation (used by `snow streamlit deploy`, `snow streamlit get-url`, `snow app run`, `snow notebook`, and similar commands) for accounts whose host is 4-part (e.g. `<account>.us-east-1.snowflakecomputing.com`) or 5-part with a cloud suffix (e.g. `<account>.<region>.aws.snowflakecomputing.com`). These hosts now resolve to the correct regioned Snowsight URL instead of raising `"host (...) was missing or not in the expected format"`.
 
 
 # v3.17.1

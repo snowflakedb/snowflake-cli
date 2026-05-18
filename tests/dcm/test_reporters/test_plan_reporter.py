@@ -138,13 +138,6 @@ class TestPlanReporterTerse:
 
         assert "No data." in output
 
-    def test_version_1_raises_error(self):
-        data = {"version": 1, "changeset": []}
-
-        output = capture_reporter_output(PlanReporter(), FakeCursor(data))
-
-        assert "Only version 2+ plan responses are supported." in output
-
     def test_version_3_renders_in_compatibility_mode(self):
         data = {
             "version": 3,

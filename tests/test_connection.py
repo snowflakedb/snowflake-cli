@@ -415,6 +415,62 @@ def test_mask_sensitive_parameters_masks_all_known_sensitive_keys():
     assert params["password"] == "hunter2"
 
 
+@pytest.mark.parametrize("config_v2", [False, True])
+@pytest.mark.parametrize("extra_args", [[], ["--all"]])
+def test_connection_list_tolerates_non_table_entry(
+    runner, monkeypatch, config_v2, extra_args
+):
+    """`snow connection list` must not crash when config.toml contains a scalar
+    entry under [connections] (e.g. a stray `key = "value"` line). The bad
+    entry should be skipped, and valid entries should still be listed.
+    Covers the default path and ``--all`` (which exercises
+    ``AlternativeConfigProvider.get_all_connections`` under config v2).
+    """
+    if config_v2:
+        monkeypatch.setenv("SNOWFLAKE_CLI_CONFIG_V2_ENABLED", "1")
+        from snowflake.cli.api.config_provider import reset_config_provider
+
+        reset_config_provider()
+
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        tmp_file.write(
+            dedent(
+                """\
+                [connections]
+                stray = "not-a-table"
+
+                [connections.good]
+                account = "acc"
+                user = "u"
+                """
+            )
+        )
+        tmp_file.flush()
+        os.chmod(tmp_file.name, 0o600)
+
+        # --format json keeps the payload machine-parseable (cli_console is
+        # auto-muted for structured output) and proves the bad entry is
+        # skipped, not crashing the command.
+        result = runner.invoke_with_config_file(
+            tmp_file.name,
+            ["connection", "list", *extra_args, "--format", "json"],
+        )
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.output)
+        names = {entry["connection_name"] for entry in payload}
+        assert "good" in names
+        assert "stray" not in names
+
+        # Default (table) format exercises the cli_console.warning path so the
+        # user actually sees what was dropped.
+        result_table = runner.invoke_with_config_file(
+            tmp_file.name,
+            ["connection", "list", *extra_args],
+        )
+        assert result_table.exit_code == 0, result_table.output
+        assert "Skipping connection 'stray'" in result_table.output
+
+
 @mock.patch.dict(
     os.environ,
     {
