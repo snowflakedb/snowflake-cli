@@ -87,6 +87,17 @@ raise SnowflakeCLIError("Something went wrong")
 Check `src/snowflake/cli/api/exceptions.py` for available subclasses before
 raising a generic error.
 
+Error messages should describe what went wrong and, where possible, what the
+user can do about it:
+
+```python
+# WRONG — states what happened but not what to do
+raise SnowflakeCLIError(f"File {path} not found")
+
+# CORRECT — states what happened and how to fix it
+raise SnowflakeCLIError(f"File {path} not found. Check the path and try again.")
+```
+
 ## Optional value checks
 
 Always use `is not None` when checking optional config values or CLI option
@@ -104,21 +115,40 @@ if value is not None:
 
 ## Imports
 
-All imports must be at the top of the file. Never place imports inside functions
-or methods.
+Prefer top-of-file imports. Local imports inside functions are acceptable only
+when unavoidable (e.g. to break circular imports or for config-time deferred
+loading), not as a general convenience.
 
 ```python
-# WRONG
-def my_command():
-    from snowflake.cli.api.identifiers import FQN
-    ...
-
-# CORRECT
+# PREFERRED
 from snowflake.cli.api.identifiers import FQN
 
 def my_command():
     ...
+
+# ACCEPTABLE only when a top-level import causes issues
+def my_command():
+    from snowflake.cli.api.identifiers import FQN
+    ...
 ```
+
+## Logging
+
+Use `logging.getLogger(__name__)` for diagnostic messages that help with
+troubleshooting but are not user-facing:
+
+```python
+import logging
+
+log = logging.getLogger(__name__)
+
+def my_function():
+    log.debug("Starting operation with params: %s", params)
+```
+
+Use `cli_console` (see below) for messages the user should see during normal
+operation. The two are complementary: `cli_console` drives the interactive
+experience, `logging` provides the paper trail visible in debug output.
 
 ## User-visible output
 

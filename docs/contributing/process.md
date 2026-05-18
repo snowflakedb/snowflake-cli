@@ -56,6 +56,14 @@ chore: [SNOW-1234567] bump dependency versions
 
 Common types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`.
 
+## PR etiquette
+
+Open your PR as a **draft** while work is still in progress. Move it to
+**ready for review** only when you consider the work complete and all automated
+CI checks have passed. Do not move a PR to ready while CI is red.
+
+Fill in the PR checklist honestly — reviewers check every item.
+
 ## PR checklist
 
 The two items contributors most commonly miss:

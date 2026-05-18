@@ -52,8 +52,12 @@ A maintainer will review and merge your PR after approval.
 ## Development environment
 
 We use [hatch](https://hatch.pypa.io/latest/) to manage development environments.
-The required Python version is 3.10 or later. We recommend
+The supported Python versions are listed in `pyproject.toml` under the
+`Programming Language :: Python` classifiers. We recommend
 [pyenv](https://github.com/pyenv/pyenv) for managing Python versions locally.
+
+Do not use language features that are unavailable in the minimum supported
+version — code must run on all versions in the supported range.
 
 ```bash
 pip install -U hatch==1.15.1 virtualenv==20.39.1
