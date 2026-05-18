@@ -63,6 +63,23 @@ _SNOW_APPS_PARAM_MAP = {
     "DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA": "schema",
 }
 
+# Backend parameter that opts an account into Snowflake-managed build compute
+# pools.  When enabled, the CLI omits ``build_compute_pool`` from generated
+# project files and forwards an empty string to
+# ``SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO`` so the server allocates a
+# managed pool on the user's behalf.
+MANAGED_COMPUTE_POOL_PARAM = "ENABLE_APPLICATION_SERVICE_MANAGED_COMPUTE_POOL"
+
+# Companion to :data:`MANAGED_COMPUTE_POOL_PARAM`. When the managed-pool
+# parameter is on, this parameter controls whether the server falls back to
+# user-specified compute pools (``true``) or strictly enforces the managed
+# pool (``false``). The CLI uses it to decide whether to honor or strip
+# ``build_compute_pool`` / ``service_compute_pool`` values supplied via
+# ``snowflake.yml`` during ``snow app deploy``.
+MANAGED_COMPUTE_POOL_FALLBACK_PARAM = (
+    "ENABLE_APPLICATION_SERVICE_MANAGED_COMPUTE_POOL_FALLBACK"
+)
+
 T = TypeVar("T")
 
 
@@ -100,6 +117,11 @@ def _poll_until(
     Raises ``CliError`` on error or timeout.  Returns the final value on
     success.
     """
+
+    def _failure_message_from_timeout_message(message: str) -> str:
+        """Convert timeout-style wording into failure wording for terminal error states."""
+        return re.sub(r"\btimed out\b", "failed", message, count=1, flags=re.IGNORECASE)
+
     for _attempt in range(max_attempts):
         if on_poll is not None:
             for _ in range(interval_seconds):
@@ -119,16 +141,21 @@ def _poll_until(
             if is_done(result):
                 return result
             if is_error is not None and is_error(result):
-                raise CliError(f"{timeout_message} (status={format_status(result)})")
+                raise CliError(
+                    f"{_failure_message_from_timeout_message(timeout_message)} "
+                    f"(status={format_status(result)})"
+                )
         else:
             # ── State-set mode (original behaviour) ───────────────
             if done_states and result in done_states:
                 return result
             if error_states and result in error_states:
-                raise CliError(f"{timeout_message} (status={result})")
+                raise CliError(
+                    f"{_failure_message_from_timeout_message(timeout_message)} "
+                    f"(status={result})"
+                )
             if known_pending_states is not None and result not in known_pending_states:
-                cli_console.step(f"Unknown status: {result}")
-                return result
+                raise CliError(f"{timeout_message} (unexpected status={result})")
 
     raise CliError(
         f"{timeout_message} "
@@ -193,6 +220,7 @@ def _resolve_deploy_defaults(
 
     # ── 2. SnowApps parameters (user-level) ──────────────────────────
     param_vals: Dict[str, Optional[str]] = {}
+    cli_console.step("Fetching SnowApps account parameters...")
     raw_params = manager.fetch_snow_apps_parameters()
     if raw_params:
         cli_console.step(
@@ -205,6 +233,7 @@ def _resolve_deploy_defaults(
     default_vals: Dict[str, Optional[str]] = {
         "artifact_repository": f"{app_name}_REPO",
     }
+    cli_console.step("Checking whether a personal database exists...")
     personal_db = manager.get_personal_database()
     if personal_db:
         default_vals["database"] = personal_db
@@ -418,6 +447,12 @@ class SnowflakeAppManager(SqlExecutionMixin):
     ``FQN``-based parameters that already use ``.sql_identifier``.
     """
 
+    def execute_query(self, query: str, **kwargs):
+        """Execute a Snowflake query with CLI spinner feedback."""
+        with cli_console.spinner() as spinner:
+            spinner.add_task(description="", total=None)
+            return super().execute_query(query, **kwargs)
+
     def get_personal_database(self) -> Optional[str]:
         """Return the personal database name for the current user.
 
@@ -589,45 +624,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
         normalized_directory = directory_name.strip("/")
         return f"{self.workspace_last_uri(workspace_fqn)}/{normalized_directory}"
 
-    def get_default_workspace_version_uri(self, workspace_fqn: FQN) -> str:
-        """Return URI for the workspace default version."""
-        cursor = self.execute_query(
-            f"DESCRIBE WORKSPACE {workspace_fqn.sql_identifier}",
-            cursor_class=DictCursor,
-        )
-        row = cursor.fetchone()
-        if row is None:
-            raise CliError(
-                f"Could not describe workspace {workspace_fqn.identifier} "
-                "to resolve default version."
-            )
-        location_uri = (
-            row.get("default_version_location_uri")
-            or row.get("DEFAULT_VERSION_LOCATION_URI")
-            or ""
-        )
-        if not location_uri:
-            version_name = row.get("default_version_name") or row.get(
-                "DEFAULT_VERSION_NAME"
-            )
-            if version_name:
-                location_uri = f"snow://workspace/{workspace_fqn.identifier}/versions/{version_name}/"
-        if not location_uri:
-            raise CliError(
-                f"Could not resolve default version for workspace {workspace_fqn.identifier}."
-            )
-        return str(location_uri).rstrip("/")
-
-    def get_default_workspace_version_subdirectory_uri(
-        self, workspace_fqn: FQN, directory_name: str
-    ) -> str:
-        """Return URI for *directory_name* under the workspace default version."""
-        normalized_directory = directory_name.strip("/")
-        return (
-            f"{self.get_default_workspace_version_uri(workspace_fqn)}"
-            f"/{normalized_directory}"
-        )
-
     def clear_workspace_subdirectory(
         self, workspace_fqn: FQN, directory_name: str
     ) -> None:
@@ -735,6 +731,46 @@ class SnowflakeAppManager(SqlExecutionMixin):
         desc = self.describe_app_service(service_fqn)
         return self.resolve_application_service_url_from_describe(desc)
 
+    def _is_boolean_param_true(self, param_name: str) -> bool:
+        """Return True when the named boolean backend parameter is set to
+        ``"true"`` for the current session.
+
+        The check is intentionally tolerant: any error (e.g. the parameter
+        is not exposed to the current role) and any unset/non-true value
+        return ``False`` so callers fall back to the conservative default.
+        """
+        try:
+            cursor = self.execute_query(
+                f"SHOW PARAMETERS LIKE '{param_name}'",
+                cursor_class=DictCursor,
+            )
+            for row in cursor:
+                value = (row.get("value") or row.get("VALUE") or "").strip().lower()
+                return value == "true"
+            return False
+        except ProgrammingError:
+            return False
+
+    def is_managed_compute_pool_enabled(self) -> bool:
+        """Return True when the backend parameter
+        :data:`MANAGED_COMPUTE_POOL_PARAM` is set to ``"true"`` for the
+        current session.
+        """
+        return self._is_boolean_param_true(MANAGED_COMPUTE_POOL_PARAM)
+
+    def is_managed_compute_pool_fallback_enabled(self) -> bool:
+        """Return True when the backend parameter
+        :data:`MANAGED_COMPUTE_POOL_FALLBACK_PARAM` is set to ``"true"`` for
+        the current session.
+
+        When this is true (and managed pools are enabled), the server honors
+        user-specified compute pools as a fallback to the managed pool, so
+        the CLI passes ``snowflake.yml`` values through unchanged. When
+        false (the default), the server enforces the managed pool and the
+        CLI strips any user-specified pools with a warning.
+        """
+        return self._is_boolean_param_true(MANAGED_COMPUTE_POOL_FALLBACK_PARAM)
+
     def fetch_snow_apps_parameters(self) -> Dict[str, str]:
         """Fetch SnowApps default parameters for the current user.
 
@@ -794,13 +830,14 @@ class SnowflakeAppManager(SqlExecutionMixin):
         """Return True if the artifact repository already exists."""
         from snowflake.cli.api.project.util import (
             identifier_to_show_like_pattern,
+            to_identifier,
             unquote_identifier,
         )
 
-        schema_fqn = FQN(database=None, schema=database, name=schema)
+        schema_identifier = f"{to_identifier(database)}.{to_identifier(schema)}"
         cursor = self.execute_query(
             f"SHOW ARTIFACT REPOSITORIES LIKE {identifier_to_show_like_pattern(repo_name)}"
-            f" IN SCHEMA {schema_fqn.sql_identifier}",
+            f" IN SCHEMA {schema_identifier}",
             cursor_class=DictCursor,
         )
         unqualified = unquote_identifier(repo_name).upper()
@@ -827,7 +864,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         schema: str = "",
         runtime_image: str = "",
         build_eai: Optional[str] = None,
-        project_type: str = "nodejs",
+        project_type: str = "",
         source_uri: Optional[str] = None,
     ) -> str:
         """Build an app using SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO.
@@ -907,6 +944,31 @@ class SnowflakeAppManager(SqlExecutionMixin):
         if version:
             query += f"\nTO VERSION {version}"
         self.execute_query(query)
+
+    def is_application_service(self, service_fqn: FQN) -> bool:
+        """Return True when settings should use the ``app-service`` URL segment.
+
+        Detection order:
+        1) If ``DESCRIBE APPLICATION SERVICE`` returns a row, treat as application
+           service.
+        2) Otherwise, if a legacy ``SERVICE`` object exists with the same FQN,
+           treat as legacy service.
+        3) If type checks fail (errors/unknown), default to application service.
+        """
+        try:
+            if self.describe_app_service(service_fqn):
+                return True
+        except ProgrammingError:
+            log.debug(
+                "DESCRIBE APPLICATION SERVICE failed for %s",
+                service_fqn,
+                exc_info=True,
+            )
+
+        if _object_exists("service", service_fqn.identifier):
+            return False
+
+        return True
 
     def describe_app_service(self, service_fqn: FQN) -> Dict[str, Any]:
         """Run ``DESCRIBE APPLICATION SERVICE`` and return a case-insensitive

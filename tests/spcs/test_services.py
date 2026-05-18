@@ -2000,6 +2000,15 @@ def test_build_image(mock_execute_query, mock_get_account):
     assert container["env"]["IMAGE_TAG"] == image_tag
     assert container["env"]["BUILD_CONTEXT"] == "/app"
 
+    volumes = spec["spec"]["volumes"]
+    assert len(volumes) == 1
+    assert volumes[0] == {
+        "name": "code-volume",
+        "source": "stage",
+        "stageConfig": {"name": f"@{stage}/{build_context_path}"},
+        "uid": 65532,
+    }
+
     assert result == cursor
 
 
