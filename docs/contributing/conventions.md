@@ -38,7 +38,7 @@ fqn = FQN.from_string(f"{database}.{schema}.{table_name}")
 cursor.execute(f"CREATE TABLE {fqn.sql_identifier} ...")
 ```
 
-### String values (LIKE patterns, CALL arguments, string parameters)
+### String values (LIKE patterns, CALL arguments, stage paths, string parameters)
 
 Use `to_string_literal()` from `snowflake.cli.api.project.util`, which produces
 a properly escaped single-quoted string literal:
@@ -51,6 +51,28 @@ cursor.execute(f"SHOW DATABASES LIKE {database}")
 from snowflake.cli.api.project.util import to_string_literal
 cursor.execute(f"SHOW DATABASES LIKE {to_string_literal(database)}")
 ```
+
+When doing SHOW … LIKE to look up a **specific object by name** (not a user
+search pattern), use `identifier_to_show_like_pattern()` instead. It also
+escapes `%` and `_` wildcard characters so that `'my_db'` does not accidentally
+match `'myXdb'`:
+
+```python
+from snowflake.cli.api.project.util import identifier_to_show_like_pattern
+cursor.execute(f"SHOW DATABASES LIKE {identifier_to_show_like_pattern(name)}")
+```
+
+### Bind parameters
+
+For scalar values in DML statements (`SELECT`, `INSERT`, `UPDATE`), prefer bind
+parameters — they are the safest option and require no escaping:
+
+```python
+cursor.execute("SELECT * FROM my_table WHERE id = %s", (user_id,))
+```
+
+Bind parameters are not supported for DDL or `SHOW` statements. Use
+`to_string_literal` or `identifier_to_show_like_pattern` there instead.
 
 ## Terminal output safety
 
@@ -80,8 +102,8 @@ from click import ClickException
 raise ClickException("Something went wrong")
 
 # CORRECT
-from snowflake.cli.api.exceptions import SnowflakeCLIError  # or a more specific subclass
-raise SnowflakeCLIError("Something went wrong")
+from snowflake.cli.api.exceptions import CliError  # or a more specific subclass
+raise CliError("Something went wrong")
 ```
 
 Check `src/snowflake/cli/api/exceptions.py` for available subclasses before
@@ -92,10 +114,10 @@ user can do about it:
 
 ```python
 # WRONG — states what happened but not what to do
-raise SnowflakeCLIError(f"File {path} not found")
+raise CliError(f"File {path} not found")
 
 # CORRECT — states what happened and how to fix it
-raise SnowflakeCLIError(f"File {path} not found. Check the path and try again.")
+raise CliError(f"File {path} not found. Check the path and try again.")
 ```
 
 ## Imports

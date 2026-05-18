@@ -39,7 +39,7 @@ git rebase sfcli/main
 
 A maintainer will review and merge your PR after approval using **squash and
 merge**. If your PR is approved and all checks pass but you cannot merge,
-contact a maintainer via
+comment directly on your PR or contact a maintainer via
 [GitHub Issues](https://github.com/snowflakedb/snowflake-cli/issues).
 
 ## Commit message format

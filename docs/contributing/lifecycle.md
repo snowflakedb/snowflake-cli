@@ -34,6 +34,7 @@ always require an explicit opt-in (via feature flag) before they are visible.
 
 ### PuPr (Public Preview)
 
+- Feature remains behind its feature flag — not visible to users who have not opted in
 - One-line release note required when entering PuPr (under `## New additions`):
   ```
   * <name> is now available in preview.
@@ -84,6 +85,10 @@ combination. The right scope depends on what you're hiding.
 **Hide an entire command group** (group absent from `snow --help`, but still
 callable by users who know the flag — useful for internal testing):
 ```python
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.feature_flags import FeatureFlag
+import typer
+
 app = SnowTyperFactory(
     name="my-group",
     is_hidden=FeatureFlag.ENABLE_MY_FEATURE.is_disabled,
@@ -226,7 +231,6 @@ def my_command(
     old_option: Optional[str] = typer.Option(
         None,
         callback=deprecated_flag_callback("Use --new-option instead."),
-        is_eager=True,
     ),
 ):
     ...

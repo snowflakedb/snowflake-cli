@@ -34,7 +34,7 @@ hatch run pytest tests/<file>::<test>      # single test
 | Directory | Type | Requires connection | How to run |
 |-----------|------|---------------------|------------|
 | `tests/` | Unit | No | `hatch run test` |
-| `tests_integration/` | Integration | Yes | `pytest -m integration` |
+| `tests_integration/` | Integration | Yes | `hatch run integration:test` |
 | `tests_e2e/` | E2E | Yes | (not for most contributors) |
 | `tests_common/` | Shared fixtures | — | (not run directly) |
 
@@ -49,6 +49,10 @@ intentional, regenerate the snapshots:
 ```bash
 hatch run pytest tests/ --snapshot-update
 ```
+
+`tests_integration/__snapshots__/` and `tests_e2e/__snapshots__/` also contain
+syrupy snapshots. Updating them requires running the respective test suite with
+`--snapshot-update` and a live Snowflake connection.
 
 Always review the `.ambr` diff before committing. Look for unexpected changes
 alongside the intended ones.
@@ -68,11 +72,17 @@ Use the `with_feature_flags` helper from `tests_common/feature_flag_utils.py`:
 from tests_common.feature_flag_utils import with_feature_flags
 from snowflake.cli.api.feature_flags import FeatureFlag
 
+# As a decorator
 @with_feature_flags({FeatureFlag.ENABLE_MY_FEATURE: True})
 def test_my_command(runner):
     result = runner.invoke(["my-group", "my-command"])
     assert result.exit_code == 0
-    assert "expected output" in result.output
+
+# As a context manager (useful in parametrized tests)
+def test_my_command_parametrized(runner):
+    with with_feature_flags({FeatureFlag.ENABLE_MY_FEATURE: True}):
+        result = runner.invoke(["my-group", "my-command"])
+        assert result.exit_code == 0
 ```
 
 Do not enable feature flags by setting environment variables in tests. Use the
@@ -86,9 +96,10 @@ helper — it scopes the flag correctly and avoids cross-test contamination.
 
 ## Fixtures
 
-Unit test fixtures belong in `tests/`. Do not import fixtures from
-`tests_integration/` into unit tests — the two directories have different
-assumptions about what's available.
+Unit-only fixtures belong in `tests/conftest.py`. Fixtures shared between unit
+and integration tests belong in `tests_common/conftest.py`. Do not import
+fixtures from `tests_integration/` into unit tests — the two directories have
+different assumptions about what's available.
 
 ## Random test order
 
@@ -110,8 +121,8 @@ SNOWFLAKE_CONNECTIONS_INTEGRATION_AUTHENTICATOR=SNOWFLAKE_JWT
 SNOWFLAKE_CONNECTIONS_INTEGRATION_HOST=<host>
 SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT=<account>
 SNOWFLAKE_CONNECTIONS_INTEGRATION_USER=<user>
-SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_FILE=<path>   # preferred
-# SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_PATH=<path> # alternative
+SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_PATH=<path>   # preferred
+# SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_FILE=<path> # alternative
 # SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_RAW=<key>   # load key from env
 SNOWFLAKE_CONNECTIONS_INTEGRATION_ROLE=<role>
 SNOWFLAKE_CONNECTIONS_INTEGRATION_DATABASE=<database>
