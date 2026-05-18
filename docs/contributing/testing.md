@@ -18,16 +18,18 @@
 
 ## What to run
 
-Most contributors run unit tests only. Integration and E2E tests require a live
-Snowflake connection.
+The project has three test suites:
+
+- **Unit tests** (`tests/`) — fast, no external dependencies, provide quick feedback during development.
+  - **Snapshot tests** (subset of unit tests) — capture and verify CLI output formatting. Stored as `.ambr` files in `tests/__snapshots__/`.
+- **Integration tests** (`tests_integration/`) — test against a real Snowflake backend. Require a live connection.
+- **E2E tests** (`tests_e2e/`) — install the CLI from scratch in a clean virtualenv and run commands against a real Snowflake backend. Require a live connection.
 
 ```bash
-hatch run test                              # full unit suite
+hatch run test                              # full unit suite (includes snapshots)
 hatch run pytest tests/<file>              # single file
 hatch run pytest tests/<file>::<test>      # single test
 ```
-
-Do not run integration or E2E tests unless you have a Snowflake account configured.
 
 | Directory | Type | Requires connection | How to run |
 |-----------|------|---------------------|------------|
