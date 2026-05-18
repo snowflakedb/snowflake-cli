@@ -20,6 +20,9 @@ Commands, command groups, flags, and arguments each progress through their own
 lifecycle independently. A command group can be GA while a specific command
 within it is still in PuPr, and a specific flag on that command can be in PrPr.
 
+By default, users must never see non-GA features. PrPr and PuPr features must
+always require an explicit opt-in (via feature flag) before they are visible.
+
 ## Stage definitions
 
 ### PrPr (Private Preview)
@@ -189,8 +192,8 @@ compatibility guarantee:
 - `config.toml` fields
 - `snowflake.yml` schema fields
 
-Structured output (`--format json`) is **not** guaranteed — the CLI passes
-through server responses and their shape is outside CLI's control.
+Command output is **not** guaranteed — many commands return raw Snowflake server
+responses whose shape is outside CLI's control.
 
 Any change that breaks the above requires a `## Backward incompatibility` entry
 in `RELEASE-NOTES.md` and must not land in a minor version.
