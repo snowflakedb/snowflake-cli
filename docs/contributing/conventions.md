@@ -98,21 +98,6 @@ raise SnowflakeCLIError(f"File {path} not found")
 raise SnowflakeCLIError(f"File {path} not found. Check the path and try again.")
 ```
 
-## Optional value checks
-
-Always use `is not None` when checking optional config values or CLI option
-values. Empty strings and zero are valid values that `if value:` silently drops.
-
-```python
-# WRONG — silently drops empty string and 0
-if value:
-    use(value)
-
-# CORRECT
-if value is not None:
-    use(value)
-```
-
 ## Imports
 
 Prefer top-of-file imports. Local imports inside functions are acceptable only
@@ -145,6 +130,20 @@ log = logging.getLogger(__name__)
 def my_function():
     log.debug("Starting operation with params: %s", params)
 ```
+
+Use `%`-style formatting, not f-strings:
+
+```python
+# WRONG
+log.debug(f"Processing {len(items)} items")
+
+# CORRECT
+log.debug("Processing %s items", len(items))
+```
+
+Never log sensitive values such as passwords, tokens, or private keys. Connection
+parameters from config may contain credentials — log identifiers (account, user,
+role) but not secrets.
 
 Use `cli_console` (see below) for messages the user should see during normal
 operation. The two are complementary: `cli_console` drives the interactive
