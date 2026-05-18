@@ -244,6 +244,26 @@ class TestStreamlitEntity(StreamlitTestClass):
         assert (output / "my_app" / "app.py").exists()
         assert (output / "my_app" / "env.yml").exists()
 
+    def test_bundle_skips_auto_insert_when_dest_root_artifact_covers_root_main_file(
+        self, tmp_path
+    ):
+        """An artifact with ``src=app.py, dest='./'`` deploys ``app.py`` to the
+        deploy root, the same canonical path the auto-insert would produce,
+        so the auto-insert is skipped."""
+        self._write_file(tmp_path / "app.py")
+        entity = self._create_entity(
+            project_root=tmp_path,
+            main_file="app.py",
+            artifacts=[PathMapping(src="app.py", dest="./")],
+        )
+
+        bundle_map = entity.bundle()
+        output = self._bundle_output(tmp_path)
+
+        assert list(bundle_map.all_sources()) == [Path("app.py")]
+        assert list(bundle_map.to_deploy_paths(Path("app.py"))) == [Path("app.py")]
+        assert (output / "app.py").exists()
+
     def test_bundle_handles_glob_overlap_with_main_file(self, tmp_path):
         """Glob-style src (``pages/*.py``) fails the helper's ``relative_to``
         check, so the auto-insert fires. Downstream file-level dedup in
