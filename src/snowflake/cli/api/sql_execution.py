@@ -35,6 +35,7 @@ from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import (
     identifier_to_show_like_pattern,
     to_identifier,
+    to_string_literal,
     unquote_identifier,
 )
 from snowflake.cli.api.utils.cursor import find_first_row
@@ -185,26 +186,23 @@ class SqlExecutor(BaseSqlExecutor):
     def create_password_secret(
         self, name: FQN, username: str, password: str
     ) -> SnowflakeCursor:
-        safe_username = username.replace("'", "''")
-        safe_password = password.replace("'", "''")
         return self.execute_query(
             f"""
             create secret {name.sql_identifier}
             type = password
-            username = '{safe_username}'
-            password = '{safe_password}'
+            username = {to_string_literal(username)}
+            password = {to_string_literal(password)}
             """
         )
 
     def create_api_integration(
         self, name: FQN, api_provider: str, allowed_prefix: str, secret: Optional[str]
     ) -> SnowflakeCursor:
-        safe_allowed_prefix = allowed_prefix.replace("'", "''")
         return self.execute_query(
             f"""
             create api integration {name.sql_identifier}
             api_provider = {api_provider}
-            api_allowed_prefixes = ('{safe_allowed_prefix}')
+            api_allowed_prefixes = ({to_string_literal(allowed_prefix)})
             allowed_authentication_secrets = ({secret if secret else ""})
             enabled = true
             """

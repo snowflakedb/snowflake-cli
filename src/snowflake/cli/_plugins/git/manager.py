@@ -26,6 +26,7 @@ from snowflake.cli._plugins.stage.manager import (
     UserStagePathParts,
 )
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.stage_path import StagePath
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -96,12 +97,11 @@ class GitManager(StageManager):
     def create(
         self, repo_name: FQN, api_integration: str, url: str, secret: str
     ) -> SnowflakeCursor:
-        safe_url = url.replace("'", "''")
         query = dedent(
             f"""
             create git repository {repo_name.sql_identifier}
             api_integration = {api_integration}
-            origin = '{safe_url}'
+            origin = {to_string_literal(url)}
             """
         )
         if secret is not None:

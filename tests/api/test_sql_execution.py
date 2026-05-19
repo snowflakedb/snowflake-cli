@@ -156,6 +156,9 @@ def test_use_schema_fqn(mock_execute_query):
         ),
         ("john_doe", "a'b'c", "john_doe", "a''b''c"),
         ("o'brien", "d'arcy", "o''brien", "d''arcy"),
+        # Backslash before quote: doubled so neither STANDARD_ESCAPE_SEQUENCES
+        # mode lets the literal terminate prematurely.
+        ("foo\\'bar", "p\\'wd", "foo\\\\''bar", "p\\\\''wd"),
     ],
 )
 @mock.patch(EXECUTE_QUERY)
@@ -182,6 +185,7 @@ def test_create_password_secret_escapes_single_quotes(
             "https://github.com/''); GRANT ROLE ACCOUNTADMIN TO USER attacker;--",
         ),
         ("a'b'c", "a''b''c"),
+        ("https://example.com/x\\'y", "https://example.com/x\\\\''y"),
     ],
 )
 @mock.patch(EXECUTE_QUERY)
