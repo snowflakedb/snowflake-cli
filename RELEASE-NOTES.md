@@ -27,6 +27,7 @@
 * Fixed macOS arm64 installer incorrectly requiring Rosetta 2. The `Distribution.xml` package metadata now declares `hostArchitectures="arm64,x86_64"`, so the installer is recognized as native on Apple Silicon.
 * Fixed `snow spcs service build-image` on Azure accounts to work with stages using SNOWFLAKE_FULL encryption.
 * Fixed SQL string literal escaping in `identifier_to_show_like_pattern` and `to_string_literal` to use Snowflake's standard single-quote doubling (`''`) instead of backslash escaping, which is not interpreted under the default `STANDARD_ESCAPE_SEQUENCES=FALSE` session setting. This closes SQL injection vectors through `SHOW ... LIKE` queries driven by a project-controlled `snowflake.yml` or `manifest.yml`.
+* Hardened Native App post-deploy `sql_script` handling to reject absolute, parent-relative, and other paths that resolve outside the project root before reading local files.
 * Upgraded `pip` to version 26.1.1.
 * Fixed `snow connection list` crashing with `AttributeError` when `config.toml` contains a scalar value directly under `[connections]`. Such entries are now skipped with a warning so valid connections are still listed.
 * Fixed SQL injection via `FQN.sql_identifier`.
