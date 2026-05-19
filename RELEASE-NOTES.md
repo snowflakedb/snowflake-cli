@@ -14,14 +14,17 @@
  limitations under the License.
  -->
 # Unreleased version
+
 ## Backward incompatibility
 
 ## Deprecations
 
 ## New additions
+
 * Added `snow streamlit logs` command to stream live logs from a Streamlit-in-Snowflake app running on the SPCSv2 container runtime. Supports `--tail` for historical lines, `--name` to target apps without a project definition, and honors the global `--format` flag (plain / JSON / CSV) for downstream piping.
 
 ## Fixes and improvements
+
 * Updated `snowflake-connector-python` to version 4.5.0.
 * Updated `gitpython` to version 3.1.50.
 * Fixed macOS arm64 installer incorrectly requiring Rosetta 2. The `Distribution.xml` package metadata now declares `hostArchitectures="arm64,x86_64"`, so the installer is recognized as native on Apple Silicon.
@@ -32,10 +35,9 @@
 * Fixed SQL injection via `FQN.sql_identifier`.
 * Fixed Snowsight URL generation (used by `snow streamlit deploy`, `snow streamlit get-url`, `snow app run`, `snow notebook`, and similar commands) for accounts whose host is 4-part (e.g. `<account>.us-east-1.snowflakecomputing.com`) or 5-part with a cloud suffix (e.g. `<account>.<region>.aws.snowflakecomputing.com`). These hosts now resolve to the correct regioned Snowsight URL instead of raising `"host (...) was missing or not in the expected format"`.
 * Fixed boolean connection parameters (`client_store_temporary_credential`, `oauth_disable_pkce`, `oauth_enable_refresh_tokens`, `oauth_enable_single_use_refresh_tokens`) being passed to the connector as raw strings when supplied via `SNOWFLAKE_*` or `SNOWFLAKE_CONNECTIONS_<name>_*` environment variables. Values like `false` / `0` are now correctly interpreted as `False` rather than truthy strings.
-* Fixed string literal escaping in `CREATE STREAMLIT` SQL: values from `snowflake.yml` are now routed through `to_string_literal` (standard single-quote doubling `''`) so that apostrophes no longer break the generated statement.
-
 
 # v3.17.1
+
 ## Backward incompatibility
 
 ## Deprecations
@@ -43,14 +45,15 @@
 ## New additions
 
 ## Fixes and improvements
-* Encrypted private key files no longer require `PRIVATE_KEY_PASSPHRASE` to be set in the environment. The passphrase can now be read from `private_key_file_pwd` (the name used by `snowflake-connector-python`) or `private_key_passphrase` in `connections.toml` / `config.toml`. The `PRIVATE_KEY_PASSPHRASE` environment variable continues to take precedence when set. This also fixes a regression in 3.17.0 where commands using key-pair authentication with `private_key_passphrase` in `connections.toml` failed with `argument 'password': Cannot convert "<class 'str'>" instance to a buffer`.
 
+* Encrypted private key files no longer require `PRIVATE_KEY_PASSPHRASE` to be set in the environment. The passphrase can now be read from `private_key_file_pwd` (the name used by `snowflake-connector-python`) or `private_key_passphrase` in `connections.toml` / `config.toml`. The `PRIVATE_KEY_PASSPHRASE` environment variable continues to take precedence when set. This also fixes a regression in 3.17.0 where commands using key-pair authentication with `private_key_passphrase` in `connections.toml` failed with `argument 'password': Cannot convert "<class 'str'>" instance to a buffer`.
 
 # v3.17.0
 
 ## Deprecations
 
 ## New additions
+
 * `snow app` now supports both Snowflake Native Apps (`application` / `application package` entities) and Snowflake Apps Deploy (`snowflake-app` entities). The entity type in `snowflake.yml` determines which flow is used, so shared subcommands like `bundle`, `deploy`, `validate`, `open`, `events`, and `teardown` automatically pick the correct behavior. The experimental hidden `snow __app` command group and the `ENABLE_SNOWFLAKE_APPS` feature flag have been removed.
 * Added `snow app setup` command for initializing a `snowflake.yml` for a Snowflake Apps Deploy project.
 * Added `snow connection generate-workload-identity-token` command to generate a workload identity token for the current environment. Supports AWS, GCP, Azure, and OIDC providers via `--workload-identity-provider` flag or connection configuration.
@@ -64,6 +67,7 @@
 * Added `--force` flag to `snow spcs service drop` to allow dropping services that contain block storage volumes.
 
 ## Fixes and improvements
+
 * Significantly improved DCM files upload performance
 * Fixed `snow streamlit deploy` failing with a collision error when `pages/*.py` glob in `additional_source_files` overlaps with the automatically-included `pages/` directory. Overlapping glob patterns are now deduplicated during v1-to-v2 definition conversion.
 * Updated `snowflake-connector-python` to version 4.4.0. Connector python 4.x series introduced stricter permission checks. In future versions of Snowflake CLI strict configuration file permissions will become mandatory. To test if your files have correct permissions set SNOWFLAKE_CLI_FEATURES_ENFORCE_STRICT_CONFIG_PERMISSIONS=1 before running CLI commands.
@@ -78,6 +82,7 @@
 ## Deprecations
 
 ## New additions
+
 * DCM commands are now available in preview
 * Added `--in-account` flag to list commands (e.g., `snow object list`, `snow stage list`). This flag allows listing all objects of a given type in the account. Cannot be used together with the `--in` flag.
 * Added **experimental** command `snow spcs service build-image` to build container images using SPCS service. The command uploads local build context to a stage, executes a build job, and streams logs in real-time until completion. This command is experimental and subject to change.
@@ -86,6 +91,7 @@
 * Added `--dbt-version` flag to `snow dbt deploy` and `snow dbt execute` commands. This flag allows to set dbt Core version on dbt project object (`deploy` command) or execute a dbt command on a specific dbt Core version, without altering the dbt object (`execute` commands).
 
 ## Fixes and improvements
+
 * Fixed `snow stage copy --recursive` dropping database and schema qualifiers from fully-qualified stage names, causing the command to resolve stages against the connection's default database instead of the one specified in the FQN.
 * all authenticators (including `snowflake-jwt`, `username_password_mfa`, `workload_identity`) are now case-insensitive.
 * Fixed `snow streamlit deploy --prune` failing with incorrect stage path format for streamlit entities using versioned deployment. The `snow://` prefix is now correctly preserved through all stage path operations.
@@ -99,13 +105,14 @@
 ## Deprecations
 
 ## New additions
+
 * Added `--if-exists` option to `snow object drop` command and object-specific drop commands (e.g., `snow stage drop`) to drop objects only if they exist, preventing errors when dropping non-existent objects.
 
 ## Fixes and improvements
+
 * Fix git repository path parsing to allow quotes around both repo and branch names (e.g., `@"example-repo"/branches/"feature/branch"/*`).
 * Fix `externalbrowser` auth for headless systems.
 * Update project definition with supported python versions aligned with `snowflake-connector-python`
-
 
 # v3.14.0
 
@@ -121,6 +128,7 @@
 ## Fixes and improvements
 
 # v3.13.1
+
 ## Backward incompatibility
 
 ## Deprecations
@@ -128,14 +136,15 @@
 ## New additions
 
 ## Fixes and improvements
-* Fixed parsing of --vars provided to `snow dbt execute` subcommands. This allows to pass variables in the same way as to dbt cli, i.e. --vars '{"key": "value"}'
 
+* Fixed parsing of --vars provided to `snow dbt execute` subcommands. This allows to pass variables in the same way as to dbt cli, i.e. --vars '{"key": "value"}'
 
 # v3.13.0
 
 ## Deprecations
 
 ## New additions
+
 * Added global option `--decimal-precision` allowing setting arbitrary precision for Python's `Decimal` type.
 * Added support for `auto_suspend_secs` parameter in SPCS service commands (`deploy`, `set`, `unset`) to configure automatic service suspension after inactivity period.
 * Added `snow dbt describe` and `snow dbt drop` commands
@@ -148,6 +157,7 @@
 * Added support for running Streamlit on SPCS runtime
 
 ## Fixes and improvements
+
 * Bumped `snowflake-connector-python==3.18.0`
 * Grant privileges defined in `snowflake.yml` after deploying Streamlit
 * Relaxed dbt profiles.yml validation rules; added extra validation for role specified in profiles.yml
@@ -701,9 +711,9 @@
   * Overrides `env` variables values when used in templating.
   * Can be referenced in templating through `ctx.env.<key_name>`.
   * Templating will read env vars in this order of priority (highest priority to lowest priority):
-    - vars from `--env` command line argument.
-    - vars from shell environment variables.
-    - vars from `env` section of project definition file.
+    * vars from `--env` command line argument.
+    * vars from shell environment variables.
+    * vars from `env` section of project definition file.
 
 ## Fixes and improvements
 
