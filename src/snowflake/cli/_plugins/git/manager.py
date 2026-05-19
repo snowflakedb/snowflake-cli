@@ -86,10 +86,14 @@ class GitManager(StageManager):
         return StagePath.from_git_str(stage_path)
 
     def show_branches(self, repo_name: str, like: str) -> SnowflakeCursor:
-        return self.execute_query(f"show git branches like '{like}' in {repo_name}")
+        return self.execute_query(
+            f"show git branches like {to_string_literal(like)} in {repo_name}"
+        )
 
     def show_tags(self, repo_name: str, like: str) -> SnowflakeCursor:
-        return self.execute_query(f"show git tags like '{like}' in {repo_name}")
+        return self.execute_query(
+            f"show git tags like {to_string_literal(like)} in {repo_name}"
+        )
 
     def fetch(self, fqn: FQN) -> SnowflakeCursor:
         return self.execute_query(f"alter git repository {fqn} fetch")
