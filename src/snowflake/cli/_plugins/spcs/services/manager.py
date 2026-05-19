@@ -425,10 +425,12 @@ class ServiceManager(SqlExecutionMixin):
         # The returned JSON is embedded inside $$...$$ dollar-quoted SQL
         # literals; json.dumps does not escape $, so any run of two or more
         # $ in spec content would close the literal early and allow SQL
-        # injection. Break up every adjacent $$ pair — this handles runs of
-        # any length ($$, $$$, $$$$, ...) without mutating legitimate
-        # single-$ values.
-        return re.sub(r"\$(?=\$)", "$ ", json.dumps(data))
+        # injection. Replace each $ that is followed by another $ with its
+        # JSON unicode escape — this handles runs of any length
+        # ($$, $$$, $$$$, ...) without mutating legitimate single-$ values,
+        # and the server-side JSON parser decodes the escape back to $ so
+        # spec values reach Snowflake unchanged.
+        return re.sub(r"\$(?=\$)", r"\\u0024", json.dumps(data))
 
     def status(self, service_name: str) -> SnowflakeCursor:
         return self.execute_query(f"CALL SYSTEM$GET_SERVICE_STATUS('{service_name}')")

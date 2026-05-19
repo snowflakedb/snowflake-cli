@@ -1366,7 +1366,9 @@ def test_read_yaml_escapes_dollar_quote_breakout(payload, temporary_directory):
     # A spec value containing two or more consecutive $ must not survive
     # verbatim: the JSON is later embedded inside $$...$$ SQL literals by
     # create(), _execute_job_service(), and upgrade_spec(), and any $$ in
-    # spec content would close the literal and allow injected SQL.
+    # spec content would close the literal and allow injected SQL. The
+    # escape uses JSON unicode sequences so a JSON-aware parser on the
+    # server side recovers the original spec value unchanged.
     tmp_dir = Path(temporary_directory)
     spec_path = tmp_dir / "spec.yml"
     spec_path.write_text(
@@ -1383,6 +1385,11 @@ def test_read_yaml_escapes_dollar_quote_breakout(payload, temporary_directory):
     )
     result = ServiceManager()._read_yaml(spec_path)  # noqa: SLF001
     assert "$$" not in result
+    # Round-trip: parsing the serialized JSON must yield the original
+    # payload with the $ run intact, otherwise we would silently corrupt
+    # legitimate spec values (env vars, passwords, etc.) that happen to
+    # contain $$.
+    assert json.loads(result)["spec"]["containers"][0]["env"]["PAYLOAD"] == payload
 
 
 def test_read_yaml_preserves_single_dollar(temporary_directory):
@@ -1481,6 +1488,12 @@ def test_service_spec_dollar_quote_not_broken_out(
     assert query.count("$$") == 2, query
     assert "GRANT ROLE ACCOUNTADMIN" in query  # payload still present, just neutralized
     assert query_fragment in query
+    # Fidelity check: the bytes between the two $$ delimiters parse back
+    # to the original payload string. The server side does the same JSON
+    # parse, so this is what Snowflake actually receives as the spec value.
+    spec_json = query[query.find("$$") + 2 : query.rfind("$$")].strip()
+    payload = json.loads(spec_json)["spec"]["containers"][0]["env"]["PAYLOAD"]
+    assert payload == f"{dollar_run} ); GRANT ROLE ACCOUNTADMIN TO USER attacker; --"
 
 
 @patch(EXECUTE_QUERY)
