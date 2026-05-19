@@ -144,8 +144,27 @@ def test_missing_sql_script(
 @pytest.mark.parametrize(
     "args,expected_error",
     [
-        ({"sql_script": "/path"}, None),
+        ({"sql_script": "scripts/post.sql"}, None),
+        ({"sql_script": "nested/dir/post.sql"}, None),
         ({}, "missing the following field: 'sql_script'"),
+        ({"sql_script": ""}, "sql_script must not be empty"),
+        ({"sql_script": "/path"}, "must be a relative path within the project root"),
+        (
+            {"sql_script": "/etc/passwd"},
+            "must be a relative path within the project root",
+        ),
+        (
+            {"sql_script": "C:\\Windows\\System32\\config\\sam"},
+            "must be a relative path within the project root",
+        ),
+        (
+            {"sql_script": "../secret.sql"},
+            "must not contain parent directory references",
+        ),
+        (
+            {"sql_script": "scripts/../../secret.sql"},
+            "must not contain parent directory references",
+        ),
     ],
 )
 def test_post_deploy_hook_schema(args, expected_error):
