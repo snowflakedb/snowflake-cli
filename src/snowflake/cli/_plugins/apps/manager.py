@@ -390,6 +390,7 @@ def _bundle_app_artifacts(project_paths: ProjectPaths, artifacts) -> BundleMap:
                 absolute_src,
                 absolute_dest,
                 deploy_root=project_paths.bundle_root,
+                project_root=project_paths.project_root,
             )
     return bundle_map
 

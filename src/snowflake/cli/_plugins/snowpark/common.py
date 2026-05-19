@@ -290,6 +290,7 @@ def zip_and_copy_artifacts_to_deploy(
                     absolute_src,
                     absolute_dest,
                     deploy_root=bundle_map.deploy_root(),
+                    project_root=artifact.project_root,
                 )
                 copied_files.append(absolute_dest)
         else:

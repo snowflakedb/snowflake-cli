@@ -82,7 +82,12 @@ def bundle_artifacts(
     for absolute_src, absolute_dest in bundle_map.all_mappings(
         absolute=True, expand_directories=False
     ):
-        symlink_or_copy(absolute_src, absolute_dest, deploy_root=deploy_root)
+        symlink_or_copy(
+            absolute_src,
+            absolute_dest,
+            deploy_root=deploy_root,
+            project_root=project_root,
+        )
 
     return bundle_map
 
