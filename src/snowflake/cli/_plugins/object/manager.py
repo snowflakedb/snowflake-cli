@@ -22,6 +22,7 @@ from snowflake.cli.api.constants import (
     ObjectNames,
 )
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.rest_api import RestApi
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector import ProgrammingError
@@ -58,8 +59,7 @@ class ObjectManager(SqlExecutionMixin):
         query = " ".join(query_parts)
 
         if like:
-            escaped_like = like.replace("'", "''")
-            query += f" like '{escaped_like}'"
+            query += f" like {to_string_literal(like)}"
         if scope[0] is not None:
             scope_type = scope[0].replace("-", " ")
             if scope[1] is not None:

@@ -367,18 +367,30 @@ def test_list_images_with_like(mock_execute_query):
     assert result == cursor
 
 
+@pytest.mark.parametrize(
+    "like_pattern, expected_literal",
+    [
+        ("foo'; drop table users; --", "'foo''; drop table users; --'"),
+        # Backslash-before-quote bypass: the connector's split_statements
+        # treats \' as an escape pair, so plain ''-doubling would still let
+        # the trailing DROP TABLE be sliced off as a second statement.
+        ("x\\';DROP TABLE t;--", "'x\\\\'';DROP TABLE t;--'"),
+        # % / _ wildcards are preserved (LIKE pattern semantics intact).
+        ("echo%_v2", "'echo%_v2'"),
+    ],
+)
 @patch(
     "snowflake.cli._plugins.spcs.image_repository.commands.ImageRepositoryManager.execute_query"
 )
-def test_list_images_like_escapes_single_quotes(mock_execute_query):
+def test_list_images_like_escapes_string_literal(
+    mock_execute_query, like_pattern, expected_literal
+):
     repo_name = "test_repo"
-    like = "foo'; drop table users; --"
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
-    ImageRepositoryManager().list_images(repo_name, like)
+    ImageRepositoryManager().list_images(repo_name, like_pattern)
     expected_query = (
-        "show images like 'foo''; drop table users; --' "
-        "in image repository test_repo"
+        f"show images like {expected_literal} in image repository test_repo"
     )
     mock_execute_query.assert_called_once_with(expected_query)
 
