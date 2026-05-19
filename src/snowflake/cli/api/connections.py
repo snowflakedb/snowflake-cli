@@ -19,6 +19,7 @@ import logging
 import re
 import warnings
 from dataclasses import asdict, dataclass, field, fields, replace
+from hashlib import sha256
 from pathlib import Path
 from typing import Optional
 
@@ -31,23 +32,19 @@ logger = logging.getLogger(__name__)
 
 schema_pattern = re.compile(r".+\..+")
 
-# Fields whose values are credentials or other secrets and must never appear
-# in repr / debug logs. dataclass field(repr=False) metadata is not sufficient:
-# asdict() (and therefore anything built on top of it) ignores repr=False, so
-# the redaction has to be applied explicitly wherever we serialise for display.
-_SENSITIVE_FIELDS: frozenset[str] = frozenset(
-    {
-        "password",
-        "private_key_raw",
-        "private_key_passphrase",
-        "token",
-        "session_token",
-        "master_token",
-        "oauth_client_secret",
-        "mfa_passcode",
-    }
-)
-_REDACTED = "***"
+# Placeholder rendered in lieu of a credential value. Kept identical to
+# ``snowflake.cli.api.config_ng.masking.MASKED_VALUE`` so all log/debug
+# surfaces use one redaction style — that module isn't imported directly
+# to avoid a circular import via ``config_ng/__init__.py`` →
+# ``presentation`` → ``console`` → ``cli_global_context`` → this module.
+# See ``test_redacted_constant_matches_masking_module`` for the regression
+# guard that keeps the two in sync.
+_REDACTED: str = "****"
+
+# Length of the truncated hash fingerprint used in debug log lines. Long
+# enough that collisions among live cached connections are vanishingly
+# unlikely, short enough to stay readable.
+_KEY_FINGERPRINT_LEN: int = 12
 
 
 @dataclass
@@ -107,6 +104,22 @@ class ConnectionContext:
             if v is not None and not k.startswith("_")
         }
 
+    @classmethod
+    def _sensitive_field_names(cls) -> frozenset[str]:
+        """Fields that must never appear unredacted in repr / debug logs.
+
+        Derived from the dataclass metadata: any field declared with
+        ``field(repr=False)`` is considered sensitive. Using the field
+        metadata as the single source of truth means that adding a new
+        credential to the dataclass with ``repr=False`` automatically
+        redacts it everywhere — there is no parallel allowlist to keep
+        in sync. Internal/private fields (``_config_loaded``) are
+        excluded.
+        """
+        return frozenset(
+            f.name for f in fields(cls) if not f.repr and not f.name.startswith("_")
+        )
+
     def safe_values_as_dict(self) -> dict:
         """Like :meth:`present_values_as_dict` but with credentials redacted.
 
@@ -114,8 +127,9 @@ class ConnectionContext:
         value is not ``None`` are replaced with a placeholder so the presence of
         the field is still visible without leaking its contents.
         """
+        sensitive = self._sensitive_field_names()
         return {
-            k: (_REDACTED if k in _SENSITIVE_FIELDS else v)
+            k: (_REDACTED if k in sensitive else v)
             for (k, v) in self.present_values_as_dict().items()
         }
 
@@ -180,12 +194,20 @@ class ConnectionContext:
     def _full_cache_key(self) -> str:
         """Unique key including credential values, for internal cache use only.
 
-        This is distinct from ``repr(self)`` to avoid the credential-redacted
-        repr collapsing two connections that share all non-secret fields but
-        differ in e.g. ``password`` or ``token``. Never log or display.
+        Hashing rather than concatenating means we don't retain raw passwords
+        / tokens as a long-lived dict-key string in the cache (which would
+        keep them pinned in memory and potentially expose them via core /
+        heap dumps). The hash is stable across the lifetime of the process
+        and unique enough to disambiguate two ``ConnectionContext`` objects
+        that share every non-secret field but differ by credential.
+
+        Distinct from ``repr(self)`` so that the credential-redacted repr
+        cannot collapse two distinct connections into the same cache entry.
+        Never log or display the raw hash; use ``key[:_KEY_FINGERPRINT_LEN]``
+        for diagnostic identifiers instead.
         """
-        items = [f"{k}={v!r}" for (k, v) in self.present_values_as_dict().items()]
-        return f"{self.__class__.__name__}({', '.join(items)})"
+        items = sorted(self.present_values_as_dict().items())
+        return sha256(repr(items).encode("utf-8")).hexdigest()
 
     def __setattr__(self, prop, val):
         """Runs registered validators before setting fields."""
@@ -328,12 +350,15 @@ class OpenConnectionCache:
             # have returned different values (i.e. env / config have changed).
             self.connections[key] = ctx.build_connection()
         except Exception as exc:
-            # Log the credential-redacted repr, not the internal cache key, so
-            # the debug log (persisted to ~/.snowflake/logs/ by default) never
-            # contains password/token material.
+            # Log the credential-redacted repr (not raw credentials) plus the
+            # opaque hash fingerprint, so the debug log (persisted to
+            # ~/.snowflake/logs/ by default) never contains password/token
+            # material but still lets operators correlate the failure with
+            # the matching _cleanup breadcrumb.
             logger.debug(
-                "ConnectionCache: failed to connect using %s; caching failure.",
+                "ConnectionCache: failed to connect using %s (key=%s); caching failure.",
                 repr(ctx),
+                key[:_KEY_FINGERPRINT_LEN],
             )
             self.failures[key] = exc
             raise
@@ -368,10 +393,13 @@ class OpenConnectionCache:
     def _cleanup(self, key: str):
         """Closes the cached connection at the given key."""
         if key not in self.connections:
-            # Do not include the raw key in the log message — it contains the
-            # credential values used to build the connection. An opaque identifier
-            # is enough for diagnosis in this branch.
-            logger.debug("Cleaning up connection, but not found in cache!")
+            # The key itself is a SHA256 hash of the context (see
+            # ConnectionContext._full_cache_key) so a short prefix is safe to
+            # log and useful for correlating with the _insert breadcrumb.
+            logger.debug(
+                "Cleaning up connection %s, but not found in cache!",
+                key[:_KEY_FINGERPRINT_LEN],
+            )
 
         # doesn't cancel in-flight async queries
         self._cancel_cleanup_future_if_exists(key)

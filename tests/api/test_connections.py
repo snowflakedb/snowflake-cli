@@ -17,7 +17,7 @@ from unittest import mock
 
 import pytest
 from snowflake.cli.api.connections import (
-    _SENSITIVE_FIELDS,
+    _REDACTED,
     ConnectionContext,
     OpenConnectionCache,
 )
@@ -25,6 +25,7 @@ from snowflake.cli.api.exceptions import InvalidConnectionConfigurationError
 from snowflake.connector.errors import DatabaseError
 
 _SECRET_SENTINEL = "do-not-log-this-secret"
+_SENSITIVE_FIELDS = ConnectionContext._sensitive_field_names()  # noqa: SLF001
 
 
 @pytest.fixture
@@ -233,7 +234,48 @@ def test_repr_redacts_every_sensitive_field(field_name: str):
     # The field name itself SHOULD still be visible so operators can see
     # which auth method was in play when debugging.
     assert f"{field_name}=" in rendered
-    assert "'***'" in rendered
+    assert repr(_REDACTED) in rendered
+
+
+def test_redacted_constant_matches_masking_module():
+    """``connections._REDACTED`` is intentionally a local copy of
+    ``config_ng.masking.MASKED_VALUE`` (direct import would cause a circular
+    dependency through ``config_ng/__init__.py``). This test keeps the two in
+    sync so log readers see a single, consistent redaction style across the
+    CLI.
+    """
+    from snowflake.cli.api.config_ng.masking import MASKED_VALUE
+
+    assert _REDACTED == MASKED_VALUE
+
+
+def test_sensitive_field_names_matches_repr_false_markers():
+    """Regression guard: _SENSITIVE_FIELDS must be derived from the dataclass
+    ``repr=False`` metadata, not a separate hand-maintained list. If a future
+    contributor adds a credential field with ``repr=False`` the redaction
+    should pick it up automatically.
+    """
+    from dataclasses import fields
+
+    expected = {
+        f.name
+        for f in fields(ConnectionContext)
+        if not f.repr and not f.name.startswith("_")
+    }
+    assert ConnectionContext._sensitive_field_names() == expected  # noqa: SLF001
+    # Sanity: the known credential fields must be in the set today.
+    known_credentials = {
+        "password",
+        "token",
+        "session_token",
+        "master_token",
+        "private_key_raw",
+        "private_key_passphrase",
+        "oauth_client_secret",
+        "mfa_passcode",
+    }
+    sensitive = ConnectionContext._sensitive_field_names()  # noqa: SLF001
+    assert known_credentials.issubset(sensitive)
 
 
 def test_repr_preserves_non_sensitive_fields():
@@ -263,8 +305,8 @@ def test_safe_values_as_dict_redacts_sensitive_and_keeps_others():
     safe = ctx.safe_values_as_dict()
     assert safe["account"] == "myacct"
     assert safe["user"] == "myuser"
-    assert safe["password"] == "***"
-    assert safe["token"] == "***"
+    assert safe["password"] == _REDACTED
+    assert safe["token"] == _REDACTED
     # Sanity: present_values_as_dict (used to build the live connection) must
     # still return the real credential values — we depend on that behaviour
     # for connect() calls.
@@ -278,12 +320,21 @@ def test_cache_key_disambiguates_contexts_that_differ_only_by_credential():
     If the cache keyed off repr(ctx), two contexts that share all non-secret
     fields but differ by password would collide and return the same connection
     — an availability regression as well as a security footgun. _full_cache_key
-    must include the raw credential values so that collision cannot happen.
+    must distinguish them while NOT retaining the raw credential as a dict-key
+    string (which is why we hash).
     """
     ctx_a = ConnectionContext(connection_name="shared", password="pwd-A")
     ctx_b = ConnectionContext(connection_name="shared", password="pwd-B")
     assert repr(ctx_a) == repr(ctx_b)  # redacted repr collides (by design)
-    assert ctx_a._full_cache_key() != ctx_b._full_cache_key()  # noqa: SLF001
+    key_a = ctx_a._full_cache_key()  # noqa: SLF001
+    key_b = ctx_b._full_cache_key()  # noqa: SLF001
+    assert key_a != key_b
+    # The key must be an opaque hex digest, not a stringified context, so the
+    # raw credential value is not retained in memory as a dict-key string.
+    assert "pwd-A" not in key_a
+    assert "pwd-B" not in key_b
+    assert len(key_a) == 64  # sha256 hex digest
+    assert key_a == ctx_a._full_cache_key()  # noqa: SLF001  # stable
 
 
 @mock.patch("snowflake.connector.connect", side_effect=RuntimeError("boom"))
