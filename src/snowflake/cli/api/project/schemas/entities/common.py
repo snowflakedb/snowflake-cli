@@ -40,6 +40,11 @@ class SqlScriptHookType(UpdatableModel):
     @field_validator("sql_script")
     @classmethod
     def validate_sql_script_path(cls, value: str, info: ValidationInfo) -> str:
+        if not value:
+            raise ValueError("sql_script must not be empty")
+        if "\x00" in value:
+            raise ValueError("sql_script must not contain null bytes")
+
         if info.context and info.context.get("allow_generated_sql_script_path", False):
             return value
 

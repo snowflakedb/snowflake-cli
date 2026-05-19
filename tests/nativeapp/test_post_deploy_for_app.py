@@ -164,6 +164,14 @@ def test_missing_sql_script(
             {"sql_script": str(Path("..") / "escape.sql")},
             "sql_script must be a relative path within the project directory",
         ),
+        (
+            {"sql_script": ""},
+            "sql_script must not be empty",
+        ),
+        (
+            {"sql_script": "scripts/\x00post.sql"},
+            "sql_script must not contain null bytes",
+        ),
         ({}, "missing the following field: 'sql_script'"),
     ],
 )
