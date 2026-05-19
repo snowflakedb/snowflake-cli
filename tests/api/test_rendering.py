@@ -219,7 +219,9 @@ def test_read_file_content_allows_relative_path_inside_project_root(
     jinja_cli_context.project_root = tmp_path
     target = tmp_path / "relative.txt"
     target.write_text("relative content")
-    monkeypatch.chdir(tmp_path)
+    # CWD deliberately differs from project root — relative path must be
+    # anchored to project_root, not CWD.
+    monkeypatch.chdir("/")
     assert _render("{{ 'relative.txt' | read_file_content }}") == "relative content"
 
 
@@ -295,35 +297,3 @@ def test_read_file_content_enforces_default_size_limit(tmp_path, jinja_cli_conte
         assert_size.side_effect = FileTooLargeError(target, 128)
         with pytest.raises(FileTooLargeError):
             _render(f"{{{{ '{target}' | read_file_content }}}}")
-
-
-def test_read_file_content_skips_containment_on_missing_configuration(tmp_path):
-    """When MissingConfigurationError is raised accessing project_root, the
-    containment check is skipped and the file is read without restriction.
-    Note: snow sql -q always provides a project_root (CWD), so this fallback
-    applies only to non-CLI render callers where no project context exists."""
-    from snowflake.cli.api.exceptions import MissingConfigurationError
-
-    with mock.patch(
-        "snowflake.cli.api.cli_global_context.get_cli_context"
-    ) as ctx, mock.patch(
-        "snowflake.cli.api.rendering.sql_templates.get_cli_context"
-    ) as sql_ctx:
-        sql_ctx().template_context = {
-            "ctx": {"env": ProjectEnvironment(default_env={}, override_env={})}
-        }
-        type(ctx.return_value).project_root = mock.PropertyMock(
-            side_effect=MissingConfigurationError("no project")
-        )
-
-        target = tmp_path / "file.txt"
-        target.write_text("standalone")
-        assert (
-            snowflake_sql_jinja_render(
-                f"{{{{ '{target}' | read_file_content }}}}",
-                template_syntax_config=SQLTemplateSyntaxConfig(
-                    enable_jinja_syntax=True
-                ),
-            )
-            == "standalone"
-        )

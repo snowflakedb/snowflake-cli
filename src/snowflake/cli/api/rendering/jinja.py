@@ -32,30 +32,24 @@ FUNCTION_KEY = "fn"
 def _resolve_within_project_root(file_name: str, filter_name: str) -> Path:
     """Resolve ``file_name`` and ensure it is contained within the project root.
 
-    The resolved target must be a descendant of the active project root.
-    Outside a project (``MissingConfigurationError``), the containment check is
-    skipped — but note that ``snow sql -q`` always has a project root (CWD), so
-    in practice this fallback only applies to non-CLI render callers.
+    Relative paths are anchored to the project root (not CWD) before resolving,
+    matching the behaviour of the sibling helper in entities/utils.py.
     """
     # Lazy import to avoid circular dependency with ``cli_global_context``.
     from snowflake.cli.api.cli_global_context import get_cli_context
-    from snowflake.cli.api.exceptions import MissingConfigurationError
 
-    target = Path(file_name).expanduser().resolve()
-
+    root = Path(get_cli_context().project_root).resolve()
+    candidate = Path(file_name).expanduser()
+    if candidate.is_absolute():
+        target = candidate.resolve()
+    else:
+        target = (root / candidate).resolve()
     try:
-        project_root: Optional[Path] = get_cli_context().project_root
-    except MissingConfigurationError:
-        project_root = None
-
-    if project_root is not None:
-        root = Path(project_root).resolve()
-        try:
-            target.relative_to(root)
-        except ValueError:
-            raise ClickException(
-                f"{filter_name}: path '{file_name}' is outside the project root."
-            )
+        target.relative_to(root)
+    except ValueError:
+        raise ClickException(
+            f"{filter_name}: path '{file_name}' is outside the project root."
+        )
     return target
 
 
