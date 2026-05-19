@@ -1351,6 +1351,151 @@ def test_read_yaml(temporary_directory):
     assert result == json.dumps(SPEC_DICT)
 
 
+@pytest.mark.parametrize(
+    "payload",
+    [
+        "$$ ); GRANT ROLE ACCOUNTADMIN TO USER attacker; --",
+        # Odd-length runs must also be neutralized — a naive replace("$$", "$ $")
+        # would leave the trailing $$ intact and still allow breakout.
+        "$$$); DROP TABLE users;--",
+        "$$$$); DROP TABLE users;--",
+        "$$$$$); DROP TABLE users;--",
+    ],
+)
+def test_read_yaml_escapes_dollar_quote_breakout(payload, temporary_directory):
+    # A spec value containing two or more consecutive $ must not survive
+    # verbatim: the JSON is later embedded inside $$...$$ SQL literals by
+    # create(), _execute_job_service(), and upgrade_spec(), and any $$ in
+    # spec content would close the literal and allow injected SQL. The
+    # escape uses JSON unicode sequences so a JSON-aware parser on the
+    # server side recovers the original spec value unchanged.
+    tmp_dir = Path(temporary_directory)
+    spec_path = tmp_dir / "spec.yml"
+    spec_path.write_text(
+        dedent(
+            f"""
+            spec:
+                containers:
+                - name: main
+                  image: /db/repo:tag
+                  env:
+                    PAYLOAD: "{payload}"
+            """
+        )
+    )
+    result = ServiceManager()._read_yaml(spec_path)  # noqa: SLF001
+    assert "$$" not in result
+    # Round-trip: parsing the serialized JSON must yield the original
+    # payload with the $ run intact, otherwise we would silently corrupt
+    # legitimate spec values (env vars, passwords, etc.) that happen to
+    # contain $$.
+    assert json.loads(result)["spec"]["containers"][0]["env"]["PAYLOAD"] == payload
+
+
+def test_read_yaml_preserves_single_dollar(temporary_directory):
+    # A single $ is not a dollar-quote delimiter and must pass through
+    # unchanged — legitimate spec values (env var references, passwords,
+    # etc.) often contain a lone $.
+    tmp_dir = Path(temporary_directory)
+    spec_path = tmp_dir / "spec.yml"
+    spec_path.write_text(
+        dedent(
+            """
+            spec:
+                containers:
+                - name: main
+                  image: /db/repo:tag
+                  env:
+                    HOME_PATH: "$HOME/data"
+                    PRICE: "cost is $5"
+            """
+        )
+    )
+    result = ServiceManager()._read_yaml(spec_path)  # noqa: SLF001
+    assert "$HOME/data" in result
+    assert "cost is $5" in result
+
+
+@pytest.mark.parametrize(
+    "method_name,query_fragment",
+    [
+        ("create", "FROM SPECIFICATION $$"),
+        ("execute_job", "FROM SPECIFICATION $$"),
+        ("upgrade_spec", "from specification $$"),
+    ],
+)
+@pytest.mark.parametrize(
+    "dollar_run",
+    ["$$", "$$$", "$$$$", "$$$$$"],
+)
+@patch(EXECUTE_QUERY)
+def test_service_spec_dollar_quote_not_broken_out(
+    mock_execute_query, temporary_directory, method_name, query_fragment, dollar_run
+):
+    # End-to-end check: any run of >=2 $ in spec content must not appear
+    # verbatim inside the generated SQL, otherwise the dollar-quoted literal
+    # is terminated early and the rest is parsed as SQL. Covers odd-length
+    # runs where a naive pairwise escape would leave a trailing $$ intact.
+    tmp_dir = Path(temporary_directory)
+    spec_path = tmp_dir / "spec.yml"
+    spec_path.write_text(
+        dedent(
+            f"""
+            spec:
+                containers:
+                - name: main
+                  image: /db/repo:tag
+                  env:
+                    PAYLOAD: "{dollar_run} ); GRANT ROLE ACCOUNTADMIN TO USER attacker; --"
+            """
+        )
+    )
+
+    if method_name == "create":
+        ServiceManager().create(
+            service_name="svc",
+            compute_pool="pool",
+            spec_path=spec_path,
+            min_instances=1,
+            max_instances=1,
+            auto_resume=True,
+            external_access_integrations=None,
+            query_warehouse=None,
+            tags=None,
+            comment=None,
+            if_not_exists=False,
+        )
+    elif method_name == "execute_job":
+        mock_conn = Mock()
+        mock_conn.database = None
+        mock_conn.schema = None
+        ServiceManager(connection=mock_conn).execute_job(
+            job_service_name="svc",
+            compute_pool="pool",
+            spec_path=spec_path,
+            external_access_integrations=None,
+            query_warehouse=None,
+            comment=None,
+            async_mode=False,
+        )
+    else:
+        ServiceManager().upgrade_spec("svc", spec_path)
+
+    query = mock_execute_query.mock_calls[0].args[0]
+    # The spec is embedded inside $$...$$ — the only $$ occurrences in the
+    # final SQL must be the opening and closing delimiters, never inside the
+    # spec payload.
+    assert query.count("$$") == 2, query
+    assert "GRANT ROLE ACCOUNTADMIN" in query  # payload still present, just neutralized
+    assert query_fragment in query
+    # Fidelity check: the bytes between the two $$ delimiters parse back
+    # to the original payload string. The server side does the same JSON
+    # parse, so this is what Snowflake actually receives as the spec value.
+    spec_json = query[query.find("$$") + 2 : query.rfind("$$")].strip()
+    payload = json.loads(spec_json)["spec"]["containers"][0]["env"]["PAYLOAD"]
+    assert payload == f"{dollar_run} ); GRANT ROLE ACCOUNTADMIN TO USER attacker; --"
+
+
 @patch(EXECUTE_QUERY)
 def test_upgrade_spec(mock_execute_query, temporary_directory):
     service_name = "test_service"
