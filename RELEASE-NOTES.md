@@ -47,7 +47,6 @@
 * Fixed `SELECT *` output being corrupted when joined tables share column names. Duplicate column names are now disambiguated by appending a numeric suffix (e.g. `NAME`, `NAME_2`).
 * Fixed `snow connection generate-jwt` and `snow connection generate-workload-identity-token` failing with `Connection None is not configured` when used with `--temporary-connection`.
 * The internal connection cache now remembers failed connect attempts and re-raises the original exception on subsequent accesses within the same process, instead of re-dialing Snowflake every time a command accesses the shared connection. This fixes, among other cases, the customer-visible duplicate `LOGIN_HISTORY` events (and `OVERFLOW_FAILURE_EVENTS_ELIDED`) previously emitted when a `snow` invocation was rejected by an authentication policy.
-* The `read_file_content` and `procedure_from_js_file` Jinja filters used during SQL template rendering now require the referenced path to resolve inside the active project root, and read with the standard `DEFAULT_SIZE_LIMIT_MB` (128 MB) size limit instead of the previous `UNLIMITED` bypass. Templates that referenced files outside the project (including via `../` traversal or absolute paths to the user's home directory) will now fail fast with a clear `ClickException` rather than embedding the file's contents into the rendered SQL.
 
 
 # v3.17.0

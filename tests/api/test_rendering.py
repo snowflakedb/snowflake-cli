@@ -297,10 +297,13 @@ def test_read_file_content_enforces_default_size_limit(tmp_path, jinja_cli_conte
             _render(f"{{{{ '{target}' | read_file_content }}}}")
 
 
-def test_read_file_content_without_project_root_is_permissive(tmp_path):
-    """If there is no active project (get_cli_context().project_root raises),
-    the filter falls back to reading the file without containment — this matches
-    the behaviour of ad-hoc ``snow sql -q`` invocations outside a project."""
+def test_read_file_content_skips_containment_on_missing_configuration(tmp_path):
+    """When MissingConfigurationError is raised accessing project_root, the
+    containment check is skipped and the file is read without restriction.
+    Note: snow sql -q always provides a project_root (CWD), so this fallback
+    applies only to non-CLI render callers where no project context exists."""
+    from snowflake.cli.api.exceptions import MissingConfigurationError
+
     with mock.patch(
         "snowflake.cli.api.cli_global_context.get_cli_context"
     ) as ctx, mock.patch(
@@ -310,7 +313,7 @@ def test_read_file_content_without_project_root_is_permissive(tmp_path):
             "ctx": {"env": ProjectEnvironment(default_env={}, override_env={})}
         }
         type(ctx.return_value).project_root = mock.PropertyMock(
-            side_effect=RuntimeError("no project")
+            side_effect=MissingConfigurationError("no project")
         )
 
         target = tmp_path / "file.txt"
