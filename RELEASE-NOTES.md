@@ -23,7 +23,6 @@
 * Added `--force` flag to `snow spcs service drop` to allow dropping services that contain block storage volumes.
 
 ## Fixes and improvements
-* `snow app bundle` / `snow app deploy` now refuse to follow symlinks whose real target escapes the project root, and prune such symlinks when they are nested inside a directory source. This prevents a committed symlink (for example `project/data -> /etc`) from pulling files outside the project into the deploy root and, subsequently, onto a Snowflake stage.
 * Fixed `SELECT *` output being corrupted when joined tables share column names. Duplicate column names are now disambiguated by appending a numeric suffix (e.g. `NAME`, `NAME_2`).
 * Fixed `snow connection generate-jwt` and `snow connection generate-workload-identity-token` failing with `Connection None is not configured` when used with `--temporary-connection`.
 * The internal connection cache now remembers failed connect attempts and re-raises the original exception on subsequent accesses within the same process, instead of re-dialing Snowflake every time a command accesses the shared connection. This fixes, among other cases, the customer-visible duplicate `LOGIN_HISTORY` events (and `OVERFLOW_FAILURE_EVENTS_ELIDED`) previously emitted when a `snow` invocation was rejected by an authentication policy.
