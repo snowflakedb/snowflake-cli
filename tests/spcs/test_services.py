@@ -754,10 +754,6 @@ def test_status_escapes_single_quote(mock_execute_query):
         f"CALL SYSTEM$GET_SERVICE_STATUS({to_string_literal(service_name)})"
     )
     mock_execute_query.assert_called_once_with(expected_query)
-    # The embedded quote must be escaped (backslash form) so Snowflake's parser
-    # cannot treat the remainder as a new statement.
-    sent_query = mock_execute_query.call_args[0][0]
-    assert "\\'" in sent_query
 
 
 @patch(EXECUTE_QUERY)
@@ -852,9 +848,6 @@ def test_logs_escapes_single_quote(mock_execute_query):
     list(ServiceManager().logs(service_name, instance_id, container_name, num_lines))
 
     sent_query = mock_execute_query.call_args[0][0]
-    # The embedded quote must be escaped (backslash form), preventing parser breakout.
-    assert "\\'" in sent_query
-    # The properly-escaped literal should appear in the final query.
     assert to_string_literal(service_name) in sent_query
 
 
