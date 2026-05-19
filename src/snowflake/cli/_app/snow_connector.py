@@ -45,6 +45,7 @@ from snowflake.cli.api.exceptions import (
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.secret import SecretType
 from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.api.utils.types import try_cast_to_bool
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.auth.workload_identity import ApiFederatedAuthenticationType
 from snowflake.connector.errors import DatabaseError, ForbiddenError
@@ -98,6 +99,18 @@ CONNECTION_KEY_ALIASES = {
     "private_key_file_pwd": "private_key_passphrase",
 }
 
+# Env overrides that must be coerced to bool. Env vars arrive as strings; the
+# connector only warns on type mismatch and otherwise uses truthiness, so
+# `SNOWFLAKE_*=false` would incorrectly behave as True without coercion.
+_BOOLEAN_ENV_OVERRIDE_KEYS = frozenset(
+    {
+        "oauth_disable_pkce",
+        "oauth_enable_refresh_tokens",
+        "oauth_enable_single_use_refresh_tokens",
+        "client_store_temporary_credential",
+    }
+)
+
 
 class _BufferedMirrorStream(io.StringIO):
     """Buffer connector chatter while optionally mirroring to another stream."""
@@ -130,6 +143,21 @@ def _resolve_alias(key_or_alias: str):
     Given the key of an override / env var, what key should it be set as in the connection parameters?
     """
     return CONNECTION_KEY_ALIASES.get(key_or_alias, key_or_alias)
+
+
+def _coerce_boolean_parameter(connection_key: str, value):
+    if connection_key not in _BOOLEAN_ENV_OVERRIDE_KEYS or isinstance(value, bool):
+        return value
+    try:
+        return try_cast_to_bool(value)
+    except ValueError:
+        log.warning(
+            "Expected boolean-compatible value for %s but got %r; "
+            "using raw value without conversion.",
+            connection_key,
+            value,
+        )
+        return value
 
 
 def _build_silent_streams(
@@ -199,6 +227,15 @@ def connect_to_snowflake(
         connection_key = _resolve_alias(key)
         if connection_key not in connection_parameters and generic_env_value:
             connection_parameters[connection_key] = generic_env_value
+
+    # Coerce string booleans to real bools for parameters the connector expects
+    # as bool. Connection-specific env vars and TOML strings reach this point
+    # as strings, and the connector only warns on type mismatches — so
+    # `SNOWFLAKE_*=false` would pass through as truthy without coercion.
+    for connection_key in list(connection_parameters):
+        connection_parameters[connection_key] = _coerce_boolean_parameter(
+            connection_key, connection_parameters[connection_key]
+        )
 
     # Clean up connection params
     connection_parameters = {
