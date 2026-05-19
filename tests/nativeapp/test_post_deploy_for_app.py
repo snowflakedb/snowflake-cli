@@ -13,21 +13,25 @@
 # limitations under the License.
 
 import os
+from pathlib import Path
 from textwrap import dedent
 from typing import Optional
 from unittest import mock
 
 import pytest
+from click import ClickException
 from pydantic import ValidationError
 from snowflake.cli._plugins.nativeapp.entities.application import (
     ApplicationEntity,
     ApplicationEntityModel,
 )
 from snowflake.cli._plugins.nativeapp.exceptions import MissingScriptError
+from snowflake.cli.api.entities.utils import render_script_template
 from snowflake.cli.api.exceptions import InvalidTemplateError
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
+from snowflake.cli.api.project.schemas.updatable_model import context
 
 from tests.conftest import MockConnectionCtx
 from tests.nativeapp.factories import (
@@ -144,18 +148,64 @@ def test_missing_sql_script(
 @pytest.mark.parametrize(
     "args,expected_error",
     [
-        ({"sql_script": "/path"}, None),
+        (
+            {"sql_script": str(Path("/path"))},
+            "sql_script must be a relative path within the project directory",
+        ),
+        (
+            {"sql_script": str(Path("..") / "escape.sql")},
+            "sql_script must be a relative path within the project directory",
+        ),
         ({}, "missing the following field: 'sql_script'"),
     ],
 )
 def test_post_deploy_hook_schema(args, expected_error):
-    if expected_error:
-        with pytest.raises(ValidationError) as err:
-            PostDeployHook(**args)
-
-        assert expected_error in str(SchemaValidationError(err.value))
-    else:
+    with pytest.raises(ValidationError) as err:
         PostDeployHook(**args)
+
+    assert expected_error in str(SchemaValidationError(err.value))
+
+
+def test_post_deploy_hook_schema_allows_generated_temp_file(temporary_directory):
+    generated_script = Path(temporary_directory).parent / "generated.sql"
+
+    with context({"allow_generated_sql_script_path": True}):
+        hook = PostDeployHook(sql_script=str(generated_script))
+
+    assert hook.sql_script == str(generated_script)
+
+
+def test_render_script_template_rejects_paths_outside_project_root(
+    temporary_directory,
+):
+    project_root = Path(temporary_directory)
+    escaped_script = str(Path("..") / "outside.sql")
+    outside_script = project_root.parent / "outside.sql"
+    outside_script.write_text("select 1;", encoding="utf-8")
+
+    with pytest.raises(ClickException) as err:
+        render_script_template(project_root, {}, escaped_script)
+
+    assert str(err.value) == (
+        f"sql_script path '{escaped_script}' resolves outside the project root. "
+        "Only paths within the project directory are allowed."
+    )
+
+
+def test_render_script_template_allows_generated_temp_file(temporary_directory):
+    project_root = Path(temporary_directory)
+    generated_script = project_root.parent / "generated.sql"
+    generated_script.write_text("select 1;", encoding="utf-8")
+
+    assert (
+        render_script_template(
+            project_root,
+            {},
+            str(generated_script),
+            allow_generated_sql_script_path=True,
+        )
+        == "select 1;"
+    )
 
 
 @pytest.mark.parametrize(

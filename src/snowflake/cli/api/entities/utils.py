@@ -27,6 +27,7 @@ from snowflake.cli._plugins.stage.utils import print_diff_to_console
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.cli_global_context import get_cli_context, span
 from snowflake.cli.api.console.abc import AbstractConsole
+from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
@@ -42,7 +43,7 @@ from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
 from snowflake.cli.api.rendering.sql_templates import (
     choose_sql_jinja_env_based_on_template_syntax,
 )
-from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutor
 from snowflake.cli.api.utils.path_utils import resolve_without_follow
 from snowflake.connector import ProgrammingError
@@ -243,11 +244,9 @@ def execute_post_deploy_hooks(
         console.phase(f"Executing {deployed_object_type} post-deploy actions"),
         get_cli_context().metrics.span("post_deploy_hooks"),
     ):
-        sql_scripts_paths = []
         display_paths = []
         for hook in post_deploy_hooks:
             if hook.sql_script:
-                sql_scripts_paths.append(hook.sql_script)
                 display_paths.append(hook.display_path)
             else:
                 raise ValueError(
@@ -257,7 +256,7 @@ def execute_post_deploy_hooks(
         scripts_content_list = render_script_templates(
             project_root,
             get_cli_context().template_context,
-            sql_scripts_paths,
+            post_deploy_hooks,
         )
 
         sql_facade = get_snowflake_facade()
@@ -276,14 +275,14 @@ def execute_post_deploy_hooks(
 def render_script_templates(
     project_root: Path,
     jinja_context: dict[str, Any],
-    scripts: List[str],
+    scripts: List[PostDeployHook],
     override_env: Optional[jinja2.Environment] = None,
 ) -> List[str]:
     """
     Input:
     - project_root: path to project root
     - jinja_context: a dictionary with the jinja context
-    - scripts: list of script paths relative to the project root
+    - scripts: list of post-deploy hooks to render
     - override_env: optional jinja environment to use for rendering,
       if not provided, the environment will be chosen based on the template syntax
     Returns:
@@ -291,9 +290,42 @@ def render_script_templates(
     Size of the return list is the same as the size of the input scripts list.
     """
     return [
-        render_script_template(project_root, jinja_context, script, override_env)
-        for script in scripts
+        render_script_template(
+            project_root,
+            jinja_context,
+            hook.sql_script,
+            override_env=override_env,
+            allow_generated_sql_script_path=hook.display_path != hook.sql_script,
+        )
+        for hook in scripts
     ]
+
+
+def _get_post_deploy_script_path(
+    project_root: Path,
+    script: str,
+    allow_generated_sql_script_path: bool = False,
+) -> SecurePath:
+    resolved_project_root = Path(project_root).resolve()
+    script_path = Path(script).expanduser()
+    candidate_path = (
+        script_path
+        if script_path.is_absolute()
+        else resolved_project_root / script_path
+    )
+    resolved_script_path = candidate_path.resolve()
+
+    # Only internally generated temp files are allowed to live outside the project root.
+    if not (allow_generated_sql_script_path and script_path.is_absolute()):
+        try:
+            resolved_script_path.relative_to(resolved_project_root)
+        except ValueError as e:
+            raise ClickException(
+                f"sql_script path '{script}' resolves outside the project root. "
+                "Only paths within the project directory are allowed."
+            ) from e
+
+    return SecurePath(resolved_script_path)
 
 
 def render_script_template(
@@ -301,10 +333,17 @@ def render_script_template(
     jinja_context: dict[str, Any],
     script: str,
     override_env: Optional[jinja2.Environment] = None,
+    allow_generated_sql_script_path: bool = False,
 ) -> str:
-    script_full_path = SecurePath(project_root) / script
+    script_full_path = _get_post_deploy_script_path(
+        project_root,
+        script,
+        allow_generated_sql_script_path=allow_generated_sql_script_path,
+    )
     try:
-        template_content = script_full_path.read_text(file_size_limit_mb=UNLIMITED)
+        template_content = script_full_path.read_text(
+            file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB
+        )
         env = override_env or choose_sql_jinja_env_based_on_template_syntax(
             template_content, reference_name=script
         )

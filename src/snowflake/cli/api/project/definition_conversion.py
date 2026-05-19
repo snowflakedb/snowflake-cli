@@ -39,6 +39,7 @@ from snowflake.cli.api.project.schemas.project_definition import (
     ProjectDefinition,
     ProjectDefinitionV2,
 )
+from snowflake.cli.api.project.schemas.updatable_model import context
 from snowflake.cli.api.project.schemas.v1.native_app.application import (
     Application,
     ApplicationV11,
@@ -551,7 +552,8 @@ def _convert_package_script_files(
             d = _get_temp_dir().name
             _, script_file = mkstemp(dir=d, suffix="_converted.sql", text=True)
         (project_root / script_file).write_text(new_contents)
-        hook = SqlScriptHookType(sql_script=script_file)
+        with context({"allow_generated_sql_script_path": True}):
+            hook = SqlScriptHookType(sql_script=script_file)
         hook._display_path = original_script_file  # noqa: SLF001
         post_deploy_hooks.append(hook)
     return post_deploy_hooks

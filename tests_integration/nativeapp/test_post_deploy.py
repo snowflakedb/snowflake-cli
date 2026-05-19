@@ -405,20 +405,20 @@ def test_nativeapp_post_deploy_with_windows_path(
                 # use backslashes in artifacts src
                 artifact["src"] = artifact["src"].replace("/", "\\")
 
-                # use backslashes in post_deploy paths, as well as full paths with backslashes
+                # use backslashes in post_deploy paths
                 pkg_scripts[0]["sql_script"] = pkg_scripts[0]["sql_script"].replace(
                     "/", "\\"
                 )
-                pkg_scripts[1]["sql_script"] = str(
-                    (tmp_dir / pkg_scripts[1]["sql_script"]).absolute()
+                pkg_scripts[1]["sql_script"] = pkg_scripts[1]["sql_script"].replace(
+                    "/", "\\"
                 )
 
-                # use backslashes in post_deploy paths, as well as full paths with backslashes
+                # use backslashes in post_deploy paths
                 app_scripts[0]["sql_script"] = app_scripts[0]["sql_script"].replace(
                     "/", "\\"
                 )
-                app_scripts[1]["sql_script"] = str(
-                    (tmp_dir / app_scripts[1]["sql_script"]).absolute()
+                app_scripts[1]["sql_script"] = app_scripts[1]["sql_script"].replace(
+                    "/", "\\"
                 )
 
         with open(snowflake_yml_path, "w", encoding="utf-8") as file:
