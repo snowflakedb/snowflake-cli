@@ -33,7 +33,6 @@
 * Fixed Snowsight URL generation (used by `snow streamlit deploy`, `snow streamlit get-url`, `snow app run`, `snow notebook`, and similar commands) for accounts whose host is 4-part (e.g. `<account>.us-east-1.snowflakecomputing.com`) or 5-part with a cloud suffix (e.g. `<account>.<region>.aws.snowflakecomputing.com`). These hosts now resolve to the correct regioned Snowsight URL instead of raising `"host (...) was missing or not in the expected format"`.
 * Fixed boolean connection parameters (`client_store_temporary_credential`, `oauth_disable_pkce`, `oauth_enable_refresh_tokens`, `oauth_enable_single_use_refresh_tokens`) being passed to the connector as raw strings when supplied via `SNOWFLAKE_*` or `SNOWFLAKE_CONNECTIONS_<name>_*` environment variables. Values like `false` / `0` are now correctly interpreted as `False` rather than truthy strings.
 * Fixed SQL injection in `snow spcs service create`, `execute-job`, and `upgrade` where a `$$` sequence in a YAML spec file could break out of the dollar-quoted SQL literal and execute arbitrary SQL with the caller's session privileges. `$$` sequences in spec content are now neutralized before the spec is embedded in SQL.
-* Fixed a path traversal issue in post-deploy `sql_script` hooks: `snowflake.yml` post-deploy `sql_script` entries are now validated to be relative paths inside the project root, rejecting absolute paths and `..` traversal. The same containment check is applied when reading the SQL template file during deploy.
 
 
 # v3.17.1

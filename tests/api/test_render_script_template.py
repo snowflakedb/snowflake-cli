@@ -100,6 +100,19 @@ def test_render_script_templates_allow_absolute_paths_flag(project_with_scripts)
     assert results == ["SELECT 1;", "LEAKED"]
 
 
+def test_rejects_symlink_inside_project_pointing_outside(tmp_path):
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    (project_root / "scripts").mkdir()
+    secret = tmp_path / "secret.sql"
+    secret.write_text("LEAKED")
+    (project_root / "scripts" / "evil.sql").symlink_to(secret)
+
+    with pytest.raises(ClickException) as err:
+        render_script_template(project_root, {}, "scripts/evil.sql")
+    assert "outside the project root" in err.value.message
+
+
 def test_project_root_symlink_resolution(tmp_path):
     real_root = tmp_path / "real_project"
     real_root.mkdir()
