@@ -5,7 +5,7 @@
    * [ ] Manually tested on macOS
    * [ ] Manually tested on Windows
    * [ ] I've confirmed my changes are up-to-date with the target branch.
-   * [ ] I've described my changes in `RELEASE-NOTES.md` (see [when and how](docs/contributing/lifecycle.md#release-notes)).
+   * [ ] I've described my changes in `RELEASE-NOTES.md` (see [when and how](docs/contributing/lifecycle.md#release-notes-format)).
    * [ ] I've updated documentation if behavior changed.
 
 ### Changes description
