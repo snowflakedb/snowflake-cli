@@ -186,9 +186,7 @@ def test_build_bundle_skips_nested_symlink_escaping_project_root(tmp_path):
     for path in deploy_root.rglob("*"):
         if path.is_file() or path.is_symlink():
             real = Path(os.path.realpath(path))
-            assert real == real_root or real_root in real.parents, (
-                f"deploy entry {path} resolves outside project root: {real}"
-            )
+            assert real == real_root or real_root in real.parents
 
 
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
