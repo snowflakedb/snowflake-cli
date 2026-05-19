@@ -149,7 +149,15 @@ def test_missing_sql_script(
     "args,expected_error",
     [
         (
-            {"sql_script": str(Path("/path"))},
+            {"sql_script": "/path"},
+            "sql_script must be a relative path within the project directory",
+        ),
+        (
+            {"sql_script": r"\path"},
+            "sql_script must be a relative path within the project directory",
+        ),
+        (
+            {"sql_script": "C:/path"},
             "sql_script must be a relative path within the project directory",
         ),
         (
@@ -182,6 +190,22 @@ def test_render_script_template_rejects_paths_outside_project_root(
     escaped_script = str(Path("..") / "outside.sql")
     outside_script = project_root.parent / "outside.sql"
     outside_script.write_text("select 1;", encoding="utf-8")
+
+    with pytest.raises(ClickException) as err:
+        render_script_template(project_root, {}, escaped_script)
+
+    assert str(err.value) == (
+        f"sql_script path '{escaped_script}' resolves outside the project root. "
+        "Only paths within the project directory are allowed."
+    )
+
+
+@pytest.mark.parametrize("escaped_script", [r"\outside.sql", "C:/outside.sql"])
+def test_render_script_template_rejects_rooted_windows_paths(
+    temporary_directory,
+    escaped_script,
+):
+    project_root = Path(temporary_directory)
 
     with pytest.raises(ClickException) as err:
         render_script_template(project_root, {}, escaped_script)

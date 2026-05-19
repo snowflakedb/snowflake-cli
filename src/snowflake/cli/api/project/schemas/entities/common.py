@@ -45,7 +45,7 @@ class SqlScriptHookType(UpdatableModel):
 
         posix_or_native_path = Path(value)
         windows_path = PureWindowsPath(value)
-        if posix_or_native_path.is_absolute() or windows_path.is_absolute():
+        if posix_or_native_path.anchor or windows_path.anchor:
             raise ValueError(
                 "sql_script must be a relative path within the project directory"
             )

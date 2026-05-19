@@ -1,6 +1,6 @@
 import os
 from enum import Enum
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any, List, NoReturn, Optional
 
 import jinja2
@@ -308,15 +308,23 @@ def _get_post_deploy_script_path(
 ) -> SecurePath:
     resolved_project_root = Path(project_root).resolve()
     script_path = Path(script).expanduser()
+    windows_script_path = PureWindowsPath(script)
+    has_native_anchor = bool(script_path.anchor)
+    has_windows_anchor = bool(windows_script_path.anchor)
+
+    if has_windows_anchor and not has_native_anchor:
+        raise ClickException(
+            f"sql_script path '{script}' resolves outside the project root. "
+            "Only paths within the project directory are allowed."
+        )
+
     candidate_path = (
-        script_path
-        if script_path.is_absolute()
-        else resolved_project_root / script_path
+        script_path if has_native_anchor else resolved_project_root / script_path
     )
     resolved_script_path = candidate_path.resolve()
 
     # Only internally generated temp files are allowed to live outside the project root.
-    if not (allow_generated_sql_script_path and script_path.is_absolute()):
+    if not (allow_generated_sql_script_path and has_native_anchor):
         try:
             resolved_script_path.relative_to(resolved_project_root)
         except ValueError as e:
