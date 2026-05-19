@@ -27,6 +27,12 @@ hatch run test
 `hatch shell` spawns a new shell with the virtual environment active and the CLI
 installed in editable mode. Press `^D` to exit.
 
+To also activate pre-commit hooks (required before your first commit):
+
+```bash
+hatch run pre-commit install
+```
+
 ## Reporting bugs and requesting features
 
 File a [GitHub Issue](https://github.com/snowflakedb/snowflake-cli/issues). Use
@@ -61,8 +67,7 @@ version — code must run on all versions in the supported range.
 
 ```bash
 pip install -U hatch==1.15.1 virtualenv==20.39.1
-hatch run pre-commit
-pre-commit install
+hatch run pre-commit install
 ```
 
 To create an environment pinned to a specific Python version:

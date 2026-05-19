@@ -25,18 +25,30 @@ or a **string value**.
 
 ### Object identifiers (table names, stage names, schema names, …)
 
-Use `FQN.from_string().sql_identifier`, which wraps the identifier in
-`IDENTIFIER('...')` so Snowflake resolves it correctly:
+Use `FQN` and its `.sql_identifier` property, which wraps the identifier in
+`IDENTIFIER('...')` so Snowflake resolves it correctly.
+
+When the components come from separate variables, use the constructor directly —
+never f-string them together before passing to `FQN`:
 
 ```python
-# WRONG
+# WRONG — f-string composed before any sanitisation
 cursor.execute(f"CREATE TABLE {database}.{schema}.{table_name} ...")
 
-# CORRECT
+# ALSO WRONG — f-string still composes before FQN sees the parts
 from snowflake.cli.api.identifiers import FQN
 fqn = FQN.from_string(f"{database}.{schema}.{table_name}")
 cursor.execute(f"CREATE TABLE {fqn.sql_identifier} ...")
+
+# CORRECT — pass each component individually
+from snowflake.cli.api.identifiers import FQN
+fqn = FQN(database=database, schema=schema, name=table_name)
+cursor.execute(f"CREATE TABLE {fqn.sql_identifier} ...")
 ```
+
+`FQN.from_string()` is safe when the full dotted name comes from a single
+trusted source (e.g. already-validated CLI argument). Use the constructor
+whenever the components arrive separately.
 
 ### String values (LIKE patterns, CALL arguments, stage paths, string parameters)
 
@@ -64,8 +76,9 @@ cursor.execute(f"SHOW DATABASES LIKE {identifier_to_show_like_pattern(name)}")
 
 ### Bind parameters
 
-For scalar values in DML statements (`SELECT`, `INSERT`, `UPDATE`), prefer bind
-parameters — they are the safest option and require no escaping:
+For scalar values in queries and write statements (`SELECT`, `INSERT`, `UPDATE`,
+`DELETE`), prefer bind parameters — they are the safest option and require no
+escaping:
 
 ```python
 cursor.execute("SELECT * FROM my_table WHERE id = %s", (user_id,))
@@ -185,4 +198,22 @@ cc.warning("Something looks off")      # warning line
 with cc.phase("Building...", "Done."): # grouped output block
     cc.step("Step A")
     cc.step("Step B")
+```
+
+## Linting and formatting
+
+Linting and formatting run automatically on commit via pre-commit. Most issues
+are fixed automatically; the rest are reported inline. The active hooks and
+their pinned versions are defined in `.pre-commit-config.yaml`.
+
+Install the hooks once and they run automatically on every commit:
+
+```bash
+hatch run pre-commit install
+```
+
+To run them manually across the whole repo:
+
+```bash
+hatch run pre-commit run --all-files
 ```

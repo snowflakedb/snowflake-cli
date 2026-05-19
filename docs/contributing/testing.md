@@ -101,6 +101,22 @@ and integration tests belong in `tests_common/conftest.py`. Do not import
 fixtures from `tests_integration/` into unit tests — the two directories have
 different assumptions about what's available.
 
+The fixtures you'll reach for most often in unit tests:
+
+| Fixture | What it gives you |
+|---------|-------------------|
+| `runner` | `SnowCLIRunner` — invoke CLI commands via `runner.invoke(["cmd", "subcmd"])` |
+| `mock_cursor` | Factory: `mock_cursor(rows, columns)` → `MockCursor`. Use this to build fake Snowflake responses. |
+| `mock_ctx` | Factory: `mock_ctx(cursor=...)` → `MockConnectionCtx`. Wraps a `mock_cursor` in a connection context. |
+| `mock_connect` | Patches `snowflake.connector.connect` to return a `mock_ctx()`. Use when you need the full connection stack mocked. |
+| `mock_statement_success` | Returns a `mock_cursor` pre-loaded with `"Statement executed successfully."` |
+| `temporary_directory` | `Path` to a fresh temp dir; cleaned up after the test. |
+| `project_directory` | Copies a test-project fixture into `temporary_directory` and `chdir`s into it. |
+| `config_manager` | Isolated `ConfigManager` backed by the test config file. |
+
+Prefer these fixtures over writing your own `@mock.patch` decorators — they
+handle common setup correctly and keep tests consistent.
+
 ## Random test order
 
 Tests run in random order by default (via pytest-randomly). If a test fails
@@ -147,9 +163,8 @@ snow sql \
 |--------|---------|
 | `integration` | Requires live Snowflake connection |
 | `e2e` | Runs against a freshly installed CLI in a clean venv |
-| `performance` | Performance benchmarks |
-| `spcs` | Snowpark Container Services (requires SPCS account) |
-| `loaded_modules` | Checks which modules are imported at startup |
+| `no_qa` | Exclude from QA runs |
+| `qa_only` | Run only in QA environments |
 
 The default `hatch run test` run excludes `integration`, `performance`, `e2e`,
 `spcs`, `loaded_modules`, and `integration_experimental` markers.

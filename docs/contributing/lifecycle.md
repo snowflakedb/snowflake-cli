@@ -44,7 +44,7 @@ always require an explicit opt-in (via feature flag) before they are visible.
 
 ### GA (Generally Available)
 
-- Feature flag removed from `feature_flags.py`
+- Feature flag removed from `src/snowflake/cli/api/feature_flags.py`
 - `is_hidden` / `hidden=` stripped from the feature
 - Explicit release note required when entering GA (under `## New additions`):
   ```
@@ -154,7 +154,7 @@ def my_command(
 
 ### PuPr → GA
 
-1. Remove the flag entry from `feature_flags.py`
+1. Remove the flag entry from `src/snowflake/cli/api/feature_flags.py`
 2. Remove `is_hidden=` / `hidden=` from the feature
 3. Add a release note entry under `## New additions`:
    `* <name> is now generally available.`
