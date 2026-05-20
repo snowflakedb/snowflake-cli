@@ -20,7 +20,7 @@
   |                                     installation.                            |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | app            Manages Snowflake Native Apps and Snowflake Apps Deploy.      |
+  | app            Manages Snowflake Native Apps and Snowflake App Runtime.      |
   | auth           Manages authentication methods.                               |
   | connection     Manages connections to Snowflake.                             |
   | cortex         Provides access to Snowflake Cortex.                          |
@@ -53,7 +53,7 @@
    For Native App projects (application / application package entities): Bundles  
    the application package artifacts defined in snowflake.yml.                    
                                                                                   
-   For Snowflake Apps Deploy projects (snowflake-app entities): Resolves          
+   For Snowflake App Runtime projects (snowflake-app entities): Resolves          
    artifacts defined in snowflake.yml and copies them to output/bundle so you can 
    inspect what would be uploaded on deploy.                                      
                                                                                   
@@ -65,7 +65,7 @@
   |                                    application entity on which to operate    |
   |                                    when the definition_version is 2 or       |
   |                                    higher.                                   |
-  | --entity-id                  TEXT  (Snowflake Apps Deploy only) The ID of    |
+  | --entity-id                  TEXT  (Snowflake App Runtime only) The ID of    |
   |                                    the snowflake-app entity on which to      |
   |                                    operate. Required if multiple             |
   |                                    snowflake-app entities exist.             |
@@ -121,7 +121,7 @@
    command with no arguments is a shorthand for snow app deploy --prune           
    --recursive.                                                                   
                                                                                   
-   For Snowflake Apps Deploy projects (snowflake-app entities): Uploads bundled   
+   For Snowflake App Runtime projects (snowflake-app entities): Uploads bundled   
    source artifacts, runs the server-side artifact repository build, then deploys 
    the application service. The pipeline has three phases (upload, build,         
    deploy). By default all three run in sequence; use --upload-only /             
@@ -180,20 +180,20 @@
   |                                                    deployed Snowflake Native |
   |                                                    App's setup script SQL    |
   |                                                    [default: validate]       |
-  | --upload-only                                      (Snowflake Apps Deploy    |
+  | --upload-only                                      (Snowflake App Runtime    |
   |                                                    only) Bundle and upload   |
   |                                                    source artifacts to the   |
   |                                                    configured code location  |
   |                                                    (stage or workspace),     |
   |                                                    then stop. Skips the      |
   |                                                    build and deploy phases.  |
-  | --build-only                                       (Snowflake Apps Deploy    |
+  | --build-only                                       (Snowflake App Runtime    |
   |                                                    only) Run only the build  |
   |                                                    phase (assumes artifacts  |
   |                                                    have already been         |
   |                                                    uploaded). Skips the      |
   |                                                    upload and deploy phases. |
-  | --deploy-only                                      (Snowflake Apps Deploy    |
+  | --deploy-only                                      (Snowflake App Runtime    |
   |                                                    only) Run only the deploy |
   |                                                    phase (assumes a previous |
   |                                                    build phase has already   |
@@ -209,7 +209,7 @@
   |                                                    on which to operate when  |
   |                                                    the definition_version is |
   |                                                    2 or higher.              |
-  | --entity-id                                  TEXT  (Snowflake Apps Deploy    |
+  | --entity-id                                  TEXT  (Snowflake App Runtime    |
   |                                                    only) The ID of the       |
   |                                                    snowflake-app entity on   |
   |                                                    which to operate.         |
@@ -531,7 +531,7 @@
    https://docs.snowflake.com/en/developer-guide/native-apps/setting-up-logging-a 
    nd-events                                                                      
                                                                                   
-   For Snowflake Apps Deploy projects (snowflake-app entities): Fetches recent    
+   For Snowflake App Runtime projects (snowflake-app entities): Fetches recent    
    log lines from the deployed application service. Output is capped at 100KB     
    regardless of the number of lines requested.                                   
                                                                                   
@@ -574,8 +574,8 @@
   | --last                       INTEGER                Maximum number of events |
   |                                                     to fetch. Native App:    |
   |                                                     cannot be used with      |
-  |                                                     --first. Snowflake Apps  |
-  |                                                     Deploy: number of log    |
+  |                                                     --first. Snowflake App   |
+  |                                                     Runtime: number of log   |
   |                                                     lines to retrieve        |
   |                                                     (default: 500, capped at |
   |                                                     100KB).                  |
@@ -601,7 +601,7 @@
   |                                                     operate when the         |
   |                                                     definition_version is 2  |
   |                                                     or higher.               |
-  | --entity-id                  TEXT                   (Snowflake Apps Deploy   |
+  | --entity-id                  TEXT                   (Snowflake App Runtime   |
   |                                                     only) The ID of the      |
   |                                                     snowflake-app entity on  |
   |                                                     which to operate.        |
@@ -761,15 +761,15 @@
    For Native App projects (application / application package entities): Opens    
    the Snowflake Native App's Snowsight URL if the app is installed.              
                                                                                   
-   For Snowflake Apps Deploy projects (snowflake-app entities): Resolves the      
+   For Snowflake App Runtime projects (snowflake-app entities): Resolves the      
    service endpoint URL and launches the browser. Use --print-only to print the   
    URL, or --settings to open the Snowsight app-settings page instead.            
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --print-only                       (Snowflake Apps Deploy only) Print the    |
+  | --print-only                       (Snowflake App Runtime only) Print the    |
   |                                    app URL without opening it in the         |
   |                                    browser.                                  |
-  | --settings                         (Snowflake Apps Deploy only) Open the app |
+  | --settings                         (Snowflake App Runtime only) Open the app |
   |                                    settings page in Snowsight instead of the |
   |                                    app itself.                               |
   | --package-entity-id          TEXT  (Native App only) The ID of the package   |
@@ -779,7 +779,7 @@
   |                                    application entity on which to operate    |
   |                                    when the definition_version is 2 or       |
   |                                    higher.                                   |
-  | --entity-id                  TEXT  (Snowflake Apps Deploy only) The ID of    |
+  | --entity-id                  TEXT  (Snowflake App Runtime only) The ID of    |
   |                                    the snowflake-app entity on which to      |
   |                                    operate. Required if multiple             |
   |                                    snowflake-app entities exist.             |
@@ -3263,15 +3263,15 @@
                                                                                   
    Usage: root app setup [OPTIONS]                                                
                                                                                   
-   (Snowflake Apps Deploy only) Initializes a snowflake.yml for a Snowflake Apps  
-   Deploy project.                                                                
+   (Snowflake App Runtime only) Initializes a snowflake.yml for a Snowflake App   
+   Runtime project.                                                               
                                                                                   
    Creates a snowflake.yml in the current directory with a snowflake-app entity   
    preconfigured from account parameters and the current connection. This command 
    does not apply to Native App projects.                                         
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --app-name              TEXT  Name of the Snowflake Apps Deploy to           |
+  | --app-name              TEXT  Name of the Snowflake App Runtime to           |
   |                               initialize. Defaults to the current directory  |
   |                               name.                                          |
   | --dry-run                     Only print the resolved configuration values   |
@@ -3423,7 +3423,7 @@
    to drop both the application object and application package as defined in the  
    project definition file.                                                       
                                                                                   
-   For Snowflake Apps Deploy projects (snowflake-app entities): Drops the         
+   For Snowflake App Runtime projects (snowflake-app entities): Drops the         
    application service (or SPCS service), the code stage, and the build job       
    service.                                                                       
                                                                                   
@@ -3463,7 +3463,7 @@
   |                                                    on which to operate when  |
   |                                                    the definition_version is |
   |                                                    2 or higher.              |
-  | --entity-id                                  TEXT  (Snowflake Apps Deploy    |
+  | --entity-id                                  TEXT  (Snowflake App Runtime    |
   |                                                    only) The ID of the       |
   |                                                    snowflake-app entity on   |
   |                                                    which to operate.         |
@@ -3623,7 +3623,7 @@
    For Native App projects (application / application package entities):          
    Validates a deployed Snowflake Native App's setup script.                      
                                                                                   
-   For Snowflake Apps Deploy projects (snowflake-app entities): Bundles the local 
+   For Snowflake App Runtime projects (snowflake-app entities): Bundles the local 
    project and verifies that configured database/schema targets (when provided in 
    snowflake.yml) are accessible.                                                 
                                                                                   
@@ -3635,7 +3635,7 @@
   |                                    application entity on which to operate    |
   |                                    when the definition_version is 2 or       |
   |                                    higher.                                   |
-  | --entity-id                  TEXT  (Snowflake Apps Deploy only) The ID of    |
+  | --entity-id                  TEXT  (Snowflake App Runtime only) The ID of    |
   |                                    the snowflake-app entity on which to      |
   |                                    operate. Required if multiple             |
   |                                    snowflake-app entities exist.             |
@@ -4374,7 +4374,7 @@
                                                                                   
    Usage: root app [OPTIONS] COMMAND [ARGS]...                                    
                                                                                   
-   Manages Snowflake Native Apps and Snowflake Apps Deploy.                       
+   Manages Snowflake Native Apps and Snowflake App Runtime.                       
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -4393,8 +4393,8 @@
   |                     Snowflake account, uploads code files to its stage, then |
   |                     creates or upgrades an application object from the       |
   |                     application package.                                     |
-  | setup               (Snowflake Apps Deploy only) Initializes a snowflake.yml |
-  |                     for a Snowflake Apps Deploy project.                     |
+  | setup               (Snowflake App Runtime only) Initializes a snowflake.yml |
+  |                     for a Snowflake App Runtime project.                     |
   | teardown            Drops the deployed app and its associated objects.       |
   | validate            Validates the app.                                       |
   | version             Manages versions defined in an application package       |
@@ -24342,7 +24342,7 @@
   |                                     installation.                            |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | app            Manages Snowflake Native Apps and Snowflake Apps Deploy.      |
+  | app            Manages Snowflake Native Apps and Snowflake App Runtime.      |
   | auth           Manages authentication methods.                               |
   | connection     Manages connections to Snowflake.                             |
   | cortex         Provides access to Snowflake Cortex.                          |
@@ -24440,7 +24440,7 @@
                                                                                   
    Usage: root app [OPTIONS] COMMAND [ARGS]...                                    
                                                                                   
-   Manages Snowflake Native Apps and Snowflake Apps Deploy.                       
+   Manages Snowflake Native Apps and Snowflake App Runtime.                       
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -24459,8 +24459,8 @@
   |                     Snowflake account, uploads code files to its stage, then |
   |                     creates or upgrades an application object from the       |
   |                     application package.                                     |
-  | setup               (Snowflake Apps Deploy only) Initializes a snowflake.yml |
-  |                     for a Snowflake Apps Deploy project.                     |
+  | setup               (Snowflake App Runtime only) Initializes a snowflake.yml |
+  |                     for a Snowflake App Runtime project.                     |
   | teardown            Drops the deployed app and its associated objects.       |
   | validate            Validates the app.                                       |
   | version             Manages versions defined in an application package       |
