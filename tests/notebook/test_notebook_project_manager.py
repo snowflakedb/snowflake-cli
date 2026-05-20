@@ -362,7 +362,7 @@ class TestNotebookProjectManager:
             "CREATE OR REPLACE TEMPORARY STAGE tmp_npo_stage_1234567"
         )
         mock_upload.assert_called_once_with(
-            "/path/to/local/dir", "tmp_npo_stage_1234567"
+            "/path/to/local/dir", "tmp_npo_stage_1234567", exclude=None
         )
 
     @mock.patch(f"{PROJECT_MANAGER}._upload_directory_recursive")
@@ -379,7 +379,7 @@ class TestNotebookProjectManager:
             "CREATE OR REPLACE TEMPORARY STAGE tmp_npo_stage_7654321"
         )
         mock_upload.assert_called_once_with(
-            "/path/to/local/dir", "tmp_npo_stage_7654321"
+            "/path/to/local/dir", "tmp_npo_stage_7654321", exclude=None
         )
 
     @mock.patch(f"{PROJECT_MANAGER}._upload_directory_recursive")
@@ -396,7 +396,7 @@ class TestNotebookProjectManager:
             "CREATE OR REPLACE TEMPORARY STAGE tmp_npo_stage_9999999"
         )
         mock_upload.assert_called_once_with(
-            "/path/to/local/dir", "tmp_npo_stage_9999999"
+            "/path/to/local/dir", "tmp_npo_stage_9999999", exclude=None
         )
 
     @mock.patch(f"{PROJECT_MANAGER}._upload_directory_recursive")
@@ -413,7 +413,7 @@ class TestNotebookProjectManager:
             "CREATE OR REPLACE TEMPORARY STAGE tmp_npo_stage_1111111"
         )
         mock_upload.assert_called_once_with(
-            "relative/path/to/dir", "tmp_npo_stage_1111111"
+            "relative/path/to/dir", "tmp_npo_stage_1111111", exclude=None
         )
 
     @mock.patch(f"{PROJECT_MANAGER}.execute_query")
@@ -541,3 +541,79 @@ class TestNotebookProjectManager:
         call_str = str(mock_execute_query.call_args)
         assert "file.py" in call_str
         assert "subdir" not in call_str or "file.py" in call_str
+
+    @mock.patch(f"{PROJECT_MANAGER}.execute_query")
+    def test_upload_directory_recursive_excludes_by_filename(
+        self, mock_execute_query, tmp_path
+    ):
+        (tmp_path / "keep.py").write_text("keep")
+        (tmp_path / "skip.pyc").write_text("skip")
+
+        manager = NotebookProjectManager()
+        manager._upload_directory_recursive(  # noqa: SLF001
+            str(tmp_path), "test_stage", exclude=["*.pyc"]
+        )
+
+        assert mock_execute_query.call_count == 1
+        call_str = str(mock_execute_query.call_args)
+        assert "keep.py" in call_str
+        assert "skip.pyc" not in call_str
+
+    @mock.patch(f"{PROJECT_MANAGER}.execute_query")
+    def test_upload_directory_recursive_excludes_directory(
+        self, mock_execute_query, tmp_path
+    ):
+        (tmp_path / "keep.py").write_text("keep")
+        cache_dir = tmp_path / "__pycache__"
+        cache_dir.mkdir()
+        (cache_dir / "cached.pyc").write_text("cached")
+
+        manager = NotebookProjectManager()
+        manager._upload_directory_recursive(  # noqa: SLF001
+            str(tmp_path), "test_stage", exclude=["__pycache__"]
+        )
+
+        assert mock_execute_query.call_count == 1
+        call_str = str(mock_execute_query.call_args)
+        assert "keep.py" in call_str
+        assert "cached.pyc" not in call_str
+
+    @mock.patch(f"{PROJECT_MANAGER}.execute_query")
+    def test_upload_directory_recursive_excludes_multiple_patterns(
+        self, mock_execute_query, tmp_path
+    ):
+        (tmp_path / "keep.py").write_text("keep")
+        (tmp_path / "skip.pyc").write_text("skip pyc")
+        git_dir = tmp_path / ".git"
+        git_dir.mkdir()
+        (git_dir / "config").write_text("git config")
+
+        manager = NotebookProjectManager()
+        manager._upload_directory_recursive(  # noqa: SLF001
+            str(tmp_path), "test_stage", exclude=["*.pyc", ".git"]
+        )
+
+        assert mock_execute_query.call_count == 1
+        call_str = str(mock_execute_query.call_args)
+        assert "keep.py" in call_str
+        assert "skip.pyc" not in call_str
+        assert "config" not in call_str
+
+    @mock.patch(f"{PROJECT_MANAGER}.execute_query")
+    def test_upload_directory_recursive_exclude_directory_does_not_exclude_similarly_named_file(
+        self, mock_execute_query, tmp_path
+    ):
+        (tmp_path / "venv.txt").write_text("not excluded")
+        venv_dir = tmp_path / "venv"
+        venv_dir.mkdir()
+        (venv_dir / "test.txt").write_text("excluded")
+
+        manager = NotebookProjectManager()
+        manager._upload_directory_recursive(  # noqa: SLF001
+            str(tmp_path), "test_stage", exclude=["venv"]
+        )
+
+        assert mock_execute_query.call_count == 1
+        call_str = str(mock_execute_query.call_args)
+        assert "venv.txt" in call_str
+        assert "test.txt" not in call_str

@@ -54,7 +54,7 @@ class TestNotebookProjectCommands:
         assert result.exit_code == 0, result.output
         assert "Project successfully created." in result.output
         mock_project_manager.return_value.process_source.assert_called_once_with(
-            'snow://workspace/"test_workspace"'
+            'snow://workspace/"test_workspace"', exclude=None
         )
         mock_project_manager.return_value.create.assert_called_once_with(
             "test_project",
@@ -85,7 +85,7 @@ class TestNotebookProjectCommands:
         assert result.exit_code == 0, result.output
         assert "Project successfully created." in result.output
         mock_project_manager.return_value.process_source.assert_called_once_with(
-            'snow://workspace/"test_workspace"'
+            'snow://workspace/"test_workspace"', exclude=None
         )
         mock_project_manager.return_value.create.assert_called_once_with(
             "test_project", 'snow://workspace/"test_workspace"', None, False, False
@@ -146,7 +146,7 @@ class TestNotebookProjectCommands:
         assert result.exit_code == 0, result.output
         assert "Project successfully created." in result.output
         mock_project_manager.return_value.process_source.assert_called_once_with(
-            'snow://workspace/"test_workspace"'
+            'snow://workspace/"test_workspace"', exclude=None
         )
         mock_project_manager.return_value.create.assert_called_once_with(
             "test_project",
@@ -180,7 +180,7 @@ class TestNotebookProjectCommands:
         assert result.exit_code == 0, result.output
         assert "Project successfully created." in result.output
         mock_project_manager.return_value.process_source.assert_called_once_with(
-            'snow://workspace/"test_workspace"'
+            'snow://workspace/"test_workspace"', exclude=None
         )
         mock_project_manager.return_value.create.assert_called_once_with(
             "test_project",
@@ -404,7 +404,7 @@ class TestNotebookProjectCommands:
         assert result.exit_code == 0, result.output
         assert "Project successfully created." in result.output
         mock_project_manager.return_value.process_source.assert_called_once_with(
-            "@my_stage/path"
+            "@my_stage/path", exclude=None
         )
         mock_project_manager.return_value.create.assert_called_once_with(
             "test_project", "@my_stage/path", None, False, False
@@ -431,7 +431,7 @@ class TestNotebookProjectCommands:
         assert result.exit_code == 0, result.output
         assert "Project successfully created." in result.output
         mock_project_manager.return_value.process_source.assert_called_once_with(
-            "/local/path/to/project"
+            "/local/path/to/project", exclude=None
         )
         mock_project_manager.return_value.create.assert_called_once_with(
             "test_project", "@tmp_npo_stage_1234567", None, False, False
@@ -462,10 +462,37 @@ class TestNotebookProjectCommands:
         assert result.exit_code == 0, result.output
         assert "Project successfully created." in result.output
         mock_project_manager.return_value.process_source.assert_called_once_with(
-            "file:///local/path/to/project"
+            "file:///local/path/to/project", exclude=None
         )
         mock_project_manager.return_value.create.assert_called_once_with(
             "test_project", "@tmp_npo_stage_7654321", "local project", False, False
+        )
+
+    @mock.patch(PROJECT_MANAGER)
+    def test_create_project_with_exclude(self, mock_project_manager, runner):
+        mock_project_manager.return_value.process_source.return_value = (
+            "@tmp_npo_stage_1234567"
+        )
+        mock_project_manager.return_value.create.return_value = (
+            "Project successfully created."
+        )
+        result = runner.invoke(
+            [
+                "notebook",
+                "project",
+                "create",
+                "test_project",
+                "--source",
+                "/local/path",
+                "--exclude",
+                "*.pyc",
+                "--exclude",
+                "__pycache__",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        mock_project_manager.return_value.process_source.assert_called_once_with(
+            "/local/path", exclude=["*.pyc", "__pycache__"]
         )
 
     def test_create_project_missing_name(self, runner):

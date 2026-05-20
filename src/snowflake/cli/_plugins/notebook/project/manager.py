@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import fnmatch
 import glob
 import logging
 import os
@@ -111,7 +112,7 @@ class NotebookProjectManager(SqlExecutionMixin):
             value = "'" + value.replace("'", "''") + "'"
         return value
 
-    def process_source(self, source: str) -> str:
+    def process_source(self, source: str, exclude: Optional[List[str]] = None) -> str:
         if source.startswith("@"):
             return source
         source_lower = source.lower()
@@ -121,13 +122,18 @@ class NotebookProjectManager(SqlExecutionMixin):
             local_path = source[7:] if source_lower.startswith("file://") else source
             stage_name = f"tmp_npo_stage_{random.randint(1000000, 9999999)}"
             self.execute_query(f"CREATE OR REPLACE TEMPORARY STAGE {stage_name}")
-            self._upload_directory_recursive(local_path, stage_name)
+            self._upload_directory_recursive(local_path, stage_name, exclude=exclude)
             return f"@{stage_name}"
         raise ValueError(
             f"Invalid source: '{source}'. Source must be a Snowflake stage path (starting with '@'), a Snowflake workspace path (starting with 'snow://'), or a local file system path (starting with 'file://' or no protocol prefix)."
         )
 
-    def _upload_directory_recursive(self, local_path: str, stage_name: str) -> None:
+    def _upload_directory_recursive(
+        self,
+        local_path: str,
+        stage_name: str,
+        exclude: Optional[List[str]] = None,
+    ) -> None:
         """Upload all files from local_path to stage, preserving directory structure."""
         root_path = Path(local_path)
         if not root_path.is_dir():
@@ -136,13 +142,20 @@ class NotebookProjectManager(SqlExecutionMixin):
 
         for file_path_str in glob.iglob(glob_pattern, recursive=True):
             file_path = Path(file_path_str)
-            if file_path.is_file():
-                relative_path = file_path.relative_to(root_path)
-                stage_subdir = str(relative_path.parent)
-                if stage_subdir == ".":
-                    stage_dest = f"@{stage_name}"
-                else:
-                    stage_dest = f"@{stage_name}/{stage_subdir}"
-                self.execute_query(
-                    f"PUT file://{file_path} {stage_dest} auto_compress=false"
-                )
+            if not file_path.is_file():
+                continue
+            if exclude and any(
+                fnmatch.fnmatchcase(part, pattern)
+                for part in file_path.parts
+                for pattern in exclude
+            ):
+                continue
+            relative_path = file_path.relative_to(root_path)
+            stage_subdir = str(relative_path.parent)
+            if stage_subdir == ".":
+                stage_dest = f"@{stage_name}"
+            else:
+                stage_dest = f"@{stage_name}/{stage_subdir}"
+            self.execute_query(
+                f"PUT file://{file_path} {stage_dest} auto_compress=false"
+            )

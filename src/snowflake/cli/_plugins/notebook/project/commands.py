@@ -58,6 +58,19 @@ def create(
         help="Skip the creation of the notebook project if it already exists.",
         show_default=False,
     ),
+    exclude: Optional[List[str]] = typer.Option(
+        None,
+        "--exclude",
+        help=(
+            "Glob pattern for files or directories to exclude when uploading a local "
+            "source directory. Can be specified multiple times. Patterns are matched "
+            "against each path component, so a pattern like 'venv' excludes any file "
+            "or directory named 'venv' at any depth (e.g. both /venv/ and /dir/venv/), "
+            "while '*.pyc' excludes all .pyc files anywhere in the tree. Only applies "
+            "when --source is a local path; ignored for stage or workspace sources."
+        ),
+        show_default=False,
+    ),
     **options,
 ):
     """Creates a notebook project in Snowflake."""
@@ -68,7 +81,7 @@ def create(
     if overwrite and skip_if_exists:
         raise ClickException("overwrite and skip_if_exists cannot be used together")
     manager = NotebookProjectManager()
-    processed_source = manager.process_source(source)
+    processed_source = manager.process_source(source, exclude=exclude)
     return MessageResult(
         manager.create(name, processed_source, comment, overwrite, skip_if_exists)
     )
