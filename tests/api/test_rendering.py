@@ -210,7 +210,10 @@ def test_read_file_content_allows_file_inside_project_root(tmp_path, jinja_cli_c
     jinja_cli_context.project_root = tmp_path
     target = tmp_path / "inside.txt"
     target.write_text("hello from project")
-    assert _render(f"{{{{ '{target}' | read_file_content }}}}") == "hello from project"
+    assert (
+        _render(f"{{{{ '{target.as_posix()}' | read_file_content }}}}")
+        == "hello from project"
+    )
 
 
 def test_read_file_content_allows_relative_path_inside_project_root(
@@ -236,7 +239,7 @@ def test_read_file_content_rejects_path_outside_project_root(
     outside.write_text("SECRET")
 
     with pytest.raises(ClickException) as err:
-        _render(f"{{{{ '{outside}' | read_file_content }}}}")
+        _render(f"{{{{ '{outside.as_posix()}' | read_file_content }}}}")
     assert "outside the project root" in err.value.message
     assert "read_file_content" in err.value.message
 
@@ -251,7 +254,7 @@ def test_read_file_content_rejects_parent_traversal(tmp_path, jinja_cli_context)
 
     traversal = project_root / ".." / "outside.secret"
     with pytest.raises(ClickException) as err:
-        _render(f"{{{{ '{traversal}' | read_file_content }}}}")
+        _render(f"{{{{ '{traversal.as_posix()}' | read_file_content }}}}")
     assert "outside the project root" in err.value.message
 
 
@@ -266,7 +269,7 @@ def test_procedure_from_js_file_rejects_path_outside_project_root(
     outside_js.write_text("return 42;")
 
     with pytest.raises(ClickException) as err:
-        _render(f"{{{{ '{outside_js}' | procedure_from_js_file }}}}")
+        _render(f"{{{{ '{outside_js.as_posix()}' | procedure_from_js_file }}}}")
     assert "outside the project root" in err.value.message
     assert "procedure_from_js_file" in err.value.message
 
@@ -277,7 +280,7 @@ def test_procedure_from_js_file_allows_file_inside_project_root(
     jinja_cli_context.project_root = tmp_path
     js = tmp_path / "proc.js"
     js.write_text("return arguments[0];")
-    rendered = _render(f"{{{{ '{js}' | procedure_from_js_file }}}}")
+    rendered = _render(f"{{{{ '{js.as_posix()}' | procedure_from_js_file }}}}")
     assert "return arguments[0];" in rendered
     assert "module.exports = exports;" in rendered
 
@@ -296,4 +299,4 @@ def test_read_file_content_enforces_default_size_limit(tmp_path, jinja_cli_conte
     ) as assert_size:
         assert_size.side_effect = FileTooLargeError(target, 128)
         with pytest.raises(FileTooLargeError):
-            _render(f"{{{{ '{target}' | read_file_content }}}}")
+            _render(f"{{{{ '{target.as_posix()}' | read_file_content }}}}")
