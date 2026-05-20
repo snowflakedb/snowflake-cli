@@ -592,6 +592,20 @@ class ConnectionsConfigFile(ValueSource):
         """
         result: Dict[str, Any] = {}
 
+        if "default_connection_name" in data and not isinstance(
+            data["default_connection_name"], dict
+        ):
+            # `default_connection_name` belongs in config.toml, not
+            # connections.toml. Without this warning v2 silently drops it,
+            # leaving users to wonder why their default never takes effect.
+            from snowflake.cli.api.console import cli_console
+
+            cli_console.warning(
+                "'default_connection_name' is not a valid setting in "
+                "connections.toml. Move it to config.toml (top-level) to set "
+                "the default connection."
+            )
+
         for section_name, section_data in data.items():
             if isinstance(section_data, dict) and section_name != "connections":
                 if "connections" not in result:

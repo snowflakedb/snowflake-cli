@@ -49,11 +49,23 @@ def _is_connection_table(name: str, config: Any) -> bool:
         return True
     from snowflake.cli.api.console import cli_console
 
-    cli_console.warning(
-        f"Skipping connection '{name}' in config: expected a table "
-        f"(e.g. [connections.{name}]), got {type(config).__name__}. "
-        "Fix or remove this entry to silence this warning."
-    )
+    if name == "default_connection_name":
+        # A common mistake: putting `default_connection_name = "..."` at the
+        # top of `connections.toml`. The Python connector folds the whole
+        # `connections.toml` under [connections] in the merged config, so it
+        # surfaces here as a string sibling of the real connection tables.
+        # That key only belongs in `config.toml`.
+        cli_console.warning(
+            "'default_connection_name' is not a valid setting in "
+            "connections.toml. Move it to config.toml (top-level) to set the "
+            "default connection."
+        )
+    else:
+        cli_console.warning(
+            f"Skipping connection '{name}' in config: expected a table "
+            f"(e.g. [connections.{name}]), got {type(config).__name__}. "
+            "Fix or remove this entry to silence this warning."
+        )
     return False
 
 

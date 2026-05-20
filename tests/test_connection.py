@@ -471,6 +471,50 @@ def test_connection_list_tolerates_non_table_entry(
         assert "Skipping connection 'stray'" in result_table.output
 
 
+@pytest.mark.parametrize("config_v2", [False, True])
+def test_default_connection_name_in_connections_toml_gives_descriptive_error(
+    runner, monkeypatch, snowflake_home, config_v2
+):
+    """`default_connection_name` belongs in `config.toml`, not `connections.toml`.
+    When users put it at the top of `connections.toml` (a known confusion —
+    see SNOW-3480430 thread), the CLI used to crash with the unhelpful
+    `AttributeError: 'String' object has no attribute 'items'`. The warning
+    that replaced the crash still pointed users at `[connections.default_connection_name]`,
+    which is the wrong fix. We now name the key explicitly and tell the user
+    to move it to `config.toml`.
+    """
+    if config_v2:
+        monkeypatch.setenv("SNOWFLAKE_CLI_CONFIG_V2_ENABLED", "1")
+        from snowflake.cli.api.config_provider import reset_config_provider
+
+        reset_config_provider()
+
+    connections_toml = Path(snowflake_home) / "connections.toml"
+    connections_toml.write_text(
+        dedent(
+            """\
+            default_connection_name = "myconn"
+
+            [myconn]
+            account = "my_account"
+            user = "my_user"
+            """
+        )
+    )
+    os.chmod(connections_toml, 0o600)
+
+    result = runner.super_invoke(["connection", "list"])
+
+    assert result.exit_code == 0, result.output
+    # The warning must name the key, identify the wrong file, and point at the
+    # right one. It must NOT suggest writing `[connections.default_connection_name]`,
+    # which is what the previous generic message did.
+    assert "default_connection_name" in result.output
+    assert "config.toml" in result.output
+    assert "connections.toml" in result.output
+    assert "[connections.default_connection_name]" not in result.output
+
+
 @mock.patch.dict(
     os.environ,
     {
