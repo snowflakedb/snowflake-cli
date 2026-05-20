@@ -19,6 +19,15 @@
 ## Deprecations
 
 ## New additions
+
+## Fixes and improvements
+
+
+# v3.18.0
+
+## Deprecations
+
+## New additions
 * Added `snow streamlit logs` command to stream live logs from a Streamlit-in-Snowflake app running on the SPCSv2 container runtime. Supports `--tail` for historical lines, `--name` to target apps without a project definition, and honors the global `--format` flag (plain / JSON / CSV) for downstream piping.
 
 ## Fixes and improvements
