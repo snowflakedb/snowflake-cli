@@ -16,6 +16,19 @@
 
 # Contributing to Snowflake CLI
 
+## Detailed guides
+
+- **Command lifecycle and feature flags**: [docs/contributing/lifecycle.md](docs/contributing/lifecycle.md)
+  — PrPr/PuPr/GA rules, feature flag mechanics, release notes format
+- **Code conventions**: [docs/contributing/conventions.md](docs/contributing/conventions.md)
+  — security patterns, error handling, imports
+- **Testing**: [docs/contributing/testing.md](docs/contributing/testing.md)
+  — unit tests, snapshots, fixtures, feature flag test helpers
+- **Process**: [docs/contributing/process.md](docs/contributing/process.md)
+  — merge model, commit format, reviewer etiquette
+- **Remote debugging**: [docs/contributing/remote-debugging.md](docs/contributing/remote-debugging.md)
+  — debugging with PyCharm or IntelliJ
+
 ## Quick start
 
 ```bash
@@ -82,67 +95,17 @@ To list all available environments:
 hatch env show
 ```
 
-## Unit tests
+## Running tests
 
 ```bash
-hatch run test
+hatch run test                 # unit tests
+hatch run integration:test     # integration tests (requires Snowflake connection)
 ```
 
-Tests run in random order. To reproduce a failure in the same order, use the
-seed printed at the start of the run:
-
-```bash
-pytest --randomly-seed=<number>
-```
-
-## Snapshot files
-
-If you added a new test or changed behavior, regenerate the Syrupy snapshots
-stored in `.ambr` files:
-
-```bash
-hatch run pytest tests/ --snapshot-update
-```
-
-Review the `.ambr` diff before committing. Snapshot tests capture all commands
-including hidden ones — any change to a hidden command requires regenerating
-snapshots.
-
-## Integration tests
-
-Integration tests require a Snowflake account and credentials. They are excluded
-from the default `pytest` run.
-
-Every integration test carries the `integration` mark. To run only integration
-tests inside an activated environment:
-
-```bash
-pytest -m integration
-```
-
-Or via hatch:
-
-```bash
-hatch run integration:test
-```
-
-See [docs/contributing/testing.md](docs/contributing/testing.md) for the
-environment variables required.
+See [docs/contributing/testing.md](docs/contributing/testing.md) for snapshots,
+fixtures, markers, and integration test environment setup.
 
 ## Before submitting a PR
-
-Read the detailed guides before opening a PR:
-
-- **Command lifecycle and feature flags**: [docs/contributing/lifecycle.md](docs/contributing/lifecycle.md)
-  — PrPr/PuPr/GA rules, feature flag mechanics, release notes format
-- **Code conventions**: [docs/contributing/conventions.md](docs/contributing/conventions.md)
-  — security patterns, error handling, imports
-- **Testing**: [docs/contributing/testing.md](docs/contributing/testing.md)
-  — unit tests, snapshots, feature flag test helpers
-- **Process**: [docs/contributing/process.md](docs/contributing/process.md)
-  — merge model, reviewer etiquette
-- **Remote debugging**: [docs/contributing/remote-debugging.md](docs/contributing/remote-debugging.md)
-  — debugging with PyCharm or IntelliJ
 
 The PR template contains a checklist. Complete it honestly — reviewers check
 every item and CI enforces some of them.
