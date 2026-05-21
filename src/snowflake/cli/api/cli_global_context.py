@@ -72,7 +72,7 @@ class _CliGlobalContextManager:
 
     # Identifies which "snow app" product flow the current command is running:
     # "native_app" for Native App entities (application / application package),
-    # "snowflake_app" for Snowflake Apps Deploy entities (snowflake-app), or
+    # "snowflake_app" for Snowflake App Runtime entities (snowflake-app), or
     # None for any other command. Set by the routing/decoration helpers in
     # _plugins/nativeapp/v2_conversions/compat.py and read by telemetry.
     app_flow: str | None = None

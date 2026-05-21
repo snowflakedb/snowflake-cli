@@ -401,7 +401,7 @@ def test_app_flow_native_app_in_telemetry_data(mock_conn, project_directory, run
     ``log_command_usage`` (the ``executing_command`` event) runs. We
     therefore check the ``error_executing_command`` event, which is
     emitted from ``post_execute`` after the routing decorator has
-    resolved the flow. (Native App and Snowflake Apps Deploy events can
+    resolved the flow. (Native App and Snowflake App Runtime events can
     be joined on ``command_execution_id``.)
     """
     with project_directory("napp_post_deploy_missing_file"):
