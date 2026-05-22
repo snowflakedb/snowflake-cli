@@ -423,6 +423,22 @@ def _make_build_log_streamer(
     return _stream
 
 
+def _log_service_logs(manager: SnowflakeAppManager, service_fqn: FQN) -> None:
+    """Fetch service logs and emit them at INFO level.
+
+    INFO-level output only appears when the user runs the deploy with
+    ``--verbose`` (or ``--debug``). Failures fetching logs are swallowed so the
+    original deployment error remains the primary failure signal.
+    """
+    try:
+        logs = manager.get_service_logs(service_fqn)
+    except Exception:
+        log.debug("Failed to fetch application service logs", exc_info=True)
+        return
+    for line in logs.splitlines():
+        log.info(line)
+
+
 def snowflake_app_deploy(
     entity_id: Optional[str],
     upload_only: bool,
@@ -723,6 +739,7 @@ def snowflake_app_deploy(
                             version="LATEST",
                         )
                 except ProgrammingError as upgrade_error:
+                    _log_service_logs(manager, service_fqn)
                     raise CliError(
                         "Deployment failed while upgrading application service "
                         f"'{service_fqn.identifier}': {upgrade_error}. "
@@ -730,6 +747,7 @@ def snowflake_app_deploy(
                     ) from upgrade_error
                 did_upgrade = True
             else:
+                _log_service_logs(manager, service_fqn)
                 raise CliError(
                     "Deployment failed while creating application service "
                     f"'{service_fqn.identifier}': {e}. "
@@ -745,35 +763,48 @@ def snowflake_app_deploy(
     def _url_is_ready(d: dict) -> bool:
         return manager.resolve_application_service_url_from_describe(d) is not None
 
-    with metrics.span("snowflake_app.endpoint_provision"):
-        if did_upgrade:
-            cli_console.step("Waiting for upgrade to complete...")
-            with metrics.span("snowflake_app.endpoint_provision.wait_for_upgrade"):
-                desc = _poll_until(
-                    poll_fn=lambda: manager.describe_app_service(service_fqn),
-                    is_done=_url_is_ready,
-                    is_error=_svc_has_failed,
-                    format_status=lambda d: (
-                        "upgrading" if _svc_is_upgrading(d) else "ready"
-                    ),
-                    timeout_message=(
-                        f"Upgrade timed out. Check logs:\n"
-                        f"  CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{app_name}')"
-                    ),
-                )
-        else:
-            cli_console.step("Waiting for application service endpoint...")
-            with metrics.span("snowflake_app.endpoint_provision.wait_for_endpoint"):
-                desc = _poll_until(
-                    poll_fn=lambda: manager.describe_app_service(service_fqn),
-                    is_done=_url_is_ready,
-                    is_error=_svc_has_failed,
-                    format_status=lambda d: d.get("url") or "url not yet available",
-                    timeout_message=(
-                        f"Endpoint provisioning timed out. "
-                        f"Check: DESCRIBE APPLICATION SERVICE {service_fqn.identifier}"
-                    ),
-                )
+    try:
+        with metrics.span("snowflake_app.endpoint_provision"):
+            if did_upgrade:
+                cli_console.step("Waiting for upgrade to complete...")
+                with metrics.span("snowflake_app.endpoint_provision.wait_for_upgrade"):
+                    desc = _poll_until(
+                        poll_fn=lambda: manager.describe_app_service(service_fqn),
+                        is_done=_url_is_ready,
+                        is_error=_svc_has_failed,
+                        format_status=lambda d: (
+                            "upgrading" if _svc_is_upgrading(d) else "ready"
+                        ),
+                        timeout_message=(
+                            f"Upgrade timed out. Check application service state and logs:\n"
+                            f"  DESCRIBE APPLICATION SERVICE {service_fqn.identifier}\n"
+                            f"  CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{service_fqn.identifier}')"
+                        ),
+                    )
+            else:
+                cli_console.step("Waiting for application service endpoint...")
+                with metrics.span("snowflake_app.endpoint_provision.wait_for_endpoint"):
+                    desc = _poll_until(
+                        poll_fn=lambda: manager.describe_app_service(service_fqn),
+                        is_done=_url_is_ready,
+                        is_error=_svc_has_failed,
+                        format_status=lambda d: d.get("url") or "url not yet available",
+                        timeout_message=(
+                            f"Application service deployment timed out. Check application service state and logs:\n"
+                            f"  DESCRIBE APPLICATION SERVICE {service_fqn.identifier}\n"
+                            f"  CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{service_fqn.identifier}')"
+                        ),
+                    )
+    except CliError:
+        try:
+            if _svc_has_failed(manager.describe_app_service(service_fqn)):
+                _log_service_logs(manager, service_fqn)
+        except Exception:
+            log.debug(
+                "Failed to inspect application service after deploy error",
+                exc_info=True,
+            )
+        raise
 
     endpoint_url = manager.resolve_application_service_url_from_describe(desc)
     if not endpoint_url:
