@@ -15,7 +15,10 @@
 from unittest.mock import Mock, patch
 
 import pytest
-from snowflake.cli._plugins.apps.commands import _make_build_log_streamer
+from snowflake.cli._plugins.apps.commands import (
+    _make_build_log_streamer,
+    _make_service_log_streamer,
+)
 from snowflake.cli._plugins.apps.generate import (
     _generate_snowflake_yml,
 )
@@ -489,6 +492,59 @@ class TestMakeBuildLogStreamer:
             streamer()
             assert mock_log.info.call_count == 1
             mock_log.info.assert_called_with("line3")
+
+
+class TestMakeServiceLogStreamer:
+    """Tests for ``_make_service_log_streamer`` incremental log diffing."""
+
+    def test_first_call_prints_all_lines(self):
+        manager = Mock()
+        manager.get_service_logs.return_value = "line1\nline2\nline3"
+        fqn = FQN.from_string("DB.SCHEMA.MY_APP")
+
+        streamer = _make_service_log_streamer(manager, fqn)
+        with patch("snowflake.cli._plugins.apps.commands.log") as mock_log:
+            streamer()
+
+        assert mock_log.info.call_count == 3
+        mock_log.info.assert_any_call("line1")
+        mock_log.info.assert_any_call("line2")
+        mock_log.info.assert_any_call("line3")
+
+    def test_subsequent_call_prints_only_new_lines(self):
+        manager = Mock()
+        fqn = FQN.from_string("DB.SCHEMA.MY_APP")
+        streamer = _make_service_log_streamer(manager, fqn)
+
+        with patch("snowflake.cli._plugins.apps.commands.log") as mock_log:
+            manager.get_service_logs.return_value = "line1\nline2"
+            streamer()
+            assert mock_log.info.call_count == 2
+
+            mock_log.info.reset_mock()
+            manager.get_service_logs.return_value = "line1\nline2\nline3\nline4"
+            streamer()
+            assert mock_log.info.call_count == 2
+            mock_log.info.assert_any_call("line3")
+            mock_log.info.assert_any_call("line4")
+
+    def test_empty_logs_print_nothing(self):
+        manager = Mock()
+        manager.get_service_logs.return_value = ""
+        fqn = FQN.from_string("DB.SCHEMA.MY_APP")
+        streamer = _make_service_log_streamer(manager, fqn)
+
+        with patch("snowflake.cli._plugins.apps.commands.log") as mock_log:
+            streamer()
+            mock_log.info.assert_not_called()
+
+    def test_exception_is_swallowed(self):
+        manager = Mock()
+        manager.get_service_logs.side_effect = RuntimeError("connection lost")
+        fqn = FQN.from_string("DB.SCHEMA.MY_APP")
+        streamer = _make_service_log_streamer(manager, fqn)
+
+        streamer()  # should not raise
 
 
 # ── _generate_snowflake_yml tests ─────────────────────────────────────
@@ -3558,6 +3614,216 @@ class TestDeployCommand:
             upgrade_span = _get_completed_span("snowflake_app.deploy_service.upgrade")
             assert create_span[CLIMetricsSpan.ERROR_KEY] == ProgrammingError.__name__
             assert upgrade_span[CLIMetricsSpan.ERROR_KEY] == ProgrammingError.__name__
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": None,
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": None,
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_wait_uses_service_log_streamer_and_fqn_log_hint(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.code_workspace = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.artifact_repository = None
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.get_service_logs.return_value = "line1\nline2"
+        mock_poll.return_value = {
+            "url": "my-app.snowflakecomputing.app",
+            "is_upgrading": "false",
+        }
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "deploy", "--deploy-only"])
+            assert result.exit_code == 0, result.output
+
+        _, kwargs = mock_poll.call_args
+        assert (
+            kwargs["timeout_message"]
+            == "Application service deployment timed out. Check logs:\n"
+            "  CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('TEST_DB.TEST_SCHEMA.MY_APP')"
+        )
+        assert callable(kwargs["on_poll"])
+
+        with patch("snowflake.cli._plugins.apps.commands.log") as mock_log:
+            kwargs["on_poll"]()
+
+        mock_mgr.get_service_logs.assert_called_once()
+        service_fqn = mock_mgr.get_service_logs.call_args.args[0]
+        assert service_fqn.identifier == "TEST_DB.TEST_SCHEMA.MY_APP"
+        mock_log.info.assert_any_call("line1")
+        mock_log.info.assert_any_call("line2")
+
+    @patch("snowflake.cli._plugins.apps.manager.time.sleep")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": None,
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": None,
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_service_failed_status_reports_deployment_failure(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_sleep,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.code_workspace = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.artifact_repository = None
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.get_service_logs.return_value = ""
+        mock_mgr.resolve_application_service_url_from_describe.return_value = None
+        mock_mgr.describe_app_service.return_value = {
+            "status": "FAILED",
+            "url": "provisioning in progress",
+            "is_upgrading": "false",
+        }
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "deploy", "--deploy-only"])
+
+        assert result.exit_code == 1
+        assert "Application service deployment failed. Check logs:" in result.output
+        assert (
+            "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('TEST_DB.TEST_SCHEMA.MY_APP')"
+            in result.output
+        )
+        assert "timed out" not in result.output
+        assert "Endpoint provisioning" not in result.output
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": None,
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": None,
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_upgrade_wait_uses_fqn_service_log_hint(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.code_workspace = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.artifact_repository = None
+        mock_get_entity.return_value = entity
+
+        already_exists = ProgrammingError("already exists")
+        already_exists.errno = 2002
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.create_app_service.side_effect = already_exists
+        mock_poll.return_value = {
+            "url": "my-app.snowflakecomputing.app",
+            "is_upgrading": "false",
+        }
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "deploy", "--deploy-only"])
+            assert result.exit_code == 0, result.output
+
+        _, kwargs = mock_poll.call_args
+        assert (
+            kwargs["timeout_message"] == "Upgrade timed out. Check logs:\n"
+            "  CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('TEST_DB.TEST_SCHEMA.MY_APP')"
+        )
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
     @patch("snowflake.cli._plugins.apps.commands.StageManager")

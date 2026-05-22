@@ -423,6 +423,33 @@ def _make_build_log_streamer(
     return _stream
 
 
+def _make_service_log_streamer(
+    manager: SnowflakeAppManager, service_fqn: FQN
+) -> Callable[[], None]:
+    """Return an ``on_poll`` callback that streams new service log lines.
+
+    Service logs are returned as a single newline-delimited string, so the
+    callback splits them into lines and only emits the unseen suffix on each
+    poll. Like the build streamer, failures fetching logs are swallowed so the
+    surrounding deploy poll can continue.
+    """
+    seen_count = 0
+
+    def _stream() -> None:
+        nonlocal seen_count
+        try:
+            logs = manager.get_service_logs(service_fqn)
+        except Exception:
+            log.debug("Failed to fetch application service logs", exc_info=True)
+            return
+        new_lines = logs.splitlines()[seen_count:]
+        for line in new_lines:
+            log.info(line)
+        seen_count += len(new_lines)
+
+    return _stream
+
+
 def snowflake_app_deploy(
     entity_id: Optional[str],
     upload_only: bool,
@@ -745,6 +772,8 @@ def snowflake_app_deploy(
     def _url_is_ready(d: dict) -> bool:
         return manager.resolve_application_service_url_from_describe(d) is not None
 
+    service_log_streamer = _make_service_log_streamer(manager, service_fqn)
+
     with metrics.span("snowflake_app.endpoint_provision"):
         if did_upgrade:
             cli_console.step("Waiting for upgrade to complete...")
@@ -758,8 +787,9 @@ def snowflake_app_deploy(
                     ),
                     timeout_message=(
                         f"Upgrade timed out. Check logs:\n"
-                        f"  CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{app_name}')"
+                        f"  CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{service_fqn.identifier}')"
                     ),
+                    on_poll=service_log_streamer,
                 )
         else:
             cli_console.step("Waiting for application service endpoint...")
@@ -770,9 +800,10 @@ def snowflake_app_deploy(
                     is_error=_svc_has_failed,
                     format_status=lambda d: d.get("url") or "url not yet available",
                     timeout_message=(
-                        f"Endpoint provisioning timed out. "
-                        f"Check: DESCRIBE APPLICATION SERVICE {service_fqn.identifier}"
+                        f"Application service deployment timed out. Check logs:\n"
+                        f"  CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{service_fqn.identifier}')"
                     ),
+                    on_poll=service_log_streamer,
                 )
 
     endpoint_url = manager.resolve_application_service_url_from_describe(desc)
