@@ -48,6 +48,7 @@ class RestApi:
         """
         Check whether [get] endpoint exists under given URL.
         """
+        from snowflake.connector.errors import BadRequest
         from snowflake.connector.vendored.requests.exceptions import HTTPError  # noqa
 
         try:
