@@ -387,14 +387,20 @@ def bug_bash_io():
     ) as oft, mock.patch(
         "snowflake.cli._plugins.feature.manager.FeatureManager._fetch_entity_rows"
     ) as ent, mock.patch(
-        "snowflake.cli._plugins.feature.manager.FeatureManager._ensure_session_setup"
-    ) as setup, mock.patch(
+        "snowflake.cli._plugins.feature.manager.FeatureManager._fetch_feature_view_rows"
+    ) as fvs, mock.patch(
         "snowflake.cli._plugins.feature.manager.FeatureManager._assert_initialized"
     ) as assert_init:
         exec_q.return_value = iter([_bug_bash_show_oft_row()])
         oft.return_value = {_BUG_BASH_OFT_NAME: _golden_specification()}
         ent.return_value = [_bug_bash_entity_row()]
-        setup.return_value = None
+        # The streaming BUG_BASH FV is online (OFT-backed); the
+        # offline-FV merge path in fetch_applied_state silently
+        # skips on key collision so we can return the same row from
+        # ``list_feature_views()`` without affecting the OFT-driven
+        # state reconstruction.  Returning ``[]`` is also fine —
+        # both shapes leave the test pinning the OFT path.
+        fvs.return_value = []
         # Bypass the Phase 8 init-first guard so these idempotency
         # tests can exercise plan/write_plan without a live Snowflake
         # connection.  The negative-path tests for the guard live in
@@ -404,7 +410,7 @@ def bug_bash_io():
             "execute_query": exec_q,
             "fetch_oft_state": oft,
             "fetch_entity_rows": ent,
-            "ensure_session_setup": setup,
+            "fetch_feature_view_rows": fvs,
             "assert_initialized": assert_init,
         }
 

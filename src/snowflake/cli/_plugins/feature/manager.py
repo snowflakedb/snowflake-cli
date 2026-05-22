@@ -169,27 +169,6 @@ def _render_default_manifest(
 class FeatureManager(SqlExecutionMixin):
     """Thin CLI adapter — delegates all business logic to decl_api."""
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        self._session_setup_done: bool = False
-
-    def _ensure_session_setup(self) -> None:
-        """Run session priming exactly once per FeatureManager instance.
-
-        Delegates to :func:`decl_api.ensure_session_setup`, which owns the
-        priming SQL and the strict-failure policy.  The CLI never builds
-        SQL of its own here — it only supplies its bound
-        :meth:`execute_query` callable.
-
-        Raises:
-            SessionSetupError: If the priming SQL cannot be executed. Propagates
-                so the CLI command aborts before any state SQL runs.
-        """
-        if self._session_setup_done:
-            return
-        decl_api.ensure_session_setup(self.execute_query)
-        self._session_setup_done = True
-
     # ------------------------------------------------------------------
     # _resolve_project — manifest discovery + account match (D4)
     # ------------------------------------------------------------------
@@ -486,8 +465,6 @@ class FeatureManager(SqlExecutionMixin):
         Returns:
             The envelope returned by :func:`decl_api.export_specs`.
         """
-        self._ensure_session_setup()
-
         eq = decl_api.export_queries(database, schema)
 
         show_rows = _rows_to_dicts(
@@ -590,7 +567,6 @@ class FeatureManager(SqlExecutionMixin):
                 ],
             }
 
-        self._ensure_session_setup()
         # Init-first guard: fail fast against an uninitialised schema
         # with the actionable "run `snow feature init`" error before
         # touching any plan file or executing any DDL.
@@ -869,7 +845,6 @@ class FeatureManager(SqlExecutionMixin):
         paths, _, target = self._resolve_project(from_dir, target_name)
         runtime_vars = _parse_variables(variables)
 
-        self._ensure_session_setup()
         # Init-first guard: fail fast against an uninitialised schema
         # with the actionable "run `snow feature init`" error before
         # issuing any state SQL or running the loader.
@@ -884,12 +859,16 @@ class FeatureManager(SqlExecutionMixin):
             self.execute_query(sqls["show_tables"], cursor_class=DictCursor)
         )
         specification_map = self._fetch_oft_state(raw_show, sqls)
+        dt_text_map = self._fetch_dt_text_map(sqls)
         entity_rows = self._fetch_entity_rows(target)
+        feature_view_rows = self._fetch_feature_view_rows(target)
         applied_state = decl_api.fetch_applied_state(
             raw_show,
             raw_tables,
             specification_map=specification_map,
+            dt_text_map=dt_text_map,
             entity_rows=entity_rows,
+            feature_view_rows=feature_view_rows,
             default_database=target.database,
             default_schema=target.schema,
         )
@@ -1000,8 +979,6 @@ class FeatureManager(SqlExecutionMixin):
         paths, _, target = self._resolve_project(from_dir, target_name)
         runtime_vars = _parse_variables(variables)
 
-        self._ensure_session_setup()
-
         sqls = decl_api.state_queries(target.database, target.schema)
         raw_show = _rows_to_dicts(
             self.execute_query(sqls["show_ofts"], cursor_class=DictCursor)
@@ -1010,12 +987,16 @@ class FeatureManager(SqlExecutionMixin):
             self.execute_query(sqls["show_tables"], cursor_class=DictCursor)
         )
         specification_map = self._fetch_oft_state(raw_show, sqls)
+        dt_text_map = self._fetch_dt_text_map(sqls)
         entity_rows = self._fetch_entity_rows(target)
+        feature_view_rows = self._fetch_feature_view_rows(target)
         applied_state = decl_api.fetch_applied_state(
             raw_show,
             raw_tables,
             specification_map=specification_map,
+            dt_text_map=dt_text_map,
             entity_rows=entity_rows,
+            feature_view_rows=feature_view_rows,
             default_database=target.database,
             default_schema=target.schema,
         )
@@ -1085,7 +1066,6 @@ class FeatureManager(SqlExecutionMixin):
         )
 
         _, _, target = self._resolve_project(from_dir, target_name)
-        self._ensure_session_setup()
         # Init-first guard: fail fast against an uninitialised schema
         # so `snow feature list` does not silently return an empty
         # specs list (which previously masked the "you forgot to run
@@ -1134,7 +1114,6 @@ class FeatureManager(SqlExecutionMixin):
     ) -> dict[str, Any]:
         """Return metadata for a named feature view (resolves to OFT name)."""
         _, _, target = self._resolve_project(from_dir, target_name)
-        self._ensure_session_setup()
         # Init-first guard: surface the actionable "run `snow feature
         # init`" error against an uninitialised schema instead of the
         # generic "not found in deployed feature views" envelope that
@@ -1335,7 +1314,6 @@ class FeatureManager(SqlExecutionMixin):
         ``ClickException`` directing the operator at
         ``snow feature init``.
         """
-        self._ensure_session_setup()
         ctx = get_cli_context()
         session = self._build_session()
         return decl_api.assert_feature_store_initialized(
@@ -1400,6 +1378,52 @@ class FeatureManager(SqlExecutionMixin):
                 specification_map[name] = parsed
         return specification_map
 
+    def _fetch_dt_text_map(
+        self,
+        state_sqls: dict[str, str],
+    ) -> dict[str, str]:
+        """Fetch ``SHOW DYNAMIC TABLES`` rows and project to ``{name: text}``.
+
+        The deployed ``DESCRIBE ONLINE FEATURE TABLE … TYPE = SPECIFICATION``
+        JSON for a ``BatchFeatureView`` returns an empty ``spec.sources``
+        list — Snowflake doesn't round-trip the offline source-table
+        binding through that surface.  The Dynamic Table backing each
+        BatchFV does carry that binding in its ``CREATE DYNAMIC TABLE …
+        AS SELECT … FROM <fqn>`` body, which ``SHOW DYNAMIC TABLES`` exposes
+        as the ``text`` column.  The result is keyed by the unquoted DT
+        name (matching ``oft_row['name']``) and threaded into
+        :func:`decl_api.fetch_applied_state` so the planner sees a
+        non-lossy BatchFV ``sources[0].table`` and can produce
+        ``UPDATE_FV`` / ``RECREATE_FV`` correctly (see W-G(A) in the
+        ``apply_lifecycle_resilience`` plan and docs/BATCH_FV_BUG_BASH.md
+        §6–§8).
+
+        Args:
+            state_sqls: Output of :func:`decl_api.state_queries` for the
+                resolved target.
+
+        Returns:
+            ``{dt_name: ddl_text}`` for every row returned by the
+            ``show_dynamic_tables`` SQL with a non-empty ``name`` and
+            ``text``.  Empty when the SQL is absent (older snowml-decl
+            builds) or the query yields no rows.
+        """
+        sql = state_sqls.get("show_dynamic_tables")
+        if not sql:
+            return {}
+        try:
+            rows = _rows_to_dicts(self.execute_query(sql, cursor_class=DictCursor))
+        except Exception as exc:  # noqa: BLE001 — defensive: missing privs / older accounts
+            log.debug("Dynamic-table listing failed (treating as empty): %s", exc)
+            return {}
+        result: dict[str, str] = {}
+        for row in rows:
+            name = row.get("name") or ""
+            text = row.get("text") or ""
+            if isinstance(name, str) and isinstance(text, str) and name and text:
+                result[name] = text
+        return result
+
     def _fetch_entity_rows(self, target: FSTarget) -> list[dict[str, Any]]:
         """Fetch entity tag rows via the imperative ``list_entities()`` facade.
 
@@ -1434,6 +1458,49 @@ class FeatureManager(SqlExecutionMixin):
             log.debug("fetch_entity_rows failed (treating as empty): %s", exc)
             return []
 
+    def _fetch_feature_view_rows(self, target: FSTarget) -> list[dict[str, Any]]:
+        """Fetch feature-view rows via the imperative ``list_feature_views()``.
+
+        Mirror of :func:`_fetch_entity_rows` for FeatureView
+        enumeration.  The imperative ``FeatureStore.list_feature_views``
+        path surfaces offline-only ``BatchFeatureView``s that
+        ``SHOW ONLINE FEATURE TABLES`` cannot enumerate; without it
+        the planner re-emits a spurious ``CREATE_FV`` after a
+        successful offline-only apply.  See
+        ``plans/offline_bfv_state_fix_b9da0006.plan.md``.
+
+        Returns:
+            A list of FV row dicts in the Phase-1 contract shape.
+            Soft-fails with ``[]`` on any non-init-required error so
+            ``snow feature plan`` does not regress on accounts that
+            lack ``list_feature_views`` privileges.
+
+        Raises:
+            decl_api.FeatureStoreNotInitializedError: When the target
+                schema lacks the bootstrap feature-store tags.  The
+                command-level wrapper in ``commands.py`` converts this
+                into a ``ClickException`` whose message directs the
+                operator at ``snow feature init``.
+        """
+        from snowflake.ml.feature_store.decl.errors import (
+            FeatureStoreNotInitializedError,
+        )
+
+        ctx = get_cli_context()
+        try:
+            session = self._build_session()
+            return decl_api.fetch_feature_view_rows(
+                session,
+                target.database,
+                target.schema,
+                ctx.connection.warehouse or "",
+            )
+        except FeatureStoreNotInitializedError:
+            raise
+        except Exception as exc:
+            log.debug("fetch_feature_view_rows failed (treating as empty): %s", exc)
+            return []
+
     # ------------------------------------------------------------------
     # get_status
     # ------------------------------------------------------------------
@@ -1448,7 +1515,6 @@ class FeatureManager(SqlExecutionMixin):
         ``--from`` flag), so requiring a manifest here would be
         circular.
         """
-        self._ensure_session_setup()
         ctx = get_cli_context()
         sqls = decl_api.service_sql(ctx.connection.database, ctx.connection.schema)
         try:
@@ -1475,7 +1541,6 @@ class FeatureManager(SqlExecutionMixin):
         consumer_role: Optional[str] = None,
     ) -> dict[str, Any]:
         """Send CREATE runtime command. Returns immediately; caller polls."""
-        self._ensure_session_setup()
         ctx = get_cli_context()
         p_role = producer_role or ctx.connection.role
         c_role = consumer_role or "PUBLIC"
@@ -1501,7 +1566,6 @@ class FeatureManager(SqlExecutionMixin):
 
     def destroy_service(self) -> dict[str, Any]:
         """Drop all OFTs then drop the feature store runtime."""
-        self._ensure_session_setup()
         ctx = get_cli_context()
         sqls = decl_api.service_sql(ctx.connection.database, ctx.connection.schema)
 

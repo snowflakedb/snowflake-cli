@@ -194,7 +194,7 @@ def bypass_init_first_guard():
     mock session before the real plan/list/describe code under test
     ever runs.
 
-    Two patches:
+    Three patches:
 
     1. ``decl_api.assert_feature_store_initialized`` — covers
        ``_assert_initialized`` + ``_get_feature_store``.
@@ -202,6 +202,12 @@ def bypass_init_first_guard():
        which calls ``imperative_executor.assert_feature_store_initialized``
        via the same-module reference (so the first patch does not
        intercept it).
+    3. ``decl_api.fetch_feature_view_rows`` — covers the offline-FV
+       enumeration path added by
+       ``plans/offline_bfv_state_fix_b9da0006.plan.md``; same
+       reasoning as #2 (it goes through
+       ``imperative_executor.assert_feature_store_initialized``
+       via a same-module reference).
 
     Tests that want to exercise the negative path explicitly assign
     ``side_effect=FeatureStoreNotInitializedError(...)`` to the
@@ -212,9 +218,12 @@ def bypass_init_first_guard():
         ".assert_feature_store_initialized"
     ) as m_assert, mock.patch(
         "snowflake.cli._plugins.feature.manager.decl_api.fetch_entity_rows"
-    ) as m_fetch:
+    ) as m_fetch, mock.patch(
+        "snowflake.cli._plugins.feature.manager.decl_api.fetch_feature_view_rows"
+    ) as m_fetch_fvs:
         m_assert.return_value = mock.MagicMock(name="FeatureStore")
         m_fetch.return_value = []
+        m_fetch_fvs.return_value = []
         yield m_assert
 
 
