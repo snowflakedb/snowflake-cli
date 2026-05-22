@@ -331,11 +331,16 @@ class FeatureManager(SqlExecutionMixin):
                 ``DEFAULT``).  On a re-init this picks which existing
                 manifest target to export from (default = manifest's
                 ``default_target``).
-            database: Optional database override for a brand-new
-                manifest.  Ignored on a re-init (the manifest's target
-                db is the source of truth).
-            schema: Optional schema override for a brand-new manifest.
-                Ignored on a re-init.
+            database: Optional database override.  On a brand-new
+                manifest the value is baked into the new target.  On a
+                re-init the value MUST equal the resolved manifest
+                target's stored ``database`` — a non-matching value
+                raises :class:`CliError` (the manifest is the source
+                of truth on re-init; mismatches are an authoring
+                error, not a silent override).
+            schema: Optional schema override.  Symmetric to *database*
+                — baked into a fresh manifest, mismatch-rejected on a
+                re-init.
 
         Returns:
             ``{status, project_root, manifest_path, target,
@@ -344,9 +349,12 @@ class FeatureManager(SqlExecutionMixin):
             envelope returned by ``decl_api.export_specs(...)``.
 
         Raises:
-            CliError: When the manifest exists but cannot be parsed,
-                or when the resolved target points at a different
-                Snowflake account than the active connection.
+            CliError: When the manifest exists but cannot be parsed;
+                when the resolved target points at a different
+                Snowflake account than the active connection; or when
+                a re-init receives ``--database`` / ``--schema``
+                overrides that conflict with the resolved manifest
+                target's stored values.
         """
         ctx = get_cli_context()
         project_root = Path(project_root).resolve()
@@ -364,10 +372,28 @@ class FeatureManager(SqlExecutionMixin):
 
         if manifest_existed:
             # Re-init: the manifest is the source of truth.  Resolve
-            # the requested target (or default) and ignore any
-            # --database / --schema overrides — they're meaningful only
-            # on first init.
+            # the requested target (or default).  ``--database`` /
+            # ``--schema`` overrides are honoured only when they match
+            # the resolved target's stored values; non-matching values
+            # are an authoring error and we surface them as a
+            # ``CliError`` directing the operator at the manifest
+            # (the previous behaviour silently dropped the override,
+            # which is the bug this branch fixes).
             _, _, target = self._resolve_project(project_root, target_name)
+            if database is not None and database != target.database:
+                raise CliError(
+                    f"--database '{database}' conflicts with manifest "
+                    f"target '{target.name}' database "
+                    f"'{target.database}'. Edit manifest.yml or pick "
+                    f"a different --target."
+                )
+            if schema is not None and schema != target.schema:
+                raise CliError(
+                    f"--schema '{schema}' conflicts with manifest "
+                    f"target '{target.name}' schema "
+                    f"'{target.schema}'. Edit manifest.yml or pick a "
+                    f"different --target."
+                )
             target_db = target.database
             target_sch = target.schema
             resolved_target_name = target.name

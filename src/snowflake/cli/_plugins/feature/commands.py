@@ -354,11 +354,26 @@ def init(
     Re-running ``init`` is fully idempotent: the existing manifest is
     preserved, the FS bootstrap re-runs, and the export refreshes the
     on-disk artifacts so they stay in sync with the deployed runtime.
+    On a re-init, ``--database`` / ``--schema`` values that differ
+    from the resolved manifest target are rejected with a top-level
+    error (the manifest is the source of truth — edit it directly to
+    move a target).
     """
+    # ``--database`` / ``--schema`` arrive in ``**options`` via the
+    # global ``requires_connection`` decorator.  Forward both values
+    # to the manager so a fresh init can bake them into the new
+    # manifest, and a re-init can detect a mismatch against the
+    # resolved manifest target.  Without this forwarding the override
+    # was silently dropped (the original bug — the manifest ended up
+    # carrying the connection profile's default schema).
+    db_override: Optional[str] = options.get("database")
+    sch_override: Optional[str] = options.get("schema")
     del options
     result = FeatureManager().init(
         project_root=Path.cwd(),
         target_name=target,
+        database=db_override,
+        schema=sch_override,
     )
     return _to_object(result)
 
