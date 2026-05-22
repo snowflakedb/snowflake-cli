@@ -21,6 +21,8 @@
       - name: name
         type: string
       stage: <! stage | to_snowflake_identifier !>
+      strict: false
+      immutable: false
       type: procedure
       execute_as_caller: false
     test_procedure:
@@ -39,6 +41,8 @@
       returns: string
       signature: ''
       stage: <! stage | to_snowflake_identifier !>
+      strict: false
+      immutable: false
       type: procedure
       execute_as_caller: false
     hello_function:
@@ -59,6 +63,8 @@
       - name: name
         type: string
       stage: <! stage | to_snowflake_identifier !>
+      strict: false
+      immutable: false
       type: function
   env:
     project_source: app/
@@ -190,6 +196,8 @@
       - name: name
         type: string
       stage: dev_deployment
+      strict: false
+      immutable: false
       type: procedure
       execute_as_caller: false
     func1:
@@ -214,6 +222,8 @@
         type: variant
       runtime: '3.1'
       stage: dev_deployment
+      strict: false
+      immutable: false
       type: function
     test_streamlit:
       identifier:
@@ -390,6 +400,8 @@
       - name: name
         type: string
       stage: dev_deployment
+      strict: false
+      immutable: false
       type: procedure
       execute_as_caller: false
     func1:
@@ -414,6 +426,8 @@
         type: variant
       runtime: '3.10'
       stage: dev_deployment
+      strict: false
+      immutable: false
       type: function
     test_streamlit:
       identifier:
