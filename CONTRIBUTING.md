@@ -53,6 +53,10 @@ hatch env show
 
 Please keep in mind that you need these python versions available in your `$PATH`. You can install them using `hatch` or other tool like [pyenv](https://github.com/pyenv/pyenv)
 
+## Release notes
+
+Every user-visible change should get one line in `RELEASE-NOTES.md` under `# Unreleased version`, in the appropriate subsection (`## Backward incompatibility`, `## Deprecations`, `## New additions`, or `## Fixes and improvements`).
+
 ## Unit tests
 
 Unit tests are executed in random order. If tests fail after your change, you can re-execute them in the same order using `pytest --randomly-seed=<number>`, where number is a seed printed at the beginning of the test execution output.

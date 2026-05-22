@@ -88,7 +88,7 @@ class CLITelemetryField(Enum):
     MODE = "mode"
     # Which "snow app" product flow ran for this command:
     # "native_app" for Native App (application / application package entities),
-    # "snowflake_app" for Snowflake Apps Deploy (snowflake-app entities).
+    # "snowflake_app" for Snowflake App Runtime (snowflake-app entities).
     # Only emitted for "snow app *" commands; absent for everything else.
     #
     # Note: the field appears on TelemetryEvent.CMD_EXECUTION_RESULT and

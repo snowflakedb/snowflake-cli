@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Integration tests for ``snow app setup`` (Snowflake Apps Deploy).
+"""Integration tests for ``snow app setup`` (Snowflake App Runtime).
 
 Scope: this module verifies the end-to-end account-parameter resolution path
 that *only* a real Snowflake account can exercise. The CLI calls

@@ -1,0 +1,47 @@
+// Source proto for the Streamlit developer log streaming protocol.
+//
+// Regenerate generated/developer/v1/logs_service_pb2.py whenever this file
+// changes. See ../../README.md for the exact command and required
+// post-generation patch (try/except around ValidateProtobufRuntimeVersion
+// for protobuf<5 compatibility).
+
+syntax = "proto3";
+
+package developer.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/snowflakedb/streamlit-container-runtime/gen/developer/v1;developerv1";
+
+// LogSource identifies the origin of log entries
+enum LogSource {
+  LOG_SOURCE_UNSPECIFIED = 0;
+  LOG_SOURCE_APP = 1;
+  LOG_SOURCE_MANAGER = 2;
+}
+
+// LogLevel represents the severity of a log entry
+enum LogLevel {
+  LOG_LEVEL_UNSPECIFIED = 0;
+  LOG_LEVEL_DEBUG = 1;
+  LOG_LEVEL_INFO = 2;
+  LOG_LEVEL_WARN = 3;
+  LOG_LEVEL_ERROR = 4;
+}
+
+// StreamLogsRequest configures the log stream
+message StreamLogsRequest {
+  // Number of historical lines to send before streaming live logs.
+  // If 0, only stream live logs. Max: 1000 (buffer size).
+  int32 tail_lines = 1;
+}
+
+// LogEntry represents a single log line
+message LogEntry {
+  LogSource log_source = 1;
+  string content = 2;
+  // Timestamp when the log was captured (UTC)
+  google.protobuf.Timestamp timestamp = 3;
+  int64 sequence = 4;
+  LogLevel level = 5;
+}

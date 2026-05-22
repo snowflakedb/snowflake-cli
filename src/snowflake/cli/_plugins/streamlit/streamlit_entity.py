@@ -19,6 +19,7 @@ from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import bundle_root
 from snowflake.cli.api.project.schemas.entities.common import Identifier, PathMapping
+from snowflake.cli.api.project.util import to_string_literal
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
@@ -187,7 +188,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         elif artifacts_dir:
             query += f"\nFROM '{artifacts_dir}'"
 
-        query += f"\nMAIN_FILE = '{self._entity_model.main_file}'"
+        query += f"\nMAIN_FILE = {to_string_literal(self._entity_model.main_file)}"
 
         if self.model.imports:
             query += "\n" + self.model.get_imports_sql()
@@ -201,10 +202,10 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             query += f"\nQUERY_WAREHOUSE = 'streamlit'"
 
         if self.model.title:
-            query += f"\nTITLE = '{self.model.title}'"
+            query += f"\nTITLE = {to_string_literal(self.model.title)}"
 
         if self.model.comment:
-            query += f"\nCOMMENT = '{self.model.comment}'"
+            query += f"\nCOMMENT = {to_string_literal(self.model.comment)}"
 
         if self.model.external_access_integrations:
             query += "\n" + self.model.get_external_access_integrations_sql()
@@ -215,8 +216,8 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         # SPCS runtime fields are only supported for FBE/versioned streamlits (FROM syntax)
         # Never add these fields for stage-based deployments (ROOT_LOCATION syntax)
         if not from_stage_name and not legacy and self._is_spcs_runtime_v2_mode():
-            query += f"\nRUNTIME_NAME = '{self.model.runtime_name}'"
-            query += f"\nCOMPUTE_POOL = '{self.model.compute_pool}'"
+            query += f"\nRUNTIME_NAME = {to_string_literal(self.model.runtime_name)}"
+            query += f"\nCOMPUTE_POOL = {to_string_literal(self.model.compute_pool)}"
 
         return query + ";"
 

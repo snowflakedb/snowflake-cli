@@ -14,7 +14,6 @@
 
 from __future__ import annotations
 
-import codecs
 import os
 import re
 from typing import List, Optional
@@ -176,12 +175,7 @@ def to_string_literal(raw_value: str) -> str:
     """
     Converts the raw string value to a correctly escaped, single-quoted string literal.
     """
-    # encode escape sequences
-    escaped = str(codecs.encode(raw_value, "unicode-escape"), "utf-8")
-
-    # escape single quotes
-    escaped = re.sub(r"^'|(?<!')'", r"\'", escaped)
-
+    escaped = re.sub(r"(\\*)'", lambda m: m.group(1) * 2 + "''", raw_value)
     return f"'{escaped}'"
 
 
@@ -257,9 +251,12 @@ def escape_like_pattern(pattern: str, escape_sequence: str = r"\\") -> str:
 def identifier_to_show_like_pattern(identifier: str) -> str:
     """
     Takes an identifier and converts it into a pattern to be used with SHOW ... LIKE ... to get all rows with name
-    matching this identifier
+    matching this identifier.
+
+    Single quotes within the identifier are escaped via ``to_string_literal`` to prevent
+    the embedded quote from closing the SQL string literal (SQL injection).
     """
-    return f"'{escape_like_pattern(unquote_identifier(identifier))}'"
+    return to_string_literal(escape_like_pattern(unquote_identifier(identifier)))
 
 
 def append_test_resource_suffix(identifier: str) -> str:

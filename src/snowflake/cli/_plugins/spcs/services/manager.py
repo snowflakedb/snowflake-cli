@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from datetime import datetime
 from pathlib import Path
@@ -46,6 +47,7 @@ from snowflake.cli.api.artifacts.utils import bundle_artifacts
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.entities.common import Artifacts
+from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
@@ -393,14 +395,17 @@ class ServiceManager(SqlExecutionMixin):
                 "volumes": [
                     {
                         "name": "code-volume",
-                        "source": f"@{stage}/{build_context_path}",
+                        "source": "stage",
+                        "stageConfig": {
+                            "name": f"@{stage}/{build_context_path}",
+                        },
                         "uid": 65532,
                     }
                 ],
             }
         }
 
-        spec_json = json.dumps(spec)
+        spec_json = self._serialize_spec(spec)
 
         return self._execute_job_service(
             job_service_name=job_service_name,
@@ -414,10 +419,24 @@ class ServiceManager(SqlExecutionMixin):
         # TODO(aivanou): Add validation towards schema
         with SecurePath(path).open("r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fh:
             data = yaml.safe_load(fh)
-        return json.dumps(data)
+        return self._serialize_spec(data)
+
+    @staticmethod
+    def _serialize_spec(data) -> str:
+        # The returned JSON is embedded inside $$...$$ dollar-quoted SQL
+        # literals; json.dumps does not escape $, so any run of two or more
+        # $ in spec content would close the literal early and allow SQL
+        # injection. Replace each $ that is followed by another $ with its
+        # JSON unicode escape — this handles runs of any length
+        # ($$, $$$, $$$$, ...) without mutating legitimate single-$ values,
+        # and the server-side JSON parser decodes the escape back to $ so
+        # spec values reach Snowflake unchanged.
+        return re.sub(r"\$(?=\$)", r"\\u0024", json.dumps(data))
 
     def status(self, service_name: str) -> SnowflakeCursor:
-        return self.execute_query(f"CALL SYSTEM$GET_SERVICE_STATUS('{service_name}')")
+        return self.execute_query(
+            f"CALL SYSTEM$GET_SERVICE_STATUS({to_string_literal(service_name)})"
+        )
 
     def logs(
         self,
@@ -430,8 +449,10 @@ class ServiceManager(SqlExecutionMixin):
         include_timestamps: bool = False,
     ):
         cursor = self.execute_query(
-            f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '{instance_id}', '{container_name}', "
-            f"{num_lines}, {previous_logs}, '{since_timestamp}', {include_timestamps});"
+            f"call SYSTEM$GET_SERVICE_LOGS({to_string_literal(service_name)}, "
+            f"{to_string_literal(instance_id)}, {to_string_literal(container_name)}, "
+            f"{num_lines}, {previous_logs}, {to_string_literal(since_timestamp)}, "
+            f"{include_timestamps});"
         )
 
         for log in cursor.fetchall():

@@ -14,7 +14,7 @@
 
 from typing import List, Literal, Optional, Union
 
-# Default port exposed by Snowflake Apps Deploy services
+# Default port exposed by Snowflake App Runtime services
 DEFAULT_APP_PORT = 3000
 
 from pydantic import Field, field_validator, model_validator
@@ -116,21 +116,21 @@ class CodeWorkspaceReference(UpdatableModel):
 
 
 class SnowflakeAppMetaField(MetaField):
-    """Extended meta field for Snowflake Apps Deploy with title, description, icon."""
+    """Extended meta field for Snowflake App Runtime with title, description, icon."""
 
     title: Optional[str] = Field(
-        title="Title of the Snowflake Apps Deploy", default=None
+        title="Title of the Snowflake App Runtime", default=None
     )
     description: Optional[str] = Field(
-        title="Description of the Snowflake Apps Deploy", default=None
+        title="Description of the Snowflake App Runtime", default=None
     )
     icon: Optional[str] = Field(
-        title="Icon for the Snowflake Apps Deploy", default=None
+        title="Icon for the Snowflake App Runtime", default=None
     )
 
 
 class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
-    """Entity model for Snowflake Apps Deploy (snowflake-app) type."""
+    """Entity model for Snowflake App Runtime (snowflake-app) type."""
 
     type: Literal["snowflake-app"] = DiscriminatorField()  # noqa: A003
 
@@ -224,6 +224,20 @@ class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
         title="Runtime image used by SPCS artifact repo build/run",
         default="",
     )
+
+    spcs_test_project_type: Optional[str] = Field(
+        title="Project type override for SPCS_TEST builds",
+        default=None,
+    )
+
+    @field_validator("spcs_test_project_type", mode="before")
+    @classmethod
+    def _validate_spcs_test_project_type(cls, value):
+        if value is None or value == "null":
+            return None
+        if not isinstance(value, str):
+            raise ValueError("spcs_test_project_type must be a string or null")
+        return value.strip()
 
     build_image: Optional[str] = Field(
         title="Custom container image for building the app",

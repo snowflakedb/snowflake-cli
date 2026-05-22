@@ -230,6 +230,19 @@ class BundleMap:
 
         if absolute_src.is_dir() and expand_directories:
             for root, subdirs, files in os.walk(absolute_src, followlinks=True):
+                # Prune subdirectories whose real target is outside the project
+                # root so that bundling does not follow a committed symlink
+                # (e.g. ``project/data -> /etc``) into the host filesystem.
+                subdirs[:] = [
+                    d
+                    for d in subdirs
+                    if self._is_within_real_project_root(Path(root) / d)
+                ]
+                files = [
+                    f
+                    for f in files
+                    if self._is_within_real_project_root(Path(root) / f)
+                ]
                 if ignore:
                     subdirs[:] = [d for d in subdirs if not _matches_ignore(d, ignore)]
                     files = [f for f in files if not _matches_ignore(f, ignore)]
@@ -374,6 +387,19 @@ class BundleMap:
         # No mapping for this destination path
         return None
 
+    def _is_within_real_project_root(self, path: Path) -> bool:
+        """
+        Returns True if ``path`` (after symlink resolution) is inside the real
+        project root. Used to keep bundling from following symlinks whose
+        targets escape the project root.
+        """
+        real_root = Path(os.path.realpath(self._project_root))
+        try:
+            real_path = Path(os.path.realpath(path))
+        except OSError:
+            return False
+        return real_path == real_root or real_root in real_path.parents
+
     def _absolute_src(self, src: Path) -> Path:
         if src.is_absolute():
             resolved_src = resolve_without_follow(src)
@@ -383,6 +409,19 @@ class BundleMap:
             raise ArtifactError(
                 f"Source is not in the project root: {src}, root={self._project_root}"
             )
+        # Resolve symlinks to ensure the source's real target also stays inside
+        # the project root. `resolve_without_follow` only strips `.` / `..`
+        # components, so a symlink whose lexical path is inside the root but
+        # whose target points outside (e.g. ``project/data -> /etc``) otherwise
+        # slips through and gets traversed during bundling.
+        if resolved_src.exists():
+            real_src = Path(os.path.realpath(resolved_src))
+            real_root = Path(os.path.realpath(self._project_root))
+            if real_src != real_root and real_root not in real_src.parents:
+                raise ArtifactError(
+                    f"Source path '{src}' resolves outside the project root "
+                    f"via a symlink (target: '{real_src}', root: '{real_root}')."
+                )
         return resolved_src
 
     def _absolute_dest(self, dest: Path, src_path: Optional[Path] = None) -> Path:
@@ -492,9 +531,24 @@ class _ArtifactPathMap:
                 return
 
         if src_is_dir:
+            real_root = Path(os.path.realpath(self._project_root))
+
+            def _stays_in_real_root(p: Path) -> bool:
+                try:
+                    real = Path(os.path.realpath(p))
+                except OSError:
+                    return False
+                return real == real_root or real_root in real.parents
+
             # mark all subdirectories of this source as directories so that we can
             # detect accidental clobbering
-            for root, _, files in os.walk(absolute_src, followlinks=True):
+            for root, subdirs, files in os.walk(absolute_src, followlinks=True):
+                # Prune entries whose real target escapes the project root, so
+                # symlink bypass of the containment check does not leak into
+                # the dest-accounting map.
+                subdirs[:] = [d for d in subdirs if _stays_in_real_root(Path(root) / d)]
+                files = [f for f in files if _stays_in_real_root(Path(root) / f)]
+
                 canonical_subdir = Path(root).relative_to(absolute_src)
                 canonical_dest_subdir = dest / canonical_subdir
                 self._update_dest_is_dir(canonical_dest_subdir, is_dir=True)

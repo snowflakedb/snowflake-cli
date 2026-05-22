@@ -26,6 +26,7 @@ from snowflake.cli._plugins.stage.manager import (
     UserStagePathParts,
 )
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.stage_path import StagePath
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -85,10 +86,14 @@ class GitManager(StageManager):
         return StagePath.from_git_str(stage_path)
 
     def show_branches(self, repo_name: str, like: str) -> SnowflakeCursor:
-        return self.execute_query(f"show git branches like '{like}' in {repo_name}")
+        return self.execute_query(
+            f"show git branches like {to_string_literal(like)} in {repo_name}"
+        )
 
     def show_tags(self, repo_name: str, like: str) -> SnowflakeCursor:
-        return self.execute_query(f"show git tags like '{like}' in {repo_name}")
+        return self.execute_query(
+            f"show git tags like {to_string_literal(like)} in {repo_name}"
+        )
 
     def fetch(self, fqn: FQN) -> SnowflakeCursor:
         return self.execute_query(f"alter git repository {fqn} fetch")
@@ -100,7 +105,7 @@ class GitManager(StageManager):
             f"""
             create git repository {repo_name.sql_identifier}
             api_integration = {api_integration}
-            origin = '{url}'
+            origin = {to_string_literal(url)}
             """
         )
         if secret is not None:

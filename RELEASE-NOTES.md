@@ -19,13 +19,50 @@
 ## Deprecations
 
 ## New additions
-* Added a `--secondary-roles` option (plus matching `SNOWFLAKE_SECONDARY_ROLES` env var and `secondary_roles` config key) to `snow connection add` and the global connection overrides. The value is forwarded to `snowflake-connector-python` and accepts `ALL` or `NONE`, so sessions can be pinned to the primary role without running an extra `USE SECONDARY ROLES` statement.
-* Added `--force` flag to `snow spcs service drop` to allow dropping services that contain block storage volumes.
 
 ## Fixes and improvements
-* Fixed `SELECT *` output being corrupted when joined tables share column names. Duplicate column names are now disambiguated by appending a numeric suffix (e.g. `NAME`, `NAME_2`).
-* Fixed `snow connection generate-jwt` and `snow connection generate-workload-identity-token` failing with `Connection None is not configured` when used with `--temporary-connection`.
-* The internal connection cache now remembers failed connect attempts and re-raises the original exception on subsequent accesses within the same process, instead of re-dialing Snowflake every time a command accesses the shared connection. This fixes, among other cases, the customer-visible duplicate `LOGIN_HISTORY` events (and `OVERFLOW_FAILURE_EVENTS_ELIDED`) previously emitted when a `snow` invocation was rejected by an authentication policy.
+
+
+# v3.18.0
+
+## Deprecations
+
+## New additions
+* Added `snow streamlit logs` command to stream live logs from a Streamlit-in-Snowflake app running on the SPCSv2 container runtime. Supports `--tail` for historical lines, `--name` to target apps without a project definition, and honors the global `--format` flag (plain / JSON / CSV) for downstream piping.
+
+## Fixes and improvements
+* Updated `snowflake-connector-python` to version 4.5.0.
+* Updated `gitpython` to version 3.1.50.
+* Fixed macOS arm64 installer incorrectly requiring Rosetta 2. The `Distribution.xml` package metadata now declares `hostArchitectures="arm64,x86_64"`, so the installer is recognized as native on Apple Silicon.
+* Fixed `snow spcs service build-image` on Azure accounts to work with stages using SNOWFLAKE_FULL encryption.
+* Fixed SQL string literal escaping in `identifier_to_show_like_pattern` and `to_string_literal` to use Snowflake's standard single-quote doubling (`''`) instead of backslash escaping, which is not interpreted under the default `STANDARD_ESCAPE_SEQUENCES=FALSE` session setting. This closes SQL injection vectors through `SHOW ... LIKE` queries driven by a project-controlled `snowflake.yml` or `manifest.yml`.
+* Upgraded `pip` to version 26.1.1.
+* Fixed `snow connection list` crashing with `AttributeError` when `config.toml` contains a scalar value directly under `[connections]`. Such entries are now skipped with a warning so valid connections are still listed.
+* Fixed SQL injection via `FQN.sql_identifier`.
+* Fixed Snowsight URL generation (used by `snow streamlit deploy`, `snow streamlit get-url`, `snow app run`, `snow notebook`, and similar commands) for accounts whose host is 4-part (e.g. `<account>.us-east-1.snowflakecomputing.com`) or 5-part with a cloud suffix (e.g. `<account>.<region>.aws.snowflakecomputing.com`). These hosts now resolve to the correct regioned Snowsight URL instead of raising `"host (...) was missing or not in the expected format"`.
+* Fixed boolean connection parameters (`client_store_temporary_credential`, `oauth_disable_pkce`, `oauth_enable_refresh_tokens`, `oauth_enable_single_use_refresh_tokens`) being passed to the connector as raw strings when supplied via `SNOWFLAKE_*` or `SNOWFLAKE_CONNECTIONS_<name>_*` environment variables. Values like `false` / `0` are now correctly interpreted as `False` rather than truthy strings.
+* Fixed SQL injection in `snow spcs service create`, `execute-job`, and `upgrade` where a `$$` sequence in a YAML spec file could break out of the dollar-quoted SQL literal and execute arbitrary SQL with the caller's session privileges. `$$` sequences in spec content are now neutralized before the spec is embedded in SQL.
+* Improved file handling in the `read_file_content` and `procedure_from_js_file` Jinja filters used during SQL template rendering.
+* Improved path handling in the Snowpark annotation processor (`nativeapp codegen snowpark`).
+* Improved path handling for post-deploy `sql_script` hooks.
+* Improved string handling in `CREATE STREAMLIT` SQL emitted by `snow streamlit deploy` and related commands.
+* Improved output of `repr(ConnectionContext)` and related debug logs.
+* Improved file handling in artifact bundling for `snow app` and `snow snowpark`.
+* Improved input handling in `snow git setup`, `snow connection` secret creation, and API integration creation.
+* Improved argument handling in SPCS service status and log commands.
+* Improved input handling in `snow cortex complete` and `snow cortex translate`.
+* Improved pattern handling for `--like` arguments to `snow object show`, `snow git show`, and `snow spcs image-repository list-images`.
+
+
+# v3.17.1
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+* Encrypted private key files no longer require `PRIVATE_KEY_PASSPHRASE` to be set in the environment. The passphrase can now be read from `private_key_file_pwd` (the name used by `snowflake-connector-python`) or `private_key_passphrase` in `connections.toml` / `config.toml`. The `PRIVATE_KEY_PASSPHRASE` environment variable continues to take precedence when set. This also fixes a regression in 3.17.0 where commands using key-pair authentication with `private_key_passphrase` in `connections.toml` failed with `argument 'password': Cannot convert "<class 'str'>" instance to a buffer`.
 
 
 # v3.17.0
@@ -42,12 +79,17 @@
   CLI validates these against the current session and prints a warning on mismatch:
   * `account_identifier` is checked for all manifest-based commands
   * `project_owner` is checked for `snow dcm create`
+* Added a `--secondary-roles` option (plus matching `SNOWFLAKE_SECONDARY_ROLES` env var and `secondary_roles` config key) to `snow connection add` and the global connection overrides. The value is forwarded to `snowflake-connector-python` and accepts `ALL` or `NONE`, so sessions can be pinned to the primary role without running an extra `USE SECONDARY ROLES` statement.
+* Added `--force` flag to `snow spcs service drop` to allow dropping services that contain block storage volumes.
 
 ## Fixes and improvements
 * Significantly improved DCM files upload performance
 * Fixed `snow streamlit deploy` failing with a collision error when `pages/*.py` glob in `additional_source_files` overlaps with the automatically-included `pages/` directory. Overlapping glob patterns are now deduplicated during v1-to-v2 definition conversion.
 * Updated `snowflake-connector-python` to version 4.4.0. Connector python 4.x series introduced stricter permission checks. In future versions of Snowflake CLI strict configuration file permissions will become mandatory. To test if your files have correct permissions set SNOWFLAKE_CLI_FEATURES_ENFORCE_STRICT_CONFIG_PERMISSIONS=1 before running CLI commands.
 * Fixed error message when `PRIVATE_KEY_PASSPHRASE` environment variable is set to an empty string.
+* Fixed `SELECT *` output being corrupted when joined tables share column names. Duplicate column names are now disambiguated by appending a numeric suffix (e.g. `NAME`, `NAME_2`).
+* Fixed `snow connection generate-jwt` and `snow connection generate-workload-identity-token` failing with `Connection None is not configured` when used with `--temporary-connection`.
+* The internal connection cache now remembers failed connect attempts and re-raises the original exception on subsequent accesses within the same process, instead of re-dialing Snowflake every time a command accesses the shared connection. This fixes, among other cases, the customer-visible duplicate `LOGIN_HISTORY` events (and `OVERFLOW_FAILURE_EVENTS_ELIDED`) previously emitted when a `snow` invocation was rejected by an authentication policy.
 * Fixed session/master token connections created from environment variables or named connection config not enabling token keep-alive settings. This could cause follow-up commands to fail with `251007: Session and master tokens invalid`.
 
 # v3.16.0

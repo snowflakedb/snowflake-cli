@@ -291,6 +291,114 @@ def test_cortex_translate_file(_mock_cortex_result, runner):
         )
 
 
+def test_cortex_complete_escapes_single_quote_in_model(_mock_cortex_result, runner):
+    # Single quote in --model must be escaped so it cannot terminate the model
+    # string literal and smuggle an extra statement into execute_stream.
+    # See SNOW-3417310.
+    with _mock_cortex_result(
+        raw_result="Yes",
+        expected_query=(
+            "SELECT SNOWFLAKE.CORTEX.COMPLETE( "
+            "'evil\\'; SELECT 1; --', "
+            "'prompt' ) AS CORTEX_RESULT;"
+        ),
+    ):
+        result = runner.invoke(
+            [
+                "cortex",
+                "complete",
+                "prompt",
+                "--model",
+                "evil'; SELECT 1; --",
+                "--backend",
+                "sql",
+            ]
+        )
+        assert_successful_result_message(result, expected_msg="Yes")
+
+
+def test_cortex_complete_for_file_escapes_single_quote_in_model(
+    _mock_cortex_result, runner
+):
+    # The PARSE_JSON file branch of complete() reuses the same escaped_model,
+    # so it must also reject smuggled SQL via --model. See SNOW-3417310.
+    with _mock_cortex_result(
+        raw_result="""{"choices": [{"messages": "No, I'm not"}]}""",
+        expected_query=(
+            "SELECT SNOWFLAKE.CORTEX.COMPLETE( "
+            "'evil\\'; SELECT 1; --', "
+            'PARSE_JSON(\'[ { "role": "user", "content": "how does a \\\\"snowflake\\\\" '
+            "get its \\'unique\\' pattern?\" }, "
+            '{ "role": "system", "content": "I don\\\'t know" }, '
+            '{ "role": "user", "content": "I thought \\\\"you\\\\" are smarter" } ] \'), '
+            "{} ) AS CORTEX_RESULT;"
+        ),
+    ):
+        result = runner.invoke(
+            [
+                "cortex",
+                "complete",
+                "--file",
+                str(TEST_DIR / "test_data/cortex/conversation.json"),
+                "--model",
+                "evil'; SELECT 1; --",
+                "--backend",
+                "sql",
+            ]
+        )
+        assert_successful_result_message(result, expected_msg="No, I'm not")
+
+
+def test_cortex_translate_escapes_single_quote_in_target_language(
+    _mock_cortex_result, runner
+):
+    # --to (target language) must be escaped for the same reason as --model.
+    # See SNOW-3417310.
+    with _mock_cortex_result(
+        raw_result="herb",
+        expected_query=(
+            "SELECT SNOWFLAKE.CORTEX.TRANSLATE( "
+            "'hello', '', 'en\\'; SELECT 1; --' ) AS CORTEX_RESULT;"
+        ),
+    ):
+        result = runner.invoke(
+            [
+                "cortex",
+                "translate",
+                "hello",
+                "--to",
+                "en'; SELECT 1; --",
+            ]
+        )
+        assert_successful_result_message(result, expected_msg="herb")
+
+
+def test_cortex_translate_escapes_single_quote_in_source_language(
+    _mock_cortex_result, runner
+):
+    # --from (source language) must be escaped for the same reason as --model.
+    # See SNOW-3417310.
+    with _mock_cortex_result(
+        raw_result="coat of arms",
+        expected_query=(
+            "SELECT SNOWFLAKE.CORTEX.TRANSLATE( "
+            "'herb', 'pl\\'; SELECT 1; --', 'en' ) AS CORTEX_RESULT;"
+        ),
+    ):
+        result = runner.invoke(
+            [
+                "cortex",
+                "translate",
+                "herb",
+                "--from",
+                "pl'; SELECT 1; --",
+                "--to",
+                "en",
+            ]
+        )
+        assert_successful_result_message(result, expected_msg="coat of arms")
+
+
 @mock.patch("snowflake.cli._plugins.cortex.commands.SEARCH_COMMAND_ENABLED", new=False)
 def test_if_search_raises_exception_for_312(runner, os_agnostic_snapshot):
 

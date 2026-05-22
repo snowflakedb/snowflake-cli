@@ -533,3 +533,45 @@ class TestStreamlitEntity(StreamlitTestClass):
             "Deployment style is changing from versioned to legacy" in str(call)
             for call in workspace_context.console.warning.call_args_list
         )
+
+    @pytest.mark.parametrize(
+        "field,payload",
+        [
+            ("title", "evil'; DROP TABLE users; --"),
+            ("comment", "it's a trap'); DROP TABLE"),
+            ("main_file", "app.py'; DROP TABLE"),
+            ("compute_pool", "POOL'; DROP TABLE"),
+        ],
+    )
+    def test_get_deploy_sql_escapes_string_literals(
+        self, workspace_context, field, payload
+    ):
+        """Regression for SNOW-3417292: values from snowflake.yml must be
+        escaped before being interpolated into CREATE STREAMLIT SQL so a
+        single quote in any of them cannot break out of the SQL literal."""
+        kwargs = dict(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        if field == "compute_pool":
+            # compute_pool requires a matching runtime_name; pin runtime_name
+            # to the SPCS constant so only compute_pool carries the payload.
+            kwargs["runtime_name"] = SPCS_RUNTIME_V2_NAME
+            kwargs["compute_pool"] = payload
+        else:
+            kwargs[field] = payload
+
+        model = StreamlitEntityModel(**kwargs)
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=False)
+
+        # The raw unescaped payload must not appear as a simple quoted value
+        # in the SQL. to_string_literal uses standard SQL quote-doubling ('')
+        # so if escaping works, the raw `= '<payload>'` pattern cannot match.
+        assert f"= '{payload}'" not in sql
+        # Confirm quote-doubling is present (each ' in payload becomes '')
+        assert "''" in sql

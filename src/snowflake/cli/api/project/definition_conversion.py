@@ -551,7 +551,11 @@ def _convert_package_script_files(
             d = _get_temp_dir().name
             _, script_file = mkstemp(dir=d, suffix="_converted.sql", text=True)
         (project_root / script_file).write_text(new_contents)
-        hook = SqlScriptHookType(sql_script=script_file)
+        # When converting in-memory, `script_file` is an absolute path to a
+        # generated tempfile. That is intentionally outside the project root
+        # and does not go through user config, so we bypass the relative-path
+        # validator on SqlScriptHookType.sql_script.
+        hook = SqlScriptHookType.model_construct(sql_script=script_file)
         hook._display_path = original_script_file  # noqa: SLF001
         post_deploy_hooks.append(hook)
     return post_deploy_hooks

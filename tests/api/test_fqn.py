@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from io import StringIO
 from unittest import mock
 from unittest.mock import MagicMock
 
@@ -19,7 +20,133 @@ import pytest
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import FQNInconsistencyError, FQNNameError
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.schemas.entities.common import Identifier
 from snowflake.cli.api.project.schemas.v1.streamlit.streamlit import Streamlit
+from snowflake.connector.util_text import split_statements
+
+
+class TestSqlIdentifier:
+    @pytest.mark.parametrize(
+        "name, expected",
+        [
+            ("my_table", "IDENTIFIER('my_table')"),
+            ('"my table"', "IDENTIFIER('\"my table\"')"),
+            ("MY_NOTEBOOK", "IDENTIFIER('MY_NOTEBOOK')"),
+        ],
+    )
+    def test_normal_identifiers_unchanged(self, name, expected):
+        """Normal identifiers (no single quotes) produce the same output as before."""
+        assert FQN(name=name, database=None, schema=None).sql_identifier == expected
+
+    @pytest.mark.parametrize(
+        "name, expected",
+        [
+            (
+                "db.schema.my_table",
+                "IDENTIFIER('db.schema.my_table')",
+            ),
+            (
+                '"my_db"."my_schema"."my_table"',
+                'IDENTIFIER(\'"my_db"."my_schema"."my_table"\')',
+            ),
+        ],
+    )
+    def test_qualified_identifiers_unchanged(self, name, expected):
+        fqn = FQN.from_string(name)
+        assert fqn.sql_identifier == expected
+
+    def test_signature_preserved(self):
+        fqn = FQN.from_string("db.schema.func(string, int)")
+        assert fqn.sql_identifier == "IDENTIFIER('db.schema.func')(string, int)"
+
+    @pytest.mark.parametrize(
+        "name, expected",
+        [
+            # Non-ASCII: passed through unchanged — no unicode-escape transformation
+            ('"café"', "IDENTIFIER('\"café\"')"),
+            # Backslash: passed through unchanged
+            ('"a\\\\b"', "IDENTIFIER('\"a\\\\b\"')"),
+        ],
+    )
+    def test_non_ascii_and_backslash_identifiers_unchanged(self, name, expected):
+        """Non-ASCII characters and backslashes must pass through unmodified.
+        This ensures we don't break identifiers like 'café' that already exist
+        in Snowflake — transforming them would cause the CLI to reference a
+        different object than the one created."""
+        fqn = FQN(name=name, database=None, schema=None)
+        assert fqn.sql_identifier == expected
+
+    @pytest.mark.parametrize(
+        "payload, expected",
+        [
+            # Single quotes are doubled (SQL standard escaping)
+            (
+                '"app_name\'); DROP TABLE sensitive_data --"',
+                "IDENTIFIER('\"app_name''); DROP TABLE sensitive_data --\"')",
+            ),
+            (
+                '"x\'); GRANT ALL PRIVILEGES ON ACCOUNT TO ROLE attacker --"',
+                "IDENTIFIER('\"x''); GRANT ALL PRIVILEGES ON ACCOUNT TO ROLE attacker --\"')",
+            ),
+            (
+                '"t\'); SELECT * FROM secrets; --"',
+                "IDENTIFIER('\"t''); SELECT * FROM secrets; --\"')",
+            ),
+            # Backslash-before-quote bypass: the connector's split_statements treats \'
+            # as an escape pair, so bare '' doubling leaves \'' which gets split into
+            # (escape pair \') + (closing quote '), producing two statements.
+            # to_string_literal doubles the entire backslash run before the quote so the
+            # splitter consumes all \\ pairs and '' is the escaped quote.
+            (
+                '"x\\\';DROP TABLE t;--"',
+                "IDENTIFIER('\"x\\\\'';DROP TABLE t;--\"')",
+            ),
+            # Even-backslash-before-quote: two backslashes then a single quote.
+            # split_statements consumes \\ (pair) then \' (pair), leaving bare '
+            # to exit the string — the entire run must be doubled.
+            (
+                '"x\\\\\';DROP TABLE t;--"',
+                "IDENTIFIER('\"x\\\\\\\\'';DROP TABLE t;--\"')",
+            ),
+        ],
+    )
+    def test_injection_payloads_are_escaped(self, payload, expected):
+        """Single quotes in identifiers are doubled (SQL standard), keeping
+        the value inside the IDENTIFIER('...') wrapper intact."""
+        fqn = FQN.from_string(payload)
+        assert fqn.sql_identifier == expected
+
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            '"app_name\'); DROP TABLE sensitive_data --"',
+            '"x\'); GRANT ALL PRIVILEGES ON ACCOUNT TO ROLE attacker --"',
+            # Backslash-before-quote (odd run): must produce exactly 1 statement
+            '"x\\\';DROP TABLE t;--"',
+            # Backslash-before-quote (even run): must produce exactly 1 statement
+            '"x\\\\\';DROP TABLE t;--"',
+        ],
+    )
+    def test_injection_payloads_produce_single_statement(self, payload):
+        """Using sql_identifier in a SQL template must yield exactly one statement
+        when parsed by the same splitter that execute_stream uses."""
+        fqn = FQN.from_string(payload)
+        sql = f"DESCRIBE STREAMLIT {fqn.sql_identifier};"
+        stmts = [s for s, _ in split_statements(StringIO(sql))]
+        assert len(stmts) == 1, (
+            f"Expected 1 statement, got {len(stmts)}. "
+            f"Injection may still be possible. Statements: {stmts}"
+        )
+
+    def test_identifier_model_path_also_safe(self):
+        """The snowflake.yml Identifier model path (from_identifier_model_v2) is
+        equally protected since it also flows through sql_identifier."""
+        malicious_name = '"app_name\'); DROP TABLE sensitive_data --"'
+        model = Identifier(name=malicious_name)
+        fqn = FQN.from_identifier_model_v2(model)
+        sql = f"DESCRIBE STREAMLIT {fqn.sql_identifier};"
+        stmts = [s for s, _ in split_statements(StringIO(sql))]
+        assert len(stmts) == 1
 
 
 def test_attributes():

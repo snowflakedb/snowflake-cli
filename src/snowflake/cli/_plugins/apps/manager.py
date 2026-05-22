@@ -117,6 +117,11 @@ def _poll_until(
     Raises ``CliError`` on error or timeout.  Returns the final value on
     success.
     """
+
+    def _failure_message_from_timeout_message(message: str) -> str:
+        """Convert timeout-style wording into failure wording for terminal error states."""
+        return re.sub(r"\btimed out\b", "failed", message, count=1, flags=re.IGNORECASE)
+
     for _attempt in range(max_attempts):
         if on_poll is not None:
             for _ in range(interval_seconds):
@@ -136,16 +141,21 @@ def _poll_until(
             if is_done(result):
                 return result
             if is_error is not None and is_error(result):
-                raise CliError(f"{timeout_message} (status={format_status(result)})")
+                raise CliError(
+                    f"{_failure_message_from_timeout_message(timeout_message)} "
+                    f"(status={format_status(result)})"
+                )
         else:
             # ── State-set mode (original behaviour) ───────────────
             if done_states and result in done_states:
                 return result
             if error_states and result in error_states:
-                raise CliError(f"{timeout_message} (status={result})")
+                raise CliError(
+                    f"{_failure_message_from_timeout_message(timeout_message)} "
+                    f"(status={result})"
+                )
             if known_pending_states is not None and result not in known_pending_states:
-                cli_console.step(f"Unknown status: {result}")
-                return result
+                raise CliError(f"{timeout_message} (unexpected status={result})")
 
     raise CliError(
         f"{timeout_message} "
@@ -210,6 +220,7 @@ def _resolve_deploy_defaults(
 
     # ── 2. SnowApps parameters (user-level) ──────────────────────────
     param_vals: Dict[str, Optional[str]] = {}
+    cli_console.step("Fetching SnowApps account parameters...")
     raw_params = manager.fetch_snow_apps_parameters()
     if raw_params:
         cli_console.step(
@@ -222,6 +233,7 @@ def _resolve_deploy_defaults(
     default_vals: Dict[str, Optional[str]] = {
         "artifact_repository": f"{app_name}_REPO",
     }
+    cli_console.step("Checking whether a personal database exists...")
     personal_db = manager.get_personal_database()
     if personal_db:
         default_vals["database"] = personal_db
@@ -378,6 +390,7 @@ def _bundle_app_artifacts(project_paths: ProjectPaths, artifacts) -> BundleMap:
                 absolute_src,
                 absolute_dest,
                 deploy_root=project_paths.bundle_root,
+                project_root=project_paths.project_root,
             )
     return bundle_map
 
@@ -422,7 +435,7 @@ def _find_dockerfile_expose_port(bundle_root: Path) -> Optional[int]:
 
 
 class SnowflakeAppManager(SqlExecutionMixin):
-    """Manager for Snowflake Apps Deploy operations.
+    """Manager for Snowflake App Runtime operations.
 
     NOTE: DDL-building methods (create_app_service, build_app_artifact_repo, …)
     interpolate bare ``str`` arguments such as *compute_pool*,
@@ -434,6 +447,12 @@ class SnowflakeAppManager(SqlExecutionMixin):
     ``IDENTIFIER(to_string_literal(name))`` for consistency with the
     ``FQN``-based parameters that already use ``.sql_identifier``.
     """
+
+    def execute_query(self, query: str, **kwargs):
+        """Execute a Snowflake query with CLI spinner feedback."""
+        with cli_console.spinner() as spinner:
+            spinner.add_task(description="", total=None)
+            return super().execute_query(query, **kwargs)
 
     def get_personal_database(self) -> Optional[str]:
         """Return the personal database name for the current user.
@@ -605,45 +624,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
         """Return a workspace URI under the last committed version for *directory_name*."""
         normalized_directory = directory_name.strip("/")
         return f"{self.workspace_last_uri(workspace_fqn)}/{normalized_directory}"
-
-    def get_default_workspace_version_uri(self, workspace_fqn: FQN) -> str:
-        """Return URI for the workspace default version."""
-        cursor = self.execute_query(
-            f"DESCRIBE WORKSPACE {workspace_fqn.sql_identifier}",
-            cursor_class=DictCursor,
-        )
-        row = cursor.fetchone()
-        if row is None:
-            raise CliError(
-                f"Could not describe workspace {workspace_fqn.identifier} "
-                "to resolve default version."
-            )
-        location_uri = (
-            row.get("default_version_location_uri")
-            or row.get("DEFAULT_VERSION_LOCATION_URI")
-            or ""
-        )
-        if not location_uri:
-            version_name = row.get("default_version_name") or row.get(
-                "DEFAULT_VERSION_NAME"
-            )
-            if version_name:
-                location_uri = f"snow://workspace/{workspace_fqn.identifier}/versions/{version_name}/"
-        if not location_uri:
-            raise CliError(
-                f"Could not resolve default version for workspace {workspace_fqn.identifier}."
-            )
-        return str(location_uri).rstrip("/")
-
-    def get_default_workspace_version_subdirectory_uri(
-        self, workspace_fqn: FQN, directory_name: str
-    ) -> str:
-        """Return URI for *directory_name* under the workspace default version."""
-        normalized_directory = directory_name.strip("/")
-        return (
-            f"{self.get_default_workspace_version_uri(workspace_fqn)}"
-            f"/{normalized_directory}"
-        )
 
     def clear_workspace_subdirectory(
         self, workspace_fqn: FQN, directory_name: str
@@ -851,13 +831,14 @@ class SnowflakeAppManager(SqlExecutionMixin):
         """Return True if the artifact repository already exists."""
         from snowflake.cli.api.project.util import (
             identifier_to_show_like_pattern,
+            to_identifier,
             unquote_identifier,
         )
 
-        schema_fqn = FQN(database=None, schema=database, name=schema)
+        schema_identifier = f"{to_identifier(database)}.{to_identifier(schema)}"
         cursor = self.execute_query(
             f"SHOW ARTIFACT REPOSITORIES LIKE {identifier_to_show_like_pattern(repo_name)}"
-            f" IN SCHEMA {schema_fqn.sql_identifier}",
+            f" IN SCHEMA {schema_identifier}",
             cursor_class=DictCursor,
         )
         unqualified = unquote_identifier(repo_name).upper()
@@ -884,7 +865,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         schema: str = "",
         runtime_image: str = "",
         build_eai: Optional[str] = None,
-        project_type: str = "nodejs",
+        project_type: str = "",
         source_uri: Optional[str] = None,
     ) -> str:
         """Build an app using SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO.
