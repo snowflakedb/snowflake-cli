@@ -801,33 +801,95 @@ class TestFeatureManagerInit:
         mock_decl.export_specs.assert_called_once()
         assert mock_decl.export_specs.call_args.kwargs.get("layout") == "sources"
 
-    def test_init_with_existing_manifest_uses_manifest_target_db_schema(
+    def test_init_with_existing_manifest_rejects_mismatched_database_override(
         self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
     ):
-        """A re-init MUST export against the manifest target's db/schema,
-        ignoring ``--database`` / ``--schema`` overrides (the manifest
-        is the source of truth)."""
+        """Re-init with ``--database`` that differs from the resolved
+        manifest target raises ``CliError`` instead of silently
+        ignoring the override.
+
+        Locks in the reject-on-conflict policy: the manifest is the
+        source of truth on re-init, so a non-matching override is a
+        user error the CLI must surface (with an actionable directive
+        to edit ``manifest.yml`` or pick a different ``--target``).
+        """
         from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
 
         _write_manifest(tmp_path)  # manifest target = TEST_DB / TEST_SCHEMA
 
         fs_patch, cm_patch = self._patch_feature_store()
         with fs_patch as mock_fs_cls, cm_patch as mock_cm:
             mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            with pytest.raises(CliError, match="manifest"):
+                FeatureManager().init(
+                    project_root=tmp_path,
+                    database="OTHER_DB",
+                )
+
+        # No side-effects on rejection: FS bootstrap and export must
+        # not run.
+        mock_fs_cls.assert_not_called()
+        mock_decl.export_specs.assert_not_called()
+
+    def test_init_with_existing_manifest_rejects_mismatched_schema_override(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """Re-init with ``--schema`` that differs from the resolved
+        manifest target raises ``CliError`` (mirror of the
+        ``--database`` mismatch test).
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        _write_manifest(tmp_path)  # manifest target = TEST_DB / TEST_SCHEMA
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch as mock_fs_cls, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            with pytest.raises(CliError, match="manifest"):
+                FeatureManager().init(
+                    project_root=tmp_path,
+                    schema="OTHER_SCHEMA",
+                )
+
+        mock_fs_cls.assert_not_called()
+        mock_decl.export_specs.assert_not_called()
+
+    def test_init_with_existing_manifest_matching_overrides_is_noop(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """Re-init with ``--database`` / ``--schema`` values that match
+        the resolved manifest target is accepted (no ``CliError``).
+
+        Matching overrides are operationally a no-op — the FS bootstrap
+        and export still run against the manifest target's values, the
+        manifest file is left untouched.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)  # manifest target = TEST_DB / TEST_SCHEMA
+        manifest_before = (tmp_path / "manifest.yml").read_bytes()
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch as mock_fs_cls, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
             FeatureManager().init(
                 project_root=tmp_path,
-                database="IGNORED_DB",
-                schema="IGNORED_SCHEMA",
+                database="TEST_DB",
+                schema="TEST_SCHEMA",
             )
 
-        # Export honours the manifest target, not the (ignored) flags.
+        # FS bootstrap + export run against the manifest target.
         export_call = mock_decl.export_specs.call_args
         assert export_call.args[3] == "TEST_DB"
         assert export_call.args[4] == "TEST_SCHEMA"
-        # Same for the FS bootstrap.
         positional = mock_fs_cls.call_args.args
         assert "TEST_DB" in positional
         assert "TEST_SCHEMA" in positional
+
+        # Manifest is preserved bytes-identical.
+        assert (tmp_path / "manifest.yml").read_bytes() == manifest_before
 
     def test_init_with_existing_manifest_resolves_named_target(
         self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
@@ -1149,6 +1211,154 @@ class TestFeatureManagerPlan:
                 dev_mode=False,
                 allow_recreate=False,
             )
+
+    # ------------------------------------------------------------------
+    # W-G.4 — manager fetches SHOW DYNAMIC TABLES and threads the resulting
+    # ``dt_text_map`` into ``fetch_applied_state`` so that the planner can
+    # recover the offline source-table binding for BatchFVs that lose it
+    # in the ``DESCRIBE … TYPE = SPECIFICATION`` round-trip.  See
+    # docs/BATCH_FV_BUG_BASH.md §6–§8 and the W-G(A) plan.
+    # ------------------------------------------------------------------
+
+    def test_plan_executes_show_dynamic_tables_query(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``plan`` MUST run the ``show_dynamic_tables`` SQL exposed by
+        :func:`decl_api.state_queries` so the offline DT DDL can later be
+        threaded into ``fetch_applied_state``."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        mock_decl.state_queries.return_value = {
+            "show_ofts": "SHOW ONLINE FEATURE TABLES IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_tables": "SHOW TABLES LIKE '%' IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_dynamic_tables": (
+                "SHOW DYNAMIC TABLES IN SCHEMA TEST_DB.TEST_SCHEMA"
+            ),
+            "describe_specification_template": (
+                'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}" '
+                "TYPE = SPECIFICATION"
+            ),
+        }
+
+        FeatureManager().plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            dev_mode=False,
+            allow_recreate=False,
+        )
+
+        executed = _executed_sqls(mock_execute_query)
+        assert any(
+            "SHOW DYNAMIC TABLES IN SCHEMA TEST_DB.TEST_SCHEMA" in s for s in executed
+        ), (
+            "plan() must execute the show_dynamic_tables SQL from "
+            "decl_api.state_queries so the offline DT DDL is fetched"
+        )
+
+    def test_plan_threads_dt_text_map_into_fetch_applied_state(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """The DT DDL rows MUST be normalised into a ``{name: text}`` dict
+        and passed to ``fetch_applied_state(..., dt_text_map=...)`` so the
+        BatchFV source-table binding can be recovered."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        mock_decl.state_queries.return_value = {
+            "show_ofts": "SHOW ONLINE FEATURE TABLES IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_tables": "SHOW TABLES LIKE '%' IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_dynamic_tables": (
+                "SHOW DYNAMIC TABLES IN SCHEMA TEST_DB.TEST_SCHEMA"
+            ),
+            "describe_specification_template": (
+                'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}" '
+                "TYPE = SPECIFICATION"
+            ),
+        }
+
+        dt_row = {
+            "name": "MY_BATCH_FV$V1",
+            "text": (
+                "CREATE DYNAMIC TABLE MY_BATCH_FV$V1 TARGET_LAG = '1 minute' "
+                "AS SELECT * FROM TEST_DB.TEST_SCHEMA.RAW_EVENTS"
+            ),
+        }
+
+        def fake_execute_query(sql, *args, **kwargs):
+            if "SHOW DYNAMIC TABLES" in str(sql):
+                return iter([dt_row])
+            return iter([])
+
+        mock_execute_query.side_effect = fake_execute_query
+
+        FeatureManager().plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            dev_mode=False,
+            allow_recreate=False,
+        )
+
+        mock_decl.fetch_applied_state.assert_called_once()
+        call = mock_decl.fetch_applied_state.call_args
+        dt_text_map = call.kwargs.get("dt_text_map")
+        assert isinstance(dt_text_map, dict) and dt_text_map, (
+            "fetch_applied_state must receive a non-empty dt_text_map "
+            "keyed by DT name; got %r" % dt_text_map
+        )
+        assert "MY_BATCH_FV$V1" in dt_text_map
+        assert "RAW_EVENTS" in dt_text_map["MY_BATCH_FV$V1"]
+
+    def test_write_plan_threads_dt_text_map_into_fetch_applied_state(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``write_plan`` MUST also feed the DT DDL into
+        ``fetch_applied_state`` — both code paths share the BatchFV
+        source-recovery requirement."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        mock_decl.state_queries.return_value = {
+            "show_ofts": "SHOW ONLINE FEATURE TABLES IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_tables": "SHOW TABLES LIKE '%' IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_dynamic_tables": (
+                "SHOW DYNAMIC TABLES IN SCHEMA TEST_DB.TEST_SCHEMA"
+            ),
+            "describe_specification_template": (
+                'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}" '
+                "TYPE = SPECIFICATION"
+            ),
+        }
+        dt_row = {
+            "name": "MY_BATCH_FV$V1",
+            "text": (
+                "CREATE DYNAMIC TABLE MY_BATCH_FV$V1 TARGET_LAG = '1 minute' "
+                "AS SELECT * FROM TEST_DB.TEST_SCHEMA.RAW_EVENTS"
+            ),
+        }
+
+        def fake_execute_query(sql, *args, **kwargs):
+            if "SHOW DYNAMIC TABLES" in str(sql):
+                return iter([dt_row])
+            return iter([])
+
+        mock_execute_query.side_effect = fake_execute_query
+
+        FeatureManager().write_plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            dev_mode=False,
+            out_path=str(tmp_path / "plan.json"),
+        )
+
+        mock_decl.fetch_applied_state.assert_called_once()
+        call = mock_decl.fetch_applied_state.call_args
+        dt_text_map = call.kwargs.get("dt_text_map")
+        assert isinstance(dt_text_map, dict) and dt_text_map
+        assert "MY_BATCH_FV$V1" in dt_text_map
 
 
 # ===========================================================================

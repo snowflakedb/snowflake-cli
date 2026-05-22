@@ -1092,10 +1092,20 @@ def test_init_default_target_is_none(mock_manager, runner):
 
 
 @mock.patch(FEATURE_MANAGER)
-def test_init_does_not_pass_database_schema_kwargs(mock_manager, runner):
-    """The Typer command leaves ``database`` / ``schema`` to the active
-    connection (via the global ``--database`` / ``--schema`` flags); it
-    does NOT forward them as direct kwargs to ``FeatureManager.init``."""
+def test_init_forwards_database_schema_kwargs(mock_manager, runner):
+    """``snow feature init --database X --schema Y`` forwards both flag
+    values to ``FeatureManager.init`` as ``database=`` / ``schema=``.
+
+    Previously the Typer command captured the global ``--database`` /
+    ``--schema`` flags into ``**options`` and then dropped them, which
+    silently ignored the override (manifest was written with the
+    connection profile's default schema).  The fix threads both values
+    through to the manager kwarg so:
+
+    * Fresh init writes the overrides into the new ``manifest.yml``.
+    * Re-init can detect a mismatch against the resolved manifest
+      target and raise ``CliError`` (manager-layer concern).
+    """
     mock_manager.return_value.init.return_value = _INIT_RESULT_STUB
     result = runner.invoke(
         [
@@ -1109,11 +1119,49 @@ def test_init_does_not_pass_database_schema_kwargs(mock_manager, runner):
     )
     assert result.exit_code == 0, result.output
     kwargs = mock_manager.return_value.init.call_args.kwargs
-    # The override flows through the connection (set by the global
-    # decorator); the Typer command does NOT bake it into a manager
-    # kwarg, so the manager picks it up via ``ctx.connection.database``.
-    assert "database" not in kwargs
-    assert "schema" not in kwargs
+    assert kwargs["database"] == "OVERRIDE_DB"
+    assert kwargs["schema"] == "OVERRIDE_SCHEMA"
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_init_omitted_database_schema_pass_none(mock_manager, runner):
+    """When ``--database`` / ``--schema`` are omitted, the kwargs are
+    forwarded as ``None`` so the manager falls back to the active
+    connection's profile defaults.
+    """
+    mock_manager.return_value.init.return_value = _INIT_RESULT_STUB
+    result = runner.invoke(["feature", "init"])
+    assert result.exit_code == 0, result.output
+    kwargs = mock_manager.return_value.init.call_args.kwargs
+    assert kwargs.get("database") is None
+    assert kwargs.get("schema") is None
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_init_target_with_database_schema_forwards_all_three(mock_manager, runner):
+    """``--target NAME --database DB --schema SCH`` forwards every value
+    on the same manager call (target + db + schema interact on a fresh
+    init: target names the manifest target, db/schema populate its
+    fields).
+    """
+    mock_manager.return_value.init.return_value = _INIT_RESULT_STUB
+    result = runner.invoke(
+        [
+            "feature",
+            "init",
+            "--target",
+            "STAGING",
+            "--database",
+            "OVERRIDE_DB",
+            "--schema",
+            "OVERRIDE_SCHEMA",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    kwargs = mock_manager.return_value.init.call_args.kwargs
+    assert kwargs["target_name"] == "STAGING"
+    assert kwargs["database"] == "OVERRIDE_DB"
+    assert kwargs["schema"] == "OVERRIDE_SCHEMA"
 
 
 # ---------------------------------------------------------------------------
