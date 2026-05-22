@@ -4992,3 +4992,115 @@ class TestDeployCommand:
 
         _, create_kwargs = mock_mgr.create_app_service.call_args
         assert create_kwargs["compute_pool"] == "YML_SVC_POOL"
+
+
+class TestTeardownCommand:
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_teardown_detects_application_service_and_drops_it(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.code_workspace = None
+        entity.artifact_repository = None
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.is_application_service.return_value = True
+        mock_mgr.describe_app_service.return_value = {}
+        mock_mgr.get_service_status.return_value = "IDLE"
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "teardown", "--force"])
+
+        assert result.exit_code == 0, result.output
+        assert (
+            "Successfully dropped application service TEST_DB.TEST_SCHEMA.MY_APP."
+            in result.output
+        )
+        mock_mgr.drop_app_service_if_exists.assert_called_once_with(
+            FQN(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP")
+        )
+        mock_mgr.drop_service_if_exists.assert_not_called()
+        mock_mgr.drop_stage_if_exists.assert_called_once_with(
+            FQN(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP_CODE")
+        )
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_teardown_fails_when_application_service_still_exists(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.code_workspace = None
+        entity.artifact_repository = None
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.is_application_service.return_value = True
+        mock_mgr.describe_app_service.return_value = {"status": "READY"}
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            _reset_command_metrics()
+            result = runner.invoke(["app", "teardown", "--force"])
+
+        assert result.exit_code == 1
+        assert (
+            "Failed to drop application service TEST_DB.TEST_SCHEMA.MY_APP."
+            in result.output
+        )
+        assert "Successfully dropped" not in result.output
+        mock_mgr.drop_app_service_if_exists.assert_called_once_with(
+            FQN(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP")
+        )
+        mock_mgr.drop_stage_if_exists.assert_not_called()
+        span = _get_completed_span("snowflake_app.teardown.drop_service")
+        assert span[CLIMetricsSpan.ERROR_KEY] == CliError.__name__
