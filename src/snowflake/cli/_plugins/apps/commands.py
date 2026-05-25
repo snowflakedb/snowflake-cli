@@ -715,17 +715,28 @@ def snowflake_app_deploy(
     with metrics.span("snowflake_app.deploy_service"):
         cli_console.step("Creating application service...")
         try:
-            with metrics.span("snowflake_app.deploy_service.create"):
-                manager.create_app_service(
-                    service_fqn=service_fqn,
-                    artifact_repo_fqn=artifact_repo_fqn_str,
-                    package_name=app_name,
-                    compute_pool=service_compute_pool,
-                    version="LATEST",
-                    query_warehouse=query_warehouse,
-                    external_access_integrations=eai_list,
-                    comment=app_comment,
-                )
+            with metrics.span("snowflake_app.deploy_service.create") as create_span:
+                try:
+                    manager.create_app_service(
+                        service_fqn=service_fqn,
+                        artifact_repo_fqn=artifact_repo_fqn_str,
+                        package_name=app_name,
+                        compute_pool=service_compute_pool,
+                        version="LATEST",
+                        query_warehouse=query_warehouse,
+                        external_access_integrations=eai_list,
+                        comment=app_comment,
+                    )
+                except ProgrammingError as e:
+                    # "Already exists" is the expected re-deploy path: the
+                    # outer handler dispatches to ALTER ... UPGRADE. Finish
+                    # the Create span successfully so telemetry doesn't
+                    # double-count every redeploy as a ProgrammingError on
+                    # this span; the recovery is recorded by
+                    # ``deploy_service.upgrade`` instead.
+                    if e.errno == 2002 and "already exists" in str(e).lower():
+                        create_span.finish()
+                    raise
         except ProgrammingError as e:
             if e.errno == 2002 and "already exists" in str(e).lower():
                 cli_console.step(
