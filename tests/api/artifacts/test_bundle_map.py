@@ -528,7 +528,8 @@ def test_bundle_map_rejects_top_level_symlink_escaping_project_root(tmp_path):
     the project root must be rejected by the containment check. Previously
     ``resolve_without_follow`` (os.path.abspath) only normalised ``..`` and
     did not follow symlinks, so a symlink like ``project/data -> /etc``
-    passed the lexical ``startswith`` check.
+    passed the lexical ``startswith`` check. The error message must also hint
+    about the --follow-symlinks flag.
     """
     project_root = tmp_path / "project"
     project_root.mkdir()
@@ -543,6 +544,10 @@ def test_bundle_map_rejects_top_level_symlink_escaping_project_root(tmp_path):
     bm = BundleMap(project_root=project_root, deploy_root=deploy_root)
 
     with pytest.raises(ArtifactError, match="outside the project root"):
+        bm.add(PathMapping(src="data", dest="./data/"))
+
+    # The error message must hint about --follow-symlinks
+    with pytest.raises(ArtifactError, match="--follow-symlinks"):
         bm.add(PathMapping(src="data", dest="./data/"))
 
 
@@ -1261,3 +1266,110 @@ class TestIgnorePatterns:
         srcs = self._posix_srcs(bm, project_root)
         assert "app/main.py" in srcs
         assert "app/node_modules/pkg/index.js" in srcs
+
+
+# ── follow_symlinks tests ─────────────────────────────────────────────
+
+
+@pytest.mark.skipif(
+    IS_WINDOWS, reason="Symlinks on Windows are restricted to Developer mode or admins"
+)
+def test_bundle_map_follow_symlinks_allows_top_level_escaping_symlink(tmp_path):
+    """
+    With follow_symlinks=True, a top-level symlink pointing outside the project
+    root must NOT raise an error, and the linked files must be included.
+    """
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    (project_root / "snowflake.yml").write_text("# empty")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secret.txt").write_text("sensitive data")
+
+    os.symlink(outside, project_root / "data", target_is_directory=True)
+
+    deploy_root = project_root / "output" / "deploy"
+    bm = BundleMap(
+        project_root=project_root, deploy_root=deploy_root, follow_symlinks=True
+    )
+
+    # Should NOT raise — escaping symlinks are allowed with follow_symlinks=True
+    bm.add(PathMapping(src="data", dest="./data/"))
+
+    srcs = [
+        s.relative_to(project_root).as_posix()
+        for s, _ in bm.all_mappings(absolute=True, expand_directories=True)
+    ]
+    assert any("secret.txt" in s for s in srcs)
+
+
+@pytest.mark.skipif(
+    IS_WINDOWS, reason="Symlinks on Windows are restricted to Developer mode or admins"
+)
+def test_bundle_map_follow_symlinks_includes_nested_escaping_symlink(tmp_path):
+    """
+    With follow_symlinks=True, a nested symlink inside a directory source that
+    points outside the project root must be followed and its files included.
+    """
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    (project_root / "snowflake.yml").write_text("# empty")
+    (project_root / "src").mkdir()
+    (project_root / "src" / "main.py").write_text("# main")
+
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secret.txt").write_text("sensitive data")
+
+    os.symlink(outside, project_root / "src" / "escape", target_is_directory=True)
+
+    deploy_root = project_root / "output" / "deploy"
+    bm = BundleMap(
+        project_root=project_root, deploy_root=deploy_root, follow_symlinks=True
+    )
+    bm.add(PathMapping(src="src", dest="./src/"))
+
+    srcs = [
+        s.relative_to(project_root).as_posix()
+        for s, _ in bm.all_mappings(absolute=True, expand_directories=True)
+    ]
+    assert "src/main.py" in srcs
+    # The escaping symlink's contents must also be present
+    assert any("escape" in s for s in srcs)
+    assert any("secret.txt" in s for s in srcs)
+
+
+@pytest.mark.skipif(
+    IS_WINDOWS, reason="Symlinks on Windows are restricted to Developer mode or admins"
+)
+def test_bundle_map_follow_symlinks_detects_symlink_loop(tmp_path):
+    """
+    With follow_symlinks=True, a symlink loop (a -> b -> a) must be detected
+    and not cause an infinite walk. The walk must terminate.
+    """
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    (project_root / "snowflake.yml").write_text("# empty")
+    (project_root / "real").mkdir()
+    (project_root / "real" / "file.py").write_text("# real")
+
+    # Create a loop: project/real/loop -> project/real
+    os.symlink(project_root / "real", project_root / "real" / "loop")
+
+    deploy_root = project_root / "output" / "deploy"
+    bm = BundleMap(
+        project_root=project_root, deploy_root=deploy_root, follow_symlinks=True
+    )
+    bm.add(PathMapping(src="real", dest="./real/"))
+
+    # This must terminate (not hang); collect results to verify
+    srcs = [
+        s.relative_to(project_root).as_posix()
+        for s, _ in bm.all_mappings(absolute=True, expand_directories=True)
+    ]
+    assert "real/file.py" in srcs
+    # Loop must not appear infinitely — just check no crash and loop pruned
+    loop_entries = [s for s in srcs if "loop" in s]
+    # The loop dir itself may appear once (as a directory entry), but must not
+    # have been recursed into infinitely (file.py via loop should not appear)
+    assert not any("loop/file.py" in s for s in srcs)

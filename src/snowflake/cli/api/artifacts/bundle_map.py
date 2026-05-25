@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import fnmatch
 import itertools
+import logging
 import os
 from pathlib import Path
 from typing import Callable, Dict, Iterable, Iterator, List, Optional, Tuple
@@ -56,6 +57,7 @@ class BundleMap:
         project_root: Path,
         deploy_root: Path,
         pattern_type: PatternMatchingType = PatternMatchingType.GLOB,
+        follow_symlinks: bool = False,
     ):
         # If a relative path ends up here, it's a bug in the app and can lead to other
         # subtle bugs as paths would be resolved relative to the current working directory.
@@ -69,7 +71,10 @@ class BundleMap:
         self._project_root: Path = resolve_without_follow(project_root)
         self._deploy_root: Path = resolve_without_follow(deploy_root)
         self._pattern_type: PatternMatchingType = pattern_type
-        self._artifact_map = _ArtifactPathMap(project_root=self._project_root)
+        self._follow_symlinks: bool = follow_symlinks
+        self._artifact_map = _ArtifactPathMap(
+            project_root=self._project_root, follow_symlinks=follow_symlinks
+        )
         self._ignore_patterns: Dict[Path, List[str]] = {}
 
     def is_empty(self) -> bool:
@@ -229,30 +234,76 @@ class BundleMap:
             yield src_for_output, dest_for_output
 
         if absolute_src.is_dir() and expand_directories:
-            for root, subdirs, files in os.walk(absolute_src, followlinks=True):
-                # Prune subdirectories whose real target is outside the project
-                # root so that bundling does not follow a committed symlink
-                # (e.g. ``project/data -> /etc``) into the host filesystem.
-                subdirs[:] = [
-                    d
-                    for d in subdirs
-                    if self._is_within_real_project_root(Path(root) / d)
-                ]
-                files = [
-                    f
-                    for f in files
-                    if self._is_within_real_project_root(Path(root) / f)
-                ]
-                if ignore:
-                    subdirs[:] = [d for d in subdirs if not _matches_ignore(d, ignore)]
-                    files = [f for f in files if not _matches_ignore(f, ignore)]
+            if self._follow_symlinks:
+                # With follow_symlinks=True we trust the project and follow
+                # cross-root symlinks. We guard against infinite loops by
+                # tracking seen real paths.
+                seen_realpaths: set[str] = set()
+                for root, subdirs, files in os.walk(absolute_src, followlinks=True):
+                    real_root_path = os.path.realpath(root)
+                    if real_root_path in seen_realpaths:
+                        # Symlink loop detected — prune this directory entirely
+                        subdirs[:] = []
+                        continue
+                    seen_realpaths.add(real_root_path)
+                    # Prune subdirs that form a loop
+                    pruned_subdirs = []
+                    for d in subdirs:
+                        real_d = os.path.realpath(Path(root) / d)
+                        if real_d not in seen_realpaths:
+                            pruned_subdirs.append(d)
+                        else:
+                            logging.warning(
+                                "Skipping '%s': symlink loop detected.",
+                                Path(root) / d,
+                            )
+                    subdirs[:] = pruned_subdirs
+                    if ignore:
+                        subdirs[:] = [
+                            d for d in subdirs if not _matches_ignore(d, ignore)
+                        ]
+                        files = [f for f in files if not _matches_ignore(f, ignore)]
 
-                relative_root = Path(root).relative_to(absolute_src)
-                for name in itertools.chain(subdirs, files):
-                    src_file_for_output = src_for_output / relative_root / name
-                    dest_file_for_output = dest_for_output / relative_root / name
-                    if predicate(src_file_for_output, dest_file_for_output):
-                        yield src_file_for_output, dest_file_for_output
+                    relative_root = Path(root).relative_to(absolute_src)
+                    for name in itertools.chain(subdirs, files):
+                        src_file_for_output = src_for_output / relative_root / name
+                        dest_file_for_output = dest_for_output / relative_root / name
+                        if predicate(src_file_for_output, dest_file_for_output):
+                            yield src_file_for_output, dest_file_for_output
+            else:
+                for root, subdirs, files in os.walk(absolute_src, followlinks=True):
+                    # Prune subdirectories whose real target is outside the project
+                    # root so that bundling does not follow a committed symlink
+                    # (e.g. ``project/data -> /etc``) into the host filesystem.
+                    pruned_subdirs = []
+                    for d in subdirs:
+                        p = Path(root) / d
+                        if self._is_within_real_project_root(p):
+                            pruned_subdirs.append(d)
+                        else:
+                            logging.warning(
+                                "Skipping '%s': symlink resolves outside project root. "
+                                "Use --follow-symlinks if you trust this project.",
+                                p,
+                            )
+                    subdirs[:] = pruned_subdirs
+                    files = [
+                        f
+                        for f in files
+                        if self._is_within_real_project_root(Path(root) / f)
+                    ]
+                    if ignore:
+                        subdirs[:] = [
+                            d for d in subdirs if not _matches_ignore(d, ignore)
+                        ]
+                        files = [f for f in files if not _matches_ignore(f, ignore)]
+
+                    relative_root = Path(root).relative_to(absolute_src)
+                    for name in itertools.chain(subdirs, files):
+                        src_file_for_output = src_for_output / relative_root / name
+                        dest_file_for_output = dest_for_output / relative_root / name
+                        if predicate(src_file_for_output, dest_file_for_output):
+                            yield src_file_for_output, dest_file_for_output
 
     def all_mappings(
         self,
@@ -414,13 +465,18 @@ class BundleMap:
         # components, so a symlink whose lexical path is inside the root but
         # whose target points outside (e.g. ``project/data -> /etc``) otherwise
         # slips through and gets traversed during bundling.
-        if resolved_src.exists():
+        #
+        # When follow_symlinks=True this check is intentionally skipped so that
+        # users who trust their project can opt-in to cross-root symlinks.
+        if not self._follow_symlinks and resolved_src.exists():
             real_src = Path(os.path.realpath(resolved_src))
             real_root = Path(os.path.realpath(self._project_root))
             if real_src != real_root and real_root not in real_src.parents:
                 raise ArtifactError(
                     f"Source path '{src}' resolves outside the project root "
-                    f"via a symlink (target: '{real_src}', root: '{real_root}')."
+                    f"via a symlink (target: '{real_src}', root: '{real_root}'). "
+                    f"Use --follow-symlinks if you trust this project and intend "
+                    f"to include files outside the project root."
                 )
         return resolved_src
 
@@ -468,8 +524,9 @@ class _ArtifactPathMap:
     relative, canonical form (relative to the project or deploy roots, as appropriate).
     """
 
-    def __init__(self, project_root: Path):
+    def __init__(self, project_root: Path, follow_symlinks: bool = False):
         self._project_root = project_root
+        self._follow_symlinks = follow_symlinks
 
         # All (src,dest) pairs in inserting order, for iterating
         self.__src_dest_pairs: List[Tuple[Path, Path]] = []
@@ -542,24 +599,54 @@ class _ArtifactPathMap:
 
             # mark all subdirectories of this source as directories so that we can
             # detect accidental clobbering
-            for root, subdirs, files in os.walk(absolute_src, followlinks=True):
-                # Prune entries whose real target escapes the project root, so
-                # symlink bypass of the containment check does not leak into
-                # the dest-accounting map.
-                subdirs[:] = [d for d in subdirs if _stays_in_real_root(Path(root) / d)]
-                files = [f for f in files if _stays_in_real_root(Path(root) / f)]
+            if self._follow_symlinks:
+                # With follow_symlinks=True, track seen realpaths to avoid loops
+                seen_realpaths_put: set[str] = set()
+                for root, subdirs, files in os.walk(absolute_src, followlinks=True):
+                    real_root_str = os.path.realpath(root)
+                    if real_root_str in seen_realpaths_put:
+                        subdirs[:] = []
+                        continue
+                    seen_realpaths_put.add(real_root_str)
+                    pruned: list[str] = []
+                    for d in subdirs:
+                        real_d = os.path.realpath(Path(root) / d)
+                        if real_d not in seen_realpaths_put:
+                            pruned.append(d)
+                    subdirs[:] = pruned
 
-                canonical_subdir = Path(root).relative_to(absolute_src)
-                canonical_dest_subdir = dest / canonical_subdir
-                self._update_dest_is_dir(canonical_dest_subdir, is_dir=True)
-                for f in files:
-                    child_dest = canonical_dest_subdir / f
-                    child_src = src / canonical_subdir / f
-                    self._update_dest_is_dir(child_dest, is_dir=False)
-                    existing_source = self.__dest_to_src.get(child_dest)
-                    if existing_source is not None and existing_source != child_src:
-                        raise TooManyFilesError(child_dest)
-                    self.__dest_to_src[child_dest] = child_src
+                    canonical_subdir = Path(root).relative_to(absolute_src)
+                    canonical_dest_subdir = dest / canonical_subdir
+                    self._update_dest_is_dir(canonical_dest_subdir, is_dir=True)
+                    for f in files:
+                        child_dest = canonical_dest_subdir / f
+                        child_src = src / canonical_subdir / f
+                        self._update_dest_is_dir(child_dest, is_dir=False)
+                        existing_source = self.__dest_to_src.get(child_dest)
+                        if existing_source is not None and existing_source != child_src:
+                            raise TooManyFilesError(child_dest)
+                        self.__dest_to_src[child_dest] = child_src
+            else:
+                for root, subdirs, files in os.walk(absolute_src, followlinks=True):
+                    # Prune entries whose real target escapes the project root, so
+                    # symlink bypass of the containment check does not leak into
+                    # the dest-accounting map.
+                    subdirs[:] = [
+                        d for d in subdirs if _stays_in_real_root(Path(root) / d)
+                    ]
+                    files = [f for f in files if _stays_in_real_root(Path(root) / f)]
+
+                    canonical_subdir = Path(root).relative_to(absolute_src)
+                    canonical_dest_subdir = dest / canonical_subdir
+                    self._update_dest_is_dir(canonical_dest_subdir, is_dir=True)
+                    for f in files:
+                        child_dest = canonical_dest_subdir / f
+                        child_src = src / canonical_subdir / f
+                        self._update_dest_is_dir(child_dest, is_dir=False)
+                        existing_source = self.__dest_to_src.get(child_dest)
+                        if existing_source is not None and existing_source != child_src:
+                            raise TooManyFilesError(child_dest)
+                        self.__dest_to_src[child_dest] = child_src
 
         # make sure we check for dest_is_dir consistency regardless of whether the
         # insertion happened. This update can fail, so we need to do it first to
