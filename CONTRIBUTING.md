@@ -18,6 +18,8 @@
 
 ## Detailed guides
 
+- **Adding commands**: [docs/contributing/adding-commands.md](docs/contributing/adding-commands.md)
+  — design sign-off, plugin structure, registration, return types, destructive commands
 - **Command lifecycle and feature flags**: [docs/contributing/lifecycle.md](docs/contributing/lifecycle.md)
   — PrPr/PuPr/GA rules, feature flag mechanics, release notes format
 - **Code conventions**: [docs/contributing/conventions.md](docs/contributing/conventions.md)
