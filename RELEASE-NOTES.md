@@ -19,9 +19,9 @@
 ## Deprecations
 
 ## New additions
-* Added GitHub Actions workflow (`changelog.yaml`) that enforces `RELEASE-NOTES.md` is updated on every PR targeting `main`; PRs can opt out by applying the `skip-release-notes` label.
 
 ## Fixes and improvements
+* Added GitHub Actions workflow (`changelog.yaml`) that enforces `RELEASE-NOTES.md` is updated on every PR targeting `main`; PRs can opt out by applying the `skip-release-notes` label.
 
 
 # v3.18.0
