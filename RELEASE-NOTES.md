@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Added `snow helpers generate-project-schema` command to emit a JSON Schema for the `snowflake.yml` project definition file. The output follows [JSON Schema Draft 2020-12](https://json-schema.org/draft/2020-12/schema) and can be plugged into supported editors (e.g. VS Code via the YAML extension) or CI pipelines for completion and validation. Use `--version` to select the project definition version (`1`, `1.1`, or `2`; defaults to `2`) and `--output-file`/`-o` to write the schema to a file.
 
 ## Fixes and improvements
 
