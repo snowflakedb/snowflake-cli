@@ -19,11 +19,11 @@
 ## Deprecations
 
 ## New additions
+* `snow streamlit deploy`: add `--follow-symlinks` flag to allow following symlinks that point outside the project root ([SNOW-3417049](https://snowflakecomputing.atlassian.net/browse/SNOW-3417049))
 
 ## Fixes and improvements
 
 
-# v3.18.0
 
 ## Deprecations
 

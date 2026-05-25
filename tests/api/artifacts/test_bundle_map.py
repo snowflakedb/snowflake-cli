@@ -543,12 +543,11 @@ def test_bundle_map_rejects_top_level_symlink_escaping_project_root(tmp_path):
     deploy_root = project_root / "output" / "deploy"
     bm = BundleMap(project_root=project_root, deploy_root=deploy_root)
 
-    with pytest.raises(ArtifactError, match="outside the project root"):
+    with pytest.raises(ArtifactError, match="outside the project root") as exc_info:
         bm.add(PathMapping(src="data", dest="./data/"))
 
-    # The error message must hint about --follow-symlinks
-    with pytest.raises(ArtifactError, match="--follow-symlinks"):
-        bm.add(PathMapping(src="data", dest="./data/"))
+    # The error message must also hint about --follow-symlinks
+    assert "--follow-symlinks" in str(exc_info.value)
 
 
 @pytest.mark.skipif(

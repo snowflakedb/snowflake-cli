@@ -79,7 +79,7 @@ def symlink_or_copy(
             # When follow_symlinks=True we bypass the containment check but
             # detect loops to avoid infinite traversal.
             seen_realpaths: set[str] = set()
-            for root, dirs, files in sorted(os.walk(absolute_src, followlinks=True)):
+            for root, dirs, files in os.walk(absolute_src, followlinks=True):
                 real_root_str = os.path.realpath(root)
                 if real_root_str in seen_realpaths:
                     dirs[:] = []
