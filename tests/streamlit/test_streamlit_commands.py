@@ -560,9 +560,6 @@ class TestStreamlitCommands(StreamlitTestClass):
         ]
 
 
-# ── follow-symlinks integration tests ────────────────────────────────
-
-
 @pytest.mark.skipif(
     IS_WINDOWS, reason="Symlinks on Windows are restricted to Developer mode or admins"
 )
