@@ -30,6 +30,7 @@ from snowflake.cli._plugins.apps.manager import (
     _object_exists,
     _poll_until,
     _resolve_entity_id,
+    app_fqn,
     perform_bundle,
 )
 from snowflake.cli.api.cli_global_context import get_cli_context_manager
@@ -788,6 +789,75 @@ class TestSchemaExists:
         assert SnowflakeAppManager().schema_exists("MY_DB", "NO_SUCH") is False
 
 
+class TestAppFqn:
+    """``app_fqn`` is the apps-plugin FQN factory: it routes each component
+    through :func:`to_identifier` so the resulting FQN's ``identifier`` /
+    ``sql_identifier`` / ``prefix`` produce valid SQL even for personal
+    databases (``USER$first.last@domain.com``) and other components with
+    characters illegal in unquoted Snowflake identifiers.
+
+    The shared :class:`FQN` API is intentionally untouched, so the apps
+    plugin opts in by constructing FQNs through this factory at the
+    handful of entry points where database / schema / name strings cross
+    into apps code.
+    """
+
+    @pytest.mark.parametrize(
+        "database, schema, name, expected_identifier",
+        [
+            # No-regression: plain unquoted names pass through unchanged.
+            ("DB", "SCHEMA", "OBJ", "DB.SCHEMA.OBJ"),
+            ("USER$ADMIN", "APPS", "MY_APP", "USER$ADMIN.APPS.MY_APP"),
+            # Personal databases — dotted + ``@``.
+            (
+                "USER$GUY.BLOOM@SNOWFLAKE.COM",
+                "APPS",
+                "MY_APP",
+                '"USER$GUY.BLOOM@SNOWFLAKE.COM".APPS.MY_APP',
+            ),
+            (
+                "USER$guy.bloom@snowflake.com",
+                "APPS",
+                "MY_APP",
+                '"USER$guy.bloom@snowflake.com".APPS.MY_APP',
+            ),
+            # Dotted schema and dotted name should also be quoted.
+            ("DB", "dotted.schema", "MY_APP", 'DB."dotted.schema".MY_APP'),
+            ("DB", "APPS", "dotted.name", 'DB.APPS."dotted.name"'),
+            # Already-quoted components are passed through unchanged.
+            ('"already.quoted"', "APPS", "MY_APP", '"already.quoted".APPS.MY_APP'),
+            # Optional database / schema.
+            (None, "SCHEMA", "MY_APP", "SCHEMA.MY_APP"),
+            (None, None, "MY_APP", "MY_APP"),
+        ],
+    )
+    def test_identifier(self, database, schema, name, expected_identifier):
+        fqn = app_fqn(database=database, schema=schema, name=name)
+        assert fqn.identifier == expected_identifier
+
+    def test_sql_identifier_quotes_personal_database(self):
+        fqn = app_fqn(
+            database="USER$GUY.BLOOM@SNOWFLAKE.COM",
+            schema="APPS",
+            name="SNOWFLAKE_APPS",
+        )
+        assert fqn.sql_identifier == (
+            "IDENTIFIER('\"USER$GUY.BLOOM@SNOWFLAKE.COM\".APPS.SNOWFLAKE_APPS')"
+        )
+
+    def test_sql_identifier_no_regression_for_simple_names(self):
+        fqn = app_fqn(database="DB", schema="SCHEMA", name="OBJ")
+        assert fqn.sql_identifier == "IDENTIFIER('DB.SCHEMA.OBJ')"
+
+    def test_prefix_quotes_personal_database(self):
+        fqn = app_fqn(
+            database="USER$guy.bloom@snowflake.com",
+            schema="APPS",
+            name="X",
+        )
+        assert fqn.prefix == '"USER$guy.bloom@snowflake.com".APPS'
+
+
 class TestSnowflakeAppManager:
     @patch(EXECUTE_QUERY)
     def test_stage_exists_returns_true(self, mock_execute):
@@ -1015,6 +1085,150 @@ class TestSnowflakeAppManager:
         restore_schema_idx = queries.index("USE SCHEMA PREV_SCHEMA")
         assert restore_db_idx > spcs_idx
         assert restore_schema_idx > restore_db_idx
+
+    @patch(EXECUTE_QUERY)
+    def test_use_database_and_schema_quotes_personal_database(self, mock_execute):
+        """Personal databases like ``USER$guy.bloom@snowflake.com`` contain
+        dots and ``@`` so the ``USE DATABASE`` / ``USE SCHEMA`` statements
+        emitted by ``_use_database_and_schema`` must wrap them in double
+        quotes. Without the quoting Snowflake parses the value as multiple
+        identifier parts and fails with ``invalid identifier`` /
+        ``syntax error``.
+        """
+        cursor = Mock()
+        cursor.fetchone.side_effect = [
+            (None,),  # CURRENT_DATABASE() — no previous session DB
+            (None,),  # CURRENT_SCHEMA()
+            None,  # USE DATABASE
+            None,  # USE SCHEMA
+            ("Build job submitted: DB.SCHEMA.JOB",),
+        ]
+        mock_execute.return_value = cursor
+
+        stage_fqn = FQN(database="DB", schema="APPS", name="STAGE")
+        SnowflakeAppManager().build_app_artifact_repo(
+            stage_fqn=stage_fqn,
+            artifact_repo_fqn='"USER$guy.bloom@snowflake.com".APPS.IMAGE_REPO',
+            app_id="my_app",
+            compute_pool="BUILD_POOL",
+            database="USER$guy.bloom@snowflake.com",
+            schema="APPS",
+            runtime_image="runtime:latest",
+        )
+        queries = [c[0][0] for c in mock_execute.call_args_list]
+        assert (
+            'USE DATABASE "USER$guy.bloom@snowflake.com"' in queries
+        ), f"Expected quoted USE DATABASE, got queries: {queries}"
+        assert "USE SCHEMA APPS" in queries
+
+    @patch(EXECUTE_QUERY)
+    def test_use_database_and_schema_quotes_personal_database_on_restore(
+        self, mock_execute
+    ):
+        """``CURRENT_DATABASE()`` / ``CURRENT_SCHEMA()`` return the raw
+        (unquoted) identifier, so the restore-session ``USE DATABASE`` /
+        ``USE SCHEMA`` must quote the previous values too — otherwise we
+        crash *after* the build with the same parser error.
+        """
+        cursor = Mock()
+        cursor.fetchone.side_effect = [
+            ("USER$guy.bloom@snowflake.com",),  # CURRENT_DATABASE()
+            ("dotted.schema",),  # CURRENT_SCHEMA()
+            None,  # USE DATABASE
+            None,  # USE SCHEMA
+            ("Build job submitted: DB.SCHEMA.JOB",),
+            None,  # restore USE DATABASE
+            None,  # restore USE SCHEMA
+        ]
+        mock_execute.return_value = cursor
+
+        stage_fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
+        SnowflakeAppManager().build_app_artifact_repo(
+            stage_fqn=stage_fqn,
+            artifact_repo_fqn="DB.SCHEMA.REPO",
+            app_id="my_app",
+            compute_pool="BUILD_POOL",
+            database="DB",
+            schema="SCHEMA",
+            runtime_image="runtime:latest",
+        )
+        queries = [c[0][0] for c in mock_execute.call_args_list]
+        assert 'USE DATABASE "USER$guy.bloom@snowflake.com"' in queries
+        assert 'USE SCHEMA "dotted.schema"' in queries
+
+    @patch(EXECUTE_QUERY)
+    def test_build_app_artifact_repo_logs_arguments(self, mock_execute, caplog):
+        """``--verbose`` users need to see the resolved arguments handed to
+        ``SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO`` so they can diagnose
+        quoting / escaping / config issues without re-running with
+        ``--debug`` and reading raw connector logs."""
+        import logging
+
+        cursor = Mock()
+        cursor.fetchone.side_effect = [
+            (None,),
+            (None,),
+            None,
+            None,
+            ("Build job submitted: DB.SCHEMA.JOB",),
+        ]
+        mock_execute.return_value = cursor
+
+        stage_fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
+        with caplog.at_level(
+            logging.INFO, logger="snowflake.cli._plugins.apps.manager"
+        ):
+            SnowflakeAppManager().build_app_artifact_repo(
+                stage_fqn=stage_fqn,
+                artifact_repo_fqn="DB.SCHEMA.REPO",
+                app_id="my_app",
+                compute_pool="BUILD_POOL",
+                database="DB",
+                schema="SCHEMA",
+                runtime_image="runtime:latest",
+                build_eai="MY_EAI",
+                project_type="nodejs",
+            )
+
+        log_record = next(
+            (
+                r
+                for r in caplog.records
+                if "SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO" in r.getMessage()
+            ),
+            None,
+        )
+        assert log_record is not None, (
+            f"No SPCS_TEST_BUILD_APP_ARTIFACT_REPO log emitted; "
+            f"got: {[r.getMessage() for r in caplog.records]}"
+        )
+        assert log_record.levelno == logging.INFO
+        msg = log_record.getMessage()
+        assert "source_uri='@DB.SCHEMA.STAGE'" in msg
+        assert "artifact_repo_fqn='DB.SCHEMA.REPO'" in msg
+        assert "app_id='my_app'" in msg
+        assert "compute_pool='BUILD_POOL'" in msg
+        assert "runtime_image='runtime:latest'" in msg
+        assert "project_type='nodejs'" in msg
+        assert "MY_EAI" in msg
+        assert "database='DB'" in msg
+        assert "schema='SCHEMA'" in msg
+
+    @patch(EXECUTE_QUERY)
+    def test_create_artifact_repo_quotes_personal_database(self, mock_execute):
+        """``create_artifact_repo`` builds its FQN via :func:`app_fqn` so a
+        personal database name is wrapped in double quotes before being
+        embedded in ``IDENTIFIER('...')``."""
+        SnowflakeAppManager().create_artifact_repo(
+            database="USER$guy.bloom@snowflake.com",
+            schema="APPS",
+            repo_name="MY_APP_REPO",
+        )
+        mock_execute.assert_called_once_with(
+            "CREATE ARTIFACT REPOSITORY IF NOT EXISTS "
+            "IDENTIFIER('\"USER$guy.bloom@snowflake.com\".APPS.MY_APP_REPO') "
+            "TYPE=APPLICATION"
+        )
 
     @patch(EXECUTE_QUERY)
     def test_create_app_service_generates_correct_sql(self, mock_execute):
@@ -3974,6 +4188,115 @@ class TestDeployCommand:
             comment='{"appId": "MY_APP"}',
         )
         assert mock_poll.call_count == 2
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.StageManager")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "USER$guy.bloom@snowflake.com",
+            "schema": "APPS",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "USER$guy.bloom@snowflake.com",
+            "artifact_repo_schema": "APPS",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_quotes_personal_database_in_artifact_repo_fqn(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        mock_stage_manager_cls,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """When the resolved deploy defaults point at a personal database
+        (e.g. ``USER$first.last@domain.com``), the ``artifact_repo_fqn``
+        string forwarded to ``build_app_artifact_repo`` and
+        ``create_app_service`` must wrap the database in double quotes.
+        ``SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO`` parses this string
+        server-side as a Snowflake identifier; without quoting the dots
+        in the email cause the parser to interpret it as a 5-part name.
+        """
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "USER$guy.bloom@snowflake.com"
+        fqn.schema = "APPS"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.code_workspace = Mock(database=None, schema_=None)
+        entity.code_workspace.name = "MY_APP_CODE"
+        entity.artifacts = []
+        entity.meta = None
+        entity.runtime_image = "runtime:latest"
+        entity.query_warehouse = "WH"
+        entity.build_image = None
+        entity.execute_as_caller = False
+        entity.artifact_repository = None
+        entity.build_compute_pool = None
+        entity.service_compute_pool = None
+        entity.build_eai = None
+        mock_get_entity.return_value = entity
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        project_paths = ProjectPaths(project_root=tmp_path)
+        mock_perform_bundle.return_value = project_paths
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.workspace_last_subdirectory_uri.return_value = (
+            _WORKSPACE_BUILD_SOURCE_URI
+        )
+        mock_mgr.artifact_repo_exists.return_value = True
+        mock_mgr.build_app_artifact_repo.return_value = (
+            "Build job submitted: DB.SCHEMA.BUILD_JOB_123"
+        )
+        _real_manager = SnowflakeAppManager()
+        mock_mgr.resolve_application_service_url_from_describe.side_effect = (
+            _real_manager.resolve_application_service_url_from_describe
+        )
+        mock_poll.side_effect = [
+            "DONE",
+            {
+                "url": "my-app.snowflakecomputing.app",
+                "is_upgrading": "false",
+            },
+        ]
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "deploy"])
+            assert result.exit_code == 0, result.output
+
+        expected_repo_fqn = '"USER$guy.bloom@snowflake.com".APPS.MY_APP_REPO'
+        build_kwargs = mock_mgr.build_app_artifact_repo.call_args.kwargs
+        assert build_kwargs["artifact_repo_fqn"] == expected_repo_fqn
+        # The session DB/schema are still passed unquoted because
+        # ``_use_database_and_schema`` quotes them itself before issuing
+        # the ``USE`` statements.
+        assert build_kwargs["database"] == "USER$guy.bloom@snowflake.com"
+        assert build_kwargs["schema"] == "APPS"
+        create_kwargs = mock_mgr.create_app_service.call_args.kwargs
+        assert create_kwargs["artifact_repo_fqn"] == expected_repo_fqn
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
     @patch("snowflake.cli._plugins.apps.commands.StageManager")
