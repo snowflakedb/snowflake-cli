@@ -46,7 +46,7 @@ class AppFlow(str, Enum):
 
     ``NATIVE_APP`` covers the Native App flow (``application`` /
     ``application package`` entities); ``SNOWFLAKE_APP`` covers the newer
-    container-based Snowflake Apps Deploy flow (``snowflake-app`` entities).
+    container-based Snowflake App Runtime flow (``snowflake-app`` entities).
     """
 
     NATIVE_APP = "native_app"
@@ -60,7 +60,7 @@ SNOWFLAKE_APP_ENTITY_TYPES = {"snowflake-app"}
 def set_app_flow(flow: AppFlow) -> None:
     """Record the resolved ``snow app`` product flow on the CLI context so
     telemetry (see ``CLITelemetryField.APP_FLOW``) can distinguish Native App
-    invocations from Snowflake Apps Deploy invocations.
+    invocations from Snowflake App Runtime invocations.
 
     Safe to call multiple times; the last call wins.
     """
@@ -96,7 +96,7 @@ APP_FLOW_ROUTING_OPTIONS = APP_AND_PACKAGE_OPTIONS + [
         annotation=Optional[str],
         default=typer.Option(
             default="",
-            help="(Snowflake Apps Deploy only) The ID of the snowflake-app entity on which to operate. Required if multiple snowflake-app entities exist.",
+            help="(Snowflake App Runtime only) The ID of the snowflake-app entity on which to operate. Required if multiple snowflake-app entities exist.",
         ),
     ),
 ]
@@ -301,7 +301,7 @@ def has_snowflake_app_entities_only(
     """Return True when the project contains only ``snowflake-app`` entities.
 
     Used by Native-App-only commands to produce clear errors when invoked
-    against a Snowflake Apps Deploy project.
+    against a Snowflake App Runtime project.
     """
     if project_definition is None:
         return False
@@ -387,8 +387,8 @@ def _detect_flow_from_project(
     if has_native and has_snowflake:
         raise ClickException(
             "Project contains both Native App entities "
-            "(application / application package) and Snowflake Apps Deploy entities "
-            "(snowflake-app). Specify --entity-id (for a Snowflake Apps Deploy entity) "
+            "(application / application package) and Snowflake App Runtime entities "
+            "(snowflake-app). Specify --entity-id (for a Snowflake App Runtime entity) "
             "or --package-entity-id / --app-entity-id (for a Native App entity) "
             "to select which entity to operate on."
         )
@@ -402,7 +402,7 @@ def _detect_flow_from_project(
 def with_app_flow_routing(
     *, single_app_and_package: bool = True, app_required: bool = False
 ):
-    """Command decorator that routes between Native App and Snowflake Apps Deploy flows.
+    """Command decorator that routes between Native App and Snowflake App Runtime flows.
 
     Used by shared ``snow app`` subcommands (bundle, deploy, validate, open,
     events, teardown) that need to accept entity IDs for both flows and

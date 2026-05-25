@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Snowflake Apps Deploy (``snowflake-app``) implementation functions.
+"""Snowflake App Runtime (``snowflake-app``) implementation functions.
 
 These functions are called from the unified ``snow app`` command group in
 ``_plugins/nativeapp/commands.py`` when the detected flow is
@@ -60,9 +60,9 @@ from snowflake.connector.errors import ProgrammingError
 log = logging.getLogger(__name__)
 
 # Default number of log lines returned by ``snow app events`` for the
-# Snowflake Apps Deploy flow. The unified command accepts ``--last`` with a ``None``
+# Snowflake App Runtime flow. The unified command accepts ``--last`` with a ``None``
 # default; each flow applies its own default when the user does not provide
-# a value (Native App uses ``-1``, Snowflake Apps Deploy uses this constant).
+# a value (Native App uses ``-1``, Snowflake App Runtime uses this constant).
 DEFAULT_SNOWFLAKE_APP_EVENTS_LAST = 500
 
 # ── Source provenance labels ──────────────────────────────────────────
@@ -79,7 +79,7 @@ def snowflake_app_setup(
     compute_pool: Optional[str],
     build_eai: Optional[str],
 ) -> CommandResult:
-    """Initialize a ``snowflake.yml`` for a Snowflake Apps Deploy project.
+    """Initialize a ``snowflake.yml`` for a Snowflake App Runtime project.
 
     See the ``snow app setup`` command in
     :mod:`snowflake.cli._plugins.nativeapp.commands` for the CLI surface.
@@ -240,7 +240,7 @@ def snowflake_app_setup(
         cli_console.step("Dry run — resolved configuration:")
     else:
         cli_console.step(
-            f"Initialized Snowflake Apps Deploy project in {DEFINITION_FILENAME}."
+            f"Initialized Snowflake App Runtime project in {DEFINITION_FILENAME}."
         )
     for key, (value, source) in resolved.items():
         # Skip optional fields that could not be resolved (e.g. ``build_eai``
@@ -254,7 +254,7 @@ def snowflake_app_setup(
 
 
 def snowflake_app_bundle(entity_id: Optional[str]) -> CommandResult:
-    """Bundle a Snowflake Apps Deploy by resolving artifacts defined in ``snowflake.yml``."""
+    """Bundle a Snowflake App Runtime by resolving artifacts defined in ``snowflake.yml``."""
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 
@@ -263,7 +263,7 @@ def snowflake_app_bundle(entity_id: Optional[str]) -> CommandResult:
 
 
 def snowflake_app_validate(entity_id: Optional[str]) -> CommandResult:
-    """Validate a local Snowflake Apps Deploy project."""
+    """Validate a local Snowflake App Runtime project."""
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 
@@ -297,7 +297,7 @@ def snowflake_app_validate(entity_id: Optional[str]) -> CommandResult:
     finally:
         if project_paths is not None:
             project_paths.clean_up_output()
-    return MessageResult("Valid Snowflake Apps Deploy project.")
+    return MessageResult("Valid Snowflake App Runtime project.")
 
 
 def snowflake_app_open(
@@ -305,7 +305,7 @@ def snowflake_app_open(
     print_only: bool,
     settings: bool,
 ) -> CommandResult:
-    """Open a deployed Snowflake Apps Deploy (or its settings page) in the browser."""
+    """Open a deployed Snowflake App Runtime (or its settings page) in the browser."""
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 
@@ -371,7 +371,7 @@ def snowflake_app_events(
     entity_id: Optional[str],
     last: Optional[int],
 ) -> CommandResult:
-    """Fetch recent log events from a deployed Snowflake Apps Deploy."""
+    """Fetch recent log events from a deployed Snowflake App Runtime."""
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 
@@ -423,13 +423,29 @@ def _make_build_log_streamer(
     return _stream
 
 
+def _log_service_logs(manager: SnowflakeAppManager, service_fqn: FQN) -> None:
+    """Fetch service logs and emit them at INFO level.
+
+    INFO-level output only appears when the user runs the deploy with
+    ``--verbose`` (or ``--debug``). Failures fetching logs are swallowed so the
+    original deployment error remains the primary failure signal.
+    """
+    try:
+        logs = manager.get_service_logs(service_fqn)
+    except Exception:
+        log.debug("Failed to fetch application service logs", exc_info=True)
+        return
+    for line in logs.splitlines():
+        log.info(line)
+
+
 def snowflake_app_deploy(
     entity_id: Optional[str],
     upload_only: bool,
     build_only: bool,
     deploy_only: bool,
 ) -> CommandResult:
-    """Build and deploy a Snowflake Apps Deploy through upload, build, and deploy phases."""
+    """Build and deploy a Snowflake App Runtime through upload, build, and deploy phases."""
     phase_flags = sum((upload_only, build_only, deploy_only))
     if phase_flags > 1:
         raise ClickException(
@@ -723,6 +739,7 @@ def snowflake_app_deploy(
                             version="LATEST",
                         )
                 except ProgrammingError as upgrade_error:
+                    _log_service_logs(manager, service_fqn)
                     raise CliError(
                         "Deployment failed while upgrading application service "
                         f"'{service_fqn.identifier}': {upgrade_error}. "
@@ -730,6 +747,7 @@ def snowflake_app_deploy(
                     ) from upgrade_error
                 did_upgrade = True
             else:
+                _log_service_logs(manager, service_fqn)
                 raise CliError(
                     "Deployment failed while creating application service "
                     f"'{service_fqn.identifier}': {e}. "
@@ -745,35 +763,48 @@ def snowflake_app_deploy(
     def _url_is_ready(d: dict) -> bool:
         return manager.resolve_application_service_url_from_describe(d) is not None
 
-    with metrics.span("snowflake_app.endpoint_provision"):
-        if did_upgrade:
-            cli_console.step("Waiting for upgrade to complete...")
-            with metrics.span("snowflake_app.endpoint_provision.wait_for_upgrade"):
-                desc = _poll_until(
-                    poll_fn=lambda: manager.describe_app_service(service_fqn),
-                    is_done=_url_is_ready,
-                    is_error=_svc_has_failed,
-                    format_status=lambda d: (
-                        "upgrading" if _svc_is_upgrading(d) else "ready"
-                    ),
-                    timeout_message=(
-                        f"Upgrade timed out. Check logs:\n"
-                        f"  CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{app_name}')"
-                    ),
-                )
-        else:
-            cli_console.step("Waiting for application service endpoint...")
-            with metrics.span("snowflake_app.endpoint_provision.wait_for_endpoint"):
-                desc = _poll_until(
-                    poll_fn=lambda: manager.describe_app_service(service_fqn),
-                    is_done=_url_is_ready,
-                    is_error=_svc_has_failed,
-                    format_status=lambda d: d.get("url") or "url not yet available",
-                    timeout_message=(
-                        f"Endpoint provisioning timed out. "
-                        f"Check: DESCRIBE APPLICATION SERVICE {service_fqn.identifier}"
-                    ),
-                )
+    try:
+        with metrics.span("snowflake_app.endpoint_provision"):
+            if did_upgrade:
+                cli_console.step("Waiting for upgrade to complete...")
+                with metrics.span("snowflake_app.endpoint_provision.wait_for_upgrade"):
+                    desc = _poll_until(
+                        poll_fn=lambda: manager.describe_app_service(service_fqn),
+                        is_done=_url_is_ready,
+                        is_error=_svc_has_failed,
+                        format_status=lambda d: (
+                            "upgrading" if _svc_is_upgrading(d) else "ready"
+                        ),
+                        timeout_message=(
+                            f"Upgrade timed out. Check application service state and logs:\n"
+                            f"  DESCRIBE APPLICATION SERVICE {service_fqn.identifier}\n"
+                            f"  CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{service_fqn.identifier}')"
+                        ),
+                    )
+            else:
+                cli_console.step("Waiting for application service endpoint...")
+                with metrics.span("snowflake_app.endpoint_provision.wait_for_endpoint"):
+                    desc = _poll_until(
+                        poll_fn=lambda: manager.describe_app_service(service_fqn),
+                        is_done=_url_is_ready,
+                        is_error=_svc_has_failed,
+                        format_status=lambda d: d.get("url") or "url not yet available",
+                        timeout_message=(
+                            f"Application service deployment timed out. Check application service state and logs:\n"
+                            f"  DESCRIBE APPLICATION SERVICE {service_fqn.identifier}\n"
+                            f"  CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{service_fqn.identifier}')"
+                        ),
+                    )
+    except CliError:
+        try:
+            if _svc_has_failed(manager.describe_app_service(service_fqn)):
+                _log_service_logs(manager, service_fqn)
+        except Exception:
+            log.debug(
+                "Failed to inspect application service after deploy error",
+                exc_info=True,
+            )
+        raise
 
     endpoint_url = manager.resolve_application_service_url_from_describe(desc)
     if not endpoint_url:
@@ -788,7 +819,7 @@ def snowflake_app_teardown(
     entity_id: Optional[str],
     force: bool,
 ) -> CommandResult:
-    """Drop a deployed Snowflake Apps Deploy and its associated objects."""
+    """Drop a deployed Snowflake App Runtime and its associated objects."""
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 
@@ -810,7 +841,7 @@ def snowflake_app_teardown(
 
     app_name = fqn.name
     service_fqn = FQN(database=db, schema=schema, name=app_name)
-    use_artifact_repo = entity.artifact_repository is not None
+    is_application_service = manager.is_application_service(service_fqn)
 
     use_workspace = entity.code_workspace is not None
     if use_workspace:
@@ -828,7 +859,38 @@ def snowflake_app_teardown(
     storage_fqn = FQN(database=storage_db, schema=storage_schema, name=storage_name)
     build_job_fqn = FQN(database=db, schema=schema, name=f"{app_name}_BUILD_JOB")
 
-    object_kind = "application service" if use_artifact_repo else "service"
+    object_kind = "application service" if is_application_service else "service"
+
+    def _app_service_still_exists() -> bool:
+        try:
+            if manager.describe_app_service(service_fqn):
+                return True
+        except ProgrammingError:
+            pass
+        return manager.get_service_status(service_fqn) != "IDLE"
+
+    def _verify_service_drop() -> None:
+        try:
+            still_exists = (
+                _app_service_still_exists()
+                if is_application_service
+                else manager.get_service_status(service_fqn) != "IDLE"
+            )
+        except Exception as err:
+            raise CliError(
+                f"Could not verify {object_kind} {service_fqn.identifier} was dropped: {err}"
+            ) from err
+
+        if still_exists:
+            if is_application_service:
+                raise CliError(
+                    f"Failed to drop application service {service_fqn.identifier}. "
+                    f"Check: DESCRIBE APPLICATION SERVICE {service_fqn.identifier}"
+                )
+            raise CliError(
+                f"Failed to drop service {service_fqn.identifier}. "
+                f"Check: SHOW SERVICES IN SCHEMA {service_fqn.prefix}"
+            )
 
     if not force:
         should_continue = typer.confirm(
@@ -840,10 +902,11 @@ def snowflake_app_teardown(
 
     cli_console.step(f"Dropping {object_kind} {service_fqn.identifier}")
     with metrics.span("snowflake_app.teardown.drop_service"):
-        if use_artifact_repo:
+        if is_application_service:
             manager.drop_app_service_if_exists(service_fqn)
         else:
             manager.drop_service_if_exists(service_fqn)
+        _verify_service_drop()
 
     if use_workspace:
         # The workspace may be shared across apps (e.g. the default
@@ -859,7 +922,7 @@ def snowflake_app_teardown(
         with metrics.span("snowflake_app.teardown.drop_stage"):
             manager.drop_stage_if_exists(storage_fqn)
 
-    if not use_artifact_repo:
+    if not is_application_service:
         cli_console.step(f"Dropping build job service {build_job_fqn.identifier}")
         with metrics.span("snowflake_app.teardown.drop_build_job"):
             manager.drop_service_if_exists(build_job_fqn)
