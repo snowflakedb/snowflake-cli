@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* `snow snowpark build` now falls back to PEP 621 `[project].dependencies` in `pyproject.toml` when no `requirements.txt` is present. `requirements.txt` remains the canonical source when both files exist.
 
 ## Fixes and improvements
 

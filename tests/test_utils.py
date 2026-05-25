@@ -148,6 +148,78 @@ def test_parse_requirements(correct_requirements_txt: str):
     assert result[2].specs == [(">=", "3.2.1")]
 
 
+def test_parse_pyproject_dependencies_reads_pep621_deps(tmp_path):
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        "[project]\n"
+        'name = "example"\n'
+        'version = "0.1.0"\n'
+        "dependencies = [\n"
+        '    "snowflake-snowpark-python==1.15.0",\n'
+        '    "requests>=2.31",\n'
+        '    "pandas",\n'
+        "]\n"
+    )
+    result = package_utils.parse_pyproject_dependencies(SecurePath(pyproject))
+    result.sort(key=lambda r: r.name)
+
+    assert len(result) == 3
+    assert result[0].name == "pandas"
+    assert result[0].specs == []
+    assert result[1].name == "requests"
+    assert result[1].specs == [(">=", "2.31")]
+    assert result[2].name == "snowflake_snowpark_python"
+    assert result[2].specs == [("==", "1.15.0")]
+
+
+def test_parse_pyproject_dependencies_missing_file_returns_empty(tmp_path):
+    result = package_utils.parse_pyproject_dependencies(
+        SecurePath(tmp_path / "no_such_file.toml")
+    )
+    assert result == []
+
+
+def test_parse_pyproject_dependencies_without_project_table(tmp_path):
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[build-system]\nrequires = ["setuptools>=68"]\nbuild-backend = "setuptools.build_meta"\n'
+    )
+    assert package_utils.parse_pyproject_dependencies(SecurePath(pyproject)) == []
+
+
+def test_parse_pyproject_dependencies_ignores_optional_and_build_deps(tmp_path):
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[build-system]\nrequires = ["setuptools>=68"]\nbuild-backend = "setuptools.build_meta"\n'
+        "\n[project]\n"
+        'name = "example"\n'
+        'version = "0.1.0"\n'
+        'dependencies = ["requests"]\n'
+        "\n[project.optional-dependencies]\n"
+        'dev = ["pytest"]\n'
+    )
+    result = package_utils.parse_pyproject_dependencies(SecurePath(pyproject))
+    assert [r.name for r in result] == ["requests"]
+
+
+def test_parse_pyproject_dependencies_invalid_toml_raises(tmp_path):
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text("[project\nname = 'broken'\n")
+    with pytest.raises(Exception) as exc:
+        package_utils.parse_pyproject_dependencies(SecurePath(pyproject))
+    assert "Failed to parse" in str(exc.value)
+
+
+def test_parse_pyproject_dependencies_non_list_deps_raises(tmp_path):
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[project]\nname = "example"\nversion = "0.1"\ndependencies = "requests"\n'
+    )
+    with pytest.raises(Exception) as exc:
+        package_utils.parse_pyproject_dependencies(SecurePath(pyproject))
+    assert "list of PEP 508" in str(exc.value)
+
+
 @patch("platform.system")
 @pytest.mark.parametrize(
     "argument, expected",
