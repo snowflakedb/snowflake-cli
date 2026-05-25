@@ -41,6 +41,7 @@ from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import ProjectPaths
+from snowflake.cli.api.project.util import to_identifier
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.utils.path_utils import resolve_without_follow
@@ -48,6 +49,41 @@ from snowflake.connector.cursor import DictCursor
 from snowflake.connector.errors import ProgrammingError
 
 log = logging.getLogger(__name__)
+
+
+def app_fqn(
+    *,
+    database: Optional[str] = None,
+    schema: Optional[str] = None,
+    name: str,
+) -> FQN:
+    """Build an :class:`FQN` with each component pre-quoted when needed.
+
+    Snowflake App Runtime entities frequently target *personal databases*
+    whose names contain characters illegal in unquoted identifiers — e.g.
+    ``USER$first.last@domain.com``. ``FQN.identifier`` (and via it
+    ``sql_identifier`` / ``prefix``) joins the components with literal
+    dots, so without per-component quoting the server parses the result
+    as several dot-separated identifiers and fails with ``invalid
+    identifier`` / ``syntax error``.
+
+    Routing each component through :func:`to_identifier` at construction
+    time stores the already-quoted form on the FQN, so every downstream
+    ``fqn.identifier`` / ``fqn.sql_identifier`` / ``fqn.prefix`` access
+    produces valid SQL with zero changes to the SQL emission methods.
+    :func:`to_identifier` is a no-op for names that are already valid
+    (quoted or unquoted), so plain identifiers like ``DB.SCHEMA.OBJ`` are
+    unchanged.
+
+    The shared ``FQN`` API in :mod:`snowflake.cli.api.identifiers` is left
+    untouched — this fix is scoped to the snowflake-app plugin.
+    """
+    return FQN(
+        database=to_identifier(str(database)) if database else None,
+        schema=to_identifier(str(schema)) if schema else None,
+        name=to_identifier(str(name)),
+    )
+
 
 DEFINITION_FILENAME = "snowflake.yml"
 SNOWFLAKE_APP_ENTITY_TYPE = "snowflake-app"
@@ -804,18 +840,26 @@ class SnowflakeAppManager(SqlExecutionMixin):
 
     @contextmanager
     def _use_database_and_schema(self, database: str, schema: str):
-        """Temporarily set session database and schema, restoring previous values on exit."""
+        """Temporarily set session database and schema, restoring previous values on exit.
+
+        Names that contain characters illegal in unquoted identifiers
+        (e.g. personal databases like ``USER$first.last@domain.com``) are
+        wrapped in double quotes via :func:`to_identifier`. The previous
+        values returned by ``CURRENT_DATABASE()`` / ``CURRENT_SCHEMA()``
+        are also routed through ``to_identifier`` since they come back
+        as raw, unquoted strings.
+        """
         prev_db = self.execute_query("SELECT CURRENT_DATABASE()").fetchone()[0]
         prev_schema = self.execute_query("SELECT CURRENT_SCHEMA()").fetchone()[0]
-        self.execute_query(f"USE DATABASE {database}")
-        self.execute_query(f"USE SCHEMA {schema}")
+        self.execute_query(f"USE DATABASE {to_identifier(database)}")
+        self.execute_query(f"USE SCHEMA {to_identifier(schema)}")
         try:
             yield
         finally:
             if prev_db:
-                self.execute_query(f"USE DATABASE {prev_db}")
+                self.execute_query(f"USE DATABASE {to_identifier(prev_db)}")
                 if prev_schema:
-                    self.execute_query(f"USE SCHEMA {prev_schema}")
+                    self.execute_query(f"USE SCHEMA {to_identifier(prev_schema)}")
 
     @staticmethod
     def _build_artifact_repo_config(
@@ -850,7 +894,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         Uses IF NOT EXISTS so concurrent invocations (e.g. parallel CI
         jobs) don't race on the CREATE after both pass the existence check.
         """
-        fqn = FQN(database=database, schema=schema, name=repo_name)
+        fqn = app_fqn(database=database, schema=schema, name=repo_name)
         self.execute_query(
             f"CREATE ARTIFACT REPOSITORY IF NOT EXISTS {fqn.sql_identifier} TYPE=APPLICATION"
         )
@@ -888,6 +932,26 @@ class SnowflakeAppManager(SqlExecutionMixin):
 
         with self._use_database_and_schema(database, schema):
             config = self._build_artifact_repo_config(build_eai)
+            log.info(
+                "Calling SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO with arguments:\n"
+                "  source_uri=%r\n"
+                "  artifact_repo_fqn=%r\n"
+                "  app_id=%r\n"
+                "  compute_pool=%r\n"
+                "  runtime_image=%r\n"
+                "  project_type=%r\n"
+                "  config=%s\n"
+                "  (session database=%r, schema=%r)",
+                source_uri,
+                artifact_repo_fqn,
+                app_id,
+                compute_pool or "",
+                runtime_image,
+                project_type,
+                config,
+                database,
+                schema,
+            )
             query = (
                 f"SELECT SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO("
                 f"{to_string_literal(source_uri)}, "
