@@ -3824,7 +3824,10 @@ class TestDeployCommand:
             )
             create_span = _get_completed_span("snowflake_app.deploy_service.create")
             upgrade_span = _get_completed_span("snowflake_app.deploy_service.upgrade")
-            assert create_span[CLIMetricsSpan.ERROR_KEY] == ProgrammingError.__name__
+            # The "already exists" ProgrammingError on CREATE is an
+            # expected redeploy signal, not a failure of the Create step;
+            # only the upgrade span should record the failure.
+            assert create_span[CLIMetricsSpan.ERROR_KEY] is None
             assert upgrade_span[CLIMetricsSpan.ERROR_KEY] == ProgrammingError.__name__
             mock_log.info.assert_any_call("upgrade failed line1")
             mock_log.info.assert_any_call("upgrade failed line2")
@@ -4040,8 +4043,13 @@ class TestDeployCommand:
 
         with change_directory(tmp_path):
             _write_snowflake_app_yml(tmp_path)
+            _reset_command_metrics()
             result = runner.invoke(["app", "deploy", "--deploy-only"])
             assert result.exit_code == 0, result.output
+            create_span = _get_completed_span("snowflake_app.deploy_service.create")
+            upgrade_span = _get_completed_span("snowflake_app.deploy_service.upgrade")
+            assert create_span[CLIMetricsSpan.ERROR_KEY] is None
+            assert upgrade_span[CLIMetricsSpan.ERROR_KEY] is None
 
         _, kwargs = mock_poll.call_args
         assert (
