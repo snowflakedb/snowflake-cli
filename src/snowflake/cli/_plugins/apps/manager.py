@@ -496,6 +496,15 @@ class SnowflakeAppManager(SqlExecutionMixin):
         Runs ``SELECT 'USER$' || CURRENT_USER() AS personal_database`` and
         returns the result.  Returns ``None`` when the query fails or the
         current user is not set (e.g. in unauthenticated contexts).
+
+        The case returned by ``CURRENT_USER()`` is preserved verbatim:
+        Snowflake folds unquoted usernames to upper case at creation,
+        but users created as quoted identifiers (e.g.
+        ``"first.last@domain.com"``) keep their original case, and so do
+        their personal databases (``USER$first.last@domain.com``). Since
+        :func:`app_fqn` later wraps this value in a case-sensitive quoted
+        identifier, normalizing case here would silently target the
+        wrong database for those users.
         """
         try:
             cursor = self.execute_query(
@@ -503,7 +512,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
             )
             row = cursor.fetchone()
             if row and row[0] and not row[0].endswith("$"):
-                return str(row[0]).upper()
+                return str(row[0])
         except Exception:
             log.warning("Could not resolve personal database.", exc_info=True)
         return None

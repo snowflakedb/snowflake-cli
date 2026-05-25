@@ -860,6 +860,51 @@ class TestAppFqn:
 
 class TestSnowflakeAppManager:
     @patch(EXECUTE_QUERY)
+    def test_get_personal_database_preserves_case(self, mock_execute):
+        """Snowflake users created as quoted identifiers (e.g.
+        ``"first.last@domain.com"``) keep their original case, and so do
+        their personal databases (``USER$first.last@domain.com``). Because
+        :func:`app_fqn` later wraps the database in a *case-sensitive*
+        quoted identifier, ``get_personal_database`` must return the
+        value from ``CURRENT_USER()`` verbatim — folding it to upper case
+        would silently target a non-existent database for these users.
+        """
+        cursor = Mock()
+        cursor.fetchone.return_value = ("USER$guy.bloom@snowflake.com",)
+        mock_execute.return_value = cursor
+
+        assert (
+            SnowflakeAppManager().get_personal_database()
+            == "USER$guy.bloom@snowflake.com"
+        )
+
+    @patch(EXECUTE_QUERY)
+    def test_get_personal_database_returns_uppercase_users_unchanged(
+        self, mock_execute
+    ):
+        """Unquoted Snowflake usernames are folded to upper case at
+        creation, so ``CURRENT_USER()`` already returns them in upper
+        case. Verify the normal path still works after dropping the
+        defensive ``.upper()`` call.
+        """
+        cursor = Mock()
+        cursor.fetchone.return_value = ("USER$ADMIN",)
+        mock_execute.return_value = cursor
+
+        assert SnowflakeAppManager().get_personal_database() == "USER$ADMIN"
+
+    @patch(EXECUTE_QUERY)
+    def test_get_personal_database_returns_none_when_user_missing(self, mock_execute):
+        """``CURRENT_USER()`` returns an empty string in unauthenticated
+        contexts, producing a bare ``USER$`` which is not a real database.
+        """
+        cursor = Mock()
+        cursor.fetchone.return_value = ("USER$",)
+        mock_execute.return_value = cursor
+
+        assert SnowflakeAppManager().get_personal_database() is None
+
+    @patch(EXECUTE_QUERY)
     def test_stage_exists_returns_true(self, mock_execute):
         fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
         assert SnowflakeAppManager().stage_exists(fqn) is True
