@@ -338,3 +338,33 @@ def test_symlink_or_copy_with_symlinks_in_project_root(os_agnostic_snapshot):
             )
 
             assert_dir_snapshot(Path("./output/deploy"), os_agnostic_snapshot)
+
+
+@pytest.mark.skipif(
+    IS_WINDOWS, reason="Symlinks on Windows are restricted to Developer mode or admins"
+)
+def test_symlink_or_copy_follow_symlinks_includes_escaping_dir(tmp_path):
+    project_root = tmp_path / "project"
+    deploy_root = tmp_path / "deploy"
+    project_root.mkdir()
+    deploy_root.mkdir()
+
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "external.py").write_text("# external")
+
+    src_dir = project_root / "data"
+    src_dir.mkdir()
+    (src_dir / "local.py").write_text("# local")
+    os.symlink(outside, src_dir / "escape", target_is_directory=True)
+
+    symlink_or_copy(
+        src=src_dir,
+        dst=deploy_root / "data",
+        deploy_root=deploy_root,
+        project_root=project_root,
+        follow_symlinks=True,
+    )
+
+    assert (deploy_root / "data" / "local.py").exists()
+    assert (deploy_root / "data" / "escape" / "external.py").exists()

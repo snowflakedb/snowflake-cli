@@ -1369,3 +1369,33 @@ def test_bundle_map_follow_symlinks_detects_symlink_loop(tmp_path):
     # The loop dir itself may appear once (as a directory entry), but must not
     # have been recursed into infinitely (file.py via loop should not appear)
     assert not any("loop/file.py" in s for s in srcs)
+
+
+@pytest.mark.skipif(
+    IS_WINDOWS, reason="Symlinks on Windows are restricted to Developer mode or admins"
+)
+def test_bundle_map_follow_symlinks_allows_single_file_symlink(tmp_path):
+    """
+    With follow_symlinks=True, a top-level symlink that points to a single FILE
+    outside the project root must not raise and must be included in mappings.
+    """
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    (project_root / "snowflake.yml").write_text("# empty")
+
+    outside_file = tmp_path / "secret.txt"
+    outside_file.write_text("sensitive")
+
+    os.symlink(outside_file, project_root / "linked.txt")
+
+    deploy_root = project_root / "output" / "deploy"
+    bm = BundleMap(
+        project_root=project_root, deploy_root=deploy_root, follow_symlinks=True
+    )
+    bm.add(PathMapping(src="linked.txt", dest="linked.txt"))
+
+    srcs = [
+        s.relative_to(project_root).as_posix()
+        for s, _ in bm.all_mappings(absolute=True, expand_directories=True)
+    ]
+    assert "linked.txt" in srcs

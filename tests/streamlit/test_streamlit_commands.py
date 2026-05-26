@@ -628,6 +628,17 @@ class TestFollowSymlinksFlag(StreamlitTestClass):
                 ["streamlit", "deploy", "--replace", "--follow-symlinks"]
             )
 
-        assert result.exit_code == 0, result.output
-        # A warning about trusting the project must be printed
-        assert "--follow-symlinks" in result.output
+            assert result.exit_code == 0, result.output
+            # A warning about trusting the project must be printed
+            assert "--follow-symlinks" in result.output
+
+            bundle_file = (
+                tmp_dir
+                / "output"
+                / "bundle"
+                / "streamlit"
+                / "test_streamlit"
+                / "external_link"
+                / "external.py"
+            )
+            assert bundle_file.exists(), "external.py must be present in the bundle"

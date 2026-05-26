@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import logging
 import os
+
+log = logging.getLogger(__name__)
 from pathlib import Path
 
-from snowflake.cli.api.artifacts.bundle_map import BundleMap
+from snowflake.cli.api.artifacts.bundle_map import BundleMap, _walk_with_loop_detection
 from snowflake.cli.api.artifacts.common import NotInDeployRootError
 from snowflake.cli.api.constants import PatternMatchingType
 from snowflake.cli.api.project.project_paths import ProjectPaths
@@ -76,25 +78,7 @@ def symlink_or_copy(
 
         # 2. For all children of src, create their counterparts in dst now that it exists
         if follow_symlinks:
-            # When follow_symlinks=True we bypass the containment check but
-            # detect loops to avoid infinite traversal.
-            seen_realpaths: set[str] = set()
-            for root, dirs, files in os.walk(absolute_src, followlinks=True):
-                real_root_str = os.path.realpath(root)
-                if real_root_str in seen_realpaths:
-                    dirs[:] = []
-                    continue
-                seen_realpaths.add(real_root_str)
-                pruned_dirs = []
-                for d in dirs:
-                    real_d = os.path.realpath(Path(root) / d)
-                    if real_d not in seen_realpaths:
-                        pruned_dirs.append(d)
-                    else:
-                        logging.warning(
-                            "Skipping '%s': symlink loop detected.", Path(root) / d
-                        )
-                dirs[:] = pruned_dirs
+            for root, dirs, files in _walk_with_loop_detection(absolute_src):
                 relative_root = Path(root).relative_to(absolute_src)
                 absolute_root_in_deploy = Path(dst, relative_root)
                 SecurePath(absolute_root_in_deploy).mkdir(parents=True, exist_ok=True)

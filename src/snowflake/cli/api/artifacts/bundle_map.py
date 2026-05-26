@@ -4,6 +4,8 @@ import fnmatch
 import itertools
 import logging
 import os
+
+log = logging.getLogger(__name__)
 from pathlib import Path
 from typing import Callable, Dict, Iterable, Iterator, List, Optional, Tuple
 
@@ -39,6 +41,34 @@ def _specifies_directory(s: str) -> bool:
     file already lives in the project root).
     """
     return s.endswith("/")
+
+
+def _walk_with_loop_detection(
+    path: Path,
+) -> Iterator[Tuple[str, List[str], List[str]]]:
+    """Walk ``path`` with followlinks=True, detecting and pruning symlink loops.
+
+    Yields (root, dirs, files) exactly like os.walk. The dirs list is pruned of
+    any entry whose realpath was already seen (loop detection) before yielding,
+    and is sorted for deterministic traversal order. The consumer may further
+    prune dirs[:] after receiving the tuple.
+    """
+    seen_realpaths: set[str] = set()
+    for root, dirs, files in os.walk(path, followlinks=True):
+        real_root = os.path.realpath(root)
+        if real_root in seen_realpaths:
+            dirs[:] = []
+            continue
+        seen_realpaths.add(real_root)
+        pruned = []
+        for d in dirs:
+            real_d = os.path.realpath(Path(root) / d)
+            if real_d not in seen_realpaths:
+                pruned.append(d)
+            else:
+                log.warning("Skipping '%s': symlink loop detected.", Path(root) / d)
+        dirs[:] = sorted(pruned)
+        yield root, dirs, files
 
 
 class BundleMap:
@@ -235,35 +265,12 @@ class BundleMap:
 
         if absolute_src.is_dir() and expand_directories:
             if self._follow_symlinks:
-                # With follow_symlinks=True we trust the project and follow
-                # cross-root symlinks. We guard against infinite loops by
-                # tracking seen real paths.
-                seen_realpaths: set[str] = set()
-                for root, subdirs, files in os.walk(absolute_src, followlinks=True):
-                    real_root_path = os.path.realpath(root)
-                    if real_root_path in seen_realpaths:
-                        # Symlink loop detected — prune this directory entirely
-                        subdirs[:] = []
-                        continue
-                    seen_realpaths.add(real_root_path)
-                    # Prune subdirs that form a loop
-                    pruned_subdirs = []
-                    for d in subdirs:
-                        real_d = os.path.realpath(Path(root) / d)
-                        if real_d not in seen_realpaths:
-                            pruned_subdirs.append(d)
-                        else:
-                            logging.warning(
-                                "Skipping '%s': symlink loop detected.",
-                                Path(root) / d,
-                            )
-                    subdirs[:] = pruned_subdirs
+                for root, subdirs, files in _walk_with_loop_detection(absolute_src):
                     if ignore:
                         subdirs[:] = [
                             d for d in subdirs if not _matches_ignore(d, ignore)
                         ]
                         files = [f for f in files if not _matches_ignore(f, ignore)]
-
                     relative_root = Path(root).relative_to(absolute_src)
                     for name in itertools.chain(subdirs, files):
                         src_file_for_output = src_for_output / relative_root / name
@@ -281,17 +288,24 @@ class BundleMap:
                         if self._is_within_real_project_root(p):
                             pruned_subdirs.append(d)
                         else:
-                            logging.warning(
+                            log.warning(
                                 "Skipping '%s': symlink resolves outside project root. "
                                 "Use --follow-symlinks if you trust this project.",
                                 p,
                             )
                     subdirs[:] = pruned_subdirs
-                    files = [
-                        f
-                        for f in files
-                        if self._is_within_real_project_root(Path(root) / f)
-                    ]
+                    kept_files = []
+                    for f in files:
+                        p = Path(root) / f
+                        if self._is_within_real_project_root(p):
+                            kept_files.append(f)
+                        else:
+                            log.warning(
+                                "Skipping '%s': symlink resolves outside project root. "
+                                "Use --follow-symlinks if you trust this project.",
+                                p,
+                            )
+                    files = kept_files
                     if ignore:
                         subdirs[:] = [
                             d for d in subdirs if not _matches_ignore(d, ignore)
@@ -600,21 +614,7 @@ class _ArtifactPathMap:
             # mark all subdirectories of this source as directories so that we can
             # detect accidental clobbering
             if self._follow_symlinks:
-                # With follow_symlinks=True, track seen realpaths to avoid loops
-                seen_realpaths_put: set[str] = set()
-                for root, subdirs, files in os.walk(absolute_src, followlinks=True):
-                    real_root_str = os.path.realpath(root)
-                    if real_root_str in seen_realpaths_put:
-                        subdirs[:] = []
-                        continue
-                    seen_realpaths_put.add(real_root_str)
-                    pruned: list[str] = []
-                    for d in subdirs:
-                        real_d = os.path.realpath(Path(root) / d)
-                        if real_d not in seen_realpaths_put:
-                            pruned.append(d)
-                    subdirs[:] = pruned
-
+                for root, subdirs, files in _walk_with_loop_detection(absolute_src):
                     canonical_subdir = Path(root).relative_to(absolute_src)
                     canonical_dest_subdir = dest / canonical_subdir
                     self._update_dest_is_dir(canonical_dest_subdir, is_dir=True)
