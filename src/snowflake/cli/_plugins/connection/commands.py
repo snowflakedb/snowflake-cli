@@ -230,7 +230,7 @@ def add(
     protocol: Optional[str] = typer.Option(
         None,
         *ProtocolOption.param_decls,
-        help="Protocol to use for the connection, `http` or `https`.",
+        help="Protocol to use for the connection, for example `https`.",
     ),
     region: Optional[str] = typer.Option(
         None,

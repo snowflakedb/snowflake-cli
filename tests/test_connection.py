@@ -62,7 +62,7 @@ def test_new_connection_can_be_added(
     assert content == os_agnostic_snapshot
 
 
-def test_new_connection_can_be_added_with_protocol(runner):
+def test_new_connection_can_be_added_with_protocol(runner, os_agnostic_snapshot):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
         result = runner.invoke_with_config_file(
             tmp_file.name,
@@ -87,7 +87,7 @@ def test_new_connection_can_be_added_with_protocol(runner):
         )
         content = tmp_file.read()
     assert result.exit_code == 0, result.output
-    assert 'protocol = "http"' in content
+    assert content == os_agnostic_snapshot
 
 
 def test_new_connection_can_be_added_as_default(runner, os_agnostic_snapshot):

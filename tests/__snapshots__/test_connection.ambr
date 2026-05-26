@@ -126,6 +126,18 @@
   
   '''
 # ---
+# name: test_new_connection_can_be_added_with_protocol
+  '''
+  [connections.conn-http]
+  account = "account1"
+  user = "user1"
+  password = "password1"
+  host = "localhost"
+  port = 8080
+  protocol = "http"
+  
+  '''
+# ---
 # name: test_new_connection_with_jwt_auth
   '''
   [connections.conn2]
