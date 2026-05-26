@@ -23,6 +23,16 @@
 ## Fixes and improvements
 
 
+# v3.19.0
+
+## Deprecations
+
+## New additions
+* Added `--local-only` flag to `snow sql`. When set, `!source` and `!load` directives that reference `http://` or `https://` URLs are rejected instead of fetched, restricting the command to local SQL files. Useful for running SQL in environments where outbound network access from the CLI is undesirable, or when SQL inputs should be reviewed locally before execution. Local file `!source`/`!load` are unaffected. The flag also applies to the interactive REPL and to files reached transitively via nested `!source`.
+
+## Fixes and improvements
+
+
 # v3.18.0
 
 ## Deprecations

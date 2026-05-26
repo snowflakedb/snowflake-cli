@@ -21510,6 +21510,28 @@
   |                                                            Snowflake.        |
   |                                                            [default: LEGACY, |
   |                                                            STANDARD]         |
+  | --local-only                                               Restrict !source  |
+  |                                                            and !load to      |
+  |                                                            local files. When |
+  |                                                            set,              |
+  |                                                            !source/!load     |
+  |                                                            directives that   |
+  |                                                            reference http:// |
+  |                                                            or https:// URLs  |
+  |                                                            are rejected      |
+  |                                                            instead of being  |
+  |                                                            fetched. Use this |
+  |                                                            flag in           |
+  |                                                            environments      |
+  |                                                            where SQL inputs  |
+  |                                                            should not        |
+  |                                                            trigger outbound  |
+  |                                                            network requests, |
+  |                                                            or when running   |
+  |                                                            SQL files whose   |
+  |                                                            content should be |
+  |                                                            reviewed locally  |
+  |                                                            before execution. |
   | --project         -p                      TEXT             Path where the    |
   |                                                            Snowflake project |
   |                                                            is stored.        |
