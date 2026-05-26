@@ -208,6 +208,16 @@ class ParsedStatement:
             return cls(path_part, StatementType.URL, raw_source, error)
 
     @classmethod
+    def from_disabled_url(cls, path_part: str, raw_source: str) -> "ParsedStatement":
+        """Constructor used when URL sources are disabled by configuration."""
+        stripped_comments_path_part = cls.drop_comments_from_path_parts(path_part)
+        error = (
+            "Loading SQL from URLs is disabled (--local-only): "
+            f"{stripped_comments_path_part}"
+        )
+        return cls(path_part, StatementType.URL, raw_source, error)
+
+    @classmethod
     def from_file(cls, path_part: str, raw_source: str) -> "ParsedStatement":
         """Constructor for loading from file."""
         stripped_comments_path_part = cls.drop_comments_from_path_parts(path_part)
@@ -229,7 +239,11 @@ class ParsedStatement:
 RecursiveStatementReader = Generator[ParsedStatement, Any, Any]
 
 
-def parse_statement(source: str, operators: OperatorFunctions) -> ParsedStatement:
+def parse_statement(
+    source: str,
+    operators: OperatorFunctions,
+    disable_url_sources: bool = False,
+) -> ParsedStatement:
     """Evaluates templating and source commands.
 
     Returns parsed source according to origin."""
@@ -253,6 +267,8 @@ def parse_statement(source: str, operators: OperatorFunctions) -> ParsedStatemen
     match command.lower(), _path_match:
         # load content from an URL
         case "source" | "load", ("", "http" | "https", *_):
+            if disable_url_sources:
+                return ParsedStatement.from_disabled_url(command_args, statement)
             return ParsedStatement.from_url(command_args, statement)
 
         # load content from a local file
@@ -285,12 +301,13 @@ def recursive_statement_reader(
     operators: OperatorFunctions,
     remove_comments: bool,
     pre_render: SqlTransformFunc | None = None,
+    disable_url_sources: bool = False,
 ) -> RecursiveStatementReader:
     """Based on detected source command reads content of the source and tracks for recursion cycles."""
     for stmt, _ in source:
         if not stmt:
             continue
-        parsed_source = parse_statement(stmt, operators)
+        parsed_source = parse_statement(stmt, operators, disable_url_sources)
 
         match parsed_source:
             case ParsedStatement(StatementType.FILE | StatementType.URL, None):
@@ -312,6 +329,7 @@ def recursive_statement_reader(
                     operators,
                     remove_comments,
                     pre_render,
+                    disable_url_sources,
                 )
 
                 seen_files.pop()
@@ -329,6 +347,7 @@ def files_reader(
     operators: OperatorFunctions,
     remove_comments: bool = False,
     pre_render: SqlTransformFunc | None = None,
+    disable_url_sources: bool = False,
 ) -> RecursiveStatementReader:
     """Entry point for reading statements from files.
 
@@ -345,6 +364,7 @@ def files_reader(
                 operators,
                 remove_comments,
                 pre_render,
+                disable_url_sources,
             )
 
 
@@ -353,6 +373,7 @@ def query_reader(
     operators: OperatorFunctions,
     remove_comments: bool = False,
     pre_render: SqlTransformFunc | None = None,
+    disable_url_sources: bool = False,
 ) -> RecursiveStatementReader:
     """Entry point for reading statements from query.
 
@@ -366,7 +387,7 @@ def query_reader(
         content = pre_render(content)
     stmts = split_statements(io.StringIO(content), remove_comments)
     yield from recursive_statement_reader(
-        stmts, [], operators, remove_comments, pre_render
+        stmts, [], operators, remove_comments, pre_render, disable_url_sources
     )
 
 

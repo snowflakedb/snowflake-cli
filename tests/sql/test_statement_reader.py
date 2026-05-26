@@ -153,6 +153,84 @@ def test_source_missing_url(httpserver: HTTPServer):
     assert not compiled
 
 
+@pytest.mark.parametrize("scheme", ["http", "https"])
+@pytest.mark.parametrize("command", ["source", "load"])
+def test_url_sources_disabled_blocks_fetch(scheme, command):
+    """When URL sources are disabled, http/https !source/!load must error
+    without making any network call."""
+    url = f"{scheme}://example.invalid/payload.sql"
+    query = f"!{command} {url};"
+
+    source = query_reader(query, WORKING_OPERATOR_FUNCS, disable_url_sources=True)
+    errors, cnt, compiled = compile_statements(source)
+
+    assert errors
+    assert errors[0].startswith("Loading SQL from URLs is disabled")
+    assert url in errors[0]
+    assert cnt == 0
+    assert not compiled
+
+
+def test_url_sources_disabled_local_file_still_works(
+    tmp_path_factory: pytest.TempPathFactory,
+):
+    """Disabling URL sources must not affect local !source of files."""
+    f1 = tmp_path_factory.mktemp("a") / "f1.sql"
+    f1.write_text("select 1;")
+
+    query = f"!source {f1.as_posix()};"
+    source = query_reader(query, WORKING_OPERATOR_FUNCS, disable_url_sources=True)
+    errors, cnt, compiled = compile_statements(source)
+
+    assert not errors, errors
+    assert cnt == 1
+    assert compiled == [CompiledStatement(statement="select 1;")]
+
+
+def test_url_sources_disabled_blocks_nested_url(
+    tmp_path_factory: pytest.TempPathFactory,
+):
+    """A local file that internally !sources a URL must also be blocked
+    when URL sources are disabled."""
+    f1 = tmp_path_factory.mktemp("a") / "f1.sql"
+    f1.write_text("select 1; !source https://example.invalid/inner.sql; select 2;")
+
+    source = files_reader(
+        (SecurePath(f1),),
+        WORKING_OPERATOR_FUNCS,
+        disable_url_sources=True,
+    )
+    errors, cnt, compiled = compile_statements(source)
+
+    assert any(e.startswith("Loading SQL from URLs is disabled") for e in errors)
+    # statements before/after the blocked URL still parse
+    assert CompiledStatement(statement="select 1;") in compiled
+    assert CompiledStatement(statement="select 2;") in compiled
+
+
+def test_url_sources_disabled_no_network_call(monkeypatch):
+    """Belt-and-suspenders: urlopen must not be invoked when blocked."""
+    import snowflake.cli._plugins.sql.statement_reader as sr
+
+    sentinel = {"called": False}
+
+    def fail_urlopen(*args, **kwargs):  # noqa: ARG001
+        sentinel["called"] = True
+        raise AssertionError("urlopen must not be called when URL sources are disabled")
+
+    monkeypatch.setattr(sr, "urlopen", fail_urlopen)
+
+    source = query_reader(
+        "!source http://example.invalid/x.sql;",
+        WORKING_OPERATOR_FUNCS,
+        disable_url_sources=True,
+    )
+    errors, _, _ = compile_statements(source)
+    assert errors
+    assert errors[0].startswith("Loading SQL from URLs is disabled")
+    assert sentinel["called"] is False
+
+
 def test_read_query():
     query = "select 1;"
     errors, cnt, compiled = compile_statements(
