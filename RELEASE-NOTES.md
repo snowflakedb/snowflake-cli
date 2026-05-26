@@ -24,6 +24,7 @@
 ## Fixes and improvements
 
 
+# v3.18.0
 
 ## Deprecations
 

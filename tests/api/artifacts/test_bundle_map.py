@@ -727,17 +727,22 @@ def test_bundle_map_all_mappings_generates_absolute_directories_when_requested(
         {
             project_root / "app": deploy_root / "deployed_app",
             project_root / "app/setup.sql": deploy_root / "deployed_app/setup.sql",
-            project_root / "app/manifest.yml": deploy_root
+            project_root
+            / "app/manifest.yml": deploy_root
             / "deployed_app/manifest.yml",
             project_root / "README.md": deploy_root / "deployed_README.md",
             project_root / "src/streamlit": deploy_root / "deployed_streamlit",
-            project_root / "src/streamlit/helpers": deploy_root
+            project_root
+            / "src/streamlit/helpers": deploy_root
             / "deployed_streamlit/helpers",
-            project_root / "src/streamlit/main_ui.py": deploy_root
+            project_root
+            / "src/streamlit/main_ui.py": deploy_root
             / "deployed_streamlit/main_ui.py",
-            project_root / "src/streamlit/helpers/file1.py": deploy_root
+            project_root
+            / "src/streamlit/helpers/file1.py": deploy_root
             / "deployed_streamlit/helpers/file1.py",
-            project_root / "src/streamlit/helpers/file2.py": deploy_root
+            project_root
+            / "src/streamlit/helpers/file2.py": deploy_root
             / "deployed_streamlit/helpers/file2.py",
         },
         absolute=True,
@@ -790,11 +795,14 @@ def test_bundle_map_all_mappings_accepts_predicates(bundle_map):
     verify_mappings(
         bundle_map,
         {
-            project_root / "src/streamlit/main_ui.py": deploy_root
+            project_root
+            / "src/streamlit/main_ui.py": deploy_root
             / "deployed_streamlit/main_ui.py",
-            project_root / "src/streamlit/helpers/file1.py": deploy_root
+            project_root
+            / "src/streamlit/helpers/file1.py": deploy_root
             / "deployed_streamlit/helpers/file1.py",
-            project_root / "src/streamlit/helpers/file2.py": deploy_root
+            project_root
+            / "src/streamlit/helpers/file2.py": deploy_root
             / "deployed_streamlit/helpers/file2.py",
         },
         absolute=True,
@@ -810,13 +818,17 @@ def test_bundle_map_all_mappings_accepts_predicates(bundle_map):
         project_root / "app/manifest.yml": deploy_root / "deployed_app/manifest.yml",
         project_root / "README.md": deploy_root / "deployed_README.md",
         project_root / "src/streamlit": deploy_root / "deployed_streamlit",
-        project_root / "src/streamlit/helpers": deploy_root
+        project_root
+        / "src/streamlit/helpers": deploy_root
         / "deployed_streamlit/helpers",
-        project_root / "src/streamlit/main_ui.py": deploy_root
+        project_root
+        / "src/streamlit/main_ui.py": deploy_root
         / "deployed_streamlit/main_ui.py",
-        project_root / "src/streamlit/helpers/file1.py": deploy_root
+        project_root
+        / "src/streamlit/helpers/file1.py": deploy_root
         / "deployed_streamlit/helpers/file1.py",
-        project_root / "src/streamlit/helpers/file2.py": deploy_root
+        project_root
+        / "src/streamlit/helpers/file2.py": deploy_root
         / "deployed_streamlit/helpers/file2.py",
     }
 
