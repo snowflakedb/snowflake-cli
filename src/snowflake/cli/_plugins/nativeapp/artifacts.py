@@ -37,7 +37,7 @@ def build_bundle(
     project_root: Path,
     deploy_root: Path,
     artifacts: List[PathMapping],
-    follow_symlinks: bool = False,
+    follow_symlinks: Optional[bool] = None,
 ) -> BundleMap:
     """
     Prepares a local folder (deploy_root) with configured app artifacts.
@@ -61,7 +61,10 @@ def build_bundle(
         delete(resolved_root)
 
     bundle_map = bundle_artifacts(
-        project_root, deploy_root, artifacts, follow_symlinks=follow_symlinks
+        project_root,
+        deploy_root,
+        artifacts,
+        follow_symlinks=follow_symlinks,
     )
     if bundle_map.is_empty():
         raise ArtifactError(
@@ -75,7 +78,7 @@ def bundle_artifacts(
     project_root: Path,
     deploy_root: Path,
     artifacts: list[PathMapping],
-    follow_symlinks: bool = False,
+    follow_symlinks: Optional[bool] = None,
 ):
     """
     Internal implementation of build_bundle that assumes

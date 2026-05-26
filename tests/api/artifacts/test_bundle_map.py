@@ -529,8 +529,8 @@ def test_bundle_map_rejects_top_level_symlink_escaping_project_root(tmp_path):
     the project root must be rejected by the containment check. Previously
     ``resolve_without_follow`` (os.path.abspath) only normalised ``..`` and
     did not follow symlinks, so a symlink like ``project/data -> /etc``
-    passed the lexical ``startswith`` check. The error message must also hint
-    about the --follow-symlinks flag.
+    passed the lexical ``startswith`` check. With follow_symlinks=False (flag
+    exposed but not set), the error message includes the --follow-symlinks hint.
     """
     project_root = tmp_path / "project"
     project_root.mkdir()
@@ -542,13 +542,24 @@ def test_bundle_map_rejects_top_level_symlink_escaping_project_root(tmp_path):
     os.symlink(outside, project_root / "data", target_is_directory=True)
 
     deploy_root = project_root / "output" / "deploy"
-    bm = BundleMap(project_root=project_root, deploy_root=deploy_root)
 
-    with pytest.raises(ArtifactError, match="outside the project root") as exc_info:
-        bm.add(PathMapping(src="data", dest="./data/"))
+    # Without a flag hint the error message has no CLI-specific suggestion
+    bm_no_hint = BundleMap(project_root=project_root, deploy_root=deploy_root)
+    with pytest.raises(ArtifactError, match="outside the project root") as exc_no_hint:
+        bm_no_hint.add(PathMapping(src="data", dest="./data/"))
+    assert "--follow-symlinks" not in str(exc_no_hint.value)
 
-    # The error message must also hint about --follow-symlinks
-    assert "--follow-symlinks" in str(exc_info.value)
+    # follow_symlinks=False means the caller exposes the flag but it wasn't set — hint is shown
+    bm_with_hint = BundleMap(
+        project_root=project_root,
+        deploy_root=deploy_root,
+        follow_symlinks=False,
+    )
+    with pytest.raises(
+        ArtifactError, match="outside the project root"
+    ) as exc_with_hint:
+        bm_with_hint.add(PathMapping(src="data", dest="./data/"))
+    assert "--follow-symlinks" in str(exc_with_hint.value)
 
 
 @pytest.mark.skipif(

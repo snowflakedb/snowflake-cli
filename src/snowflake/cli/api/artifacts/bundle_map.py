@@ -90,7 +90,7 @@ class BundleMap:
         project_root: Path,
         deploy_root: Path,
         pattern_type: PatternMatchingType = PatternMatchingType.GLOB,
-        follow_symlinks: bool = False,
+        follow_symlinks: Optional[bool] = None,
     ):
         # If a relative path ends up here, it's a bug in the app and can lead to other
         # subtle bugs as paths would be resolved relative to the current working directory.
@@ -104,7 +104,7 @@ class BundleMap:
         self._project_root: Path = resolve_without_follow(project_root)
         self._deploy_root: Path = resolve_without_follow(deploy_root)
         self._pattern_type: PatternMatchingType = pattern_type
-        self._follow_symlinks: bool = follow_symlinks
+        self._follow_symlinks: Optional[bool] = follow_symlinks
         self._artifact_map = _ArtifactPathMap(
             project_root=self._project_root, follow_symlinks=follow_symlinks
         )
@@ -220,7 +220,7 @@ class BundleMap:
         Resolve files matching a regex pattern.
         """
         resolver = RegexResolver()
-        if self._follow_symlinks:
+        if self._follow_symlinks is True:
             for root, _dirs, files in walk_with_loop_detection(self._project_root):
                 for f in files:
                     path = Path(root) / f
@@ -276,7 +276,7 @@ class BundleMap:
             yield src_for_output, dest_for_output
 
         if absolute_src.is_dir() and expand_directories:
-            if self._follow_symlinks:
+            if self._follow_symlinks is True:
                 for root, subdirs, files in walk_with_loop_detection(absolute_src):
                     if ignore:
                         subdirs[:] = [
@@ -300,9 +300,11 @@ class BundleMap:
                         if self._is_within_real_project_root(p):
                             pruned_subdirs.append(d)
                         else:
-                            msg = (
-                                f"Skipping '{p}': symlink resolves outside project root. "
-                                "Use --follow-symlinks if you trust this project."
+                            msg = "Skipping '{}': symlink resolves outside project root.{}".format(
+                                p,
+                                " Use --follow-symlinks if you trust this project."
+                                if self._follow_symlinks is False
+                                else "",
                             )
                             log.warning(msg)
                             cli_console.warning(msg)
@@ -313,9 +315,11 @@ class BundleMap:
                         if self._is_within_real_project_root(p):
                             kept_files.append(f)
                         else:
-                            msg = (
-                                f"Skipping '{p}': symlink resolves outside project root. "
-                                "Use --follow-symlinks if you trust this project."
+                            msg = "Skipping '{}': symlink resolves outside project root.{}".format(
+                                p,
+                                " Use --follow-symlinks if you trust this project."
+                                if self._follow_symlinks is False
+                                else "",
                             )
                             log.warning(msg)
                             cli_console.warning(msg)
@@ -496,15 +500,19 @@ class BundleMap:
         #
         # When follow_symlinks=True this check is intentionally skipped so that
         # users who trust their project can opt-in to cross-root symlinks.
-        if not self._follow_symlinks and resolved_src.exists():
+        if self._follow_symlinks is not True and resolved_src.exists():
             real_src = Path(os.path.realpath(resolved_src))
             real_root = Path(os.path.realpath(self._project_root))
             if real_src != real_root and real_root not in real_src.parents:
                 raise ArtifactError(
                     f"Source path '{src}' resolves outside the project root "
-                    f"via a symlink (target: '{real_src}', root: '{real_root}'). "
-                    f"Use --follow-symlinks if you trust this project and intend "
-                    f"to include files outside the project root."
+                    f"via a symlink (target: '{real_src}', root: '{real_root}')."
+                    + (
+                        " Use --follow-symlinks if you trust this project"
+                        " and intend to include files outside the project root."
+                        if self._follow_symlinks is False
+                        else ""
+                    )
                 )
         return resolved_src
 
@@ -552,7 +560,7 @@ class _ArtifactPathMap:
     relative, canonical form (relative to the project or deploy roots, as appropriate).
     """
 
-    def __init__(self, project_root: Path, follow_symlinks: bool = False):
+    def __init__(self, project_root: Path, follow_symlinks: Optional[bool] = None):
         self._project_root = project_root
         self._follow_symlinks = follow_symlinks
 
@@ -618,7 +626,7 @@ class _ArtifactPathMap:
         if src_is_dir:
             # mark all subdirectories of this source as directories so that we can
             # detect accidental clobbering
-            if self._follow_symlinks:
+            if self._follow_symlinks is True:
                 for root, subdirs, files in walk_with_loop_detection(absolute_src):
                     canonical_subdir = Path(root).relative_to(absolute_src)
                     canonical_dest_subdir = dest / canonical_subdir

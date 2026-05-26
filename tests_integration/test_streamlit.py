@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from tests_common import IS_WINDOWS
+from tests_integration.snowflake_connector import add_uuid_to_name
 from tests_integration.testing_utils import FlowTestSetup
 from tests_integration.testing_utils.streamlit_utils import StreamlitTestSteps
 
@@ -197,7 +198,13 @@ def test_streamlit_grants_experimental_flow(
 )
 class TestFollowSymlinksFlow:
     def test_escaping_symlink_blocked_without_flag(
-        self, runner, project_directory, alter_snowflake_yml, tmp_path
+        self,
+        runner,
+        project_directory,
+        alter_snowflake_yml,
+        test_database,
+        snowflake_session,
+        tmp_path,
     ):
         outside_file = tmp_path / "external_module.py"
         outside_file.write_text("# content outside project")
@@ -216,10 +223,17 @@ class TestFollowSymlinksFlow:
             assert "--follow-symlinks" in result.output
 
     def test_escaping_symlink_allowed_with_flag(
-        self, runner, project_directory, alter_snowflake_yml, tmp_path
+        self,
+        runner,
+        project_directory,
+        alter_snowflake_yml,
+        test_database,
+        snowflake_session,
+        tmp_path,
     ):
         outside_file = tmp_path / "external_module.py"
         outside_file.write_text("# content outside project")
+        app_name = add_uuid_to_name("app")
 
         with project_directory("streamlit_v2"):
             Path("external_module.py").symlink_to(outside_file)
@@ -228,12 +242,18 @@ class TestFollowSymlinksFlow:
                 "entities.app_1.artifacts",
                 ["streamlit_app.py", "app_1.py", "external_module.py"],
             )
-
-            result = runner.invoke_with_connection(
-                ["streamlit", "deploy", "app_1", "--follow-symlinks"]
+            alter_snowflake_yml(
+                "snowflake.yml",
+                "entities.app_1.identifier.name",
+                app_name,
             )
 
-            assert result.exit_code == 0
-            assert "--follow-symlinks is set" in result.output
+            try:
+                result = runner.invoke_with_connection(
+                    ["streamlit", "deploy", "app_1", "--follow-symlinks"]
+                )
 
-            runner.invoke_with_connection(["streamlit", "drop", "app_1"])
+                assert result.exit_code == 0
+                assert "--follow-symlinks is set" in result.output
+            finally:
+                runner.invoke_with_connection(["streamlit", "drop", "app_1"])
