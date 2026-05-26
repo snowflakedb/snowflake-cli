@@ -93,6 +93,7 @@ def sync_deploy_root_with_stage(
     local_paths_to_sync: List[Path] | None = None,
     print_diff: bool = True,
     force_overwrite: bool = False,
+    skip_stage_creation: bool = False,
 ) -> DiffResult:
     """
     Ensures that the files on our remote stage match the artifacts we have in
@@ -112,6 +113,7 @@ def sync_deploy_root_with_stage(
         local paths. Note that providing an empty list here is equivalent to None.
         print_diff (bool): Whether to print the diff between the local files and the remote stage. Defaults to True
         force_overwrite (bool): Some resources (e.g. streamlit) need to overwrite files on the stage. Defaults to False.
+        skip_stage_creation (bool): Whether to skip automatic creation of stage. Stage must already exist. Defaults to False.
 
     Returns:
         A `DiffResult` instance describing the changes that were performed.
@@ -119,6 +121,9 @@ def sync_deploy_root_with_stage(
     if stage_path_parts.is_vstage:
         # vstages are created by FBE, so no need to do it manually
         pass
+    elif skip_stage_creation:
+        # skip stage creation as requested by user
+        console.step(f"Skipping stage creation for {stage_path_parts.stage} (--skip-stage-creation flag is set).")
     elif not package_name:
         # ensure stage exists
         stage_fqn = FQN.from_stage(stage_path_parts.stage)
