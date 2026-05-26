@@ -39,6 +39,7 @@ from snowflake.cli._plugins.apps.manager import (
     _poll_until,
     _resolve_deploy_defaults,
     _resolve_entity_id,
+    app_fqn,
     perform_bundle,
 )
 from snowflake.cli._plugins.connection.util import make_snowsight_url
@@ -330,7 +331,7 @@ def snowflake_app_open(
                 f".{identifier_for_url(schema)}"
                 f".{identifier_for_url(fqn.name)}"
             )
-            service_fqn = FQN(database=db, schema=schema, name=fqn.name)
+            service_fqn = app_fqn(database=db, schema=schema, name=fqn.name)
             manager = SnowflakeAppManager()
             segment = (
                 "app-service"
@@ -341,11 +342,7 @@ def snowflake_app_open(
                 ctx.connection, f"#/apps/{segment}/{app_id}/details"
             )
     else:
-        service_fqn = FQN(
-            database=db,
-            schema=schema,
-            name=fqn.name,
-        )
+        service_fqn = app_fqn(database=db, schema=schema, name=fqn.name)
 
         manager = SnowflakeAppManager()
         try:
@@ -377,7 +374,7 @@ def snowflake_app_events(
 
     fqn = entity.fqn
     # Rebuild to a 3-part name; entity FQN may carry extra fields (e.g. prefix)
-    service_fqn = FQN(database=fqn.database, schema=fqn.schema, name=fqn.name)
+    service_fqn = app_fqn(database=fqn.database, schema=fqn.schema, name=fqn.name)
 
     effective_last = last if last is not None else DEFAULT_SNOWFLAKE_APP_EVENTS_LAST
 
@@ -543,7 +540,9 @@ def snowflake_app_deploy(
     ar_name = defaults["artifact_repository"]
     ar_database = defaults["artifact_repo_database"]
     ar_schema = defaults["artifact_repo_schema"]
-    artifact_repo_fqn_str = f"{ar_database}.{ar_schema}.{ar_name}"
+    artifact_repo_fqn_str = app_fqn(
+        database=ar_database, schema=ar_schema, name=ar_name
+    ).identifier
 
     # ── Derived names ─────────────────────────────────────────────────
     # If the code storage was defined as a fully-qualified identifier
@@ -551,12 +550,12 @@ def snowflake_app_deploy(
     # to the app's resolved database/schema for backwards-compatibility
     # with entities that configure ``code_stage``/``code_workspace`` as a
     # bare name.
-    storage_fqn = FQN(
+    storage_fqn = app_fqn(
         database=storage_db_override or database,
         schema=storage_schema_override or schema,
         name=storage_name,
     )
-    service_fqn = FQN(database=database, schema=schema, name=app_name)
+    service_fqn = app_fqn(database=database, schema=schema, name=app_name)
     workspace_source_uri = manager.workspace_subdirectory_uri(storage_fqn, app_name)
 
     stage_manager = StageManager()
@@ -716,17 +715,28 @@ def snowflake_app_deploy(
     with metrics.span("snowflake_app.deploy_service"):
         cli_console.step("Creating application service...")
         try:
-            with metrics.span("snowflake_app.deploy_service.create"):
-                manager.create_app_service(
-                    service_fqn=service_fqn,
-                    artifact_repo_fqn=artifact_repo_fqn_str,
-                    package_name=app_name,
-                    compute_pool=service_compute_pool,
-                    version="LATEST",
-                    query_warehouse=query_warehouse,
-                    external_access_integrations=eai_list,
-                    comment=app_comment,
-                )
+            with metrics.span("snowflake_app.deploy_service.create") as create_span:
+                try:
+                    manager.create_app_service(
+                        service_fqn=service_fqn,
+                        artifact_repo_fqn=artifact_repo_fqn_str,
+                        package_name=app_name,
+                        compute_pool=service_compute_pool,
+                        version="LATEST",
+                        query_warehouse=query_warehouse,
+                        external_access_integrations=eai_list,
+                        comment=app_comment,
+                    )
+                except ProgrammingError as e:
+                    # "Already exists" is the expected re-deploy path: the
+                    # outer handler dispatches to ALTER ... UPGRADE. Finish
+                    # the Create span successfully so telemetry doesn't
+                    # double-count every redeploy as a ProgrammingError on
+                    # this span; the recovery is recorded by
+                    # ``deploy_service.upgrade`` instead.
+                    if e.errno == 2002 and "already exists" in str(e).lower():
+                        create_span.finish()
+                    raise
         except ProgrammingError as e:
             if e.errno == 2002 and "already exists" in str(e).lower():
                 cli_console.step(
@@ -840,7 +850,7 @@ def snowflake_app_teardown(
         )
 
     app_name = fqn.name
-    service_fqn = FQN(database=db, schema=schema, name=app_name)
+    service_fqn = app_fqn(database=db, schema=schema, name=app_name)
     is_application_service = manager.is_application_service(service_fqn)
 
     use_workspace = entity.code_workspace is not None
@@ -856,8 +866,8 @@ def snowflake_app_teardown(
         storage_name = f"{app_name}_CODE"
         storage_db, storage_schema = db, schema
 
-    storage_fqn = FQN(database=storage_db, schema=storage_schema, name=storage_name)
-    build_job_fqn = FQN(database=db, schema=schema, name=f"{app_name}_BUILD_JOB")
+    storage_fqn = app_fqn(database=storage_db, schema=storage_schema, name=storage_name)
+    build_job_fqn = app_fqn(database=db, schema=schema, name=f"{app_name}_BUILD_JOB")
 
     object_kind = "application service" if is_application_service else "service"
 

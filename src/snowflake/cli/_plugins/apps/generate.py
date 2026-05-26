@@ -108,8 +108,6 @@ def _generate_snowflake_yml(
               name: {app_id.upper()}
               database: {database}
               schema: {schema}
-            meta:
-              title: {app_id}
             artifacts:
               - src: ./*
                 dest: ./
