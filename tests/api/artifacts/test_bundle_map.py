@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from pathlib import Path
@@ -553,7 +554,7 @@ def test_bundle_map_rejects_top_level_symlink_escaping_project_root(tmp_path):
 @pytest.mark.skipif(
     IS_WINDOWS, reason="Symlinks on Windows are restricted to Developer mode or admins"
 )
-def test_bundle_map_skips_nested_symlink_escaping_project_root(tmp_path):
+def test_bundle_map_skips_nested_symlink_escaping_project_root(tmp_path, caplog):
     """
     A nested symlink (inside a directory that is itself a legitimate project
     source) whose target escapes the project root must be pruned from the
@@ -576,13 +577,17 @@ def test_bundle_map_skips_nested_symlink_escaping_project_root(tmp_path):
     bm = BundleMap(project_root=project_root, deploy_root=deploy_root)
     bm.add(PathMapping(src="src", dest="./src/"))
 
-    srcs = [
-        s.relative_to(project_root).as_posix()
-        for s, _ in bm.all_mappings(absolute=True, expand_directories=True)
-    ]
+    with caplog.at_level(
+        logging.WARNING, logger="snowflake.cli.api.artifacts.bundle_map"
+    ):
+        srcs = [
+            s.relative_to(project_root).as_posix()
+            for s, _ in bm.all_mappings(absolute=True, expand_directories=True)
+        ]
     assert "src/main.py" in srcs
     assert not any("escape" in s for s in srcs)
     assert not any("secret.txt" in s for s in srcs)
+    assert any("outside project root" in m for m in caplog.messages)
 
 
 @pytest.mark.skipif(
@@ -1338,7 +1343,7 @@ def test_bundle_map_follow_symlinks_includes_nested_escaping_symlink(tmp_path):
 @pytest.mark.skipif(
     IS_WINDOWS, reason="Symlinks on Windows are restricted to Developer mode or admins"
 )
-def test_bundle_map_follow_symlinks_detects_symlink_loop(tmp_path):
+def test_bundle_map_follow_symlinks_detects_symlink_loop(tmp_path, caplog):
     """
     With follow_symlinks=True, a symlink loop (a -> b -> a) must be detected
     and not cause an infinite walk. The walk must terminate.
@@ -1359,16 +1364,21 @@ def test_bundle_map_follow_symlinks_detects_symlink_loop(tmp_path):
     bm.add(PathMapping(src="real", dest="./real/"))
 
     # This must terminate (not hang); collect results to verify
-    srcs = [
-        s.relative_to(project_root).as_posix()
-        for s, _ in bm.all_mappings(absolute=True, expand_directories=True)
-    ]
+    with caplog.at_level(
+        logging.WARNING, logger="snowflake.cli.api.artifacts.bundle_map"
+    ):
+        srcs = [
+            s.relative_to(project_root).as_posix()
+            for s, _ in bm.all_mappings(absolute=True, expand_directories=True)
+        ]
     assert "real/file.py" in srcs
     # Loop must not appear infinitely — just check no crash and loop pruned
     loop_entries = [s for s in srcs if "loop" in s]
+    assert len(loop_entries) <= 1
     # The loop dir itself may appear once (as a directory entry), but must not
     # have been recursed into infinitely (file.py via loop should not appear)
     assert not any("loop/file.py" in s for s in srcs)
+    assert any("loop detected" in m for m in caplog.messages)
 
 
 @pytest.mark.skipif(

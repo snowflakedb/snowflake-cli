@@ -6,7 +6,7 @@ import os
 log = logging.getLogger(__name__)
 from pathlib import Path
 
-from snowflake.cli.api.artifacts.bundle_map import BundleMap, _walk_with_loop_detection
+from snowflake.cli.api.artifacts.bundle_map import BundleMap, walk_with_loop_detection
 from snowflake.cli.api.artifacts.common import NotInDeployRootError
 from snowflake.cli.api.constants import PatternMatchingType
 from snowflake.cli.api.project.project_paths import ProjectPaths
@@ -78,7 +78,7 @@ def symlink_or_copy(
 
         # 2. For all children of src, create their counterparts in dst now that it exists
         if follow_symlinks:
-            for root, dirs, files in _walk_with_loop_detection(absolute_src):
+            for root, dirs, files in walk_with_loop_detection(absolute_src):
                 relative_root = Path(root).relative_to(absolute_src)
                 absolute_root_in_deploy = Path(dst, relative_root)
                 SecurePath(absolute_root_in_deploy).mkdir(parents=True, exist_ok=True)

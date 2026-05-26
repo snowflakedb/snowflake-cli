@@ -16,6 +16,7 @@ from snowflake.cli.api.artifacts.common import (
     TooManyFilesError,
 )
 from snowflake.cli.api.artifacts.regex_resolver import RegexResolver
+from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import PatternMatchingType
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
@@ -43,7 +44,7 @@ def _specifies_directory(s: str) -> bool:
     return s.endswith("/")
 
 
-def _walk_with_loop_detection(
+def walk_with_loop_detection(
     path: Path,
 ) -> Iterator[Tuple[str, List[str], List[str]]]:
     """Walk ``path`` with followlinks=True, detecting and pruning symlink loops.
@@ -66,7 +67,9 @@ def _walk_with_loop_detection(
             if real_d not in seen_realpaths:
                 pruned.append(d)
             else:
-                log.warning("Skipping '%s': symlink loop detected.", Path(root) / d)
+                skipped = Path(root) / d
+                log.warning("Skipping '%s': symlink loop detected.", skipped)
+                cli_console.warning(f"Skipping '{skipped}': symlink loop detected.")
         dirs[:] = sorted(pruned)
         yield root, dirs, files
 
@@ -217,12 +220,21 @@ class BundleMap:
         Resolve files matching a regex pattern.
         """
         resolver = RegexResolver()
-        for path in self._project_root.rglob("*"):
-            if path.is_file():
-                relative_path = str(path.relative_to(self._project_root))
-                relative_path = relative_path.replace("\\", "/")
-                if resolver.does_match(pattern, relative_path):
-                    yield path
+        if self._follow_symlinks:
+            for root, _dirs, files in walk_with_loop_detection(self._project_root):
+                for f in files:
+                    path = Path(root) / f
+                    relative_path = str(path.relative_to(self._project_root))
+                    relative_path = relative_path.replace("\\", "/")
+                    if resolver.does_match(pattern, relative_path):
+                        yield path
+        else:
+            for path in self._project_root.rglob("*"):
+                if path.is_file():
+                    relative_path = str(path.relative_to(self._project_root))
+                    relative_path = relative_path.replace("\\", "/")
+                    if resolver.does_match(pattern, relative_path):
+                        yield path
 
     def add(self, mapping: PathMapping) -> None:
         """
@@ -265,7 +277,7 @@ class BundleMap:
 
         if absolute_src.is_dir() and expand_directories:
             if self._follow_symlinks:
-                for root, subdirs, files in _walk_with_loop_detection(absolute_src):
+                for root, subdirs, files in walk_with_loop_detection(absolute_src):
                     if ignore:
                         subdirs[:] = [
                             d for d in subdirs if not _matches_ignore(d, ignore)
@@ -288,11 +300,12 @@ class BundleMap:
                         if self._is_within_real_project_root(p):
                             pruned_subdirs.append(d)
                         else:
-                            log.warning(
-                                "Skipping '%s': symlink resolves outside project root. "
-                                "Use --follow-symlinks if you trust this project.",
-                                p,
+                            msg = (
+                                f"Skipping '{p}': symlink resolves outside project root. "
+                                "Use --follow-symlinks if you trust this project."
                             )
+                            log.warning(msg)
+                            cli_console.warning(msg)
                     subdirs[:] = pruned_subdirs
                     kept_files = []
                     for f in files:
@@ -300,11 +313,12 @@ class BundleMap:
                         if self._is_within_real_project_root(p):
                             kept_files.append(f)
                         else:
-                            log.warning(
-                                "Skipping '%s': symlink resolves outside project root. "
-                                "Use --follow-symlinks if you trust this project.",
-                                p,
+                            msg = (
+                                f"Skipping '{p}': symlink resolves outside project root. "
+                                "Use --follow-symlinks if you trust this project."
                             )
+                            log.warning(msg)
+                            cli_console.warning(msg)
                     files = kept_files
                     if ignore:
                         subdirs[:] = [
@@ -602,19 +616,10 @@ class _ArtifactPathMap:
                 return
 
         if src_is_dir:
-            real_root = Path(os.path.realpath(self._project_root))
-
-            def _stays_in_real_root(p: Path) -> bool:
-                try:
-                    real = Path(os.path.realpath(p))
-                except OSError:
-                    return False
-                return real == real_root or real_root in real.parents
-
             # mark all subdirectories of this source as directories so that we can
             # detect accidental clobbering
             if self._follow_symlinks:
-                for root, subdirs, files in _walk_with_loop_detection(absolute_src):
+                for root, subdirs, files in walk_with_loop_detection(absolute_src):
                     canonical_subdir = Path(root).relative_to(absolute_src)
                     canonical_dest_subdir = dest / canonical_subdir
                     self._update_dest_is_dir(canonical_dest_subdir, is_dir=True)
@@ -627,6 +632,15 @@ class _ArtifactPathMap:
                             raise TooManyFilesError(child_dest)
                         self.__dest_to_src[child_dest] = child_src
             else:
+                real_root = Path(os.path.realpath(self._project_root))
+
+                def _stays_in_real_root(p: Path) -> bool:
+                    try:
+                        real = Path(os.path.realpath(p))
+                    except OSError:
+                        return False
+                    return real == real_root or real_root in real.parents
+
                 for root, subdirs, files in os.walk(absolute_src, followlinks=True):
                     # Prune entries whose real target escapes the project root, so
                     # symlink bypass of the containment check does not leak into
