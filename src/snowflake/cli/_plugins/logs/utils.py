@@ -36,10 +36,10 @@ def get_timestamp_query(from_time: Optional[datetime], to_time: Optional[datetim
     query = []
 
     if from_time is not None:
-        query.append(f"AND timestamp >= TO_TIMESTAMP_LTZ('{from_time.isoformat()}')\n")
+        query.append("AND timestamp >= TO_TIMESTAMP_LTZ(?)\n")
 
     if to_time is not None:
-        query.append(f"AND timestamp <= TO_TIMESTAMP_LTZ('{to_time.isoformat()}')\n")
+        query.append("AND timestamp <= TO_TIMESTAMP_LTZ(?)\n")
 
     return "".join(query)
 
