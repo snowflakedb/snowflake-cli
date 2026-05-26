@@ -72,4 +72,6 @@ The two items contributors most commonly miss:
 commands, requires regenerating snapshots. See [testing.md](testing.md).
 
 **Release notes** — see [lifecycle.md](lifecycle.md) for what requires an entry
-and the exact format. Wrong section or wrong scope will be caught in review.
+and the exact format. CI will fail if `RELEASE-NOTES.md` is not modified;
+add the `skip-release-notes` label to the PR if no entry is warranted (e.g.
+pure test or doc changes). Wrong section or wrong scope will be caught in review.
