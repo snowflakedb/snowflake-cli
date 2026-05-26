@@ -14,10 +14,14 @@
 
 import io
 import os
+import tempfile
 from contextlib import nullcontext
 from unittest import mock
 
 import pytest
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization as crypto_ser
+from cryptography.hazmat.primitives.asymmetric import rsa as crypto_rsa
 from snowflake.cli._app.constants import AUTHENTICATOR_WORKLOAD_IDENTITY
 from snowflake.cli._app.snow_connector import _BufferedMirrorStream
 from snowflake.cli.api.feature_flags import FeatureFlag
@@ -698,3 +702,178 @@ def test_externalbrowser_authenticator_is_case_insensitive(
 
     # For externalbrowser, stdout should mirror to stderr
     assert stdout_stream._mirror is not None  # noqa: SLF001
+
+
+@mock.patch.dict(os.environ, {}, clear=True)
+def test_load_private_key_pops_passphrase_from_parameters():
+    """SNOW-3520530: _load_private_key() must remove private_key_passphrase from
+    connection_parameters so the str value never reaches connector.connect()."""
+    from snowflake.cli._app.snow_connector import _load_private_key
+
+    passphrase = "s3cr3t"
+    key = crypto_rsa.generate_private_key(
+        public_exponent=65537, key_size=2048, backend=default_backend()
+    )
+    encrypted_pem = key.private_bytes(
+        encoding=crypto_ser.Encoding.PEM,
+        format=crypto_ser.PrivateFormat.PKCS8,
+        encryption_algorithm=crypto_ser.BestAvailableEncryption(
+            passphrase.encode("utf-8")
+        ),
+    )
+
+    with tempfile.NamedTemporaryFile("wb", suffix=".p8") as f:
+        f.write(encrypted_pem)
+        f.flush()
+        pk_path = f.name
+
+        params = {
+            "authenticator": "SNOWFLAKE_JWT",
+            "private_key_file": pk_path,
+            "private_key_passphrase": passphrase,
+        }
+        _load_private_key(params, "private_key_file")
+
+    # The key was decoded into DER bytes and stored under "private_key".
+    assert "private_key" in params
+    assert isinstance(params["private_key"], bytes)
+
+    # The passphrase str must have been popped — it must not reach the connector.
+    assert "private_key_passphrase" not in params
+
+    # The file path key should also have been removed.
+    assert "private_key_file" not in params
+
+
+@mock.patch.dict(os.environ, {}, clear=True)
+def test_load_private_key_from_parameters_pops_passphrase():
+    """SNOW-3520530: _load_private_key_from_parameters() must remove
+    private_key_passphrase so the str value never reaches connector.connect()."""
+    from snowflake.cli._app.snow_connector import _load_private_key_from_parameters
+
+    passphrase = "r4wKeyPass"
+    key = crypto_rsa.generate_private_key(
+        public_exponent=65537, key_size=2048, backend=default_backend()
+    )
+    encrypted_pem = key.private_bytes(
+        encoding=crypto_ser.Encoding.PEM,
+        format=crypto_ser.PrivateFormat.PKCS8,
+        encryption_algorithm=crypto_ser.BestAvailableEncryption(
+            passphrase.encode("utf-8")
+        ),
+    )
+
+    params = {
+        "authenticator": "SNOWFLAKE_JWT",
+        "private_key_raw": encrypted_pem.decode("utf-8"),
+        "private_key_passphrase": passphrase,
+    }
+    _load_private_key_from_parameters(params, "private_key_raw")
+
+    assert "private_key" in params
+    assert isinstance(params["private_key"], bytes)
+    assert "private_key_passphrase" not in params
+    assert "private_key_raw" not in params
+
+
+@mock.patch.dict(os.environ, {"PRIVATE_KEY_PASSPHRASE": "from-env"}, clear=True)
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+@mock.patch("snowflake.connector.connect")
+def test_env_passphrase_takes_precedence_over_config_in_connect(
+    mock_connect, mock_command_info
+):
+    """SNOW-3520530: PRIVATE_KEY_PASSPHRASE env var must win over config value.
+    Neither private_key_passphrase nor private_key_file_pwd must appear in the
+    kwargs forwarded to snowflake.connector.connect()."""
+    from snowflake.cli._app.snow_connector import connect_to_snowflake
+
+    env_passphrase = "from-env"
+    key = crypto_rsa.generate_private_key(
+        public_exponent=65537, key_size=2048, backend=default_backend()
+    )
+    encrypted_pem = key.private_bytes(
+        encoding=crypto_ser.Encoding.PEM,
+        format=crypto_ser.PrivateFormat.PKCS8,
+        encryption_algorithm=crypto_ser.BestAvailableEncryption(
+            env_passphrase.encode("utf-8")
+        ),
+    )
+    expected_der = crypto_ser.load_pem_private_key(
+        encrypted_pem, env_passphrase.encode("utf-8"), default_backend()
+    ).private_bytes(
+        encoding=crypto_ser.Encoding.DER,
+        format=crypto_ser.PrivateFormat.PKCS8,
+        encryption_algorithm=crypto_ser.NoEncryption(),
+    )
+
+    mock_command_info.return_value = "SNOWCLI.TEST"
+    mock_connect.return_value = mock.MagicMock()
+
+    with tempfile.NamedTemporaryFile("wb", suffix=".p8") as f:
+        f.write(encrypted_pem)
+        f.flush()
+        pk_path = f.name
+
+        connect_to_snowflake(
+            temporary_connection=True,
+            authenticator="SNOWFLAKE_JWT",
+            private_key_file=pk_path,
+            # config value that should be overridden by the env var
+            private_key_passphrase="wrong-config-pass",
+            account="test_account",
+            user="test_user",
+        )
+
+    mock_connect.assert_called_once()
+    kwargs = mock_connect.call_args.kwargs
+    assert kwargs["private_key"] == expected_der
+    # Passphrase keys must never reach connector.connect()
+    assert "private_key_passphrase" not in kwargs
+    assert "private_key_file_pwd" not in kwargs
+
+
+@mock.patch.dict(os.environ, {}, clear=True)
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+@mock.patch("snowflake.connector.connect")
+def test_private_key_passphrase_not_in_connect_kwargs_when_config_used(
+    mock_connect, mock_command_info
+):
+    """SNOW-3520530: when passphrase comes from config (no env var), it must still
+    not appear in the kwargs forwarded to snowflake.connector.connect()."""
+    from snowflake.cli._app.snow_connector import connect_to_snowflake
+
+    passphrase = "config-passphrase"
+    key = crypto_rsa.generate_private_key(
+        public_exponent=65537, key_size=2048, backend=default_backend()
+    )
+    encrypted_pem = key.private_bytes(
+        encoding=crypto_ser.Encoding.PEM,
+        format=crypto_ser.PrivateFormat.PKCS8,
+        encryption_algorithm=crypto_ser.BestAvailableEncryption(
+            passphrase.encode("utf-8")
+        ),
+    )
+
+    mock_command_info.return_value = "SNOWCLI.TEST"
+    mock_connect.return_value = mock.MagicMock()
+
+    with tempfile.NamedTemporaryFile("wb", suffix=".p8") as f:
+        f.write(encrypted_pem)
+        f.flush()
+        pk_path = f.name
+
+        connect_to_snowflake(
+            temporary_connection=True,
+            authenticator="SNOWFLAKE_JWT",
+            private_key_file=pk_path,
+            private_key_passphrase=passphrase,
+            account="test_account",
+            user="test_user",
+        )
+
+    mock_connect.assert_called_once()
+    kwargs = mock_connect.call_args.kwargs
+    assert "private_key" in kwargs
+    assert isinstance(kwargs["private_key"], bytes)
+    assert "private_key_passphrase" not in kwargs
+    assert "private_key_file_pwd" not in kwargs

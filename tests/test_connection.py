@@ -1099,9 +1099,7 @@ def test_key_pair_authentication_empty_passphrase_error(
         )
 
     assert result.exit_code == 1
-    assert (
-        "PRIVATE_KEY_PASSPHRASE environment variable is set but empty" in result.output
-    )
+    assert "Passphrase is set but empty." in result.output
 
 
 @pytest.mark.parametrize(
