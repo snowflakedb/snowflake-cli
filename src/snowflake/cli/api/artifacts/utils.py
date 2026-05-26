@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 import os
+
+log = logging.getLogger(__name__)
 from pathlib import Path
 
-from snowflake.cli.api.artifacts.bundle_map import BundleMap
+from snowflake.cli.api.artifacts.bundle_map import BundleMap, walk_with_loop_detection
 from snowflake.cli.api.artifacts.common import NotInDeployRootError
 from snowflake.cli.api.constants import PatternMatchingType
 from snowflake.cli.api.project.project_paths import ProjectPaths
@@ -17,6 +20,7 @@ def symlink_or_copy(
     dst: Path,
     deploy_root: Path,
     project_root: Path | None = None,
+    follow_symlinks: bool = False,
 ) -> None:
     """
     Symlinks files from src to dst. If the src contains parent directories, then copies the empty directory shell to the deploy root.
@@ -27,6 +31,10 @@ def symlink_or_copy(
     recursive traversal of a directory ``src``. This prevents a committed
     symlink (e.g. ``project/data -> /etc``) from leaking files outside the
     project into the deploy root and, subsequently, onto a Snowflake stage.
+
+    When ``follow_symlinks`` is True the project-root containment check is
+    skipped and all symlinks are followed. Symlink loops are detected and
+    pruned to prevent infinite traversal.
     """
     ssrc = SecurePath(src)
     sdst = SecurePath(dst)
@@ -69,21 +77,41 @@ def symlink_or_copy(
             return real == real_root or real_root in real.parents
 
         # 2. For all children of src, create their counterparts in dst now that it exists
-        for root, dirs, files in sorted(os.walk(absolute_src, followlinks=True)):
-            dirs[:] = [d for d in dirs if _stays_in_real_project_root(Path(root) / d)]
-            files = [f for f in files if _stays_in_real_project_root(Path(root) / f)]
-            relative_root = Path(root).relative_to(absolute_src)
-            absolute_root_in_deploy = Path(dst, relative_root)
-            SecurePath(absolute_root_in_deploy).mkdir(parents=True, exist_ok=True)
-            for file in sorted(files):
-                absolute_file_in_project = Path(absolute_src, relative_root, file)
-                absolute_file_in_deploy = Path(absolute_root_in_deploy, file)
-                symlink_or_copy(
-                    src=absolute_file_in_project,
-                    dst=absolute_file_in_deploy,
-                    deploy_root=deploy_root,
-                    project_root=project_root,
-                )
+        if follow_symlinks:
+            for root, dirs, files in walk_with_loop_detection(absolute_src):
+                relative_root = Path(root).relative_to(absolute_src)
+                absolute_root_in_deploy = Path(dst, relative_root)
+                SecurePath(absolute_root_in_deploy).mkdir(parents=True, exist_ok=True)
+                for file in sorted(files):
+                    absolute_file_in_project = Path(absolute_src, relative_root, file)
+                    absolute_file_in_deploy = Path(absolute_root_in_deploy, file)
+                    symlink_or_copy(
+                        src=absolute_file_in_project,
+                        dst=absolute_file_in_deploy,
+                        deploy_root=deploy_root,
+                        project_root=project_root,
+                        follow_symlinks=follow_symlinks,
+                    )
+        else:
+            for root, dirs, files in sorted(os.walk(absolute_src, followlinks=True)):
+                dirs[:] = [
+                    d for d in dirs if _stays_in_real_project_root(Path(root) / d)
+                ]
+                files = [
+                    f for f in files if _stays_in_real_project_root(Path(root) / f)
+                ]
+                relative_root = Path(root).relative_to(absolute_src)
+                absolute_root_in_deploy = Path(dst, relative_root)
+                SecurePath(absolute_root_in_deploy).mkdir(parents=True, exist_ok=True)
+                for file in sorted(files):
+                    absolute_file_in_project = Path(absolute_src, relative_root, file)
+                    absolute_file_in_deploy = Path(absolute_root_in_deploy, file)
+                    symlink_or_copy(
+                        src=absolute_file_in_project,
+                        dst=absolute_file_in_deploy,
+                        deploy_root=deploy_root,
+                        project_root=project_root,
+                    )
 
 
 def bundle_artifacts(

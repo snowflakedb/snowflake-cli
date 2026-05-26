@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* `snow streamlit deploy`: add `--follow-symlinks` flag to allow following symlinks that point outside the project root.
 
 ## Fixes and improvements
 

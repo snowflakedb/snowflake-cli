@@ -37,6 +37,7 @@ def build_bundle(
     project_root: Path,
     deploy_root: Path,
     artifacts: List[PathMapping],
+    follow_symlinks: Optional[bool] = None,
 ) -> BundleMap:
     """
     Prepares a local folder (deploy_root) with configured app artifacts.
@@ -59,7 +60,12 @@ def build_bundle(
     if resolved_root.exists():
         delete(resolved_root)
 
-    bundle_map = bundle_artifacts(project_root, deploy_root, artifacts)
+    bundle_map = bundle_artifacts(
+        project_root,
+        deploy_root,
+        artifacts,
+        follow_symlinks=follow_symlinks,
+    )
     if bundle_map.is_empty():
         raise ArtifactError(
             "No artifacts mapping found in project definition, nothing to do."
@@ -69,13 +75,20 @@ def build_bundle(
 
 
 def bundle_artifacts(
-    project_root: Path, deploy_root: Path, artifacts: list[PathMapping]
+    project_root: Path,
+    deploy_root: Path,
+    artifacts: list[PathMapping],
+    follow_symlinks: Optional[bool] = None,
 ):
     """
     Internal implementation of build_bundle that assumes
     that validation is being done by the caller.
     """
-    bundle_map = BundleMap(project_root=project_root, deploy_root=deploy_root)
+    bundle_map = BundleMap(
+        project_root=project_root,
+        deploy_root=deploy_root,
+        follow_symlinks=follow_symlinks,
+    )
     for artifact in artifacts:
         bundle_map.add(artifact)
 
@@ -87,6 +100,7 @@ def bundle_artifacts(
             absolute_dest,
             deploy_root=deploy_root,
             project_root=project_root,
+            follow_symlinks=follow_symlinks,
         )
 
     return bundle_map
