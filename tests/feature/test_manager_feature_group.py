@@ -252,7 +252,13 @@ class TestPlanWiresFGRows:
         ]
         mock_decl.fetch_feature_group_rows.return_value = fg_rows
 
-        FeatureManager().plan(from_dir=tmp_path)
+        FeatureManager().plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            dev_mode=False,
+            allow_recreate=False,
+        )
 
         mock_decl.fetch_applied_state.assert_called()
         kwargs = mock_decl.fetch_applied_state.call_args.kwargs
@@ -281,7 +287,7 @@ class TestListWiresFGRows:
         ]
         mock_decl.fetch_feature_group_rows.return_value = fg_rows
 
-        FeatureManager().list_specs(from_dir=tmp_path)
+        FeatureManager().list_specs(from_dir=tmp_path, target_name=None)
 
         mock_decl.enrich_list_results.assert_called()
         kwargs = mock_decl.enrich_list_results.call_args.kwargs

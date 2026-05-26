@@ -389,6 +389,8 @@ def bug_bash_io():
     ) as ent, mock.patch(
         "snowflake.cli._plugins.feature.manager.FeatureManager._fetch_feature_view_rows"
     ) as fvs, mock.patch(
+        "snowflake.cli._plugins.feature.manager.FeatureManager._fetch_feature_group_rows"
+    ) as fgs, mock.patch(
         "snowflake.cli._plugins.feature.manager.FeatureManager._assert_initialized"
     ) as assert_init:
         exec_q.return_value = iter([_bug_bash_show_oft_row()])
@@ -401,6 +403,11 @@ def bug_bash_io():
         # state reconstruction.  Returning ``[]`` is also fine —
         # both shapes leave the test pinning the OFT path.
         fvs.return_value = []
+        # The bug-bash project does not author any FeatureGroups, so
+        # ``list_feature_groups()`` returns an empty list.  Stubbed
+        # for the same reason as ``_fetch_feature_view_rows``: keeps
+        # the imperative call off the mock session.
+        fgs.return_value = []
         # Bypass the Phase 8 init-first guard so these idempotency
         # tests can exercise plan/write_plan without a live Snowflake
         # connection.  The negative-path tests for the guard live in
@@ -411,6 +418,7 @@ def bug_bash_io():
             "fetch_oft_state": oft,
             "fetch_entity_rows": ent,
             "fetch_feature_view_rows": fvs,
+            "fetch_feature_group_rows": fgs,
             "assert_initialized": assert_init,
         }
 

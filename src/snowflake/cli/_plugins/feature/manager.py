@@ -409,8 +409,20 @@ class FeatureManager(SqlExecutionMixin):
 
         # Steps 3 + 4 + 5 always re-run (idempotent).
         sources_root = project_root / "sources"
-        for sub in ("entities", "datasources", "feature_views"):
+        for sub in ("entities", "datasources", "feature_views", "feature_groups"):
             (sources_root / sub).mkdir(parents=True, exist_ok=True)
+
+        # ``feature_groups/`` is brand-new in v1 of FeatureGroup support and
+        # tends to be empty on a fresh project (no FGs deployed yet).
+        # Drop a ``.gitkeep`` so the directory survives ``git add`` and
+        # ``snow feature plan`` always finds the loader subdir on disk
+        # (the loader treats a missing directory as a noop, but a
+        # tracked empty directory is closer to the existing
+        # ``out/plan/.gitkeep`` pattern and avoids an "is this scaffolded?"
+        # surprise on a peer's first pull).
+        fg_gitkeep = sources_root / "feature_groups" / ".gitkeep"
+        if not fg_gitkeep.exists():
+            fg_gitkeep.write_text("")
 
         plans_dir = project_root / "out" / "plan"
         plans_dir.mkdir(parents=True, exist_ok=True)
@@ -482,6 +494,7 @@ class FeatureManager(SqlExecutionMixin):
             schema=schema,
         )
         entity_rows = self._fetch_entity_rows(synthetic_target)
+        feature_group_rows = self._fetch_feature_group_rows(synthetic_target)
 
         # Always delegate to ``decl_api.export_specs`` — it owns the
         # "empty input → noop envelope" semantics so the manager
@@ -496,6 +509,7 @@ class FeatureManager(SqlExecutionMixin):
             schema,
             specification_map=specification_map,
             entity_rows=entity_rows,
+            feature_group_rows=feature_group_rows,
             layout="sources",
         )
 
@@ -862,6 +876,7 @@ class FeatureManager(SqlExecutionMixin):
         dt_text_map = self._fetch_dt_text_map(sqls)
         entity_rows = self._fetch_entity_rows(target)
         feature_view_rows = self._fetch_feature_view_rows(target)
+        feature_group_rows = self._fetch_feature_group_rows(target)
         applied_state = decl_api.fetch_applied_state(
             raw_show,
             raw_tables,
@@ -869,6 +884,7 @@ class FeatureManager(SqlExecutionMixin):
             dt_text_map=dt_text_map,
             entity_rows=entity_rows,
             feature_view_rows=feature_view_rows,
+            feature_group_rows=feature_group_rows,
             default_database=target.database,
             default_schema=target.schema,
         )
@@ -990,6 +1006,7 @@ class FeatureManager(SqlExecutionMixin):
         dt_text_map = self._fetch_dt_text_map(sqls)
         entity_rows = self._fetch_entity_rows(target)
         feature_view_rows = self._fetch_feature_view_rows(target)
+        feature_group_rows = self._fetch_feature_group_rows(target)
         applied_state = decl_api.fetch_applied_state(
             raw_show,
             raw_tables,
@@ -997,6 +1014,7 @@ class FeatureManager(SqlExecutionMixin):
             dt_text_map=dt_text_map,
             entity_rows=entity_rows,
             feature_view_rows=feature_view_rows,
+            feature_group_rows=feature_group_rows,
             default_database=target.database,
             default_schema=target.schema,
         )
@@ -1079,6 +1097,7 @@ class FeatureManager(SqlExecutionMixin):
             )
 
             entity_rows = self._fetch_entity_rows(target)
+            feature_group_rows = self._fetch_feature_group_rows(target)
 
             specification_map = self._fetch_oft_state(oft_rows, queries)
 
@@ -1086,6 +1105,7 @@ class FeatureManager(SqlExecutionMixin):
                 oft_rows,
                 entity_rows=entity_rows,
                 specification_map=specification_map,
+                feature_group_rows=feature_group_rows,
             )
             return {
                 **self._target_info(target),
@@ -1499,6 +1519,50 @@ class FeatureManager(SqlExecutionMixin):
             raise
         except Exception as exc:
             log.debug("fetch_feature_view_rows failed (treating as empty): %s", exc)
+            return []
+
+    def _fetch_feature_group_rows(self, target: FSTarget) -> list[dict[str, Any]]:
+        """Fetch feature-group rows via the imperative ``list_feature_groups()``.
+
+        Mirror of :func:`_fetch_feature_view_rows` for FeatureGroup
+        enumeration.  ``FeatureGroup`` is a fully imperative-side
+        construct: there is no ``SHOW FEATURE GROUPS`` SQL, so
+        ``list_feature_groups()`` is the only path that surfaces
+        deployed FGs into the applied-state snapshot.  Without this
+        wiring the planner would re-emit a spurious ``CREATE_FG`` on
+        every plan after a successful apply.
+
+        Returns:
+            A list of FG row dicts in the shape produced by
+            :func:`decl_api.fetch_feature_group_rows`.  Soft-fails with
+            ``[]`` on any non-init-required error so ``snow feature
+            plan`` does not regress on accounts that lack
+            ``list_feature_groups`` privileges.
+
+        Raises:
+            decl_api.FeatureStoreNotInitializedError: When the target
+                schema lacks the bootstrap feature-store tags.  The
+                command-level wrapper in ``commands.py`` converts this
+                into a ``ClickException`` whose message directs the
+                operator at ``snow feature init``.
+        """
+        from snowflake.ml.feature_store.decl.errors import (
+            FeatureStoreNotInitializedError,
+        )
+
+        ctx = get_cli_context()
+        try:
+            session = self._build_session()
+            return decl_api.fetch_feature_group_rows(
+                session,
+                target.database,
+                target.schema,
+                ctx.connection.warehouse or "",
+            )
+        except FeatureStoreNotInitializedError:
+            raise
+        except Exception as exc:
+            log.debug("fetch_feature_group_rows failed (treating as empty): %s", exc)
             return []
 
     # ------------------------------------------------------------------

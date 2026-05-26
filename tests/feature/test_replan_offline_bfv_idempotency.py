@@ -224,6 +224,8 @@ def offline_bfv_io():
     ) as ent, mock.patch(
         "snowflake.cli._plugins.feature.manager.FeatureManager._fetch_feature_view_rows"
     ) as fvs, mock.patch(
+        "snowflake.cli._plugins.feature.manager.FeatureManager._fetch_feature_group_rows"
+    ) as fgs, mock.patch(
         "snowflake.cli._plugins.feature.manager.FeatureManager._assert_initialized"
     ) as assert_init:
         exec_q.return_value = iter([])  # SHOW OFT / SHOW TABLES — empty
@@ -231,6 +233,11 @@ def offline_bfv_io():
         dt_text.return_value = {_OFFLINE_DT_NAME: _offline_dt_text()}
         ent.return_value = [_entity_row()]
         fvs.return_value = [_list_fv_row()]
+        # No FeatureGroups in the offline-BFV scenario.  Stubbed empty
+        # for the same reason as ``_fetch_feature_view_rows``: the
+        # imperative call is gated on a real session and would
+        # otherwise raise FeatureStoreNotInitializedError.
+        fgs.return_value = []
         assert_init.return_value = None
         yield {
             "execute_query": exec_q,
@@ -238,6 +245,7 @@ def offline_bfv_io():
             "fetch_dt_text_map": dt_text,
             "fetch_entity_rows": ent,
             "fetch_feature_view_rows": fvs,
+            "fetch_feature_group_rows": fgs,
             "assert_initialized": assert_init,
         }
 
