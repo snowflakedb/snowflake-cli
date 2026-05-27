@@ -123,11 +123,13 @@ class DeployProgressTracker:
     ) -> None:
         self._conn = conn
         self._sfqid: Optional[str] = None
+        self._show_backend_phases = show_backend_phases
         phase_names = [UPLOAD_PHASE]
         if show_backend_phases:
             phase_names.extend(BACKEND_PHASES)
         self._phases = [_Phase(name=p) for p in phase_names]
-        self._upload_details: list[str] = []
+        self._upload_stage_message: str = ""
+        self._upload_file_summaries: list[str] = []
         self._upload_file_total = 0
         self._upload_files_done = 0
         self._live: Optional[Live] = None
@@ -150,8 +152,11 @@ class DeployProgressTracker:
         self._get_phase(UPLOAD_PHASE).observe_running(0, datetime.now())
         self._refresh_display()
 
-    def set_upload_details(self, details: list[str]) -> None:
-        self._upload_details = details
+    def set_upload_context(
+        self, *, stage_message: str, file_summaries: list[str]
+    ) -> None:
+        self._upload_stage_message = stage_message
+        self._upload_file_summaries = file_summaries
         self._refresh_display()
 
     def set_upload_file_total(self, total: int) -> None:
@@ -209,6 +214,14 @@ class DeployProgressTracker:
                 self.fail_upload()
                 live.update(self._render())
                 raise
+            else:
+                # Plan ends the session after upload; deploy completes UPLOAD in
+                # run_deploy_poll once files are on the stage.
+                if not self._show_backend_phases:
+                    upload_phase = self._get_phase(UPLOAD_PHASE)
+                    if upload_phase.status == "running":
+                        self.complete_upload()
+                        live.update(self._render())
             finally:
                 self._live = None
 
@@ -302,9 +315,11 @@ class DeployProgressTracker:
             return ""
         return f"  ({_format_duration(seconds)})"
 
-    def _append_upload_details(self, out: Text) -> None:
-        for detail in self._upload_details:
-            out.append(f"    {detail}\n", style="dim")
+    def _append_upload_preamble(self, out: Text) -> None:
+        if self._upload_stage_message:
+            out.append(f"    {self._upload_stage_message}\n", style="dim")
+        for summary in self._upload_file_summaries:
+            out.append(f"    {summary}\n", style="dim")
 
     def _render_phase_line(self, out: Text, phase: _Phase) -> None:
         ts_str = (
@@ -336,12 +351,13 @@ class DeployProgressTracker:
         else:  # pending
             out.append(name_col + "·\n", style="dim")
 
-        if phase.name == UPLOAD_PHASE and self._upload_details:
-            self._append_upload_details(out)
-
     def _render(self) -> Text:
         out = Text("\n")
         for phase in self._phases:
+            if phase.name == UPLOAD_PHASE and (
+                self._upload_stage_message or self._upload_file_summaries
+            ):
+                self._append_upload_preamble(out)
             self._render_phase_line(out, phase)
         return out
 

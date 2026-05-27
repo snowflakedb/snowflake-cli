@@ -345,17 +345,20 @@ class DCMProjectManager(SqlExecutionMixin):
         SecurePath(project_paths.bundle_root).mkdir(parents=True, exist_ok=True)
 
         def _set_upload_details() -> None:
-            details = [
-                f"Creating temporary stage {stage_fqn.identifier}.",
-                *DCMProjectManager._summarize_upload_paths(
-                    plan.relative_paths_to_upload
-                ),
-            ]
+            parent_scope = project_identifier.prefix or str(project_identifier)
+            stage_message = f"Creating temporary stage inside {parent_scope}."
+            file_summaries = DCMProjectManager._summarize_upload_paths(
+                plan.relative_paths_to_upload
+            )
             if progress:
-                progress.set_upload_details(details)
+                progress.set_upload_context(
+                    stage_message=stage_message,
+                    file_summaries=file_summaries,
+                )
             else:
-                for detail in details:
-                    cli_console.step(detail)
+                cli_console.step(stage_message)
+                for summary in file_summaries:
+                    cli_console.step(summary)
 
         try:
             bundle_artifacts(
@@ -469,14 +472,23 @@ class DCMProjectManager(SqlExecutionMixin):
             else:
                 folder_counts[rel] = folder_counts.get(rel, 0) + 1
 
+        def _folder_label(folder: str) -> str:
+            if folder == f"{SOURCES_FOLDER}/":
+                return folder
+            return folder.rstrip("/")
+
+        def _file_label(count: int) -> str:
+            return "file " if count == 1 else "files"
+
         lines: List[str] = []
         if manifest_count:
-            file_word = "file" if manifest_count == 1 else "files"
             lines.append(
-                f"Uploading {manifest_count} {file_word} ({MANIFEST_FILE_NAME})."
+                f"Upload {manifest_count:2d} {_file_label(manifest_count)}"
+                f"({MANIFEST_FILE_NAME})."
             )
         for folder in sorted(folder_counts):
             count = folder_counts[folder]
-            file_word = "file" if count == 1 else "files"
-            lines.append(f"Uploading {count} {file_word} from {folder}")
+            lines.append(
+                f"Upload {count:2d} {_file_label(count)} from {_folder_label(folder)}"
+            )
         return lines
