@@ -23,9 +23,10 @@ STATUS_STYLE = Style(color=_COLOR_BLUE)
 REMOVED_STYLE = Style(color="red", italic=True)
 INSERTED_STYLE = Style(color="green", italic=True)
 
-# Test
+# Test / Analyze
 PASS_STYLE = Style(color="green")
 FAIL_STYLE = Style(color="red")
+WARNING_STYLE = Style(color="yellow")
 
 # Plan
 CREATE_STYLE = Style(color="green")
