@@ -14,11 +14,10 @@
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List
+from typing import TYPE_CHECKING, List, Optional
 
 from snowflake.cli._plugins.dcm.models import MANIFEST_FILE_NAME, SOURCES_FOLDER
 from snowflake.cli._plugins.dcm.utils import collect_output
-from snowflake.cli._plugins.stage.diff import _to_diff_line
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.artifacts.utils import bundle_artifacts
 from snowflake.cli.api.commands.utils import parse_key_value_variables
@@ -34,6 +33,9 @@ from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
 from snowflake.connector.cursor import SnowflakeCursor
+
+if TYPE_CHECKING:
+    from snowflake.cli._plugins.dcm.progress import DeployProgressTracker
 
 log = logging.getLogger(__name__)
 
@@ -305,7 +307,9 @@ class DCMProjectManager(SqlExecutionMixin):
 
     @staticmethod
     def sync_local_files(
-        project_identifier: FQN, source_directory: str | None = None
+        project_identifier: FQN,
+        source_directory: str | None = None,
+        progress: Optional["DeployProgressTracker"] = None,
     ) -> str:
         source_path = (
             SecurePath(source_directory).resolve()
@@ -317,57 +321,83 @@ class DCMProjectManager(SqlExecutionMixin):
             project_identifier,
             source_path,
         )
+        return DCMProjectManager._sync_local_files_impl(
+            project_identifier=project_identifier,
+            source_path=source_path,
+            progress=progress,
+        )
 
-        with cli_console.phase("Uploading definition files"):
-            stage_fqn = FQN.from_resource(
-                ObjectType.DCM_PROJECT, project_identifier, "TMP_STAGE"
+    @staticmethod
+    def _sync_local_files_impl(
+        project_identifier: FQN,
+        source_path: SecurePath,
+        progress: Optional["DeployProgressTracker"],
+    ) -> str:
+        stage_fqn = FQN.from_resource(
+            ObjectType.DCM_PROJECT, project_identifier, "TMP_STAGE"
+        )
+        plan = DCMProjectManager._build_upload_plan(
+            source_path.path, stage_fqn.identifier
+        )
+
+        project_paths = ProjectPaths(project_root=source_path.path)
+        project_paths.remove_up_bundle_root()
+        SecurePath(project_paths.bundle_root).mkdir(parents=True, exist_ok=True)
+
+        def _set_upload_details() -> None:
+            details = [
+                f"Creating temporary stage {stage_fqn.identifier}.",
+                *DCMProjectManager._summarize_upload_paths(
+                    plan.relative_paths_to_upload
+                ),
+            ]
+            if progress:
+                progress.set_upload_details(details)
+            else:
+                for detail in details:
+                    cli_console.step(detail)
+
+        try:
+            bundle_artifacts(
+                project_paths,
+                plan.artifacts,
+                pattern_type=PatternMatchingType.GLOB,
             )
-            plan = DCMProjectManager._build_upload_plan(
-                source_path.path, stage_fqn.identifier
+
+            _set_upload_details()
+
+            if progress:
+                progress.set_upload_file_total(len(plan.relative_paths_to_upload))
+
+            stage_manager = StageManager()
+            stage_manager.create(
+                fqn=FQN.from_stage(stage_fqn.identifier), temporary=True
             )
 
-            project_paths = ProjectPaths(project_root=source_path.path)
-            project_paths.remove_up_bundle_root()
-            SecurePath(project_paths.bundle_root).mkdir(parents=True, exist_ok=True)
-
-            try:
-                bundle_artifacts(
-                    project_paths,
-                    plan.artifacts,
-                    pattern_type=PatternMatchingType.GLOB,
+            for result in stage_manager.put_recursive(
+                local_path=project_paths.bundle_root,
+                stage_path=stage_fqn.identifier,
+                temp_directory=project_paths.bundle_root,
+            ):
+                if progress:
+                    progress.advance_upload()
+                log.info(
+                    "Uploaded %s to %s",
+                    result["source"],
+                    result["target"],
                 )
 
-                stage_manager = StageManager()
-                cli_console.step(f"Creating temporary stage {stage_fqn.identifier}.")
-                stage_manager.create(
-                    fqn=FQN.from_stage(stage_fqn.identifier), temporary=True
+            for entry in plan.individual_files:
+                stage_manager.put(local_path=entry.file, stage_path=entry.dest)
+                if progress:
+                    progress.advance_upload()
+                log.info(
+                    "Uploaded %s to %s",
+                    entry.file.relative_to(source_path.path),
+                    entry.dest,
                 )
-
-                DCMProjectManager._report_files_to_be_deployed(plan)
-
-                cli_console.step(
-                    f"Uploading files from local {project_paths.bundle_root} directory to temporary stage."
-                )
-                for result in stage_manager.put_recursive(
-                    local_path=project_paths.bundle_root,
-                    stage_path=stage_fqn.identifier,
-                    temp_directory=project_paths.bundle_root,
-                ):
-                    log.info(
-                        "Uploaded %s to %s",
-                        result["source"],
-                        result["target"],
-                    )
-
-                for entry in plan.individual_files:
-                    stage_manager.put(local_path=entry.file, stage_path=entry.dest)
-                    log.info(
-                        "Uploaded %s to %s",
-                        entry.file.relative_to(source_path.path),
-                        entry.dest,
-                    )
-            finally:
-                project_paths.clean_up_output()
+        finally:
+            project_paths.clean_up_output()
 
         log.info(
             "Finished syncing DCM files (project_identifier=%s, stage=%s).",
@@ -417,11 +447,36 @@ class DCMProjectManager(SqlExecutionMixin):
         return dest_dir
 
     @staticmethod
-    def _report_files_to_be_deployed(plan: UploadPlan) -> None:
-        if not plan.relative_paths_to_upload:
-            return
+    def _summarize_upload_paths(relative_paths: List[str]) -> List[str]:
+        """Summarize files to upload, grouped by sources/ subfolder."""
+        if not relative_paths:
+            return []
 
-        cli_console.message("Local changes to be deployed:")
-        with cli_console.indented():
-            for rel in plan.relative_paths_to_upload:
-                cli_console.message(_to_diff_line("added", rel, rel))
+        manifest_count = 0
+        folder_counts: dict[str, int] = {}
+
+        for rel in relative_paths:
+            if rel == MANIFEST_FILE_NAME:
+                manifest_count += 1
+            elif rel.startswith(f"{SOURCES_FOLDER}/"):
+                parts = Path(rel).parts
+                folder = (
+                    "/".join(parts[:2]) + "/"
+                    if len(parts) >= 3
+                    else f"{SOURCES_FOLDER}/"
+                )
+                folder_counts[folder] = folder_counts.get(folder, 0) + 1
+            else:
+                folder_counts[rel] = folder_counts.get(rel, 0) + 1
+
+        lines: List[str] = []
+        if manifest_count:
+            file_word = "file" if manifest_count == 1 else "files"
+            lines.append(
+                f"Uploading {manifest_count} {file_word} ({MANIFEST_FILE_NAME})."
+            )
+        for folder in sorted(folder_counts):
+            count = folder_counts[folder]
+            file_word = "file" if count == 1 else "files"
+            lines.append(f"Uploading {count} {file_word} from {folder}")
+        return lines

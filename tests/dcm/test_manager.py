@@ -758,3 +758,21 @@ class TestSyncLocalFiles:
             assert any(
                 filename in q and stage_dest in q for q in put_queries
             ), f"expected a PUT for {filename} to {stage_dest}; got: {put_queries}"
+
+
+class TestSummarizeUploadPaths:
+    def test_groups_by_sources_subfolder(self):
+        paths = [
+            MANIFEST_FILE_NAME,
+            f"{SOURCES_FOLDER}/definitions/a.sql",
+            f"{SOURCES_FOLDER}/definitions/b.sql",
+            f"{SOURCES_FOLDER}/macros/m.sql",
+            f"{SOURCES_FOLDER}/.DS_Store",
+        ]
+        lines = DCMProjectManager._summarize_upload_paths(paths)  # noqa: SLF001
+        assert lines == [
+            f"Uploading 1 file ({MANIFEST_FILE_NAME}).",
+            f"Uploading 1 file from {SOURCES_FOLDER}/",
+            f"Uploading 2 files from {SOURCES_FOLDER}/definitions/",
+            f"Uploading 1 file from {SOURCES_FOLDER}/macros/",
+        ]

@@ -204,7 +204,9 @@ class TestDCMDeploy:
         mock_connect,
     ):
         mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run.return_value = _plan_cursor(mock_cursor)
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
@@ -233,7 +235,9 @@ class TestDCMDeploy:
         mock_connect,
     ):
         mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run.return_value = _plan_cursor(mock_cursor)
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
@@ -261,7 +265,9 @@ class TestDCMDeploy:
         mock_connect,
     ):
         mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run.return_value = _plan_cursor(mock_cursor)
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
@@ -291,7 +297,9 @@ class TestDCMDeploy:
     ):
         """Test that files are synced to project stage when from_stage is not provided."""
         mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run.return_value = _plan_cursor(mock_cursor)
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_dcm_manager().sync_local_files.return_value = (
             "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
         )
@@ -316,7 +324,9 @@ class TestDCMDeploy:
         tmp_path,
     ):
         mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run.return_value = _plan_cursor(mock_cursor)
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_dcm_manager().sync_local_files.return_value = (
             "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
         )
@@ -337,6 +347,7 @@ class TestDCMDeploy:
         mock_dcm_manager().sync_local_files.assert_called_once_with(
             project_identifier=FQN.from_string("my_project"),
             source_directory=str(source_dir),
+            progress=mock_deploy_tracker.return_value,
         )
 
         call_args = mock_dcm_manager().deploy_async.call_args
@@ -353,7 +364,9 @@ class TestDCMDeploy:
         mock_connect,
     ):
         mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run.return_value = _plan_cursor(mock_cursor)
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
@@ -390,7 +403,9 @@ class TestDCMDeploy:
         mock_connect,
     ):
         mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run.return_value = _plan_cursor(mock_cursor)
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
@@ -429,7 +444,9 @@ class TestDCMDeploy:
         """When explicit identifier is provided, it overrides target's project_name
         but configuration from target should still be applied."""
         mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run.return_value = _plan_cursor(mock_cursor)
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
@@ -473,7 +490,9 @@ class TestDCMDeploy:
         mock_connect,
     ):
         mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run.return_value = _plan_cursor(mock_cursor)
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
@@ -516,7 +535,7 @@ class TestDCMDeploy:
     ):
         plan_response = {"version": 2, "changeset": []}
         mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run.return_value = _plan_cursor(
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
             mock_cursor, json.dumps(plan_response)
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
@@ -542,8 +561,8 @@ class TestDCMDeploy:
     ):
         plan_response = {"version": 2, "changeset": []}
         mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run.return_value = _mock_cursor_for_format(
-            mock_cursor, plan_response, format_name
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = (
+            _mock_cursor_for_format(mock_cursor, plan_response, format_name)
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
@@ -2193,7 +2212,9 @@ class TestAccountIdentifierValidationForCommands:
         mock_connect,
     ):
         mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run.return_value = _plan_cursor(mock_cursor)
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 

@@ -341,21 +341,22 @@ def deploy(
         cli_console.warning("Skipping planning step")
 
     manager = DCMProjectManager()
-    effective_stage = manager.sync_local_files(
-        project_identifier=project_id,
-        source_directory=str(from_location.path),
-    )
-
-    sfqid = manager.deploy_async(
-        project_identifier=project_id,
-        configuration=context.configuration,
-        from_stage=effective_stage,
-        variables=variables,
-        alias=alias,
-        skip_plan=skip_plan,
-    )
-    tracker = DeployProgressTracker(conn=manager.connection, sfqid=sfqid)
-    result = tracker.run()
+    tracker = DeployProgressTracker(conn=manager.connection)
+    with tracker.session():
+        effective_stage = manager.sync_local_files(
+            project_identifier=project_id,
+            source_directory=str(from_location.path),
+            progress=tracker,
+        )
+        sfqid = manager.deploy_async(
+            project_identifier=project_id,
+            configuration=context.configuration,
+            from_stage=effective_stage,
+            variables=variables,
+            alias=alias,
+            skip_plan=skip_plan,
+        )
+        result = tracker.run_deploy_poll(sfqid)
 
     reporter = PlanReporter(save_output=save_output, command_name="deploy")
     return reporter.process(result)
@@ -463,10 +464,13 @@ def plan(
     project_id = context.project_identifier
 
     manager = DCMProjectManager()
-    effective_stage = manager.sync_local_files(
-        project_identifier=project_id,
-        source_directory=str(from_location.path),
-    )
+    tracker = DeployProgressTracker(conn=manager.connection, show_backend_phases=False)
+    with tracker.session():
+        effective_stage = manager.sync_local_files(
+            project_identifier=project_id,
+            source_directory=str(from_location.path),
+            progress=tracker,
+        )
 
     with cli_console.spinner() as spinner:
         spinner.add_task(description=f"Planning dcm project {project_id}", total=None)

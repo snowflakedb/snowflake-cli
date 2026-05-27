@@ -13,24 +13,28 @@
 # limitations under the License.
 """Live phase-checklist progress display for DCM deploy operations."""
 
+from __future__ import annotations
+
 import json
 import logging
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
+from typing import Iterator, Optional
 
 from rich import get_console
 from rich.live import Live
 from rich.text import Text
+from snowflake.cli._plugins.dcm import styles
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.constants import QueryStatus
 from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__name__)
 
-# Canonical phase order for a deploy operation.
-EXPECTED_PHASES = ["RENDER", "COMPILE", "PLAN", "DEPLOY"]
+UPLOAD_PHASE = "UPLOAD"
+BACKEND_PHASES = ["RENDER", "COMPILE", "PLAN", "DEPLOY"]
 
 # Only PLAN and DEPLOY emit a meaningful 0-100 progress value.
 PHASES_WITH_PROGRESS_BAR = {"PLAN", "DEPLOY"}
@@ -50,12 +54,23 @@ _TERMINAL_STATUSES = {
 }
 
 
+def _format_duration(seconds: float) -> str:
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+    minutes = int(seconds // 60)
+    secs = seconds % 60
+    if secs < 0.05:
+        return f"{minutes}m"
+    return f"{minutes}m {secs:.0f}s"
+
+
 @dataclass
 class _Phase:
     name: str
     status: str = "pending"  # pending | running | done | failed
     progress: int = 0  # 0-100; only meaningful for PHASES_WITH_PROGRESS_BAR
     started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
 
     def observe_running(self, progress: int, ts: datetime) -> None:
         if self.status == "pending":
@@ -66,45 +81,148 @@ class _Phase:
     def observe_done(self, ts: datetime) -> None:
         if not self.started_at:
             self.started_at = ts
+        self.completed_at = ts
         self.status = "done"
 
-    def observe_failed(self) -> None:
+    def observe_failed(self, ts: Optional[datetime] = None) -> None:
+        end = ts or datetime.now()
         if not self.started_at:
-            self.started_at = datetime.now()
+            self.started_at = end
+        self.completed_at = end
         self.status = "failed"
+
+    def duration_seconds(self, *, now: Optional[datetime] = None) -> Optional[float]:
+        if not self.started_at:
+            return None
+        end = self.completed_at or now
+        if end is None:
+            return None
+        return (end - self.started_at).total_seconds()
 
 
 class DeployProgressTracker:
     """
-    Polls SYSTEM$GET_DCM_PROJECT_PROGRESS for a running deploy query and renders
-    a live phase checklist in the terminal.
+    Renders a live phase checklist for DCM upload and deploy operations.
 
-    Phases: RENDER → COMPILE → PLAN → DEPLOY.
-    PLAN and DEPLOY emit a 0-100 progress value; the other phases show a spinner.
-
-    Poll cadence: 1 Hz for the first 100 s, then 0.1 Hz.
+    Phases: UPLOAD (client-side) → RENDER → COMPILE → PLAN → DEPLOY (server-side).
 
     Usage::
 
-        sfqid = manager.deploy_async(...)
-        tracker = DeployProgressTracker(conn=manager.connection, sfqid=sfqid)
-        result_cursor = tracker.run()   # blocks; renders live; returns cursor
+        tracker = DeployProgressTracker(conn=manager.connection)
+        with tracker.session():
+            stage = manager.sync_local_files(..., progress=tracker)
+            sfqid = manager.deploy_async(...)
+            result = tracker.run_deploy_poll(sfqid)
     """
 
-    def __init__(self, conn: SnowflakeConnection, sfqid: str) -> None:
+    def __init__(
+        self,
+        conn: SnowflakeConnection,
+        *,
+        show_backend_phases: bool = True,
+    ) -> None:
         self._conn = conn
-        self._sfqid = sfqid
-        self._phases = [_Phase(name=p) for p in EXPECTED_PHASES]
+        self._sfqid: Optional[str] = None
+        phase_names = [UPLOAD_PHASE]
+        if show_backend_phases:
+            phase_names.extend(BACKEND_PHASES)
+        self._phases = [_Phase(name=p) for p in phase_names]
+        self._upload_details: list[str] = []
+        self._upload_file_total = 0
+        self._upload_files_done = 0
+        self._live: Optional[Live] = None
+
+    def _get_phase(self, name: str) -> _Phase:
+        for phase in self._phases:
+            if phase.name == name:
+                return phase
+        raise KeyError(name)
+
+    def _refresh_display(self) -> None:
+        if self._live is not None:
+            self._live.update(self._render())
+
+    # ------------------------------------------------------------------ #
+    # Upload phase (client-side)                                            #
+    # ------------------------------------------------------------------ #
+
+    def start_upload(self) -> None:
+        self._get_phase(UPLOAD_PHASE).observe_running(0, datetime.now())
+        self._refresh_display()
+
+    def set_upload_details(self, details: list[str]) -> None:
+        self._upload_details = details
+        self._refresh_display()
+
+    def set_upload_file_total(self, total: int) -> None:
+        """Set expected file count (from the upload plan, no extra I/O)."""
+        self._upload_file_total = max(0, total)
+        self._upload_files_done = 0
+        if self._upload_file_total > 0:
+            self._get_phase(UPLOAD_PHASE).observe_running(0, datetime.now())
+        self._refresh_display()
+
+    def _upload_percent(self) -> int:
+        if self._upload_file_total <= 0:
+            return 0
+        return min(100, int(100 * self._upload_files_done / self._upload_file_total))
+
+    def advance_upload(self, count: int = 1) -> None:
+        """Increment upload progress; refreshes only when the percent changes."""
+        if self._upload_file_total <= 0:
+            return
+        prev_percent = self._upload_percent()
+        self._upload_files_done = min(
+            self._upload_files_done + count, self._upload_file_total
+        )
+        new_percent = self._upload_percent()
+        if new_percent != prev_percent:
+            self._get_phase(UPLOAD_PHASE).observe_running(new_percent, datetime.now())
+            self._refresh_display()
+
+    def complete_upload(self) -> None:
+        if self._upload_file_total > 0:
+            self._get_phase(UPLOAD_PHASE).observe_running(100, datetime.now())
+        self._get_phase(UPLOAD_PHASE).observe_done(datetime.now())
+        self._refresh_display()
+
+    def fail_upload(self) -> None:
+        self._get_phase(UPLOAD_PHASE).observe_failed()
+        self._refresh_display()
+
+    @contextmanager
+    def session(self) -> Iterator["DeployProgressTracker"]:
+        """Keeps a single Live display open for upload and deploy polling."""
+        from snowflake.cli.api.cli_global_context import get_cli_context
+
+        if get_cli_context().silent:
+            yield self
+            return
+
+        console = get_console()
+        self.start_upload()
+        with Live(self._render(), console=console, refresh_per_second=4) as live:
+            self._live = live
+            try:
+                yield self
+            except Exception:
+                self.fail_upload()
+                live.update(self._render())
+                raise
+            finally:
+                self._live = None
 
     # ------------------------------------------------------------------ #
     # Query-status helpers                                                  #
     # ------------------------------------------------------------------ #
 
     def _is_still_running(self) -> bool:
+        assert self._sfqid is not None
         status = self._conn.get_query_status(self._sfqid)
         return self._conn.is_still_running(status)
 
     def _query_failed(self) -> bool:
+        assert self._sfqid is not None
         return self._conn.get_query_status(self._sfqid) in _TERMINAL_STATUSES
 
     # ------------------------------------------------------------------ #
@@ -112,6 +230,7 @@ class DeployProgressTracker:
     # ------------------------------------------------------------------ #
 
     def _poll_progress(self) -> Optional[dict]:
+        assert self._sfqid is not None
         try:
             cursor = self._conn.cursor()
             cursor.execute(f"SELECT SYSTEM$GET_DCM_PROJECT_PROGRESS('{self._sfqid}')")
@@ -135,15 +254,15 @@ class DeployProgressTracker:
 
         found_current = False
         for phase in self._phases:
+            if phase.name == UPLOAD_PHASE:
+                continue
             if phase.name == current_phase_name:
                 found_current = True
                 bar_progress = progress if phase.name in PHASES_WITH_PROGRESS_BAR else 0
                 phase.observe_running(bar_progress, ts)
             elif not found_current:
-                # Canonical backfill: this phase finished before our poll cadence caught it.
                 if phase.status not in ("done", "failed"):
                     phase.observe_done(ts)
-            # Phases after current remain pending.
 
     # ------------------------------------------------------------------ #
     # Finalisation                                                          #
@@ -152,64 +271,93 @@ class DeployProgressTracker:
     def _finalize_success(self) -> None:
         ts = datetime.now()
         for phase in self._phases:
+            if phase.name == UPLOAD_PHASE:
+                continue
             if phase.status in ("pending", "running"):
                 phase.observe_done(ts)
 
     def _finalize_failure(self) -> None:
-        # Mark the last running phase as failed; leave pending phases as-is.
+        ts = datetime.now()
         for phase in reversed(self._phases):
+            if phase.name == UPLOAD_PHASE:
+                continue
             if phase.status == "running":
-                phase.observe_failed()
+                phase.observe_failed(ts)
                 return
-        # If no running phase was ever observed, mark the first pending one.
         for phase in self._phases:
+            if phase.name == UPLOAD_PHASE:
+                continue
             if phase.status == "pending":
-                phase.observe_failed()
+                phase.observe_failed(ts)
                 return
 
     # ------------------------------------------------------------------ #
     # Rendering                                                             #
     # ------------------------------------------------------------------ #
 
-    def _render(self) -> Text:
-        out = Text()
-        for phase in self._phases:
-            ts_str = (
-                f"  {phase.started_at.strftime('%H:%M:%S')}" if phase.started_at else ""
-            )
-            name_col = f"  {phase.name:<{_PHASE_COL_WIDTH}}"
+    def _duration_suffix(self, phase: _Phase) -> str:
+        now = datetime.now() if phase.status == "running" else None
+        seconds = phase.duration_seconds(now=now)
+        if seconds is None:
+            return ""
+        return f"  ({_format_duration(seconds)})"
 
-            if phase.status == "done":
-                out.append(name_col, style="bold")
-                out.append("✓", style="bold green")
-                out.append(ts_str + "\n", style="dim")
-            elif phase.status == "failed":
-                out.append(name_col, style="bold")
-                out.append("✗", style="bold red")
-                out.append(ts_str + "\n", style="dim")
-            elif phase.status == "running":
-                out.append(name_col, style="bold")
-                if phase.name in PHASES_WITH_PROGRESS_BAR:
-                    filled = int(_BAR_WIDTH * phase.progress / 100)
-                    bar = "█" * filled + "░" * (_BAR_WIDTH - filled)
-                    out.append(f"[{bar}] {phase.progress:>3}%", style="cyan")
-                else:
-                    out.append("…", style="yellow")
-                out.append(ts_str + "\n", style="dim")
-            else:  # pending
-                out.append(name_col + "·\n", style="dim")
+    def _append_upload_details(self, out: Text) -> None:
+        for detail in self._upload_details:
+            out.append(f"    {detail}\n", style="dim")
+
+    def _render_phase_line(self, out: Text, phase: _Phase) -> None:
+        ts_str = (
+            f"  {phase.started_at.strftime('%H:%M:%S')}" if phase.started_at else ""
+        )
+        duration_str = self._duration_suffix(phase)
+        name_col = f"  {phase.name:<{_PHASE_COL_WIDTH}}"
+
+        if phase.status == "done":
+            out.append(name_col, style=styles.PHASE_DONE_STYLE)
+            out.append("✓", style="bold green")
+            out.append(ts_str + duration_str + "\n", style="dim")
+        elif phase.status == "failed":
+            out.append(name_col, style=styles.PHASE_FAILED_STYLE)
+            out.append("✗", style="bold red")
+            out.append(ts_str + duration_str + "\n", style="dim")
+        elif phase.status == "running":
+            out.append(name_col, style=styles.PHASE_RUNNING_STYLE)
+            show_bar = phase.name in PHASES_WITH_PROGRESS_BAR or (
+                phase.name == UPLOAD_PHASE and self._upload_file_total > 0
+            )
+            if show_bar:
+                filled = int(_BAR_WIDTH * phase.progress / 100)
+                bar = "█" * filled + "░" * (_BAR_WIDTH - filled)
+                out.append(f"[{bar}] {phase.progress:>3}%", style="cyan")
+            else:
+                out.append("…", style="yellow")
+            out.append(ts_str + duration_str + "\n", style="dim")
+        else:  # pending
+            out.append(name_col + "·\n", style="dim")
+
+        if phase.name == UPLOAD_PHASE and self._upload_details:
+            self._append_upload_details(out)
+
+    def _render(self) -> Text:
+        out = Text("\n")
+        for phase in self._phases:
+            self._render_phase_line(out, phase)
         return out
 
     # ------------------------------------------------------------------ #
-    # Main entry point                                                      #
+    # Main entry points                                                     #
     # ------------------------------------------------------------------ #
 
-    def run(self) -> SnowflakeCursor:
+    def run_deploy_poll(self, sfqid: str) -> SnowflakeCursor:
         """
-        Poll progress until the deploy query finishes, rendering a live phase
-        checklist.  Returns the result cursor (or raises on SQL failure).
+        Poll server-side deploy progress until the query finishes.
+        Call inside :meth:`session` after upload completes.
         """
         from snowflake.cli.api.cli_global_context import get_cli_context
+
+        self._sfqid = sfqid
+        self.complete_upload()
 
         silent = get_cli_context().silent
         start = time.monotonic()
@@ -234,6 +382,17 @@ class DeployProgressTracker:
                 self._finalize_failure()
             else:
                 self._finalize_success()
+        elif self._live is not None:
+            while self._is_still_running():
+                _tick()
+                self._live.update(self._render())
+                _sleep(time.monotonic() - start)
+
+            if self._query_failed():
+                self._finalize_failure()
+            else:
+                self._finalize_success()
+            self._live.update(self._render())
         else:
             console = get_console()
             with Live(self._render(), console=console, refresh_per_second=4) as live:
@@ -251,3 +410,7 @@ class DeployProgressTracker:
         result_cursor = self._conn.cursor()
         result_cursor.get_results_from_sfqid(self._sfqid)
         return result_cursor
+
+    def run(self, sfqid: str) -> SnowflakeCursor:
+        """Backward-compatible alias for :meth:`run_deploy_poll`."""
+        return self.run_deploy_poll(sfqid)
