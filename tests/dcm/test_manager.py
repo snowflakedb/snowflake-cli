@@ -771,8 +771,8 @@ class TestSummarizeUploadPaths:
         ]
         lines = DCMProjectManager._summarize_upload_paths(paths)  # noqa: SLF001
         assert lines == [
-            f"Upload  1 file ({MANIFEST_FILE_NAME}).",
-            f"Upload  1 file  from {SOURCES_FOLDER}/",
-            f"Upload  2 files from {SOURCES_FOLDER}/definitions",
-            f"Upload  1 file  from {SOURCES_FOLDER}/macros",
+            f"Upload {MANIFEST_FILE_NAME}",
+            f"Upload 1 file from {SOURCES_FOLDER}/",
+            f"Upload 2 files from {SOURCES_FOLDER}/definitions",
+            f"Upload 1 file from {SOURCES_FOLDER}/macros",
         ]

@@ -477,18 +477,11 @@ class DCMProjectManager(SqlExecutionMixin):
                 return folder
             return folder.rstrip("/")
 
-        def _file_label(count: int) -> str:
-            return "file " if count == 1 else "files"
-
         lines: List[str] = []
         if manifest_count:
-            lines.append(
-                f"Upload {manifest_count:2d} {_file_label(manifest_count)}"
-                f"({MANIFEST_FILE_NAME})."
-            )
+            lines.append(f"Upload {MANIFEST_FILE_NAME}")
         for folder in sorted(folder_counts):
             count = folder_counts[folder]
-            lines.append(
-                f"Upload {count:2d} {_file_label(count)} from {_folder_label(folder)}"
-            )
+            file_word = "file" if count == 1 else "files"
+            lines.append(f"Upload {count} {file_word} from {_folder_label(folder)}")
         return lines

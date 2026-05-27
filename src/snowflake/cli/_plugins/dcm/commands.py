@@ -464,23 +464,23 @@ def plan(
     project_id = context.project_identifier
 
     manager = DCMProjectManager()
-    tracker = DeployProgressTracker(conn=manager.connection, show_backend_phases=False)
+    tracker = DeployProgressTracker(conn=manager.connection, operation="plan")
     with tracker.session():
         effective_stage = manager.sync_local_files(
             project_identifier=project_id,
             source_directory=str(from_location.path),
             progress=tracker,
         )
-
-    with cli_console.spinner() as spinner:
-        spinner.add_task(description=f"Planning dcm project {project_id}", total=None)
-        result = manager.plan(
-            project_identifier=project_id,
-            configuration=context.configuration,
-            from_stage=effective_stage,
-            variables=variables,
-            save_output=save_output,
-            delta=delta,
+        result = tracker.run_plan_execute(
+            lambda: manager.plan(
+                project_identifier=project_id,
+                configuration=context.configuration,
+                from_stage=effective_stage,
+                variables=variables,
+                save_output=save_output,
+                delta=delta,
+            ),
+            loader_description=f"Planning dcm project {project_id}",
         )
 
     reporter = PlanReporter(save_output=save_output, command_name="plan")

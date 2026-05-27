@@ -1028,6 +1028,7 @@ class TestDCMPlan:
         mock_dcm_manager().sync_local_files.assert_called_once_with(
             project_identifier=FQN.from_string("my_project"),
             source_directory=str(source_dir),
+            progress=mock.ANY,
         )
 
         call_args = mock_dcm_manager().plan.call_args

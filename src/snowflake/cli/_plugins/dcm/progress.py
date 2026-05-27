@@ -21,7 +21,7 @@ import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Iterator, Optional
+from typing import Callable, Iterator, Literal, Optional
 
 from rich import get_console
 from rich.live import Live
@@ -35,6 +35,8 @@ log = logging.getLogger(__name__)
 
 UPLOAD_PHASE = "UPLOAD"
 BACKEND_PHASES = ["RENDER", "COMPILE", "PLAN", "DEPLOY"]
+PLAN_OPERATION_PHASES = ["RENDER", "COMPILE", "PLAN"]
+OperationMode = Literal["deploy", "plan"]
 
 # Only PLAN and DEPLOY emit a meaningful 0-100 progress value.
 PHASES_WITH_PROGRESS_BAR = {"PLAN", "DEPLOY"}
@@ -71,17 +73,19 @@ class _Phase:
     progress: int = 0  # 0-100; only meaningful for PHASES_WITH_PROGRESS_BAR
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
+    hide_timestamp: bool = False
 
     def observe_running(self, progress: int, ts: datetime) -> None:
-        if self.status == "pending":
+        if self.status == "pending" and not self.hide_timestamp:
             self.started_at = ts
         self.status = "running"
         self.progress = progress
 
     def observe_done(self, ts: datetime) -> None:
-        if not self.started_at:
-            self.started_at = ts
-        self.completed_at = ts
+        if not self.hide_timestamp:
+            if not self.started_at:
+                self.started_at = ts
+            self.completed_at = ts
         self.status = "done"
 
     def observe_failed(self, ts: Optional[datetime] = None) -> None:
@@ -119,14 +123,16 @@ class DeployProgressTracker:
         self,
         conn: SnowflakeConnection,
         *,
-        show_backend_phases: bool = True,
+        operation: OperationMode = "deploy",
     ) -> None:
         self._conn = conn
         self._sfqid: Optional[str] = None
-        self._show_backend_phases = show_backend_phases
+        self._operation = operation
         phase_names = [UPLOAD_PHASE]
-        if show_backend_phases:
+        if operation == "deploy":
             phase_names.extend(BACKEND_PHASES)
+        elif operation == "plan":
+            phase_names.extend(PLAN_OPERATION_PHASES)
         self._phases = [_Phase(name=p) for p in phase_names]
         self._upload_stage_message: str = ""
         self._upload_file_summaries: list[str] = []
@@ -214,14 +220,6 @@ class DeployProgressTracker:
                 self.fail_upload()
                 live.update(self._render())
                 raise
-            else:
-                # Plan ends the session after upload; deploy completes UPLOAD in
-                # run_deploy_poll once files are on the stage.
-                if not self._show_backend_phases:
-                    upload_phase = self._get_phase(UPLOAD_PHASE)
-                    if upload_phase.status == "running":
-                        self.complete_upload()
-                        live.update(self._render())
             finally:
                 self._live = None
 
@@ -309,24 +307,38 @@ class DeployProgressTracker:
     # ------------------------------------------------------------------ #
 
     def _duration_suffix(self, phase: _Phase) -> str:
+        if phase.hide_timestamp:
+            return ""
         now = datetime.now() if phase.status == "running" else None
         seconds = phase.duration_seconds(now=now)
         if seconds is None:
             return ""
         return f"  ({_format_duration(seconds)})"
 
+    def _simulate_instant_phase(self, name: str) -> None:
+        phase = self._get_phase(name)
+        phase.hide_timestamp = True
+        phase.status = "done"
+
+    def _phase_shows_progress_bar(self, phase: _Phase) -> bool:
+        if phase.name == UPLOAD_PHASE:
+            return self._upload_file_total > 0
+        if phase.name in PHASES_WITH_PROGRESS_BAR:
+            return self._operation == "deploy"
+        return False
+
     def _append_upload_preamble(self, out: Text) -> None:
         if self._upload_stage_message:
-            out.append(f"    {self._upload_stage_message}\n", style="dim")
+            out.append(f"{self._upload_stage_message}\n", style="dim")
         for summary in self._upload_file_summaries:
-            out.append(f"    {summary}\n", style="dim")
+            out.append(f"{summary}\n", style="dim")
 
     def _render_phase_line(self, out: Text, phase: _Phase) -> None:
-        ts_str = (
-            f"  {phase.started_at.strftime('%H:%M:%S')}" if phase.started_at else ""
-        )
+        ts_str = ""
+        if not phase.hide_timestamp and phase.started_at:
+            ts_str = f"  {phase.started_at.strftime('%H:%M:%S')}"
         duration_str = self._duration_suffix(phase)
-        name_col = f"  {phase.name:<{_PHASE_COL_WIDTH}}"
+        name_col = f"{phase.name:<{_PHASE_COL_WIDTH}}"
 
         if phase.status == "done":
             out.append(name_col, style=styles.PHASE_DONE_STYLE)
@@ -338,10 +350,7 @@ class DeployProgressTracker:
             out.append(ts_str + duration_str + "\n", style="dim")
         elif phase.status == "running":
             out.append(name_col, style=styles.PHASE_RUNNING_STYLE)
-            show_bar = phase.name in PHASES_WITH_PROGRESS_BAR or (
-                phase.name == UPLOAD_PHASE and self._upload_file_total > 0
-            )
-            if show_bar:
+            if self._phase_shows_progress_bar(phase):
                 filled = int(_BAR_WIDTH * phase.progress / 100)
                 bar = "█" * filled + "░" * (_BAR_WIDTH - filled)
                 out.append(f"[{bar}] {phase.progress:>3}%", style="cyan")
@@ -426,6 +435,51 @@ class DeployProgressTracker:
         result_cursor = self._conn.cursor()
         result_cursor.get_results_from_sfqid(self._sfqid)
         return result_cursor
+
+    def run_plan_execute(
+        self,
+        execute_plan: Callable[[], SnowflakeCursor],
+        *,
+        loader_description: str,
+    ) -> SnowflakeCursor:
+        """
+        Run DCM PLAN with simulated RENDER/COMPILE phases until progress polling
+        is available server-side.
+        """
+        from snowflake.cli.api.cli_global_context import get_cli_context
+        from snowflake.cli.api.console.console import cli_console
+
+        self.complete_upload()
+        for name in ("RENDER", "COMPILE"):
+            self._simulate_instant_phase(name)
+
+        plan_phase = self._get_phase("PLAN")
+        plan_phase.hide_timestamp = True
+        plan_phase.observe_running(0, datetime.now())
+        self._refresh_display()
+
+        silent = get_cli_context().silent
+        if silent:
+            return execute_plan()
+
+        assert self._live is not None
+        self._live.stop()
+        try:
+            with cli_console.spinner() as spinner:
+                spinner.add_task(description=loader_description, total=None)
+                result = execute_plan()
+        except Exception:
+            plan_phase.hide_timestamp = False
+            plan_phase.observe_failed()
+            raise
+        else:
+            plan_phase.hide_timestamp = False
+            plan_phase.observe_done(datetime.now())
+        finally:
+            self._live.start()
+            self._live.update(self._render())
+
+        return result
 
     def run(self, sfqid: str) -> SnowflakeCursor:
         """Backward-compatible alias for :meth:`run_deploy_poll`."""
