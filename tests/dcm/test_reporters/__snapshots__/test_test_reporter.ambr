@@ -4,6 +4,7 @@
   ✓ PASS      DB.SCHEMA.RED_TABLE (green_check)
   
   1 passed, 0 failed out of 1 total.
+  ================================================================================
   
   '''
 # ---
@@ -16,6 +17,7 @@
 # name: TestTestReporter.test_missing_expectation_violated_field
   '''
   ? UNKNOWN   DB.SCHEMA.UNKNOWN_STATUS (some_check)
+  ================================================================================
   
   0 passed, 0 failed, 1 unknown out of 1 total.
   
@@ -25,6 +27,7 @@
   '''
   
   No expectations found in the project.
+  ================================================================================
   
   '''
 # ---
@@ -34,6 +37,7 @@
   ✗ FAIL      DB.SCHEMA.TABLE_B (not_null)
     └─ Expected: = 0, Got: 42 (Metric: null_count)
   ✓ PASS      DB.SCHEMA.TABLE_C (range_check)
+  ================================================================================
   
   2 passed, 1 failed out of 3 total.
   
@@ -43,6 +47,7 @@
   '''
   
   No expectations found in the project.
+  ================================================================================
   
   '''
 # ---
@@ -51,6 +56,7 @@
   ✓ PASS      DB.SCHEMA.VALID (valid_check)
   
   1 passed, 0 failed out of 1 total.
+  ================================================================================
   
   '''
 # ---
@@ -58,6 +64,7 @@
   '''
   ✗ FAIL      DB.SCHEMA.ORDERS (null_check)
     └─ Expected: = 0, Got: 15 (Metric: null_count)
+  ================================================================================
   
   0 passed, 1 failed out of 1 total.
   
@@ -68,6 +75,7 @@
   ✓ PASS      DB.SCHEMA.CUSTOMERS (row_count_check)
   
   1 passed, 0 failed out of 1 total.
+  ================================================================================
   
   '''
 # ---
