@@ -544,10 +544,14 @@ def analyze(
     project_id = context.project_identifier
 
     manager = DCMProjectManager()
-    effective_stage = manager.sync_local_files(
-        project_identifier=project_id,
-        source_directory=str(from_location.path),
-    )
+    tracker = DeployProgressTracker(conn=manager.connection, operation="analyze")
+    with tracker.session():
+        effective_stage = manager.sync_local_files(
+            project_identifier=project_id,
+            source_directory=str(from_location.path),
+            progress=tracker,
+        )
+        tracker.complete_upload()
 
     with cli_console.spinner() as spinner:
         spinner.add_task(description=f"Analyzing dcm project {project_id}", total=None)

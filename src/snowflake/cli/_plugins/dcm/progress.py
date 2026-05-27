@@ -36,7 +36,9 @@ log = logging.getLogger(__name__)
 UPLOAD_PHASE = "UPLOAD"
 BACKEND_PHASES = ["RENDER", "COMPILE", "PLAN", "DEPLOY"]
 PLAN_OPERATION_PHASES = ["RENDER", "COMPILE", "PLAN"]
-OperationMode = Literal["deploy", "plan"]
+# "analyze" has no server-side progress phases — only the client-side UPLOAD
+# phase is rendered, with the same styling as deploy / plan.
+OperationMode = Literal["deploy", "plan", "analyze"]
 
 # Only PLAN and DEPLOY emit a meaningful 0-100 progress value.
 PHASES_WITH_PROGRESS_BAR = {"PLAN", "DEPLOY"}
