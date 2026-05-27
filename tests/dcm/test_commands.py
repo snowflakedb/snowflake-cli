@@ -77,6 +77,14 @@ def mock_object_manager():
 
 
 @pytest.fixture
+def mock_deploy_tracker():
+    with mock.patch(
+        "snowflake.cli._plugins.dcm.commands.DeployProgressTracker"
+    ) as _fixture:
+        yield _fixture
+
+
+@pytest.fixture
 def mock_project_exists():
     with mock.patch(
         "snowflake.cli._plugins.dcm.commands.ObjectManager.object_exists",
@@ -188,13 +196,15 @@ class TestDCMDeploy:
     def test_deploy_project(
         self,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
@@ -203,7 +213,7 @@ class TestDCMDeploy:
 
         assert result.exit_code == 0, result.output
 
-        mock_dcm_manager().deploy.assert_called_once_with(
+        mock_dcm_manager().deploy_async.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
@@ -215,13 +225,15 @@ class TestDCMDeploy:
     def test_deploy_project_with_variables(
         self,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
@@ -229,7 +241,7 @@ class TestDCMDeploy:
             result = runner.invoke(["dcm", "deploy", "fooBar", "-D", "key=value"])
         assert result.exit_code == 0, result.output
 
-        mock_dcm_manager().deploy.assert_called_once_with(
+        mock_dcm_manager().deploy_async.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
@@ -241,13 +253,15 @@ class TestDCMDeploy:
     def test_deploy_project_with_alias(
         self,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
@@ -255,7 +269,7 @@ class TestDCMDeploy:
             result = runner.invoke(["dcm", "deploy", "fooBar", "--alias", "my_alias"])
         assert result.exit_code == 0, result.output
 
-        mock_dcm_manager().deploy.assert_called_once_with(
+        mock_dcm_manager().deploy_async.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
@@ -269,13 +283,15 @@ class TestDCMDeploy:
         self,
         _mock_create,
         mock_dcm_manager,
+        mock_deploy_tracker,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
         """Test that files are synced to project stage when from_stage is not provided."""
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = (
             "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
         )
@@ -284,13 +300,14 @@ class TestDCMDeploy:
             result = runner.invoke(["dcm", "deploy", "my_project"])
             assert result.exit_code == 0, result.output
 
-        call_args = mock_dcm_manager().deploy.call_args
+        call_args = mock_dcm_manager().deploy_async.call_args
         assert "DCM_FOOBAR" in call_args.kwargs["from_stage"]
         assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
 
     def test_deploy_project_with_from_local_directory(
         self,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
@@ -298,7 +315,8 @@ class TestDCMDeploy:
         mock_connect,
         tmp_path,
     ):
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = (
             "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
         )
@@ -321,19 +339,21 @@ class TestDCMDeploy:
             source_directory=str(source_dir),
         )
 
-        call_args = mock_dcm_manager().deploy.call_args
+        call_args = mock_dcm_manager().deploy_async.call_args
         assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
 
     def test_deploy_with_target_flag(
         self,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
@@ -350,7 +370,7 @@ class TestDCMDeploy:
             result = runner.invoke(["dcm", "deploy", "--target", "dev"])
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().deploy.assert_called_once_with(
+        mock_dcm_manager().deploy_async.assert_called_once_with(
             project_identifier=FQN.from_string("my_project"),
             configuration=None,
             from_stage="TMP_STAGE",
@@ -362,13 +382,15 @@ class TestDCMDeploy:
     def test_deploy_with_default_target(
         self,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
@@ -385,7 +407,7 @@ class TestDCMDeploy:
             result = runner.invoke(["dcm", "deploy"])
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().deploy.assert_called_once_with(
+        mock_dcm_manager().deploy_async.assert_called_once_with(
             project_identifier=FQN.from_string("my_project"),
             configuration=None,
             from_stage="TMP_STAGE",
@@ -397,6 +419,7 @@ class TestDCMDeploy:
     def test_deploy_explicit_identifier_still_uses_target_config(
         self,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
@@ -405,7 +428,8 @@ class TestDCMDeploy:
     ):
         """When explicit identifier is provided, it overrides target's project_name
         but configuration from target should still be applied."""
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
@@ -429,7 +453,7 @@ class TestDCMDeploy:
             )
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().deploy.assert_called_once_with(
+        mock_dcm_manager().deploy_async.assert_called_once_with(
             project_identifier=FQN.from_string("explicit_project"),
             configuration="DEV_CONFIG",
             from_stage="TMP_STAGE",
@@ -441,13 +465,15 @@ class TestDCMDeploy:
     def test_deploy_with_target_uses_configuration(
         self,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
@@ -469,7 +495,7 @@ class TestDCMDeploy:
             result = runner.invoke(["dcm", "deploy", "--target", "dev"])
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().deploy.assert_called_once_with(
+        mock_dcm_manager().deploy_async.assert_called_once_with(
             project_identifier=FQN.from_string("my_project"),
             configuration="DEV_CONFIG",
             from_stage="TMP_STAGE",
@@ -481,6 +507,7 @@ class TestDCMDeploy:
     def test_deploy_with_save_output(
         self,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         mock_cursor,
@@ -488,7 +515,8 @@ class TestDCMDeploy:
         tmp_path,
     ):
         plan_response = {"version": 2, "changeset": []}
-        mock_dcm_manager().deploy.return_value = _plan_cursor(
+        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run.return_value = _plan_cursor(
             mock_cursor, json.dumps(plan_response)
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
@@ -504,6 +532,7 @@ class TestDCMDeploy:
     def test_deploy_with_json_formats_returns_response(
         self,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         mock_cursor,
@@ -512,7 +541,8 @@ class TestDCMDeploy:
         format_name,
     ):
         plan_response = {"version": 2, "changeset": []}
-        mock_dcm_manager().deploy.return_value = _mock_cursor_for_format(
+        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run.return_value = _mock_cursor_for_format(
             mock_cursor, plan_response, format_name
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
@@ -2154,6 +2184,7 @@ class TestAccountIdentifierValidationForCommands:
     def test_deploy_calls_check_account_identifier(
         self,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         mock_check_account_identifier,
         runner,
@@ -2161,7 +2192,8 @@ class TestAccountIdentifierValidationForCommands:
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 

@@ -23,6 +23,7 @@ from snowflake.cli._plugins.dcm.exceptions import (
 )
 from snowflake.cli._plugins.dcm.manager import DCMProjectManager
 from snowflake.cli._plugins.dcm.models import DCMManifest, DCMTarget, TargetContext
+from snowflake.cli._plugins.dcm.progress import DeployProgressTracker
 from snowflake.cli._plugins.dcm.reporters import (
     AnalyzeReporter,
     PlanReporter,
@@ -336,24 +337,25 @@ def deploy(
     context = _resolve_context_with_required_manifest(from_location, identifier, target)
     project_id = context.project_identifier
 
+    if skip_plan:
+        cli_console.warning("Skipping planning step")
+
     manager = DCMProjectManager()
     effective_stage = manager.sync_local_files(
         project_identifier=project_id,
         source_directory=str(from_location.path),
     )
 
-    with cli_console.spinner() as spinner:
-        spinner.add_task(description=f"Deploying dcm project {project_id}", total=None)
-        if skip_plan:
-            cli_console.warning("Skipping planning step")
-        result = manager.deploy(
-            project_identifier=project_id,
-            configuration=context.configuration,
-            from_stage=effective_stage,
-            variables=variables,
-            alias=alias,
-            skip_plan=skip_plan,
-        )
+    sfqid = manager.deploy_async(
+        project_identifier=project_id,
+        configuration=context.configuration,
+        from_stage=effective_stage,
+        variables=variables,
+        alias=alias,
+        skip_plan=skip_plan,
+    )
+    tracker = DeployProgressTracker(conn=manager.connection, sfqid=sfqid)
+    result = tracker.run()
 
     reporter = PlanReporter(save_output=save_output, command_name="deploy")
     return reporter.process(result)
