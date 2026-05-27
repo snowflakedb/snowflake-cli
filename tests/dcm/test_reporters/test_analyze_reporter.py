@@ -213,9 +213,12 @@ class TestAnalyzeErrorsReporter:
 
         output = capture_reporter_output(reporter, cursor)
         assert "sources/definitions/bad.sql" in output
-        assert "[001597]" in output
-        assert "line 10:0" in output
-        assert "syntax error line 10 at position 0 unexpected 'defineX'." in output
+        # We strip the noise prefix and never show the per-finding header
+        # (code / line / column / "error" label).
+        assert "DCM project ANALYZE error:" not in output
+        assert "[001597]" not in output
+        assert "line 10:0" not in output
+        assert "SQL compilation error: syntax error line 10" in output
         assert "Analysis found 1 error and 0 issues." in output
 
     def test_process_definition_level_errors(self):
@@ -253,8 +256,8 @@ class TestAnalyzeErrorsReporter:
         output = capture_reporter_output(reporter, cursor)
         assert "sources/definitions/analytics.sql" in output
         assert "DCM_DEMO_1_DEV3.ANALYTICS.ENRICHED_ORDER_DETAILS (TABLE)" in output
-        assert "[001634]" in output
-        assert "[001632]" in output
+        assert "[001634]" not in output
+        assert "[001632]" not in output
         assert "Could not analyze lineage due to unresolved dependency" in output
         assert "Unresolved or ambiguous dependency" in output
         assert "Analysis found 2 errors and 0 issues." in output
@@ -341,7 +344,6 @@ class TestAnalyzeErrorsReporter:
 
         output = capture_reporter_output(reporter, cursor)
         assert "bare error string" in output
-        assert "unknown location" in output
 
     def test_process_handles_legacy_definition_name(self):
         """Definitions without an `id` dict fall back to the legacy `name` field."""
@@ -445,10 +447,10 @@ class TestAnalyzeErrorsReporter:
         cursor = FakeCursor(data)
 
         output = capture_reporter_output(reporter, cursor)
-        assert "warning" in output
         assert "deprecated syntax used" in output
-        assert "[W001]" in output
-        assert "line 5:2" in output
+        # No per-finding header is rendered any more.
+        assert "[W001]" not in output
+        assert "line 5:2" not in output
         assert "Analysis found 0 errors and 1 issue." in output
 
     def test_process_file_issues_are_warnings(self):
@@ -473,8 +475,8 @@ class TestAnalyzeErrorsReporter:
 
         output = capture_reporter_output(reporter, cursor)
         assert "sources/definitions/note.sql" in output
-        assert "warning" in output
         assert "consider naming convention" in output
+        assert "[W100]" not in output
         assert "Analysis found 0 errors and 1 issue." in output
 
     def test_process_definition_issues_are_warnings(self):
@@ -501,8 +503,8 @@ class TestAnalyzeErrorsReporter:
 
         output = capture_reporter_output(reporter, cursor)
         assert "T (TABLE)" in output
-        assert "warning" in output
         assert "naming nit" in output
+        assert "[W100]" not in output
 
     def test_process_mixed_errors_and_issues_fails_with_combined_summary(self):
         data = {

@@ -1552,10 +1552,11 @@ class TestDCMAnalyze:
         assert "file-level syntax error" in result.output
         assert "MY_DB.PUBLIC.MY_TABLE (TABLE)" in result.output
         assert "column FOO not found" in result.output
-        assert "[001597]" in result.output
-        assert "[001632]" in result.output
-        assert "line 1:0" in result.output
-        assert "line 3:0" in result.output
+        # No per-finding header (code / line / column / "error" label) is rendered.
+        assert "[001597]" not in result.output
+        assert "[001632]" not in result.output
+        assert "line 1:0" not in result.output
+        assert "line 3:0" not in result.output
         assert "Analysis found 2 errors and 0 issues." in result.output
         assert "sources/definitions/ok.sql" not in result.output
 

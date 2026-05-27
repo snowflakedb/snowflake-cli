@@ -196,14 +196,21 @@ def _collect_file_findings(file_entry: Dict[str, Any]) -> _FileFindings:
     return collected
 
 
-def _format_finding_header(finding: _AnalyzeFinding) -> str:
-    code_part = f"[{sanitize_for_terminal(finding.code)}] " if finding.code else ""
-    if finding.line is not None:
-        column = finding.column if finding.column is not None else 0
-        location = f"line {finding.line}:{column}"
-    else:
-        location = "unknown location"
-    return f"{code_part}{location}"
+# Noise prefixes the server prepends to every analyze error message. We strip
+# them so the user sees only the actual diagnostic text.
+_NOISE_PREFIXES = ("DCM project ANALYZE error: ",)
+
+
+def _clean_finding_message(message: str) -> str:
+    cleaned = message
+    # Strip repeatedly in case a prefix appears more than once.
+    while True:
+        for prefix in _NOISE_PREFIXES:
+            if cleaned.startswith(prefix):
+                cleaned = cleaned[len(prefix) :]
+                break
+        else:
+            return cleaned
 
 
 class AnalyzeErrorsReporter(Reporter[_FileFindings]):
@@ -285,20 +292,12 @@ class AnalyzeErrorsReporter(Reporter[_FileFindings]):
 
     def _print_finding(self, finding: _AnalyzeFinding, depth: int) -> None:
         indent = self._INDENT * depth
-        header_indent = self._INDENT * (depth + 1)
-        if finding.kind == _KIND_ERROR:
-            style = styles.FAIL_STYLE
-            label = "error"
-        else:
-            style = styles.WARNING_STYLE
-            label = "warning"
-        cli_console.styled_message(
-            f"{indent}{label} {_format_finding_header(finding)}",
-            style=style,
+        style = (
+            styles.FAIL_STYLE if finding.kind == _KIND_ERROR else styles.WARNING_STYLE
         )
-        cli_console.styled_message("\n")
-        for line in sanitize_for_terminal(finding.message).splitlines() or [""]:
-            cli_console.styled_message(f"{header_indent}{line}", style=style)
+        message = sanitize_for_terminal(_clean_finding_message(finding.message))
+        for line in message.splitlines() or [""]:
+            cli_console.styled_message(f"{indent}{line}", style=style)
             cli_console.styled_message("\n")
 
     def _generate_summary_renderables(self) -> List[Text]:
