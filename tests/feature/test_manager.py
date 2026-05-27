@@ -2165,3 +2165,178 @@ class TestFeatureManagerQuery:
                     keys=[{"USER_ID": "u1"}],
                 )
         mock_fs.read_feature_view.assert_not_called()
+
+
+# ===========================================================================
+# online-service — get_status / initialize_service / destroy_service
+# ===========================================================================
+
+
+_STAGING_MANIFEST_YAML = textwrap.dedent(
+    """\
+    manifest_version: 1
+    type: feature_store
+    default_target: STAGING
+    targets:
+      STAGING:
+        account_identifier: TEST_ORG-TEST_ACCT
+        database: STAGING_DB
+        schema: STAGING_SCHEMA
+        role: STAGING_ROLE
+    """
+)
+
+
+class TestOnlineServiceManagerResolvesTarget:
+    """``get_status`` / ``initialize_service`` / ``destroy_service`` now
+    accept ``from_dir`` + ``target_name`` and route through
+    :meth:`FeatureManager._resolve_project` so the manifest target's
+    ``database`` / ``schema`` / ``role`` drives the
+    ``SYSTEM$*_FEATURE_STORE_ONLINE_SERVICE(...)`` calls.
+
+    When no manifest is reachable AND ``target_name`` is ``None`` the
+    manager silently falls back to today's connection-only behaviour
+    (operators still run ``snow feature online-service --drop`` from
+    a non-project dir to tear down a runtime).  An explicit
+    ``--target`` against a manifest-less directory is a hard error so
+    operators don't accidentally point at the wrong location.
+    """
+
+    def test_get_status_uses_resolved_target_database_and_schema(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path, yaml_text=_STAGING_MANIFEST_YAML)
+
+        FeatureManager().get_status(from_dir=tmp_path, target_name="STAGING")
+
+        assert mock_decl.service_sql.called
+        args = mock_decl.service_sql.call_args.args
+        assert args[0] == "STAGING_DB"
+        assert args[1] == "STAGING_SCHEMA"
+
+    def test_get_status_no_manifest_falls_back_to_connection(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        FeatureManager().get_status(from_dir=tmp_path, target_name=None)
+
+        args = mock_decl.service_sql.call_args.args
+        assert args[0] == "TEST_DB"
+        assert args[1] == "TEST_SCHEMA"
+
+    def test_get_status_no_manifest_with_explicit_target_returns_error_envelope(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """No manifest + explicit ``--target`` is a hard mismatch; the
+        wrapper catches the :class:`CliError` and surfaces it through
+        the result envelope so the CLI still renders ``Status: error``
+        (the spinner / poll loop relies on this convention)."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        result = FeatureManager().get_status(from_dir=tmp_path, target_name="PROD")
+        assert result.get("status") == "error"
+        assert "manifest.yml" in result.get("error", "")
+
+    def test_initialize_service_uses_resolved_target_role_as_producer(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path, yaml_text=_STAGING_MANIFEST_YAML)
+
+        FeatureManager().initialize_service(
+            from_dir=tmp_path,
+            target_name="STAGING",
+            producer_role=None,
+            consumer_role=None,
+        )
+
+        # service_sql is invoked twice (once inside get_status, once for
+        # the CREATE call).  Only the CREATE call carries roles.
+        create_calls = [
+            c for c in mock_decl.service_sql.call_args_list if len(c.args) >= 4
+        ]
+        assert create_calls, "service_sql with roles was never invoked"
+        args = create_calls[-1].args
+        assert args[0] == "STAGING_DB"
+        assert args[1] == "STAGING_SCHEMA"
+        assert args[2] == "STAGING_ROLE"
+        assert args[3] == "PUBLIC"
+
+    def test_initialize_service_explicit_producer_role_overrides_target_role(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path, yaml_text=_STAGING_MANIFEST_YAML)
+
+        FeatureManager().initialize_service(
+            from_dir=tmp_path,
+            target_name="STAGING",
+            producer_role="EXPLICIT_ROLE",
+            consumer_role="CUSTOM_CONSUMER",
+        )
+
+        create_calls = [
+            c for c in mock_decl.service_sql.call_args_list if len(c.args) >= 4
+        ]
+        args = create_calls[-1].args
+        assert args[2] == "EXPLICIT_ROLE"
+        assert args[3] == "CUSTOM_CONSUMER"
+
+    def test_initialize_service_no_manifest_falls_back_to_connection(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        FeatureManager().initialize_service(
+            from_dir=tmp_path,
+            target_name=None,
+            producer_role=None,
+            consumer_role=None,
+        )
+
+        create_calls = [
+            c for c in mock_decl.service_sql.call_args_list if len(c.args) >= 4
+        ]
+        args = create_calls[-1].args
+        assert args[0] == "TEST_DB"
+        assert args[1] == "TEST_SCHEMA"
+        assert args[2] == "TEST_ROLE"
+        assert args[3] == "PUBLIC"
+
+    def test_destroy_service_uses_resolved_target_database_and_schema(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path, yaml_text=_STAGING_MANIFEST_YAML)
+
+        FeatureManager().destroy_service(from_dir=tmp_path, target_name="STAGING")
+
+        args = mock_decl.service_sql.call_args.args
+        assert args[0] == "STAGING_DB"
+        assert args[1] == "STAGING_SCHEMA"
+
+    def test_destroy_service_no_manifest_falls_back_to_connection(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        FeatureManager().destroy_service(from_dir=tmp_path, target_name=None)
+
+        args = mock_decl.service_sql.call_args.args
+        assert args[0] == "TEST_DB"
+        assert args[1] == "TEST_SCHEMA"
+
+    def test_destroy_service_no_manifest_with_explicit_target_raises_cli_error(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        with pytest.raises(CliError, match="manifest.yml"):
+            FeatureManager().destroy_service(from_dir=tmp_path, target_name="PROD")

@@ -868,6 +868,118 @@ def test_online_service_both_flags_rejected(runner):
     assert result.exit_code != 0
 
 
+# --- --from / --target pass-through on online-service ------------------
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_online_service_status_passes_from_and_target_to_manager(
+    mock_manager, runner, tmp_path
+):
+    """``online-service --from DIR --target NAME`` forwards both flags
+    to :meth:`FeatureManager.get_status` as kwargs.
+
+    The status path used to be connection-only; the new contract
+    threads the manifest target through so different targets can
+    address independent online services in the same connection.
+    """
+    mock_manager.return_value.get_status.return_value = {
+        "status": "RUNNING",
+        "compute_pool": {"status": "ACTIVE", "name": "POOL"},
+        "postgres": {"status": "READY", "name": "PG"},
+        "service": {"status": "RUNNING", "name": "SVC"},
+        "endpoints": [],
+    }
+    result = runner.invoke(
+        [
+            "feature",
+            "online-service",
+            "--from",
+            str(tmp_path),
+            "--target",
+            "STAGING",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    call_kwargs = mock_manager.return_value.get_status.call_args.kwargs
+    assert call_kwargs["from_dir"] == Path(str(tmp_path))
+    assert call_kwargs["target_name"] == "STAGING"
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_online_service_status_defaults_to_cwd_and_none_target(mock_manager, runner):
+    """Bare ``online-service`` (no flags) passes ``from_dir=Path.cwd()``
+    and ``target_name=None`` so the manager can resolve the manifest's
+    ``default_target`` (or fall back to the connection when no manifest
+    is reachable).
+    """
+    mock_manager.return_value.get_status.return_value = {
+        "status": "RUNNING",
+        "compute_pool": {"status": "ACTIVE", "name": "POOL"},
+        "postgres": {"status": "READY", "name": "PG"},
+        "service": {"status": "RUNNING", "name": "SVC"},
+        "endpoints": [],
+    }
+    result = runner.invoke(["feature", "online-service"])
+    assert result.exit_code == 0, result.output
+    call_kwargs = mock_manager.return_value.get_status.call_args.kwargs
+    assert call_kwargs["from_dir"] == Path.cwd()
+    assert call_kwargs["target_name"] is None
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_online_service_create_passes_from_and_target(mock_manager, runner, tmp_path):
+    """``--create --from DIR --target NAME`` threads both flags to
+    :meth:`FeatureManager.initialize_service`."""
+    mock_manager.return_value.get_status.return_value = {"status": "STOPPED"}
+    mock_manager.return_value.initialize_service.return_value = {
+        "status": "RUNNING",
+        "message": "Service initialized successfully",
+    }
+    result = runner.invoke(
+        [
+            "feature",
+            "online-service",
+            "--create",
+            "--from",
+            str(tmp_path),
+            "--target",
+            "PROD",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    init_kwargs = mock_manager.return_value.initialize_service.call_args.kwargs
+    assert init_kwargs["from_dir"] == Path(str(tmp_path))
+    assert init_kwargs["target_name"] == "PROD"
+    status_kwargs = mock_manager.return_value.get_status.call_args.kwargs
+    assert status_kwargs["from_dir"] == Path(str(tmp_path))
+    assert status_kwargs["target_name"] == "PROD"
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_online_service_drop_passes_from_and_target(mock_manager, runner, tmp_path):
+    """``--drop --from DIR --target NAME`` threads both flags to
+    :meth:`FeatureManager.destroy_service`."""
+    mock_manager.return_value.destroy_service.return_value = {
+        "status": "destroyed",
+        "dropped_ofts": [],
+    }
+    result = runner.invoke(
+        [
+            "feature",
+            "online-service",
+            "--drop",
+            "--from",
+            str(tmp_path),
+            "--target",
+            "PROD",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    call_kwargs = mock_manager.return_value.destroy_service.call_args.kwargs
+    assert call_kwargs["from_dir"] == Path(str(tmp_path))
+    assert call_kwargs["target_name"] == "PROD"
+
+
 # ---------------------------------------------------------------------------
 # ingest
 # ---------------------------------------------------------------------------
