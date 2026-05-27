@@ -563,6 +563,8 @@ def describe(
 
 @app.command(name="online-service", requires_connection=True)
 def online_service(
+    from_location: Path = from_option,
+    target: Optional[str] = target_option,
     create: bool = typer.Option(
         False, "--create", help="Create and initialize the online service."
     ),
@@ -574,7 +576,8 @@ def online_service(
     producer_role: Optional[str] = typer.Option(
         None,
         "--producer-role",
-        help="Role for producing features. Defaults to the connection role.",
+        help="Role for producing features. Defaults to the manifest "
+        "target's role (or the connection role if neither is set).",
         show_default=False,
     ),
     consumer_role: Optional[str] = typer.Option(
@@ -587,11 +590,18 @@ def online_service(
 ) -> CommandResult:
     """Manage the feature store online service. Shows status by default.
 
-    ``online-service`` is intentionally connection-only — it does not
-    take ``--from`` / ``--target`` because operators query / create /
-    drop the service before / after manifest scaffolding (the
-    service is shared across every project that points at the same
-    Snowflake schema).
+    The online service is bound to a specific ``<DB>.<SCHEMA>``
+    location, so different manifest targets can run independent
+    services in different states.  ``--from`` / ``--target`` route
+    every sub-action (status, ``--create``, ``--drop``) through the
+    same manifest resolver every other ``snow feature`` command uses.
+
+    When no ``manifest.yml`` is reachable from ``--from`` AND
+    ``--target`` is omitted, the command falls back to the active
+    connection's database / schema so operators can still query or
+    destroy a runtime before scaffolding a project tree.  An
+    explicit ``--target`` against a directory without a manifest is
+    a hard error (mismatched intent).
     """
     if create and drop:
         raise typer.BadParameter(
@@ -599,7 +609,7 @@ def online_service(
         )
     if create:
         mgr = FeatureManager()
-        pre_status = mgr.get_status()
+        pre_status = mgr.get_status(from_dir=from_location, target_name=target)
         if pre_status.get("status") == "RUNNING":
             return _to_object(
                 {
@@ -635,6 +645,8 @@ def online_service(
         spinner_thread.start()
 
         result = mgr.initialize_service(
+            from_dir=from_location,
+            target_name=target,
             producer_role=producer_role,
             consumer_role=consumer_role,
         )
@@ -658,7 +670,7 @@ def online_service(
         while time.monotonic() < deadline:
             time.sleep(5)
             try:
-                status = mgr.get_status()
+                status = mgr.get_status(from_dir=from_location, target_name=target)
                 current = status.get("status", "unknown")
                 message = status.get("message", "")
                 stage_info["status"] = current
@@ -683,9 +695,11 @@ def online_service(
         sys.stderr.flush()
         return _to_object({"status": "timeout", "error": "Timed out after 600s"})
     elif drop:
-        result = FeatureManager().destroy_service()
+        result = FeatureManager().destroy_service(
+            from_dir=from_location, target_name=target
+        )
     else:
-        result = FeatureManager().get_status()
+        result = FeatureManager().get_status(from_dir=from_location, target_name=target)
         if result.get("status") != "error":
             from snowflake.ml.feature_store.decl import api as decl_api
 

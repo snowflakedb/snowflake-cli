@@ -1566,21 +1566,103 @@ class FeatureManager(SqlExecutionMixin):
             return []
 
     # ------------------------------------------------------------------
+    # _resolve_service_target — manifest-or-connection for online-service
+    # ------------------------------------------------------------------
+
+    def _resolve_service_target(
+        self,
+        from_dir: Optional[Path],
+        target_name: Optional[str],
+    ) -> Tuple[str, str, Optional[str]]:
+        """Resolve the ``(database, schema, role)`` for an
+        ``online-service`` sub-command.
+
+        Tries manifest discovery first via :meth:`_resolve_project`.
+        Falls back to the active connection only when no manifest is
+        reachable AND no explicit ``target_name`` was requested — this
+        preserves the documented "operators run ``online-service``
+        before/after manifest scaffolding" workflow without silently
+        misrouting an explicit ``--target`` against a manifest-less
+        directory.
+
+        Args:
+            from_dir: Project-root start (or ``None`` for ``cwd``).
+            target_name: Optional manifest target name.  Passing this
+                against a directory without ``manifest.yml`` is a hard
+                error (the resolver re-raises ``CliError``).
+
+        Returns:
+            ``(database, schema, role)``.  ``role`` is the manifest
+            target's ``role`` when set, falling back to
+            ``ctx.connection.role``.
+
+        Raises:
+            CliError: Propagated from :meth:`_resolve_project` when
+                manifest discovery fails (missing manifest, unknown
+                target, account mismatch).  Only suppressed when both
+                ``target_name`` is ``None`` AND the failure is the
+                "manifest not found" kind — every other failure mode
+                continues to propagate so the operator sees the real
+                cause.
+        """
+        ctx = get_cli_context()
+        start = Path(from_dir) if from_dir is not None else Path.cwd()
+        try:
+            _, _, target = self._resolve_project(start, target_name)
+        except CliError:
+            if target_name is not None:
+                raise
+            return (
+                ctx.connection.database or "",
+                ctx.connection.schema or "",
+                ctx.connection.role,
+            )
+        return (
+            target.database,
+            target.schema,
+            target.role or ctx.connection.role,
+        )
+
+    # ------------------------------------------------------------------
     # get_status
     # ------------------------------------------------------------------
 
-    def get_status(self) -> dict[str, Any]:
-        """Query and parse the feature store runtime status.
+    def get_status(
+        self,
+        from_dir: Optional[Path] = None,
+        target_name: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Query and parse the feature store online-service status.
 
-        ``get_status`` is intentionally connection-only — it reads the
-        active connection's database/schema rather than a manifest
-        target.  Operators query the runtime status before manifest
-        scaffolding (``snow feature online-service`` runs without a
-        ``--from`` flag), so requiring a manifest here would be
-        circular.
+        The online service is bound to a specific ``<DB>.<SCHEMA>``
+        location, so different manifest targets can run independent
+        services in different states.  When *from_dir* points at a
+        directory under (or equal to) a manifest project root, the
+        named target (or ``default_target``) supplies the location;
+        otherwise the active connection's database / schema is used.
+
+        Args:
+            from_dir: Project-root start.  ``None`` resolves to
+                ``Path.cwd()``.
+            target_name: Optional manifest target.  ``None`` resolves
+                to the manifest's ``default_target`` when a manifest
+                is reachable; against a manifest-less directory it
+                triggers the connection fallback.  A non-``None``
+                value against a manifest-less directory is a hard
+                error surfaced through the ``{status: error}``
+                envelope.
+
+        Returns:
+            Parsed status dict (or an ``{status: error}`` envelope on
+            failure).
         """
+        try:
+            database, schema, _ = self._resolve_service_target(from_dir, target_name)
+        except CliError as exc:
+            return {"status": "error", "error": str(exc)}
+
         ctx = get_cli_context()
-        sqls = decl_api.service_sql(ctx.connection.database, ctx.connection.schema)
+        sqls = decl_api.service_sql(database, schema)
         try:
             rows = list(self.execute_query(sqls["get_status"]))
             raw = list(rows[0])[0] if rows else None
@@ -1588,8 +1670,8 @@ class FeatureManager(SqlExecutionMixin):
                 return {"status": "error", "error": "No response from system function"}
             result = decl_api.parse_service_status(raw)
             result["_user"] = ctx.connection.user or ""
-            result["_database"] = ctx.connection.database or ""
-            result["_schema"] = ctx.connection.schema or ""
+            result["_database"] = database
+            result["_schema"] = schema
             return result
         except Exception as exc:
             log.warning("get_status raised %s: %s", type(exc).__name__, exc)
@@ -1601,19 +1683,38 @@ class FeatureManager(SqlExecutionMixin):
 
     def initialize_service(
         self,
+        from_dir: Optional[Path] = None,
+        target_name: Optional[str] = None,
         producer_role: Optional[str] = None,
         consumer_role: Optional[str] = None,
     ) -> dict[str, Any]:
-        """Send CREATE runtime command. Returns immediately; caller polls."""
-        ctx = get_cli_context()
-        p_role = producer_role or ctx.connection.role
-        c_role = consumer_role or "PUBLIC"
-        sqls = decl_api.service_sql(
-            ctx.connection.database, ctx.connection.schema, p_role, c_role
-        )
-        location = f"{ctx.connection.database}.{ctx.connection.schema}"
+        """Send CREATE runtime command. Returns immediately; caller polls.
 
-        current = self.get_status()
+        Args:
+            from_dir: Project-root start (or ``None`` for ``cwd``).
+            target_name: Optional manifest target.  ``None`` resolves
+                to the manifest's ``default_target`` when reachable.
+            producer_role: Optional explicit producer role override.
+                Precedence: explicit > manifest ``target.role`` >
+                ``ctx.connection.role``.
+            consumer_role: Optional explicit consumer role override.
+                Defaults to ``PUBLIC``.
+
+        Returns:
+            ``{status, message}`` envelope.  Status is ``RUNNING``
+            (early-exit when the service is already up),
+            ``CREATING`` (after a successful CREATE submission), or
+            ``error`` (failure).
+        """
+        database, schema, resolved_role = self._resolve_service_target(
+            from_dir, target_name
+        )
+        p_role = producer_role or resolved_role
+        c_role = consumer_role or "PUBLIC"
+        sqls = decl_api.service_sql(database, schema, p_role, c_role)
+        location = f"{database}.{schema}"
+
+        current = self.get_status(from_dir=from_dir, target_name=target_name)
         if current.get("status") == "RUNNING":
             return {
                 "status": "RUNNING",
@@ -1628,10 +1729,23 @@ class FeatureManager(SqlExecutionMixin):
 
         return {"status": "CREATING", "message": f"Create requested for {location}"}
 
-    def destroy_service(self) -> dict[str, Any]:
-        """Drop all OFTs then drop the feature store runtime."""
-        ctx = get_cli_context()
-        sqls = decl_api.service_sql(ctx.connection.database, ctx.connection.schema)
+    def destroy_service(
+        self,
+        from_dir: Optional[Path] = None,
+        target_name: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Drop all OFTs then drop the feature store runtime.
+
+        Args:
+            from_dir: Project-root start (or ``None`` for ``cwd``).
+            target_name: Optional manifest target.  ``None`` resolves
+                to the manifest's ``default_target`` when reachable.
+
+        Returns:
+            ``{status: destroyed, dropped_ofts, errors}`` envelope.
+        """
+        database, schema, _ = self._resolve_service_target(from_dir, target_name)
+        sqls = decl_api.service_sql(database, schema)
 
         dropped_ofts: list[str] = []
         errors: list[str] = []
@@ -1641,9 +1755,7 @@ class FeatureManager(SqlExecutionMixin):
                 name = row.get("name", "")
                 if name:
                     try:
-                        drop_sql = decl_api.drop_queries(
-                            [name], ctx.connection.database, ctx.connection.schema
-                        )
+                        drop_sql = decl_api.drop_queries([name], database, schema)
                         for sql in drop_sql:
                             self.execute_query(sql)
                         dropped_ofts.append(name)
