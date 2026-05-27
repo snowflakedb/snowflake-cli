@@ -27,9 +27,9 @@
   |                                                Overrides the value specified |
   |                                                for the connection.           |
   | --protocol                            TEXT     Protocol to use for the       |
-  |                                                connection, http or https.    |
-  |                                                Overrides the value specified |
-  |                                                for the connection.           |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
