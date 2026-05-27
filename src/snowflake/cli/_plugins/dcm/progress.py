@@ -327,11 +327,13 @@ class DeployProgressTracker:
             return self._operation == "deploy"
         return False
 
-    def _append_upload_preamble(self, out: Text) -> None:
+    def _append_upload_details(self, out: Text) -> None:
+        """Render the stage-creation message and folder counters indented
+        beneath the UPLOAD phase line (dim, two-space indent)."""
         if self._upload_stage_message:
-            out.append(f"{self._upload_stage_message}\n", style="dim")
+            out.append(f"  {self._upload_stage_message}\n", style="dim")
         for summary in self._upload_file_summaries:
-            out.append(f"{summary}\n", style="dim")
+            out.append(f"  {summary}\n", style="dim")
 
     def _render_phase_line(self, out: Text, phase: _Phase) -> None:
         ts_str = ""
@@ -363,11 +365,11 @@ class DeployProgressTracker:
     def _render(self) -> Text:
         out = Text("\n")
         for phase in self._phases:
+            self._render_phase_line(out, phase)
             if phase.name == UPLOAD_PHASE and (
                 self._upload_stage_message or self._upload_file_summaries
             ):
-                self._append_upload_preamble(out)
-            self._render_phase_line(out, phase)
+                self._append_upload_details(out)
         return out
 
     # ------------------------------------------------------------------ #
