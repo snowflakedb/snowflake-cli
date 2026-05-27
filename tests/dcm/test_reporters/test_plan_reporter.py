@@ -11,11 +11,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from unittest import mock
+
 import pytest
-from snowflake.cli._plugins.dcm.reporters.plan import PlanReporter, PlanRow
+from snowflake.cli._plugins.dcm import styles
+from snowflake.cli._plugins.dcm.reporters.plan import (
+    PlanDetail,
+    PlanReporter,
+    PlanRow,
+)
 from snowflake.cli.api.identifiers import FQN
 
-from tests.dcm.test_reporters.utils import FakeCursor, capture_reporter_output
+from tests.dcm.test_reporters.utils import (
+    CLI_CONSOLE_PATH,
+    FakeCursor,
+    capture_reporter_output,
+)
 
 
 def plan_entity_change_factory(operation: str, domain: str, name: str):
@@ -229,6 +240,427 @@ class TestPlanReporterTerse:
         assert lines[0].startswith("CREATE")
         assert lines[1].startswith("WEIRD")
 
+    def test_alter_with_removed_data_metric_function(self, snapshot):
+        """Single nested collection wrapper around a single 'removed' leaf change.
+
+        Real payload shape from a TABLE ALTER that drops one data metric
+        function; the leaf's ``item_id.desc`` carries the human-readable
+        identifier we want to surface.
+        """
+        data = {
+            "version": 2,
+            "metadata": {},
+            "changeset": [
+                {
+                    "type": "ALTER",
+                    "object_id": {
+                        "domain": "TABLE",
+                        "name": '"ENRICHED_ORDER_DETAILS"',
+                        "fqn": (
+                            '"DCM_DEMO_1_DEV2"."ANALYTICS"."ENRICHED_ORDER_DETAILS"'
+                        ),
+                        "database": '"DCM_DEMO_1_DEV2"',
+                        "schema": '"ANALYTICS"',
+                    },
+                    "changes": [
+                        {
+                            "kind": "collection",
+                            "collection_name": "data_metric_functions",
+                            "changes": [
+                                {
+                                    "kind": "removed",
+                                    "item_id": {
+                                        "columns": ["CUSTOMER_CITY"],
+                                        "desc": (
+                                            "SNOWHOUSE_IMPORT.CORE.NULL_COUNT$V1"
+                                            "(CUSTOMER_CITY)"
+                                        ),
+                                        "metric_name": (
+                                            "SNOWHOUSE_IMPORT.CORE.NULL_COUNT$V1"
+                                            "(TABLE(VARCHAR))"
+                                        ),
+                                    },
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+        }
+        output = capture_reporter_output(PlanReporter(), FakeCursor(data))
+        assert output == snapshot
+        assert "removed  SNOWHOUSE_IMPORT.CORE.NULL_COUNT$V1(CUSTOMER_CITY)" in output
+
+    def test_alter_with_modified_grants_nested(self, snapshot):
+        """ROLE ALTER with mixed added/removed leaves plus a 'modified' parent.
+
+        Validates that:
+        - ``collection`` wrappers are unwrapped (no header line emitted).
+        - 5 leaf changes are surfaced under the ALTER row.
+        - The 'modified' entry's nested ``added OWNERSHIP`` renders deeper
+          (header_plus_indent rule).
+        """
+        data = {
+            "version": 2,
+            "metadata": {},
+            "changeset": [
+                {
+                    "type": "ALTER",
+                    "object_id": {
+                        "domain": "ROLE",
+                        "name": '"DCM_DEVELOPER"',
+                        "fqn": '"DCM_DEVELOPER"',
+                    },
+                    "changes": [
+                        {
+                            "kind": "collection",
+                            "collection_name": "grants",
+                            "changes": [
+                                {
+                                    "kind": "removed",
+                                    "item_id": {
+                                        "desc": (
+                                            "DATABASE_ROLE "
+                                            "DCM_DEMO_1_DEV2.ADMIN_DEV2"
+                                        ),
+                                        "securable_object_domain": "DATABASE_ROLE",
+                                        "securable_object_name": (
+                                            "DCM_DEMO_1_DEV2.ADMIN_DEV2"
+                                        ),
+                                    },
+                                },
+                                {
+                                    "kind": "added",
+                                    "item_id": {
+                                        "desc": (
+                                            "DATABASE_ROLE "
+                                            "DCM_DEMO_1_DEV3.ADMIN_DEV3"
+                                        ),
+                                        "securable_object_domain": "DATABASE_ROLE",
+                                        "securable_object_name": (
+                                            "DCM_DEMO_1_DEV3.ADMIN_DEV3"
+                                        ),
+                                    },
+                                },
+                                {
+                                    "kind": "modified",
+                                    "item_id": {
+                                        "desc": ("ON SCHEMA DCM_DEMO_1_DEV2.TEST_TEAM"),
+                                        "securable_object_domain": "SCHEMA",
+                                        "securable_object_name": (
+                                            "DCM_DEMO_1_DEV2.TEST_TEAM"
+                                        ),
+                                    },
+                                    "changes": [
+                                        {
+                                            "kind": "collection",
+                                            "collection_name": "privileges",
+                                            "changes": [
+                                                {
+                                                    "kind": "added",
+                                                    "item_id": {
+                                                        "desc": "OWNERSHIP",
+                                                        "privilege": "OWNERSHIP",
+                                                    },
+                                                }
+                                            ],
+                                        }
+                                    ],
+                                },
+                                {
+                                    "kind": "removed",
+                                    "item_id": {
+                                        "desc": "ROLE TEST_TEAM_OWNER_DEV2",
+                                        "securable_object_domain": "ROLE",
+                                        "securable_object_name": (
+                                            "TEST_TEAM_OWNER_DEV2"
+                                        ),
+                                    },
+                                },
+                                {
+                                    "kind": "added",
+                                    "item_id": {
+                                        "desc": "ROLE TEST_TEAM_OWNER_DEV3",
+                                        "securable_object_domain": "ROLE",
+                                        "securable_object_name": (
+                                            "TEST_TEAM_OWNER_DEV3"
+                                        ),
+                                    },
+                                },
+                            ],
+                        }
+                    ],
+                }
+            ],
+        }
+        output = capture_reporter_output(PlanReporter(), FakeCursor(data))
+
+        lines = [line for line in output.split("\n") if line.strip()]
+        assert lines[0].startswith("ALTER")
+        assert "ROLE" in lines[0] and "DCM_DEVELOPER" in lines[0]
+        # All 5 leaves at depth 1; nested OWNERSHIP at depth 2.
+        leaf_descs = [
+            "DATABASE_ROLE DCM_DEMO_1_DEV2.ADMIN_DEV2",
+            "DATABASE_ROLE DCM_DEMO_1_DEV3.ADMIN_DEV3",
+            "ON SCHEMA DCM_DEMO_1_DEV2.TEST_TEAM",
+            "ROLE TEST_TEAM_OWNER_DEV2",
+            "ROLE TEST_TEAM_OWNER_DEV3",
+        ]
+        for desc in leaf_descs:
+            assert desc in output
+        # Nested 'added OWNERSHIP' should be indented one level deeper than
+        # its parent 'modified ON SCHEMA …'.
+        modified_line = next(
+            line for line in lines if line.lstrip().startswith("modified")
+        )
+        owner_line = next(
+            line
+            for line in lines
+            if line.lstrip().startswith("added") and "OWNERSHIP" in line
+        )
+        modified_indent = len(modified_line) - len(modified_line.lstrip(" "))
+        owner_indent = len(owner_line) - len(owner_line.lstrip(" "))
+        assert owner_indent > modified_indent
+
+        assert output == snapshot
+
+    def test_alter_summary_counts_entities_not_details(self):
+        """Sub-change leaves must not inflate the ALTER summary count."""
+        data = {
+            "version": 2,
+            "metadata": {},
+            "changeset": [
+                {
+                    "type": "ALTER",
+                    "object_id": {
+                        "domain": "ROLE",
+                        "name": '"R"',
+                        "fqn": '"R"',
+                    },
+                    "changes": [
+                        {
+                            "kind": "collection",
+                            "collection_name": "grants",
+                            "changes": [
+                                {
+                                    "kind": "added",
+                                    "item_id": {"desc": "ROLE A"},
+                                },
+                                {
+                                    "kind": "removed",
+                                    "item_id": {"desc": "ROLE B"},
+                                },
+                            ],
+                        }
+                    ],
+                }
+            ],
+        }
+        output = capture_reporter_output(PlanReporter(), FakeCursor(data))
+
+        assert "Planned 1 entity (0 to create, 1 to alter, 0 to drop)." in output
+
+    def test_alter_with_added_dmf_and_nested_expectation(self, snapshot):
+        """Real-world ALTER adding a DMF with a nested expectation.
+
+        Exercises three previously-unhandled shapes in one entry:
+        - ``added`` with a dict ``item_id`` (DMF identifier).
+        - ``added`` with a string ``item_id`` (expectation name).
+        - ``set`` with ``attribute_name`` + scalar ``value``.
+        """
+        data = {
+            "version": 2,
+            "metadata": {},
+            "changeset": [
+                {
+                    "type": "ALTER",
+                    "object_id": {
+                        "domain": "TABLE",
+                        "name": '"ENRICHED_ORDER_DETAILS"',
+                        "fqn": (
+                            '"DCM_DEMO_1_DEV3"."ANALYTICS"."ENRICHED_ORDER_DETAILS"'
+                        ),
+                        "database": '"DCM_DEMO_1_DEV3"',
+                        "schema": '"ANALYTICS"',
+                    },
+                    "changes": [
+                        {
+                            "kind": "collection",
+                            "collection_name": "data_metric_functions",
+                            "changes": [
+                                {
+                                    "kind": "added",
+                                    "item_id": {
+                                        "columns": ["CUSTOMER_CITY"],
+                                        "desc": (
+                                            "SNOWFLAKE.CORE.NULL_COUNT$V1"
+                                            "(CUSTOMER_CITY)"
+                                        ),
+                                        "metric_name": (
+                                            "SNOWFLAKE.CORE.NULL_COUNT$V1"
+                                            "(TABLE(VARCHAR))"
+                                        ),
+                                    },
+                                    "changes": [
+                                        {
+                                            "kind": "collection",
+                                            "collection_name": "expectations",
+                                            "changes": [
+                                                {
+                                                    "kind": "added",
+                                                    "item_id": "NO_MISSING_CITIES",
+                                                    "changes": [
+                                                        {
+                                                            "kind": "set",
+                                                            "attribute_name": (
+                                                                "expression"
+                                                            ),
+                                                            "value": "value = 0",
+                                                        }
+                                                    ],
+                                                }
+                                            ],
+                                        }
+                                    ],
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+        }
+        output = capture_reporter_output(PlanReporter(), FakeCursor(data))
+
+        assert "added    SNOWFLAKE.CORE.NULL_COUNT$V1(CUSTOMER_CITY)" in output
+        assert "added    NO_MISSING_CITIES" in output
+        assert "set      expression = value = 0" in output
+        assert output == snapshot
+
+    def test_create_with_changes_does_not_render_details(self):
+        """CREATE rows must stay terse even when the payload includes ``changes``.
+
+        Real server payloads carry ``set``/``unset`` attribute dumps under
+        CREATE and DROP entries; surfacing those would balloon the output
+        with low-signal lines.
+        """
+        data = {
+            "version": 2,
+            "metadata": {},
+            "changeset": [
+                {
+                    "type": "CREATE",
+                    "object_id": {
+                        "domain": "TABLE",
+                        "name": '"T"',
+                        "fqn": '"DB"."SCH"."T"',
+                    },
+                    "changes": [
+                        {
+                            "kind": "set",
+                            "attribute_name": "comment",
+                            "value": "hello",
+                        },
+                        {
+                            "kind": "set",
+                            "attribute_name": "data_retention_time_in_days",
+                            "value": 1,
+                        },
+                    ],
+                }
+            ],
+        }
+        output = capture_reporter_output(PlanReporter(), FakeCursor(data))
+
+        lines = [line for line in output.split("\n") if line.strip()]
+        assert lines[0].startswith("CREATE")
+        # No sub-lines under CREATE.
+        assert all(not line.startswith(" ") for line in lines)
+        assert "comment" not in output
+        assert "data_retention_time_in_days" not in output
+
+    def test_drop_with_changes_does_not_render_details(self):
+        """DROP rows must not surface their ``unset`` attribute dump."""
+        data = {
+            "version": 2,
+            "metadata": {},
+            "changeset": [
+                {
+                    "type": "DROP",
+                    "object_id": {
+                        "domain": "SCHEMA",
+                        "name": '"S"',
+                        "fqn": '"DB"."S"',
+                    },
+                    "changes": [
+                        {
+                            "kind": "unset",
+                            "attribute_name": "data_retention_time_in_days",
+                            "prev_value": 1,
+                        },
+                        {
+                            "kind": "unset",
+                            "attribute_name": "log_level",
+                            "prev_value": "WARN",
+                        },
+                    ],
+                }
+            ],
+        }
+        output = capture_reporter_output(PlanReporter(), FakeCursor(data))
+
+        lines = [line for line in output.split("\n") if line.strip()]
+        assert lines[0].startswith("DROP")
+        assert all(not line.startswith(" ") for line in lines)
+        assert "data_retention_time_in_days" not in output
+        assert "log_level" not in output
+
+    @pytest.mark.parametrize(
+        "kind, expected_style",
+        [
+            ("added", styles.CREATE_STYLE),
+            ("set", styles.CREATE_STYLE),
+            ("removed", styles.DROP_STYLE),
+            ("unset", styles.DROP_STYLE),
+            ("modified", styles.ALTER_STYLE),
+            ("renamed", styles.ALTER_STYLE),
+        ],
+    )
+    def test_detail_lines_apply_semantic_color_to_kind_and_desc(
+        self, kind, expected_style
+    ):
+        """Both the kind column and its desc should carry the kind's color."""
+        data = {
+            "version": 2,
+            "metadata": {},
+            "changeset": [
+                {
+                    "type": "ALTER",
+                    "object_id": {"domain": "TABLE", "fqn": '"T"'},
+                    "changes": [
+                        {
+                            "kind": kind,
+                            "item_id": {"desc": "SOME_DESC"},
+                            "attribute_name": "an_attr",
+                            "value": "v",
+                        }
+                    ],
+                }
+            ],
+        }
+        calls = []
+
+        def record(text, style=""):
+            calls.append((str(text), style))
+
+        with mock.patch(CLI_CONSOLE_PATH, side_effect=record):
+            PlanReporter().process(FakeCursor(data))
+
+        # Locate the indented detail emissions (kind text + desc text).
+        kind_call = next(c for c in calls if c[0].strip() == kind)
+        desc_call = next(c for c in calls if "SOME_DESC" in c[0])
+        assert kind_call[1] == expected_style
+        assert desc_call[1] == expected_style
+
 
 class TestPlanRow:
     def test_from_dict_valid_entry(self):
@@ -249,6 +681,253 @@ class TestPlanRow:
         assert row.domain == "TABLE"
         assert row.fqn is not None
         assert row.display_fqn() == "DB.SCH.ORDERS"
+        assert row.details == []
+
+    def test_from_dict_extracts_alter_details(self):
+        entry = {
+            "type": "ALTER",
+            "object_id": {
+                "domain": "TABLE",
+                "name": '"T"',
+                "fqn": '"DB"."SCH"."T"',
+            },
+            "changes": [
+                {
+                    "kind": "collection",
+                    "collection_name": "data_metric_functions",
+                    "changes": [
+                        {
+                            "kind": "removed",
+                            "item_id": {
+                                "desc": "M.F$V1(C)",
+                                "columns": ["C"],
+                            },
+                        }
+                    ],
+                }
+            ],
+        }
+
+        row = PlanRow.from_dict(entry)
+
+        assert row.details == [PlanDetail(kind="removed", desc="M.F$V1(C)", depth=1)]
+
+    def test_from_dict_recurses_into_modified_with_nested_changes(self):
+        entry = {
+            "type": "ALTER",
+            "object_id": {"domain": "ROLE", "fqn": '"R"'},
+            "changes": [
+                {
+                    "kind": "collection",
+                    "collection_name": "grants",
+                    "changes": [
+                        {
+                            "kind": "modified",
+                            "item_id": {"desc": "ON SCHEMA S"},
+                            "changes": [
+                                {
+                                    "kind": "collection",
+                                    "collection_name": "privileges",
+                                    "changes": [
+                                        {
+                                            "kind": "added",
+                                            "item_id": {"desc": "OWNERSHIP"},
+                                        }
+                                    ],
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+        }
+
+        row = PlanRow.from_dict(entry)
+
+        assert row.details == [
+            PlanDetail(kind="modified", desc="ON SCHEMA S", depth=1),
+            PlanDetail(kind="added", desc="OWNERSHIP", depth=2),
+        ]
+
+    def test_from_dict_details_sanitize_ansi_codes(self):
+        entry = {
+            "type": "ALTER",
+            "object_id": {"domain": "ROLE", "fqn": '"R"'},
+            "changes": [
+                {
+                    "kind": "added\x1b[31m",
+                    "item_id": {"desc": "ROLE \x1b[0mX"},
+                }
+            ],
+        }
+
+        row = PlanRow.from_dict(entry)
+
+        assert len(row.details) == 1
+        detail = row.details[0]
+        assert "\x1b" not in detail.kind
+        assert "\x1b" not in detail.desc
+
+    def test_from_dict_empty_changes_yields_no_details(self):
+        entry = {
+            "type": "ALTER",
+            "object_id": {"domain": "TABLE", "fqn": '"T"'},
+            "changes": [],
+        }
+
+        row = PlanRow.from_dict(entry)
+
+        assert row.details == []
+
+    def test_from_dict_handles_string_item_id(self):
+        """``item_id`` may be a bare string (e.g. a column or expectation name)."""
+        entry = {
+            "type": "ALTER",
+            "object_id": {"domain": "TABLE", "fqn": '"T"'},
+            "changes": [
+                {
+                    "kind": "collection",
+                    "collection_name": "expectations",
+                    "changes": [
+                        {"kind": "added", "item_id": "NO_MISSING_CITIES"},
+                    ],
+                }
+            ],
+        }
+
+        row = PlanRow.from_dict(entry)
+
+        assert row.details == [
+            PlanDetail(kind="added", desc="NO_MISSING_CITIES", depth=1),
+        ]
+
+    def test_from_dict_handles_set_with_scalar_value(self):
+        entry = {
+            "type": "ALTER",
+            "object_id": {"domain": "WAREHOUSE", "fqn": '"WH"'},
+            "changes": [
+                {
+                    "kind": "set",
+                    "attribute_name": "warehouse_size",
+                    "value": "LARGE",
+                },
+                {
+                    "kind": "set",
+                    "attribute_name": "auto_suspend",
+                    "value": 60,
+                },
+                {
+                    "kind": "set",
+                    "attribute_name": "auto_resume",
+                    "value": True,
+                },
+            ],
+        }
+
+        row = PlanRow.from_dict(entry)
+
+        assert row.details == [
+            PlanDetail(kind="set", desc="warehouse_size = LARGE", depth=1),
+            PlanDetail(kind="set", desc="auto_suspend = 60", depth=1),
+            PlanDetail(kind="set", desc="auto_resume = true", depth=1),
+        ]
+
+    def test_from_dict_set_with_complex_value_drops_rhs(self):
+        """Complex (dict/list) values are too verbose to inline; show attr only."""
+        entry = {
+            "type": "ALTER",
+            "object_id": {"domain": "TABLE", "fqn": '"T"'},
+            "changes": [
+                {
+                    "kind": "set",
+                    "attribute_name": "columns",
+                    "value": [{"name": "C", "datatype": "VARCHAR"}],
+                }
+            ],
+        }
+
+        row = PlanRow.from_dict(entry)
+
+        assert row.details == [PlanDetail(kind="set", desc="columns", depth=1)]
+
+    def test_from_dict_handles_unset(self):
+        entry = {
+            "type": "ALTER",
+            "object_id": {"domain": "WAREHOUSE", "fqn": '"WH"'},
+            "changes": [
+                {
+                    "kind": "unset",
+                    "attribute_name": "comment",
+                    "prev_value": "old",
+                }
+            ],
+        }
+
+        row = PlanRow.from_dict(entry)
+
+        assert row.details == [PlanDetail(kind="unset", desc="comment", depth=1)]
+
+    def test_from_dict_create_skips_details(self):
+        """Only ALTER rows render sub-changes; CREATE stays terse."""
+        entry = {
+            "type": "CREATE",
+            "object_id": {"domain": "TABLE", "fqn": '"T"'},
+            "changes": [
+                {
+                    "kind": "set",
+                    "attribute_name": "comment",
+                    "value": "x",
+                }
+            ],
+        }
+
+        row = PlanRow.from_dict(entry)
+
+        assert row.operation == "CREATE"
+        assert row.details == []
+
+    def test_from_dict_drop_skips_details(self):
+        entry = {
+            "type": "DROP",
+            "object_id": {"domain": "SCHEMA", "fqn": '"S"'},
+            "changes": [
+                {
+                    "kind": "unset",
+                    "attribute_name": "comment",
+                    "prev_value": "x",
+                }
+            ],
+        }
+
+        row = PlanRow.from_dict(entry)
+
+        assert row.operation == "DROP"
+        assert row.details == []
+
+    def test_from_dict_fallback_still_extracts_details(self):
+        entry = {
+            "type": "ALTER",
+            "object_id": "not_a_dict",
+            "changes": [
+                {
+                    "kind": "collection",
+                    "collection_name": "grants",
+                    "changes": [
+                        {"kind": "added", "item_id": {"desc": "ROLE A"}},
+                        {"kind": "removed", "item_id": {"desc": "ROLE B"}},
+                    ],
+                }
+            ],
+        }
+
+        row = PlanRow.from_dict(entry)
+
+        assert row.operation == "ALTER"
+        assert row.domain == "UNKNOWN"
+        assert row.details == [
+            PlanDetail(kind="added", desc="ROLE A", depth=1),
+            PlanDetail(kind="removed", desc="ROLE B", depth=1),
+        ]
 
     def test_from_dict_fallback_on_missing_required_fields(self):
         entry = {

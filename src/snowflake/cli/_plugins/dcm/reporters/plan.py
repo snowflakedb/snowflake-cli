@@ -13,8 +13,8 @@
 # limitations under the License.
 import logging
 from collections import namedtuple
-from dataclasses import dataclass
-from typing import Any, Dict, Iterator, List, Optional
+from dataclasses import dataclass, field
+from typing import Any, Dict, Iterator, List, Optional, Union
 
 from pydantic import BaseModel, Field, ValidationError
 from rich.style import Style
@@ -30,6 +30,9 @@ log = logging.getLogger(__name__)
 
 _OPERATION_WIDTH = 8
 _DOMAIN_WIDTH = 20
+_KIND_WIDTH = 9  # widest known kind ("modified") + 1
+_DETAIL_INDENT_UNIT = "  "
+_COLLECTION_KIND = "collection"
 
 
 class PlanObjectId(BaseModel):
@@ -39,11 +42,38 @@ class PlanObjectId(BaseModel):
     fqn: str
 
 
+class PlanChange(BaseModel):
+    """One entry inside an entity-level ``changes`` array.
+
+    Observed shapes in v2 changesets:
+    - ``kind == "collection"`` — grouping wrapper: ``collection_name`` + nested ``changes``.
+    - ``kind in ("added", "removed", "modified")`` — carries ``item_id``, which may be
+      either a dict (with a ``desc`` and other metadata) or a bare string identifier
+      (e.g. a column name).
+    - ``kind == "set"`` — attribute change: ``attribute_name`` + ``value``.
+    - ``kind == "unset"`` — attribute reset: ``attribute_name`` + ``prev_value``.
+
+    ``modified`` (and sometimes ``added``) entries may additionally carry their own
+    nested ``changes`` describing the sub-modifications.
+    """
+
+    kind: Optional[str] = None
+    item_id: Optional[Union[Dict[str, Any], str]] = None
+    attribute_name: Optional[str] = None
+    value: Any = None
+    prev_value: Any = None
+    changes: List["PlanChange"] = Field(default_factory=list)
+
+
+PlanChange.model_rebuild()
+
+
 class PlanEntityChange(BaseModel):
     """Top-level entity change in the changeset."""
 
     type_: str = Field(None, alias="type")
     object_id: PlanObjectId
+    changes: List[PlanChange] = Field(default_factory=list)
 
 
 class PlanResponse(BaseModel):
@@ -57,12 +87,127 @@ _OPERATION_ORDER = {"CREATE": 0, "ALTER": 1, "DROP": 2}
 
 
 @dataclass
+class PlanDetail:
+    """One indented sub-line under an entity row, e.g. ``added <desc>``."""
+
+    kind: str
+    desc: str
+    depth: int = 1
+
+
+def _format_scalar_value(value: Any) -> Optional[str]:
+    """Render a JSON-decoded value compactly, or ``None`` for complex types.
+
+    Used to render the right-hand side of ``set <attr> = <value>`` lines.
+    Dicts and lists are skipped (they'd blow up the output).
+    """
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, str):
+        sanitized = sanitize_for_terminal(value)
+        return "''" if sanitized == "" else sanitized
+    return None
+
+
+def _format_change_desc(
+    kind: str,
+    item_id: Any,
+    attribute_name: Optional[str],
+    value: Any,
+) -> str:
+    """Build the human-readable description for a single change entry.
+
+    Handles every observed shape:
+    - ``item_id`` is a dict with ``desc`` → use ``desc``.
+    - ``item_id`` is a bare string → use it directly.
+    - ``set`` → ``<attribute_name> = <value>`` (scalar values only).
+    - ``unset`` → ``<attribute_name>``.
+    """
+    if isinstance(item_id, dict):
+        desc_val = item_id.get("desc")
+        if isinstance(desc_val, str):
+            return sanitize_for_terminal(desc_val)
+    if isinstance(item_id, str):
+        return sanitize_for_terminal(item_id)
+    if isinstance(attribute_name, str) and attribute_name:
+        attr = sanitize_for_terminal(attribute_name)
+        if kind == "set":
+            scalar = _format_scalar_value(value)
+            if scalar is not None:
+                return f"{attr} = {scalar}"
+        return attr
+    return ""
+
+
+def _flatten_changes(changes: List[PlanChange], depth: int = 1) -> List[PlanDetail]:
+    """Walk a changes tree producing indented detail lines.
+
+    ``kind == "collection"`` wrappers are unwrapped (no line emitted; their
+    children inherit ``depth``). Every other kind produces one line; if it
+    carries nested ``changes``, those are emitted one level deeper.
+    """
+    out: List[PlanDetail] = []
+    for change in changes:
+        kind = (change.kind or "").lower()
+        if kind == _COLLECTION_KIND:
+            out.extend(_flatten_changes(change.changes, depth=depth))
+            continue
+        desc = _format_change_desc(
+            kind, change.item_id, change.attribute_name, change.value
+        )
+        sanitized_kind = sanitize_for_terminal(kind)
+        if not sanitized_kind and not desc:
+            continue
+        out.append(PlanDetail(kind=sanitized_kind, desc=desc, depth=depth))
+        if change.changes:
+            out.extend(_flatten_changes(change.changes, depth=depth + 1))
+    return out
+
+
+def _flatten_changes_from_raw(raw: Any, depth: int = 1) -> List[PlanDetail]:
+    """Best-effort flattener over the raw ``changes`` payload.
+
+    Used by the fallback parser when the strict pydantic model can't validate
+    the entry; we still try to surface as many sub-change lines as possible.
+    """
+    if not isinstance(raw, list):
+        return []
+    out: List[PlanDetail] = []
+    for change in raw:
+        if not isinstance(change, dict):
+            continue
+        kind = str(change.get("kind", "")).lower()
+        nested = change.get("changes")
+        if kind == _COLLECTION_KIND:
+            out.extend(_flatten_changes_from_raw(nested, depth=depth))
+            continue
+        desc = _format_change_desc(
+            kind,
+            change.get("item_id"),
+            change.get("attribute_name"),
+            change.get("value"),
+        )
+        sanitized_kind = sanitize_for_terminal(kind)
+        if not sanitized_kind and not desc:
+            continue
+        out.append(PlanDetail(kind=sanitized_kind, desc=desc, depth=depth))
+        if nested:
+            out.extend(_flatten_changes_from_raw(nested, depth=depth + 1))
+    return out
+
+
+@dataclass
 class PlanRow:
     """Parsed entry ready for display"""
 
     operation: str
     domain: str
     fqn: Optional[FQN] = None
+    details: List[PlanDetail] = field(default_factory=list)
 
     @property
     def sort_key(self) -> tuple:
@@ -81,6 +226,7 @@ class PlanRow:
             domain = sanitize_for_terminal(entity.object_id.domain.upper())
             sanitized_fqn = sanitize_for_terminal(entity.object_id.fqn)
             fqn = FQN.from_string(sanitized_fqn)
+            details = _flatten_changes(entity.changes) if operation == "ALTER" else []
         except (ValidationError, FQNNameError) as e:
             # Forward-compatible fallback: if a future version changes the
             # changeset entry shape, the CLI degrades gracefully instead of crashing.
@@ -106,11 +252,17 @@ class PlanRow:
                     e,
                 )
                 fqn = None
+            details = (
+                _flatten_changes_from_raw(entry_dict.get("changes"))
+                if operation == "ALTER"
+                else []
+            )
 
         return cls(
             operation=operation,
             domain=domain,
             fqn=fqn,
+            details=details,
         )
 
     def display_fqn(self) -> str:
@@ -158,6 +310,18 @@ class PlanReporter(Reporter[PlanRow]):
             return styles.DROP_STYLE
         return styles.UNKNOWN_STYLE
 
+    @staticmethod
+    def _style_for_change_kind(kind: str) -> Style:
+        """Return the style for a sub-change kind (added/removed/modified/set/…)."""
+        normalized = (kind or "").lower()
+        if normalized in ("added", "set"):
+            return styles.CREATE_STYLE
+        if normalized in ("removed", "unset"):
+            return styles.DROP_STYLE
+        if normalized in ("modified", "renamed"):
+            return styles.ALTER_STYLE
+        return styles.UNKNOWN_STYLE
+
     def extract_data(self, result_json: Dict[str, Any]) -> List[PlanEntityChange]:
         if not isinstance(result_json, dict):
             log.info("Unexpected response type: %s, expected dict", type(result_json))
@@ -201,6 +365,17 @@ class PlanReporter(Reporter[PlanRow]):
             cli_console.styled_message(entry.domain.ljust(_DOMAIN_WIDTH) + " ")
             cli_console.styled_message(entry.display_fqn(), style=styles.DOMAIN_STYLE)
             cli_console.styled_message("\n")
+            for detail in entry.details:
+                self._print_detail(detail)
+
+    def _print_detail(self, detail: PlanDetail) -> None:
+        cli_console.styled_message(_DETAIL_INDENT_UNIT * max(detail.depth, 1))
+        style = self._style_for_change_kind(detail.kind)
+        if detail.kind:
+            cli_console.styled_message(detail.kind.ljust(_KIND_WIDTH), style=style)
+        if detail.desc:
+            cli_console.styled_message(detail.desc, style=style)
+        cli_console.styled_message("\n")
 
     def _generate_summary_renderables(self) -> List[Text]:
         total = self._summary.total
