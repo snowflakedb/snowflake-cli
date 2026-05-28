@@ -346,23 +346,6 @@ class TestDBTDeploy:
         call_kwargs = mock_deploy.call_args[1]
         assert call_kwargs["attrs"].dbt_version == "1.9.0"
 
-    def test_deploy_with_invalid_dbt_version_fails(
-        self, runner, dbt_project_path, mock_deploy
-    ):
-        result = runner.invoke(
-            [
-                "dbt",
-                "deploy",
-                "TEST_PIPELINE",
-                f"--source={dbt_project_path}",
-                "--dbt-version=1.9",
-            ]
-        )
-
-        assert result.exit_code == 2, result.output
-        assert "Invalid version format '1.9'" in result.output
-        mock_deploy.assert_not_called()
-
     def test_deploy_with_patch_version_passes_to_manager(
         self, runner, dbt_project_path, mock_deploy
     ):
@@ -398,6 +381,24 @@ class TestDBTDeploy:
         mock_deploy.assert_called_once()
         call_kwargs = mock_deploy.call_args[1]
         assert call_kwargs["attrs"].dbt_version == "2.0.0-preview"
+
+    def test_deploy_with_dotted_prerelease_version_passes_to_manager(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                "--dbt-version=2.0.0-preview.175",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        mock_deploy.assert_called_once()
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["attrs"].dbt_version == "2.0.0-preview.175"
 
 
 class TestDBTExecute:
@@ -662,20 +663,6 @@ class TestDBTExecute:
             == "EXECUTE DBT PROJECT pipeline_name dbt_version='2.0.0' args='run'"
         )
 
-    def test_dbt_execute_with_invalid_dbt_version_fails(self, mock_connect, runner):
-        result = runner.invoke(
-            [
-                "dbt",
-                "execute",
-                "--dbt-version=1.2.3.beta",
-                "pipeline_name",
-                "run",
-            ]
-        )
-
-        assert result.exit_code == 2, result.output
-        assert "Invalid version format '1.2.3.beta'" in result.output
-
     def test_dbt_execute_with_patch_version(self, mock_connect, mock_cursor, runner):
         cursor = mock_cursor(
             rows=[(True, "very detailed logs")],
@@ -722,4 +709,29 @@ class TestDBTExecute:
         assert (
             mock_connect.mocked_ctx.get_query()
             == "EXECUTE DBT PROJECT pipeline_name dbt_version='2.0.0-preview' args='run'"
+        )
+
+    def test_dbt_execute_with_dotted_prerelease_version(
+        self, mock_connect, mock_cursor, runner
+    ):
+        cursor = mock_cursor(
+            rows=[(True, "very detailed logs")],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "execute",
+                "--dbt-version=2.0.0-preview.175",
+                "pipeline_name",
+                "run",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert (
+            mock_connect.mocked_ctx.get_query()
+            == "EXECUTE DBT PROJECT pipeline_name dbt_version='2.0.0-preview.175' args='run'"
         )

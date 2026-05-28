@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import json
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,7 +22,10 @@ from tempfile import TemporaryDirectory
 from typing import Dict, List, Optional, TypedDict
 
 import yaml
-from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
+from snowflake.cli._plugins.dbt.constants import (
+    PROFILES_FILENAME,
+    SUPPORTED_DBT_VERSIONS_QUERY,
+)
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.console import cli_console
@@ -106,6 +110,26 @@ class DBTManager(SqlExecutionMixin):
             dbt_version=row_dict.get("dbt_version"),
         )
 
+    def _get_supported_dbt_versions(self) -> List[str]:
+        row = self.execute_query(SUPPORTED_DBT_VERSIONS_QUERY).fetchone()
+        if row is None or row[0] is None:
+            raise CliError("Could not fetch supported dbt versions from server.")
+        try:
+            entries = json.loads(row[0])
+        except json.JSONDecodeError as exc:
+            raise CliError(
+                "Could not parse supported dbt versions from server."
+            ) from exc
+        return [e["dbt_version"] for e in entries]
+
+    def _validate_dbt_version(self, dbt_version: str) -> None:
+        supported = self._get_supported_dbt_versions()
+        if dbt_version not in supported:
+            raise CliError(
+                f"Invalid value '{dbt_version}' for --dbt-version. "
+                f"Supported versions: {', '.join(supported)}."
+            )
+
     def deploy(
         self,
         fqn: FQN,
@@ -114,6 +138,9 @@ class DBTManager(SqlExecutionMixin):
         force: bool,
         attrs: DBTDeployAttributes,
     ) -> SnowflakeCursor:
+        if attrs.dbt_version:
+            self._validate_dbt_version(attrs.dbt_version)
+
         dbt_project_path = path / "dbt_project.yml"
         if not dbt_project_path.exists():
             raise CliError(
