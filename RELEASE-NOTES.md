@@ -23,6 +23,7 @@
 
 ## Fixes and improvements
 * Fixed `TooManyFilesError` during `snow streamlit deploy` when `main_file` is a descendant of a directory listed in `artifacts`.
+* Upgraded `snowflake-connector-python` from 4.5.0 to 4.6.0.
 
 
 # v3.19.0
