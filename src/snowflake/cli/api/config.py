@@ -111,6 +111,7 @@ class ConnectionConfig:
     host: Optional[str] = None
     region: Optional[str] = None
     port: Optional[int] = None
+    protocol: Optional[str] = None
     database: Optional[str] = None
     schema: Optional[str] = None
     warehouse: Optional[str] = None

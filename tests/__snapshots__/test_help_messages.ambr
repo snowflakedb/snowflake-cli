@@ -239,6 +239,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -394,6 +398,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -631,6 +639,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -802,6 +814,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -1044,6 +1060,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -1207,6 +1227,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -1369,6 +1393,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -1527,6 +1555,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -1690,6 +1722,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -1852,6 +1888,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -2009,6 +2049,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -2197,6 +2241,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -2366,6 +2414,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -2531,6 +2583,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -2705,6 +2761,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -2865,6 +2925,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -3138,6 +3202,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -3292,6 +3360,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -3493,6 +3565,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -3658,6 +3734,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -3886,6 +3966,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -4072,6 +4156,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -4226,6 +4314,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -4507,6 +4599,9 @@
   |                                                 Snowflake.                   |
   | --port                         -P      INTEGER  Port to communicate with on  |
   |                                                 the host.                    |
+  | --protocol                             TEXT     Protocol to use for the      |
+  |                                                 connection, for example      |
+  |                                                 https.                       |
   | --region                       -R      TEXT     Region name if not the       |
   |                                                 default Snowflake            |
   |                                                 deployment.                  |
@@ -4583,6 +4678,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -4726,6 +4825,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -5002,6 +5105,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -5283,6 +5390,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -5428,6 +5539,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -5575,6 +5690,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -5730,6 +5849,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -5911,6 +6034,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -6092,6 +6219,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -6273,6 +6404,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -6454,6 +6589,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -6635,6 +6774,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -6816,6 +6959,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -6997,6 +7144,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -7178,6 +7329,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -7359,6 +7514,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -7540,6 +7699,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -7721,6 +7884,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -7902,6 +8069,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -8082,6 +8253,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -8259,6 +8434,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -8418,6 +8597,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -8571,6 +8754,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -8733,6 +8920,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -8888,6 +9079,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -9041,6 +9236,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -9199,6 +9398,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -9357,6 +9560,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -9516,6 +9723,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -9693,6 +9904,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -9850,6 +10065,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -10006,6 +10225,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -10162,6 +10385,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -10356,6 +10583,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -10501,6 +10732,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -10648,6 +10883,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -10815,6 +11054,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -10961,6 +11204,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -11111,6 +11358,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -11262,6 +11513,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -11412,6 +11667,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -11566,6 +11825,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -11724,6 +11987,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -11972,6 +12239,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -12121,6 +12392,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -12279,6 +12554,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -12425,6 +12704,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -12571,6 +12854,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -12717,6 +13004,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -12905,6 +13196,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -13058,6 +13353,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -13213,6 +13512,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -13379,6 +13682,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -13711,6 +14018,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -13873,6 +14184,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -14024,6 +14339,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -14177,6 +14496,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -14330,6 +14653,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -14488,6 +14815,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -14648,6 +14979,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -14793,6 +15128,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -14941,6 +15280,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -15196,6 +15539,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -15347,6 +15694,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -15493,6 +15844,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -15641,6 +15996,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -15787,6 +16146,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -15933,6 +16296,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -16099,6 +16466,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -16246,6 +16617,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -16392,6 +16767,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -16539,6 +16918,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -16694,6 +17077,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -16871,6 +17258,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -17015,6 +17406,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -17168,6 +17563,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -17338,6 +17737,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -17487,6 +17890,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -17635,6 +18042,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -17785,6 +18196,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -17937,6 +18352,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -18091,6 +18510,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -18237,6 +18660,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -18457,6 +18884,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -18660,6 +19091,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -18812,6 +19247,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -18957,6 +19396,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -19107,6 +19550,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -19278,6 +19725,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -19423,6 +19874,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -19568,6 +20023,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -19713,6 +20172,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -19858,6 +20321,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -20012,6 +20479,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -20169,6 +20640,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -20324,6 +20799,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -20469,6 +20948,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -20661,6 +21144,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -20810,6 +21297,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -20955,6 +21446,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -21117,6 +21612,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -21264,6 +21763,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -21559,6 +22062,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -21736,6 +22243,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -21890,6 +22401,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -22035,6 +22550,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -22182,6 +22701,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -22329,6 +22852,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -22493,6 +23020,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -22642,6 +23173,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -22796,6 +23331,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -22943,6 +23482,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -23136,6 +23679,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -23282,6 +23829,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -23430,6 +23981,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -23576,6 +24131,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -23723,6 +24282,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -23877,6 +24440,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -24045,6 +24612,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -24193,6 +24764,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -24609,6 +25184,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
