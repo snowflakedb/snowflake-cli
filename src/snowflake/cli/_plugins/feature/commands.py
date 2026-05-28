@@ -590,6 +590,12 @@ def online_service(
 ) -> CommandResult:
     """Manage the feature store online service. Shows status by default.
 
+    The default status surface is intentionally compact (banner,
+    Runtime block, single-line component summaries, Endpoints).  Pass
+    ``-v`` / ``--verbose`` (the framework-wide flag) to opt into the
+    full layout — per-component detail rows, Network Rules, Secret,
+    and the masked Postgres connection string.
+
     The online service is bound to a specific ``<DB>.<SCHEMA>``
     location, so different manifest targets can run independent
     services in different states.  ``--from`` / ``--target`` route
@@ -701,13 +707,21 @@ def online_service(
     else:
         result = FeatureManager().get_status(from_dir=from_location, target_name=target)
         if result.get("status") != "error":
+            from snowflake.cli.api.cli_global_context import get_cli_context
             from snowflake.ml.feature_store.decl import api as decl_api
 
+            # ``--verbose`` / ``-v`` is the framework-wide flag (also
+            # used to raise log verbosity).  Reading it from the CLI
+            # context avoids redefining the option locally — typer
+            # rejects the duplicate name — while still giving operators
+            # a single switch for "show me everything".
+            verbose = bool(getattr(get_cli_context(), "verbose", False))
             display = decl_api.format_status_display(
                 result,
                 user=result.pop("_user", ""),
                 database=result.pop("_database", ""),
                 schema=result.pop("_schema", ""),
+                verbose=verbose,
             )
             sys.stderr.write(display + "\n")
             sys.stderr.flush()
