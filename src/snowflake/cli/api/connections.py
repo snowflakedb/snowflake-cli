@@ -53,6 +53,7 @@ class ConnectionContext:
     connection_name: Optional[str] = None
     host: Optional[str] = None
     port: Optional[int] = None
+    protocol: Optional[str] = None
     account: Optional[str] = None
     database: Optional[str] = None
     role: Optional[str] = None

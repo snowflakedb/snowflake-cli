@@ -14,6 +14,7 @@
     --connection <connection>
     --host <host>
     --port <port>
+    --protocol <protocol>
     --account <account>
     --user <user>
     --password <password>
@@ -101,6 +102,12 @@
   <dd>
   
   Port for the connection. Overrides the value specified for the connection.
+  
+  </dd>
+  <dt><code className="samp">--protocol <em>TEXT</em></code></dt>
+  <dd>
+  
+  Protocol to use for the connection, for example `https`. Overrides the value specified for the connection.
   
   </dd>
   <dt><code className="samp">--account, --accountname <em>TEXT</em></code></dt>

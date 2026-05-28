@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Added a `--protocol` option (plus matching `SNOWFLAKE_PROTOCOL` env var and `protocol` config key) to `snow connection add` and the global connection overrides. This allows selecting `http` or `https` as the connection protocol without editing `config.toml`, which is primarily useful for local development against `http` deployments.
 
 ## Fixes and improvements
 

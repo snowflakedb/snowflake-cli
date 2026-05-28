@@ -43,6 +43,7 @@ from snowflake.cli.api.commands.flags import (
     PasswordOption,
     PortOption,
     PrivateKeyPathOption,
+    ProtocolOption,
     RoleOption,
     SchemaOption,
     SecondaryRolesOption,
@@ -226,6 +227,11 @@ def add(
         *PortOption.param_decls,
         help="Port to communicate with on the host.",
     ),
+    protocol: Optional[str] = typer.Option(
+        None,
+        *ProtocolOption.param_decls,
+        help="Protocol to use for the connection, for example `https`.",
+    ),
     region: Optional[str] = typer.Option(
         None,
         "--region",
@@ -287,6 +293,7 @@ def add(
         "schema": schema,
         "host": host,
         "port": port,
+        "protocol": protocol,
         "region": region,
         "authenticator": authenticator,
         "workload_identity_provider": workload_identity_provider,

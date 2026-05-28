@@ -65,6 +65,7 @@ SUPPORTED_ENV_OVERRIDES = [
     "password",
     "host",
     "port",
+    "protocol",
     "authenticator",
     "workload_identity_provider",
     "private_key_file",

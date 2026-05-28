@@ -130,6 +130,15 @@ PortOption = typer.Option(
     rich_help_panel=_CONNECTION_SECTION,
 )
 
+ProtocolOption = typer.Option(
+    None,
+    "--protocol",
+    help="Protocol to use for the connection, for example `https`. Overrides the value specified for the connection.",
+    callback=_connection_callback("protocol"),
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
 AccountOption = typer.Option(
     None,
     "--account",

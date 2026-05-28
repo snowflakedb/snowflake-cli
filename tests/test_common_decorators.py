@@ -31,6 +31,7 @@ _KNOWN_SIG_GLOBAL_PARAMETERS_WITH_CONNECTION = [
     "connection",
     "host",
     "port",
+    "protocol",
     "account",
     "user",
     "password",
