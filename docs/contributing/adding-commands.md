@@ -166,6 +166,17 @@ directly — use `cli_console` for progress messages (see
 [conventions.md](conventions.md)) and return a `CommandResult` for the
 command's final output.
 
+The function's docstring becomes the command's `--help` text. Write it as a
+short, imperative sentence describing what the command does from the user's
+perspective:
+
+```python
+@app.command()
+def create(name: str):
+    """Creates a new table."""
+    ...
+```
+
 ### Return types
 
 All types are in `src/snowflake/cli/api/output/types.py`:
@@ -197,8 +208,11 @@ Behavior matrix:
 | unset | True (TTY default) | Prompt the user |
 | set | either | Proceed without prompting |
 
+### Testing
 
----
+Every new command needs comprehensive unit and integration tests covering the
+happy path and the main error paths. See [testing.md](testing.md) for the
+`runner` fixture, snapshot tests, and how to test feature-flagged commands.
 
 ## Reusable code in `src/snowflake/cli/api/`
 
