@@ -200,7 +200,16 @@ class DeployProgressTracker:
         self._refresh_display()
 
     def fail_upload(self) -> None:
-        self._get_phase(UPLOAD_PHASE).observe_failed()
+        """Mark UPLOAD as failed only if it has not already terminated.
+
+        A failure raised by a downstream phase (RENDER/COMPILE/PLAN/DEPLOY)
+        bubbles up through :meth:`session`'s exception handler; UPLOAD itself
+        was already ``done`` at that point and must not be reset to ``failed``.
+        """
+        upload = self._get_phase(UPLOAD_PHASE)
+        if upload.status in ("done", "failed"):
+            return
+        upload.observe_failed()
         self._refresh_display()
 
     @contextmanager

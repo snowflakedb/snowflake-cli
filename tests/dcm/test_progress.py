@@ -89,3 +89,55 @@ class TestUploadDetailsLayout:
         lines = _stripped_lines(tracker._render().plain)  # noqa: SLF001
 
         assert all(not line.startswith("  ") for line in lines)
+
+
+class TestFailUpload:
+    """``fail_upload`` must only mark UPLOAD failed when UPLOAD itself failed.
+
+    Downstream phase failures (PLAN, DEPLOY, …) bubble up through
+    ``session()``'s exception handler, which always calls ``fail_upload``.
+    UPLOAD has already been marked ``done`` by that point and must not be
+    flipped back to ``failed``.
+    """
+
+    def _tracker(self):
+        tracker = DeployProgressTracker(conn=MagicMock(), operation="deploy")
+        tracker.set_upload_file_total(2)
+        return tracker
+
+    def _upload_phase(self, tracker):
+        return tracker._get_phase(UPLOAD_PHASE)  # noqa: SLF001
+
+    def test_fail_upload_marks_running_upload_failed(self):
+        """If UPLOAD itself is still running, ``fail_upload`` flips it failed."""
+        tracker = self._tracker()
+        tracker.start_upload()
+        assert self._upload_phase(tracker).status == "running"
+
+        tracker.fail_upload()
+
+        assert self._upload_phase(tracker).status == "failed"
+
+    def test_fail_upload_is_noop_when_upload_already_done(self):
+        """A downstream PLAN/DEPLOY failure must not flip a finished UPLOAD."""
+        tracker = self._tracker()
+        tracker.start_upload()
+        tracker.complete_upload()
+        assert self._upload_phase(tracker).status == "done"
+
+        tracker.fail_upload()
+
+        assert self._upload_phase(tracker).status == "done"
+
+    def test_fail_upload_is_idempotent_when_already_failed(self):
+        tracker = self._tracker()
+        tracker.start_upload()
+        tracker.fail_upload()
+        first_completed_at = self._upload_phase(tracker).completed_at
+        assert first_completed_at is not None
+
+        tracker.fail_upload()
+
+        assert self._upload_phase(tracker).status == "failed"
+        # The original failure timestamp is preserved on repeated calls.
+        assert self._upload_phase(tracker).completed_at == first_completed_at
