@@ -14,13 +14,17 @@ from snowflake.cli.api.utils.path_utils import change_directory
 
 
 def _analyze_response(files=None):
-    """Helper to create a JSON analyze response string."""
+    """Helper to create a JSON analyze response string.
+
+    Uses the new server response shape: ``issues[]`` arrays with a ``severity``
+    field at each level (file / definition / top-level).
+    """
     if files is None:
         files = [
             {
                 "sourcePath": "sources/definitions/ok.sql",
-                "definitions": [{"name": "OK", "errors": []}],
-                "errors": [],
+                "definitions": [{"name": "OK", "issues": []}],
+                "issues": [],
             }
         ]
     return json.dumps({"files": files})
@@ -1128,7 +1132,7 @@ class TestDCMRawAnalyze:
                 {
                     "sourcePath": "sources/definitions/bad.sql",
                     "definitions": [],
-                    "errors": [{"message": "syntax error"}],
+                    "issues": [{"message": "syntax error", "severity": "ERROR"}],
                 }
             ]
         )
@@ -1141,7 +1145,7 @@ class TestDCMRawAnalyze:
         with project_directory("dcm_project"):
             result = runner.invoke(["dcm", "raw-analyze", "fooBar"])
         assert result.exit_code == 1, result.output
-        assert "1 error(s)" in result.output
+        assert "Static analysis of DCM Project files found 1 error." in result.output
 
     def test_raw_analyze_with_variables(
         self,
@@ -1397,8 +1401,8 @@ class TestDCMRawAnalyze:
             "files": [
                 {
                     "sourcePath": "sources/definitions/ok.sql",
-                    "definitions": [{"name": "OK", "errors": []}],
-                    "errors": [],
+                    "definitions": [{"name": "OK", "issues": []}],
+                    "issues": [],
                 }
             ]
         }
@@ -1510,31 +1514,33 @@ class TestDCMAnalyze:
                                 "domain": "TABLE",
                             },
                             "refined_domain": "table",
-                            "errors": [
+                            "issues": [
                                 {
                                     "source_position": {"line": 3, "column": 0},
                                     "message": "column FOO not found",
                                     "code": "001632",
                                     "type": "syntax_error",
+                                    "severity": "ERROR",
                                 }
                             ],
                         }
                     ],
-                    "errors": [
+                    "issues": [
                         {
                             "source_position": {"line": 1, "column": 0},
                             "message": "file-level syntax error",
                             "code": "001597",
                             "type": "syntax_error",
+                            "severity": "ERROR",
                         }
                     ],
                 },
                 {
                     "source_path": "sources/definitions/ok.sql",
                     "definitions": [
-                        {"id": {"name": "OK", "domain": "TABLE"}, "errors": []}
+                        {"id": {"name": "OK", "domain": "TABLE"}, "issues": []}
                     ],
-                    "errors": [],
+                    "issues": [],
                 },
             ]
         )
@@ -1557,10 +1563,7 @@ class TestDCMAnalyze:
         assert "[001632]" not in result.output
         assert "line 1:0" not in result.output
         assert "line 3:0" not in result.output
-        assert (
-            "Static analysis of DCM Project files found 2 errors and 0 issues."
-            in result.output
-        )
+        assert "Static analysis of DCM Project files found 2 errors." in result.output
         assert "sources/definitions/ok.sql" not in result.output
 
     def test_analyze_with_variables(
@@ -1682,10 +1685,10 @@ class TestDCMAnalyze:
                         {
                             "id": {"name": "OK", "domain": "TABLE"},
                             "refined_domain": "table",
-                            "errors": [],
+                            "issues": [],
                         }
                     ],
-                    "errors": [],
+                    "issues": [],
                 }
             ]
         }

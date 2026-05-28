@@ -27,6 +27,8 @@ INSERTED_STYLE = Style(color="green", italic=True)
 PASS_STYLE = Style(color="green")
 FAIL_STYLE = Style(color="red")
 WARNING_STYLE = Style(color="yellow")
+# INFO-severity analyze findings: plain blue (distinct from bold-blue file headers).
+INFO_STYLE = Style(color="blue")
 
 # Plan
 CREATE_STYLE = Style(color="green")

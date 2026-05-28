@@ -13,6 +13,7 @@
 # limitations under the License.
 import logging
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Dict, Iterator, List, Optional
 
 import typer
@@ -35,51 +36,46 @@ def _files_from_response(result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
     return files
 
 
-class AnalyzeReporter(Reporter[Dict[str, Any]]):
-    def __init__(self, save_output: bool = False):
-        super().__init__(save_output=save_output)
-        self.command_name = "raw-analyze"
-        self._error_count = 0
+class Severity(Enum):
+    """Severity levels reported by ``EXECUTE DCM PROJECT ... ANALYZE``."""
 
-    def extract_data(self, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
-        return _files_from_response(result_json)
-
-    def parse_data(self, data: List[Dict[str, Any]]) -> Iterator[Dict[str, Any]]:
-        for file_entry in data:
-            self._error_count += len(file_entry.get("errors", []))
-            for definition in file_entry.get("definitions", []):
-                self._error_count += len(definition.get("errors", []))
-            yield file_entry
-
-    def print_renderables(self, data: Iterator[Dict[str, Any]]) -> None:
-        for _ in data:
-            pass
-        if self.result_raw_data is not None:
-            cli_console.styled_message(self.result_raw_data)
-            cli_console.styled_message("\n")
-
-    def _generate_summary_renderables(self) -> List[Text]:
-        if self._error_count == 0:
-            return [Text("Static analysis of DCM Project files found no errors.")]
-        return [
-            Text(
-                f"Static analysis of DCM Project files found {self._error_count} error(s)."
-            )
-        ]
-
-    def _is_success(self) -> bool:
-        return self._error_count == 0
+    ERROR = "ERROR"
+    WARNING = "WARNING"
+    INFO = "INFO"
 
 
-_KIND_ERROR = "error"
-_KIND_ISSUE = "issue"
+# Map each severity to its presentation style. Errors are red and fail the run;
+# warnings are yellow; info is plain blue (distinct from the bold-blue source
+# file headers).
+_SEVERITY_STYLE = {
+    Severity.ERROR: styles.FAIL_STYLE,
+    Severity.WARNING: styles.WARNING_STYLE,
+    Severity.INFO: styles.INFO_STYLE,
+}
+
+
+def _normalize_severity(raw: Any) -> Severity:
+    """Coerce a free-form ``severity`` value to a :class:`Severity` enum.
+
+    Unknown / missing values are treated as ERROR so a buggy server payload
+    never silently downgrades a real problem to a warning or info.
+    """
+    if isinstance(raw, str):
+        value = raw.strip().upper()
+        if value in ("ERROR", "ERR", "FATAL"):
+            return Severity.ERROR
+        if value in ("WARN", "WARNING"):
+            return Severity.WARNING
+        if value == "INFO":
+            return Severity.INFO
+    return Severity.ERROR
 
 
 @dataclass
 class _AnalyzeFinding:
-    """A single error or issue pulled from the analyze response."""
+    """A single issue pulled from the analyze response."""
 
-    kind: str  # _KIND_ERROR or _KIND_ISSUE
+    severity: Severity
     message: str
     line: Optional[int] = None
     column: Optional[int] = None
@@ -110,15 +106,18 @@ class _FileFindings:
         )
 
 
-def _to_finding(raw: Any, kind: str) -> _AnalyzeFinding:
+def _to_finding(raw: Any) -> _AnalyzeFinding:
+    """Build a :class:`_AnalyzeFinding` from one entry in an ``issues[]`` array."""
     if isinstance(raw, str):
-        return _AnalyzeFinding(kind=kind, message=raw)
+        return _AnalyzeFinding(severity=Severity.ERROR, message=raw)
     if not isinstance(raw, dict):
-        return _AnalyzeFinding(kind=kind, message=f"Unknown {kind}")
+        return _AnalyzeFinding(severity=Severity.ERROR, message="Unknown issue")
+
+    severity = _normalize_severity(raw.get("severity"))
 
     message = raw.get("message")
     if not isinstance(message, str) or not message:
-        message = f"Unknown {kind}"
+        message = "Unknown issue"
 
     position = raw.get("source_position")
     if not isinstance(position, dict):
@@ -132,7 +131,7 @@ def _to_finding(raw: Any, kind: str) -> _AnalyzeFinding:
         code = str(code)
 
     return _AnalyzeFinding(
-        kind=kind, message=message, line=line, column=column, code=code
+        severity=severity, message=message, line=line, column=column, code=code
     )
 
 
@@ -176,17 +175,13 @@ def _collect_file_findings(file_entry: Dict[str, Any]) -> _FileFindings:
         source_path = "<unknown>"
     collected = _FileFindings(source_path=source_path)
 
-    for raw in file_entry.get("errors") or []:
-        collected.file_findings.append(_to_finding(raw, _KIND_ERROR))
     for raw in file_entry.get("issues") or []:
-        collected.file_findings.append(_to_finding(raw, _KIND_ISSUE))
+        collected.file_findings.append(_to_finding(raw))
 
     for definition in file_entry.get("definitions") or []:
         findings: List[_AnalyzeFinding] = []
-        for raw in definition.get("errors") or []:
-            findings.append(_to_finding(raw, _KIND_ERROR))
         for raw in definition.get("issues") or []:
-            findings.append(_to_finding(raw, _KIND_ISSUE))
+            findings.append(_to_finding(raw))
         if not findings:
             continue
         collected.definition_findings.append(
@@ -200,14 +195,13 @@ def _collect_file_findings(file_entry: Dict[str, Any]) -> _FileFindings:
     return collected
 
 
-# Noise prefixes the server prepends to every analyze error message. We strip
-# them so the user sees only the actual diagnostic text.
+# Noise prefixes the server prepends to analyze issue messages. We strip them
+# so the user sees only the actual diagnostic text.
 _NOISE_PREFIXES = ("DCM project ANALYZE error: ",)
 
 
 def _clean_finding_message(message: str) -> str:
     cleaned = message
-    # Strip repeatedly in case a prefix appears more than once.
     while True:
         for prefix in _NOISE_PREFIXES:
             if cleaned.startswith(prefix):
@@ -217,11 +211,94 @@ def _clean_finding_message(message: str) -> str:
             return cleaned
 
 
-class AnalyzeErrorsReporter(Reporter[_FileFindings]):
-    """Prints a formatted list of errors and issues found by `EXECUTE DCM PROJECT ... ANALYZE`.
+def _count_errors_in_response(result_json: Dict[str, Any]) -> int:
+    """Count severity=ERROR findings across all three levels of the response."""
+    files = result_json.get(_FILES_KEY)
+    if not isinstance(files, list):
+        return 0
 
-    Errors are rendered in red and trigger a non-zero exit code; issues are
-    rendered in yellow as warnings and do not change the exit code on their own.
+    def _count(raw_iter: Any) -> int:
+        if not isinstance(raw_iter, list):
+            return 0
+        return sum(
+            1
+            for raw in raw_iter
+            if _normalize_severity(
+                raw.get("severity") if isinstance(raw, dict) else None
+            )
+            == Severity.ERROR
+        )
+
+    total = _count(result_json.get("issues"))
+    for file_entry in files:
+        if not isinstance(file_entry, dict):
+            continue
+        total += _count(file_entry.get("issues"))
+        for definition in file_entry.get("definitions") or []:
+            if isinstance(definition, dict):
+                total += _count(definition.get("issues"))
+    return total
+
+
+class AnalyzeReporter(Reporter[Dict[str, Any]]):
+    """Reports the raw JSON returned by ``EXECUTE DCM PROJECT ... ANALYZE``.
+
+    The body is dumped verbatim; only the trailing summary line and the exit
+    code react to severity=ERROR findings.
+    """
+
+    def __init__(self, save_output: bool = False):
+        super().__init__(save_output=save_output)
+        self.command_name = "raw-analyze"
+        self._error_count = 0
+
+    def extract_data(self, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
+        self._error_count = _count_errors_in_response(result_json)
+        return _files_from_response(result_json)
+
+    def parse_data(self, data: List[Dict[str, Any]]) -> Iterator[Dict[str, Any]]:
+        yield from data
+
+    def print_renderables(self, data: Iterator[Dict[str, Any]]) -> None:
+        # Drain so any side effects in ``parse_data`` run, but don't print
+        # anything per-file: the raw JSON body has already been emitted by
+        # the framework via ``result_raw_data``.
+        for _ in data:
+            pass
+        if self.result_raw_data is not None:
+            cli_console.styled_message(self.result_raw_data)
+            cli_console.styled_message("\n")
+
+    def _generate_summary_renderables(self) -> List[Text]:
+        if self._error_count == 0:
+            return [
+                Text(
+                    "Static analysis of DCM Project files found no errors.",
+                    styles.PASS_STYLE,
+                )
+            ]
+        errors_word = "error" if self._error_count == 1 else "errors"
+        return [
+            Text("Static analysis of DCM Project files found "),
+            Text(f"{self._error_count} {errors_word}", styles.FAIL_STYLE),
+            Text("."),
+        ]
+
+    def _is_success(self) -> bool:
+        return self._error_count == 0
+
+
+class AnalyzeErrorsReporter(Reporter[_FileFindings]):
+    """Prints a formatted list of issues returned by ``EXECUTE DCM PROJECT ... ANALYZE``.
+
+    Each issue is color-coded by its ``severity`` field:
+
+    * ``ERROR`` — red; triggers a non-zero exit code.
+    * ``WARN`` / ``WARNING`` — yellow; informational, exit code unchanged.
+    * ``INFO`` — blue; informational, exit code unchanged.
+
+    Unknown severity values are treated as ``ERROR`` so a buggy server payload
+    cannot silently downgrade a real problem.
     """
 
     _INDENT = "  "
@@ -230,12 +307,13 @@ class AnalyzeErrorsReporter(Reporter[_FileFindings]):
         super().__init__(save_output=save_output)
         self.command_name = "analyze"
         self._error_count = 0
-        self._issue_count = 0
+        self._warning_count = 0
+        self._info_count = 0
         self._top_level_issues: List[_AnalyzeFinding] = []
 
     def extract_data(self, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
         for raw in result_json.get("issues") or []:
-            self._top_level_issues.append(_to_finding(raw, _KIND_ISSUE))
+            self._top_level_issues.append(_to_finding(raw))
         return _files_from_response(result_json)
 
     def parse_data(self, data: List[Dict[str, Any]]) -> Iterator[_FileFindings]:
@@ -251,10 +329,12 @@ class AnalyzeErrorsReporter(Reporter[_FileFindings]):
             yield file_findings
 
     def _tally(self, finding: _AnalyzeFinding) -> None:
-        if finding.kind == _KIND_ERROR:
+        if finding.severity == Severity.ERROR:
             self._error_count += 1
+        elif finding.severity == Severity.WARNING:
+            self._warning_count += 1
         else:
-            self._issue_count += 1
+            self._info_count += 1
 
     def print_renderables(self, data: Iterator[_FileFindings]) -> None:
         first = True
@@ -278,7 +358,7 @@ class AnalyzeErrorsReporter(Reporter[_FileFindings]):
                     self._print_finding(finding, depth=2)
 
         for finding in self._top_level_issues:
-            self._issue_count += 1
+            self._tally(finding)
             if not first:
                 cli_console.styled_message("\n")
             first = False
@@ -296,16 +376,15 @@ class AnalyzeErrorsReporter(Reporter[_FileFindings]):
 
     def _print_finding(self, finding: _AnalyzeFinding, depth: int) -> None:
         indent = self._INDENT * depth
-        style = (
-            styles.FAIL_STYLE if finding.kind == _KIND_ERROR else styles.WARNING_STYLE
-        )
+        style = _SEVERITY_STYLE[finding.severity]
         message = sanitize_for_terminal(_clean_finding_message(finding.message))
         for line in message.splitlines() or [""]:
             cli_console.styled_message(f"{indent}{line}", style=style)
             cli_console.styled_message("\n")
 
     def _generate_summary_renderables(self) -> List[Text]:
-        if self._error_count == 0 and self._issue_count == 0:
+        total = self._error_count + self._warning_count + self._info_count
+        if total == 0:
             return [
                 Text(
                     "Static analysis of DCM Project files found no errors.",
@@ -313,21 +392,36 @@ class AnalyzeErrorsReporter(Reporter[_FileFindings]):
                 )
             ]
 
-        errors_plural = "error" if self._error_count == 1 else "errors"
-        issues_plural = "issue" if self._issue_count == 1 else "issues"
-        return [
-            Text("Static analysis of DCM Project files found "),
-            Text(f"{self._error_count} {errors_plural}", styles.FAIL_STYLE),
-            Text(" and "),
-            Text(f"{self._issue_count} {issues_plural}", styles.WARNING_STYLE),
-            Text("."),
-        ]
+        # Build (count, label, style) tuples in severity order; only buckets
+        # with a non-zero count are included so the summary stays terse.
+        segments: List[tuple[int, str, Any]] = []
+        if self._error_count > 0:
+            label = "error" if self._error_count == 1 else "errors"
+            segments.append((self._error_count, label, styles.FAIL_STYLE))
+        if self._warning_count > 0:
+            label = "warning" if self._warning_count == 1 else "warnings"
+            segments.append((self._warning_count, label, styles.WARNING_STYLE))
+        if self._info_count > 0:
+            label = "info" if self._info_count == 1 else "infos"
+            segments.append((self._info_count, label, styles.INFO_STYLE))
+
+        result: List[Text] = [Text("Static analysis of DCM Project files found ")]
+        for index, (count, label, style) in enumerate(segments):
+            if index > 0:
+                # "A and B" for two segments, "A, B, and C" for three (Oxford comma).
+                if index == len(segments) - 1:
+                    result.append(Text(", and " if len(segments) > 2 else " and "))
+                else:
+                    result.append(Text(", "))
+            result.append(Text(f"{count} {label}", style))
+        result.append(Text("."))
+        return result
 
     def _is_success(self) -> bool:
         # Always treat the run as "success" from the base reporter's perspective
-        # so that `print_summary()` is always called — we want the summary line
-        # rendered at the end of every run (cf. `snow dcm plan`). The exit code
-        # is set separately by `process_payload`.
+        # so that `print_summary()` is always called — we want the styled
+        # summary rendered at the end of every run (cf. `snow dcm plan`). The
+        # exit code is set separately by ``process_payload``.
         return True
 
     def process_payload(self, result_json: Dict[str, Any]) -> None:
