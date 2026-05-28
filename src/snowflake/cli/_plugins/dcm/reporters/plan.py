@@ -30,7 +30,6 @@ log = logging.getLogger(__name__)
 
 _OPERATION_WIDTH = 8
 _DOMAIN_WIDTH = 20
-_KIND_WIDTH = 9  # widest known kind ("modified") + 1
 _COLLECTION_KIND = "collection"
 
 
@@ -508,13 +507,17 @@ class PlanReporter(Reporter[PlanRow]):
         if detail.kind:
             # Only the operation keyword (added / removed / modified / set / …)
             # is colored; the entity name / description that follows renders
-            # with the terminal default so the colored kind stands out.
+            # with the terminal default so the colored kind stands out. Unlike
+            # the top-level CREATE/ALTER/DROP row, child rows do NOT pad the
+            # keyword to a fixed column — the tree prefix already provides
+            # visual indentation, so a single space separator keeps the line
+            # compact.
             cli_console.styled_message(
-                detail.kind.ljust(_KIND_WIDTH),
+                detail.kind,
                 style=self._style_for_change_kind(detail.kind),
             )
         if detail.desc:
-            cli_console.styled_message(detail.desc)
+            cli_console.styled_message(" " + detail.desc)
         cli_console.styled_message("\n")
 
     def _generate_summary_renderables(self) -> List[Text]:

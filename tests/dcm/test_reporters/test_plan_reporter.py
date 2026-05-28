@@ -289,7 +289,7 @@ class TestPlanReporterTerse:
         }
         output = capture_reporter_output(PlanReporter(), FakeCursor(data))
         assert output == snapshot
-        assert "removed  SNOWHOUSE_IMPORT.CORE.NULL_COUNT$V1(CUSTOMER_CITY)" in output
+        assert "removed SNOWHOUSE_IMPORT.CORE.NULL_COUNT$V1(CUSTOMER_CITY)" in output
 
     def test_alter_with_modified_grants_nested(self, snapshot):
         """ROLE ALTER with mixed added/removed leaves plus a 'modified' parent.
@@ -527,9 +527,9 @@ class TestPlanReporterTerse:
         }
         output = capture_reporter_output(PlanReporter(), FakeCursor(data))
 
-        assert "added    SNOWFLAKE.CORE.NULL_COUNT$V1(CUSTOMER_CITY)" in output
-        assert "added    NO_MISSING_CITIES" in output
-        assert "set      expression = value = 0" in output
+        assert "added SNOWFLAKE.CORE.NULL_COUNT$V1(CUSTOMER_CITY)" in output
+        assert "added NO_MISSING_CITIES" in output
+        assert "set expression = value = 0" in output
         assert output == snapshot
 
     def test_create_with_changes_does_not_render_details(self):
