@@ -14,6 +14,7 @@
 """Unit tests for the DCM deploy/plan live progress tracker rendering."""
 
 from datetime import datetime
+from unittest import mock
 from unittest.mock import MagicMock
 
 from snowflake.cli._plugins.dcm.progress import (
@@ -191,3 +192,122 @@ class TestFailUpload:
         assert self._upload_phase(tracker).status == PhaseStatus.FAILED
         # The original failure timestamp is preserved on repeated calls.
         assert self._upload_phase(tracker).completed_at == first_completed_at
+
+
+class TestUpdateFromPoll:
+    """``_update_from_poll`` must not mutate phase state from junk payloads.
+
+    Regression coverage for an earlier bug where an empty / missing /
+    unknown ``phase`` field on the very first poll flipped every server-side
+    phase to ``done`` while the query was still running — the UI showed a
+    fully-green checklist immediately.
+    """
+
+    def _tracker(self):
+        t = DeployProgressTracker(conn=MagicMock(), operation="deploy")
+        t.complete_upload()
+        return t
+
+    def _server_phases(self, tracker):
+        return [p for p in tracker._phases if p.name != UPLOAD_PHASE]  # noqa: SLF001
+
+    def test_empty_phase_string_is_ignored(self):
+        tracker = self._tracker()
+
+        tracker._update_from_poll({"phase": "", "progress": 0})  # noqa: SLF001
+
+        assert all(
+            p.status == PhaseStatus.PENDING for p in self._server_phases(tracker)
+        )
+
+    def test_missing_phase_key_is_ignored(self):
+        tracker = self._tracker()
+
+        tracker._update_from_poll({"progress": 0})  # noqa: SLF001
+
+        assert all(
+            p.status == PhaseStatus.PENDING for p in self._server_phases(tracker)
+        )
+
+    def test_unknown_phase_name_is_ignored(self):
+        tracker = self._tracker()
+
+        tracker._update_from_poll({"phase": "BUILD", "progress": 50})  # noqa: SLF001
+
+        assert all(
+            p.status == PhaseStatus.PENDING for p in self._server_phases(tracker)
+        )
+
+    def test_non_string_phase_is_ignored(self):
+        tracker = self._tracker()
+
+        tracker._update_from_poll({"phase": 42, "progress": 0})  # noqa: SLF001
+
+        assert all(
+            p.status == PhaseStatus.PENDING for p in self._server_phases(tracker)
+        )
+
+    def test_known_phase_advances_state(self):
+        """Sanity: a well-formed payload still drives the state machine."""
+        tracker = self._tracker()
+
+        tracker._update_from_poll({"phase": "PLAN", "progress": 25})  # noqa: SLF001
+
+        statuses = {p.name: p.status for p in self._server_phases(tracker)}
+        # Phases earlier than PLAN are auto-completed; PLAN itself runs;
+        # later phases remain PENDING.
+        assert statuses["RENDER"] == PhaseStatus.DONE
+        assert statuses["COMPILE"] == PhaseStatus.DONE
+        assert statuses["PLAN"] == PhaseStatus.RUNNING
+        assert statuses["DEPLOY"] == PhaseStatus.PENDING
+
+
+class TestRunLoaderPhaseSilent:
+    """In silent mode (JSON/CSV/``--silent``), ``run_loader_phase`` must not
+    mutate phase state — there's no UI to drive and stale RUNNING entries
+    would mislead any code that introspects the tracker later."""
+
+    def _tracker(self, operation="plan"):
+        return DeployProgressTracker(conn=MagicMock(), operation=operation)
+
+    def test_silent_mode_skips_phase_transitions(self):
+        tracker = self._tracker(operation="plan")
+        before = [(p.name, p.status) for p in tracker._phases]  # noqa: SLF001
+
+        with mock.patch("snowflake.cli._plugins.dcm.progress.get_cli_context") as ctx:
+            ctx.return_value.silent = True
+            sentinel = object()
+            result = tracker.run_loader_phase(
+                lambda: sentinel,
+                phase_name="PLAN",
+                simulated_phases=("RENDER", "COMPILE"),
+            )
+
+        assert result is sentinel
+        after = [(p.name, p.status) for p in tracker._phases]  # noqa: SLF001
+        assert before == after  # no phases touched
+
+    def test_silent_mode_still_propagates_exceptions(self):
+        tracker = self._tracker(operation="plan")
+
+        class _BoomError(RuntimeError):
+            pass
+
+        def _raise():
+            raise _BoomError("server-side failure")
+
+        with mock.patch("snowflake.cli._plugins.dcm.progress.get_cli_context") as ctx:
+            ctx.return_value.silent = True
+            try:
+                tracker.run_loader_phase(_raise, phase_name="PLAN")
+            except _BoomError:
+                pass
+            else:
+                raise AssertionError("Expected _BoomError")
+
+        # Even though the call raised, no phase state was mutated.
+        assert all(
+            p.status == PhaseStatus.PENDING
+            for p in tracker._phases  # noqa: SLF001
+            if p.name != UPLOAD_PHASE
+        )

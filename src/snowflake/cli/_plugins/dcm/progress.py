@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -101,6 +102,15 @@ _TERMINAL_STATUSES = {
     QueryStatus.ABORTED,
     QueryStatus.ABORTING,
 }
+
+# Snowflake query IDs are UUIDs (``xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx``).
+# ``_poll_progress`` interpolates the sfqid into a SQL literal; this regex
+# is the gate that keeps anything that doesn't look like a query id out of
+# that SQL string. Defense-in-depth: the sfqid is server-generated, but we
+# never want to embed an unvalidated string into SQL.
+_SFQID_RE = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-" r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
 
 
 def _format_duration(seconds: float) -> str:
@@ -305,10 +315,22 @@ class DeployProgressTracker:
 
     def _poll_progress(self) -> Optional[dict]:
         assert self._sfqid is not None
+        # ``sfqid`` is server-generated, but we refuse to interpolate
+        # anything that doesn't match the UUID shape into SQL. A failed
+        # match disables polling for this run instead of risking SQL
+        # injection from a malformed identifier.
+        if not _SFQID_RE.match(self._sfqid):
+            log.debug(
+                "Refusing to poll progress: sfqid=%r does not match expected shape.",
+                self._sfqid,
+            )
+            return None
         try:
-            cursor = self._conn.cursor()
-            cursor.execute(f"SELECT SYSTEM$GET_DCM_PROJECT_PROGRESS('{self._sfqid}')")
-            row = cursor.fetchone()
+            with self._conn.cursor() as cursor:
+                cursor.execute(
+                    f"SELECT SYSTEM$GET_DCM_PROJECT_PROGRESS('{self._sfqid}')"
+                )
+                row = cursor.fetchone()
             if row and row[0]:
                 return json.loads(row[0])
         except Exception:  # noqa: BLE001
@@ -322,7 +344,20 @@ class DeployProgressTracker:
     def _update_from_poll(self, data: Optional[dict]) -> None:
         if not data:
             return
-        current_phase_name = data.get("phase", "").upper()
+        raw_phase = data.get("phase")
+        current_phase_name = raw_phase.upper() if isinstance(raw_phase, str) else ""
+        # Defensive: refuse to mutate phase state from a payload that doesn't
+        # name a known phase. Without this guard an empty / missing / unknown
+        # ``phase`` field flips every server-side phase to ``done`` on the
+        # first poll while the query is still running (silent UI regression).
+        if current_phase_name not in {p.name for p in self._phases}:
+            log.debug(
+                "Ignoring progress poll with unknown phase %r (sfqid=%s).",
+                raw_phase,
+                self._sfqid,
+            )
+            return
+
         progress = int(data.get("progress", 0))
         ts = datetime.now()
 
@@ -335,7 +370,7 @@ class DeployProgressTracker:
                 bar_progress = progress if phase.name in PHASES_WITH_PROGRESS_BAR else 0
                 phase.observe_running(bar_progress, ts)
             elif not found_current:
-                if phase.status not in ("done", "failed"):
+                if phase.status not in (PhaseStatus.DONE, PhaseStatus.FAILED):
                     phase.observe_done(ts)
 
     # ------------------------------------------------------------------ #
@@ -541,6 +576,14 @@ class DeployProgressTracker:
         ``simulated_phases`` are marked instantly done first — used by ``plan``
         to fast-forward ``RENDER`` / ``COMPILE`` before settling on ``PLAN``.
         """
+        # Silent mode (JSON/CSV output, or ``--silent``) has no UI to drive,
+        # so we skip all phase-state bookkeeping entirely. This keeps the
+        # tracker free of stale RUNNING entries that could mislead later
+        # introspection — and avoids paying for ``datetime.now()`` calls
+        # nobody will see.
+        if get_cli_context().silent:
+            return execute_fn()
+
         self.complete_upload()
         for name in simulated_phases:
             self._simulate_instant_phase(name)
@@ -548,9 +591,6 @@ class DeployProgressTracker:
         phase = self._get_phase(phase_name)
         phase.observe_running(0, datetime.now())
         self._refresh_display()
-
-        if get_cli_context().silent:
-            return execute_fn()
 
         try:
             result = execute_fn()

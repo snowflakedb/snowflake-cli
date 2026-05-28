@@ -499,11 +499,11 @@ class PlanReporter(Reporter[PlanRow]):
                 self._print_detail(detail)
 
     def _print_detail(self, detail: PlanDetail) -> None:
-        # Tree prefix renders with the default style so the colored kind
-        # keyword that follows is what catches the eye.
+        # Tree prefix renders dim so it recedes visually — the colored kind
+        # keyword that follows is what should catch the eye.
         prefix = _render_tree_prefix(detail.is_last_chain)
         if prefix:
-            cli_console.styled_message(prefix)
+            cli_console.styled_message(prefix, style="dim")
         if detail.kind:
             # Only the operation keyword (added / removed / modified / set / …)
             # is colored; the entity name / description that follows renders

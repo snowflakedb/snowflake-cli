@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+from collections import Counter
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, Iterator, List, Optional
@@ -211,33 +212,48 @@ def _clean_finding_message(message: str) -> str:
             return cleaned
 
 
-def _count_errors_in_response(result_json: Dict[str, Any]) -> int:
-    """Count severity=ERROR findings across all three levels of the response."""
+def _iter_findings(result_json: Dict[str, Any]) -> Iterator[_AnalyzeFinding]:
+    """Yield every issue in the response as an :class:`_AnalyzeFinding`.
+
+    Walks the top-level ``issues[]``, every file's ``issues[]``, and every
+    definition's ``issues[]`` once each. This is the single source of truth
+    for "how many findings, and at what severity?" — both reporters tally
+    off the same stream so their totals can't drift apart.
+    """
+
+    def _yield_from(raw_iter: Any) -> Iterator[_AnalyzeFinding]:
+        if not isinstance(raw_iter, list):
+            return
+        for raw in raw_iter:
+            yield _to_finding(raw)
+
+    yield from _yield_from(result_json.get("issues"))
+
     files = result_json.get(_FILES_KEY)
     if not isinstance(files, list):
-        return 0
+        return
 
-    def _count(raw_iter: Any) -> int:
-        if not isinstance(raw_iter, list):
-            return 0
-        return sum(
-            1
-            for raw in raw_iter
-            if _normalize_severity(
-                raw.get("severity") if isinstance(raw, dict) else None
-            )
-            == Severity.ERROR
-        )
-
-    total = _count(result_json.get("issues"))
     for file_entry in files:
         if not isinstance(file_entry, dict):
             continue
-        total += _count(file_entry.get("issues"))
+        yield from _yield_from(file_entry.get("issues"))
         for definition in file_entry.get("definitions") or []:
             if isinstance(definition, dict):
-                total += _count(definition.get("issues"))
-    return total
+                yield from _yield_from(definition.get("issues"))
+
+
+def _tally_by_severity(
+    findings: Iterator[_AnalyzeFinding],
+) -> Counter:
+    """Return a Counter keyed by :class:`Severity` (one entry per bucket).
+
+    The Counter always has explicit zero entries for ERROR/WARNING/INFO so
+    callers can read ``counts[Severity.ERROR]`` without a KeyError.
+    """
+    counts: Counter = Counter({s: 0 for s in Severity})
+    for finding in findings:
+        counts[finding.severity] += 1
+    return counts
 
 
 class AnalyzeReporter(Reporter[Dict[str, Any]]):
@@ -253,7 +269,8 @@ class AnalyzeReporter(Reporter[Dict[str, Any]]):
         self._error_count = 0
 
     def extract_data(self, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
-        self._error_count = _count_errors_in_response(result_json)
+        counts = _tally_by_severity(_iter_findings(result_json))
+        self._error_count = counts[Severity.ERROR]
         return _files_from_response(result_json)
 
     def parse_data(self, data: List[Dict[str, Any]]) -> Iterator[Dict[str, Any]]:
@@ -312,13 +329,16 @@ class AnalyzeErrorsReporter(Reporter[_FileFindings]):
         self._top_level_issues: List[_AnalyzeFinding] = []
 
     def extract_data(self, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
+        # Tally severities off the shared ``_iter_findings`` stream so this
+        # reporter and :class:`AnalyzeReporter` can never disagree on the
+        # numbers — both walk the response the same way.
+        counts = _tally_by_severity(_iter_findings(result_json))
+        self._error_count = counts[Severity.ERROR]
+        self._warning_count = counts[Severity.WARNING]
+        self._info_count = counts[Severity.INFO]
+
         for raw in result_json.get("issues") or []:
-            finding = _to_finding(raw)
-            self._top_level_issues.append(finding)
-            # Tally now (mirroring the per-file / per-definition path in
-            # ``parse_data``) so the summary counts are correct regardless
-            # of whether ``print_renderables`` actually walks the list.
-            self._tally(finding)
+            self._top_level_issues.append(_to_finding(raw))
         return _files_from_response(result_json)
 
     def parse_data(self, data: List[Dict[str, Any]]) -> Iterator[_FileFindings]:
@@ -326,20 +346,7 @@ class AnalyzeErrorsReporter(Reporter[_FileFindings]):
             file_findings = _collect_file_findings(file_entry)
             if file_findings.total == 0:
                 continue
-            for finding in file_findings.file_findings:
-                self._tally(finding)
-            for group in file_findings.definition_findings:
-                for finding in group.findings:
-                    self._tally(finding)
             yield file_findings
-
-    def _tally(self, finding: _AnalyzeFinding) -> None:
-        if finding.severity == Severity.ERROR:
-            self._error_count += 1
-        elif finding.severity == Severity.WARNING:
-            self._warning_count += 1
-        else:
-            self._info_count += 1
 
     def print_renderables(self, data: Iterator[_FileFindings]) -> None:
         first = True
