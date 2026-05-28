@@ -59,7 +59,7 @@ _SLOW_POLL_INTERVAL = 10.0  # seconds — used after 100 s (~85 % fewer calls)
 _FAST_POLL_THRESHOLD = 100.0  # seconds
 
 _PHASE_COL_WIDTH = 10
-_BAR_WIDTH = 30
+_BAR_WIDTH = 40
 _LIVE_REFRESH_PER_SECOND = 10  # ~100 ms per repaint; smooth spinner cadence.
 
 # Heavy-horizontal box-drawing chars for a minimal pip/rich-style progress
@@ -120,16 +120,16 @@ class _Phase:
     progress: int = 0  # 0-100; only meaningful for PHASES_WITH_PROGRESS_BAR
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
-    hide_timestamp: bool = False
+    hide_timing: bool = False  # Suppress duration display (used for simulated phases)
 
     def observe_running(self, progress: int, ts: datetime) -> None:
-        if self.status == PhaseStatus.PENDING and not self.hide_timestamp:
+        if self.status == PhaseStatus.PENDING and not self.hide_timing:
             self.started_at = ts
         self.status = PhaseStatus.RUNNING
         self.progress = progress
 
     def observe_done(self, ts: datetime) -> None:
-        if not self.hide_timestamp:
+        if not self.hide_timing:
             if not self.started_at:
                 self.started_at = ts
             self.completed_at = ts
@@ -370,7 +370,7 @@ class DeployProgressTracker:
     # ------------------------------------------------------------------ #
 
     def _duration_suffix(self, phase: _Phase) -> str:
-        if phase.hide_timestamp:
+        if phase.hide_timing:
             return ""
         now = datetime.now() if phase.status == PhaseStatus.RUNNING else None
         seconds = phase.duration_seconds(now=now)
@@ -380,7 +380,7 @@ class DeployProgressTracker:
 
     def _simulate_instant_phase(self, name: str) -> None:
         phase = self._get_phase(name)
-        phase.hide_timestamp = True
+        phase.hide_timing = True
         phase.status = PhaseStatus.DONE
 
     def _phase_shows_progress_bar(self, phase: _Phase) -> bool:
@@ -421,20 +421,20 @@ class DeployProgressTracker:
             out.append(f"  {summary}\n", style="dim")
 
     def _render_phase_line(self, out: Text, phase: _Phase) -> None:
-        ts_str = ""
-        if not phase.hide_timestamp and phase.started_at:
-            ts_str = f"  {phase.started_at.strftime('%H:%M:%S')}"
+        # Wall-clock start time is intentionally omitted — the parenthesised
+        # elapsed duration that follows the status indicator is the single
+        # source of timing information.
         duration_str = self._duration_suffix(phase)
         name_col = f"{phase.name:<{_PHASE_COL_WIDTH}}"
 
         if phase.status == PhaseStatus.DONE:
             out.append(name_col, style=styles.PHASE_DONE_STYLE)
             out.append("✓", style="bold green")
-            out.append(ts_str + duration_str + "\n", style="dim")
+            out.append(duration_str + "\n", style="dim")
         elif phase.status == PhaseStatus.FAILED:
             out.append(name_col, style=styles.PHASE_FAILED_STYLE)
             out.append("✗", style="bold red")
-            out.append(ts_str + duration_str + "\n", style="dim")
+            out.append(duration_str + "\n", style="dim")
         elif phase.status == PhaseStatus.RUNNING:
             out.append(name_col, style=styles.PHASE_RUNNING_STYLE)
             if self._phase_shows_progress_bar(phase):
@@ -443,7 +443,7 @@ class DeployProgressTracker:
                 # Animated braille spinner; Rich's Live re-renders us each
                 # refresh tick (see :meth:`__rich__`), so the glyph cycles.
                 out.append(_spinner_glyph(), style="yellow")
-            out.append(ts_str + duration_str + "\n", style="dim")
+            out.append(duration_str + "\n", style="dim")
         else:  # PENDING
             out.append(name_col + "·\n", style="dim")
 
