@@ -18,10 +18,8 @@
 
 ## Design sign-off before writing code
 
-Before implementing any new command or command group, get maintainer sign-off on
-the user-facing interface. CLI tools have different conventions from other
-application types, and reviewers will not merge a PR where the interface was
-designed unilaterally.
+Before implementing any change to the user-facing interface — new commands,
+command groups, arguments, options, or output format — get maintainer sign-off.
 
 **What sign-off covers:**
 
@@ -37,8 +35,7 @@ yours to decide as long as they stay encapsulated within `_plugins/<your-plugin>
 and do not add to `api/` or `_app/`.
 
 **Where to get sign-off:** open a GitHub Issue describing the interface and tag a
-maintainer for review. If the feature is not yet announced and must stay private,
-use a private channel — but approval is still required before you start coding.
+maintainer for review.
 
 ---
 
@@ -180,7 +177,6 @@ All types are in `src/snowflake/cli/api/output/types.py`:
 | `SingleQueryResult` | Single-row cursor result (DESCRIBE, CREATE ... RETURN ...) |
 | `CollectionResult` | Iterable of dicts with no cursor (locally constructed results) |
 | `ObjectResult` | Single dict with no cursor |
-| `StreamResult` | Generator of `CommandResult`s for streaming output — rare |
 
 ### Lifecycle and visibility
 
@@ -190,9 +186,8 @@ until the flag is enabled, and for the PrPr → PuPr → GA progression.
 
 ### Destructive commands
 
-Commands that modify or delete existing resources must use `ForceOption` and
-`InteractiveOption` from `snowflake.cli.api.commands.flags`. These are
-standardized — do not invent your own `--confirm` or `--yes` flags.
+Commands that modify or delete existing resources should use `ForceOption` and
+`InteractiveOption` from `snowflake.cli.api.commands.flags`.
 
 Behavior matrix:
 
@@ -202,19 +197,6 @@ Behavior matrix:
 | unset | True (TTY default) | Prompt the user |
 | set | either | Proceed without prompting |
 
-Use `AllowAlwaysPolicy`, `AskAlwaysPolicy`, and `DenyAlwaysPolicy` from
-`src/snowflake/cli/_plugins/nativeapp/policy.py` to drive the decision (these
-are currently in `nativeapp` and may be promoted to `api/` in the future — check
-with a maintainer if you need them outside the nativeapp context):
-
-```python
-if force:
-    policy = AllowAlwaysPolicy()
-elif interactive:
-    policy = AskAlwaysPolicy()
-else:
-    policy = DenyAlwaysPolicy()
-```
 
 ---
 
