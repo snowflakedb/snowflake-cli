@@ -33,6 +33,23 @@ _DOMAIN_WIDTH = 20
 _KIND_WIDTH = 9  # widest known kind ("modified") + 1
 _COLLECTION_KIND = "collection"
 
+# Display order for sibling sub-changes under an ALTER row. Mirrors the
+# top-level CREATE → ALTER → DROP ordering so the eye scans the same way
+# whether it's an entity row or one of its indented children. Within a
+# category, the sub-keys "added" and "set" group together (both create
+# things) before "removed" / "unset" (both destroy things), etc. Python's
+# ``list.sort`` is stable, so siblings sharing the same key keep the
+# server-supplied order.
+_KIND_SORT_ORDER = {
+    "added": (0, 0),
+    "set": (0, 1),
+    "modified": (1, 0),
+    "renamed": (1, 1),
+    "removed": (2, 0),
+    "unset": (2, 1),
+}
+_UNKNOWN_KIND_SORT_KEY = (3, 0)
+
 # Tree-prefix cell glyphs (each cell is 3 columns wide so the tree column
 # stays narrow and aligned regardless of depth). Box-drawing characters
 # render in any UTF-8 terminal; the cells render with the default style
@@ -236,6 +253,14 @@ def _flatten_changes(
             continue
         renderable.append((change, sanitized_kind, desc))
 
+    # Stable sort: group siblings by kind category so users see all
+    # creations, then modifications, then deletions in a predictable order.
+    renderable.sort(
+        key=lambda triple: _KIND_SORT_ORDER.get(
+            triple[1].lower(), _UNKNOWN_KIND_SORT_KEY
+        )
+    )
+
     out: List[PlanDetail] = []
     total = len(renderable)
     for index, (change, sanitized_kind, desc) in enumerate(renderable):
@@ -271,6 +296,13 @@ def _flatten_changes_from_raw(
         if not sanitized_kind and not desc:
             continue
         renderable.append((change, sanitized_kind, desc))
+
+    # Same kind-based sort as the strict flattener (cf. ``_flatten_changes``).
+    renderable.sort(
+        key=lambda triple: _KIND_SORT_ORDER.get(
+            triple[1].lower(), _UNKNOWN_KIND_SORT_KEY
+        )
+    )
 
     out: List[PlanDetail] = []
     total = len(renderable)
