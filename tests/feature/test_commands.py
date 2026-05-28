@@ -826,6 +826,75 @@ def test_online_service_no_flags_returns_status(mock_manager, runner):
 
 
 @mock.patch(FEATURE_MANAGER)
+def test_online_service_status_does_not_render_duplicate_table(
+    mock_manager, runner
+):
+    """The no-flag status branch must not duplicate the rich display as
+    a key/value table on stdout.
+
+    Pre-fix the command wrote the rich display to stderr (good) and
+    then returned ``ObjectResult(result)`` (bad) — the latter rendered
+    as a ``| key | value |`` table containing ``status``, ``message``,
+    ``endpoints`` (JSON-encoded), ``created_at`` and ``updated_at``,
+    duplicating every field already shown in the rich display. The
+    fix returns a no-op ``MessageResult`` for the success path.
+
+    With the runner's default ``mix_stderr=True`` both streams end up
+    in ``result.output``; the rich display (stderr) is allowed there,
+    but the key/value table markers must not appear.
+    """
+    mock_manager.return_value.get_status.return_value = {
+        "status": "RUNNING",
+        "message": "Feature Store Online Service is running",
+        "runtime_id": "rt-x",
+        "endpoints": [
+            {
+                "name": "ingest",
+                "url": "https://ingest.example.snowflakecomputing.app",
+            },
+        ],
+        "compute_pool": {"status": "ACTIVE", "name": "POOL"},
+        "postgres": {"status": "READY", "name": "PG"},
+        "service": {"status": "RUNNING", "name": "SVC"},
+        "created_at": 1779296785675,
+        "updated_at": 1779297371850,
+    }
+    result = runner.invoke(["feature", "online-service"])
+    assert result.exit_code == 0, result.output
+
+    # The rich display banner is the only payload we expect.
+    assert "Feature Store — Runtime Status" in result.output
+
+    # The duplicate key/value table is recognisable by the explicit
+    # column separators and the raw timestamp values it surfaced.
+    assert "| status" not in result.output
+    assert "| message" not in result.output
+    assert "| created_at" not in result.output
+    assert "| updated_at" not in result.output
+    # The endpoints column previously rendered the raw list-of-dicts;
+    # check the JSON-ish form does not leak through.
+    assert "[{'name'" not in result.output
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_online_service_status_error_still_returned_as_object(
+    mock_manager, runner
+):
+    """When ``get_status`` returns an ``error`` envelope the command
+    must still surface the error on stdout (so JSON-mode and human
+    consumers both see it).  Only the success path drops the
+    duplicate table.
+    """
+    mock_manager.return_value.get_status.return_value = {
+        "status": "error",
+        "error": "Something went wrong",
+    }
+    result = runner.invoke(["feature", "online-service"])
+    assert result.exit_code == 0, result.output
+    assert "Something went wrong" in result.output
+
+
+@mock.patch(FEATURE_MANAGER)
 def test_online_service_create_already_running_is_noop(mock_manager, runner):
     """online-service --create should be a no-op when status is already RUNNING."""
     mock_manager.return_value.get_status.return_value = {"status": "RUNNING"}
