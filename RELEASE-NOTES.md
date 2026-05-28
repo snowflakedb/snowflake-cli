@@ -23,6 +23,7 @@
 
 ## Fixes and improvements
 * DCM commands (`plan`, `deploy`, `purge`, `analyze`, `raw-analyze`, `refresh`, `test`) now print a `===` divider line as the last visible line of their reporter output to visually separate the command's results from the next shell prompt or from any error box that follows on failure. The divider is automatically suppressed in `--format json` / `--format csv` runs so machine-readable output stays clean.
+* `snow dcm refresh` now prints a styled summary line above the divider on every run, similar to `snow dcm plan`: a green `N Dynamic Tables refreshed successfully.` count for tables that completed without error (including up-to-date ones), and — when applicable — an additional red `M Refreshes failed.` line for tables that the server returned without statistics. The command exits with status 1 when one or more refreshes failed; otherwise it exits 0. The previous comma-separated `X refreshed, Y up-to-date, Z unknown.` line is replaced by this clearer two-line summary.
 
 
 # v3.19.0

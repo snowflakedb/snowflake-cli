@@ -678,13 +678,13 @@ INSERT INTO {base_table_name} (id, name, email) VALUES
         result = runner.invoke_with_connection(["dcm", "refresh", project_name])
         assert result.exit_code == 0, result.output
         # Should show at least 1 table was refreshed
-        assert_last_stdout_line_equals("1 refreshed.", result)
+        assert "1 Dynamic Table refreshed successfully." in result.output
 
         # 5) Run dcm refresh command again. Response should be different because there's nothing to update
         result = runner.invoke_with_connection(["dcm", "refresh", project_name])
         assert result.exit_code == 0, result.output
-        # Should show at least 1 table was refreshed
-        assert_last_stdout_line_equals("1 up-to-date.", result)
+        # Up-to-date tables still count as a successful refresh
+        assert "1 Dynamic Table refreshed successfully." in result.output
 
 
 @pytest.mark.qa_only
