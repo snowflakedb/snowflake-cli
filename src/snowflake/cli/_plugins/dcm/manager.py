@@ -484,6 +484,8 @@ class DCMProjectManager(SqlExecutionMixin):
             lines.append(f"Upload {MANIFEST_FILE_NAME}")
         for folder in sorted(folder_counts):
             count = folder_counts[folder]
-            file_word = "file" if count == 1 else "files"
+            # Pad the singular "file" with a trailing space so it aligns with
+            # the plural "files" on adjacent rows in the upload details block.
+            file_word = "file " if count == 1 else "files"
             lines.append(f"Upload {count} {file_word} from {_folder_label(folder)}")
         return lines
