@@ -874,6 +874,107 @@ def test_online_service_status_does_not_render_duplicate_table(mock_manager, run
     assert "[{'name'" not in result.output
 
 
+_FULL_STATUS_DICT = {
+    "status": "RUNNING",
+    "message": "running",
+    "runtime_id": "rt-x",
+    "endpoints": [
+        {"name": "ingest", "url": "https://ingest.example.snowflakecomputing.app"},
+    ],
+    "compute_pool": {
+        "status": "ACTIVE",
+        "name": "POOL_X",
+        "instance_family": "CPU_X64_XS",
+        "active_nodes": 1,
+        "total_nodes": 1,
+        "min_nodes": 1,
+        "max_nodes": 2,
+        "auto_suspend_secs": 300,
+    },
+    "postgres": {
+        "status": "READY",
+        "name": "PG_X",
+        "compute_family": "PG_S",
+        "postgres_version": "15.4",
+        "storage_gb": 50,
+        "host": "pg.host",
+    },
+    "service": {
+        "status": "RUNNING",
+        "name": "SVC_X",
+        "image_version": "1.2.3",
+        "compute_pool_name": "POOL_X",
+        "current_instances": 1,
+        "min_instances": 1,
+        "max_instances": 2,
+    },
+    "network_rules": [
+        {
+            "name": "RULE_X",
+            "mode": "EGRESS",
+            "type": "HOST_PORT",
+            "purpose": "DEMO",
+            "value_list": "example.com:443",
+        },
+    ],
+    "secret": {"name": "SECRET_X", "username": "user_x", "password": "abcdef1234"},
+}
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_online_service_status_default_omits_verbose_detail(mock_manager, runner):
+    """Bare ``online-service`` renders the default-compact layout —
+    no Compute Pool / Postgres / Service detail rows, no Network
+    Rules block, no Secret block, no masked Postgres connection
+    string.  Endpoints remain visible.
+    """
+    mock_manager.return_value.get_status.return_value = dict(_FULL_STATUS_DICT)
+    result = runner.invoke(["feature", "online-service"])
+    assert result.exit_code == 0, result.output
+
+    # Heading-only summary rows stay; banner stays; endpoints stay.
+    assert "Compute Pool" in result.output
+    assert "Postgres" in result.output
+    assert "Service" in result.output
+    assert "https://ingest.example.snowflakecomputing.app" in result.output
+
+    # Verbose-only fields and blocks must NOT appear.
+    assert "CPU_X64_XS" not in result.output
+    assert "PG 15.4" not in result.output
+    assert "1.2.3" not in result.output
+    assert "RULE_X" not in result.output
+    assert "SECRET_X" not in result.output
+    assert "postgresql://" not in result.output
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_online_service_status_short_verbose_flag_renders_detail(mock_manager, runner):
+    """``online-service -v`` renders the full layout: per-component
+    detail rows, Network Rules, Secret, and the masked Postgres
+    connection string.
+    """
+    mock_manager.return_value.get_status.return_value = dict(_FULL_STATUS_DICT)
+    result = runner.invoke(["feature", "online-service", "-v"])
+    assert result.exit_code == 0, result.output
+
+    assert "CPU_X64_XS" in result.output
+    assert "PG 15.4" in result.output
+    assert "1.2.3" in result.output
+    assert "RULE_X" in result.output
+    assert "SECRET_X" in result.output
+    assert "postgresql://" in result.output
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_online_service_status_long_verbose_flag_renders_detail(mock_manager, runner):
+    """``--verbose`` is an alias for ``-v``."""
+    mock_manager.return_value.get_status.return_value = dict(_FULL_STATUS_DICT)
+    result = runner.invoke(["feature", "online-service", "--verbose"])
+    assert result.exit_code == 0, result.output
+    assert "RULE_X" in result.output
+    assert "SECRET_X" in result.output
+
+
 @mock.patch(FEATURE_MANAGER)
 def test_online_service_status_error_still_returned_as_object(mock_manager, runner):
     """When ``get_status`` returns an ``error`` envelope the command
