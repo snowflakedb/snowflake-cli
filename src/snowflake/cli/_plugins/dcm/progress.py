@@ -21,12 +21,14 @@ import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Callable, Iterator, Literal, Optional
+from enum import Enum
+from typing import Callable, Iterator, List, Literal, Optional, Sequence
 
 from rich import get_console
 from rich.live import Live
 from rich.text import Text
 from snowflake.cli._plugins.dcm import styles
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.constants import QueryStatus
 from snowflake.connector.cursor import SnowflakeCursor
@@ -34,11 +36,20 @@ from snowflake.connector.cursor import SnowflakeCursor
 log = logging.getLogger(__name__)
 
 UPLOAD_PHASE = "UPLOAD"
+ANALYZE_PHASE = "ANALYZE"
 BACKEND_PHASES = ["RENDER", "COMPILE", "PLAN", "DEPLOY"]
 PLAN_OPERATION_PHASES = ["RENDER", "COMPILE", "PLAN"]
-# "analyze" has no server-side progress phases — only the client-side UPLOAD
-# phase is rendered, with the same styling as deploy / plan.
+# "analyze" has no server-side progress phases — UPLOAD is rendered, then a
+# single ANALYZE phase shows the live spinner while the server analyzes.
 OperationMode = Literal["deploy", "plan", "analyze"]
+
+# Server-side phase list per operation mode (UPLOAD is always first; the
+# remainder reflects what each command actually runs on the server).
+_PHASES_BY_OPERATION: dict[OperationMode, list[str]] = {
+    "deploy": [UPLOAD_PHASE, *BACKEND_PHASES],
+    "plan": [UPLOAD_PHASE, *PLAN_OPERATION_PHASES],
+    "analyze": [UPLOAD_PHASE, ANALYZE_PHASE],
+}
 
 # Only PLAN and DEPLOY emit a meaningful 0-100 progress value.
 PHASES_WITH_PROGRESS_BAR = {"PLAN", "DEPLOY"}
@@ -49,6 +60,33 @@ _FAST_POLL_THRESHOLD = 100.0  # seconds
 
 _PHASE_COL_WIDTH = 10
 _BAR_WIDTH = 20
+_LIVE_REFRESH_PER_SECOND = 10  # ~100 ms per repaint; smooth spinner cadence.
+
+# Braille-dot spinner frames; one frame per 100 ms gives a full cycle each
+# second when paired with ``_LIVE_REFRESH_PER_SECOND``.
+_SPINNER_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+
+
+def _spinner_glyph() -> str:
+    """Pick the current braille spinner glyph from wall-clock time.
+
+    Rich's :class:`Live` re-renders the tracker on every refresh tick;
+    deriving the frame from ``time.monotonic()`` is what turns that into a
+    smooth animation without us needing to bookkeep a frame counter.
+    """
+    return _SPINNER_FRAMES[
+        int(time.monotonic() * _LIVE_REFRESH_PER_SECOND) % len(_SPINNER_FRAMES)
+    ]
+
+
+class PhaseStatus(str, Enum):
+    """Lifecycle state of a single phase in the live checklist."""
+
+    PENDING = "pending"
+    RUNNING = "running"
+    DONE = "done"
+    FAILED = "failed"
+
 
 _TERMINAL_STATUSES = {
     QueryStatus.FAILED_WITH_ERROR,
@@ -71,16 +109,16 @@ def _format_duration(seconds: float) -> str:
 @dataclass
 class _Phase:
     name: str
-    status: str = "pending"  # pending | running | done | failed
+    status: PhaseStatus = PhaseStatus.PENDING
     progress: int = 0  # 0-100; only meaningful for PHASES_WITH_PROGRESS_BAR
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     hide_timestamp: bool = False
 
     def observe_running(self, progress: int, ts: datetime) -> None:
-        if self.status == "pending" and not self.hide_timestamp:
+        if self.status == PhaseStatus.PENDING and not self.hide_timestamp:
             self.started_at = ts
-        self.status = "running"
+        self.status = PhaseStatus.RUNNING
         self.progress = progress
 
     def observe_done(self, ts: datetime) -> None:
@@ -88,14 +126,14 @@ class _Phase:
             if not self.started_at:
                 self.started_at = ts
             self.completed_at = ts
-        self.status = "done"
+        self.status = PhaseStatus.DONE
 
     def observe_failed(self, ts: Optional[datetime] = None) -> None:
         end = ts or datetime.now()
         if not self.started_at:
             self.started_at = end
         self.completed_at = end
-        self.status = "failed"
+        self.status = PhaseStatus.FAILED
 
     def duration_seconds(self, *, now: Optional[datetime] = None) -> Optional[float]:
         if not self.started_at:
@@ -130,17 +168,23 @@ class DeployProgressTracker:
         self._conn = conn
         self._sfqid: Optional[str] = None
         self._operation = operation
-        phase_names = [UPLOAD_PHASE]
-        if operation == "deploy":
-            phase_names.extend(BACKEND_PHASES)
-        elif operation == "plan":
-            phase_names.extend(PLAN_OPERATION_PHASES)
+        phase_names = _PHASES_BY_OPERATION[operation]
         self._phases = [_Phase(name=p) for p in phase_names]
         self._upload_stage_message: str = ""
-        self._upload_file_summaries: list[str] = []
+        self._upload_file_summaries: List[str] = []
         self._upload_file_total = 0
         self._upload_files_done = 0
         self._live: Optional[Live] = None
+
+    def __rich__(self) -> Text:
+        """Render the current tracker frame.
+
+        Implementing ``__rich__`` lets us pass ``self`` to :class:`rich.live.Live`
+        instead of a static snapshot. Rich's refresh loop then calls this
+        method on every tick, so spinner animation comes "for free" — no
+        manual repaint is needed for in-place phase updates.
+        """
+        return self._render()
 
     def _get_phase(self, name: str) -> _Phase:
         for phase in self._phases:
@@ -149,8 +193,9 @@ class DeployProgressTracker:
         raise KeyError(name)
 
     def _refresh_display(self) -> None:
+        """Force an immediate Live repaint (state changed; don't wait for tick)."""
         if self._live is not None:
-            self._live.update(self._render())
+            self._live.refresh()
 
     # ------------------------------------------------------------------ #
     # Upload phase (client-side)                                            #
@@ -207,7 +252,7 @@ class DeployProgressTracker:
         was already ``done`` at that point and must not be reset to ``failed``.
         """
         upload = self._get_phase(UPLOAD_PHASE)
-        if upload.status in ("done", "failed"):
+        if upload.status in (PhaseStatus.DONE, PhaseStatus.FAILED):
             return
         upload.observe_failed()
         self._refresh_display()
@@ -215,21 +260,21 @@ class DeployProgressTracker:
     @contextmanager
     def session(self) -> Iterator["DeployProgressTracker"]:
         """Keeps a single Live display open for upload and deploy polling."""
-        from snowflake.cli.api.cli_global_context import get_cli_context
-
         if get_cli_context().silent:
             yield self
             return
 
         console = get_console()
         self.start_upload()
-        with Live(self._render(), console=console, refresh_per_second=4) as live:
+        with Live(
+            self, console=console, refresh_per_second=_LIVE_REFRESH_PER_SECOND
+        ) as live:
             self._live = live
             try:
                 yield self
             except Exception:
                 self.fail_upload()
-                live.update(self._render())
+                live.refresh()
                 raise
             finally:
                 self._live = None
@@ -295,7 +340,7 @@ class DeployProgressTracker:
         for phase in self._phases:
             if phase.name == UPLOAD_PHASE:
                 continue
-            if phase.status in ("pending", "running"):
+            if phase.status in (PhaseStatus.PENDING, PhaseStatus.RUNNING):
                 phase.observe_done(ts)
 
     def _finalize_failure(self) -> None:
@@ -303,13 +348,13 @@ class DeployProgressTracker:
         for phase in reversed(self._phases):
             if phase.name == UPLOAD_PHASE:
                 continue
-            if phase.status == "running":
+            if phase.status == PhaseStatus.RUNNING:
                 phase.observe_failed(ts)
                 return
         for phase in self._phases:
             if phase.name == UPLOAD_PHASE:
                 continue
-            if phase.status == "pending":
+            if phase.status == PhaseStatus.PENDING:
                 phase.observe_failed(ts)
                 return
 
@@ -320,7 +365,7 @@ class DeployProgressTracker:
     def _duration_suffix(self, phase: _Phase) -> str:
         if phase.hide_timestamp:
             return ""
-        now = datetime.now() if phase.status == "running" else None
+        now = datetime.now() if phase.status == PhaseStatus.RUNNING else None
         seconds = phase.duration_seconds(now=now)
         if seconds is None:
             return ""
@@ -329,7 +374,7 @@ class DeployProgressTracker:
     def _simulate_instant_phase(self, name: str) -> None:
         phase = self._get_phase(name)
         phase.hide_timestamp = True
-        phase.status = "done"
+        phase.status = PhaseStatus.DONE
 
     def _phase_shows_progress_bar(self, phase: _Phase) -> bool:
         if phase.name == UPLOAD_PHASE:
@@ -353,24 +398,26 @@ class DeployProgressTracker:
         duration_str = self._duration_suffix(phase)
         name_col = f"{phase.name:<{_PHASE_COL_WIDTH}}"
 
-        if phase.status == "done":
+        if phase.status == PhaseStatus.DONE:
             out.append(name_col, style=styles.PHASE_DONE_STYLE)
             out.append("✓", style="bold green")
             out.append(ts_str + duration_str + "\n", style="dim")
-        elif phase.status == "failed":
+        elif phase.status == PhaseStatus.FAILED:
             out.append(name_col, style=styles.PHASE_FAILED_STYLE)
             out.append("✗", style="bold red")
             out.append(ts_str + duration_str + "\n", style="dim")
-        elif phase.status == "running":
+        elif phase.status == PhaseStatus.RUNNING:
             out.append(name_col, style=styles.PHASE_RUNNING_STYLE)
             if self._phase_shows_progress_bar(phase):
                 filled = int(_BAR_WIDTH * phase.progress / 100)
                 bar = "█" * filled + "░" * (_BAR_WIDTH - filled)
                 out.append(f"[{bar}] {phase.progress:>3}%", style="cyan")
             else:
-                out.append("…", style="yellow")
+                # Animated braille spinner; Rich's Live re-renders us each
+                # refresh tick (see :meth:`__rich__`), so the glyph cycles.
+                out.append(_spinner_glyph(), style="yellow")
             out.append(ts_str + duration_str + "\n", style="dim")
-        else:  # pending
+        else:  # PENDING
             out.append(name_col + "·\n", style="dim")
 
     def _render(self) -> Text:
@@ -387,113 +434,99 @@ class DeployProgressTracker:
     # Main entry points                                                     #
     # ------------------------------------------------------------------ #
 
-    def run_deploy_poll(self, sfqid: str) -> SnowflakeCursor:
+    @contextmanager
+    def _ensure_live(self) -> Iterator[Optional[Live]]:
+        """Yield a Live instance to drive repaints, or ``None`` when silent.
+
+        Three cases collapse into one:
+
+        * silent → yield ``None``; callers skip repaints entirely.
+        * a session is already active → reuse ``self._live``.
+        * standalone call → open a fresh Live around this block.
         """
-        Poll server-side deploy progress until the query finishes.
+        if get_cli_context().silent:
+            yield None
+            return
+        if self._live is not None:
+            yield self._live
+            return
+        with Live(
+            self,
+            console=get_console(),
+            refresh_per_second=_LIVE_REFRESH_PER_SECOND,
+        ) as live:
+            previous = self._live
+            self._live = live
+            try:
+                yield live
+            finally:
+                self._live = previous
+
+    def run_deploy_poll(self, sfqid: str) -> SnowflakeCursor:
+        """Poll server-side deploy progress until the query finishes.
+
         Call inside :meth:`session` after upload completes.
         """
-        from snowflake.cli.api.cli_global_context import get_cli_context
-
         self._sfqid = sfqid
         self.complete_upload()
 
-        silent = get_cli_context().silent
         start = time.monotonic()
-
-        def _tick() -> None:
-            data = self._poll_progress()
-            self._update_from_poll(data)
-
-        def _sleep(elapsed: float) -> None:
-            interval = (
-                _FAST_POLL_INTERVAL
-                if elapsed < _FAST_POLL_THRESHOLD
-                else _SLOW_POLL_INTERVAL
-            )
-            time.sleep(interval)
-
-        if silent:
+        with self._ensure_live() as live:
             while self._is_still_running():
-                _tick()
-                _sleep(time.monotonic() - start)
-            if self._query_failed():
-                self._finalize_failure()
-            else:
-                self._finalize_success()
-        elif self._live is not None:
-            while self._is_still_running():
-                _tick()
-                self._live.update(self._render())
-                _sleep(time.monotonic() - start)
+                self._update_from_poll(self._poll_progress())
+                elapsed = time.monotonic() - start
+                interval = (
+                    _FAST_POLL_INTERVAL
+                    if elapsed < _FAST_POLL_THRESHOLD
+                    else _SLOW_POLL_INTERVAL
+                )
+                time.sleep(interval)
 
             if self._query_failed():
                 self._finalize_failure()
             else:
                 self._finalize_success()
-            self._live.update(self._render())
-        else:
-            console = get_console()
-            with Live(self._render(), console=console, refresh_per_second=4) as live:
-                while self._is_still_running():
-                    _tick()
-                    live.update(self._render())
-                    _sleep(time.monotonic() - start)
-
-                if self._query_failed():
-                    self._finalize_failure()
-                else:
-                    self._finalize_success()
-                live.update(self._render())
+            if live is not None:
+                live.refresh()
 
         result_cursor = self._conn.cursor()
         result_cursor.get_results_from_sfqid(self._sfqid)
         return result_cursor
 
-    def run_plan_execute(
+    def run_loader_phase(
         self,
-        execute_plan: Callable[[], SnowflakeCursor],
+        execute_fn: Callable[[], SnowflakeCursor],
         *,
-        loader_description: str,
+        phase_name: str,
+        simulated_phases: Sequence[str] = (),
     ) -> SnowflakeCursor:
-        """
-        Run DCM PLAN with simulated RENDER/COMPILE phases until progress polling
-        is available server-side.
-        """
-        from snowflake.cli.api.cli_global_context import get_cli_context
-        from snowflake.cli.api.console.console import cli_console
+        """Run a blocking SQL operation while the spinner animates in place.
 
+        The phase named ``phase_name`` is marked running before ``execute_fn``
+        is invoked; the braille spinner glyph cycles next to it via Rich's
+        Live auto-refresh (see :meth:`__rich__`). On success the phase
+        transitions to done with a real duration; on exception it transitions
+        to failed.
+
+        ``simulated_phases`` are marked instantly done first — used by ``plan``
+        to fast-forward ``RENDER`` / ``COMPILE`` before settling on ``PLAN``.
+        """
         self.complete_upload()
-        for name in ("RENDER", "COMPILE"):
+        for name in simulated_phases:
             self._simulate_instant_phase(name)
 
-        plan_phase = self._get_phase("PLAN")
-        plan_phase.hide_timestamp = True
-        plan_phase.observe_running(0, datetime.now())
+        phase = self._get_phase(phase_name)
+        phase.observe_running(0, datetime.now())
         self._refresh_display()
 
-        silent = get_cli_context().silent
-        if silent:
-            return execute_plan()
+        if get_cli_context().silent:
+            return execute_fn()
 
-        assert self._live is not None
-        self._live.stop()
         try:
-            with cli_console.spinner() as spinner:
-                spinner.add_task(description=loader_description, total=None)
-                result = execute_plan()
+            result = execute_fn()
         except Exception:
-            plan_phase.hide_timestamp = False
-            plan_phase.observe_failed()
+            phase.observe_failed(datetime.now())
             raise
         else:
-            plan_phase.hide_timestamp = False
-            plan_phase.observe_done(datetime.now())
-        finally:
-            self._live.start()
-            self._live.update(self._render())
-
+            phase.observe_done(datetime.now())
         return result
-
-    def run(self, sfqid: str) -> SnowflakeCursor:
-        """Backward-compatible alias for :meth:`run_deploy_poll`."""
-        return self.run_deploy_poll(sfqid)

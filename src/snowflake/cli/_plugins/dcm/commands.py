@@ -472,7 +472,7 @@ def plan(
             source_directory=str(from_location.path),
             progress=tracker,
         )
-        result = tracker.run_plan_execute(
+        result = tracker.run_loader_phase(
             lambda: manager.plan(
                 project_identifier=project_id,
                 configuration=context.configuration,
@@ -481,7 +481,8 @@ def plan(
                 save_output=save_output,
                 delta=delta,
             ),
-            loader_description=f"Planning dcm project {project_id}",
+            phase_name="PLAN",
+            simulated_phases=("RENDER", "COMPILE"),
         )
 
     reporter = PlanReporter(save_output=save_output, command_name="plan")
@@ -551,17 +552,16 @@ def analyze(
             source_directory=str(from_location.path),
             progress=tracker,
         )
-        tracker.complete_upload()
-
-    with cli_console.spinner() as spinner:
-        spinner.add_task(description=f"Analyzing dcm project {project_id}", total=None)
-        result = manager.raw_analyze(
-            project_identifier=project_id,
-            configuration=context.configuration,
-            from_stage=effective_stage,
-            variables=variables,
-            save_output=save_output,
-            command_name="analyze",
+        result = tracker.run_loader_phase(
+            lambda: manager.raw_analyze(
+                project_identifier=project_id,
+                configuration=context.configuration,
+                from_stage=effective_stage,
+                variables=variables,
+                save_output=save_output,
+                command_name="analyze",
+            ),
+            phase_name="ANALYZE",
         )
 
     reporter = AnalyzeErrorsReporter(save_output=save_output)

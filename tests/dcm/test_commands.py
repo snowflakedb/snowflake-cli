@@ -85,6 +85,14 @@ def mock_deploy_tracker():
     with mock.patch(
         "snowflake.cli._plugins.dcm.commands.DeployProgressTracker"
     ) as _fixture:
+        # ``run_loader_phase`` is expected to invoke its first-arg callable
+        # (the SQL execution closure) and return its result. The real
+        # implementation does that around a live spinner; in tests we just
+        # call the closure directly so ``manager.raw_analyze`` / ``manager.plan``
+        # actually runs and downstream assertions still hold.
+        _fixture.return_value.run_loader_phase.side_effect = (
+            lambda execute_fn, **_kwargs: execute_fn()
+        )
         yield _fixture
 
 

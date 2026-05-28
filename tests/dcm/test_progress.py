@@ -13,11 +13,14 @@
 # limitations under the License.
 """Unit tests for the DCM deploy/plan live progress tracker rendering."""
 
+from datetime import datetime
 from unittest.mock import MagicMock
 
 from snowflake.cli._plugins.dcm.progress import (
+    _SPINNER_FRAMES,
     UPLOAD_PHASE,
     DeployProgressTracker,
+    PhaseStatus,
 )
 
 
@@ -83,6 +86,34 @@ class TestUploadDetailsLayout:
         assert lines[6].startswith("PLAN")
         assert all(not line.startswith("DEPLOY") for line in lines)
 
+    def test_running_no_progress_phase_shows_spinner_glyph(self):
+        """ANALYZE (and PLAN in plan mode) have no progress bar — they show
+        an animated braille spinner where the running indicator goes."""
+        tracker = DeployProgressTracker(conn=MagicMock(), operation="analyze")
+        tracker.complete_upload()
+        # Mark ANALYZE running, then verify a spinner glyph appears on its line.
+        tracker._get_phase("ANALYZE").observe_running(0, datetime.now())  # noqa: SLF001
+
+        rendered = tracker._render().plain  # noqa: SLF001
+        analyze_line = next(line for line in rendered.split("\n") if "ANALYZE" in line)
+
+        # The yellow "…" placeholder is gone; one of the braille spinner
+        # frames is on the line instead.
+        assert "…" not in analyze_line
+        assert any(frame in analyze_line for frame in _SPINNER_FRAMES)
+
+    def test_analyze_mode_renders_upload_then_analyze(self):
+        tracker = self._tracker(operation="analyze")
+
+        lines = _stripped_lines(tracker._render().plain)  # noqa: SLF001
+
+        assert lines[0].startswith("UPLOAD")
+        assert lines[4].startswith("ANALYZE")
+        assert all(
+            not line.startswith(("RENDER", "COMPILE", "PLAN", "DEPLOY"))
+            for line in lines
+        )
+
     def test_no_details_block_when_context_is_unset(self):
         tracker = self._tracker(with_context=False)
 
@@ -112,22 +143,22 @@ class TestFailUpload:
         """If UPLOAD itself is still running, ``fail_upload`` flips it failed."""
         tracker = self._tracker()
         tracker.start_upload()
-        assert self._upload_phase(tracker).status == "running"
+        assert self._upload_phase(tracker).status == PhaseStatus.RUNNING
 
         tracker.fail_upload()
 
-        assert self._upload_phase(tracker).status == "failed"
+        assert self._upload_phase(tracker).status == PhaseStatus.FAILED
 
     def test_fail_upload_is_noop_when_upload_already_done(self):
         """A downstream PLAN/DEPLOY failure must not flip a finished UPLOAD."""
         tracker = self._tracker()
         tracker.start_upload()
         tracker.complete_upload()
-        assert self._upload_phase(tracker).status == "done"
+        assert self._upload_phase(tracker).status == PhaseStatus.DONE
 
         tracker.fail_upload()
 
-        assert self._upload_phase(tracker).status == "done"
+        assert self._upload_phase(tracker).status == PhaseStatus.DONE
 
     def test_fail_upload_is_idempotent_when_already_failed(self):
         tracker = self._tracker()
@@ -138,6 +169,6 @@ class TestFailUpload:
 
         tracker.fail_upload()
 
-        assert self._upload_phase(tracker).status == "failed"
+        assert self._upload_phase(tracker).status == PhaseStatus.FAILED
         # The original failure timestamp is preserved on repeated calls.
         assert self._upload_phase(tracker).completed_at == first_completed_at
