@@ -88,7 +88,7 @@ _FV_YAML = textwrap.dedent(
     kind: StreamingFeatureView
     name: user_clicks
     version: V1
-    ordered_entity_column_names:
+    entities:
       - user_id
     sources: []
     features:
@@ -398,7 +398,7 @@ _BAD_FV_YAML = textwrap.dedent(
     kind: StreamingFeatureView
     name: bad_fv
     version: null
-    ordered_entity_column_names: []
+    entities: []
     sources: []
     features: []
     """

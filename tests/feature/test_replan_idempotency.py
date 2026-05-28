@@ -136,9 +136,9 @@ def _bug_bash_fv_yaml() -> str:
         f"version: {_BUG_BASH_FV_VERSION}\n"
         "online: true\n"
         "scheduling_state: RUNNING\n"
-        "ordered_entity_column_names:\n"
+        "entities:\n"
         "  - USER_ID\n"
-        "timestamp_field: TIMESTAMP\n"
+        "timestamp_col: TIMESTAMP\n"
         "feature_granularity_sec: 300\n"
         "feature_aggregation_method: tiles\n"
         "sources:\n"
@@ -730,7 +730,7 @@ def _bug_bash_batch_fv_exported_yaml() -> str:
       ``DESCRIBE … TYPE = SPECIFICATION`` round-trip synthesises N 1:1
       passthrough features keyed off the BatchSource columns, and the
       exporter renders those back into the YAML.
-    - ``sources: []`` and ``timestamp_field`` / ``feature_granularity_sec``
+    - ``sources: []`` and ``timestamp_col`` / ``feature_granularity_sec``
       / ``feature_aggregation_method`` / ``batch_schedule`` are all
       *missing* — the FV is non-tiled and the SPECIFICATION payload
       carries none of those keys.
@@ -750,7 +750,7 @@ def _bug_bash_batch_fv_exported_yaml() -> str:
         f"schema: {_BUG_BASH_SCHEMA}\n"
         "online: true\n"
         "scheduling_state: RUNNING\n"
-        "ordered_entity_column_names:\n"
+        "entities:\n"
         "  - USER_ID\n"
         "sources: []\n"
         "features:\n"

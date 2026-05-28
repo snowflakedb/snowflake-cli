@@ -113,7 +113,7 @@ def _offline_bfv_yaml() -> str:
         f"name: {_FV_NAME}\n"
         f"version: {_FV_VERSION}\n"
         "online: false\n"
-        "ordered_entity_column_names:\n"
+        "entities:\n"
         "  - USER_ID\n"
         "sources:\n"
         "  - name: EVENTS_BATCH_DECL\n"
