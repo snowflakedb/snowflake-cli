@@ -188,7 +188,7 @@ class TestAnalyzeErrorsReporter:
         cursor = FakeCursor(data)
 
         output = capture_reporter_output(reporter, cursor)
-        assert "Analysis completed successfully." in output
+        assert "Static Analysis of DCM Project files completed successfully." in output
 
     def test_process_file_level_errors(self):
         data = self._make_response(
@@ -219,7 +219,9 @@ class TestAnalyzeErrorsReporter:
         assert "[001597]" not in output
         assert "line 10:0" not in output
         assert "SQL compilation error: syntax error line 10" in output
-        assert "Analysis found 1 error and 0 issues." in output
+        assert (
+            "Static Analysis of DCM Project files found 1 error and 0 issues." in output
+        )
 
     def test_process_definition_level_errors(self):
         data = self._make_response(
@@ -260,7 +262,10 @@ class TestAnalyzeErrorsReporter:
         assert "[001632]" not in output
         assert "Could not analyze lineage due to unresolved dependency" in output
         assert "Unresolved or ambiguous dependency" in output
-        assert "Analysis found 2 errors and 0 issues." in output
+        assert (
+            "Static Analysis of DCM Project files found 2 errors and 0 issues."
+            in output
+        )
 
     def test_process_mixed_errors(self):
         data = self._make_response(
@@ -291,7 +296,10 @@ class TestAnalyzeErrorsReporter:
         assert "file err" in output
         assert "TABLE_A (TABLE)" in output
         assert "sources/definitions/clean.sql" not in output
-        assert "Analysis found 2 errors and 0 issues." in output
+        assert (
+            "Static Analysis of DCM Project files found 2 errors and 0 issues."
+            in output
+        )
 
     def test_process_exits_with_code_1_when_errors_present(self):
         data = self._make_response(
@@ -414,7 +422,7 @@ class TestAnalyzeErrorsReporter:
         cursor = FakeCursor(data)
 
         output = capture_reporter_output(reporter, cursor)
-        assert "Analysis completed successfully." in output
+        assert "Static Analysis of DCM Project files completed successfully." in output
 
     def test_process_no_data(self):
         reporter = AnalyzeErrorsReporter()
@@ -451,7 +459,9 @@ class TestAnalyzeErrorsReporter:
         # No per-finding header is rendered any more.
         assert "[W001]" not in output
         assert "line 5:2" not in output
-        assert "Analysis found 0 errors and 1 issue." in output
+        assert (
+            "Static Analysis of DCM Project files found 0 errors and 1 issue." in output
+        )
 
     def test_process_file_issues_are_warnings(self):
         data = self._make_response(
@@ -477,7 +487,9 @@ class TestAnalyzeErrorsReporter:
         assert "sources/definitions/note.sql" in output
         assert "consider naming convention" in output
         assert "[W100]" not in output
-        assert "Analysis found 0 errors and 1 issue." in output
+        assert (
+            "Static Analysis of DCM Project files found 0 errors and 1 issue." in output
+        )
 
     def test_process_definition_issues_are_warnings(self):
         data = self._make_response(
@@ -522,7 +534,9 @@ class TestAnalyzeErrorsReporter:
         cursor = FakeCursor(data)
 
         output = capture_reporter_output(reporter, cursor)
-        assert "Analysis found 1 error and 1 issue." in output
+        assert (
+            "Static Analysis of DCM Project files found 1 error and 1 issue." in output
+        )
 
         # And the exit code is non-zero (the errors fail the command).
         reporter2 = AnalyzeErrorsReporter()

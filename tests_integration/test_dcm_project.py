@@ -809,7 +809,10 @@ def test_dcm_end_to_end_workflow(
         )
         assert result.exit_code == 0, result.output
         _extract_and_validate_raw_analyze_json(result.output)
-        assert "Analysis completed successfully." in result.output
+        assert (
+            "Static Analysis of DCM Project files completed successfully."
+            in result.output
+        )
 
         result = runner.invoke_with_connection_json(
             ["dcm", "plan", "-D", f"db='{test_database}'", "--save-output"]
@@ -868,7 +871,10 @@ def test_dcm_raw_analyze_with_save_output(
             ]
         )
         assert result.exit_code == 0, result.output
-        assert "Analysis completed successfully." in result.output
+        assert (
+            "Static Analysis of DCM Project files completed successfully."
+            in result.output
+        )
 
         output_path = project_root / "out"
         assert output_path.exists(), f"Output directory out was not created."
@@ -911,7 +917,7 @@ def test_dcm_raw_analyze_with_errors(
         # raw-analyze should detect the error and fail with exit code 1
         result = runner.invoke_with_connection(["dcm", "raw-analyze", project_name])
         assert result.exit_code == 1, result.output
-        assert "Analysis found 1 error(s)." in result.output
+        assert "Static Analysis of DCM Project files found 1 error(s)." in result.output
 
 
 @pytest.mark.qa_only
