@@ -306,6 +306,45 @@ class ServiceManager(SqlExecutionMixin):
             replicas=replicas,
         )
 
+    def build_image_registry_url(
+        self,
+        image_repository: str,
+    ) -> str:
+        """Build the canonical image-registry URL for ``image_repository``.
+
+        Returns ``<org>-<account>.registry-local.snowflakecomputing.com/<db>/<schema>/<repo>``,
+        the same shape ``build_image`` injects as the ``IMAGE_REGISTRY_URL`` env var. Exposed
+        separately so the post-push validation hook can build the URL it passes to
+        ``SYSTEM$START_IMAGE_VALIDATION_SERVICE`` without re-implementing FQN parsing.
+
+        Raises ``ValueError`` if ``image_repository`` is missing the database or schema parts.
+        """
+        *_, org_cursor = self._conn.execute_string(
+            "SELECT CURRENT_ORGANIZATION_NAME()", cursor_class=DictCursor
+        )
+        org_name = org_cursor.fetchone()["CURRENT_ORGANIZATION_NAME()"].lower()
+        account_name = get_account(self._conn)
+
+        repo_fqn = FQN.from_string(image_repository).using_connection(self._conn)
+        if not repo_fqn.database or not repo_fqn.schema:
+            missing_parts = []
+            if not repo_fqn.database:
+                missing_parts.append("database")
+            if not repo_fqn.schema:
+                missing_parts.append("schema")
+            raise ValueError(
+                f"Image repository requires database and schema. "
+                f"Missing: {', '.join(missing_parts)}. "
+                f"Either provide a fully qualified name 'database.schema.repository' "
+                f"or set the missing parts in your connection context. "
+                f"Provided: '{image_repository}'"
+            )
+
+        return (
+            f"{org_name}-{account_name}.registry-local.snowflakecomputing.com/"
+            f"{repo_fqn.database.lower()}/{repo_fqn.schema.lower()}/{repo_fqn.name.lower()}"
+        )
+
     def build_image(
         self,
         job_service_name: str,
@@ -332,58 +371,22 @@ class ServiceManager(SqlExecutionMixin):
             external_access_integrations: List of EAI names
             async_mode: Whether to run the build asynchronously
         """
-        # Get organization name
-        # Using execute_string (same as get_account) for consistency
-        *_, org_cursor = self._conn.execute_string(
-            "SELECT CURRENT_ORGANIZATION_NAME()", cursor_class=DictCursor
-        )
-        org_name = org_cursor.fetchone()["CURRENT_ORGANIZATION_NAME()"].lower()
+        image_registry_url = self.build_image_registry_url(image_repository)
 
-        # Get account name using existing utility function
-        account_name = get_account(self._conn)
+        env_vars = {
+            "IMAGE_REGISTRY_URL": image_registry_url,
+            "IMAGE_NAME": image_name,
+            "IMAGE_TAG": image_tag,
+            "BUILD_CONTEXT": "/app",
+        }
 
-        # Parse the image repository using FQN utility
-        # This handles [db.][schema.]repo_name format automatically
-        repo_fqn = FQN.from_string(image_repository).using_connection(self._conn)
-
-        # Validate that we have all required parts
-        # Note: FQN parsing gives us: "db.schema.repo" → both present,
-        # "schema.repo" → only schema, "repo" → neither
-        # It's impossible to have database without schema
-        if not repo_fqn.database or not repo_fqn.schema:
-            missing_parts = []
-            if not repo_fqn.database:
-                missing_parts.append("database")
-            if not repo_fqn.schema:
-                missing_parts.append("schema")
-            raise ValueError(
-                f"Image repository requires database and schema. "
-                f"Missing: {', '.join(missing_parts)}. "
-                f"Either provide a fully qualified name 'database.schema.repository' "
-                f"or set the missing parts in your connection context. "
-                f"Provided: '{image_repository}'"
-            )
-
-        # Build the image registry URL
-        # Format: <org>-<account-name>.registry-local.snowflakecomputing.com/<db>/<schema>/<repo>
-        image_registry_url = (
-            f"{org_name}-{account_name}.registry-local.snowflakecomputing.com/"
-            f"{repo_fqn.database.lower()}/{repo_fqn.schema.lower()}/{repo_fqn.name.lower()}"
-        )
-
-        # Create the specification for the image build job
         spec = {
             "spec": {
                 "containers": [
                     {
                         "name": "main",
                         "image": "/snowflake/images/snowflake_images/sf-image-build:0.0.1",
-                        "env": {
-                            "IMAGE_REGISTRY_URL": image_registry_url,
-                            "IMAGE_NAME": image_name,
-                            "IMAGE_TAG": image_tag,
-                            "BUILD_CONTEXT": "/app",
-                        },
+                        "env": env_vars,
                         "volumeMounts": [
                             {
                                 "name": "code-volume",
@@ -731,15 +734,6 @@ class ServiceManager(SqlExecutionMixin):
 
     def resume(self, service_name: str):
         return self.execute_query(f"alter service {service_name} resume")
-
-    def drop(
-        self, service_name: str, if_exists: bool = False, force: bool = False
-    ) -> SnowflakeCursor:
-        if_exists_clause = " if exists" if if_exists else ""
-        force_clause = " force" if force else ""
-        return self.execute_query(
-            f"drop service{if_exists_clause} {service_name}{force_clause}"
-        )
 
     def set_property(
         self,
