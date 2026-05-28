@@ -370,11 +370,16 @@ class PlanReporter(Reporter[PlanRow]):
 
     def _print_detail(self, detail: PlanDetail) -> None:
         cli_console.styled_message(_DETAIL_INDENT_UNIT * max(detail.depth, 1))
-        style = self._style_for_change_kind(detail.kind)
         if detail.kind:
-            cli_console.styled_message(detail.kind.ljust(_KIND_WIDTH), style=style)
+            # Only the operation keyword (added / removed / modified / set / …)
+            # is colored; the entity name / description that follows renders
+            # with the terminal default so the colored kind stands out.
+            cli_console.styled_message(
+                detail.kind.ljust(_KIND_WIDTH),
+                style=self._style_for_change_kind(detail.kind),
+            )
         if detail.desc:
-            cli_console.styled_message(detail.desc, style=style)
+            cli_console.styled_message(detail.desc)
         cli_console.styled_message("\n")
 
     def _generate_summary_renderables(self) -> List[Text]:

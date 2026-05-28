@@ -625,10 +625,13 @@ class TestPlanReporterTerse:
             ("renamed", styles.ALTER_STYLE),
         ],
     )
-    def test_detail_lines_apply_semantic_color_to_kind_and_desc(
-        self, kind, expected_style
-    ):
-        """Both the kind column and its desc should carry the kind's color."""
+    def test_detail_kind_keyword_is_colored_desc_is_default(self, kind, expected_style):
+        """Only the operation keyword is colored; the description stays plain.
+
+        On indented sub-lines under an ALTER row we want the eye to land on
+        the verb (added/removed/modified/set/…) without coloring the whole
+        line, which would otherwise drown out the entity names that follow.
+        """
         data = {
             "version": 2,
             "metadata": {},
@@ -655,11 +658,12 @@ class TestPlanReporterTerse:
         with mock.patch(CLI_CONSOLE_PATH, side_effect=record):
             PlanReporter().process(FakeCursor(data))
 
-        # Locate the indented detail emissions (kind text + desc text).
         kind_call = next(c for c in calls if c[0].strip() == kind)
         desc_call = next(c for c in calls if "SOME_DESC" in c[0])
         assert kind_call[1] == expected_style
-        assert desc_call[1] == expected_style
+        # The description part must render with the default style so the
+        # entity name doesn't pick up the kind color.
+        assert desc_call[1] == ""
 
 
 class TestPlanRow:
