@@ -152,17 +152,33 @@ class TestReporter(Reporter[TestRow]):
         if total == 0:
             return [Text("No expectations found in the project.")]
 
-        result = [
-            (Text(f"{self._summary.passed} passed", styles.PASS_STYLE)),
-            (Text(", ")),
-            (Text(f"{self._summary.failed} failed", styles.FAIL_STYLE)),
+        test_word = "test" if total == 1 else "tests"
+        # The trailing noun (``expectation`` / ``expectations``) attaches to
+        # the last visible bucket — ``unknown`` if present, otherwise
+        # ``failed`` — and pluralizes with that bucket's count.
+        trailing_count = (
+            self._summary.unknown if self._summary.unknown > 0 else self._summary.failed
+        )
+        noun = "expectation" if trailing_count == 1 else "expectations"
+
+        result: List[Text] = [
+            Text("Ran "),
+            Text(f"{total}", styles.BOLD_STYLE),
+            Text(f" data quality {test_word}: "),
+            Text(f"{self._summary.passed} passed", styles.PASS_STYLE),
+            Text(", "),
         ]
         if self._summary.unknown > 0:
+            result.append(Text(f"{self._summary.failed} failed", styles.FAIL_STYLE))
             result.append(Text(", "))
-            result.append(Text(f"{self._summary.unknown} unknown", styles.FAIL_STYLE))
-        result.append(Text(" out of "))
-        result.append(Text(f"{total}", styles.BOLD_STYLE))
-        result.append(Text(" total."))
+            result.append(
+                Text(f"{self._summary.unknown} unknown {noun}", styles.FAIL_STYLE)
+            )
+        else:
+            result.append(
+                Text(f"{self._summary.failed} failed {noun}", styles.FAIL_STYLE)
+            )
+        result.append(Text("."))
         return result
 
     def _is_success(self) -> bool:

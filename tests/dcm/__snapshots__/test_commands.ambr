@@ -38,7 +38,7 @@
   ✓ PASS      DB.SCHEMA.EMPLOYEES (ROW_COUNT_CHECK)
   ✓ PASS      DB.SCHEMA.ORDERS (NULL_CHECK)
   
-  2 passed, 0 failed out of 2 total.
+  Ran 2 data quality tests: 2 passed, 0 failed expectations.
   ================================================================================
   
   '''
@@ -61,7 +61,7 @@
   ✗ FAIL      DB.SCHEMA.ORDERS (NULL_CHECK)
     └─ Expected: = 0, Got: 15 (Metric: null_count)
   
-  1 passed, 1 failed out of 2 total.
+  Ran 2 data quality tests: 1 passed, 1 failed expectation.
   ================================================================================
   
   '''

@@ -760,7 +760,9 @@ expectation levels_must_be_higher_than_zero (value = 0);
 
         result = runner.invoke_with_connection(["dcm", "test", project_name])
         assert result.exit_code == 1, result.output
-        assert "0 passed, 1 failed out of 1 total." in result.output
+        assert (
+            "Ran 1 data quality test: 0 passed, 1 failed expectation." in result.output
+        )
 
         # 3) Fix the data and run test command again
         fix_data_sql = f"""
@@ -770,7 +772,9 @@ UPDATE {table_name} SET level = 5 WHERE level < 5;
 
         result = runner.invoke_with_connection(["dcm", "test", project_name])
         assert result.exit_code == 0, result.output
-        assert_last_stdout_line_equals("1 passed, 0 failed out of 1 total.", result)
+        assert (
+            "Ran 1 data quality test: 1 passed, 0 failed expectations." in result.output
+        )
 
 
 @pytest.mark.qa_only
