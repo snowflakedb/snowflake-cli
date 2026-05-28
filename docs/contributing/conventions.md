@@ -104,7 +104,8 @@ def my_command(
         None, click_type=SecretTypeParser(), hide_input=True,
     ),
 ):
-    do_something(password.value)            # access the real value explicitly
+    if password:
+        do_something(password.value)            # access the real value explicitly
     log.debug("Called with password=%s", password)  # logs "***"
 ```
 
