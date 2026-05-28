@@ -14,7 +14,7 @@
 import logging
 from collections import namedtuple
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, List, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, Field, ValidationError
 from rich.style import Style
@@ -31,8 +31,32 @@ log = logging.getLogger(__name__)
 _OPERATION_WIDTH = 8
 _DOMAIN_WIDTH = 20
 _KIND_WIDTH = 9  # widest known kind ("modified") + 1
-_DETAIL_INDENT_UNIT = "  "
 _COLLECTION_KIND = "collection"
+
+# Tree-prefix cell glyphs (each cell is 3 columns wide so the tree column
+# stays narrow and aligned regardless of depth). Box-drawing characters
+# render in any UTF-8 terminal; the cells render with the default style
+# so the colored kind keyword that follows is what catches the eye.
+_TREE_BRANCH = "├─ "  # non-last sibling at this level
+_TREE_LAST = "└─ "  # last sibling at this level
+_TREE_PIPE = "│  "  # ancestor still has siblings to come
+_TREE_GAP = "   "  # ancestor was the last sibling (no pipe)
+
+
+def _render_tree_prefix(is_last_chain: Tuple[bool, ...]) -> str:
+    """Render a tree-style leading prefix from ``is_last_chain``.
+
+    Each element in the chain describes one ancestor level (ending with
+    the node itself). ``True`` means "this node / ancestor was the last
+    sibling at its level". The last element decides the current node's
+    connector (└─ vs ├─); preceding elements decide whether each ancestor
+    column shows a vertical continuation (│) or a blank gap.
+    """
+    if not is_last_chain:
+        return ""
+    parts = [_TREE_GAP if was_last else _TREE_PIPE for was_last in is_last_chain[:-1]]
+    parts.append(_TREE_LAST if is_last_chain[-1] else _TREE_BRANCH)
+    return "".join(parts)
 
 
 class PlanObjectId(BaseModel):
@@ -88,11 +112,21 @@ _OPERATION_ORDER = {"CREATE": 0, "ALTER": 1, "DROP": 2}
 
 @dataclass
 class PlanDetail:
-    """One indented sub-line under an entity row, e.g. ``added <desc>``."""
+    """One indented sub-line under an entity row, e.g. ``added <desc>``.
+
+    ``is_last_chain`` carries one boolean per ancestor level, ending with
+    the node itself. ``True`` means "this node (or ancestor) was the last
+    sibling at its level"; the renderer uses this to draw tree connectors
+    (├─ / └─ / │ / blank) without needing to keep a nested tree around.
+    """
 
     kind: str
     desc: str
-    depth: int = 1
+    is_last_chain: Tuple[bool, ...] = ()
+
+    @property
+    def depth(self) -> int:
+        return len(self.is_last_chain)
 
 
 def _format_scalar_value(value: Any) -> Optional[str]:
@@ -143,48 +177,90 @@ def _format_change_desc(
     return ""
 
 
-def _flatten_changes(changes: List[PlanChange], depth: int = 1) -> List[PlanDetail]:
-    """Walk a changes tree producing indented detail lines.
+def _expand_collections(changes: List[PlanChange]) -> List[PlanChange]:
+    """Inline ``collection``-kind wrappers so their children become real siblings.
 
-    ``kind == "collection"`` wrappers are unwrapped (no line emitted; their
-    children inherit ``depth``). Every other kind produces one line; if it
-    carries nested ``changes``, those are emitted one level deeper.
+    Collection wrappers don't produce a line of their own, so for tree
+    rendering we need to know the *displayed* sibling list at each level.
+    Flattening collections in advance lets us compute ``is_last`` against the
+    siblings the user will actually see.
     """
-    out: List[PlanDetail] = []
+    out: List[PlanChange] = []
     for change in changes:
-        kind = (change.kind or "").lower()
-        if kind == _COLLECTION_KIND:
-            out.extend(_flatten_changes(change.changes, depth=depth))
+        if (change.kind or "").lower() == _COLLECTION_KIND:
+            out.extend(_expand_collections(change.changes))
+        else:
+            out.append(change)
+    return out
+
+
+def _expand_collections_raw(raw: Any) -> List[Dict[str, Any]]:
+    """Raw-dict counterpart of :func:`_expand_collections` for the fallback parser."""
+    if not isinstance(raw, list):
+        return []
+    out: List[Dict[str, Any]] = []
+    for change in raw:
+        if not isinstance(change, dict):
             continue
+        if str(change.get("kind", "")).lower() == _COLLECTION_KIND:
+            out.extend(_expand_collections_raw(change.get("changes")))
+        else:
+            out.append(change)
+    return out
+
+
+def _flatten_changes(
+    changes: List[PlanChange],
+    ancestor_is_last: Tuple[bool, ...] = (),
+) -> List[PlanDetail]:
+    """Walk a changes tree producing indented detail lines with tree metadata.
+
+    ``kind == "collection"`` wrappers are unwrapped (no line emitted); their
+    children take their place in the displayed sibling list at the current
+    depth. Every other kind produces one line; if it carries nested
+    ``changes``, those are emitted one level deeper. ``ancestor_is_last``
+    records, for each ancestor level, whether the ancestor was the last
+    sibling at its level — which the renderer turns into tree connectors.
+    """
+    expanded = _expand_collections(changes)
+    # Pre-render to filter out leaves that would produce empty rows, so the
+    # ``is_last`` computation reflects only what's actually displayed.
+    renderable: List[Tuple[PlanChange, str, str]] = []
+    for change in expanded:
+        kind = (change.kind or "").lower()
         desc = _format_change_desc(
             kind, change.item_id, change.attribute_name, change.value
         )
         sanitized_kind = sanitize_for_terminal(kind)
         if not sanitized_kind and not desc:
             continue
-        out.append(PlanDetail(kind=sanitized_kind, desc=desc, depth=depth))
+        renderable.append((change, sanitized_kind, desc))
+
+    out: List[PlanDetail] = []
+    total = len(renderable)
+    for index, (change, sanitized_kind, desc) in enumerate(renderable):
+        is_last = index == total - 1
+        chain = ancestor_is_last + (is_last,)
+        out.append(PlanDetail(kind=sanitized_kind, desc=desc, is_last_chain=chain))
         if change.changes:
-            out.extend(_flatten_changes(change.changes, depth=depth + 1))
+            out.extend(_flatten_changes(change.changes, ancestor_is_last=chain))
     return out
 
 
-def _flatten_changes_from_raw(raw: Any, depth: int = 1) -> List[PlanDetail]:
+def _flatten_changes_from_raw(
+    raw: Any,
+    ancestor_is_last: Tuple[bool, ...] = (),
+) -> List[PlanDetail]:
     """Best-effort flattener over the raw ``changes`` payload.
 
     Used by the fallback parser when the strict pydantic model can't validate
-    the entry; we still try to surface as many sub-change lines as possible.
+    the entry; we still surface as many sub-change lines as possible, with
+    correct tree metadata.
     """
-    if not isinstance(raw, list):
-        return []
-    out: List[PlanDetail] = []
-    for change in raw:
-        if not isinstance(change, dict):
-            continue
+    expanded = _expand_collections_raw(raw)
+    renderable: List[Tuple[Dict[str, Any], str, str]] = []
+    for change in expanded:
         kind = str(change.get("kind", "")).lower()
-        nested = change.get("changes")
-        if kind == _COLLECTION_KIND:
-            out.extend(_flatten_changes_from_raw(nested, depth=depth))
-            continue
         desc = _format_change_desc(
             kind,
             change.get("item_id"),
@@ -194,9 +270,17 @@ def _flatten_changes_from_raw(raw: Any, depth: int = 1) -> List[PlanDetail]:
         sanitized_kind = sanitize_for_terminal(kind)
         if not sanitized_kind and not desc:
             continue
-        out.append(PlanDetail(kind=sanitized_kind, desc=desc, depth=depth))
+        renderable.append((change, sanitized_kind, desc))
+
+    out: List[PlanDetail] = []
+    total = len(renderable)
+    for index, (change, sanitized_kind, desc) in enumerate(renderable):
+        is_last = index == total - 1
+        chain = ancestor_is_last + (is_last,)
+        out.append(PlanDetail(kind=sanitized_kind, desc=desc, is_last_chain=chain))
+        nested = change.get("changes")
         if nested:
-            out.extend(_flatten_changes_from_raw(nested, depth=depth + 1))
+            out.extend(_flatten_changes_from_raw(nested, ancestor_is_last=chain))
     return out
 
 
@@ -369,7 +453,11 @@ class PlanReporter(Reporter[PlanRow]):
                 self._print_detail(detail)
 
     def _print_detail(self, detail: PlanDetail) -> None:
-        cli_console.styled_message(_DETAIL_INDENT_UNIT * max(detail.depth, 1))
+        # Tree prefix renders with the default style so the colored kind
+        # keyword that follows is what catches the eye.
+        prefix = _render_tree_prefix(detail.is_last_chain)
+        if prefix:
+            cli_console.styled_message(prefix)
         if detail.kind:
             # Only the operation keyword (added / removed / modified / set / …)
             # is colored; the entity name / description that follows renders

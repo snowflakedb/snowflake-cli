@@ -409,18 +409,14 @@ class TestPlanReporterTerse:
         for desc in leaf_descs:
             assert desc in output
         # Nested 'added OWNERSHIP' should be indented one level deeper than
-        # its parent 'modified ON SCHEMA …'.
-        modified_line = next(
-            line for line in lines if line.lstrip().startswith("modified")
-        )
+        # its parent 'modified ON SCHEMA …'. Compare the column where each
+        # kind keyword starts — that survives the tree-prefix characters
+        # without needing to strip them out.
+        modified_line = next(line for line in lines if " modified " in line)
         owner_line = next(
-            line
-            for line in lines
-            if line.lstrip().startswith("added") and "OWNERSHIP" in line
+            line for line in lines if " added " in line and "OWNERSHIP" in line
         )
-        modified_indent = len(modified_line) - len(modified_line.lstrip(" "))
-        owner_indent = len(owner_line) - len(owner_line.lstrip(" "))
-        assert owner_indent > modified_indent
+        assert owner_line.index("added") > modified_line.index("modified")
 
         assert output == snapshot
 
@@ -714,7 +710,10 @@ class TestPlanRow:
 
         row = PlanRow.from_dict(entry)
 
-        assert row.details == [PlanDetail(kind="removed", desc="M.F$V1(C)", depth=1)]
+        # Sole child at depth 1 → ``is_last_chain=(True,)``.
+        assert row.details == [
+            PlanDetail(kind="removed", desc="M.F$V1(C)", is_last_chain=(True,))
+        ]
 
     def test_from_dict_recurses_into_modified_with_nested_changes(self):
         entry = {
@@ -748,9 +747,12 @@ class TestPlanRow:
 
         row = PlanRow.from_dict(entry)
 
+        # The ``modified`` entry is the sole leaf at depth 1; its nested
+        # ``added`` is the sole leaf at depth 2 → both ``is_last`` chains end
+        # in ``True``.
         assert row.details == [
-            PlanDetail(kind="modified", desc="ON SCHEMA S", depth=1),
-            PlanDetail(kind="added", desc="OWNERSHIP", depth=2),
+            PlanDetail(kind="modified", desc="ON SCHEMA S", is_last_chain=(True,)),
+            PlanDetail(kind="added", desc="OWNERSHIP", is_last_chain=(True, True)),
         ]
 
     def test_from_dict_details_sanitize_ansi_codes(self):
@@ -802,7 +804,7 @@ class TestPlanRow:
         row = PlanRow.from_dict(entry)
 
         assert row.details == [
-            PlanDetail(kind="added", desc="NO_MISSING_CITIES", depth=1),
+            PlanDetail(kind="added", desc="NO_MISSING_CITIES", is_last_chain=(True,)),
         ]
 
     def test_from_dict_handles_set_with_scalar_value(self):
@@ -830,10 +832,13 @@ class TestPlanRow:
 
         row = PlanRow.from_dict(entry)
 
+        # Three siblings at depth 1: only the last is_last=True.
         assert row.details == [
-            PlanDetail(kind="set", desc="warehouse_size = LARGE", depth=1),
-            PlanDetail(kind="set", desc="auto_suspend = 60", depth=1),
-            PlanDetail(kind="set", desc="auto_resume = true", depth=1),
+            PlanDetail(
+                kind="set", desc="warehouse_size = LARGE", is_last_chain=(False,)
+            ),
+            PlanDetail(kind="set", desc="auto_suspend = 60", is_last_chain=(False,)),
+            PlanDetail(kind="set", desc="auto_resume = true", is_last_chain=(True,)),
         ]
 
     def test_from_dict_set_with_complex_value_drops_rhs(self):
@@ -852,7 +857,9 @@ class TestPlanRow:
 
         row = PlanRow.from_dict(entry)
 
-        assert row.details == [PlanDetail(kind="set", desc="columns", depth=1)]
+        assert row.details == [
+            PlanDetail(kind="set", desc="columns", is_last_chain=(True,))
+        ]
 
     def test_from_dict_handles_unset(self):
         entry = {
@@ -869,7 +876,9 @@ class TestPlanRow:
 
         row = PlanRow.from_dict(entry)
 
-        assert row.details == [PlanDetail(kind="unset", desc="comment", depth=1)]
+        assert row.details == [
+            PlanDetail(kind="unset", desc="comment", is_last_chain=(True,))
+        ]
 
     def test_from_dict_create_skips_details(self):
         """Only ALTER rows render sub-changes; CREATE stays terse."""
@@ -928,9 +937,10 @@ class TestPlanRow:
 
         assert row.operation == "ALTER"
         assert row.domain == "UNKNOWN"
+        # Two siblings under the collection wrapper → is_last_chain (False,) then (True,).
         assert row.details == [
-            PlanDetail(kind="added", desc="ROLE A", depth=1),
-            PlanDetail(kind="removed", desc="ROLE B", depth=1),
+            PlanDetail(kind="added", desc="ROLE A", is_last_chain=(False,)),
+            PlanDetail(kind="removed", desc="ROLE B", is_last_chain=(True,)),
         ]
 
     def test_from_dict_fallback_on_missing_required_fields(self):

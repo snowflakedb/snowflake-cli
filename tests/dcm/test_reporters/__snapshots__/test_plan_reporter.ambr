@@ -2,9 +2,9 @@
 # name: TestPlanReporterTerse.test_alter_with_added_dmf_and_nested_expectation
   '''
   ALTER    TABLE                DCM_DEMO_1_DEV3.ANALYTICS.ENRICHED_ORDER_DETAILS
-    added    SNOWFLAKE.CORE.NULL_COUNT$V1(CUSTOMER_CITY)
-      added    NO_MISSING_CITIES
-        set      expression = value = 0
+  └─ added    SNOWFLAKE.CORE.NULL_COUNT$V1(CUSTOMER_CITY)
+     └─ added    NO_MISSING_CITIES
+        └─ set      expression = value = 0
   
   Planned 1 entity (0 to create, 1 to alter, 0 to drop).
   ================================================================================
@@ -14,12 +14,12 @@
 # name: TestPlanReporterTerse.test_alter_with_modified_grants_nested
   '''
   ALTER    ROLE                 DCM_DEVELOPER
-    removed  DATABASE_ROLE DCM_DEMO_1_DEV2.ADMIN_DEV2
-    added    DATABASE_ROLE DCM_DEMO_1_DEV3.ADMIN_DEV3
-    modified ON SCHEMA DCM_DEMO_1_DEV2.TEST_TEAM
-      added    OWNERSHIP
-    removed  ROLE TEST_TEAM_OWNER_DEV2
-    added    ROLE TEST_TEAM_OWNER_DEV3
+  ├─ removed  DATABASE_ROLE DCM_DEMO_1_DEV2.ADMIN_DEV2
+  ├─ added    DATABASE_ROLE DCM_DEMO_1_DEV3.ADMIN_DEV3
+  ├─ modified ON SCHEMA DCM_DEMO_1_DEV2.TEST_TEAM
+  │  └─ added    OWNERSHIP
+  ├─ removed  ROLE TEST_TEAM_OWNER_DEV2
+  └─ added    ROLE TEST_TEAM_OWNER_DEV3
   
   Planned 1 entity (0 to create, 1 to alter, 0 to drop).
   ================================================================================
@@ -29,7 +29,7 @@
 # name: TestPlanReporterTerse.test_alter_with_removed_data_metric_function
   '''
   ALTER    TABLE                DCM_DEMO_1_DEV2.ANALYTICS.ENRICHED_ORDER_DETAILS
-    removed  SNOWHOUSE_IMPORT.CORE.NULL_COUNT$V1(CUSTOMER_CITY)
+  └─ removed  SNOWHOUSE_IMPORT.CORE.NULL_COUNT$V1(CUSTOMER_CITY)
   
   Planned 1 entity (0 to create, 1 to alter, 0 to drop).
   ================================================================================
