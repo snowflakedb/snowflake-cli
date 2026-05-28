@@ -14,7 +14,7 @@
 import logging
 from collections import namedtuple
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, Field, ValidationError
 from rich.style import Style
@@ -33,22 +33,41 @@ _DOMAIN_WIDTH = 20
 _KIND_WIDTH = 9  # widest known kind ("modified") + 1
 _COLLECTION_KIND = "collection"
 
-# Display order for sibling sub-changes under an ALTER row. Mirrors the
-# top-level CREATE → ALTER → DROP ordering so the eye scans the same way
-# whether it's an entity row or one of its indented children. Within a
-# category, the sub-keys "added" and "set" group together (both create
-# things) before "removed" / "unset" (both destroy things), etc. Python's
-# ``list.sort`` is stable, so siblings sharing the same key keep the
-# server-supplied order.
-_KIND_SORT_ORDER = {
-    "added": (0, 0),
-    "set": (0, 1),
-    "modified": (1, 0),
-    "renamed": (1, 1),
-    "removed": (2, 0),
-    "unset": (2, 1),
+
+@dataclass(frozen=True)
+class _KindInfo:
+    """Per-kind metadata: how to sort siblings, and how to color them.
+
+    Keeping sort key and style in one row means a new kind only ever has
+    to be added in one place — and the sort buckets stay aligned with the
+    semantic CREATE / ALTER / DROP color scheme by construction.
+    """
+
+    sort_key: Tuple[int, int]
+    style: Style
+
+
+# Display order + style for sibling sub-changes under an ALTER row.
+# Mirrors the top-level CREATE → ALTER → DROP ordering so the eye scans
+# the same way whether it's an entity row or one of its indented
+# children. Within a category the sub-keys group together ("added" and
+# "set" both create things; "removed" and "unset" both destroy things);
+# Python's ``list.sort`` is stable, so siblings sharing the same key
+# preserve the server-supplied order.
+_KIND_INFO: Dict[str, _KindInfo] = {
+    "added": _KindInfo((0, 0), styles.CREATE_STYLE),
+    "set": _KindInfo((0, 1), styles.CREATE_STYLE),
+    "modified": _KindInfo((1, 0), styles.ALTER_STYLE),
+    "renamed": _KindInfo((1, 1), styles.ALTER_STYLE),
+    "removed": _KindInfo((2, 0), styles.DROP_STYLE),
+    "unset": _KindInfo((2, 1), styles.DROP_STYLE),
 }
-_UNKNOWN_KIND_SORT_KEY = (3, 0)
+_UNKNOWN_KIND_INFO = _KindInfo((3, 0), styles.UNKNOWN_STYLE)
+
+
+def _kind_info(kind: str) -> _KindInfo:
+    return _KIND_INFO.get((kind or "").lower(), _UNKNOWN_KIND_INFO)
+
 
 # Tree-prefix cell glyphs (each cell is 3 columns wide so the tree column
 # stays narrow and aligned regardless of depth). Box-drawing characters
@@ -194,40 +213,65 @@ def _format_change_desc(
     return ""
 
 
-def _expand_collections(changes: List[PlanChange]) -> List[PlanChange]:
+@dataclass(frozen=True)
+class _ChangeReader:
+    """Field-access adapter so one flattener handles both shapes.
+
+    The strict path operates on validated :class:`PlanChange` Pydantic
+    models; the fallback path operates on the raw decoded dict from the
+    server. Both have the same conceptual fields, so we abstract field
+    access behind these callables and share a single walker.
+    """
+
+    get_kind: Callable[[Any], str]
+    get_item_id: Callable[[Any], Any]
+    get_attribute_name: Callable[[Any], Any]
+    get_value: Callable[[Any], Any]
+    get_children: Callable[[Any], List[Any]]
+
+
+def _raw_children(change: Dict[str, Any]) -> List[Dict[str, Any]]:
+    nested = change.get("changes") or []
+    return [c for c in nested if isinstance(c, dict)]
+
+
+_MODEL_READER = _ChangeReader(
+    get_kind=lambda c: c.kind or "",
+    get_item_id=lambda c: c.item_id,
+    get_attribute_name=lambda c: c.attribute_name,
+    get_value=lambda c: c.value,
+    get_children=lambda c: c.changes,
+)
+
+_RAW_READER = _ChangeReader(
+    get_kind=lambda c: str(c.get("kind", "")),
+    get_item_id=lambda c: c.get("item_id"),
+    get_attribute_name=lambda c: c.get("attribute_name"),
+    get_value=lambda c: c.get("value"),
+    get_children=_raw_children,
+)
+
+
+def _expand_collections(items: List[Any], reader: _ChangeReader) -> List[Any]:
     """Inline ``collection``-kind wrappers so their children become real siblings.
 
     Collection wrappers don't produce a line of their own, so for tree
     rendering we need to know the *displayed* sibling list at each level.
-    Flattening collections in advance lets us compute ``is_last`` against the
-    siblings the user will actually see.
+    Flattening collections in advance lets us compute ``is_last`` against
+    the siblings the user will actually see.
     """
-    out: List[PlanChange] = []
-    for change in changes:
-        if (change.kind or "").lower() == _COLLECTION_KIND:
-            out.extend(_expand_collections(change.changes))
+    out: List[Any] = []
+    for item in items:
+        if reader.get_kind(item).lower() == _COLLECTION_KIND:
+            out.extend(_expand_collections(reader.get_children(item) or [], reader))
         else:
-            out.append(change)
+            out.append(item)
     return out
 
 
-def _expand_collections_raw(raw: Any) -> List[Dict[str, Any]]:
-    """Raw-dict counterpart of :func:`_expand_collections` for the fallback parser."""
-    if not isinstance(raw, list):
-        return []
-    out: List[Dict[str, Any]] = []
-    for change in raw:
-        if not isinstance(change, dict):
-            continue
-        if str(change.get("kind", "")).lower() == _COLLECTION_KIND:
-            out.extend(_expand_collections_raw(change.get("changes")))
-        else:
-            out.append(change)
-    return out
-
-
-def _flatten_changes(
-    changes: List[PlanChange],
+def _flatten_via(
+    items: List[Any],
+    reader: _ChangeReader,
     ancestor_is_last: Tuple[bool, ...] = (),
 ) -> List[PlanDetail]:
     """Walk a changes tree producing indented detail lines with tree metadata.
@@ -239,37 +283,45 @@ def _flatten_changes(
     records, for each ancestor level, whether the ancestor was the last
     sibling at its level — which the renderer turns into tree connectors.
     """
-    expanded = _expand_collections(changes)
+    expanded = _expand_collections(items, reader)
     # Pre-render to filter out leaves that would produce empty rows, so the
     # ``is_last`` computation reflects only what's actually displayed.
-    renderable: List[Tuple[PlanChange, str, str]] = []
-    for change in expanded:
-        kind = (change.kind or "").lower()
+    renderable: List[Tuple[Any, str, str]] = []
+    for item in expanded:
+        kind = reader.get_kind(item).lower()
         desc = _format_change_desc(
-            kind, change.item_id, change.attribute_name, change.value
+            kind,
+            reader.get_item_id(item),
+            reader.get_attribute_name(item),
+            reader.get_value(item),
         )
         sanitized_kind = sanitize_for_terminal(kind)
         if not sanitized_kind and not desc:
             continue
-        renderable.append((change, sanitized_kind, desc))
+        renderable.append((item, sanitized_kind, desc))
 
     # Stable sort: group siblings by kind category so users see all
     # creations, then modifications, then deletions in a predictable order.
-    renderable.sort(
-        key=lambda triple: _KIND_SORT_ORDER.get(
-            triple[1].lower(), _UNKNOWN_KIND_SORT_KEY
-        )
-    )
+    renderable.sort(key=lambda triple: _kind_info(triple[1]).sort_key)
 
     out: List[PlanDetail] = []
     total = len(renderable)
-    for index, (change, sanitized_kind, desc) in enumerate(renderable):
+    for index, (item, sanitized_kind, desc) in enumerate(renderable):
         is_last = index == total - 1
         chain = ancestor_is_last + (is_last,)
         out.append(PlanDetail(kind=sanitized_kind, desc=desc, is_last_chain=chain))
-        if change.changes:
-            out.extend(_flatten_changes(change.changes, ancestor_is_last=chain))
+        children = reader.get_children(item)
+        if children:
+            out.extend(_flatten_via(children, reader, ancestor_is_last=chain))
     return out
+
+
+def _flatten_changes(
+    changes: List[PlanChange],
+    ancestor_is_last: Tuple[bool, ...] = (),
+) -> List[PlanDetail]:
+    """Strict-mode flattener over validated :class:`PlanChange` models."""
+    return _flatten_via(list(changes), _MODEL_READER, ancestor_is_last)
 
 
 def _flatten_changes_from_raw(
@@ -282,38 +334,8 @@ def _flatten_changes_from_raw(
     the entry; we still surface as many sub-change lines as possible, with
     correct tree metadata.
     """
-    expanded = _expand_collections_raw(raw)
-    renderable: List[Tuple[Dict[str, Any], str, str]] = []
-    for change in expanded:
-        kind = str(change.get("kind", "")).lower()
-        desc = _format_change_desc(
-            kind,
-            change.get("item_id"),
-            change.get("attribute_name"),
-            change.get("value"),
-        )
-        sanitized_kind = sanitize_for_terminal(kind)
-        if not sanitized_kind and not desc:
-            continue
-        renderable.append((change, sanitized_kind, desc))
-
-    # Same kind-based sort as the strict flattener (cf. ``_flatten_changes``).
-    renderable.sort(
-        key=lambda triple: _KIND_SORT_ORDER.get(
-            triple[1].lower(), _UNKNOWN_KIND_SORT_KEY
-        )
-    )
-
-    out: List[PlanDetail] = []
-    total = len(renderable)
-    for index, (change, sanitized_kind, desc) in enumerate(renderable):
-        is_last = index == total - 1
-        chain = ancestor_is_last + (is_last,)
-        out.append(PlanDetail(kind=sanitized_kind, desc=desc, is_last_chain=chain))
-        nested = change.get("changes")
-        if nested:
-            out.extend(_flatten_changes_from_raw(nested, ancestor_is_last=chain))
-    return out
+    items = [c for c in (raw or []) if isinstance(c, dict)]
+    return _flatten_via(items, _RAW_READER, ancestor_is_last)
 
 
 @dataclass
@@ -429,14 +451,7 @@ class PlanReporter(Reporter[PlanRow]):
     @staticmethod
     def _style_for_change_kind(kind: str) -> Style:
         """Return the style for a sub-change kind (added/removed/modified/set/…)."""
-        normalized = (kind or "").lower()
-        if normalized in ("added", "set"):
-            return styles.CREATE_STYLE
-        if normalized in ("removed", "unset"):
-            return styles.DROP_STYLE
-        if normalized in ("modified", "renamed"):
-            return styles.ALTER_STYLE
-        return styles.UNKNOWN_STYLE
+        return _kind_info(kind).style
 
     def extract_data(self, result_json: Dict[str, Any]) -> List[PlanEntityChange]:
         if not isinstance(result_json, dict):

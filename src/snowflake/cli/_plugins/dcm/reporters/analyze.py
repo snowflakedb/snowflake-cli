@@ -313,7 +313,12 @@ class AnalyzeErrorsReporter(Reporter[_FileFindings]):
 
     def extract_data(self, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
         for raw in result_json.get("issues") or []:
-            self._top_level_issues.append(_to_finding(raw))
+            finding = _to_finding(raw)
+            self._top_level_issues.append(finding)
+            # Tally now (mirroring the per-file / per-definition path in
+            # ``parse_data``) so the summary counts are correct regardless
+            # of whether ``print_renderables`` actually walks the list.
+            self._tally(finding)
         return _files_from_response(result_json)
 
     def parse_data(self, data: List[Dict[str, Any]]) -> Iterator[_FileFindings]:
@@ -358,7 +363,6 @@ class AnalyzeErrorsReporter(Reporter[_FileFindings]):
                     self._print_finding(finding, depth=2)
 
         for finding in self._top_level_issues:
-            self._tally(finding)
             if not first:
                 cli_console.styled_message("\n")
             first = False

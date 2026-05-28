@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, Iterator, List, Optional
 
+import typer
 from rich.text import Text
 from snowflake.cli._plugins.dcm import styles
 from snowflake.cli._plugins.dcm.reporters.base import Reporter, cli_console
@@ -165,4 +166,17 @@ class TestReporter(Reporter[TestRow]):
         return result
 
     def _is_success(self) -> bool:
-        return self._summary.failed + self._summary.unknown == 0
+        # Always treat the run as "success" from the base reporter's
+        # perspective so that ``print_summary()`` is always called — the
+        # styled "✓ N passed, ✗ M failed" summary should render on every run
+        # (cf. ``AnalyzeErrorsReporter`` / ``RefreshReporter``). Exit code is
+        # set separately by ``process_payload`` below.
+        return True
+
+    def process_payload(self, result_json: Dict[str, Any]) -> None:
+        super().process_payload(result_json)
+        if self._summary.failed + self._summary.unknown > 0:
+            # Failures fail the command, but the styled summary is already
+            # on screen — exit silently so we don't double-render the
+            # message inside an "Error" box.
+            raise typer.Exit(code=1)
