@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 from textwrap import dedent
@@ -5,12 +6,19 @@ from unittest import mock
 
 import pytest
 import yaml
-from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
+from snowflake.cli._plugins.dbt.constants import (
+    PROFILES_FILENAME,
+    SUPPORTED_DBT_VERSIONS_QUERY,
+)
 from snowflake.cli._plugins.dbt.manager import DBTDeployAttributes, DBTManager
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector import ProgrammingError
+
+
+def _supported_versions_payload(*versions: str) -> str:
+    return json.dumps([{"dbt_version": v} for v in versions])
 
 
 class TestDeploy:
@@ -708,6 +716,7 @@ dev
         mock_get_cli_context,
         mock_from_resource,
         mock_validate_role,
+        mock_validate_dbt_version,
     ):
         DBTManager().deploy(
             fqn=FQN.from_string("test_project"),
@@ -732,6 +741,7 @@ dev
         mock_get_cli_context,
         mock_from_resource,
         mock_validate_role,
+        mock_validate_dbt_version,
     ):
         DBTManager().deploy(
             fqn=FQN.from_string("test_project"),
@@ -756,6 +766,7 @@ dev
         mock_get_cli_context,
         mock_from_resource,
         mock_validate_role,
+        mock_validate_dbt_version,
     ):
         mock_get_dbt_object_attributes.return_value = {
             "default_target": None,
@@ -793,6 +804,7 @@ dev
         mock_get_cli_context,
         mock_from_resource,
         mock_validate_role,
+        mock_validate_dbt_version,
     ):
         mock_get_dbt_object_attributes.return_value = {
             "default_target": None,
@@ -817,6 +829,137 @@ dev
             calls[1][0][0]
             == f"ALTER DBT PROJECT test_project ADD VERSION\nFROM {mock_from_resource()}"
         )
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_aborts_before_upload_when_version_unsupported(
+        self,
+        mock_put_recursive,
+        mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_cursor,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[(_supported_versions_payload("1.9.4", "1.10.15"),)],
+            columns=["SYSTEM$SUPPORTED_DBT_VERSIONS()"],
+        )
+
+        with pytest.raises(CliError) as exc_info:
+            DBTManager().deploy(
+                fqn=FQN.from_string("test_project"),
+                path=SecurePath(dbt_project_path),
+                profiles_path=SecurePath(dbt_project_path),
+                force=False,
+                attrs=DBTDeployAttributes(dbt_version="99.99.99"),
+            )
+
+        msg = exc_info.value.message
+        assert "99.99.99" in msg
+        assert "1.9.4" in msg
+        assert "1.10.15" in msg
+        mock_execute_query.assert_called_once_with(SUPPORTED_DBT_VERSIONS_QUERY)
+        mock_create.assert_not_called()
+        mock_put_recursive.assert_not_called()
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_does_not_validate_when_version_not_specified(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+        mock_validate_dbt_version,
+    ):
+        DBTManager().deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            attrs=DBTDeployAttributes(),
+        )
+
+        mock_validate_dbt_version.assert_not_called()
+
+
+class TestValidateDbtVersion:
+    def test_get_supported_dbt_versions_parses_response(
+        self, mock_execute_query, mock_cursor
+    ):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[(_supported_versions_payload("1.9.4", "1.10.15"),)],
+            columns=["SYSTEM$SUPPORTED_DBT_VERSIONS()"],
+        )
+
+        result = DBTManager()._get_supported_dbt_versions()  # noqa: SLF001
+
+        assert result == ["1.9.4", "1.10.15"]
+        mock_execute_query.assert_called_once_with(SUPPORTED_DBT_VERSIONS_QUERY)
+
+    def test_get_supported_dbt_versions_raises_on_empty_result(
+        self, mock_execute_query, mock_cursor
+    ):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[], columns=["SYSTEM$SUPPORTED_DBT_VERSIONS()"]
+        )
+
+        with pytest.raises(CliError, match="Could not fetch supported dbt versions"):
+            DBTManager()._get_supported_dbt_versions()  # noqa: SLF001
+
+    def test_get_supported_dbt_versions_raises_on_null_value(
+        self, mock_execute_query, mock_cursor
+    ):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[(None,)], columns=["SYSTEM$SUPPORTED_DBT_VERSIONS()"]
+        )
+
+        with pytest.raises(CliError, match="Could not fetch supported dbt versions"):
+            DBTManager()._get_supported_dbt_versions()  # noqa: SLF001
+
+    def test_get_supported_dbt_versions_raises_on_invalid_json(
+        self, mock_execute_query, mock_cursor
+    ):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[("not json",)], columns=["SYSTEM$SUPPORTED_DBT_VERSIONS()"]
+        )
+
+        with pytest.raises(CliError, match="Could not parse supported dbt versions"):
+            DBTManager()._get_supported_dbt_versions()  # noqa: SLF001
+
+    def test_validate_dbt_version_passes_for_supported_version(
+        self, mock_execute_query, mock_cursor
+    ):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[(_supported_versions_payload("1.9.4"),)],
+            columns=["SYSTEM$SUPPORTED_DBT_VERSIONS()"],
+        )
+
+        DBTManager()._validate_dbt_version("1.9.4")  # noqa: SLF001
+
+    def test_validate_dbt_version_raises_for_unsupported_version(
+        self, mock_execute_query, mock_cursor
+    ):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[(_supported_versions_payload("1.9.4", "1.10.15"),)],
+            columns=["SYSTEM$SUPPORTED_DBT_VERSIONS()"],
+        )
+
+        with pytest.raises(CliError) as exc_info:
+            DBTManager()._validate_dbt_version("99.99.99")  # noqa: SLF001
+
+        msg = exc_info.value.message
+        assert "99.99.99" in msg
+        assert "1.9.4" in msg
+        assert "1.10.15" in msg
 
 
 class TestGetDBTObjectAttributes:

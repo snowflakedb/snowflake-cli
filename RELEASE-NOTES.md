@@ -46,6 +46,7 @@
 * Fixed `snow sql` table output rendering as a series of `|` characters when selecting many columns into a non-terminal destination (e.g. piped or redirected output).
 * `get_account_identifier()` and `snow spcs service build-image` now raise a clear, user-visible error when `CURRENT_ORGANIZATION_NAME()` / `CURRENT_ACCOUNT_NAME()` return no row or a NULL value, instead of a cryptic `TypeError: 'NoneType' object is not subscriptable` / `AttributeError: 'NoneType' object has no attribute 'lower'`.
 * `snow app setup` and `snow app deploy` now verify the current role can deploy to the account-configured destination (the `DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE` / `DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA` account defaults) before using it. When the role is missing the required privileges, the commands fall back to your personal database — as if no account default were set — and print a warning listing the missing grants and pointing you to your account administrator.
+* `snow dbt deploy --dbt-version` now validates the requested version against the server's supported list (`SYSTEM$SUPPORTED_DBT_VERSIONS()`) before uploading project files, instead of a hard-coded client-side regex. Unsupported versions fail fast with a message listing the actual supported versions, and the CLI no longer rejects valid versions that don't match its old regex (e.g. `2.0.0-preview.175`). `snow dbt execute --dbt-version` no longer performs client-side validation either; the server returns the same supported-versions message if the value is unknown.
 
 
 # v3.19.0
