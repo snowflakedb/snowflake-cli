@@ -442,7 +442,10 @@ class DeployProgressTracker:
             else:
                 # Animated braille spinner; Rich's Live re-renders us each
                 # refresh tick (see :meth:`__rich__`), so the glyph cycles.
-                out.append(_spinner_glyph(), style="yellow")
+                # Blue matches the active-indicator color used by the
+                # pip-style progress bar so all "this phase is in flight"
+                # signals share the same hue.
+                out.append(_spinner_glyph(), style="blue")
             out.append(duration_str + "\n", style="dim")
         else:  # PENDING
             out.append(name_col + "·\n", style="dim")

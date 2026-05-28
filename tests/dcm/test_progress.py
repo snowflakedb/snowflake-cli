@@ -116,7 +116,7 @@ class TestUploadDetailsLayout:
         rendered = tracker._render().plain  # noqa: SLF001
         analyze_line = next(line for line in rendered.split("\n") if "ANALYZE" in line)
 
-        # The yellow "…" placeholder is gone; one of the braille spinner
+        # The static "…" placeholder is gone; one of the braille spinner
         # frames is on the line instead.
         assert "…" not in analyze_line
         assert any(frame in analyze_line for frame in _SPINNER_FRAMES)
