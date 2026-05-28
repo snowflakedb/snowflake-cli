@@ -59,8 +59,15 @@ _SLOW_POLL_INTERVAL = 10.0  # seconds — used after 100 s (~85 % fewer calls)
 _FAST_POLL_THRESHOLD = 100.0  # seconds
 
 _PHASE_COL_WIDTH = 10
-_BAR_WIDTH = 20
+_BAR_WIDTH = 30
 _LIVE_REFRESH_PER_SECOND = 10  # ~100 ms per repaint; smooth spinner cadence.
+
+# Heavy-horizontal box-drawing chars for a minimal pip/rich-style progress
+# bar: ``━`` cells for both the filled and empty portions (colored vs dim
+# to distinguish them) and a ``╺`` "leading edge" cell at the boundary
+# while in progress.
+_BAR_CELL = "━"
+_BAR_LEADING_EDGE = "╺"
 
 # Braille-dot spinner frames; one frame per 100 ms gives a full cycle each
 # second when paired with ``_LIVE_REFRESH_PER_SECOND``.
@@ -383,6 +390,28 @@ class DeployProgressTracker:
             return self._operation == "deploy"
         return False
 
+    def _append_progress_bar(self, out: Text, progress: int) -> None:
+        """Render a pip-style minimal progress bar.
+
+        Heavy-horizontal cells (``━``) in blue for the completed portion, a
+        ``╺`` leading-edge cell at the boundary while in progress, and dim
+        ``━`` cells for the remaining portion — followed by " NNN%" in
+        blue. No surrounding brackets. Matches the look of pip/rich's
+        ``BarColumn`` so the UI feels familiar.
+        """
+        filled = int(_BAR_WIDTH * progress / 100)
+        in_progress = 0 < filled < _BAR_WIDTH
+
+        if in_progress:
+            out.append(_BAR_CELL * filled + _BAR_LEADING_EDGE, style="blue")
+            out.append(_BAR_CELL * (_BAR_WIDTH - filled - 1), style="dim")
+        elif filled == 0:
+            out.append(_BAR_CELL * _BAR_WIDTH, style="dim")
+        else:
+            out.append(_BAR_CELL * _BAR_WIDTH, style="blue")
+
+        out.append(f" {progress:>3}%", style="blue")
+
     def _append_upload_details(self, out: Text) -> None:
         """Render the stage-creation message and folder counters indented
         beneath the UPLOAD phase line (dim, two-space indent)."""
@@ -409,9 +438,7 @@ class DeployProgressTracker:
         elif phase.status == PhaseStatus.RUNNING:
             out.append(name_col, style=styles.PHASE_RUNNING_STYLE)
             if self._phase_shows_progress_bar(phase):
-                filled = int(_BAR_WIDTH * phase.progress / 100)
-                bar = "█" * filled + "░" * (_BAR_WIDTH - filled)
-                out.append(f"[{bar}] {phase.progress:>3}%", style="cyan")
+                self._append_progress_bar(out, phase.progress)
             else:
                 # Animated braille spinner; Rich's Live re-renders us each
                 # refresh tick (see :meth:`__rich__`), so the glyph cycles.

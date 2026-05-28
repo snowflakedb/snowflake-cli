@@ -86,6 +86,25 @@ class TestUploadDetailsLayout:
         assert lines[6].startswith("PLAN")
         assert all(not line.startswith("DEPLOY") for line in lines)
 
+    def test_running_progress_phase_shows_pip_style_bar(self):
+        """PLAN/DEPLOY phases that report 0–100 progress render a
+        heavy-horizontal pip-style bar with a ``╺`` leading edge while in
+        progress (no surrounding brackets, no block characters)."""
+        tracker = DeployProgressTracker(conn=MagicMock(), operation="deploy")
+        tracker.complete_upload()
+        # Set DEPLOY mid-progress so we get both filled and empty halves.
+        tracker._get_phase("DEPLOY").observe_running(50, datetime.now())  # noqa: SLF001
+
+        rendered = tracker._render().plain  # noqa: SLF001
+        deploy_line = next(line for line in rendered.split("\n") if "DEPLOY" in line)
+
+        assert "━" in deploy_line
+        assert "╺" in deploy_line  # the leading-edge transition cell
+        assert " 50%" in deploy_line
+        # Old block-style chars are gone.
+        assert "█" not in deploy_line
+        assert "░" not in deploy_line
+
     def test_running_no_progress_phase_shows_spinner_glyph(self):
         """ANALYZE (and PLAN in plan mode) have no progress bar — they show
         an animated braille spinner where the running indicator goes."""
