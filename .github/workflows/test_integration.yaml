@@ -4,11 +4,6 @@ on:
   pull_request:
     branches:
       - "**"
-    paths-ignore:
-      - "*.md"
-      - "docs/**"
-      - "LICENSE"
-      - ".github/CODEOWNERS"
   push:
     tags:
       - "v*" # Push events to matching v*, i.e. v1.0, v20.15.10
@@ -31,10 +26,12 @@ permissions:
 jobs:
   define-matrix:
     uses: ./.github/workflows/matrix.yaml
+  changes:
+    uses: ./.github/workflows/changes.yaml
 
   # Branch-based pull request
   integration-trusted:
-    needs: define-matrix
+    needs: [define-matrix, changes]
     strategy:
       fail-fast: false
       matrix:
@@ -49,6 +46,7 @@ jobs:
       python-version: ${{ matrix.python-version }}
       python-env: integration
       hatch-run: integration:test
+      should-run: ${{ needs.changes.outputs.code == 'true' || github.event_name != 'pull_request' }}
     secrets: inherit
 
   # Repo owner has commented /ok-to-test on a (fork-based) pull request
