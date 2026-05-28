@@ -711,6 +711,12 @@ def online_service(
             )
             sys.stderr.write(display + "\n")
             sys.stderr.flush()
+            # The rich display on stderr is the canonical surface for
+            # operators; rendering ``result`` as an ObjectResult here
+            # would duplicate the same fields on stdout as a key/value
+            # table.  Return an empty message instead so the success
+            # path stays single-source.
+            return _to_message("")
     return _to_object(result)
 
 
