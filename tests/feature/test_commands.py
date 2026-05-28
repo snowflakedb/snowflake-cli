@@ -826,9 +826,7 @@ def test_online_service_no_flags_returns_status(mock_manager, runner):
 
 
 @mock.patch(FEATURE_MANAGER)
-def test_online_service_status_does_not_render_duplicate_table(
-    mock_manager, runner
-):
+def test_online_service_status_does_not_render_duplicate_table(mock_manager, runner):
     """The no-flag status branch must not duplicate the rich display as
     a key/value table on stdout.
 
@@ -877,9 +875,7 @@ def test_online_service_status_does_not_render_duplicate_table(
 
 
 @mock.patch(FEATURE_MANAGER)
-def test_online_service_status_error_still_returned_as_object(
-    mock_manager, runner
-):
+def test_online_service_status_error_still_returned_as_object(mock_manager, runner):
     """When ``get_status`` returns an ``error`` envelope the command
     must still surface the error on stdout (so JSON-mode and human
     consumers both see it).  Only the success path drops the
