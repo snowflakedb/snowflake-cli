@@ -38,3 +38,6 @@ UNKNOWN_STYLE = Style(color=_COLOR_BLUE)
 PHASE_DONE_STYLE = Style(color="green", bold=True)
 PHASE_RUNNING_STYLE = Style(color="blue", bold=True)
 PHASE_FAILED_STYLE = Style(color="red", bold=True)
+
+# Analyze (file/source path headers stand out in bold blue).
+FILE_PATH_STYLE = Style(color="blue", bold=True)

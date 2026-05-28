@@ -60,12 +60,10 @@ class AnalyzeReporter(Reporter[Dict[str, Any]]):
 
     def _generate_summary_renderables(self) -> List[Text]:
         if self._error_count == 0:
-            return [
-                Text("Static Analysis of DCM Project files completed successfully.")
-            ]
+            return [Text("Static analysis of DCM Project files found no errors.")]
         return [
             Text(
-                f"Static Analysis of DCM Project files found {self._error_count} error(s)."
+                f"Static analysis of DCM Project files found {self._error_count} error(s)."
             )
         ]
 
@@ -267,7 +265,7 @@ class AnalyzeErrorsReporter(Reporter[_FileFindings]):
 
             cli_console.styled_message(
                 sanitize_for_terminal(file_findings.source_path),
-                style=styles.BOLD_STYLE,
+                style=styles.FILE_PATH_STYLE,
             )
             cli_console.styled_message("\n")
 
@@ -310,7 +308,7 @@ class AnalyzeErrorsReporter(Reporter[_FileFindings]):
         if self._error_count == 0 and self._issue_count == 0:
             return [
                 Text(
-                    "Static Analysis of DCM Project files completed successfully.",
+                    "Static analysis of DCM Project files found no errors.",
                     styles.PASS_STYLE,
                 )
             ]
@@ -318,7 +316,7 @@ class AnalyzeErrorsReporter(Reporter[_FileFindings]):
         errors_plural = "error" if self._error_count == 1 else "errors"
         issues_plural = "issue" if self._issue_count == 1 else "issues"
         return [
-            Text("Static Analysis of DCM Project files found "),
+            Text("Static analysis of DCM Project files found "),
             Text(f"{self._error_count} {errors_plural}", styles.FAIL_STYLE),
             Text(" and "),
             Text(f"{self._issue_count} {issues_plural}", styles.WARNING_STYLE),

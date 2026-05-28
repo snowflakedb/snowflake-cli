@@ -1476,10 +1476,7 @@ class TestDCMAnalyze:
             result = runner.invoke(["dcm", "analyze", "fooBar"])
 
         assert result.exit_code == 0, result.output
-        assert (
-            "Static Analysis of DCM Project files completed successfully."
-            in result.output
-        )
+        assert "Static analysis of DCM Project files found no errors." in result.output
 
         mock_dcm_manager().raw_analyze.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
@@ -1561,7 +1558,7 @@ class TestDCMAnalyze:
         assert "line 1:0" not in result.output
         assert "line 3:0" not in result.output
         assert (
-            "Static Analysis of DCM Project files found 2 errors and 0 issues."
+            "Static analysis of DCM Project files found 2 errors and 0 issues."
             in result.output
         )
         assert "sources/definitions/ok.sql" not in result.output

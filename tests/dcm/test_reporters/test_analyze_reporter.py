@@ -15,6 +15,7 @@ from unittest import mock
 
 import pytest
 import typer
+from snowflake.cli._plugins.dcm import styles
 from snowflake.cli._plugins.dcm.reporters.analyze import (
     AnalyzeErrorsReporter,
     AnalyzeReporter,
@@ -188,7 +189,7 @@ class TestAnalyzeErrorsReporter:
         cursor = FakeCursor(data)
 
         output = capture_reporter_output(reporter, cursor)
-        assert "Static Analysis of DCM Project files completed successfully." in output
+        assert "Static analysis of DCM Project files found no errors." in output
 
     def test_process_file_level_errors(self):
         data = self._make_response(
@@ -220,7 +221,7 @@ class TestAnalyzeErrorsReporter:
         assert "line 10:0" not in output
         assert "SQL compilation error: syntax error line 10" in output
         assert (
-            "Static Analysis of DCM Project files found 1 error and 0 issues." in output
+            "Static analysis of DCM Project files found 1 error and 0 issues." in output
         )
 
     def test_process_definition_level_errors(self):
@@ -263,7 +264,7 @@ class TestAnalyzeErrorsReporter:
         assert "Could not analyze lineage due to unresolved dependency" in output
         assert "Unresolved or ambiguous dependency" in output
         assert (
-            "Static Analysis of DCM Project files found 2 errors and 0 issues."
+            "Static analysis of DCM Project files found 2 errors and 0 issues."
             in output
         )
 
@@ -297,7 +298,7 @@ class TestAnalyzeErrorsReporter:
         assert "TABLE_A (TABLE)" in output
         assert "sources/definitions/clean.sql" not in output
         assert (
-            "Static Analysis of DCM Project files found 2 errors and 0 issues."
+            "Static analysis of DCM Project files found 2 errors and 0 issues."
             in output
         )
 
@@ -422,7 +423,7 @@ class TestAnalyzeErrorsReporter:
         cursor = FakeCursor(data)
 
         output = capture_reporter_output(reporter, cursor)
-        assert "Static Analysis of DCM Project files completed successfully." in output
+        assert "Static analysis of DCM Project files found no errors." in output
 
     def test_process_no_data(self):
         reporter = AnalyzeErrorsReporter()
@@ -460,7 +461,7 @@ class TestAnalyzeErrorsReporter:
         assert "[W001]" not in output
         assert "line 5:2" not in output
         assert (
-            "Static Analysis of DCM Project files found 0 errors and 1 issue." in output
+            "Static analysis of DCM Project files found 0 errors and 1 issue." in output
         )
 
     def test_process_file_issues_are_warnings(self):
@@ -488,7 +489,7 @@ class TestAnalyzeErrorsReporter:
         assert "consider naming convention" in output
         assert "[W100]" not in output
         assert (
-            "Static Analysis of DCM Project files found 0 errors and 1 issue." in output
+            "Static analysis of DCM Project files found 0 errors and 1 issue." in output
         )
 
     def test_process_definition_issues_are_warnings(self):
@@ -535,7 +536,7 @@ class TestAnalyzeErrorsReporter:
 
         output = capture_reporter_output(reporter, cursor)
         assert (
-            "Static Analysis of DCM Project files found 1 error and 1 issue." in output
+            "Static analysis of DCM Project files found 1 error and 1 issue." in output
         )
 
         # And the exit code is non-zero (the errors fail the command).
@@ -545,3 +546,28 @@ class TestAnalyzeErrorsReporter:
             with pytest.raises(typer.Exit) as exc_info:
                 reporter2.process(cursor2)
         assert exc_info.value.exit_code == 1
+
+    def test_source_path_header_uses_file_path_style(self):
+        """Source-file headers should render in bold blue for visibility."""
+        data = self._make_response(
+            [
+                {
+                    "source_path": "sources/definitions/bad.sql",
+                    "definitions": [],
+                    "errors": [self._file_error("syntax error", line=1, code="001597")],
+                }
+            ]
+        )
+        reporter = AnalyzeErrorsReporter()
+        cursor = FakeCursor(data)
+        calls = []
+
+        def record(text, style=""):
+            calls.append((str(text), style))
+
+        with mock.patch(CLI_CONSOLE_PATH, side_effect=record):
+            with pytest.raises(typer.Exit):
+                reporter.process(cursor)
+
+        path_call = next(c for c in calls if "sources/definitions/bad.sql" in c[0])
+        assert path_call[1] == styles.FILE_PATH_STYLE
