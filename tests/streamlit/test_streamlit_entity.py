@@ -279,7 +279,7 @@ class TestStreamlitEntity(StreamlitTestClass):
         bundle_map = entity.bundle()
         output = self._bundle_output(tmp_path)
 
-        assert sorted(str(p) for p in bundle_map.all_sources()) == [
+        assert sorted(p.as_posix() for p in bundle_map.all_sources()) == [
             "pages/main.py",
             "pages/page.py",
         ]
