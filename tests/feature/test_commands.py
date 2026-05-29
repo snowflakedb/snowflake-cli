@@ -861,7 +861,7 @@ def test_online_service_status_does_not_render_duplicate_table(mock_manager, run
     assert result.exit_code == 0, result.output
 
     # The rich display banner is the only payload we expect.
-    assert "Feature Store — Runtime Status" in result.output
+    assert "Feature Store — Online Service Status" in result.output
 
     # The duplicate key/value table is recognisable by the explicit
     # column separators and the raw timestamp values it surfaced.
