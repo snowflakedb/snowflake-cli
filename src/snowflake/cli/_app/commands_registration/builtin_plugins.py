@@ -34,6 +34,7 @@ from snowflake.cli._plugins.sql import plugin_spec as sql_plugin_spec
 from snowflake.cli._plugins.stage import plugin_spec as stage_plugin_spec
 from snowflake.cli._plugins.streamlit import plugin_spec as streamlit_plugin_spec
 from snowflake.cli._plugins.workspace import plugin_spec as workspace_plugin_spec
+from snowflake.cli._plugins.view import plugin_spec as view_plugin_spec
 
 
 # plugin name to plugin spec
@@ -59,6 +60,7 @@ def get_builtin_plugin_name_to_plugin_spec():
         "plugin": plugin_plugin_spec,
         "dbt": dbt_plugin_spec,
         "logs": logs_plugin_spec,
+        "view": view_plugin_spec,
     }
 
     return plugin_specs
