@@ -18,10 +18,12 @@
 
 ## Detailed guides
 
+- **Adding commands**: [docs/contributing/adding-commands.md](docs/contributing/adding-commands.md)
+  — design sign-off, plugin structure, registration, return types, destructive commands
 - **Command lifecycle and feature flags**: [docs/contributing/lifecycle.md](docs/contributing/lifecycle.md)
   — PrPr/PuPr/GA rules, feature flag mechanics, release notes format
 - **Code conventions**: [docs/contributing/conventions.md](docs/contributing/conventions.md)
-  — security patterns, error handling, imports
+  — SQL safety, secrets, file access, terminal output, error handling, imports, logging, user-visible output
 - **Testing**: [docs/contributing/testing.md](docs/contributing/testing.md)
   — unit tests, snapshots, fixtures, feature flag test helpers
 - **Process**: [docs/contributing/process.md](docs/contributing/process.md)
