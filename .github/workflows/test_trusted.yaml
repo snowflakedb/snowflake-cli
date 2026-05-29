@@ -15,12 +15,6 @@ on:
       hatch-run:
         required: true
         type: string
-      should-run:
-        # Posts the required check as success but skips the heavy steps when
-        # the PR only touches paths that don't affect tests.
-        required: false
-        type: string
-        default: "true"
 
 permissions:
   contents: none
@@ -34,18 +28,15 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - if: inputs.should-run == 'true'
-        name: Set up Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ inputs.python-version }}
-      - if: inputs.should-run == 'true'
-        name: Install dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip click==8.2.1 hatch==1.15.1 virtualenv==20.39.1
           python -m hatch env create ${{ inputs.python-env }}
-      - if: inputs.should-run == 'true'
-        name: Run integration tests
+      - name: Run integration tests
         env:
           GH_TOKEN: ${{ secrets.SNOWFLAKE_GITHUB_TOKEN }}
           TERM: unknown

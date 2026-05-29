@@ -24,6 +24,7 @@ jobs:
     uses: ./.github/workflows/changes.yaml
   tests:
     needs: [define-matrix, changes]
+    if: needs.changes.outputs.code == 'true'
     strategy:
       fail-fast: true
       matrix:
@@ -34,21 +35,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - if: needs.changes.outputs.code == 'true'
-        name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - if: needs.changes.outputs.code == 'true'
-        name: Install hatch
+      - name: Install hatch
         run: |
           pip install -U click==8.2.1 hatch==1.15.1 virtualenv==20.39.1
           hatch env create default
-      - if: needs.changes.outputs.code == 'true'
-        name: Test with hatch
+      - name: Test with hatch
         run: hatch run test-cov
-      - if: needs.changes.outputs.code == 'true'
-        uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24
+      - uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24
 
   # Temporarily disabled; re-enable once config v2 (NG) is ready.
   # tests-config-ng:
