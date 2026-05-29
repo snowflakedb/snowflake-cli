@@ -630,7 +630,7 @@ NoInteractiveOption = typer.Option(False, "--no-interactive", help="Disable prom
 PruneOption = OverrideableOption(
     False,
     "--prune/--no-prune",
-    help=f"Delete files that exist in the stage, but not in the local filesystem.",
+    help="Delete files that exist in the app's stage directory but not in the local filesystem. When multiple apps share the same stage, only the deployed app's files are affected.",
     show_default=True,
 )
 
