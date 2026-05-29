@@ -176,6 +176,31 @@ def test_bullet_in_recent_release_and_older_release_is_flagged(notes_file):
     assert "select *" in errors[0]
 
 
+def test_bullet_in_unreleased_and_two_released_sections_emits_one_error(notes_file):
+    # When a bullet is in Unreleased + most-recent release + older release,
+    # only the Unreleased-vs-released error should fire. The cross-released
+    # check would otherwise add a contradictory second message telling the
+    # author to move the bullet *into* Unreleased.
+    path = notes_file(
+        """
+        # Unreleased version
+        ## Fixes and improvements
+        * Fixed the same thing.
+
+        # v3.17.1
+        ## Fixes and improvements
+        * Fixed the same thing.
+
+        # v3.17.0
+        ## Fixes and improvements
+        * Fixed the same thing.
+        """
+    )
+    errors = check.find_duplicates(path)
+    assert len(errors) == 1
+    assert "Unreleased version" in errors[0]
+
+
 def test_distinct_bullets_in_separate_releases_are_not_flagged(notes_file):
     path = notes_file(
         """

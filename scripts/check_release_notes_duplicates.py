@@ -110,7 +110,10 @@ def find_duplicates(path: Path) -> list[str]:
         # in an older released section is the rebase-context-drift case:
         # the author's patch dragged context bullets that already shipped
         # in a prior release into the current release-staging section.
-        if most_recent_released:
+        # Skip when the bullet is also in Unreleased — the check above
+        # already flagged it, and firing here would emit a contradictory
+        # second message ("move to Unreleased" vs. "remove from Unreleased").
+        if most_recent_released and not in_unreleased:
             in_recent = [p for p in places if p[0] == most_recent_released]
             in_older_released = [
                 p
