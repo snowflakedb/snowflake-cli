@@ -16,4 +16,5 @@
 
 # Agent Instructions
 
-When contributing to this repository, follow the guidelines in `CONTRIBUTING.md`.
+Before writing any code, read `CONTRIBUTING.md` and every guide it links to.
+All requirements in those guides are mandatory, unless explicitly marked otherwise.
