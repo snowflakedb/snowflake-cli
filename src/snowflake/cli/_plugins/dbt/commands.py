@@ -15,10 +15,8 @@
 from __future__ import annotations
 
 import logging
-import re
 from typing import Optional
 
-import click
 import typer
 from click import types
 from snowflake.cli._plugins.dbt.constants import (
@@ -85,28 +83,6 @@ add_object_command_aliases(
 )
 
 
-SEMANTIC_VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+(-[a-zA-Z0-9]+)?$")
-
-
-class SemanticVersionType(click.ParamType):
-    """Custom Click type that validates semantic version format (major.minor.patch or major.minor.patch-string)."""
-
-    name = "TEXT"
-
-    def convert(self, value, param, ctx):
-        if value is None:
-            return None
-        if not isinstance(value, str):
-            self.fail(f"Expected string, got {type(value).__name__}.", param, ctx)
-        if not SEMANTIC_VERSION_PATTERN.match(value):
-            self.fail(
-                f"Invalid version format '{value}'. Expected format: major.minor.patch or major.minor.patch-string (e.g., '1.9.4' or '1.10.15').",
-                param,
-                ctx,
-            )
-        return value
-
-
 @app.command(
     "deploy",
     requires_connection=True,
@@ -148,7 +124,6 @@ def deploy_dbt(
     dbt_version: Optional[str] = typer.Option(
         None,
         "--dbt-version",
-        click_type=SemanticVersionType(),
         show_default=False,
         help="dbt Core version to use for the project, for example '1.10.15'. Full list of supported versions can be found at https://docs.snowflake.com/en/user-guide/data-engineering/dbt-projects-on-snowflake-dbt-core-versions",
     ),
@@ -200,7 +175,6 @@ def before_callback(
     dbt_version: Optional[str] = typer.Option(
         None,
         "--dbt-version",
-        click_type=SemanticVersionType(),
         show_default=False,
         help="dbt Core version to use for execution (ephemeral, does not change project configuration). Full list of supported versions can be found at https://docs.snowflake.com/en/user-guide/data-engineering/dbt-projects-on-snowflake-dbt-core-versions",
     ),
