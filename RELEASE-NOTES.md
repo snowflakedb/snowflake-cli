@@ -24,7 +24,7 @@
 ## Fixes and improvements
 * Fixed `TooManyFilesError` during `snow streamlit deploy` when `main_file` is a descendant of a directory listed in `artifacts`.
 * Upgraded `snowflake-connector-python` from 4.5.0 to 4.6.0.
-* `snow dbt deploy --dbt-version` now validates the requested version against the server's supported list (`SYSTEM$SUPPORTED_DBT_VERSIONS()`) before uploading project files, instead of a hard-coded client-side regex. Unsupported versions fail fast with a message listing the actual supported versions, and the CLI no longer rejects valid versions that don't match its old regex (e.g. `2.0.0-preview.175`). `snow dbt execute --dbt-version` no longer performs client-side validation either; the server returns the same supported-versions message if the value is unknown.
+* `snow dbt` no longer rejects valid `--dbt-version` values (e.g. `2.0.0-preview.175`) that don't match a hard-coded client-side regex. Versions are now validated against the server's supported list, with unsupported versions failing fast and listing the actual supported set.
 
 
 # v3.19.0

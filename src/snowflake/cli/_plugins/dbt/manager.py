@@ -30,8 +30,9 @@ from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
-from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.exceptions import CliArgumentError, CliError
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
@@ -116,16 +117,21 @@ class DBTManager(SqlExecutionMixin):
             raise CliError("Could not fetch supported dbt versions from server.")
         try:
             entries = json.loads(row[0])
-        except json.JSONDecodeError as exc:
+        except (json.JSONDecodeError, TypeError) as exc:
             raise CliError(
                 "Could not parse supported dbt versions from server."
             ) from exc
-        return [e["dbt_version"] for e in entries]
+        try:
+            return [e["dbt_version"] for e in entries]
+        except (KeyError, TypeError) as exc:
+            raise CliError(
+                "Could not parse supported dbt versions from server."
+            ) from exc
 
     def _validate_dbt_version(self, dbt_version: str) -> None:
         supported = self._get_supported_dbt_versions()
         if dbt_version not in supported:
-            raise CliError(
+            raise CliArgumentError(
                 f"Invalid value '{dbt_version}' for --dbt-version. "
                 f"Supported versions: {', '.join(supported)}."
             )
@@ -138,9 +144,6 @@ class DBTManager(SqlExecutionMixin):
         force: bool,
         attrs: DBTDeployAttributes,
     ) -> SnowflakeCursor:
-        if attrs.dbt_version:
-            self._validate_dbt_version(attrs.dbt_version)
-
         dbt_project_path = path / "dbt_project.yml"
         if not dbt_project_path.exists():
             raise CliError(
@@ -155,6 +158,9 @@ class DBTManager(SqlExecutionMixin):
                 raise CliError("`profile` is not defined in dbt_project.yml")
 
         self._validate_profiles(profiles_path, profile, attrs.default_target)
+
+        if attrs.dbt_version:
+            self._validate_dbt_version(attrs.dbt_version)
 
         with cli_console.phase("Creating temporary stage"):
             stage_manager = StageManager()
@@ -212,7 +218,7 @@ class DBTManager(SqlExecutionMixin):
         # lock it to a patch as well. If target version is provided, it's better to just
         # apply it.
         if attrs.dbt_version:
-            set_properties.append(f"DBT_VERSION='{attrs.dbt_version}'")
+            set_properties.append(f"DBT_VERSION={to_string_literal(attrs.dbt_version)}")
 
         current_external_access_integrations = dbt_object_attributes.get(
             "external_access_integrations"
@@ -276,7 +282,7 @@ class DBTManager(SqlExecutionMixin):
         if attrs.default_target:
             query += f" DEFAULT_TARGET='{attrs.default_target}'"
         if attrs.dbt_version:
-            query += f" DBT_VERSION='{attrs.dbt_version}'"
+            query += f" DBT_VERSION={to_string_literal(attrs.dbt_version)}"
         query = self._handle_external_access_integrations_query(
             query, attrs.external_access_integrations, attrs.install_local_deps
         )
@@ -307,7 +313,7 @@ class DBTManager(SqlExecutionMixin):
         if attrs.default_target:
             query += f" DEFAULT_TARGET='{attrs.default_target}'"
         if attrs.dbt_version:
-            query += f" DBT_VERSION='{attrs.dbt_version}'"
+            query += f" DBT_VERSION={to_string_literal(attrs.dbt_version)}"
         query = self._handle_external_access_integrations_query(
             query, attrs.external_access_integrations, attrs.install_local_deps
         )
@@ -416,7 +422,7 @@ class DBTManager(SqlExecutionMixin):
         dbt_command_escaped = dbt_command.replace("'", "\\'")
         query = f"EXECUTE DBT PROJECT {name}"
         if dbt_version:
-            query += f" dbt_version='{dbt_version}'"
+            query += f" dbt_version={to_string_literal(dbt_version)}"
         query += f" args='{dbt_command_escaped}'"
         return self.execute_query(query, _exec_async=run_async)
 
