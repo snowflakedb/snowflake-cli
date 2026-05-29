@@ -87,6 +87,49 @@ cursor.execute("SELECT * FROM my_table WHERE id = %s", (user_id,))
 Bind parameters are not supported for DDL or `SHOW` statements. Use
 `to_string_literal` or `identifier_to_show_like_pattern` there instead.
 
+## Handling sensitive values
+
+When a command option accepts a secret (password, token, key, etc.), declare it
+with `click_type=SecretTypeParser()` from `snowflake.cli.api.commands.flags`.
+This wraps the raw string in a `SecretType` at parse time so the value is never
+accidentally logged or printed (`__str__` returns `***`):
+
+```python
+from snowflake.cli.api.commands.flags import SecretTypeParser
+from snowflake.cli.api.secret import SecretType  # annotation only — SecretTypeParser wraps the value at parse time
+
+@app.command()
+def my_command(
+    password: Optional[SecretType] = typer.Option(
+        None, click_type=SecretTypeParser(), hide_input=True,
+    ),
+):
+    if password:
+        do_something(password.value)            # access the real value explicitly
+    log.debug("Called with password=%s", password)  # logs "***"
+```
+
+## File access
+
+Use `SecurePath` from `snowflake.cli.api.secure_path` for **all** file reads and
+writes. `SecurePath` provides two security guarantees:
+
+1. Every file operation is logged at `INFO` level, creating an audit trail.
+2. Files created by `SecurePath` get restrictive permissions (0600 on Unix).
+
+```python
+# WRONG
+from pathlib import Path
+content = Path("config.yml").read_text()
+
+# CORRECT
+from snowflake.cli.api.secure_path import SecurePath
+content = SecurePath("config.yml").read_text(file_size_limit_mb=1)
+```
+
+`pathlib.Path` is still acceptable for path manipulation (joining segments,
+checking suffixes, building paths).
+
 ## Terminal output safety
 
 Never print values from Snowflake server responses or user config directly to the

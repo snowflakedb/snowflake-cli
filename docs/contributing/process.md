@@ -68,6 +68,10 @@ Fill in the PR checklist honestly — reviewers check every item.
 
 The two items contributors most commonly miss:
 
+**Design sign-off** — any user-facing interface change (new commands, arguments,
+options, or output format) requires maintainer sign-off before code is written.
+See [adding-commands.md](adding-commands.md#design-sign-off-before-writing-code).
+
 **Snapshot files** — any change to CLI output or help text, including hidden
 commands, requires regenerating snapshots. See [testing.md](testing.md).
 
