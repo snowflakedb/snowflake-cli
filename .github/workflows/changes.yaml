@@ -1,0 +1,53 @@
+name: detect changes
+
+# Determines whether a PR changes anything that requires running the heavy test
+# matrix. The required-status-check jobs that consume `outputs.code` always run
+# (so the required check posts to the PR), but skip their expensive steps when
+# only docs/CODEOWNERS/etc. changed. This avoids the "skipped but required"
+# branch-protection deadlock that `paths-ignore` causes.
+
+on:
+  workflow_call:
+    outputs:
+      code:
+        description: "true when the PR touches files that require running tests"
+        value: ${{ jobs.detect.outputs.code }}
+
+permissions:
+  contents: none
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - id: filter
+        # Anything other than pull_request (push, schedule, repository_dispatch,
+        # workflow_dispatch) gets code=true so the full pipeline runs as before.
+        # For pull_request events we diff against the PR base and check whether
+        # any changed file is outside the ignored set.
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          echo "Changed files:"
+          echo "$changed"
+          # code=true if any changed file falls outside the ignored set.
+          # Ignored: **/*.md, docs/**, LICENSE, .github/CODEOWNERS
+          if echo "$changed" | grep -Ev '(\.md$|^docs/|^LICENSE$|^\.github/CODEOWNERS$)' > /dev/null; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi

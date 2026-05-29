@@ -4,11 +4,6 @@ on:
   pull_request:
     branches:
       - "**"
-    paths-ignore:
-      - "*.md"
-      - "docs/**"
-      - "LICENSE"
-      - ".github/CODEOWNERS"
   push:
     tags:
       - "v*" # Push events to matching v*, i.e. v1.0, v20.15.10
@@ -31,17 +26,22 @@ permissions:
 jobs:
   define-matrix:
     uses: ./.github/workflows/matrix.yaml
+  changes:
+    uses: ./.github/workflows/changes.yaml
 
   e2e-trusted:
-    needs: define-matrix
+    needs: [define-matrix, changes]
     strategy:
       fail-fast: true
       matrix:
         os: ${{ fromJSON(needs.define-matrix.outputs.os) }}
         python-version: ${{ fromJSON(needs.define-matrix.outputs.python) }}
     if: |
-      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      (
+        (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
+        (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      ) &&
+      (needs.changes.outputs.code == 'true' || github.event_name != 'pull_request')
     uses: ./.github/workflows/test_trusted.yaml
     with:
       runs-on: ${{ matrix.os }}
