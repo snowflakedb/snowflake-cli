@@ -189,6 +189,8 @@ All types are in `src/snowflake/cli/api/output/types.py`:
 | `CollectionResult` | Iterable of dicts with no cursor (locally constructed results) |
 | `ObjectResult` | Single dict with no cursor |
 
+Other specialized types (`MultipleResults`, `StreamResult`, `EmptyResult`) exist for less common cases — see `src/snowflake/cli/api/output/types.py`.
+
 ### Lifecycle and visibility
 
 New commands start in PrPr behind a feature flag. See [lifecycle.md](lifecycle.md)
@@ -204,8 +206,8 @@ Behavior matrix:
 
 | `--force` | `--interactive` | Result |
 |-----------|-----------------|--------|
-| unset | False (non-TTY default) | Abort — safe default for scripts |
-| unset | True (TTY default) | Prompt the user |
+| unset | False (non-interactive default, e.g. CI or piped input) | Abort — safe default for scripts |
+| unset | True (interactive terminal default) | Prompt the user |
 | set | either | Proceed without prompting |
 
 ### Testing

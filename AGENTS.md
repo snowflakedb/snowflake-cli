@@ -16,5 +16,13 @@
 
 # Agent Instructions
 
-Before writing any code, read `CONTRIBUTING.md` and every guide it links to.
+Before writing any code, read each of the following guides in full:
+
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [docs/contributing/adding-commands.md](docs/contributing/adding-commands.md)
+- [docs/contributing/conventions.md](docs/contributing/conventions.md)
+- [docs/contributing/lifecycle.md](docs/contributing/lifecycle.md)
+- [docs/contributing/testing.md](docs/contributing/testing.md)
+- [docs/contributing/process.md](docs/contributing/process.md)
+
 All requirements in those guides are mandatory, unless explicitly marked otherwise.

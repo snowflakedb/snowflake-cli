@@ -96,7 +96,7 @@ accidentally logged or printed (`__str__` returns `***`):
 
 ```python
 from snowflake.cli.api.commands.flags import SecretTypeParser
-from snowflake.cli.api.secret import SecretType
+from snowflake.cli.api.secret import SecretType  # annotation only — SecretTypeParser wraps the value at parse time
 
 @app.command()
 def my_command(

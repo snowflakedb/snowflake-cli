@@ -157,7 +157,9 @@ def my_command(
 1. Remove the flag entry from `src/snowflake/cli/api/feature_flags.py` and all
    remaining references to it in the codebase.
 2. Remove `is_hidden=` / `hidden=` from the feature
-3. Add a release note entry under `## New additions`:
+3. Regenerate snapshots — removing `hidden=` changes snapshot output even though
+   the command was already callable. See [testing.md](testing.md#snapshot-tests).
+4. Add a release note entry under `## New additions`:
    `* <name> is now generally available.`
 
 ## Testing feature-flagged features
