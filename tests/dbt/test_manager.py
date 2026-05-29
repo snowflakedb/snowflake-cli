@@ -11,7 +11,7 @@ from snowflake.cli._plugins.dbt.constants import (
     SUPPORTED_DBT_VERSIONS_QUERY,
 )
 from snowflake.cli._plugins.dbt.manager import DBTDeployAttributes, DBTManager
-from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.exceptions import CliArgumentError, CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector import ProgrammingError
@@ -849,7 +849,7 @@ dev
             columns=["SYSTEM$SUPPORTED_DBT_VERSIONS()"],
         )
 
-        with pytest.raises(CliError) as exc_info:
+        with pytest.raises(CliArgumentError) as exc_info:
             DBTManager().deploy(
                 fqn=FQN.from_string("test_project"),
                 path=SecurePath(dbt_project_path),
@@ -953,7 +953,7 @@ class TestValidateDbtVersion:
             columns=["SYSTEM$SUPPORTED_DBT_VERSIONS()"],
         )
 
-        with pytest.raises(CliError) as exc_info:
+        with pytest.raises(CliArgumentError) as exc_info:
             DBTManager()._validate_dbt_version("99.99.99")  # noqa: SLF001
 
         msg = exc_info.value.message

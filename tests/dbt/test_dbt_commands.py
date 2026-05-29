@@ -23,6 +23,7 @@ from snowflake.cli._plugins.dbt.constants import (
     PROFILES_FILENAME,
     RESULT_COLUMN_NAME,
 )
+from snowflake.cli.api.exceptions import CliArgumentError
 from snowflake.cli.api.secure_path import SecurePath
 
 
@@ -399,6 +400,33 @@ class TestDBTDeploy:
         mock_deploy.assert_called_once()
         call_kwargs = mock_deploy.call_args[1]
         assert call_kwargs["attrs"].dbt_version == "2.0.0-preview.175"
+
+    def test_deploy_with_invalid_dbt_version_returns_exit_code_2(
+        self, runner, dbt_project_path
+    ):
+        def raise_invalid_version(*args, **kwargs):
+            raise CliArgumentError(
+                "Invalid value '99.99.99' for --dbt-version. "
+                "Supported versions: 1.9.4."
+            )
+
+        with mock.patch(
+            "snowflake.cli._plugins.dbt.manager.DBTManager.deploy",
+            side_effect=raise_invalid_version,
+        ):
+            result = runner.invoke(
+                [
+                    "dbt",
+                    "deploy",
+                    "TEST_PIPELINE",
+                    f"--source={dbt_project_path}",
+                    "--dbt-version=99.99.99",
+                    "--enhanced-exit-codes",
+                ]
+            )
+
+        assert result.exit_code == 2, result.output
+        assert "Invalid value '99.99.99'" in result.output
 
 
 class TestDBTExecute:
