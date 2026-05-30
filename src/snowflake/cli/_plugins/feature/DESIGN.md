@@ -297,6 +297,113 @@ written when the command aborts.
 
 ---
 
+## Stream-source applied-state read path
+
+`StreamingSource` is registered metadata in Snowflake — `FeatureStore.list_stream_sources()` (backed by `SYSTEM$LIST_FEATURE_STORE_OBJECTS('STREAM_SOURCE')`) is the authoritative read surface, and the declarative library hides it behind `decl_api.fetch_stream_source_rows(session, database, schema, warehouse="")`. The CLI manager threads the runtime rows into `decl_api.fetch_applied_state(stream_source_rows=...)` so the planner's four-way source-side decision (`NO_CHANGE` / `UPDATE_SOURCE` / `RECREATE_SOURCE` / `CREATE_SOURCE`) sees runtime-authoritative `Datasource` AppliedObjects instead of falling through to the FV-derivation pre-pass and re-emitting `CREATE_SOURCE` on every plan. Without this threading, an unchanged `StreamingSource` YAML keeps producing `CREATE_SOURCE` ops, and `snow feature apply` keeps materialising the historical `UserWarning: StreamSource <name> already exists. Skip registration.` noise.
+
+The plumbing is intentionally lean: a single private helper on `FeatureManager`, invoked at the two `decl_api.fetch_applied_state(...)` call sites and nowhere else.
+
+### `FeatureManager._fetch_stream_source_rows(target)`
+
+```python
+def _fetch_stream_source_rows(self, target: FSTarget) -> list[dict[str, Any]]:
+    """Fetch registered stream-source rows for *target*.
+
+    Mirror of :func:`_fetch_entity_rows` for the imperative
+    ``FeatureStore.list_stream_sources()`` enumeration that
+    :func:`decl_api.fetch_stream_source_rows` wraps.  Without this
+    wiring the planner has no runtime-authoritative view of
+    ``Datasource(kind="StreamingSource")`` registrations, so a
+    plain re-plan of an unchanged YAML re-emits a spurious
+    ``CREATE_SOURCE`` (and any subsequent ``CREATE_FV`` that
+    consumes it re-issues a defensive ``register_stream_source``
+    ``UserWarning``).  See ``plans/stream_source_contract.md`` §8.
+    """
+    from snowflake.ml.feature_store.decl.errors import (
+        FeatureStoreNotInitializedError,
+    )
+
+    ctx = get_cli_context()
+    try:
+        session = self._build_session()
+        return decl_api.fetch_stream_source_rows(
+            session,
+            target.database,
+            target.schema,
+            ctx.connection.warehouse or "",
+        )
+    except FeatureStoreNotInitializedError:
+        raise
+    except Exception as exc:  # noqa: BLE001 — defensive permission/error swallow
+        log.debug("fetch_stream_source_rows failed (treating as empty): %s", exc)
+        return []
+```
+
+The contract has three operationally important guarantees:
+
+1. **Init-first propagation.** `FeatureStoreNotInitializedError` is *not* swallowed — it is re-raised so the command-level wrapper in `commands.py` converts it into a `ClickException` whose message directs the operator at `snow feature init`. This matches the `_fetch_entity_rows` / `_fetch_feature_view_rows` / `_fetch_feature_group_rows` precedent so a partially-initialised schema fails fast and consistently across every `snow feature` entry point that issues state SQL.
+2. **Graceful-degrade-on-permission-error.** Any other exception (most commonly a privilege gap on `SYSTEM$LIST_FEATURE_STORE_OBJECTS('STREAM_SOURCE')`) is debug-logged and downgraded to an empty list. The downstream `fetch_applied_state` merge treats `stream_source_rows=[]` identically to `stream_source_rows=None` (FV-derived-only), so a missing privilege downgrades fidelity rather than crashing the bundle.
+3. **Stateless.** The helper does not cache between calls; each `plan()` / `write_plan()` invocation re-issues `list_stream_sources()`. This is symmetric with the rest of the bundle and avoids stale-cache surprises across long-running CLI sessions.
+
+### Threading into `fetch_applied_state` at both `plan()` and `write_plan()` call sites
+
+Both methods load the runtime rows alongside the existing entity / FV / FG rows and forward them through `decl_api.fetch_applied_state(stream_source_rows=...)`. The two call sites are intentionally byte-equivalent so the UI op stream and the disk plan see the same applied-state snapshot — preserving the parity invariant pinned by `scripts/verify_plan_ui_parity.sh`:
+
+```python
+# manager.plan(...) — UI op stream (≈ L880)
+entity_rows         = self._fetch_entity_rows(target)
+feature_view_rows   = self._fetch_feature_view_rows(target)
+feature_group_rows  = self._fetch_feature_group_rows(target)
+stream_source_rows  = self._fetch_stream_source_rows(target)
+applied_state = decl_api.fetch_applied_state(
+    raw_show, raw_tables,
+    specification_map=specification_map,
+    dt_text_map=dt_text_map,
+    entity_rows=entity_rows,
+    feature_view_rows=feature_view_rows,
+    feature_group_rows=feature_group_rows,
+    stream_source_rows=stream_source_rows,
+    default_database=target.database,
+    default_schema=target.schema,
+)
+```
+
+```python
+# manager.write_plan(...) — disk JSON (≈ L1010)
+entity_rows         = self._fetch_entity_rows(target)
+feature_view_rows   = self._fetch_feature_view_rows(target)
+feature_group_rows  = self._fetch_feature_group_rows(target)
+stream_source_rows  = self._fetch_stream_source_rows(target)
+applied_state = decl_api.fetch_applied_state(
+    raw_show, raw_tables,
+    specification_map=specification_map,
+    dt_text_map=dt_text_map,
+    entity_rows=entity_rows,
+    feature_view_rows=feature_view_rows,
+    feature_group_rows=feature_group_rows,
+    stream_source_rows=stream_source_rows,
+    default_database=target.database,
+    default_schema=target.schema,
+)
+```
+
+`apply()` is unaffected — it is a pure plan-file consumer and never re-runs `fetch_applied_state`. The plan envelope already carries the four-way source decision the planner emitted at `snow feature plan` time, so the executor only needs to dispatch ops by `payload["kind"]`. See `decl/imperative_executor.py` for the StreamingSource-vs-BatchSource branch contract (StreamingSource calls `register_stream_source` / `update_stream_source` / `delete_stream_source`; BatchSource records informational no-ops).
+
+**Bundle-tuple shape is unchanged.** The shared `_fetch_applied_state_bundle(target)` helper continues to return `(raw_show, applied_state, entity_rows, feature_group_rows, specification_map)` — `stream_source_rows` is consumed inside `fetch_applied_state` and never escapes into a tuple field, mirroring the contract for `feature_view_rows`. Callers downstream of the bundle (the exporter, `_export_into_sources`, the round-trip helpers) are unaffected.
+
+### Test coverage
+
+`snowflake-cli/tests/feature/test_manager.py` carries regression coverage that:
+
+- `_fetch_stream_source_rows(target)` is invoked exactly once per `plan()` and per `write_plan()` invocation;
+- the resulting list is forwarded into `decl_api.fetch_applied_state` as the `stream_source_rows=` keyword (mirroring the existing `entity_rows=` / `feature_group_rows=` threading tests);
+- `FeatureStoreNotInitializedError` propagates from `_fetch_stream_source_rows` and is converted to a `ClickException` by the command-level wrapper;
+- a generic exception inside `decl_api.fetch_stream_source_rows` is debug-logged and downgraded to `[]` so a privilege gap does not break the plan.
+
+The contract source of truth is `plans/stream_source_contract.md` §8.
+
+---
+
 ## --json output
 
 All commands return a `MessageResult` wrapping a JSON-serialised dict.
