@@ -155,14 +155,6 @@ def mock_decl():
         m.drop_queries.return_value = [
             'DROP ONLINE FEATURE TABLE IF EXISTS "TEST_DB"."TEST_SCHEMA"."test"'
         ]
-        m.export_queries.return_value = {
-            "show_ofts": "SHOW ONLINE FEATURE TABLES IN SCHEMA TEST_DB.TEST_SCHEMA",
-            "describe_template": 'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}"',
-            "describe_specification_template": (
-                'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}" '
-                "TYPE = SPECIFICATION"
-            ),
-        }
         exec_result = mock.MagicMock()
         exec_result.status = "applied"
         exec_result.ops = []
@@ -238,26 +230,12 @@ def mock_build_session():
         yield
 
 
-_ALTER_SESSION_SQL = (
-    "ALTER SESSION SET ENABLE_FEATURE_STORE_DESCRIBE_OFT_SPECIFICATION = TRUE"
-)
-
-
 def _executed_sqls(mock_execute_query):
     sqls = []
     for call in mock_execute_query.call_args_list:
         if call.args:
             sqls.append(str(call.args[0]))
     return sqls
-
-
-def _wire_real_session_setup(mock_decl):
-    """Make ``decl_api.ensure_session_setup`` actually invoke the executor."""
-
-    def fake_ensure(execute_query):
-        execute_query(_ALTER_SESSION_SQL)
-
-    mock_decl.ensure_session_setup.side_effect = fake_ensure
 
 
 def _make_plan_json(
@@ -1311,6 +1289,58 @@ class TestFeatureManagerPlan:
         assert "MY_BATCH_FV$V1" in dt_text_map
         assert "RAW_EVENTS" in dt_text_map["MY_BATCH_FV$V1"]
 
+    def test_plan_threads_datasources_by_table_into_fetch_applied_state(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``plan`` MUST build a ``datasources_by_table`` lookup from the
+        locally-loaded ``BatchSource`` specs and pass it to
+        :func:`decl_api.fetch_applied_state` — without this the decl-side
+        BatchFV source-name recovery falls back to using the recovered
+        physical table name as ``sources[0].name``, breaking
+        ``MISSING_SOURCE`` validation on every re-plan after a
+        ``snow feature init`` round-trip.
+
+        Plan ref: .cursor/plans/bfv_source-name_recovery_82070393.plan.md
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        mock_decl.state_queries.return_value = {
+            "show_ofts": "SHOW ONLINE FEATURE TABLES IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_tables": "SHOW TABLES LIKE '%' IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_dynamic_tables": (
+                "SHOW DYNAMIC TABLES IN SCHEMA TEST_DB.TEST_SCHEMA"
+            ),
+            "describe_specification_template": (
+                'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}" '
+                "TYPE = SPECIFICATION"
+            ),
+        }
+        sentinel_lookup = {"RAW_EVENTS_FG_DECL": "EVENTS_FG_DECL"}
+        mock_decl.build_datasources_by_table.return_value = sentinel_lookup
+
+        FeatureManager().plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            dev_mode=False,
+            allow_recreate=False,
+        )
+
+        # The helper must be invoked on the LOCAL batch (the loader
+        # output) so the lookup is built from the on-disk YAMLs the
+        # operator authored, then threaded into the runtime-state
+        # reconstruction.
+        mock_decl.build_datasources_by_table.assert_called_once()
+        mock_decl.fetch_applied_state.assert_called_once()
+        call = mock_decl.fetch_applied_state.call_args
+        forwarded = call.kwargs.get("datasources_by_table")
+        assert forwarded is sentinel_lookup, (
+            "plan() must thread the datasources_by_table lookup built "
+            "from the local BatchSource specs into fetch_applied_state "
+            f"so BFV source-name recovery prefers logical names; got {forwarded!r}"
+        )
+
     def test_write_plan_threads_dt_text_map_into_fetch_applied_state(
         self, mock_execute_query, mock_decl, tmp_path
     ):
@@ -1359,6 +1389,292 @@ class TestFeatureManagerPlan:
         dt_text_map = call.kwargs.get("dt_text_map")
         assert isinstance(dt_text_map, dict) and dt_text_map
         assert "MY_BATCH_FV$V1" in dt_text_map
+
+    def test_write_plan_threads_datasources_by_table_into_fetch_applied_state(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """Mirror of
+        ``test_plan_threads_datasources_by_table_into_fetch_applied_state``
+        for ``write_plan`` — both code paths share the BatchFV
+        source-name recovery requirement."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        mock_decl.state_queries.return_value = {
+            "show_ofts": "SHOW ONLINE FEATURE TABLES IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_tables": "SHOW TABLES LIKE '%' IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_dynamic_tables": (
+                "SHOW DYNAMIC TABLES IN SCHEMA TEST_DB.TEST_SCHEMA"
+            ),
+            "describe_specification_template": (
+                'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}" '
+                "TYPE = SPECIFICATION"
+            ),
+        }
+        sentinel_lookup = {"RAW_EVENTS_FG_DECL": "EVENTS_FG_DECL"}
+        mock_decl.build_datasources_by_table.return_value = sentinel_lookup
+
+        FeatureManager().write_plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            dev_mode=False,
+            out_path=str(tmp_path / "plan.json"),
+        )
+
+        mock_decl.build_datasources_by_table.assert_called_once()
+        mock_decl.fetch_applied_state.assert_called_once()
+        call = mock_decl.fetch_applied_state.call_args
+        forwarded = call.kwargs.get("datasources_by_table")
+        assert forwarded is sentinel_lookup, (
+            "write_plan() must thread the datasources_by_table lookup "
+            "built from the local BatchSource specs into "
+            f"fetch_applied_state; got {forwarded!r}"
+        )
+
+
+# ===========================================================================
+# init export — applied-state unification (Bug A wide-scope fix).
+#
+# ``snow feature init`` previously fed the raw ``DESCRIBE … TYPE =
+# SPECIFICATION`` JSON straight through ``decl_api.export_specs``.
+# That JSON always returns ``spec.sources: []`` for BatchFeatureView
+# (snowml-core's FROM SPECIFICATION serializer encodes the source
+# binding into the offline Dynamic Table's ``SELECT … FROM …`` body,
+# not the spec payload).  The exported YAML therefore drifted from
+# the deployed runtime and a follow-up ``snow feature plan`` spuriously
+# emitted ``RECREATE_FV`` — apply then crashed with "no resolvable
+# source".  The fix routes the init export through the same
+# ``fetch_applied_state`` path the plan / write_plan codepaths use
+# (so BatchFV ``sources``, advanced BFV fields, offline-only BFVs,
+# and FG source mappings all round-trip cleanly).  See
+# .cursor/plans/init_export_applied-state_unification_*.plan.md.
+# ===========================================================================
+
+
+class TestFeatureManagerInitDtTextRecovery:
+    """``init`` MUST mirror ``plan`` / ``write_plan`` on the
+    applied-state surface: fetch ``SHOW DYNAMIC TABLES``, build the
+    ``dt_text_map`` + ``feature_view_rows`` bundle, hand them to
+    :func:`decl_api.fetch_applied_state`, and forward the recovered
+    state to :func:`decl_api.export_specs` via the new
+    ``applied_state=`` kwarg.
+
+    Each test below pins one rung of that contract — together they
+    are the RED gate for the wide-scope BatchFV export fix.
+    """
+
+    def _patch_feature_store(self):
+        return (
+            mock.patch("snowflake.ml.feature_store.feature_store.FeatureStore"),
+            mock.patch("snowflake.ml.feature_store.feature_store.CreationMode"),
+        )
+
+    def _set_state_queries(self, mock_decl):
+        """Wire the ``state_queries`` shape ``plan`` / ``init`` both
+        consume (must include ``show_dynamic_tables`` so the DT-text
+        recovery rung is exercisable end-to-end)."""
+        mock_decl.state_queries.return_value = {
+            "show_ofts": "SHOW ONLINE FEATURE TABLES IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_tables": "SHOW TABLES LIKE '%' IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_dynamic_tables": (
+                "SHOW DYNAMIC TABLES IN SCHEMA TEST_DB.TEST_SCHEMA"
+            ),
+            "describe_specification_template": (
+                'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}" '
+                "TYPE = SPECIFICATION"
+            ),
+        }
+
+    def test_init_executes_show_dynamic_tables_query(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """``init`` MUST run the ``show_dynamic_tables`` SQL exposed by
+        :func:`decl_api.state_queries` — same as ``plan`` — so the
+        offline DT DDL is available for BatchFV source recovery during
+        the export pass.
+
+        Pre-fix init called :func:`decl_api.export_queries` (which has
+        no DT-text query) and never issued this SQL.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        self._set_state_queries(mock_decl)
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path)
+
+        executed = _executed_sqls(mock_execute_query)
+        assert any(
+            "SHOW DYNAMIC TABLES IN SCHEMA TEST_DB.TEST_SCHEMA" in s for s in executed
+        ), (
+            "init() must execute the show_dynamic_tables SQL from "
+            "decl_api.state_queries so the offline DT DDL is fetched "
+            "for BatchFV source recovery during the export pass; "
+            f"executed SQLs: {executed!r}"
+        )
+
+    def test_init_threads_dt_text_map_into_fetch_applied_state(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """``init`` MUST call :func:`decl_api.fetch_applied_state`
+        with the ``dt_text_map`` recovered from ``SHOW DYNAMIC TABLES``
+        — same shape as the plan-path contract pinned in
+        ``test_plan_threads_dt_text_map_into_fetch_applied_state``.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        self._set_state_queries(mock_decl)
+
+        dt_row = {
+            "name": "USER_CLICKS_FG_DECL$V1",
+            "text": (
+                "CREATE DYNAMIC TABLE USER_CLICKS_FG_DECL$V1 TARGET_LAG = '300 seconds' "
+                "AS SELECT * FROM JKEW_DB.JKEW_SCHEMA.RAW_EVENTS"
+            ),
+        }
+
+        def fake_execute_query(sql, *args, **kwargs):
+            if "SHOW DYNAMIC TABLES" in str(sql):
+                return iter([dt_row])
+            return iter([])
+
+        mock_execute_query.side_effect = fake_execute_query
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path)
+
+        mock_decl.fetch_applied_state.assert_called_once()
+        call = mock_decl.fetch_applied_state.call_args
+        dt_text_map = call.kwargs.get("dt_text_map")
+        assert isinstance(dt_text_map, dict) and dt_text_map, (
+            "init() must thread a non-empty dt_text_map into "
+            "fetch_applied_state so the BatchFV source binding is "
+            f"recovered before the exporter runs; got {dt_text_map!r}"
+        )
+        assert "USER_CLICKS_FG_DECL$V1" in dt_text_map
+        assert "RAW_EVENTS" in dt_text_map["USER_CLICKS_FG_DECL$V1"]
+
+    def test_init_threads_datasources_by_table_into_fetch_applied_state(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """``init``'s export pass MUST also thread the locally-loaded
+        ``datasources_by_table`` lookup into
+        :func:`decl_api.fetch_applied_state` so the exported FV YAMLs
+        carry the operator-authored logical source names rather than
+        the recovered physical table names.
+
+        On a fresh ``init`` (no local datasources yet) the helper
+        returns an empty map; the lookup is still threaded so the
+        contract stays uniform across plan / write_plan / init.
+
+        Plan ref: .cursor/plans/bfv_source-name_recovery_82070393.plan.md
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        self._set_state_queries(mock_decl)
+        sentinel_lookup = {"RAW_EVENTS_FG_DECL": "EVENTS_FG_DECL"}
+        mock_decl.build_datasources_by_table.return_value = sentinel_lookup
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path)
+
+        # The init export pass must invoke the helper at least once
+        # so the lookup is built from whatever datasources happen to
+        # exist on disk at init time (zero on a brand-new project,
+        # populated on a re-init that already has YAMLs).  Pinning
+        # the helper call here ensures the manager wires the helper
+        # in identically across plan / write_plan / init.
+        assert mock_decl.build_datasources_by_table.called, (
+            "init() must call decl_api.build_datasources_by_table so "
+            "the lookup is built from the (possibly empty) local "
+            "BatchSource specs before applied-state recovery runs"
+        )
+        mock_decl.fetch_applied_state.assert_called_once()
+        call = mock_decl.fetch_applied_state.call_args
+        forwarded = call.kwargs.get("datasources_by_table")
+        assert forwarded is sentinel_lookup, (
+            "init() must thread the datasources_by_table lookup built "
+            "by build_datasources_by_table into fetch_applied_state; "
+            f"got {forwarded!r}"
+        )
+
+    def test_init_passes_applied_state_to_export_specs(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """The recovered :class:`AppliedState` MUST be forwarded to
+        :func:`decl_api.export_specs` via the ``applied_state=`` kwarg
+        so the exporter prefers the recovered BatchFV ``sources`` over
+        the lossy raw ``specification_map``.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        self._set_state_queries(mock_decl)
+        sentinel_state = mock.MagicMock(name="recovered_applied_state")
+        mock_decl.fetch_applied_state.return_value = sentinel_state
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path)
+
+        mock_decl.export_specs.assert_called_once()
+        kwargs = mock_decl.export_specs.call_args.kwargs
+        assert kwargs.get("applied_state") is sentinel_state, (
+            "init() must forward the applied_state returned by "
+            "fetch_applied_state into export_specs via the "
+            f"applied_state= kwarg; got kwargs={list(kwargs.keys())!r}"
+        )
+
+    def test_init_fetches_feature_view_rows_for_offline_only_recovery(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """``init`` MUST surface offline-only BatchFVs (visible only via
+        ``list_feature_views``, not ``SHOW ONLINE FEATURE TABLES``) by
+        forwarding ``feature_view_rows`` into
+        :func:`decl_api.fetch_applied_state`.
+
+        Without this, ``init`` re-exports only the OFT-visible subset
+        and offline-only BFVs silently disappear from the local tree —
+        a regression of the offline-BFV idempotency contract pinned in
+        ``test_replan_offline_bfv_idempotency.py``.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        self._set_state_queries(mock_decl)
+        fv_rows = [
+            {
+                "name": "OFFLINE_BFV",
+                "version": "V1",
+                "database_name": "TEST_DB",
+                "schema_name": "TEST_SCHEMA",
+                "kind": "BATCH",
+                "entities": ["USER_ID"],
+                "physical_dt_name": "OFFLINE_BFV$V1",
+                "refresh_freq": "60 seconds",
+            }
+        ]
+        mock_decl.fetch_feature_view_rows.return_value = fv_rows
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path)
+
+        mock_decl.fetch_applied_state.assert_called_once()
+        call = mock_decl.fetch_applied_state.call_args
+        forwarded = call.kwargs.get("feature_view_rows")
+        assert forwarded == fv_rows, (
+            "init() must forward the imperative-side feature_view_rows "
+            "into fetch_applied_state so offline-only BFVs surface in "
+            f"the exported tree; got {forwarded!r}"
+        )
 
 
 # ===========================================================================
@@ -1801,16 +2117,32 @@ class TestFeatureManagerListSpecs:
         FeatureManager().list_specs(from_dir=tmp_path, target_name=None)
         mock_decl.list_state_queries.assert_called_once_with("TEST_DB", "TEST_SCHEMA")
 
-    def test_list_specs_runs_session_setup_before_state_queries(
+    def test_no_alter_session_priming_is_issued(
         self, mock_execute_query, mock_decl, tmp_path
     ):
+        """Pins the post-May-22 architecture:
+        ``ENABLE_FEATURE_STORE_DESCRIBE_OFT_SPECIFICATION`` is enabled
+        by default at the account level, so the declarative client
+        MUST NOT issue an ``ALTER SESSION`` on any read path.  See
+        ``declarative_feature_store/ARCHITECTURE.md`` ("DESCRIBE …
+        TYPE = SPECIFICATION is enabled by default at the account
+        level — the declarative client no longer issues an ALTER
+        SESSION to flip the flag") and
+        ``snowml/snowflake/ml/feature_store/decl/DESIGN.md`` ("no
+        client-side session priming is issued").
+        """
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         _write_manifest(tmp_path)
-        _wire_real_session_setup(mock_decl)
         FeatureManager().list_specs(from_dir=tmp_path, target_name=None)
-        sqls = _executed_sqls(mock_execute_query)
-        assert sqls and sqls[0] == _ALTER_SESSION_SQL
+        FeatureManager().describe(from_dir=tmp_path, target_name=None, name="X")
+
+        for sql in _executed_sqls(mock_execute_query):
+            assert "ALTER SESSION" not in sql.upper(), (
+                "decl client must not issue ALTER SESSION; "
+                "ENABLE_FEATURE_STORE_DESCRIBE_OFT_SPECIFICATION is "
+                f"account-default. got: {sql}"
+            )
 
     def test_list_specs_missing_manifest_raises_cli_error(
         self, mock_execute_query, mock_decl, tmp_path
@@ -1857,15 +2189,6 @@ class TestFeatureManagerDescribe:
             from_dir=tmp_path, target_name=None, name="MY_ENTITY"
         )
         assert isinstance(result, dict)
-
-    def test_describe_runs_session_setup(self, mock_execute_query, mock_decl, tmp_path):
-        from snowflake.cli._plugins.feature.manager import FeatureManager
-
-        _write_manifest(tmp_path)
-        _wire_real_session_setup(mock_decl)
-        FeatureManager().describe(from_dir=tmp_path, target_name=None, name="MY_FV")
-        sqls = _executed_sqls(mock_execute_query)
-        assert sqls[0] == _ALTER_SESSION_SQL
 
     def test_describe_missing_manifest_raises_cli_error(
         self, mock_execute_query, mock_decl, tmp_path

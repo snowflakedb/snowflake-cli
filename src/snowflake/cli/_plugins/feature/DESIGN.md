@@ -78,9 +78,9 @@ Every Snowflake-bound entry point that needs a target (`apply`, `plan`,
    raises if neither is set.
 3. Asserts `AccountIdentifier.from_string(target.account_identifier)
    == get_account_identifier(connection)` (D4 match-account-override-rest).
-   On mismatch, returns `target_mismatch` to the caller without
-   priming the session — the operator picks a different connection
-   or fixes the manifest.
+   On mismatch, returns `target_mismatch` to the caller before any
+   state SQL runs — the operator picks a different connection or
+   fixes the manifest.
 
 `_resolve_project` returns `(FSProjectPaths, FSManifest, TargetContext)`.  The caller threads the target's `database` / `schema` / `role` through every downstream `decl_api.*` call (D4 override-rest); `warehouse` is read from `ctx.connection.warehouse` (plan files are warehouse-agnostic by design).
 
@@ -105,21 +105,18 @@ catch `NotImplementedError` (raised by Phase 0 stubs) and any other
 exceptions. When caught, the method returns a placeholder dict so the CLI
 remains functional during parallel Phase 1 development.
 
-### Session priming
+### Session priming (removed)
 
-Every Snowflake-bound `FeatureManager` entry point (`apply_specs`,
-`write_plan`, `list_specs` (only when `input_files` is empty),
-`describe`, `export_specs`, `get_status`, `initialize_service`,
-and `destroy_service`) calls
-`self._ensure_session_setup()` as its first step. The helper is
-gated by `self._session_setup_done` so each `FeatureManager`
-instance primes once. It delegates to
-`decl_api.ensure_session_setup(self.execute_query)`, which runs the
-idempotent `ALTER SESSION SET ENABLE_FEATURE_STORE_DESCRIBE_OFT_SPECIFICATION = TRUE`
-priming statement that lives in `decl/session_setup.py`. On
-failure, `decl_api.SessionSetupError` propagates — the CLI does not
-catch it, so Click renders it as a normal command failure and no
-further state SQL runs.
+The declarative client no longer issues an `ALTER SESSION` to enable
+`ENABLE_FEATURE_STORE_DESCRIBE_OFT_SPECIFICATION` — the parameter is
+enabled by default at the account level. See
+[`declarative_feature_store/ARCHITECTURE.md`](../../../../../../declarative_feature_store/ARCHITECTURE.md)
+("Strict spec contract") and `snowml/.../decl/DESIGN.md` ("no
+client-side session priming is issued"). The
+`_ensure_session_setup()` helper, the `_session_setup_done` gate, and
+`decl_api.ensure_session_setup` / `SessionSetupError` are all gone;
+every Snowflake-bound entry point goes straight to its state SQL
+after the manifest resolution + init-first guard.
 
 ### apply() orchestration (pure plan-file consumer)
 
@@ -131,23 +128,21 @@ for execution:
 ```
 1. paths, manifest, target = self._resolve_project(from_dir, target_name)
    — manifest discovery + L6 account-match assertion (D4)
-2. self._ensure_session_setup()                                             → primes the session
-3. plan_file = explicit --plan path OR _discover_unapplied_plan(paths.plans_dir)
-4. plan = decl_api.deserialize_plan(open(plan_file).read())                 → Plan
-5. Verify plan.target_name == target.name (D4-ext name-strict)
-6. decl_api.execute_plan(
+2. plan_file = explicit --plan path OR _discover_unapplied_plan(paths.plans_dir)
+3. plan = decl_api.deserialize_plan(open(plan_file).read())                 → Plan
+4. Verify plan.target_name == target.name (D4-ext name-strict)
+5. decl_api.execute_plan(
        plan, session,
        database=target.database,            # from manifest, not the plan envelope
        schema=target.schema,                # from manifest, not the plan envelope
        warehouse=ctx.connection.warehouse,  # warehouse-agnostic plan files
        options=...,
    )
-   — the executor primes the borrowed Snowpark session via
-     apply_session_setup_to_session(session) before constructing
-     FeatureStore(...)
-7. On success, rename plan_file → plan_file + ".applied" (L4)
-8. On failure, leave plan_file untouched so the operator can retry (L5)
-9. Return result dict
+   — the executor constructs FeatureStore(...) directly against the
+     borrowed Snowpark session; no session priming is issued
+6. On success, rename plan_file → plan_file + ".applied" (L4)
+7. On failure, leave plan_file untouched so the operator can retry (L5)
+8. Return result dict
 ```
 
 `status` values returned to the CLI:
@@ -182,26 +177,25 @@ for execution:
 ```
 1. paths, manifest, target = self._resolve_project(from_dir, target_name)
    — manifest discovery + L6 account-match assertion (D4)
-2. self._ensure_session_setup()                                             → primes the session
-3. queries = decl_api.state_queries(target.database, target.schema)         → fetch applied state
-4. decl_api.fetch_applied_state(...)                                        → AppliedState
-5. batch = decl_api.load_project(
+2. queries = decl_api.state_queries(target.database, target.schema)         → fetch applied state
+3. decl_api.fetch_applied_state(...)                                        → AppliedState
+4. batch = decl_api.load_project(
        paths.project_root,
        target=target,
        runtime_vars=_parse_variables(variables) or None,
    )                                                                        → SpecBatch
    — walks sources/{entities,datasources,feature_views}/, applies
      templating with merged precedence, skips UDF companion .py files
-6. decl_api.resolve_datasource_columns(batch)                               → mutates batch in place
-7. decl_api.validate_specs(batch, state,
+5. decl_api.resolve_datasource_columns(batch)                               → mutates batch in place
+6. decl_api.validate_specs(batch, state,
        target_database=target.database,
        target_schema=target.schema,
        dev_mode=dev_mode,
    )
    → if any ERROR results, return {status: "validation_failed", errors: [...], ops: []}
-8. decl_api.generate_plan(batch, state, opts,
+7. decl_api.generate_plan(batch, state, opts,
        database=target.database, schema=target.schema)                      → Plan
-9. Return {**target_info, status: "ready", ops: [...], executed: 0, warnings: [...], errors: []}
+8. Return {**target_info, status: "ready", ops: [...], executed: 0, warnings: [...], errors: []}
 ```
 
 `commands.plan` then forwards the result to `manager.write_plan(...)`
@@ -246,14 +240,11 @@ All Entity / Datasource rows are authoritative — entities come from
 derived from `spec.sources[]` recovered via
 `DESCRIBE … TYPE = SPECIFICATION`. There is no inference fallback
 that synthesizes rows from FV PK columns or `source`-string parsing
-when the SPECIFICATION call fails. The session-priming gate at the
-top of every Snowflake-bound entry point makes the parameter
-available before any state SQL runs; if priming fails the command
-exits with `decl_api.SessionSetupError` and no list rows are
-produced. See
-[`docs/ARCHITECTURE.md`](../../../../../../docs/ARCHITECTURE.md)
-"Session setup (DESCRIBE TYPE = SPECIFICATION priming)" for the full
-contract.
+when the SPECIFICATION call fails. `DESCRIBE … TYPE = SPECIFICATION`
+is enabled by default at the account level — no client-side `ALTER
+SESSION` is issued. See
+[`declarative_feature_store/ARCHITECTURE.md`](../../../../../../declarative_feature_store/ARCHITECTURE.md)
+("Strict spec contract") for the full contract.
 
 ### export_specs() orchestration
 
@@ -266,19 +257,34 @@ column-DESCRIBE-only fallback and no reduced / flagged YAML output —
 every emitted spec is full-fidelity or the command fails.
 
 ```
-1. self._ensure_session_setup()                                             → primes the session
-2. queries = decl_api.export_queries(database, schema)
-3. applied_state, specification_map = self._fetch_oft_state(
-       queries=queries,
-       database=database,
-       schema=schema,
-   )                                                                         → reuses the LIST-path helper
-4. yaml_files = decl_api.export_specs(
-       applied_state,
-       specification_map=specification_map,
-   )                                                                         → strict full-fidelity render
-5. Write each YAML file under the output directory
+1. show_rows, applied_state, entity_rows, feature_group_rows, spec_map =
+       self._fetch_applied_state_bundle(target)                              → shared with plan / write_plan
+2. yaml_files = decl_api.export_specs(
+       show_rows,
+       {},
+       project_root,
+       database,
+       schema,
+       specification_map=spec_map,                                            → authoritative for non-FV-kind OFTs
+       entity_rows=entity_rows,                                                 (e.g. FeatureGroup-backing rows)
+       feature_group_rows=feature_group_rows,
+       applied_state=applied_state,                                          → recovered BatchFV sources / advanced
+       layout="sources",                                                       fields / offline-only BFVs land here
+   )
+3. Write each YAML file under the output directory
 ```
+
+The `_fetch_applied_state_bundle` helper is the same bundle the planner
+consumes: it issues `state_queries(...)` (which includes
+`show_dynamic_tables` for BatchFV source recovery), fans the per-OFT
+`DESCRIBE … TYPE = SPECIFICATION` template out, hands the DT text
+through `state._inject_batch_fv_source_from_dt_text` +
+`_inject_advanced_bfv_fields_from_dt_text`, and surfaces offline-only
+BFVs via `state._build_offline_fv_object`.  The `applied_state` kwarg
+forwarded into `export_specs` is what makes init-time YAML carry the
+same `sources[]` / advanced-field / offline-only payloads the planner
+would have computed for a `snow feature plan` against the same
+runtime.
 
 `_fetch_oft_state` is the same helper that backs `list_specs()` — it
 runs the SHOW queries, fans the per-OFT
@@ -290,10 +296,10 @@ fallback that built partial YAML from column metadata alone has been
 removed.
 
 `decl_api.export_specs(...)` raises if `specification_map[oft]` is
-missing or empty for any FV `AppliedObject`. `SessionSetupError` and
-the strict-export error both propagate without being caught — Click
-renders them as normal command failures, and no YAML files are
-written when the command aborts.
+missing or empty for any FV `AppliedObject`. The strict-export error
+propagates without being caught — Click renders it as a normal
+command failure, and no YAML files are written when the command
+aborts.
 
 ---
 

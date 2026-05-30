@@ -89,11 +89,6 @@ def mock_decl():
         m.fetch_feature_group_rows.return_value = []
         m.parse_specification_rows.return_value = None
         m.enrich_list_results.return_value = []
-        m.export_queries.return_value = {
-            "show_ofts": "SHOW",
-            "describe_template": 'DESCRIBE "{name}"',
-            "describe_specification_template": 'DESCRIBE "{name}"',
-        }
         exec_result = mock.MagicMock()
         exec_result.status = "applied"
         exec_result.ops = []

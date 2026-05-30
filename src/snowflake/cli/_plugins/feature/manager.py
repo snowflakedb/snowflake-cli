@@ -463,44 +463,102 @@ class FeatureManager(SqlExecutionMixin):
     ) -> dict[str, Any]:
         """Run the deployed-state export pipeline into ``<project_root>/sources/``.
 
-        Mirrors the body of the (now-removed) public ``export_specs``
-        method, but pinned to the ``layout="sources"`` exporter mode so
-        the YAMLs land directly in the manifest project tree.
+        Routes init's export pass through the exact same applied-state
+        surface the planner consumes
+        (:func:`decl_api.fetch_applied_state` fed by ``state_queries``
+        + ``_fetch_dt_text_map`` + ``_fetch_feature_view_rows`` +
+        ``_fetch_feature_group_rows``).  The recovered
+        :class:`AppliedState` is forwarded to
+        :func:`decl_api.export_specs` via the ``applied_state=``
+        kwarg, so:
+
+        * BatchFV ``spec.sources[0].table`` (which the raw ``DESCRIBE
+          … TYPE = SPECIFICATION`` JSON drops because snowml-core
+          encodes the source binding in the offline Dynamic Table's
+          ``SELECT … FROM …`` body, not the spec payload) is
+          recovered from DT text by
+          :func:`state._inject_batch_fv_source_from_dt_text` BEFORE
+          the YAML is written — closing the cascade where a
+          ``snow feature init`` round-trip emitted
+          ``RECREATE_FV USER_CLICKS_FG_DECL`` on the next plan and
+          then crashed with ``no resolvable source`` on apply.
+        * Advanced BFV authoring knobs (``cluster_by`` /
+          ``refresh_mode`` / ``initialize`` / ``storage_config`` /
+          ``aggregation_secondary_keys``) recovered by
+          :func:`state._inject_advanced_bfv_fields_from_dt_text` also
+          land in the YAML.
+        * Offline-only ``BatchFeatureView`` deployments (visible only
+          via the imperative ``list_feature_views()`` facade, not
+          ``SHOW ONLINE FEATURE TABLES``) are surfaced through
+          :func:`state._build_offline_fv_object` and synthesised into
+          show-rows inside ``export_specs`` so they reach the
+          YAML-emission loop.
+
+        Plan/init parity is the load-bearing invariant: every code path
+        that needs to reason about deployed state goes through
+        ``fetch_applied_state`` (R3 from
+        ``docs/DEVELOPMENT_STANDARDS.md``: "the deployed runtime, the
+        exporter, the loader, and the planner agree on every hash").
 
         Args:
             project_root: Project-root directory.  YAMLs are written
                 under ``<project_root>/sources/{entities,datasources,
-                feature_views}/``.
+                feature_views,feature_groups}/``.
             database: Snowflake database to export from.
             schema: Snowflake schema to export from.
 
         Returns:
             The envelope returned by :func:`decl_api.export_specs`.
         """
-        eq = decl_api.export_queries(database, schema)
-
-        show_rows = _rows_to_dicts(
-            self.execute_query(eq["show_ofts"], cursor_class=DictCursor)
-        )
-
-        # Re-use the manifest target's db/schema to fetch entity tags;
-        # the imperative facade drops them onto the active connection's
-        # warehouse.  Build a synthetic FSTarget so we don't have to
-        # discover the manifest a second time.
+        # Re-use the manifest target's db/schema to fetch entity tags
+        # and the imperative-side FV / FG rows; the imperative facades
+        # drop them onto the active connection's warehouse.  Build a
+        # synthetic FSTarget so we don't have to discover the manifest
+        # a second time.
         synthetic_target = FSTarget(
             name="__init_export__",
             account_identifier="",
             database=database,
             schema=schema,
         )
-        entity_rows = self._fetch_entity_rows(synthetic_target)
-        feature_group_rows = self._fetch_feature_group_rows(synthetic_target)
+        # Build the local datasources-by-table lookup BEFORE the
+        # export pass so the BFV source-binding recovery on the way
+        # OUT (re-export over an existing project tree) preserves
+        # the operator's authored logical ``BatchSource.name`` rather
+        # than rewriting it to the recovered physical table identifier.
+        # On a brand-new ``init`` (no manifest.yml on disk yet) the
+        # helper returns ``{}``; the contract stays uniform across
+        # plan / write_plan / init.  See ``docs/CHANGES.md`` →
+        # "BFV source-name recovery via local datasources lookup".
+        datasources_by_table = self._build_local_datasources_by_table(
+            project_root,
+            target=synthetic_target,
+        )
+        (
+            show_rows,
+            applied_state,
+            entity_rows,
+            feature_group_rows,
+            specification_map,
+        ) = self._fetch_applied_state_bundle(
+            synthetic_target,
+            datasources_by_table=datasources_by_table,
+        )
 
         # Always delegate to ``decl_api.export_specs`` — it owns the
         # "empty input → noop envelope" semantics so the manager
         # doesn't second-guess the library boundary.
-        specification_map = self._fetch_oft_state(show_rows, eq) if show_rows else {}
-
+        #
+        # ``specification_map`` is the per-OFT raw DESCRIBE payload
+        # (same map ``fetch_applied_state`` consumed).  It is the
+        # authoritative source for *non-FV-kind* OFTs such as the
+        # ``FeatureView`` rows that back ``FeatureGroup`` registrations
+        # — the ``applied_state`` overlay only handles the BFV / SFV /
+        # RealtimeFV kinds, so without forwarding the raw spec map
+        # those FG-backing OFT entries land in ``show_rows`` with no
+        # spec and the exporter's strict-cutover check raises.  See
+        # docs/CHANGES.md "Init export unified with applied-state
+        # path" for the cascade analysis.
         return decl_api.export_specs(
             show_rows,
             {},
@@ -510,6 +568,7 @@ class FeatureManager(SqlExecutionMixin):
             specification_map=specification_map,
             entity_rows=entity_rows,
             feature_group_rows=feature_group_rows,
+            applied_state=applied_state,
             layout="sources",
         )
 
@@ -865,37 +924,26 @@ class FeatureManager(SqlExecutionMixin):
         self._assert_initialized(target)
 
         ctx = get_cli_context()
-        sqls = decl_api.state_queries(target.database, target.schema)
-        raw_show = _rows_to_dicts(
-            self.execute_query(sqls["show_ofts"], cursor_class=DictCursor)
-        )
-        raw_tables = _rows_to_dicts(
-            self.execute_query(sqls["show_tables"], cursor_class=DictCursor)
-        )
-        specification_map = self._fetch_oft_state(raw_show, sqls)
-        dt_text_map = self._fetch_dt_text_map(sqls)
-        entity_rows = self._fetch_entity_rows(target)
-        feature_view_rows = self._fetch_feature_view_rows(target)
-        feature_group_rows = self._fetch_feature_group_rows(target)
-        stream_source_rows = self._fetch_stream_source_rows(target)
-        applied_state = decl_api.fetch_applied_state(
-            raw_show,
-            raw_tables,
-            specification_map=specification_map,
-            dt_text_map=dt_text_map,
-            entity_rows=entity_rows,
-            feature_view_rows=feature_view_rows,
-            feature_group_rows=feature_group_rows,
-            stream_source_rows=stream_source_rows,
-            default_database=target.database,
-            default_schema=target.schema,
-        )
-
+        # Load the local project FIRST so the decl-side BatchFV
+        # source-binding recovery can prefer the operator's authored
+        # logical ``BatchSource.name`` over the recovered physical
+        # table identifier.  Without this thread, every re-plan after
+        # ``snow feature init`` trips ``MISSING_SOURCE`` because the
+        # exported FV YAMLs reference table-as-name sources that the
+        # local BatchSource YAML doesn't declare.  See
+        # ``docs/CHANGES.md`` → "BFV source-name recovery via local
+        # datasources lookup".
         batch = decl_api.load_project(
             paths.project_root,
             target=target,
             runtime_vars=runtime_vars or None,
         )
+        datasources_by_table = decl_api.build_datasources_by_table(batch.specs)
+        _, applied_state, _, _, _ = self._fetch_applied_state_bundle(
+            target,
+            datasources_by_table=datasources_by_table,
+        )
+
         decl_api.resolve_datasource_columns(batch)
 
         validation_results = decl_api.validate_specs(
@@ -997,37 +1045,22 @@ class FeatureManager(SqlExecutionMixin):
         paths, _, target = self._resolve_project(from_dir, target_name)
         runtime_vars = _parse_variables(variables)
 
-        sqls = decl_api.state_queries(target.database, target.schema)
-        raw_show = _rows_to_dicts(
-            self.execute_query(sqls["show_ofts"], cursor_class=DictCursor)
-        )
-        raw_tables = _rows_to_dicts(
-            self.execute_query(sqls["show_tables"], cursor_class=DictCursor)
-        )
-        specification_map = self._fetch_oft_state(raw_show, sqls)
-        dt_text_map = self._fetch_dt_text_map(sqls)
-        entity_rows = self._fetch_entity_rows(target)
-        feature_view_rows = self._fetch_feature_view_rows(target)
-        feature_group_rows = self._fetch_feature_group_rows(target)
-        stream_source_rows = self._fetch_stream_source_rows(target)
-        applied_state = decl_api.fetch_applied_state(
-            raw_show,
-            raw_tables,
-            specification_map=specification_map,
-            dt_text_map=dt_text_map,
-            entity_rows=entity_rows,
-            feature_view_rows=feature_view_rows,
-            feature_group_rows=feature_group_rows,
-            stream_source_rows=stream_source_rows,
-            default_database=target.database,
-            default_schema=target.schema,
-        )
-
+        # Load the local project FIRST so the BFV source-binding
+        # recovery prefers the operator's authored logical names —
+        # mirrors the same wiring in ``plan`` and ``init``.  Loading
+        # the batch once and reusing it for both the lookup AND the
+        # plan/validate pipeline keeps the IO cost flat.
         batch = decl_api.load_project(
             paths.project_root,
             target=target,
             runtime_vars=runtime_vars or None,
         )
+        datasources_by_table = decl_api.build_datasources_by_table(batch.specs)
+        _, applied_state, _, _, _ = self._fetch_applied_state_bundle(
+            target,
+            datasources_by_table=datasources_by_table,
+        )
+
         decl_api.resolve_datasource_columns(batch)
 
         options = PlanOptions(dev_mode=dev_mode, full_directory_mode=not no_delete)
@@ -1377,6 +1410,173 @@ class FeatureManager(SqlExecutionMixin):
             target.database,
             target.schema,
             ctx.connection.warehouse or "",
+        )
+
+    def _build_local_datasources_by_table(
+        self,
+        project_root: Optional[Path],
+        *,
+        target: Optional[FSTarget] = None,
+        runtime_vars: Optional[dict[str, str]] = None,
+    ) -> dict[str, Any]:
+        """Load the local project (when present) and build the
+        ``{physical_table → logical BatchSource.name}`` lookup.
+
+        Single entry point used by ``plan`` / ``write_plan`` / ``init``
+        so the three callers cannot drift on the build-and-thread
+        contract pinned by
+        ``test_*_threads_datasources_by_table_into_fetch_applied_state``.
+
+        Always returns a dict (possibly empty) so callers can pass the
+        result straight to :meth:`_fetch_applied_state_bundle` without
+        special-casing ``None``.  An empty dict carries the same
+        meaning as ``None`` at the decl boundary (no local datasources
+        available — cold-start contract).
+
+        Args:
+            project_root: Project-root directory.  When ``None`` (no
+                project on disk yet, e.g. brand-new ``init``) the
+                helper short-circuits to an empty map.
+            target: Optional resolved manifest target — when provided,
+                its ``database`` / ``schema`` are injected into the
+                loaded specs the way the planner's load path does.
+            runtime_vars: Optional ``{key: value}`` runtime variable
+                bag (Jinja templating).  Mirrors the same dict
+                ``plan`` / ``write_plan`` already pass to
+                :func:`decl_api.load_project`.
+
+        Returns:
+            The lookup dict.  Empty when no project is loadable.
+        """
+        if project_root is None:
+            return {}
+        if not (project_root / "manifest.yml").exists():
+            return {}
+        try:
+            batch = decl_api.load_project(
+                project_root,
+                target=target,
+                runtime_vars=runtime_vars or None,
+            )
+        except Exception as exc:  # noqa: BLE001 — defensive: malformed local tree
+            log.debug(
+                "Local project load failed; falling back to empty "
+                "datasources_by_table lookup: %s",
+                exc,
+            )
+            return {}
+        return decl_api.build_datasources_by_table(batch.specs)
+
+    def _fetch_applied_state_bundle(
+        self,
+        target: FSTarget,
+        *,
+        datasources_by_table: Optional[dict[str, Any]] = None,
+    ) -> tuple[
+        list[dict[str, Any]],
+        Any,
+        list[dict[str, Any]],
+        list[dict[str, Any]],
+        dict[str, dict[str, Any]],
+    ]:
+        """Fetch the full applied-state bundle for *target*.
+
+        Single source of truth for the SQL + imperative-facade
+        sequence the planner, ``write_plan`` and ``init``'s export
+        pass all consume.  Centralising it here keeps the three
+        callers from drifting on which inputs feed
+        :func:`decl_api.fetch_applied_state` — drift here was the
+        original Bug A root cause (``init`` used the
+        ``export_queries`` SQL set which has no
+        ``show_dynamic_tables``, so BatchFV source-binding recovery
+        never ran during the init-export pass).
+
+        The bundle issues exactly the SQL ``plan`` previously issued
+        inline:
+
+        1. ``SHOW ONLINE FEATURE TABLES`` — online FV enumeration.
+        2. ``SHOW TABLES`` — legacy structural-fingerprint fallback.
+        3. ``SHOW DYNAMIC TABLES`` — DT text for BatchFV source +
+           advanced-field recovery.
+        4. ``DESCRIBE … TYPE = SPECIFICATION`` per OFT — full spec
+           payload.
+        5. ``FeatureStore.list_entities()`` — entity tags.
+        6. ``FeatureStore.list_feature_views()`` — offline-only BFVs.
+        7. ``FeatureStore.list_feature_groups()`` — FG rows.
+
+        Args:
+            target: Resolved manifest target the SQL is scoped to.
+            datasources_by_table: Optional ``{physical_table →
+                logical BatchSource.name}`` lookup, built by
+                :func:`decl_api.build_datasources_by_table` from the
+                local project's loaded specs.  Threaded into
+                :func:`decl_api.fetch_applied_state` so the decl-side
+                BatchFV source-binding recovery prefers the operator's
+                authored logical source names over the recovered
+                physical table identifiers.  ``None`` falls back to
+                the legacy table-as-name behaviour (cold-start
+                contract for fresh ``snow feature init``).  See
+                ``docs/CHANGES.md`` → "BFV source-name recovery via
+                local datasources lookup".
+
+        Returns:
+            Tuple ``(show_rows, applied_state, entity_rows,
+            feature_group_rows, specification_map)``.  ``show_rows``
+            is surfaced for callers that need the raw ``SHOW ONLINE
+            FEATURE TABLES`` row set (e.g. the exporter wants both
+            the raw rows and the recovered applied-state overlay).
+            ``applied_state`` is the canonical :class:`AppliedState`
+            snapshot.  ``specification_map`` is the per-OFT
+            ``DESCRIBE … TYPE = SPECIFICATION`` payload that
+            ``fetch_applied_state`` consumed — exposed for callers
+            that need the *full* raw spec map (the exporter forwards
+            it to :func:`decl_api.export_specs` so non-FV-kind OFTs
+            such as the FeatureGroup-backing ones still resolve to
+            an authoritative spec; the ``applied_state`` overlay only
+            covers ``BatchFeatureView`` / ``StreamingFeatureView`` /
+            ``RealtimeFeatureView`` kinds).
+        """
+        sqls = decl_api.state_queries(target.database, target.schema)
+        raw_show = _rows_to_dicts(
+            self.execute_query(sqls["show_ofts"], cursor_class=DictCursor)
+        )
+        raw_tables = _rows_to_dicts(
+            self.execute_query(sqls["show_tables"], cursor_class=DictCursor)
+        )
+        specification_map = self._fetch_oft_state(raw_show, sqls)
+        dt_text_map = self._fetch_dt_text_map(sqls)
+        entity_rows = self._fetch_entity_rows(target)
+        feature_view_rows = self._fetch_feature_view_rows(target)
+        feature_group_rows = self._fetch_feature_group_rows(target)
+        # Wave 3B / contract §8b: thread runtime-authoritative
+        # ``FeatureStore.list_stream_sources()`` rows into
+        # ``decl_api.fetch_applied_state`` so the planner's source-diff
+        # branch sees ``Datasource(kind="StreamingSource")`` entries for
+        # already-registered stream sources and emits NO_CHANGE rather
+        # than the spurious CREATE_SOURCE noise that produced the
+        # ``UserWarning: StreamSource <name> already exists. Skip
+        # registration.`` symptom on apply.  The bundle contract's
+        # return-tuple shape is preserved (rows are not surfaced).
+        stream_source_rows = self._fetch_stream_source_rows(target)
+        applied_state = decl_api.fetch_applied_state(
+            raw_show,
+            raw_tables,
+            specification_map=specification_map,
+            dt_text_map=dt_text_map,
+            entity_rows=entity_rows,
+            feature_view_rows=feature_view_rows,
+            feature_group_rows=feature_group_rows,
+            stream_source_rows=stream_source_rows,
+            datasources_by_table=datasources_by_table,
+            default_database=target.database,
+            default_schema=target.schema,
+        )
+        return (
+            raw_show,
+            applied_state,
+            entity_rows,
+            feature_group_rows,
+            specification_map,
         )
 
     def _fetch_oft_state(
