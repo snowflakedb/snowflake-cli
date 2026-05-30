@@ -877,6 +877,7 @@ class FeatureManager(SqlExecutionMixin):
         entity_rows = self._fetch_entity_rows(target)
         feature_view_rows = self._fetch_feature_view_rows(target)
         feature_group_rows = self._fetch_feature_group_rows(target)
+        stream_source_rows = self._fetch_stream_source_rows(target)
         applied_state = decl_api.fetch_applied_state(
             raw_show,
             raw_tables,
@@ -885,6 +886,7 @@ class FeatureManager(SqlExecutionMixin):
             entity_rows=entity_rows,
             feature_view_rows=feature_view_rows,
             feature_group_rows=feature_group_rows,
+            stream_source_rows=stream_source_rows,
             default_database=target.database,
             default_schema=target.schema,
         )
@@ -1007,6 +1009,7 @@ class FeatureManager(SqlExecutionMixin):
         entity_rows = self._fetch_entity_rows(target)
         feature_view_rows = self._fetch_feature_view_rows(target)
         feature_group_rows = self._fetch_feature_group_rows(target)
+        stream_source_rows = self._fetch_stream_source_rows(target)
         applied_state = decl_api.fetch_applied_state(
             raw_show,
             raw_tables,
@@ -1015,6 +1018,7 @@ class FeatureManager(SqlExecutionMixin):
             entity_rows=entity_rows,
             feature_view_rows=feature_view_rows,
             feature_group_rows=feature_group_rows,
+            stream_source_rows=stream_source_rows,
             default_database=target.database,
             default_schema=target.schema,
         )
@@ -1519,6 +1523,53 @@ class FeatureManager(SqlExecutionMixin):
             raise
         except Exception as exc:
             log.debug("fetch_feature_view_rows failed (treating as empty): %s", exc)
+            return []
+
+    def _fetch_stream_source_rows(self, target: FSTarget) -> list[dict[str, Any]]:
+        """Fetch registered stream-source rows for *target*.
+
+        Mirror of :func:`_fetch_entity_rows` for the imperative
+        ``FeatureStore.list_stream_sources()`` enumeration that
+        :func:`decl_api.fetch_stream_source_rows` wraps.  Without this
+        wiring the planner has no runtime-authoritative view of
+        ``Datasource(kind="StreamingSource")`` registrations, so a
+        plain re-plan of an unchanged YAML re-emits a spurious
+        ``CREATE_SOURCE`` (and any subsequent ``CREATE_FV`` that
+        consumes it re-issues a defensive ``register_stream_source``
+        ``UserWarning``).  See ``plans/stream_source_contract.md`` §8.
+
+        Returns:
+            A list of stream-source row dicts in the shape produced
+            by :func:`decl_api.fetch_stream_source_rows` (``name`` /
+            ``schema`` / ``desc`` / ``owner``).  Soft-fails with
+            ``[]`` on any non-init-required error so ``snow feature
+            plan`` does not regress on accounts that lack
+            ``list_stream_sources`` privileges.
+
+        Raises:
+            decl_api.FeatureStoreNotInitializedError: When the target
+                schema lacks the bootstrap feature-store tags.  The
+                command-level wrapper in ``commands.py`` converts this
+                into a ``ClickException`` whose message directs the
+                operator at ``snow feature init``.
+        """
+        from snowflake.ml.feature_store.decl.errors import (
+            FeatureStoreNotInitializedError,
+        )
+
+        ctx = get_cli_context()
+        try:
+            session = self._build_session()
+            return decl_api.fetch_stream_source_rows(
+                session,
+                target.database,
+                target.schema,
+                ctx.connection.warehouse or "",
+            )
+        except FeatureStoreNotInitializedError:
+            raise
+        except Exception as exc:
+            log.debug("fetch_stream_source_rows failed (treating as empty): %s", exc)
             return []
 
     def _fetch_feature_group_rows(self, target: FSTarget) -> list[dict[str, Any]]:
