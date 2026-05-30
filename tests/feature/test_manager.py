@@ -2340,3 +2340,188 @@ class TestOnlineServiceManagerResolvesTarget:
 
         with pytest.raises(CliError, match="manifest.yml"):
             FeatureManager().destroy_service(from_dir=tmp_path, target_name="PROD")
+
+
+# ===========================================================================
+# Wave 3B — stream-source applied-state read path
+#
+# ``FeatureManager._fetch_stream_source_rows`` is the CLI's seam onto
+# ``decl_api.fetch_stream_source_rows`` (added in snowml commit
+# 995a628d1).  It mirrors the ``_fetch_entity_rows`` / ``_fetch_feature_view_rows``
+# / ``_fetch_feature_group_rows`` graceful-degrade contract: a
+# ``FeatureStoreNotInitializedError`` propagates (so the CLI rewraps it
+# with the actionable ``snow feature init`` message), every other
+# exception swallowed to ``[]`` with a debug log so a missing privilege
+# downgrades fidelity rather than crashing the bundle.
+#
+# The rows MUST then be threaded into ``decl_api.fetch_applied_state(...,
+# stream_source_rows=...)`` from both the ``plan()`` and ``write_plan()``
+# call sites so the planner sees runtime-authoritative ``Datasource``
+# AppliedObjects and emits the correct ``CREATE_SOURCE`` /
+# ``UPDATE_SOURCE`` / ``RECREATE_SOURCE`` / ``DROP_SOURCE`` /
+# ``NO_CHANGE`` decision per ``plans/stream_source_contract.md`` §§7–8.
+# ===========================================================================
+
+
+def _make_target():
+    """Return a vanilla ``FSTarget`` for the default test manifest."""
+    from snowflake.ml.feature_store.decl.manifest import FSTarget
+
+    return FSTarget(
+        name="DEFAULT",
+        account_identifier="TEST_ORG-TEST_ACCT",
+        database="TEST_DB",
+        schema="TEST_SCHEMA",
+        role="TEST_ROLE",
+    )
+
+
+class TestFetchStreamSourceRowsThreading:
+    """Wave 3B — ``_fetch_stream_source_rows`` + bundle threading."""
+
+    # ------------------------------------------------------------------
+    # _fetch_stream_source_rows direct unit tests
+    # ------------------------------------------------------------------
+
+    def test_fetch_stream_source_rows_calls_decl_api_facade(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``_fetch_stream_source_rows(target)`` delegates to
+        ``decl_api.fetch_stream_source_rows(session, database, schema,
+        warehouse)`` and returns the result verbatim."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        target = _make_target()
+        rows = [
+            {
+                "name": "USER_CLICKS_STREAM",
+                "schema": [{"name": "USER_ID", "type": "StringType"}],
+                "desc": "click events",
+                "owner": "OPS",
+            }
+        ]
+        mock_decl.fetch_stream_source_rows.return_value = rows
+
+        result = FeatureManager()._fetch_stream_source_rows(target)  # noqa: SLF001
+
+        assert result == rows
+        mock_decl.fetch_stream_source_rows.assert_called_once()
+        args = mock_decl.fetch_stream_source_rows.call_args.args
+        # (session, database, schema, warehouse) positional signature —
+        # mirrors fetch_entity_rows / fetch_feature_view_rows /
+        # fetch_feature_group_rows so the manager's helpers stay
+        # uniform.  ``warehouse`` flows from the active connection
+        # context (``ctx.connection.warehouse``), matching the other
+        # _fetch_* helpers.
+        assert args[1] == "TEST_DB"
+        assert args[2] == "TEST_SCHEMA"
+        assert args[3] == "TEST_WH"
+
+    def test_fetch_stream_source_rows_graceful_degrades_on_generic_exception(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """Any non-init-required exception → ``[]`` (debug log).  A
+        missing privilege downgrades fidelity rather than crashing the
+        applied-state bundle."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        target = _make_target()
+        mock_decl.fetch_stream_source_rows.side_effect = RuntimeError(
+            "SQL access control error: Insufficient privileges"
+        )
+
+        result = FeatureManager()._fetch_stream_source_rows(target)  # noqa: SLF001
+
+        assert result == []
+
+    def test_fetch_stream_source_rows_reraises_not_initialized(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``FeatureStoreNotInitializedError`` is first-class — the CLI's
+        command-layer wrapper rewraps it into the actionable ``snow
+        feature init`` message, so this helper MUST propagate rather
+        than swallow."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.ml.feature_store.decl.errors import (
+            FeatureStoreNotInitializedError,
+        )
+
+        target = _make_target()
+        mock_decl.fetch_stream_source_rows.side_effect = (
+            FeatureStoreNotInitializedError(
+                "TEST_DB",
+                "TEST_SCHEMA",
+                RuntimeError("missing SNOWML_FEATURE_STORE_OBJECT tag"),
+            )
+        )
+
+        with pytest.raises(FeatureStoreNotInitializedError):
+            FeatureManager()._fetch_stream_source_rows(target)  # noqa: SLF001
+
+    # ------------------------------------------------------------------
+    # Bundle threading — ``plan()`` / ``write_plan()`` MUST forward the
+    # rows into ``decl_api.fetch_applied_state(stream_source_rows=...)``.
+    # ------------------------------------------------------------------
+
+    def test_plan_threads_stream_source_rows_into_fetch_applied_state(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``plan()`` MUST call ``_fetch_stream_source_rows`` and feed
+        the rows into ``fetch_applied_state(..., stream_source_rows=...)``
+        so the planner's source-diff branch sees runtime-authoritative
+        ``Datasource`` AppliedObjects."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        rows = [
+            {
+                "name": "USER_CLICKS_STREAM",
+                "schema": [{"name": "USER_ID", "type": "StringType"}],
+                "desc": "click events",
+                "owner": "OPS",
+            }
+        ]
+        mock_decl.fetch_stream_source_rows.return_value = rows
+
+        FeatureManager().plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            dev_mode=False,
+            allow_recreate=False,
+        )
+
+        mock_decl.fetch_applied_state.assert_called_once()
+        call = mock_decl.fetch_applied_state.call_args
+        assert call.kwargs.get("stream_source_rows") == rows
+
+    def test_write_plan_threads_stream_source_rows_into_fetch_applied_state(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``write_plan()`` MUST also feed stream-source rows into
+        ``fetch_applied_state`` — both code paths share the
+        applied-state bundle contract."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        rows = [
+            {
+                "name": "USER_CLICKS_STREAM",
+                "schema": [{"name": "USER_ID", "type": "StringType"}],
+                "desc": "click events",
+                "owner": "OPS",
+            }
+        ]
+        mock_decl.fetch_stream_source_rows.return_value = rows
+
+        FeatureManager().write_plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            dev_mode=False,
+            out_path=str(tmp_path / "plan.json"),
+        )
+
+        mock_decl.fetch_applied_state.assert_called_once()
+        call = mock_decl.fetch_applied_state.call_args
+        assert call.kwargs.get("stream_source_rows") == rows
