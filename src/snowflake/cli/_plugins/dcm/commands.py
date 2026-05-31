@@ -34,7 +34,6 @@ from snowflake.cli._plugins.dcm.reporters import (
 )
 from snowflake.cli._plugins.dcm.utils import (
     RENDERED_DEFINITIONS_FOLDER,
-    announce_compile_separator,
     announce_rendered_definitions,
     clear_command_artifacts,
     mock_dcm_response,
@@ -577,10 +576,9 @@ def compile_project(
     reporter = AnalyzeErrorsReporter(save_output=save_output)
     if save_output:
         announce_rendered_definitions()
-    try:
-        return reporter.process(result)
-    finally:
-        announce_compile_separator()
+    # The reporter prints the trailing "=" divider itself (Reporter.print_separator),
+    # on both the success and error paths, so no separate separator is needed here.
+    return reporter.process(result)
 
 
 @app.command(

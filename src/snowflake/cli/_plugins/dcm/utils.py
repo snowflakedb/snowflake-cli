@@ -35,8 +35,6 @@ OUTPUT_FOLDER = "out"
 # downloaded. Shared by the ``compile`` and ``dependencies`` commands so the
 # rendered output always lands in the same, descriptively-named place.
 RENDERED_DEFINITIONS_FOLDER = "rendered_definitions"
-# Width of the trailing separator line printed at the end of a ``compile`` run.
-COMPILE_SEPARATOR_WIDTH = 61
 
 
 def clear_command_artifacts(
@@ -88,12 +86,6 @@ def announce_rendered_definitions() -> None:
         f"{abs_path}",
         style=Style(color="grey50", link=f"file://{abs_path}"),
     )
-    cli_console.styled_message("\n")
-
-
-def announce_compile_separator() -> None:
-    """Print a separator line marking the end of a ``compile`` run."""
-    cli_console.styled_message("=" * COMPILE_SEPARATOR_WIDTH)
     cli_console.styled_message("\n")
 
 
