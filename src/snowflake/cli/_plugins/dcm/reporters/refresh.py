@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, Iterator, List, Optional
 
+import typer
 from pydantic import BaseModel, Field, ValidationError
 from rich.text import Text
 from snowflake.cli._plugins.dcm import styles
@@ -152,11 +153,16 @@ class RefreshReporter(Reporter[RefreshRow]):
     class Summary:
         up_to_date: int = 0
         refreshed: int = 0
-        unknown: int = 0
+        failed: int = 0
+
+        @property
+        def successful(self) -> int:
+            """Tables that completed without error (refreshed or already up-to-date)."""
+            return self.up_to_date + self.refreshed
 
         @property
         def total(self):
-            return self.up_to_date + self.refreshed + self.unknown
+            return self.successful + self.failed
 
     def __init__(self, save_output: bool = False):
         super().__init__(save_output=save_output)
@@ -187,7 +193,7 @@ class RefreshReporter(Reporter[RefreshRow]):
             elif parsed.status == RefreshStatus.REFRESHED:
                 self._summary.refreshed += 1
             else:
-                self._summary.unknown += 1
+                self._summary.failed += 1
             yield parsed
 
     def print_renderables(self, data: Iterator[RefreshRow]) -> None:
@@ -208,25 +214,44 @@ class RefreshReporter(Reporter[RefreshRow]):
             cli_console.styled_message("\n")
 
     def _generate_summary_renderables(self) -> List[Text]:
-        total = self._summary.total
-        if total == 0:
+        if self._summary.total == 0:
             return [Text("No dynamic tables found in the project.")]
 
-        parts = []
-        if (refreshed := self._summary.refreshed) > 0:
-            parts.append(f"{refreshed} refreshed")
-        if (up_to_date := self._summary.up_to_date) > 0:
-            parts.append(f"{up_to_date} up-to-date")
-        if (unknown := self._summary.unknown) > 0:
-            parts.append(f"{unknown} unknown")
+        renderables: List[Text] = []
+        successful = self._summary.successful
+        failed = self._summary.failed
 
-        summary = ""
-        for i, part in enumerate(parts):
-            if i > 0:
-                summary += ", "
-            summary += part
-        summary += "."
-        return [Text(summary)]
+        if successful > 0:
+            tables_word = "Dynamic Table" if successful == 1 else "Dynamic Tables"
+            renderables.append(
+                Text(
+                    f"{successful} {tables_word} refreshed successfully.",
+                    styles.PASS_STYLE,
+                )
+            )
+
+        if failed > 0:
+            refreshes_word = "Refresh" if failed == 1 else "Refreshes"
+            if renderables:
+                renderables.append(Text("\n"))
+            renderables.append(
+                Text(f"{failed} {refreshes_word} failed.", styles.FAIL_STYLE)
+            )
+
+        return renderables
 
     def _is_success(self) -> bool:
-        return self._summary.unknown == 0
+        # Always treat the run as "success" from the base reporter's perspective
+        # so that `print_summary()` is always called — we want the styled
+        # green/red summary rendered above the divider on every run (cf.
+        # AnalyzeErrorsReporter). Exit code is set separately in
+        # ``process_payload``.
+        return True
+
+    def process_payload(self, result_json: Dict[str, Any]) -> None:
+        super().process_payload(result_json)
+        if self._summary.failed > 0:
+            # Failures fail the command, but the styled summary is already on
+            # screen — exit silently so we don't double-render the message
+            # inside an "Error" box.
+            raise typer.Exit(code=1)

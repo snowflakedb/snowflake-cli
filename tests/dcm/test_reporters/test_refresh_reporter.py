@@ -229,3 +229,27 @@ class TestRefreshReporter:
             FakeCursor(data),
         )
         assert output == snapshot
+
+    def test_mixed_success_and_failure(self, snapshot):
+        """Successful refreshes + failed refreshes render both summary lines."""
+        data = {
+            "dts_refresh_result": {
+                "refreshed_tables": [
+                    {
+                        "table_name": "DB.SCHEMA.OK_REFRESHED",
+                        "statistics": {"inserted_rows": 10, "deleted_rows": 0},
+                    },
+                    {
+                        "table_name": "DB.SCHEMA.OK_UP_TO_DATE",
+                        "statistics": {"inserted_rows": 0, "deleted_rows": 0},
+                    },
+                    # No statistics → counted as failed.
+                    {"table_name": "DB.SCHEMA.FAILED"},
+                ]
+            }
+        }
+        output = capture_reporter_output(RefreshReporter(), FakeCursor(data))
+
+        assert "2 Dynamic Tables refreshed successfully." in output
+        assert "1 Refresh failed." in output
+        assert output == snapshot
