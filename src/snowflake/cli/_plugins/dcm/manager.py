@@ -59,6 +59,24 @@ class DCMProjectManager(SqlExecutionMixin):
         """Exposes the underlying Snowflake connection."""
         return self._conn
 
+    def _build_deploy_query(
+        self,
+        project_identifier: FQN,
+        from_stage: str,
+        configuration: str | None,
+        variables: List[str] | None,
+        alias: str | None,
+        skip_plan: bool,
+    ) -> str:
+        query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} DEPLOY"
+        if alias:
+            query += f' AS "{alias}"'
+        query += self._get_configuration_and_variables_query(configuration, variables)
+        query += self._get_from_stage_query(from_stage)
+        if skip_plan:
+            query += " SKIP PLAN"
+        return query
+
     def deploy(
         self,
         project_identifier: FQN,
@@ -75,14 +93,43 @@ class DCMProjectManager(SqlExecutionMixin):
             len(variables or []),
             skip_plan,
         )
-        query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} DEPLOY"
-        if alias:
-            query += f' AS "{alias}"'
-        query += self._get_configuration_and_variables_query(configuration, variables)
-        query += self._get_from_stage_query(from_stage)
-        if skip_plan:
-            query += f" SKIP PLAN"
+        query = self._build_deploy_query(
+            project_identifier, from_stage, configuration, variables, alias, skip_plan
+        )
         return self.execute_query(query=query)
+
+    def deploy_async(
+        self,
+        project_identifier: FQN,
+        from_stage: str,
+        configuration: str | None = None,
+        variables: List[str] | None = None,
+        alias: str | None = None,
+        skip_plan: bool = False,
+    ) -> str:
+        """
+        Submits a deploy query asynchronously and returns the Snowflake query ID (sfqid).
+        Use with :class:`~snowflake.cli._plugins.dcm.progress.DeployProgressTracker`
+        to poll progress and obtain the final result cursor.
+        """
+        log.info(
+            "Submitting DCM deploy async (project_identifier=%s, has_configuration=%s, variables_count=%d, skip_plan=%s).",
+            project_identifier,
+            bool(configuration),
+            len(variables or []),
+            skip_plan,
+        )
+        query = self._build_deploy_query(
+            project_identifier, from_stage, configuration, variables, alias, skip_plan
+        )
+        cursor = self._conn.cursor()
+        cursor.execute_async(query)
+        log.info(
+            "DCM deploy async submitted (project_identifier=%s, sfqid=%s).",
+            project_identifier,
+            cursor.sfqid,
+        )
+        return cursor.sfqid
 
     def raw_analyze(
         self,
