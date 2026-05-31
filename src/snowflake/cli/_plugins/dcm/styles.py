@@ -32,3 +32,8 @@ CREATE_STYLE = Style(color="green")
 ALTER_STYLE = Style(color="yellow")
 DROP_STYLE = Style(color="red")
 UNKNOWN_STYLE = Style(color=_COLOR_BLUE)
+
+# Deploy progress phases
+PHASE_DONE_STYLE = Style(color="green", bold=True)
+PHASE_RUNNING_STYLE = Style(color="blue", bold=True)
+PHASE_FAILED_STYLE = Style(color="red", bold=True)

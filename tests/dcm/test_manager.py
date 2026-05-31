@@ -758,3 +758,25 @@ class TestSyncLocalFiles:
             assert any(
                 filename in q and stage_dest in q for q in put_queries
             ), f"expected a PUT for {filename} to {stage_dest}; got: {put_queries}"
+
+
+class TestSummarizeUploadPaths:
+    def test_groups_by_sources_subfolder(self):
+        paths = [
+            MANIFEST_FILE_NAME,
+            f"{SOURCES_FOLDER}/definitions/a.sql",
+            f"{SOURCES_FOLDER}/definitions/b.sql",
+            f"{SOURCES_FOLDER}/macros/m.sql",
+            f"{SOURCES_FOLDER}/.DS_Store",
+        ]
+        lines = DCMProjectManager._summarize_upload_paths(paths)  # noqa: SLF001
+        # Singular "file " is padded with a trailing space so adjacent rows
+        # line up vertically with the plural "files" rows in the upload
+        # details block. The literal expected strings below intentionally
+        # contain that double-space; do not "fix" it.
+        assert lines == [
+            f"Upload {MANIFEST_FILE_NAME}",
+            f"Upload 1 file  from {SOURCES_FOLDER}/",
+            f"Upload 2 files from {SOURCES_FOLDER}/definitions",
+            f"Upload 1 file  from {SOURCES_FOLDER}/macros",
+        ]
