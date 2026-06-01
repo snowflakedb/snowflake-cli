@@ -219,6 +219,29 @@ def test_distinct_bullets_in_separate_releases_are_not_flagged(notes_file):
     assert check.find_duplicates(path) == []
 
 
+def test_duplicate_across_two_older_releases_is_not_flagged(notes_file):
+    # The cross-released check only fires when a bullet is shared between the
+    # most-recent released section and an older one — that's the rebase-drift
+    # signature. Duplicates between two already-shipped older releases are
+    # left alone, so historical patterns in old notes don't false-positive.
+    path = notes_file(
+        """
+        # v3.17.2
+        ## Fixes and improvements
+        * Fixed the newest thing.
+
+        # v3.17.1
+        ## Fixes and improvements
+        * Fixed an old shared thing.
+
+        # v3.17.0
+        ## Fixes and improvements
+        * Fixed an old shared thing.
+        """
+    )
+    assert check.find_duplicates(path) == []
+
+
 def test_legacy_within_section_duplicates_are_ignored(notes_file):
     # The historical RELEASE-NOTES.md has sections that legitimately repeat
     # a header-style bullet under multiple sub-sections of one release
