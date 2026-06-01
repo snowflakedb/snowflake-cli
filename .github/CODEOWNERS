@@ -1,8 +1,8 @@
-* @snowflakedb/snowcli
+* @snowflakedb/snowcli @snowflakedb/client-side-interfaces
 
 # Apps plugin
-/src/snowflake/cli/_plugins/apps/ @snowflakedb/snowcli @snowflakedb/native-apps
-/tests/apps/ @snowflakedb/snowcli @snowflakedb/native-apps
-/tests_integration/apps/ @snowflakedb/snowcli @snowflakedb/native-apps
-/tests/__snapshots__/ @snowflakedb/snowcli @snowflakedb/native-apps
-/tests_integration/__snapshots__/ @snowflakedb/snowcli @snowflakedb/native-apps
+/src/snowflake/cli/_plugins/apps/ @snowflakedb/snowcli @snowflakedb/client-side-interfaces @snowflakedb/native-apps
+/tests/apps/ @snowflakedb/snowcli @snowflakedb/client-side-interfaces @snowflakedb/native-apps
+/tests_integration/apps/ @snowflakedb/snowcli @snowflakedb/client-side-interfaces @snowflakedb/native-apps
+/tests/__snapshots__/ @snowflakedb/snowcli @snowflakedb/client-side-interfaces @snowflakedb/native-apps
+/tests_integration/__snapshots__/ @snowflakedb/snowcli @snowflakedb/client-side-interfaces @snowflakedb/native-apps
