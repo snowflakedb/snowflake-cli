@@ -132,6 +132,7 @@ def _poll_until(
     interval_seconds: int = 5,
     timeout_message: str = "Operation timed out.",
     on_poll: Optional[Callable[[], None]] = None,
+    on_status: Optional[Callable[[str], None]] = None,
 ) -> T:
     """Poll *poll_fn* until the result satisfies a done condition.
 
@@ -170,7 +171,11 @@ def _poll_until(
             time.sleep(interval_seconds)
 
         result = poll_fn()
-        cli_console.step(f"Status: {format_status(result)}")
+        status_str = format_status(result)
+        if on_status is not None:
+            on_status(status_str)
+        else:
+            cli_console.step(f"Status: {status_str}")
 
         if is_done is not None:
             # ── Predicate mode ────────────────────────────────────
@@ -485,7 +490,18 @@ class SnowflakeAppManager(SqlExecutionMixin):
     """
 
     def execute_query(self, query: str, **kwargs):
-        """Execute a Snowflake query with CLI spinner feedback."""
+        """Execute a Snowflake query with CLI spinner feedback.
+
+        When an outer Live display is already active (e.g. from
+        :class:`~snowflake.cli._plugins.apps.progress.AppDeployProgressTracker`),
+        the per-query spinner is suppressed.  Rich forbids nested Live instances
+        on the same console, so opening a second ``Progress`` spinner here would
+        raise ``"Only one live display may be active at once"``.
+        """
+        from rich import get_console
+
+        if getattr(get_console(), "_live", None) is not None:
+            return super().execute_query(query, **kwargs)
         with cli_console.spinner() as spinner:
             spinner.add_task(description="", total=None)
             return super().execute_query(query, **kwargs)
