@@ -63,7 +63,7 @@ jobs:
         python-version: ${{ fromJSON(needs.define-matrix.outputs.python) }}
     permissions:
       contents: read
-      pull-requests: write
+      pull-requests: read
       checks: write
     if: |
       github.event_name == 'repository_dispatch' &&

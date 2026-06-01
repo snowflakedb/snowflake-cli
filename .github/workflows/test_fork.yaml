@@ -21,20 +21,29 @@ on:
 
 # This reusable workflow runs fork PR code in a trusted context (with secrets)
 # after a maintainer vouches for a specific commit via `/ok-to-test sha=<sha>`.
-# It needs `checks: write` to report the result back onto the required
-# `integration-fork` / `e2e-fork` status checks, and `pull-requests: read` to
-# resolve the dispatched PR. A reusable workflow's token takes its scopes from
-# THIS block (capped by the caller), so the caller granting `checks: write` is
-# not enough on its own -- that omission is what produced the
-# "Resource not accessible by integration" 403 on checks.update.
-permissions:
-  contents: read
-  checks: write
-  pull-requests: read
+# The caller (`integration-fork` / `e2e-fork`) gates the dispatch on a
+# write-access maintainer AND `contains(head.sha, args.named.sha)`, so only the
+# exact commit the maintainer reviewed is ever checked out and given secrets.
+#
+# The work is split across two jobs so the privileged `checks: write` token is
+# never co-resident with the untrusted fork code:
+#   * test-fork -- checks out and runs the fork commit WITH secrets, but its
+#                  token is `contents: read` only and is not persisted to the
+#                  git config, so untrusted code has no write-scoped token to
+#                  steal (the irreducible exposure here is the secrets, which
+#                  the maintainer vouch accepts).
+#   * report    -- holds `checks: write` to report the result onto the required
+#                  check, but checks out no fork code and handles no secrets.
+# A reusable workflow's token takes its scopes from the job's `permissions:`
+# block (capped by the caller); the caller granting `checks: write` is not
+# enough on its own -- that omission is what produced the "Resource not
+# accessible by integration" 403 on checks.update.
 
 jobs:
   test-fork:
     runs-on: ${{ inputs.runs-on }}
+    permissions:
+      contents: read
     steps:
       # Check out the commit the maintainer reviewed (the fork's head), NOT the
       # base repo's default branch. With no repository/ref, checkout defaulted
@@ -64,19 +73,29 @@ jobs:
           SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_RAW: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_RAW }}
         run: python -m hatch run ${{ inputs.hatch-run }}
 
-      # Report this run's result onto the required check (`integration-fork` /
-      # `e2e-fork`). On a fork PR that check already exists as a skipped run on
-      # the head commit; update every run with that name, and create one if none
-      # exist, so the required check always receives a real conclusion.
+  # Report the test-fork result onto the required check (`integration-fork` /
+  # `e2e-fork`). Runs in its own job -- with `checks: write` but no fork
+  # checkout and no secrets -- so the write-scoped token is isolated from the
+  # untrusted code executed in `test-fork`. On a fork PR that check already
+  # exists as a skipped run on the head commit; update every run with that name,
+  # and create one if none exist, so the required check always receives a real
+  # conclusion.
+  report:
+    needs: test-fork
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      pull-requests: read
+    steps:
       - uses: actions/github-script@v7
         id: update-check-run
-        if: ${{ always() }}
         env:
           number: ${{ github.event.client_payload.pull_request.number }}
           job_name: ${{ inputs.job-name }}
-          # job.status maps to a valid check-run conclusion
-          # (success / failure / cancelled).
-          conclusion: ${{ job.status }}
+          # needs.test-fork.result is a valid check-run conclusion
+          # (success / failure / cancelled / skipped).
+          conclusion: ${{ needs.test-fork.result }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
