@@ -19,16 +19,31 @@ on:
         required: true
         type: string
 
+# This reusable workflow runs fork PR code in a trusted context (with secrets)
+# after a maintainer vouches for a specific commit via `/ok-to-test sha=<sha>`.
+# It needs `checks: write` to report the result back onto the required
+# `integration-fork` / `e2e-fork` status checks, and `pull-requests: read` to
+# resolve the dispatched PR. A reusable workflow's token takes its scopes from
+# THIS block (capped by the caller), so the caller granting `checks: write` is
+# not enough on its own -- that omission is what produced the
+# "Resource not accessible by integration" 403 on checks.update.
 permissions:
-  contents: none
-  issues: none
+  contents: read
+  checks: write
+  pull-requests: read
 
 jobs:
   test-fork:
     runs-on: ${{ inputs.runs-on }}
     steps:
+      # Check out the commit the maintainer reviewed (the fork's head), NOT the
+      # base repo's default branch. With no repository/ref, checkout defaulted
+      # to snowflakedb/snowflake-cli@main, so the tests never exercised the
+      # contributor's changes.
       - uses: actions/checkout@v4
         with:
+          repository: ${{ github.event.client_payload.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.client_payload.pull_request.head.sha }}
           persist-credentials: false
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -49,40 +64,57 @@ jobs:
           SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_RAW: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_RAW }}
         run: python -m hatch run ${{ inputs.hatch-run }}
 
-      # Update check run called "integration-fork"
+      # Report this run's result onto the required check (`integration-fork` /
+      # `e2e-fork`). On a fork PR that check already exists as a skipped run on
+      # the head commit; update every run with that name, and create one if none
+      # exist, so the required check always receives a real conclusion.
       - uses: actions/github-script@v7
         id: update-check-run
         if: ${{ always() }}
         env:
           number: ${{ github.event.client_payload.pull_request.number }}
-          job: ${{ github.job }}
-          # Conveniently, job.status maps to https://developer.github.com/v3/checks/runs/#update-a-check-run
+          job_name: ${{ inputs.job-name }}
+          # job.status maps to a valid check-run conclusion
+          # (success / failure / cancelled).
           conclusion: ${{ job.status }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { number, job_name, conclusion } = process.env;
+
             const { data: pull } = await github.rest.pulls.get({
               ...context.repo,
-              pull_number: process.env.number
+              pull_number: Number(number),
             });
             const ref = pull.head.sha;
 
             const { data: checks } = await github.rest.checks.listForRef({
               ...context.repo,
-              ref
-            });
-            console.log("Check runs for ref:", checks.check_runs);
-            console.log("Job name:", '${{ inputs.job-name }}');
-            console.log("Check run names for ref:", checks.check_runs.map(c => c.name));
-
-            const check = checks.check_runs.filter(c => c.name === '${{ inputs.job-name }}');
-            console.log("Filtered check:", check.check_runs);
-
-            const { data: result } = await github.rest.checks.update({
-              ...context.repo,
-              check_run_id: check[0].id,
-              status: 'completed',
-              conclusion: process.env.conclusion
+              ref,
             });
 
-            return result;
+            const matching = checks.check_runs.filter((c) => c.name === job_name);
+            console.log(
+              `Reporting '${conclusion}' to check '${job_name}' on ${ref}: ` +
+                `${matching.length} existing run(s)`
+            );
+
+            if (matching.length === 0) {
+              await github.rest.checks.create({
+                ...context.repo,
+                name: job_name,
+                head_sha: ref,
+                status: "completed",
+                conclusion,
+              });
+              return;
+            }
+
+            for (const check of matching) {
+              await github.rest.checks.update({
+                ...context.repo,
+                check_run_id: check.id,
+                status: "completed",
+                conclusion,
+              });
+            }

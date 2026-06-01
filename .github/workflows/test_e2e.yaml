@@ -62,6 +62,7 @@ jobs:
         os: ${{ fromJSON(needs.define-matrix.outputs.os) }}
         python-version: ${{ fromJSON(needs.define-matrix.outputs.python) }}
     permissions:
+      contents: read
       pull-requests: write
       checks: write
     if: |
