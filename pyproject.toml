@@ -72,8 +72,10 @@ development = [
   "coverage==7.10.4",
   "factory-boy==3.3.3",
   "pre-commit>=3.5.0",
+  "pytest-cov==6.0.0",
   "pytest-httpserver==1.1.3",
   "pytest-randomly==3.16.0",
+  "pytest-xdist==3.6.1",
   "pytest==8.4.1",
   "syrupy==4.9.1",
   "uv==0.10.9",
@@ -104,10 +106,16 @@ python = "3.10"
 features = ["development"]
 
 [tool.hatch.envs.default.scripts]
-test = ["pytest tests/"]
+# Unit tests are parallelized with pytest-xdist. `loaded_modules` runs serially
+# in a fresh process because it asserts on `sys.modules` after CLI startup,
+# which is meaningless under a long-lived xdist worker.
+test = [
+  "pytest -n auto --dist=worksteal tests/",
+  "pytest -m loaded_modules tests/",
+]
 test-cov = [
-  "coverage run --source=snowflake.cli --module pytest tests/",
-  "coverage run --source=snowflake.cli --module pytest -m loaded_modules tests/",
+  "pytest --cov=snowflake.cli --cov-report= -n auto --dist=worksteal tests/",
+  "pytest --cov=snowflake.cli --cov-append --cov-report= -m loaded_modules tests/",
   "coverage report",
 ]
 legacy-pypi-build = [".compat/build_snowflake-cli-labs.sh"]
