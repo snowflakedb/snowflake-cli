@@ -41,6 +41,19 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ inputs.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - if: inputs.should-run == 'true'
+        name: Cache hatch envs
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/hatch
+            ~/Library/Application Support/hatch
+            ~\AppData\Local\hatch
+          key: hatch-${{ inputs.python-env }}-${{ runner.os }}-py${{ inputs.python-version }}-${{ hashFiles('pyproject.toml', 'pylock.toml') }}
+          restore-keys: |
+            hatch-${{ inputs.python-env }}-${{ runner.os }}-py${{ inputs.python-version }}-
       - if: inputs.should-run == 'true'
         name: Install dependencies
         run: |
