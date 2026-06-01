@@ -24,6 +24,7 @@
 ## Fixes and improvements
 * Fixed `TooManyFilesError` during `snow streamlit deploy` when `main_file` is a descendant of a directory listed in `artifacts`.
 * Upgraded `snowflake-connector-python` from 4.5.0 to 4.6.0.
+* `snow dcm list-deployments` and `snow dcm drop-deployment` now wrap the project name in `IDENTIFIER(...)`, matching every other DCM subcommand. Fully-qualified and quoted project names are now handled consistently.
 
 
 # v3.19.0
