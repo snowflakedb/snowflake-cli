@@ -151,3 +151,114 @@ def test_main_returns_one_on_dirty_file(notes_file, capsys):
     assert rc == 1
     err = capsys.readouterr().err
     assert "Duplicate bullet" in err
+
+
+def test_bullet_in_recent_release_and_older_release_is_flagged(notes_file):
+    path = notes_file(
+        """
+        # Unreleased version
+        ## Fixes and improvements
+
+        # v3.17.1
+        ## Fixes and improvements
+        * Fixed boolean env-var coercion.
+        * Fixed `SELECT *` output being corrupted when joined tables share columns.
+
+        # v3.17.0
+        ## Fixes and improvements
+        * Fixed `SELECT *` output being corrupted when joined tables share columns.
+        """
+    )
+    errors = check.find_duplicates(path)
+    assert len(errors) == 1
+    assert "v3.17.1" in errors[0]
+    assert "v3.17.0" in errors[0]
+    assert "select *" in errors[0]
+
+
+def test_bullet_in_unreleased_and_two_released_sections_emits_one_error(notes_file):
+    # When a bullet is in Unreleased + most-recent release + older release,
+    # only the Unreleased-vs-released error should fire. The cross-released
+    # check would otherwise add a contradictory second message telling the
+    # author to move the bullet *into* Unreleased.
+    path = notes_file(
+        """
+        # Unreleased version
+        ## Fixes and improvements
+        * Fixed the same thing.
+
+        # v3.17.1
+        ## Fixes and improvements
+        * Fixed the same thing.
+
+        # v3.17.0
+        ## Fixes and improvements
+        * Fixed the same thing.
+        """
+    )
+    errors = check.find_duplicates(path)
+    assert len(errors) == 1
+    assert "Unreleased version" in errors[0]
+
+
+def test_distinct_bullets_in_separate_releases_are_not_flagged(notes_file):
+    path = notes_file(
+        """
+        # Unreleased version
+        ## Fixes and improvements
+
+        # v3.17.1
+        ## Fixes and improvements
+        * Fixed boolean env-var coercion.
+
+        # v3.17.0
+        ## Fixes and improvements
+        * Fixed something else.
+        """
+    )
+    assert check.find_duplicates(path) == []
+
+
+def test_duplicate_across_two_older_releases_is_not_flagged(notes_file):
+    # The cross-released check only fires when a bullet is shared between the
+    # most-recent released section and an older one — that's the rebase-drift
+    # signature. Duplicates between two already-shipped older releases are
+    # left alone, so historical patterns in old notes don't false-positive.
+    path = notes_file(
+        """
+        # v3.17.2
+        ## Fixes and improvements
+        * Fixed the newest thing.
+
+        # v3.17.1
+        ## Fixes and improvements
+        * Fixed an old shared thing.
+
+        # v3.17.0
+        ## Fixes and improvements
+        * Fixed an old shared thing.
+        """
+    )
+    assert check.find_duplicates(path) == []
+
+
+def test_legacy_within_section_duplicates_are_ignored(notes_file):
+    # The historical RELEASE-NOTES.md has sections that legitimately repeat
+    # a header-style bullet under multiple sub-sections of one release
+    # (e.g. v2.2.0 listing `* snow snowpark package create:` under both
+    # Deprecations and New additions). The cross-released-section check
+    # must not fire on these — it only cares about bullets shared between
+    # the most-recent released section and an older one.
+    path = notes_file(
+        """
+        # v2.2.0
+        ## Deprecations
+        * `snow snowpark package create`:
+          * `--pypi-download` is deprecated.
+
+        ## New additions
+        * `snow snowpark package create`:
+          * new `--ignore-anaconda` flag.
+        """
+    )
+    assert check.find_duplicates(path) == []
