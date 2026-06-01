@@ -29,7 +29,12 @@ jobs:
   changes:
     uses: ./.github/workflows/changes.yaml
 
-  # Branch-based pull request
+  # Branch-based pull request.
+  # Required check `integration-trusted (<os>, <py>) / tests-trusted` must
+  # report on every same-repo PR. The job-level `if:` only filters out fork
+  # events (the secret-handling trust gate); the docs-only short-circuit is
+  # pushed down via `should-run` so the matrix still expands when
+  # changes.code == 'false' and each per-cell required check is posted.
   integration-trusted:
     needs: [define-matrix, changes]
     strategy:
@@ -38,17 +43,15 @@ jobs:
         os: ${{ fromJSON(needs.define-matrix.outputs.os) }}
         python-version: ${{ fromJSON(needs.define-matrix.outputs.python) }}
     if: |
-      (
-        (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
-        (github.event_name == 'push' && github.ref == 'refs/heads/main')
-      ) &&
-      (needs.changes.outputs.code == 'true' || github.event_name != 'pull_request')
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
     uses: ./.github/workflows/test_trusted.yaml
     with:
       runs-on: ${{ matrix.os }}
       python-version: ${{ matrix.python-version }}
       python-env: integration
       hatch-run: integration:test
+      should-run: ${{ needs.changes.outputs.code == 'true' || github.event_name != 'pull_request' }}
     secrets: inherit
 
   # Repo owner has commented /ok-to-test on a (fork-based) pull request

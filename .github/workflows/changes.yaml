@@ -1,10 +1,12 @@
 name: detect changes
 
 # Determines whether a PR changes anything that requires running the heavy test
-# matrix. The required-status-check jobs that consume `outputs.code` always run
-# (so the required check posts to the PR), but skip their expensive steps when
-# only docs/CODEOWNERS/etc. changed. This avoids the "skipped but required"
-# branch-protection deadlock that `paths-ignore` causes.
+# matrix. Callers gate their **steps** (not the job) on `outputs.code` so the
+# matrix expands and every per-cell required check name (e.g.
+# `tests (ubuntu-latest, 3.10)`, `e2e-trusted (...) / tests-trusted`) is posted
+# to the PR. A job-level `if:` would short-circuit matrix expansion and leave
+# those required checks stuck at "Expected — Waiting for status to be reported"
+# — the same branch-protection deadlock `paths-ignore` used to cause.
 
 on:
   workflow_call:
