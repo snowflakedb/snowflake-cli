@@ -42,8 +42,13 @@ from snowflake.cli._plugins.apps.manager import (
     app_fqn,
     perform_bundle,
 )
+
+# Stage uploads during ``snow app deploy`` use a ``StageManager`` that records
+# each PUT's query ID onto the active telemetry span. Imported under the
+# ``StageManager`` name so the deploy flow (and its tests) reference a single,
+# stable symbol.
+from snowflake.cli._plugins.apps.manager import AppStageManager as StageManager
 from snowflake.cli._plugins.connection.util import make_snowsight_url
-from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.config import get_connection_dict, get_default_connection_name
 from snowflake.cli.api.console import cli_console

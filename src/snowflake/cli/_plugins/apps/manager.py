@@ -33,7 +33,12 @@ if TYPE_CHECKING:
     from snowflake.cli._plugins.apps.snowflake_app_entity_model import (
         SnowflakeAppEntityModel,
     )
+from snowflake.cli._plugins.apps.metrics import (
+    record_query_id,
+    record_query_id_from_cursor,
+)
 from snowflake.cli._plugins.object.manager import ObjectManager
+from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.artifacts.utils import symlink_or_copy
 from snowflake.cli.api.cli_global_context import get_cli_context
@@ -470,6 +475,25 @@ def _find_dockerfile_expose_port(bundle_root: Path) -> Optional[int]:
     return None
 
 
+class AppStageManager(StageManager):
+    """``StageManager`` that records query IDs onto the active metrics span.
+
+    Stage uploads (``PUT``) during ``snow app deploy`` go through
+    :class:`StageManager` rather than :class:`SnowflakeAppManager`, so this
+    thin subclass mirrors the manager's query-ID capture to keep stage SQL
+    correlated to its telemetry span.
+    """
+
+    def execute_query(self, query: str, **kwargs):
+        try:
+            cursor = super().execute_query(query, **kwargs)
+        except ProgrammingError as err:
+            record_query_id(getattr(err, "sfqid", None))
+            raise
+        record_query_id_from_cursor(cursor)
+        return cursor
+
+
 class SnowflakeAppManager(SqlExecutionMixin):
     """Manager for Snowflake App Runtime operations.
 
@@ -485,10 +509,22 @@ class SnowflakeAppManager(SqlExecutionMixin):
     """
 
     def execute_query(self, query: str, **kwargs):
-        """Execute a Snowflake query with CLI spinner feedback."""
+        """Execute a Snowflake query with CLI spinner feedback.
+
+        Records the resulting query ID (``sfqid``) onto the active metrics
+        span so each SQL statement can be correlated to its telemetry span.
+        On failure the query ID is captured from the raised error (when the
+        statement reached Snowflake) before re-raising.
+        """
         with cli_console.spinner() as spinner:
             spinner.add_task(description="", total=None)
-            return super().execute_query(query, **kwargs)
+            try:
+                cursor = super().execute_query(query, **kwargs)
+            except ProgrammingError as err:
+                record_query_id(getattr(err, "sfqid", None))
+                raise
+            record_query_id_from_cursor(cursor)
+            return cursor
 
     def get_personal_database(self) -> Optional[str]:
         """Return the personal database name for the current user.
