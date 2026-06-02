@@ -1,4 +1,16 @@
-# If someone with write access comments "/ok-to-test" on a pull request, emit a repository_dispatch event
+# /ok-to-test: when a maintainer with write access comments "/ok-to-test sha=<sha>"
+# on a pull request, emit a repository_dispatch (ok-to-test-command) event that
+# runs the fork's integration/e2e suites WITH repository secrets (the Snowflake
+# integration account). slash-command-dispatch enforces the write-access check;
+# the downstream caller gate additionally requires contains(head.sha, sha).
+#
+# TRUST EXPECTATION: commenting "/ok-to-test sha=<sha>" means "I have read this
+# exact commit -- including tests, conftest.py, hatch/build hooks and anything
+# else that executes during the run -- and I accept it running against our
+# integration account." The pinned <sha> is the security boundary: only that
+# commit is checked out and given secrets (see test_fork.yaml), so a contributor
+# who pushes new commits after the review invalidates the grant and must be
+# re-vouched.
 name: Ok To Test
 
 on:
