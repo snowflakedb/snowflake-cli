@@ -30,6 +30,7 @@ from snowflake.cli._plugins.apps.manager import (
     _object_exists,
     _poll_until,
     _resolve_entity_id,
+    _ts,
     app_fqn,
     perform_bundle,
 )
@@ -193,6 +194,22 @@ class TestGetEntity:
     def test_raises_when_not_found(self, _):
         with pytest.raises(CliError, match="Entity 'my_app' not found"):
             _get_entity("my_app")
+
+
+# ── _ts tests ─────────────────────────────────────────────────────────
+
+
+class TestTs:
+    """Tests for the _ts() timestamp helper used in polling messages."""
+
+    @patch("snowflake.cli._plugins.apps.manager.time.strftime", return_value="12:34:56")
+    def test_returns_formatted_time(self, mock_strftime):
+        assert _ts() == "12:34:56"
+        mock_strftime.assert_called_once_with("%H:%M:%S")
+
+    @patch("snowflake.cli._plugins.apps.manager.time.strftime", return_value="00:00:00")
+    def test_midnight_format(self, mock_strftime):
+        assert _ts() == "00:00:00"
 
 
 # ── _poll_until tests ─────────────────────────────────────────────────
@@ -392,6 +409,38 @@ class TestPollUntilOnPoll:
         )
         assert mock_sleep.call_count == 2
         mock_sleep.assert_called_with(3)
+
+
+class TestPollUntilStatusMessage:
+    """Verify the per-iteration status step includes a ``[HH:MM:SS]`` prefix."""
+
+    @patch("snowflake.cli._plugins.apps.manager.cli_console")
+    @patch("snowflake.cli._plugins.apps.manager.time.sleep")
+    @patch("snowflake.cli._plugins.apps.manager.time.strftime", return_value="10:00:00")
+    def test_status_step_includes_timestamp(self, _mock_strftime, _mock_sleep, mock_cc):
+        _poll_until(
+            poll_fn=lambda: "DONE",
+            done_states={"DONE"},
+            error_states={"FAILED"},
+            known_pending_states={"PENDING"},
+            timeout_message="timed out",
+        )
+        mock_cc.step.assert_called_once_with("[10:00:00] Status: DONE")
+
+    @patch("snowflake.cli._plugins.apps.manager.cli_console")
+    @patch("snowflake.cli._plugins.apps.manager.time.sleep")
+    @patch("snowflake.cli._plugins.apps.manager.time.strftime", return_value="23:59:59")
+    def test_status_step_timestamp_format(self, _mock_strftime, _mock_sleep, mock_cc):
+        """Status line uses [HH:MM:SS] bracket format."""
+        _poll_until(
+            poll_fn=lambda: "DONE",
+            done_states={"DONE"},
+            error_states={"FAILED"},
+            known_pending_states={"PENDING"},
+            timeout_message="timed out",
+        )
+        step_arg = mock_cc.step.call_args[0][0]
+        assert step_arg.startswith("[23:59:59] Status: ")
 
 
 # ── Build log streamer tests ──────────────────────────────────────────
