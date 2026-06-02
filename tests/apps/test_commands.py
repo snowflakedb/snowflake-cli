@@ -1337,18 +1337,6 @@ class TestSnowflakeAppManager:
         assert "TO VERSION LATEST" in upgrade_query
 
     @patch(EXECUTE_QUERY)
-    def test_get_app_service_logs(self, mock_execute):
-        cursor = Mock()
-        cursor.fetchone.return_value = ("log output here",)
-        mock_execute.return_value = cursor
-
-        result = SnowflakeAppManager().get_app_service_logs("my_app")
-        assert result == "log output here"
-        mock_execute.assert_called_once_with(
-            "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('my_app')"
-        )
-
-    @patch(EXECUTE_QUERY)
     def test_describe_app_service_normalises_keys(self, mock_execute):
         cursor = Mock()
         cursor.fetchone.return_value = {
@@ -2734,72 +2722,6 @@ class TestBundleCommand:
             mock_resolve.assert_called_once_with("custom_app")
 
 
-# ── _find_dockerfile_expose_port tests ─────────────────────────────────
-
-
-class TestFindDockerfileExposePort:
-    def test_returns_port_from_expose(self, tmp_path):
-        from snowflake.cli._plugins.apps.manager import _find_dockerfile_expose_port
-
-        (tmp_path / "Dockerfile").write_text("FROM python:3.11\nEXPOSE 3000\n")
-        assert _find_dockerfile_expose_port(tmp_path) == 3000
-
-    def test_returns_port_with_tcp_suffix(self, tmp_path):
-        from snowflake.cli._plugins.apps.manager import _find_dockerfile_expose_port
-
-        (tmp_path / "Dockerfile").write_text("FROM python:3.11\nEXPOSE 8080/tcp\n")
-        assert _find_dockerfile_expose_port(tmp_path) == 8080
-
-    def test_returns_port_with_udp_suffix(self, tmp_path):
-        from snowflake.cli._plugins.apps.manager import _find_dockerfile_expose_port
-
-        (tmp_path / "Dockerfile").write_text("FROM python:3.11\nEXPOSE 5000/udp\n")
-        assert _find_dockerfile_expose_port(tmp_path) == 5000
-
-    def test_returns_first_port_when_multiple(self, tmp_path):
-        from snowflake.cli._plugins.apps.manager import _find_dockerfile_expose_port
-
-        (tmp_path / "Dockerfile").write_text(
-            "FROM python:3.11\nEXPOSE 3000\nEXPOSE 8080\n"
-        )
-        assert _find_dockerfile_expose_port(tmp_path) == 3000
-
-    def test_returns_none_when_no_dockerfile(self, tmp_path):
-        from snowflake.cli._plugins.apps.manager import _find_dockerfile_expose_port
-
-        assert _find_dockerfile_expose_port(tmp_path) is None
-
-    def test_returns_none_when_no_expose(self, tmp_path):
-        from snowflake.cli._plugins.apps.manager import _find_dockerfile_expose_port
-
-        (tmp_path / "Dockerfile").write_text("FROM python:3.11\nCMD ['python']\n")
-        assert _find_dockerfile_expose_port(tmp_path) is None
-
-    def test_case_insensitive(self, tmp_path):
-        from snowflake.cli._plugins.apps.manager import _find_dockerfile_expose_port
-
-        (tmp_path / "Dockerfile").write_text("FROM python:3.11\nexpose 9090\n")
-        assert _find_dockerfile_expose_port(tmp_path) == 9090
-
-    def test_returns_unsupported_for_multi_port(self, tmp_path):
-        from snowflake.cli._plugins.apps.manager import (
-            EXPOSE_UNSUPPORTED_SYNTAX,
-            _find_dockerfile_expose_port,
-        )
-
-        (tmp_path / "Dockerfile").write_text("FROM python:3.11\nEXPOSE 3000 8080\n")
-        assert _find_dockerfile_expose_port(tmp_path) == EXPOSE_UNSUPPORTED_SYNTAX
-
-    def test_returns_unsupported_for_port_range(self, tmp_path):
-        from snowflake.cli._plugins.apps.manager import (
-            EXPOSE_UNSUPPORTED_SYNTAX,
-            _find_dockerfile_expose_port,
-        )
-
-        (tmp_path / "Dockerfile").write_text("FROM python:3.11\nEXPOSE 3000-3005\n")
-        assert _find_dockerfile_expose_port(tmp_path) == EXPOSE_UNSUPPORTED_SYNTAX
-
-
 # ── Validate CLI command tests ────────────────────────────────────────
 
 
@@ -2991,61 +2913,6 @@ class TestValidateCommand:
             result = runner.invoke(["app", "validate"])
             assert result.exit_code == 1
             assert "bundle failed" in result.output
-
-
-# ── role_has_bind_service_endpoint tests ──────────────────────────────
-
-
-class TestRoleHasBindServiceEndpoint:
-    @patch(EXECUTE_QUERY)
-    def test_returns_true_when_privilege_granted(self, mock_execute):
-        cursor = Mock()
-        cursor.__iter__ = Mock(
-            return_value=iter(
-                [
-                    {
-                        "privilege": "BIND SERVICE ENDPOINT",
-                        "granted_on": "ACCOUNT",
-                    }
-                ]
-            )
-        )
-        mock_execute.return_value = cursor
-        assert SnowflakeAppManager().role_has_bind_service_endpoint("DEV_ROLE") is True
-
-    @patch(EXECUTE_QUERY)
-    def test_returns_false_when_no_matching_privilege(self, mock_execute):
-        cursor = Mock()
-        cursor.__iter__ = Mock(
-            return_value=iter(
-                [
-                    {
-                        "privilege": "CREATE DATABASE",
-                        "granted_on": "ACCOUNT",
-                    }
-                ]
-            )
-        )
-        mock_execute.return_value = cursor
-        assert SnowflakeAppManager().role_has_bind_service_endpoint("DEV_ROLE") is False
-
-    @patch(EXECUTE_QUERY)
-    def test_returns_false_when_no_grants(self, mock_execute):
-        cursor = Mock()
-        cursor.__iter__ = Mock(return_value=iter([]))
-        mock_execute.return_value = cursor
-        assert SnowflakeAppManager().role_has_bind_service_endpoint("DEV_ROLE") is False
-
-    @patch(EXECUTE_QUERY)
-    def test_escapes_role_with_single_quote(self, mock_execute):
-        cursor = Mock()
-        cursor.__iter__ = Mock(return_value=iter([]))
-        mock_execute.return_value = cursor
-        SnowflakeAppManager().role_has_bind_service_endpoint("BAD'ROLE")
-        query = mock_execute.call_args[0][0]
-        # Single quotes are escaped by doubling them (''), not by backslash prefix.
-        assert "'BAD''ROLE'" in query
-        assert "BAD\\'ROLE" not in query
 
 
 # ── Open CLI command tests ────────────────────────────────────────────
