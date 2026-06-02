@@ -20,6 +20,7 @@
 
 ## New additions
 * Added a `--protocol` option (plus matching `SNOWFLAKE_PROTOCOL` env var and `protocol` config key) to `snow connection add` and the global connection overrides. This allows selecting `http` or `https` as the connection protocol without editing `config.toml`, which is primarily useful for local development against `http` deployments.
+* Added a `--upgrade` flag to `snow app deploy` for Snowflake App Runtime projects. Upgrading an existing application service now requires `--upgrade`; without it, deploy fails fast when a service with the same name already exists. `snow app setup` also warns when an app service already exists at the resolved name.
 
 ## Fixes and improvements
 * Fixed `TooManyFilesError` during `snow streamlit deploy` when `main_file` is a descendant of a directory listed in `artifacts`.
