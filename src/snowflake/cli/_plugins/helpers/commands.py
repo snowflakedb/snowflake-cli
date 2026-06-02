@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from enum import Enum
 from pathlib import Path
 from typing import Any, List, Optional
 
@@ -24,6 +25,7 @@ import click
 import typer
 import yaml
 from snowflake.cli._plugins.helpers.snowsl_vars_reader import check_env_vars
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.config import (
     ConnectionConfig,
@@ -38,15 +40,13 @@ from snowflake.cli.api.output.types import (
     CommandResult,
     MessageResult,
     MultipleResults,
+    ObjectResult,
 )
 from snowflake.cli.api.project.definition_conversion import (
     convert_project_definition_to_v2,
 )
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.schemas.project_definition import (
-    DefinitionV10,
-    DefinitionV11,
-    DefinitionV20,
     get_version_map,
 )
 from snowflake.cli.api.secure_path import SecurePath
@@ -382,38 +382,53 @@ def show_config_sources(
     )
 
 
-_PROJECT_DEFINITION_MODELS = {
-    "1": DefinitionV10,
-    "1.1": DefinitionV11,
-    "2": DefinitionV20,
-}
+# Enum of supported project definition versions, derived from the single source
+# of truth in the project schemas module so the CLI surface cannot drift from it.
+ProjectDefinitionVersion = Enum(  # type: ignore[misc]
+    "ProjectDefinitionVersion",
+    {f"V{version.replace('.', '_')}": version for version in get_version_map()},
+    type=str,
+)
+_DEFAULT_DEFINITION_VERSION = ProjectDefinitionVersion("2")
+
+
+def _accepted_version_scalars(version: str) -> list[Any]:
+    """Scalar forms a user may write for ``definition_version`` in YAML.
+
+    YAML leaves ``definition_version: 2`` as an int and ``1.1`` as a float, while
+    quoting produces a string; the CLI accepts all of these. Pinning the schema to
+    these forms lets an editor flag a version that does not match the schema in use.
+    """
+    numeric: Any = float(version) if "." in version else int(version)
+    return [version, numeric]
 
 
 def _build_project_definition_schema(version: str) -> dict[str, Any]:
-    model = _PROJECT_DEFINITION_MODELS[version]
+    model = get_version_map()[version]
     schema = model.model_json_schema()
     schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"
-    schema["$id"] = (
-        "https://raw.githubusercontent.com/snowflakedb/snowflake-cli/main/"
-        f"schemas/project_definition_v{version.replace('.', '_')}.json"
-    )
     schema["title"] = f"Snowflake CLI project definition v{version}"
     schema["description"] = (
-        "JSON Schema for Snowflake CLI project definition files "
-        f"(snowflake.yml) at definition_version {version}."
+        "JSON Schema for Snowflake CLI project definition files (snowflake.yml) at "
+        f"definition_version {version}. Generated from the Snowflake CLI pydantic "
+        "models: it captures structural validation (field names, types, required "
+        "keys) but not every semantic check the CLI performs at load/deploy time."
     )
+    # Pin definition_version so each schema self-identifies; otherwise the v2
+    # schema would happily accept `definition_version: 1`, etc.
+    version_property = schema.get("properties", {}).get("definition_version")
+    if version_property is not None:
+        version_property.pop("anyOf", None)
+        version_property["enum"] = _accepted_version_scalars(version)
     return schema
 
 
 @app.command(name="generate-project-schema", requires_connection=False)
 def generate_project_schema(
-    version: str = typer.Option(
-        "2",
-        "--version",
-        help=(
-            "Project definition schema version to generate. "
-            f"Supported: {', '.join(get_version_map())}."
-        ),
+    version: ProjectDefinitionVersion = typer.Option(  # type: ignore[valid-type]
+        _DEFAULT_DEFINITION_VERSION,
+        "--definition-version",
+        help="Project definition version to generate the schema for.",
     ),
     output_file: Optional[Path] = typer.Option(
         None,
@@ -428,21 +443,25 @@ def generate_project_schema(
     """
     Generate a JSON Schema for the Snowflake CLI project definition file (snowflake.yml).
 
-    The produced schema follows the JSON Schema Store format and can be plugged into editors
-    (for example via the YAML VS Code extension) or CI pipelines to provide completion and
-    linting for snowflake.yml files before they reach Snowflake.
+    Save the output and reference it from your editor (for example the YAML VS Code
+    extension, via a `# yaml-language-server: $schema=...` modeline or the extension's
+    schema mapping) or a CI pipeline to get completion and to catch typos and type
+    errors in snowflake.yml before a deploy. The schema is generated from the CLI's
+    own pydantic models, so it stays in sync with the structural rules the CLI
+    enforces; some cross-field/semantic checks are only applied at load/deploy time.
     """
-    if version not in _PROJECT_DEFINITION_MODELS:
-        supported = ", ".join(get_version_map())
-        raise click.ClickException(
-            f"Unsupported project definition version '{version}'. Supported: {supported}."
-        )
-
-    schema = _build_project_definition_schema(version)
-    payload = json.dumps(schema, indent=2, sort_keys=True)
+    schema = _build_project_definition_schema(version.value)
 
     if output_file is not None:
+        payload = json.dumps(schema, indent=2, sort_keys=True)
         SecurePath(output_file).write_text(payload + "\n")
         return MessageResult(f"Project definition schema written to {output_file}.")
 
-    return MessageResult(payload)
+    # Under a structured output format, return the schema as an object so the
+    # command emits the JSON Schema document itself rather than a stringified
+    # blob nested under a "message" key.
+    output_format = get_cli_context().output_format
+    if output_format is not None and output_format.is_json:
+        return ObjectResult(schema)
+
+    return MessageResult(json.dumps(schema, indent=2, sort_keys=True))
