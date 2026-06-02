@@ -503,6 +503,12 @@ def app_deploy(
         help="(Snowflake App Runtime only) Run only the deploy phase (assumes a previous build phase has already completed). "
         "Skips the upload and build phases.",
     ),
+    upgrade: bool = typer.Option(
+        False,
+        "--upgrade",
+        help="(Snowflake App Runtime only) Upgrade the existing application service instead of creating a new one. "
+        "Required when an app service with the same name already exists.",
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -532,7 +538,11 @@ def app_deploy(
             },
         )
         return snowflake_app_deploy(
-            options.get("entity_id") or None, upload_only, build_only, deploy_only
+            options.get("entity_id") or None,
+            upload_only,
+            build_only,
+            deploy_only,
+            upgrade,
         )
 
     _reject_snowflake_app_options(
@@ -541,6 +551,7 @@ def app_deploy(
             "--upload-only": True if upload_only else None,
             "--build-only": True if build_only else None,
             "--deploy-only": True if deploy_only else None,
+            "--upgrade": True if upgrade else None,
         },
     )
 

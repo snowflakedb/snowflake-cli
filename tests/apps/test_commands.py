@@ -1410,6 +1410,43 @@ class TestSnowflakeAppManager:
         assert SnowflakeAppManager().is_application_service(fqn) is True
         mock_object_exists.assert_called_once_with("service", "DB.SCHEMA.my_app")
 
+    @patch(OBJECT_EXISTS, return_value=False)
+    @patch(EXECUTE_QUERY)
+    def test_app_service_exists_true_when_describe_returns_row(
+        self, mock_execute, mock_object_exists
+    ):
+        cursor = Mock()
+        cursor.fetchone.return_value = {"URL": "my-app.snowflakecomputing.app"}
+        mock_execute.return_value = cursor
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="my_app")
+        assert SnowflakeAppManager().app_service_exists(fqn) is True
+        mock_object_exists.assert_not_called()
+
+    @patch(OBJECT_EXISTS, return_value=True)
+    @patch(EXECUTE_QUERY)
+    def test_app_service_exists_true_when_legacy_service_exists(
+        self, mock_execute, mock_object_exists
+    ):
+        mock_execute.side_effect = ProgrammingError("object does not exist")
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="my_app")
+        assert SnowflakeAppManager().app_service_exists(fqn) is True
+        mock_object_exists.assert_called_once_with("service", "DB.SCHEMA.my_app")
+
+    @patch(OBJECT_EXISTS, return_value=False)
+    @patch(EXECUTE_QUERY)
+    def test_app_service_exists_false_when_nothing_found(
+        self, mock_execute, mock_object_exists
+    ):
+        cursor = Mock()
+        cursor.fetchone.return_value = None
+        mock_execute.return_value = cursor
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="my_app")
+        assert SnowflakeAppManager().app_service_exists(fqn) is False
+        mock_object_exists.assert_called_once_with("service", "DB.SCHEMA.my_app")
+
     def test_resolve_application_service_url_from_describe(self):
         mgr = SnowflakeAppManager()
         assert mgr.resolve_application_service_url_from_describe({}) is None
@@ -2099,6 +2136,7 @@ class TestSetupCommand:
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.fetch_snow_apps_parameters.return_value = {
             "database": "PARAM_DB",
             "schema": "PARAM_SCHEMA",
@@ -2126,12 +2164,43 @@ class TestSetupCommand:
         return_value="definition_version: '2'\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_setup_warns_when_app_service_already_exists(
+        self, mock_mgr_cls, mock_gen, runner, tmp_path
+    ):
+        """Setup warns (but still succeeds) when an app service already lives
+        at the resolved FQN."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = True
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "database": "PARAM_DB",
+            "schema": "PARAM_SCHEMA",
+            "query_warehouse": "PARAM_WH",
+        }
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+            assert result.exit_code == 0, result.output
+            assert "already exists" in result.output
+            assert "--upgrade" in result.output
+            assert (tmp_path / "snowflake.yml").exists()
+
+        service_fqn = mock_mgr.app_service_exists.call_args.args[0]
+        assert service_fqn.identifier == "PARAM_DB.PARAM_SCHEMA.my_app"
+
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
+        return_value="definition_version: '2'\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_init_uses_current_directory_name_when_app_name_not_provided(
         self, mock_mgr_cls, mock_gen, runner, tmp_path
     ):
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.fetch_snow_apps_parameters.return_value = {
             "database": "PARAM_DB",
             "schema": "PARAM_SCHEMA",
@@ -2158,6 +2227,7 @@ class TestSetupCommand:
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.fetch_snow_apps_parameters.return_value = {
             "database": "PARAM_DB",
             "schema": "PARAM_SCHEMA",
@@ -2179,6 +2249,7 @@ class TestSetupCommand:
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.fetch_snow_apps_parameters.return_value = {
             "database": "PARAM_DB",
             "schema": "PARAM_SCHEMA",
@@ -2218,6 +2289,7 @@ class TestSetupCommand:
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.fetch_snow_apps_parameters.return_value = {
             "database": "PARAM_DB",
             "schema": "PARAM_SCHEMA",
@@ -2246,6 +2318,7 @@ class TestSetupCommand:
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.fetch_snow_apps_parameters.return_value = {
             "database": "PARAM_DB",
             "schema": "PARAM_SCHEMA",
@@ -2272,6 +2345,7 @@ class TestSetupCommand:
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.fetch_snow_apps_parameters.return_value = {
             "database": "PARAM_DB",
             "schema": "PARAM_SCHEMA",
@@ -2316,6 +2390,7 @@ class TestSetupCommand:
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.fetch_snow_apps_parameters.return_value = {
             "database": "PARAM_DB",
             "schema": "PARAM_SCHEMA",
@@ -2355,6 +2430,7 @@ class TestSetupCommand:
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.fetch_snow_apps_parameters.return_value = {
             "database": "PARAM_DB",
             "schema": "PARAM_SCHEMA",
@@ -2383,6 +2459,7 @@ class TestSetupCommand:
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.fetch_snow_apps_parameters.return_value = {
             "build_compute_pool": "PARAM_POOL",
             "service_compute_pool": "PARAM_SVC_POOL",
@@ -2428,6 +2505,7 @@ class TestSetupCommand:
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.fetch_snow_apps_parameters.return_value = {
             "query_warehouse": "PARAM_WH",
             "build_compute_pool": "PARAM_POOL",
@@ -2456,6 +2534,7 @@ class TestSetupCommand:
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.fetch_snow_apps_parameters.return_value = {
             "query_warehouse": "PARAM_WH",
             "build_compute_pool": "PARAM_POOL",
@@ -2487,6 +2566,7 @@ class TestSetupCommand:
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.fetch_snow_apps_parameters.return_value = {
             "schema": "PARAM_SCHEMA",
             "query_warehouse": "PARAM_WH",
@@ -2517,6 +2597,7 @@ class TestSetupCommand:
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = True
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.fetch_snow_apps_parameters.return_value = {
             "database": "PARAM_DB",
             "schema": "PARAM_SCHEMA",
@@ -2564,6 +2645,7 @@ class TestSetupCommand:
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = True
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.fetch_snow_apps_parameters.return_value = {
             "database": "PARAM_DB",
             "schema": "PARAM_SCHEMA",
@@ -2738,6 +2820,7 @@ class TestValidateCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.database_exists.return_value = True
         mock_mgr.schema_exists.return_value = True
         return mock_mgr
@@ -2942,6 +3025,7 @@ class TestOpenCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.get_service_endpoint_url.return_value = (
             "https://my-app.snowflakecomputing.app"
         )
@@ -2976,6 +3060,7 @@ class TestOpenCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.get_service_endpoint_url.return_value = (
             "https://my-app.snowflakecomputing.app"
         )
@@ -3008,6 +3093,7 @@ class TestOpenCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.get_service_endpoint_url.return_value = None
 
         with change_directory(tmp_path):
@@ -3084,6 +3170,7 @@ class TestOpenCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.get_service_endpoint_url.return_value = (
             "https://my-app.snowflakecomputing.app"
         )
@@ -3402,6 +3489,7 @@ class TestEventsCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.get_service_logs.return_value = "INFO: app started\nINFO: listening"
 
         with change_directory(tmp_path):
@@ -3433,6 +3521,7 @@ class TestEventsCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.get_service_logs.return_value = ""
 
         with change_directory(tmp_path):
@@ -3462,6 +3551,7 @@ class TestEventsCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.get_service_logs.return_value = "line1"
 
         with change_directory(tmp_path):
@@ -3494,6 +3584,7 @@ class TestEventsCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.get_service_logs.side_effect = ProgrammingError("does not exist")
 
         with change_directory(tmp_path):
@@ -3542,6 +3633,191 @@ class TestDeployCommand:
         "snowflake.cli._plugins.apps.commands._resolve_entity_id",
         return_value="my_app",
     )
+    def test_deploy_requires_upgrade_flag_when_service_exists(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """Deploy must refuse to recreate an existing app service and tell
+        the user to pass --upgrade. The check runs before any service is
+        created or upgraded."""
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.code_workspace = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.artifact_repository = None
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = True
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "deploy", "--deploy-only"])
+            assert result.exit_code == 1, result.output
+            assert "already exists" in result.output
+            assert "--upgrade" in result.output
+
+        mock_mgr.create_app_service.assert_not_called()
+        mock_mgr.upgrade_app_service.assert_not_called()
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": None,
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": None,
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_upgrade_flag_without_existing_service_errors(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """Passing --upgrade when no app service exists is a hard error."""
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.code_workspace = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.artifact_repository = None
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "deploy", "--deploy-only", "--upgrade"])
+            assert result.exit_code == 1, result.output
+            assert "No existing application service" in result.output
+
+        mock_mgr.create_app_service.assert_not_called()
+        mock_mgr.upgrade_app_service.assert_not_called()
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": None,
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": None,
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_upgrade_flag_upgrades_existing_service(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """With --upgrade and an existing service, deploy upgrades instead of
+        creating."""
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.code_workspace = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.artifact_repository = None
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = True
+        mock_poll.return_value = {
+            "url": "my-app.snowflakecomputing.app",
+            "is_upgrading": "false",
+        }
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "deploy", "--deploy-only", "--upgrade"])
+            assert result.exit_code == 0, result.output
+            assert "Upgrading" in result.output
+
+        mock_mgr.upgrade_app_service.assert_called_once()
+        mock_mgr.create_app_service.assert_not_called()
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": None,
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": None,
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
     def test_deploy_only_skips_upload_and_build_phase(
         self,
         mock_resolve,
@@ -3568,6 +3844,7 @@ class TestDeployCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_poll.return_value = {
             "url": "my-app.snowflakecomputing.app",
             "is_upgrading": "false",
@@ -3631,6 +3908,7 @@ class TestDeployCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.create_app_service.side_effect = create_error
         mock_mgr.get_service_logs.return_value = (
             "create failed line1\ncreate failed line2"
@@ -3705,15 +3983,15 @@ class TestDeployCommand:
         entity.artifact_repository = None
         mock_get_entity.return_value = entity
 
-        create_error = ProgrammingError("already exists")
-        create_error.errno = 2002
         upgrade_error = ProgrammingError("permission denied")
         upgrade_error.errno = 2043
 
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
-        mock_mgr.create_app_service.side_effect = create_error
+        # The app service already exists, so ``--upgrade`` routes the deploy
+        # straight to the upgrade path.
+        mock_mgr.app_service_exists.return_value = True
         mock_mgr.upgrade_app_service.side_effect = upgrade_error
         mock_mgr.get_service_logs.return_value = (
             "upgrade failed line1\nupgrade failed line2"
@@ -3729,18 +4007,15 @@ class TestDeployCommand:
         ):
             _write_snowflake_app_yml(tmp_path)
             _reset_command_metrics()
-            result = runner.invoke(["app", "deploy", "--deploy-only"])
+            result = runner.invoke(["app", "deploy", "--deploy-only", "--upgrade"])
             assert result.exit_code == 1
             assert (
                 "Deployment failed while upgrading application service" in result.output
             )
-            create_span = _get_completed_span("snowflake_app.deploy_service.create")
             upgrade_span = _get_completed_span("snowflake_app.deploy_service.upgrade")
-            # The "already exists" ProgrammingError on CREATE is an
-            # expected redeploy signal, not a failure of the Create step;
-            # only the upgrade span should record the failure.
-            assert create_span[CLIMetricsSpan.ERROR_KEY] is None
             assert upgrade_span[CLIMetricsSpan.ERROR_KEY] == ProgrammingError.__name__
+            # CREATE is never attempted on the upgrade path.
+            mock_mgr.create_app_service.assert_not_called()
             mock_log.info.assert_any_call("upgrade failed line1")
             mock_log.info.assert_any_call("upgrade failed line2")
 
@@ -3795,6 +4070,7 @@ class TestDeployCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_poll.return_value = {
             "url": "my-app.snowflakecomputing.app",
             "is_upgrading": "false",
@@ -3862,6 +4138,7 @@ class TestDeployCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.get_service_logs.return_value = "failed line1\nfailed line2"
         mock_mgr.resolve_application_service_url_from_describe.return_value = None
         mock_mgr.describe_app_service.return_value = {
@@ -3941,13 +4218,11 @@ class TestDeployCommand:
         entity.artifact_repository = None
         mock_get_entity.return_value = entity
 
-        already_exists = ProgrammingError("already exists")
-        already_exists.errno = 2002
-
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
-        mock_mgr.create_app_service.side_effect = already_exists
+        # Existing app service + ``--upgrade`` exercises the upgrade wait path.
+        mock_mgr.app_service_exists.return_value = True
         mock_poll.return_value = {
             "url": "my-app.snowflakecomputing.app",
             "is_upgrading": "false",
@@ -3956,12 +4231,11 @@ class TestDeployCommand:
         with change_directory(tmp_path):
             _write_snowflake_app_yml(tmp_path)
             _reset_command_metrics()
-            result = runner.invoke(["app", "deploy", "--deploy-only"])
+            result = runner.invoke(["app", "deploy", "--deploy-only", "--upgrade"])
             assert result.exit_code == 0, result.output
-            create_span = _get_completed_span("snowflake_app.deploy_service.create")
             upgrade_span = _get_completed_span("snowflake_app.deploy_service.upgrade")
-            assert create_span[CLIMetricsSpan.ERROR_KEY] is None
             assert upgrade_span[CLIMetricsSpan.ERROR_KEY] is None
+            mock_mgr.create_app_service.assert_not_called()
 
         _, kwargs = mock_poll.call_args
         assert (
@@ -4043,6 +4317,7 @@ class TestDeployCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.workspace_last_subdirectory_uri.return_value = (
             _WORKSPACE_BUILD_SOURCE_URI
         )
@@ -4183,6 +4458,7 @@ class TestDeployCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.workspace_last_subdirectory_uri.return_value = (
             _WORKSPACE_BUILD_SOURCE_URI
         )
@@ -4284,6 +4560,7 @@ class TestDeployCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.workspace_last_subdirectory_uri.return_value = (
             _WORKSPACE_BUILD_SOURCE_URI
         )
@@ -4383,6 +4660,7 @@ class TestDeployCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.stage_exists.return_value = False
         mock_mgr.artifact_repo_exists.return_value = False
         mock_mgr.build_app_artifact_repo.return_value = (
@@ -4481,6 +4759,7 @@ class TestDeployCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.workspace_last_subdirectory_uri.return_value = (
             _WORKSPACE_BUILD_SOURCE_URI
         )
@@ -4585,6 +4864,7 @@ class TestDeployCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.workspace_last_subdirectory_uri.return_value = (
             _WORKSPACE_BUILD_SOURCE_URI
         )
@@ -4669,6 +4949,7 @@ class TestDeployCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.stage_exists.return_value = False
 
         from tests_common import change_directory
@@ -4734,6 +5015,7 @@ class TestDeployCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.workspace_last_subdirectory_uri.return_value = (
             _WORKSPACE_BUILD_SOURCE_URI
         )
@@ -4804,6 +5086,7 @@ class TestDeployCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_poll.return_value = {
             "url": "my-app.snowflakecomputing.app",
             "is_upgrading": "false",
@@ -4995,6 +5278,7 @@ class TestDeployCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = True
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.workspace_last_subdirectory_uri.return_value = (
             _WORKSPACE_BUILD_SOURCE_URI
         )
@@ -5098,6 +5382,7 @@ class TestDeployCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = True
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.workspace_last_subdirectory_uri.return_value = (
             _WORKSPACE_BUILD_SOURCE_URI
         )
@@ -5204,6 +5489,7 @@ class TestDeployCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = True
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = True
+        mock_mgr.app_service_exists.return_value = False
         mock_mgr.workspace_last_subdirectory_uri.return_value = (
             _WORKSPACE_BUILD_SOURCE_URI
         )

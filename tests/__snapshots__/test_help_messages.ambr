@@ -199,6 +199,14 @@
   |                                                    build phase has already   |
   |                                                    completed). Skips the     |
   |                                                    upload and build phases.  |
+  | --upgrade                                          (Snowflake App Runtime    |
+  |                                                    only) Upgrade the         |
+  |                                                    existing application      |
+  |                                                    service instead of        |
+  |                                                    creating a new one.       |
+  |                                                    Required when an app      |
+  |                                                    service with the same     |
+  |                                                    name already exists.      |
   | --package-entity-id                          TEXT  (Native App only) The ID  |
   |                                                    of the package entity on  |
   |                                                    which to operate when the |

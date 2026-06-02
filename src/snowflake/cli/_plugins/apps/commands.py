@@ -223,6 +223,23 @@ def snowflake_app_setup(
 
     resolved_values = {k: v[0] for k, v in resolved.items()}
 
+    # ── Warn on an existing app service with the same FQN ─────────────
+    # The generated project targets ``<database>.<schema>.<app_name>``. If an
+    # app service already lives at that FQN, ``snow app deploy`` would refuse
+    # to recreate it, so surface this now while the user can still pick a
+    # different name or location.
+    with metrics.span("snowflake_app.setup.check_existing_service"):
+        existing_service_fqn = app_fqn(
+            database=resolved_values["database"],
+            schema=resolved_values["schema"],
+            name=resolved_app_name,
+        )
+        if manager.app_service_exists(existing_service_fqn):
+            cli_console.warning(
+                f"An app service named {existing_service_fqn.identifier} already exists. "
+                "To update it, deploy with 'snow app deploy --upgrade'."
+            )
+
     if not dry_run:
         use_workspace = resolved["database"][1] == SOURCE_DEFAULT
         project_file.write_text(
@@ -441,6 +458,7 @@ def snowflake_app_deploy(
     upload_only: bool,
     build_only: bool,
     deploy_only: bool,
+    upgrade: bool,
 ) -> CommandResult:
     """Build and deploy a Snowflake App Runtime through upload, build, and deploy phases."""
     phase_flags = sum((upload_only, build_only, deploy_only))
@@ -560,6 +578,28 @@ def snowflake_app_deploy(
 
     stage_manager = StageManager()
     metrics = get_cli_context().metrics
+
+    # ── Upgrade gating ────────────────────────────────────────────────
+    # The upgrade path (ALTER APPLICATION SERVICE ... UPGRADE) is only taken
+    # when the user explicitly passes ``--upgrade``. Resolve this up front,
+    # before any upload or build work, so we can fail fast when the request
+    # and the current account state disagree. The check is only meaningful
+    # for runs that reach the deploy phase.
+    should_upgrade = False
+    if run_deploy:
+        with metrics.span("snowflake_app.deploy.check_existing_service"):
+            service_already_exists = manager.app_service_exists(service_fqn)
+        if service_already_exists and not upgrade:
+            raise CliError(
+                f"Application service {service_fqn.identifier} already exists. "
+                "Re-run with --upgrade to upgrade the existing app service."
+            )
+        if upgrade and not service_already_exists:
+            raise CliError(
+                f"No existing application service {service_fqn.identifier} to upgrade. "
+                "Remove --upgrade to create a new app service."
+            )
+        should_upgrade = upgrade
 
     # ── Upload phase ──────────────────────────────────────────────────
 
@@ -711,12 +751,29 @@ def snowflake_app_deploy(
 
     eai_list = [build_eai] if build_eai else None
 
-    did_upgrade = False
+    did_upgrade = should_upgrade
     with metrics.span("snowflake_app.deploy_service"):
-        cli_console.step("Creating application service...")
-        try:
-            with metrics.span("snowflake_app.deploy_service.create") as create_span:
-                try:
+        if should_upgrade:
+            cli_console.step(
+                f"Application service {app_name} already exists. Upgrading..."
+            )
+            try:
+                with metrics.span("snowflake_app.deploy_service.upgrade"):
+                    manager.upgrade_app_service(
+                        service_fqn=service_fqn,
+                        version="LATEST",
+                    )
+            except ProgrammingError as upgrade_error:
+                _log_service_logs(manager, service_fqn)
+                raise CliError(
+                    "Deployment failed while upgrading application service "
+                    f"'{service_fqn.identifier}': {upgrade_error}. "
+                    "Verify privileges for ALTER APPLICATION SERVICE and access to referenced objects."
+                ) from upgrade_error
+        else:
+            cli_console.step("Creating application service...")
+            try:
+                with metrics.span("snowflake_app.deploy_service.create"):
                     manager.create_app_service(
                         service_fqn=service_fqn,
                         artifact_repo_fqn=artifact_repo_fqn_str,
@@ -727,36 +784,7 @@ def snowflake_app_deploy(
                         external_access_integrations=eai_list,
                         comment=app_comment,
                     )
-                except ProgrammingError as e:
-                    # "Already exists" is the expected re-deploy path: the
-                    # outer handler dispatches to ALTER ... UPGRADE. Finish
-                    # the Create span successfully so telemetry doesn't
-                    # double-count every redeploy as a ProgrammingError on
-                    # this span; the recovery is recorded by
-                    # ``deploy_service.upgrade`` instead.
-                    if e.errno == 2002 and "already exists" in str(e).lower():
-                        create_span.finish()
-                    raise
-        except ProgrammingError as e:
-            if e.errno == 2002 and "already exists" in str(e).lower():
-                cli_console.step(
-                    f"Application service {app_name} already exists. Upgrading..."
-                )
-                try:
-                    with metrics.span("snowflake_app.deploy_service.upgrade"):
-                        manager.upgrade_app_service(
-                            service_fqn=service_fqn,
-                            version="LATEST",
-                        )
-                except ProgrammingError as upgrade_error:
-                    _log_service_logs(manager, service_fqn)
-                    raise CliError(
-                        "Deployment failed while upgrading application service "
-                        f"'{service_fqn.identifier}': {upgrade_error}. "
-                        "Verify privileges for ALTER APPLICATION SERVICE and access to referenced objects."
-                    ) from upgrade_error
-                did_upgrade = True
-            else:
+            except ProgrammingError as e:
                 _log_service_logs(manager, service_fqn)
                 raise CliError(
                     "Deployment failed while creating application service "

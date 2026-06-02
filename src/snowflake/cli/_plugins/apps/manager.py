@@ -964,6 +964,27 @@ class SnowflakeAppManager(SqlExecutionMixin):
             query += f"\nTO VERSION {version}"
         self.execute_query(query)
 
+    def app_service_exists(self, service_fqn: FQN) -> bool:
+        """Return True when an app service with this FQN already exists.
+
+        Unlike :meth:`is_application_service` (which distinguishes between an
+        application service and a legacy service and defaults to ``True`` when
+        type detection fails), this method answers the narrower question of
+        whether *any* service object with the given FQN is present. It returns
+        ``False`` when nothing exists so callers can gate the deploy upgrade
+        path on an explicit, positive existence check.
+        """
+        try:
+            if self.describe_app_service(service_fqn):
+                return True
+        except ProgrammingError:
+            log.debug(
+                "DESCRIBE APPLICATION SERVICE failed for %s",
+                service_fqn,
+                exc_info=True,
+            )
+        return _object_exists("service", service_fqn.identifier)
+
     def is_application_service(self, service_fqn: FQN) -> bool:
         """Return True when settings should use the ``app-service`` URL segment.
 
