@@ -431,45 +431,6 @@ def _bundle_app_artifacts(project_paths: ProjectPaths, artifacts) -> BundleMap:
     return bundle_map
 
 
-_EXPOSE_SIMPLE_RE = re.compile(
-    r"^\s*EXPOSE\s+(\d+)(?:/(?:tcp|udp))?\s*$", re.IGNORECASE
-)
-_EXPOSE_ANY_RE = re.compile(r"^\s*EXPOSE\s+", re.IGNORECASE)
-
-# Sentinel returned when a Dockerfile contains an EXPOSE directive that uses
-# unsupported syntax (multi-port or range).  Callers should check for this
-# value explicitly rather than treating it as a valid port number.
-EXPOSE_UNSUPPORTED_SYNTAX: int = 0
-
-
-def _find_dockerfile_expose_port(bundle_root: Path) -> Optional[int]:
-    """Parse the Dockerfile in *bundle_root* and return the first EXPOSEd port.
-
-    Returns ``None`` when no ``Dockerfile`` exists or it contains no EXPOSE
-    directive.  Returns :data:`EXPOSE_UNSUPPORTED_SYNTAX` (``0``) when an
-    EXPOSE line is present but uses multi-port (``EXPOSE 3000 8080``) or
-    range (``EXPOSE 3000-3005``) syntax which is not supported.
-
-    Only simple ``EXPOSE <number>`` lines are recognised (the ``/tcp`` and
-    ``/udp`` suffixes are stripped).
-    """
-    dockerfile = bundle_root / "Dockerfile"
-    if not dockerfile.exists():
-        return None
-
-    lines = dockerfile.read_text().splitlines()
-    for line in lines:
-        m = _EXPOSE_SIMPLE_RE.match(line)
-        if m:
-            return int(m.group(1))
-
-    for line in lines:
-        if _EXPOSE_ANY_RE.match(line):
-            return EXPOSE_UNSUPPORTED_SYNTAX
-
-    return None
-
-
 class SnowflakeAppManager(SqlExecutionMixin):
     """Manager for Snowflake App Runtime operations.
 
@@ -537,22 +498,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
             cursor_class=DictCursor,
         )
         return cursor.fetchone() is not None
-
-    def role_has_bind_service_endpoint(self, role: str) -> bool:
-        """Return True if *role* has the account-level BIND SERVICE ENDPOINT privilege."""
-        from snowflake.cli.api.project.util import to_string_literal
-
-        safe_role = to_string_literal(role)
-        cursor = self.execute_query(
-            f"SHOW GRANTS TO ROLE IDENTIFIER({safe_role})", cursor_class=DictCursor
-        )
-        for row in cursor:
-            if (
-                row.get("privilege") == "BIND SERVICE ENDPOINT"
-                and row.get("granted_on") == "ACCOUNT"
-            ):
-                return True
-        return False
 
     def stage_exists(self, stage_fqn: FQN) -> bool:
         """Check if a stage exists."""
@@ -1064,16 +1009,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
         normalised = {k.lower(): v for k, v in row.items()}
         log.debug("DESCRIBE APPLICATION SERVICE %s: %s", service_fqn, normalised)
         return normalised
-
-    def get_app_service_logs(self, service_name: str) -> str:
-        """Get logs for an application service."""
-        from snowflake.cli.api.project.util import to_string_literal
-
-        cursor = self.execute_query(
-            f"CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS({to_string_literal(service_name)})"
-        )
-        row = cursor.fetchone()
-        return row[0] if row else ""
 
     def get_build_job_logs(self, build_job_fqn: FQN) -> list[str]:
         """Fetch build logs for an artifact-repo build job."""
