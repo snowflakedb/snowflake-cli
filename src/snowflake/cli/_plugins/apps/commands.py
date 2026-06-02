@@ -39,6 +39,7 @@ from snowflake.cli._plugins.apps.manager import (
     _poll_until,
     _resolve_deploy_defaults,
     _resolve_entity_id,
+    _ts,
     app_fqn,
     perform_bundle,
 )
@@ -677,7 +678,7 @@ def snowflake_app_deploy(
                     )
                 artifact_build_job_fqn = FQN.from_string(match.group(1))
                 cli_console.step(
-                    f"Waiting for artifact repo build to complete: "
+                    f"[{_ts()}] Waiting for artifact repo build to complete: "
                     f"{artifact_build_job_fqn}..."
                 )
 
@@ -776,7 +777,7 @@ def snowflake_app_deploy(
     try:
         with metrics.span("snowflake_app.endpoint_provision"):
             if did_upgrade:
-                cli_console.step("Waiting for upgrade to complete...")
+                cli_console.step(f"[{_ts()}] Waiting for upgrade to complete...")
                 with metrics.span("snowflake_app.endpoint_provision.wait_for_upgrade"):
                     desc = _poll_until(
                         poll_fn=lambda: manager.describe_app_service(service_fqn),
@@ -792,7 +793,9 @@ def snowflake_app_deploy(
                         ),
                     )
             else:
-                cli_console.step("Waiting for application service endpoint...")
+                cli_console.step(
+                    f"[{_ts()}] Waiting for application service endpoint..."
+                )
                 with metrics.span("snowflake_app.endpoint_provision.wait_for_endpoint"):
                     desc = _poll_until(
                         poll_fn=lambda: manager.describe_app_service(service_fqn),

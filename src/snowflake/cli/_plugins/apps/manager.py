@@ -119,6 +119,11 @@ MANAGED_COMPUTE_POOL_FALLBACK_PARAM = (
 T = TypeVar("T")
 
 
+def _ts() -> str:
+    """Return the current local time as ``HH:MM:SS`` for polling message prefixes."""
+    return time.strftime("%H:%M:%S")
+
+
 def _poll_until(
     poll_fn: Callable[[], T],
     *,
@@ -170,7 +175,7 @@ def _poll_until(
             time.sleep(interval_seconds)
 
         result = poll_fn()
-        cli_console.step(f"Status: {format_status(result)}")
+        cli_console.step(f"[{_ts()}] Status: {format_status(result)}")
 
         if is_done is not None:
             # ── Predicate mode ────────────────────────────────────
