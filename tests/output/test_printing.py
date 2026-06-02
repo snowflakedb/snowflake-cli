@@ -233,6 +233,23 @@ def test_print_multi_results_table(capsys, _multiple_results):
     )
 
 
+def test_print_many_columns_table_is_legible(capsys):
+    # Regression: with many columns and a non-TTY stdout, rich's default width
+    # of 80 used to squash each cell to 0-1 characters, producing a series of
+    # "|" separators with no content. See GH#2725 / SNOW-2917443.
+    ncols = 30
+    row = {f"col_{i}": f"value_{i}" for i in range(ncols)}
+    collection = CollectionResult([row])
+
+    print_result(collection, output_format=OutputFormat.TABLE)
+    output = get_output(capsys)
+
+    # Each column's header/data text must actually appear in the rendered table.
+    for i in range(ncols):
+        assert f"col_{i}" in output, f"Missing column header col_{i}"
+        assert f"value_{i}" in output, f"Missing cell value value_{i}"
+
+
 def test_print_multi_results_csv(capsys, _multiple_results):
     print_result(_multiple_results, output_format=OutputFormat.CSV)
 
