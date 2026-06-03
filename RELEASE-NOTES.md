@@ -26,6 +26,7 @@
 * Upgraded `snowflake-connector-python` from 4.5.0 to 4.6.0.
 * `snow dcm list-deployments` and `snow dcm drop-deployment` now wrap the project name in `IDENTIFIER(...)`, matching every other DCM subcommand. Fully-qualified and quoted project names are now handled consistently.
 * Fixed `snow sql` table output rendering as a series of `|` characters when selecting many columns into a non-terminal destination (e.g. piped or redirected output).
+* Fixed `snow sql` treating `&` inside words (e.g. `Principal&Interest` in a comment or semantic view synonym) as a SnowSQL template variable, which caused rendering to fail with `'Interest' is undefined`. The legacy `&var` template delimiter is now only recognised at the start of the input or after a non-word character.
 
 
 # v3.19.0
