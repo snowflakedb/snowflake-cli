@@ -27,6 +27,7 @@ from snowflake.cli._plugins.dcm.progress import DeployProgressTracker
 from snowflake.cli._plugins.dcm.reporters import (
     AnalyzeErrorsReporter,
     AnalyzeReporter,
+    DependenciesReporter,
     PlanReporter,
     RefreshReporter,
     TestReporter,
@@ -565,6 +566,55 @@ def analyze(
         )
 
     reporter = AnalyzeErrorsReporter(save_output=save_output)
+    return reporter.process(result)
+
+
+@app.command(
+    requires_connection=True,
+    hidden=not FeatureFlag.ENABLE_DCM_EARLY_ACCESS.is_enabled(),
+)
+def dependencies(
+    identifier: Optional[FQN] = optional_dcm_identifier,
+    from_location: SecurePath = from_option,
+    variables: Optional[List[str]] = variables_flag,
+    target: Optional[str] = target_option,
+    save_output: bool = save_output_option,
+    **options,
+):
+    """
+    Analyzes a DCM Project and generates a dependency diagram.
+
+    The diagram is written as a Mermaid flowchart in a Markdown file that can
+    be opened in your IDE's Markdown preview to explore object dependencies.
+    """
+    clear_command_artifacts("dependencies")
+
+    context = _resolve_context_with_required_manifest(from_location, identifier, target)
+    project_id = context.project_identifier
+
+    manager = DCMProjectManager()
+    tracker = DeployProgressTracker(conn=manager.connection, operation="analyze")
+    with tracker.session():
+        effective_stage = manager.sync_local_files(
+            project_identifier=project_id,
+            source_directory=str(from_location.path),
+            progress=tracker,
+        )
+        result = tracker.run_loader_phase(
+            lambda: manager.raw_analyze(
+                project_identifier=project_id,
+                configuration=context.configuration,
+                from_stage=effective_stage,
+                variables=variables,
+                save_output=save_output,
+                command_name="dependencies",
+            ),
+            phase_name="ANALYZE",
+        )
+
+    reporter = DependenciesReporter(
+        project_identifier=project_id, save_output=save_output
+    )
     return reporter.process(result)
 
 

@@ -42,6 +42,11 @@ def clear_command_artifacts(command_name: str) -> None:
     if json_file.exists():
         json_file.unlink()
 
+    # Some commands (e.g. ``dependencies``) also emit a Markdown artifact.
+    markdown_file = output_dir / f"{command_name}.md"
+    if markdown_file.exists():
+        markdown_file.unlink()
+
     artifacts_dir = output_dir / command_name
     if artifacts_dir.exists():
         artifacts_dir.rmdir(recursive=True)
@@ -152,7 +157,13 @@ def _load_debug_data(command_name: str, file_number: int):
         data = json.load(f)
 
     if isinstance(data, list) and len(data) > 0:
-        if command_name in ("test", "refresh", "analyze"):
+        if command_name in (
+            "test",
+            "refresh",
+            "analyze",
+            "analyze-errors",
+            "dependencies",
+        ):
             data = data[0]
 
     return data
