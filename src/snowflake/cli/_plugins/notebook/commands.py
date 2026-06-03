@@ -16,6 +16,7 @@ import logging
 
 import typer
 from click import UsageError
+from snowflake.cli._plugins.notebook.code.commands import app as code_app
 from snowflake.cli._plugins.notebook.manager import NotebookManager
 from snowflake.cli._plugins.notebook.notebook_entity_model import NotebookEntityModel
 from snowflake.cli._plugins.notebook.types import NotebookStagePath
@@ -42,6 +43,7 @@ app = SnowTyperFactory(
     name="notebook",
     help="Manages notebooks in Snowflake.",
 )
+app.add_typer(code_app)
 log = logging.getLogger(__name__)
 
 NOTEBOOK_IDENTIFIER = identifier_argument(sf_object="notebook", example="MY_NOTEBOOK")
