@@ -469,11 +469,15 @@ def _connection_test_with_diag(
         "tested": report.tested,
         "network_policy": policy.to_dict(),
     }
-    connection_summary["Diagnostic"] = diagnostic_payload
 
     if not is_table_output:
+        # JSON / CSV output gets the structured payload nested in the
+        # connection summary so consumers can read everything off one object.
+        connection_summary["Diagnostic"] = diagnostic_payload
         return ObjectResult(connection_summary)
 
+    # TABLE output: keep the connection summary clean. The per-endpoint
+    # table, network policy block, and summary line below carry the data.
     results = MultipleResults()
     results.add(ObjectResult(connection_summary))
     tested_rows = [
@@ -491,23 +495,20 @@ def _connection_test_with_diag(
     if tested_rows:
         results.add(CollectionResult(tested_rows))
     if policy.has_policy():
-        results.add(
-            ObjectResult(
-                {
-                    "Effective network policy": policy.effective_policy,
-                    "Source": "user" if policy.user_policy else "account",
-                    "Account-level": policy.account_policy or "(none)",
-                    "User-level": policy.user_policy or "(none)",
-                    "Current IP": policy.current_ip or "(unknown)",
-                    "Allowed IPs": ", ".join(policy.allowed_ip_list) or "(none)",
-                    "Blocked IPs": ", ".join(policy.blocked_ip_list) or "(none)",
-                    "Allowed network rules": ", ".join(policy.allowed_rule_list)
-                    or "(none)",
-                    "Blocked network rules": ", ".join(policy.blocked_rule_list)
-                    or "(none)",
-                }
-            )
-        )
+        policy_summary = {
+            "Effective network policy": policy.effective_policy,
+            "Source": "user" if policy.user_policy else "account",
+            "Account-level": policy.account_policy or "(none)",
+            "User-level": policy.user_policy or "(none)",
+            "Current IP": policy.current_ip or "(unknown)",
+            "Allowed IPs": ", ".join(policy.allowed_ip_list) or "(none)",
+            "Blocked IPs": ", ".join(policy.blocked_ip_list) or "(none)",
+            "Allowed network rules": ", ".join(policy.allowed_rule_list) or "(none)",
+            "Blocked network rules": ", ".join(policy.blocked_rule_list) or "(none)",
+        }
+        if policy.error:
+            policy_summary["Note"] = policy.error
+        results.add(ObjectResult(policy_summary))
         if policy.rules:
             results.add(
                 CollectionResult(

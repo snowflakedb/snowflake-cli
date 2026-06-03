@@ -425,11 +425,14 @@ def _split_csv(value: Optional[str]) -> list[str]:
 
 def _describe_network_policy(
     conn: SnowflakeConnection, name: str, snapshot: NetworkPolicySnapshot
-) -> None:
-    """Populate snapshot.allowed_*/blocked_* lists from `DESC NETWORK POLICY <name>`."""
+) -> bool:
+    """Populate snapshot allow/block lists from `DESC NETWORK POLICY <name>`.
+
+    Returns True if the DESC succeeded (any row came back), False otherwise.
+    """
     rows = _safe_query(conn, f"DESC NETWORK POLICY IDENTIFIER('{name}')")
     if not rows:
-        return
+        return False
     by_name: dict[str, str] = {}
     for row in rows:
         prop = row.get("name") or row.get("NAME")
@@ -440,6 +443,7 @@ def _describe_network_policy(
     snapshot.blocked_ip_list = _split_csv(by_name.get("BLOCKED_IP_LIST"))
     snapshot.allowed_rule_list = _split_csv(by_name.get("ALLOWED_NETWORK_RULE_LIST"))
     snapshot.blocked_rule_list = _split_csv(by_name.get("BLOCKED_NETWORK_RULE_LIST"))
+    return True
 
 
 def _describe_network_rule(
@@ -476,7 +480,9 @@ def collect_network_policy(
     """
     snapshot = NetworkPolicySnapshot()
 
-    ip_rows = _safe_query(conn, "SELECT SYSTEM$GET_CLIENT_IP() AS IP")
+    # CURRENT_IP_ADDRESS() is the documented function. SYSTEM$GET_CLIENT_IP
+    # exists in some internal deployments but is not generally available.
+    ip_rows = _safe_query(conn, "SELECT CURRENT_IP_ADDRESS() AS IP")
     if ip_rows:
         snapshot.current_ip = _scalar_value(ip_rows, "IP")
 
@@ -493,7 +499,12 @@ def collect_network_policy(
     snapshot.effective_policy = snapshot.user_policy or snapshot.account_policy
 
     if snapshot.effective_policy:
-        _describe_network_policy(conn, snapshot.effective_policy, snapshot)
+        described = _describe_network_policy(conn, snapshot.effective_policy, snapshot)
+        if not described:
+            snapshot.error = (
+                f"Could not DESC NETWORK POLICY {snapshot.effective_policy} "
+                "(role lacks privilege?). Allowed/blocked lists not shown."
+            )
         for rule_name in (
             *snapshot.allowed_rule_list,
             *snapshot.blocked_rule_list,

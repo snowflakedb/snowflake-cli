@@ -342,7 +342,7 @@ def test_collect_network_policy_user_overrides_account():
     conn = mock.MagicMock()
 
     def execute_string(sql, cursor_class=None):
-        if "SYSTEM$GET_CLIENT_IP" in sql:
+        if "CURRENT_IP_ADDRESS" in sql:
             return (_scripted_cursor([{"IP": "1.2.3.4"}]),)
         if "NETWORK_POLICY' IN ACCOUNT" in sql:
             return (_scripted_cursor([{"value": "ACCT_POLICY"}]),)
