@@ -28,6 +28,11 @@ from click import (  # type: ignore
 )
 from click.core import ParameterSource  # type: ignore
 from snowflake import connector
+from snowflake.cli._plugins.connection.diagnostic import (
+    collect_network_policy,
+    run_diagnostic,
+    status_line,
+)
 from snowflake.cli._plugins.connection.util import (
     strip_if_value_present,
 )
@@ -417,8 +422,114 @@ def test(
         result["Diag Report Location"] = os.path.join(
             conn_ctx.diag_log_path, "SnowflakeConnectionTestReport.txt"
         )
+        return _connection_test_with_diag(conn, conn_ctx, result)
 
     return ObjectResult(result)
+
+
+def _connection_test_with_diag(
+    conn,
+    conn_ctx,
+    connection_summary: dict,
+) -> CommandResult:
+    """Run the SnowCD-style per-endpoint diagnostic and assemble the full result.
+
+    Streams `Checking <TYPE>: <host> <icon>` lines for human (TABLE) output and
+    appends a per-endpoint table plus a `Results: ...` summary line. For JSON
+    output the streaming is suppressed and the structured payload carries the
+    diagnostic data instead.
+    """
+    from snowflake.cli.api.output.formats import OutputFormat
+    from snowflake.cli.api.output.types import MultipleResults
+
+    is_table_output = get_cli_context().output_format == OutputFormat.TABLE
+
+    if is_table_output:
+        cli_console.message("Fetching allowlist from Snowflake...")
+
+    def _stream(check):
+        if is_table_output:
+            cli_console.message(status_line(check))
+
+    report = run_diagnostic(
+        conn=conn,
+        allowlist_path=conn_ctx.diag_allowlist_path,
+        on_check=_stream,
+    )
+
+    if is_table_output:
+        cli_console.message("Inspecting network policies...")
+    policy = collect_network_policy(conn, user=conn.user)
+
+    diagnostic_payload = {
+        "checks": [c.to_dict() for c in report.checks],
+        "healthy": report.healthy,
+        "unhealthy": report.unhealthy,
+        "skipped": report.skipped,
+        "tested": report.tested,
+        "network_policy": policy.to_dict(),
+    }
+    connection_summary["Diagnostic"] = diagnostic_payload
+
+    if not is_table_output:
+        return ObjectResult(connection_summary)
+
+    results = MultipleResults()
+    results.add(ObjectResult(connection_summary))
+    tested_rows = [
+        {
+            "url": c.host,
+            "type": c.type,
+            "status": c.status,
+            "latency_ms": c.latency_ms if c.latency_ms is not None else "",
+            "issuer": c.cert_issuer or "",
+            "cert_expires": c.cert_expires or "",
+        }
+        for c in report.checks
+        if c.status != "Skipped"
+    ]
+    if tested_rows:
+        results.add(CollectionResult(tested_rows))
+    if policy.has_policy():
+        results.add(
+            ObjectResult(
+                {
+                    "Effective network policy": policy.effective_policy,
+                    "Source": "user" if policy.user_policy else "account",
+                    "Account-level": policy.account_policy or "(none)",
+                    "User-level": policy.user_policy or "(none)",
+                    "Current IP": policy.current_ip or "(unknown)",
+                    "Allowed IPs": ", ".join(policy.allowed_ip_list) or "(none)",
+                    "Blocked IPs": ", ".join(policy.blocked_ip_list) or "(none)",
+                    "Allowed network rules": ", ".join(policy.allowed_rule_list)
+                    or "(none)",
+                    "Blocked network rules": ", ".join(policy.blocked_rule_list)
+                    or "(none)",
+                }
+            )
+        )
+        if policy.rules:
+            results.add(
+                CollectionResult(
+                    [
+                        {
+                            "rule": r.name,
+                            "mode": r.mode,
+                            "type": r.type,
+                            "values": ", ".join(r.values),
+                        }
+                        for r in policy.rules
+                    ]
+                )
+            )
+    elif policy.current_ip:
+        results.add(
+            MessageResult(
+                f"No network policy in effect (current IP: {policy.current_ip})."
+            )
+        )
+    results.add(MessageResult(report.summary_line()))
+    return results
 
 
 @app.command(requires_connection=False)
