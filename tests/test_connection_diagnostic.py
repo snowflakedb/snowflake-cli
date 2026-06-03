@@ -105,6 +105,74 @@ def test_load_allowlist_from_query_when_no_path():
     assert load_allowlist(conn, None) == ALLOWLIST_FIXTURE
 
 
+def test_load_allowlist_merges_privatelink_entries():
+    """SYSTEM$ALLOWLIST_PRIVATELINK() entries are appended after the public set."""
+    pl_extra = [
+        {
+            "type": "SNOWFLAKE_DEPLOYMENT",
+            "host": "acct.privatelink.snowflakecomputing.com",
+            "port": 443,
+        }
+    ]
+
+    def execute_string(sql, cursor_class=None):
+        cur = mock.MagicMock()
+        if "PRIVATELINK" in sql:
+            cur.fetchone.return_value = {
+                "SYSTEM$ALLOWLIST_PRIVATELINK()": json.dumps(pl_extra)
+            }
+        else:
+            cur.fetchone.return_value = {
+                "SYSTEM$ALLOWLIST()": json.dumps(ALLOWLIST_FIXTURE)
+            }
+        return (cur,)
+
+    conn = mock.MagicMock()
+    conn.execute_string.side_effect = execute_string
+    out = load_allowlist(conn, None)
+    assert out == ALLOWLIST_FIXTURE + pl_extra
+
+
+def test_load_allowlist_dedupes_overlap_with_privatelink():
+    """A (type, host, port) appearing in both lists collapses to one entry."""
+    overlap = ALLOWLIST_FIXTURE[0]  # SNOWFLAKE_DEPLOYMENT acct...
+
+    def execute_string(sql, cursor_class=None):
+        cur = mock.MagicMock()
+        if "PRIVATELINK" in sql:
+            cur.fetchone.return_value = {
+                "SYSTEM$ALLOWLIST_PRIVATELINK()": json.dumps([overlap])
+            }
+        else:
+            cur.fetchone.return_value = {
+                "SYSTEM$ALLOWLIST()": json.dumps(ALLOWLIST_FIXTURE)
+            }
+        return (cur,)
+
+    conn = mock.MagicMock()
+    conn.execute_string.side_effect = execute_string
+    out = load_allowlist(conn, None)
+    # Same length — the duplicate from PL was dropped.
+    assert len(out) == len(ALLOWLIST_FIXTURE)
+
+
+def test_load_allowlist_silently_skips_failing_privatelink_query():
+    """If SYSTEM$ALLOWLIST_PRIVATELINK is unavailable the public list is still returned."""
+
+    def execute_string(sql, cursor_class=None):
+        if "PRIVATELINK" in sql:
+            raise RuntimeError("Function not enabled in this deployment")
+        cur = mock.MagicMock()
+        cur.fetchone.return_value = {
+            "SYSTEM$ALLOWLIST()": json.dumps(ALLOWLIST_FIXTURE)
+        }
+        return (cur,)
+
+    conn = mock.MagicMock()
+    conn.execute_string.side_effect = execute_string
+    assert load_allowlist(conn, None) == ALLOWLIST_FIXTURE
+
+
 def test_check_endpoint_skips_wildcards():
     result = check_endpoint("*.x.com", 443, "STAGE")
     assert result.status == "Skipped"
@@ -333,3 +401,64 @@ def test_collect_network_policy_survives_query_errors():
     snap = collect_network_policy(conn, user="alice")
     assert isinstance(snap, NetworkPolicySnapshot)
     assert snap.has_policy() is False
+
+
+def test_resolve_cafile_prefers_requests_ca_bundle(tmp_path, monkeypatch):
+    from snowflake.cli._plugins.connection.diagnostic import _resolve_cafile
+
+    primary = tmp_path / "primary.pem"
+    primary.write_text("primary")
+    secondary = tmp_path / "secondary.pem"
+    secondary.write_text("secondary")
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", str(primary))
+    monkeypatch.setenv("SSL_CERT_FILE", str(secondary))
+    assert _resolve_cafile() == str(primary)
+
+
+def test_resolve_cafile_falls_back_to_ssl_cert_file(tmp_path, monkeypatch):
+    from snowflake.cli._plugins.connection.diagnostic import _resolve_cafile
+
+    bundle = tmp_path / "bundle.pem"
+    bundle.write_text("bundle")
+    monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
+    monkeypatch.setenv("SSL_CERT_FILE", str(bundle))
+    assert _resolve_cafile() == str(bundle)
+
+
+def test_resolve_cafile_returns_none_when_env_points_at_missing_file(monkeypatch):
+    from snowflake.cli._plugins.connection.diagnostic import _resolve_cafile
+
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", "/nonexistent/ca.pem")
+    monkeypatch.delenv("SSL_CERT_FILE", raising=False)
+    assert _resolve_cafile() is None
+
+
+def test_resolve_cafile_returns_none_when_unset(monkeypatch):
+    from snowflake.cli._plugins.connection.diagnostic import _resolve_cafile
+
+    monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
+    monkeypatch.delenv("SSL_CERT_FILE", raising=False)
+    assert _resolve_cafile() is None
+
+
+def test_probe_tls_passes_cafile_to_ssl_context(tmp_path, monkeypatch):
+    """_probe_tls plumbs the resolved CA bundle into ssl.create_default_context."""
+    bundle = tmp_path / "bundle.pem"
+    bundle.write_text("bundle")
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", str(bundle))
+
+    fake_context = mock.MagicMock()
+    fake_ssock = mock.MagicMock()
+    fake_ssock.__enter__ = lambda self: fake_ssock
+    fake_ssock.__exit__ = lambda self, *a: False
+    fake_ssock.getpeercert.return_value = {}
+    fake_context.wrap_socket.return_value = fake_ssock
+
+    with mock.patch(
+        "snowflake.cli._plugins.connection.diagnostic.ssl.create_default_context",
+        return_value=fake_context,
+    ) as create_default_context:
+        from snowflake.cli._plugins.connection.diagnostic import _probe_tls
+
+        _probe_tls(mock.MagicMock(), "x.com")
+    create_default_context.assert_called_once_with(cafile=str(bundle))

@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import socket
 import ssl
 import time
@@ -87,13 +88,56 @@ class DiagnosticReport:
         )
 
 
+ALLOWLIST_PRIVATELINK_QUERY = "SELECT SYSTEM$ALLOWLIST_PRIVATELINK()"
+
+
+def _query_allowlist(conn: SnowflakeConnection, sql: str, key: str) -> list[dict]:
+    """Run an allowlist-returning system function and parse its single JSON cell.
+
+    Returns `[]` on any failure (permission denied, function not present in
+    the deployment, malformed JSON). The caller must not let this raise.
+    """
+    try:
+        *_, cursor = conn.execute_string(sql, cursor_class=DictCursor)
+        row = cursor.fetchone()
+        if not row:
+            return []
+        raw = row.get(key)
+        if not raw:
+            return []
+        parsed = json.loads(raw)
+        return parsed if isinstance(parsed, list) else []
+    except Exception:
+        log.debug("Allowlist query failed: %s", sql, exc_info=True)
+        return []
+
+
+def _dedupe_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Drop duplicate `(type, host, port)` triples, preserving first-seen order."""
+    seen: set[tuple[str, str, Any]] = set()
+    out: list[dict[str, Any]] = []
+    for e in entries:
+        key = (str(e.get("type", "")), str(e.get("host", "")), e.get("port"))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(e)
+    return out
+
+
 def load_allowlist(
     conn: SnowflakeConnection, allowlist_path: Optional[Path]
 ) -> list[dict[str, Any]]:
     """Return the raw allowlist as a list of `{type, host, port}` dicts.
 
     If `allowlist_path` is given, parse it as JSON and use it directly.
-    Otherwise call `SYSTEM$ALLOWLIST()` on the open connection.
+    Otherwise merge `SYSTEM$ALLOWLIST()` and `SYSTEM$ALLOWLIST_PRIVATELINK()`
+    on the open connection. PrivateLink entries are appended after the public
+    set; duplicate `(type, host, port)` triples are dropped. Either query may
+    fail (low-priv role, function unavailable in deployment) — failures are
+    silent and we return whatever we managed to collect, with the public
+    allowlist's failure handled by `run_diagnostic` (fall back to the
+    connection host) and the privatelink failure simply skipping that source.
     """
     if allowlist_path is not None:
         try:
@@ -108,9 +152,16 @@ def load_allowlist(
             )
         return payload
 
+    # Public allowlist: let exceptions propagate so run_diagnostic's
+    # fallback-to-conn.host branch fires when the role lacks privileges.
     *_, cursor = conn.execute_string(ALLOWLIST_QUERY, cursor_class=DictCursor)
-    row = cursor.fetchone()
-    return json.loads(row["SYSTEM$ALLOWLIST()"])
+    public = json.loads(cursor.fetchone()["SYSTEM$ALLOWLIST()"])
+    privatelink = _query_allowlist(
+        conn, ALLOWLIST_PRIVATELINK_QUERY, "SYSTEM$ALLOWLIST_PRIVATELINK()"
+    )
+    if not isinstance(public, list):
+        public = []
+    return _dedupe_entries([*public, *privatelink])
 
 
 def is_resolvable(host: str) -> bool:
@@ -127,12 +178,27 @@ def is_resolvable(host: str) -> bool:
     return True
 
 
+def _resolve_cafile() -> Optional[str]:
+    """Honour the same CA bundle env vars `snowflake-connector-python` reads.
+
+    `REQUESTS_CA_BUNDLE` wins (matches `requests` and the connector); falls
+    back to `SSL_CERT_FILE` (the OpenSSL convention). Returns `None` if
+    neither points at a readable file, in which case `ssl.create_default_context()`
+    will use the system trust store.
+    """
+    for var in ("REQUESTS_CA_BUNDLE", "SSL_CERT_FILE"):
+        path = os.environ.get(var)
+        if path and os.path.isfile(path):
+            return path
+    return None
+
+
 def _probe_tls(sock: socket.socket, host: str) -> tuple[Optional[str], Optional[str]]:
     """Wrap `sock` in TLS and return `(issuer, not_after)` from the peer cert.
 
     Caller is responsible for closing the underlying socket.
     """
-    context = ssl.create_default_context()
+    context = ssl.create_default_context(cafile=_resolve_cafile())
     with context.wrap_socket(sock, server_hostname=host) as ssock:
         cert: Any = ssock.getpeercert() or {}
     issuer_raw: Any = cert.get("issuer") or ()
