@@ -27,6 +27,7 @@
 * Upgraded `snowflake-connector-python` from 4.5.0 to 4.6.0.
 * `snow dcm list-deployments` and `snow dcm drop-deployment` now wrap the project name in `IDENTIFIER(...)`, matching every other DCM subcommand. Fully-qualified and quoted project names are now handled consistently.
 * Fixed `snow sql` table output rendering as a series of `|` characters when selecting many columns into a non-terminal destination (e.g. piped or redirected output).
+* `get_account_identifier()` and `snow spcs service build-image` now raise a clear, user-visible error when `CURRENT_ORGANIZATION_NAME()` / `CURRENT_ACCOUNT_NAME()` return no row or a NULL value, instead of a cryptic `TypeError: 'NoneType' object is not subscriptable` / `AttributeError: 'NoneType' object has no attribute 'lower'`.
 
 
 # v3.19.0

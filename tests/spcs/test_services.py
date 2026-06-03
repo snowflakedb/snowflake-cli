@@ -2110,9 +2110,8 @@ def normalize_query(query):
 
 
 # Tests for build_image command
-@patch("snowflake.cli._plugins.connection.util.get_account")
 @patch(EXECUTE_QUERY)
-def test_build_image(mock_execute_query, mock_get_account):
+def test_build_image(mock_execute_query):
     """Test build_image with all parameters."""
     job_service_name = "test_build_job"
     compute_pool = "test_pool"
@@ -2123,16 +2122,17 @@ def test_build_image(mock_execute_query, mock_get_account):
     build_context_path = "build_contexts/test"
     external_access_integrations = ["eai1", "eai2"]
 
-    # Mock connection responses
+    # Mock the shared get_account_identifier round-trip (ORG + ACCT in one row).
     mock_org_cursor = Mock()
-    mock_org_cursor.fetchone.return_value = {"CURRENT_ORGANIZATION_NAME()": "TEST_ORG"}
+    mock_org_cursor.fetchone.return_value = {
+        "ORG": "TEST_ORG",
+        "ACCT": "TEST_ACCOUNT",
+    }
     mock_conn = Mock()
     mock_conn.execute_string.return_value = (None, mock_org_cursor)
     mock_conn.database = None
     mock_conn.schema = None
     mock_conn.account = "test_account"
-
-    mock_get_account.return_value = "test_account"
 
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
@@ -2200,8 +2200,7 @@ def test_build_image(mock_execute_query, mock_get_account):
     assert result == cursor
 
 
-@patch("snowflake.cli._plugins.connection.util.get_account")
-def test_build_image_repository_validation(mock_get_account):
+def test_build_image_repository_validation():
     """Test build_image validates image repository format.
 
     FQN parsing behavior:
@@ -2212,14 +2211,15 @@ def test_build_image_repository_validation(mock_get_account):
     Note: It's impossible to have database present without schema.
     """
     mock_org_cursor = Mock()
-    mock_org_cursor.fetchone.return_value = {"CURRENT_ORGANIZATION_NAME()": "TEST_ORG"}
+    mock_org_cursor.fetchone.return_value = {
+        "ORG": "TEST_ORG",
+        "ACCT": "TEST_ACCOUNT",
+    }
     mock_conn = Mock()
     mock_conn.execute_string.return_value = (None, mock_org_cursor)
     mock_conn.database = None
     mock_conn.schema = None
     mock_conn.account = "test_account"
-
-    mock_get_account.return_value = "test_account"
 
     manager = ServiceManager(connection=mock_conn)
 

@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import yaml
-from snowflake.cli._plugins.connection.util import get_account
+from snowflake.cli._plugins.connection.util import get_account_identifier
 from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.spcs.common import (
@@ -332,15 +332,13 @@ class ServiceManager(SqlExecutionMixin):
             external_access_integrations: List of EAI names
             async_mode: Whether to run the build asynchronously
         """
-        # Get organization name
-        # Using execute_string (same as get_account) for consistency
-        *_, org_cursor = self._conn.execute_string(
-            "SELECT CURRENT_ORGANIZATION_NAME()", cursor_class=DictCursor
-        )
-        org_name = org_cursor.fetchone()["CURRENT_ORGANIZATION_NAME()"].lower()
-
-        # Get account name using existing utility function
-        account_name = get_account(self._conn)
+        # Resolve org/account via the shared helper — one round-trip, with a
+        # clear error if CURRENT_ORGANIZATION_NAME/CURRENT_ACCOUNT_NAME return
+        # NULL or no row (rather than an opaque ``TypeError: 'NoneType' is not
+        # subscriptable``).
+        account_identifier = get_account_identifier(self._conn)
+        org_name = account_identifier.organization_name.lower()
+        account_name = account_identifier.account_name.lower()
 
         # Parse the image repository using FQN utility
         # This handles [db.][schema.]repo_name format automatically
