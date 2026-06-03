@@ -135,6 +135,20 @@ def test_output_short_option(runner, tmp_path):
     assert "env" in payload["properties"]
 
 
+def test_output_file_missing_parent_raises(runner, tmp_path):
+    """Writing to a path under a nonexistent directory fails with a clean
+    ClickException rather than an unhandled FileNotFoundError."""
+    out = tmp_path / "nonexistent_dir" / "schema.json"
+    result = runner.invoke(
+        ["helpers", COMMAND, "--definition-version", "2", "-o", str(out)]
+    )
+    assert result.exit_code != 0
+    # The error panel word-wraps the long temp path, so assert on the stable
+    # tail of the message instead of the wrapped directory name.
+    assert "does not exist" in result.output
+    assert not out.exists()
+
+
 def test_schema_is_stable(runner, tmp_path):
     """Generation is deterministic: two runs produce byte-identical files."""
     first = tmp_path / "first.json"

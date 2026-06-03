@@ -453,6 +453,10 @@ def generate_project_schema(
     schema = _build_project_definition_schema(version.value)
 
     if output_file is not None:
+        if not output_file.parent.exists():
+            raise click.ClickException(
+                f"Directory '{output_file.parent}' does not exist."
+            )
         payload = json.dumps(schema, indent=2, sort_keys=True)
         SecurePath(output_file).write_text(payload + "\n")
         return MessageResult(f"Project definition schema written to {output_file}.")
@@ -460,8 +464,7 @@ def generate_project_schema(
     # Under a structured output format, return the schema as an object so the
     # command emits the JSON Schema document itself rather than a stringified
     # blob nested under a "message" key.
-    output_format = get_cli_context().output_format
-    if output_format is not None and output_format.is_json:
+    if get_cli_context().output_format.is_json:
         return ObjectResult(schema)
 
     return MessageResult(json.dumps(schema, indent=2, sort_keys=True))
