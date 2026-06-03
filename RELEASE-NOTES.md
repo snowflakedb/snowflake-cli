@@ -26,6 +26,7 @@
 * Upgraded `snowflake-connector-python` from 4.5.0 to 4.6.0.
 * `snow dcm list-deployments` and `snow dcm drop-deployment` now wrap the project name in `IDENTIFIER(...)`, matching every other DCM subcommand. Fully-qualified and quoted project names are now handled consistently.
 * Fixed `snow sql` table output rendering as a series of `|` characters when selecting many columns into a non-terminal destination (e.g. piped or redirected output).
+* `snow snowpark deploy --prune` now also drops procedures and functions that exist in the target schemas but are no longer declared in `snowflake.yml`. Previously `--prune` only cleared stage contents, so removed entities lingered in Snowflake until dropped manually. Only schemas that contain at least one declared entity of the same type are touched.
 
 
 # v3.19.0

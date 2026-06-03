@@ -14,7 +14,13 @@
 
 from __future__ import annotations
 
+from unittest import mock
+
 import pytest
+from snowflake.cli._plugins.snowpark.commands import (
+    _parse_arg_types_from_show,
+    drop_removed_snowpark_entities,
+)
 from snowflake.cli._plugins.snowpark.common import (
     _check_if_replace_is_required,
     _convert_resource_details_to_dict,
@@ -23,6 +29,7 @@ from snowflake.cli._plugins.snowpark.common import (
     same_type,
 )
 from snowflake.cli._plugins.snowpark.snowpark_entity_model import (
+    FunctionEntityModel,
     ProcedureEntityModel,
 )
 
@@ -194,3 +201,131 @@ def test_the_same_type(sf_type, local_type):
 )
 def test_is_not_the_same_type(sf_type, local_type):
     assert not same_type(sf_type, local_type)
+
+
+@pytest.mark.parametrize(
+    "arguments,expected",
+    [
+        ("MY_FN() RETURN VARCHAR", []),
+        ("MY_FN(VARCHAR) RETURN VARCHAR", ["VARCHAR"]),
+        ("MY_FN(VARCHAR, NUMBER) RETURN VARCHAR", ["VARCHAR", "NUMBER"]),
+        ("MY_FN(NUMBER(38,0), VARCHAR) RETURN VARCHAR", ["NUMBER(38,0)", "VARCHAR"]),
+        ("", []),
+        ("no parens at all", []),
+    ],
+)
+def test_parse_arg_types_from_show(arguments, expected):
+    assert _parse_arg_types_from_show(arguments) == expected
+
+
+def _make_procedure(name: str, signature):
+    return ProcedureEntityModel(
+        type="procedure",
+        handler="app.handler",
+        signature=signature,
+        artifacts=[],
+        stage="dev_deployment",
+        returns="string",
+        identifier={"name": name, "database": "MY_DB", "schema": "MY_SCHEMA"},
+    )
+
+
+def _make_function(name: str, signature):
+    return FunctionEntityModel(
+        type="function",
+        handler="app.handler",
+        signature=signature,
+        artifacts=[],
+        stage="dev_deployment",
+        returns="string",
+        identifier={"name": name, "database": "MY_DB", "schema": "MY_SCHEMA"},
+    )
+
+
+def _show_row(name: str, arguments: str, is_builtin: str = "N"):
+    return {"name": name, "arguments": arguments, "is_builtin": is_builtin}
+
+
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
+def test_drop_removed_snowpark_entities_drops_unlisted_objects(mock_om_cls):
+    om = mock.MagicMock()
+    declared_proc = _make_procedure("KEEP_PROC", [])
+    declared_fn = _make_function(
+        "KEEP_FN",
+        [{"name": "name", "type": "string"}],
+    )
+    entities = {"keep_proc": declared_proc, "keep_fn": declared_fn}
+
+    om.show.side_effect = [
+        # procedures in MY_DB.MY_SCHEMA
+        [
+            _show_row("KEEP_PROC", "KEEP_PROC() RETURN VARCHAR"),
+            _show_row("STALE_PROC", "STALE_PROC(VARCHAR) RETURN VARCHAR"),
+        ],
+        # functions in MY_DB.MY_SCHEMA
+        [
+            _show_row("KEEP_FN", "KEEP_FN(VARCHAR) RETURN VARCHAR"),
+            _show_row("STALE_FN", "STALE_FN(NUMBER) RETURN VARCHAR"),
+            _show_row("SYSTEM_FN", "SYSTEM_FN() RETURN VARCHAR", is_builtin="Y"),
+        ],
+    ]
+
+    drop_removed_snowpark_entities(om, entities)
+
+    drop_calls = om.drop.call_args_list
+    dropped = sorted(
+        (call.kwargs["object_type"], call.kwargs["fqn"].identifier)
+        for call in drop_calls
+    )
+    assert dropped == [
+        ("function", "MY_DB.MY_SCHEMA.STALE_FN"),
+        ("procedure", "MY_DB.MY_SCHEMA.STALE_PROC"),
+    ]
+    # signatures must be included so overloads are dropped safely
+    proc_signatures = {
+        call.kwargs["fqn"].signature
+        for call in drop_calls
+        if call.kwargs["object_type"] == "procedure"
+    }
+    assert proc_signatures == {"(VARCHAR)"}
+
+
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
+def test_drop_removed_snowpark_entities_keeps_matching_overloads(mock_om_cls):
+    om = mock.MagicMock()
+    declared = _make_procedure(
+        "FN",
+        [{"name": "name", "type": "string"}],
+    )
+    entities = {"fn_str": declared}
+
+    # Server returns the overload with a different arg type and the string overload.
+    om.show.side_effect = [
+        [
+            _show_row("FN", "FN(VARCHAR) RETURN VARCHAR"),  # matches declared
+            _show_row("FN", "FN(NUMBER) RETURN VARCHAR"),  # overload not declared
+        ],
+    ]
+
+    drop_removed_snowpark_entities(om, entities)
+
+    drop_calls = om.drop.call_args_list
+    assert len(drop_calls) == 1
+    dropped_fqn = drop_calls[0].kwargs["fqn"]
+    assert dropped_fqn.identifier == "MY_DB.MY_SCHEMA.FN"
+    assert dropped_fqn.signature == "(NUMBER)"
+
+
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
+def test_drop_removed_snowpark_entities_does_not_touch_other_schemas(mock_om_cls):
+    om = mock.MagicMock()
+    entities = {
+        "a": _make_procedure("PROC_A", []),
+    }
+    om.show.return_value = []
+
+    drop_removed_snowpark_entities(om, entities)
+
+    show_scopes = [call.kwargs["scope"] for call in om.show.call_args_list]
+    assert show_scopes == [("schema", "MY_DB.MY_SCHEMA")]
+    om.drop.assert_not_called()

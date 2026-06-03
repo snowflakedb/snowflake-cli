@@ -14163,7 +14163,10 @@
   | --force-replace                          Replace this object, even if the    |
   |                                          state didn't change                 |
   | --prune              --no-prune          Remove contents of the stage before |
-  |                                          uploading artifacts.                |
+  |                                          uploading artifacts, and drop       |
+  |                                          procedures and functions that exist |
+  |                                          in the target schemas but are not   |
+  |                                          declared in the project.            |
   |                                          [default: no-prune]                 |
   | --project        -p                TEXT  Path where the Snowflake project is |
   |                                          stored. Defaults to the current     |
