@@ -247,6 +247,34 @@ def test_get_account_identifier(mock_get_account):
 
 
 @pytest.mark.parametrize(
+    "fetchone_return",
+    [
+        None,
+        {"ORG": None, "ACCT": "my_account"},
+        {"ORG": "my_org", "ACCT": None},
+        {"ORG": "", "ACCT": "my_account"},
+        {"ORG": "my_org", "ACCT": ""},
+    ],
+)
+def test_get_account_identifier_missing_result_raises_click_exception(fetchone_return):
+    """``get_account_identifier`` must raise a user-visible ``ClickException``
+    when ``CURRENT_ORGANIZATION_NAME()`` / ``CURRENT_ACCOUNT_NAME()`` return
+    no row or a NULL value, instead of a cryptic ``TypeError`` / ``AttributeError``."""
+    from unittest.mock import MagicMock
+
+    from click.exceptions import ClickException
+    from snowflake.cli._plugins.connection.util import get_account_identifier
+
+    mock_conn = MagicMock()
+    mock_cursor = MagicMock()
+    mock_cursor.fetchone.return_value = fetchone_return
+    mock_conn.execute_string.return_value = (None, mock_cursor)
+
+    with pytest.raises(ClickException, match="Could not determine account identifier"):
+        get_account_identifier(mock_conn)
+
+
+@pytest.mark.parametrize(
     "allowlist, expected",
     [
         (

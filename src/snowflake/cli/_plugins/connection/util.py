@@ -228,9 +228,21 @@ def get_account_identifier(conn: SnowflakeConnection) -> AccountIdentifier:
         cursor_class=DictCursor,
     )
     result = cursor.fetchone()
+    if result is None:
+        raise ClickException(
+            "Could not determine account identifier: "
+            "CURRENT_ORGANIZATION_NAME() / CURRENT_ACCOUNT_NAME() returned no row."
+        )
+    org = result.get("ORG")
+    account = result.get("ACCT")
+    if not org or not account:
+        raise ClickException(
+            "Could not determine account identifier: "
+            f"CURRENT_ORGANIZATION_NAME()={org!r}, CURRENT_ACCOUNT_NAME()={account!r}."
+        )
     return AccountIdentifier(
-        organization_name=result["ORG"],
-        account_name=result["ACCT"],
+        organization_name=org,
+        account_name=account,
     )
 
 
