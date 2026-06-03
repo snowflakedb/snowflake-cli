@@ -267,10 +267,10 @@ class TestAnalyzeErrorsReporter:
 
         output = capture_reporter_output(reporter, cursor)
         assert "sources/definitions/bad.sql" in output
-        # Noise prefix is stripped, and we never render per-finding code/position.
+        # Noise prefix is stripped; error code is not rendered; position IS shown.
         assert "DCM project ANALYZE error:" not in output
         assert "[001597]" not in output
-        assert "line 10:0" not in output
+        assert "line 10:0:" in output
         assert "SQL compilation error: syntax error line 10" in output
         assert "Static analysis of DCM Project files found 1 error." in output
 
@@ -564,6 +564,65 @@ class TestAnalyzeErrorsReporter:
         output = capture_reporter_output(reporter, cursor)
         assert "first line" in output
         assert "second line" in output
+
+    def test_position_prefix_shown_when_line_and_column_present(self):
+        """Findings with line+column show 'line N:M: ' before the message."""
+        data = self._make_response(
+            [
+                {
+                    "source_path": "sources/definitions/pos.sql",
+                    "definitions": [],
+                    "issues": [
+                        _issue("type mismatch", severity="ERROR", line=7, column=3)
+                    ],
+                }
+            ]
+        )
+        reporter = AnalyzeErrorsReporter()
+        cursor = FakeCursor(data)
+
+        output = capture_reporter_output(reporter, cursor)
+        assert "line 7:3: type mismatch" in output
+
+    def test_position_prefix_line_only_when_column_absent(self):
+        """Findings with only a line number show 'line N: ' before the message."""
+        issue = {
+            "message": "missing ref",
+            "severity": "ERROR",
+            "source_position": {"line": 5},
+        }
+        data = self._make_response(
+            [
+                {
+                    "source_path": "sources/definitions/pos.sql",
+                    "definitions": [],
+                    "issues": [issue],
+                }
+            ]
+        )
+        reporter = AnalyzeErrorsReporter()
+        cursor = FakeCursor(data)
+
+        output = capture_reporter_output(reporter, cursor)
+        assert "line 5: missing ref" in output
+
+    def test_no_position_prefix_when_line_absent(self):
+        """Findings without source_position show just the message with no prefix."""
+        data = self._make_response(
+            [
+                {
+                    "source_path": "sources/definitions/pos.sql",
+                    "definitions": [],
+                    "issues": [_issue("no location info", severity="WARNING")],
+                }
+            ]
+        )
+        reporter = AnalyzeErrorsReporter()
+        cursor = FakeCursor(data)
+
+        output = capture_reporter_output(reporter, cursor)
+        assert "no location info" in output
+        assert "line " not in output
 
     def test_process_empty_files(self):
         reporter = AnalyzeErrorsReporter()

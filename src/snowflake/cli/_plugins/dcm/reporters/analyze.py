@@ -322,7 +322,7 @@ class AnalyzeErrorsReporter(Reporter[_FileFindings]):
 
     def __init__(self, save_output: bool = False):
         super().__init__(save_output=save_output)
-        self.command_name = "analyze"
+        self.command_name = "analyze-errors"
         self._error_count = 0
         self._warning_count = 0
         self._info_count = 0
@@ -389,7 +389,18 @@ class AnalyzeErrorsReporter(Reporter[_FileFindings]):
         indent = self._INDENT * depth
         style = _SEVERITY_STYLE[finding.severity]
         message = sanitize_for_terminal(_clean_finding_message(finding.message))
-        for line in message.splitlines() or [""]:
+        lines = message.splitlines() or [""]
+
+        # Prepend "line N:M: " (or "line N: " when column is absent) to the
+        # first line so users can jump directly to the offending position.
+        if finding.line is not None:
+            if finding.column is not None:
+                location_prefix = f"line {finding.line}:{finding.column}: "
+            else:
+                location_prefix = f"line {finding.line}: "
+            lines[0] = location_prefix + lines[0]
+
+        for line in lines:
             cli_console.styled_message(f"{indent}{line}", style=style)
             cli_console.styled_message("\n")
 
