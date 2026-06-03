@@ -42,6 +42,7 @@ from snowflake.cli.api.secret import SecretType
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.stage_path import StagePath
 from snowflake.cli.api.utils.path_utils import is_stage_path
+from snowflake.cli.api.utils.tty import is_tty_interactive
 from snowflake.cli.api.utils.types import try_cast_to_int
 from snowflake.connector.auth.workload_identity import ApiFederatedAuthenticationType
 
@@ -125,6 +126,15 @@ PortOption = typer.Option(
     "--port",
     help="Port for the connection. Overrides the value specified for the connection.",
     callback=_connection_callback("port"),
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
+ProtocolOption = typer.Option(
+    None,
+    "--protocol",
+    help="Protocol to use for the connection, for example `https`. Overrides the value specified for the connection.",
+    callback=_connection_callback("protocol"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -419,6 +429,19 @@ ClientStoreTemporaryCredentialOption = typer.Option(
     help="Store the temporary credential.",
     callback=_connection_callback("client_store_temporary_credential"),
     is_flag=True,
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
+SecondaryRolesOption = typer.Option(
+    None,
+    "--secondary-roles",
+    help=(
+        "Secondary roles mode applied when the session starts. "
+        "Supported values are `ALL` and `NONE`; pass `NONE` to run the "
+        "session only with the primary role."
+    ),
+    callback=_connection_callback("secondary_roles"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -823,3 +846,24 @@ def deprecated_flag_callback_enum(msg: str):
         return value.value
 
     return _warning_callback
+
+
+def _interactive_callback(val):
+    if val is None:
+        return is_tty_interactive()
+    return val
+
+
+InteractiveOption = typer.Option(
+    None,
+    help="When enabled, this option displays prompts even if the standard input and output are not terminal devices. Defaults to True in an interactive shell environment, and False otherwise.",
+    callback=_interactive_callback,
+    show_default=False,
+)
+
+ForceOption = typer.Option(
+    False,
+    "--force",
+    help="When enabled, this option causes the command to implicitly approve any prompts that arise. You should enable this option if interactive mode is not specified and if you want perform potentially destructive actions. Defaults to unset.",
+    is_flag=True,
+)

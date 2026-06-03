@@ -20,19 +20,47 @@ from textwrap import dedent
 from typing import Any, Dict, Optional
 
 import jinja2
+from click import ClickException
 from jinja2 import Environment, StrictUndefined, loaders
-from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
+from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
+from snowflake.cli.api.secure_path import SecurePath
 
 CONTEXT_KEY = "ctx"
 FUNCTION_KEY = "fn"
 
 
-def read_file_content(file_name: str):
-    return SecurePath(file_name).read_text(file_size_limit_mb=UNLIMITED)
+def _resolve_within_project_root(file_name: str, filter_name: str) -> Path:
+    """Resolve ``file_name`` and ensure it is contained within the project root.
+
+    Relative paths are anchored to the project root (not CWD) before resolving,
+    matching the behaviour of the sibling helper in entities/utils.py.
+    """
+    # Lazy import to avoid circular dependency with ``cli_global_context``.
+    from snowflake.cli.api.cli_global_context import get_cli_context
+
+    root = Path(get_cli_context().project_root).resolve()
+    candidate = Path(file_name).expanduser()
+    if candidate.is_absolute():
+        target = candidate.resolve()
+    else:
+        target = (root / candidate).resolve()
+    try:
+        target.relative_to(root)
+    except ValueError:
+        raise ClickException(
+            f"{filter_name}: path '{file_name}' is outside the project root."
+        )
+    return target
+
+
+def read_file_content(file_name: str) -> str:
+    target = _resolve_within_project_root(file_name, "read_file_content")
+    return SecurePath(target).read_text(file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB)
 
 
 @jinja2.pass_environment  # type: ignore
 def procedure_from_js_file(env: jinja2.Environment, file_name: str):
+    target = _resolve_within_project_root(file_name, "procedure_from_js_file")
     template = env.from_string(
         dedent(
             """\
@@ -47,7 +75,7 @@ def procedure_from_js_file(env: jinja2.Environment, file_name: str):
         )
     )
     return template.render(
-        code=SecurePath(file_name).read_text(file_size_limit_mb=UNLIMITED)
+        code=SecurePath(target).read_text(file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB)
     )
 
 

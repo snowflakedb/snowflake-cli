@@ -19,7 +19,6 @@ from typing import Optional
 
 import typer
 from snowflake.cli._plugins.nativeapp.artifacts import VersionInfo
-from snowflake.cli._plugins.nativeapp.common_flags import ForceOption, InteractiveOption
 from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
     force_project_definition_v2,
 )
@@ -28,6 +27,7 @@ from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
+from snowflake.cli.api.commands.flags import ForceOption, InteractiveOption
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.entities.utils import EntityActions
 from snowflake.cli.api.output.types import (

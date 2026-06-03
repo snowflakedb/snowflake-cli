@@ -11,11 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import json
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, Iterator, List, Optional, Protocol
+from typing import Any, Dict, Iterator, List, Optional
 
 from pydantic import BaseModel, Field, ValidationError
 from rich.text import Text
@@ -35,7 +34,6 @@ class RefreshStatistics(BaseModel):
 class RefreshTableResult(BaseModel):
     table_name: str = "UNKNOWN"
     statistics: Optional[RefreshStatistics] = None
-    data_timestamp: Optional[str] = None
 
 
 class DtsRefreshResult(BaseModel):
@@ -44,106 +42,6 @@ class DtsRefreshResult(BaseModel):
 
 class RefreshResponse(BaseModel):
     dts_refresh_result: Optional[DtsRefreshResult] = None
-
-
-class RefreshDataExtractor(Protocol):
-    """Temporary protocol for extracting refresh data from backend responses."""
-
-    @classmethod
-    def extract(cls, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Extract and normalize table data to canonical format."""
-        ...
-
-
-class NewFormatExtractor:
-    """Extractor for new response format with dts_refresh_result wrapper."""
-
-    @classmethod
-    def extract(cls, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
-        try:
-            response = RefreshResponse.model_validate(result_json)
-        except ValidationError as e:
-            log.info("Failed to validate refresh response: %s", e)
-            raise CliError("Could not process response.")
-
-        if response.dts_refresh_result is None:
-            return []
-
-        return [
-            cls._to_canonical(table)
-            for table in response.dts_refresh_result.refreshed_tables
-        ]
-
-    @classmethod
-    def _to_canonical(cls, table: RefreshTableResult) -> Dict[str, Any]:
-        """Convert Pydantic model to canonical dict format for RefreshRow."""
-        result: Dict[str, Any] = {"table_name": table.table_name}
-        if table.statistics:
-            result["statistics"] = {
-                "inserted_rows": table.statistics.inserted_rows,
-                "deleted_rows": table.statistics.deleted_rows,
-            }
-        else:
-            result["statistics"] = None
-        return result
-
-
-class OldFormatExtractor:
-    """Extractor for old response format (to be removed after migration)."""
-
-    _DATA_KEY = "refreshed_tables"
-    _EMPTY_STAT = "No new data"
-
-    @classmethod
-    def extract(cls, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
-        refreshed_tables = result_json.get(cls._DATA_KEY, [])
-        if not isinstance(refreshed_tables, list):
-            log.warning(
-                "Unexpected refreshed_tables type: %s, expected list",
-                type(refreshed_tables),
-            )
-            raise CliError("Could not process response.")
-
-        return [cls._normalize_table(t) for t in refreshed_tables]
-
-    @classmethod
-    def _normalize_table(cls, table: Any) -> Any:
-        """Normalize old format table entry to canonical (new) format."""
-        if not isinstance(table, dict):
-            return table
-
-        normalized: Dict[str, Any] = {
-            "table_name": table.get("dt_name", "UNKNOWN"),
-        }
-
-        statistics = table.get("statistics")
-        if statistics is None:
-            normalized["statistics"] = None
-        elif isinstance(statistics, dict):
-            normalized["statistics"] = {
-                "inserted_rows": statistics.get("insertedRows", 0),
-                "deleted_rows": statistics.get("deletedRows", 0),
-            }
-        elif isinstance(statistics, str):
-            if statistics == cls._EMPTY_STAT:
-                normalized["statistics"] = {"inserted_rows": 0, "deleted_rows": 0}
-            elif statistics.startswith("{"):
-                try:
-                    stats_data = json.loads(statistics)
-                    normalized["statistics"] = {
-                        "inserted_rows": stats_data.get("insertedRows", 0),
-                        "deleted_rows": stats_data.get("deletedRows", 0),
-                    }
-                except json.JSONDecodeError:
-                    log.info("Failed to parse statistics JSON: %r", statistics)
-                    normalized["statistics"] = None
-            else:
-                log.info("Unexpected statistics format: %r", statistics)
-                normalized["statistics"] = None
-        else:
-            normalized["statistics"] = None
-
-        return normalized
 
 
 class RefreshStatus(Enum):
@@ -160,11 +58,6 @@ class RefreshRow:
     status: RefreshStatus = RefreshStatus.UNKNOWN
     _inserted: int = field(default=0, repr=False)
     _deleted: int = field(default=0, repr=False)
-
-    _STATISTICS_KEY = "statistics"
-    _TABLE_NAME_KEY = "table_name"
-    _INSERTED_KEY = "inserted_rows"
-    _DELETED_KEY = "deleted_rows"
 
     @staticmethod
     def _safe_int(value: Any) -> int:
@@ -201,25 +94,13 @@ class RefreshRow:
         return str(num)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> Optional["RefreshRow"]:
-        if not isinstance(data, dict):
-            log.info("Unexpected table entry type: %s", type(data))
-            return None
-
-        raw_table_name = data.get(cls._TABLE_NAME_KEY, "UNKNOWN")
-        table_name = sanitize_for_terminal(str(raw_table_name))
-        row = cls(table_name=table_name)
-
-        statistics = data.get(cls._STATISTICS_KEY)
-        if statistics is None:
+    def from_model(cls, table: RefreshTableResult) -> "RefreshRow":
+        row = cls(table_name=sanitize_for_terminal(table.table_name))
+        if table.statistics is None:
             return row
 
-        if isinstance(statistics, dict):
-            row.inserted = statistics.get(cls._INSERTED_KEY, 0)
-            row.deleted = statistics.get(cls._DELETED_KEY, 0)
-        else:
-            log.info("Unexpected statistics type: %s, expected dict", type(statistics))
-            return row
+        row.inserted = table.statistics.inserted_rows
+        row.deleted = table.statistics.deleted_rows
 
         if row.inserted == 0 and row.deleted == 0:
             row.status = RefreshStatus.UP_TO_DATE
@@ -266,7 +147,6 @@ class RefreshRow:
 class RefreshReporter(Reporter[RefreshRow]):
     STATUS_WIDTH = 11
     STATS_WIDTH = 7
-    _NEW_FORMAT_KEY = "dts_refresh_result"
 
     @dataclass
     class Summary:
@@ -283,28 +163,25 @@ class RefreshReporter(Reporter[RefreshRow]):
         self.command_name = "refresh"
         self._summary = self.Summary()
 
-    def _get_extractor_cls(
-        self, result_json: Dict[str, Any]
-    ) -> type[RefreshDataExtractor]:
-        if self._NEW_FORMAT_KEY in result_json:
-            return NewFormatExtractor
-        return OldFormatExtractor
-
-    def extract_data(self, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def extract_data(self, result_json: Dict[str, Any]) -> List[RefreshTableResult]:
         if not isinstance(result_json, dict):
             log.info("Unexpected response type: %s, expected dict", type(result_json))
             raise CliError("Could not process response.")
 
-        extractor_cls = self._get_extractor_cls(result_json)
-        return extractor_cls.extract(result_json)
+        try:
+            response = RefreshResponse.model_validate(result_json)
+        except ValidationError as e:
+            log.info("Failed to validate refresh response: %s", e)
+            raise CliError("Could not process response.")
 
-    def parse_data(self, data: List[Dict[str, Any]]) -> Iterator[RefreshRow]:
-        for row in data:
-            parsed = RefreshRow.from_dict(row)
-            if parsed is None:
-                self._summary.unknown += 1
-                continue
+        if response.dts_refresh_result is None:
+            return []
 
+        return response.dts_refresh_result.refreshed_tables
+
+    def parse_data(self, data: List[RefreshTableResult]) -> Iterator[RefreshRow]:
+        for table in data:
+            parsed = RefreshRow.from_model(table)
             if parsed.status == RefreshStatus.UP_TO_DATE:
                 self._summary.up_to_date += 1
             elif parsed.status == RefreshStatus.REFRESHED:

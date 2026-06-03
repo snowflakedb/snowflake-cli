@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import ast
 import copy
 import subprocess
 from pathlib import Path
@@ -27,6 +28,7 @@ from snowflake.cli._plugins.nativeapp.codegen.sandbox import (
     SandboxExecutionError,
 )
 from snowflake.cli._plugins.nativeapp.codegen.snowpark.python_processor import (
+    TEMPLATE_PATH,
     SnowparkAnnotationProcessor,
     _determine_virtual_env,
     _execute_in_sandbox,
@@ -38,6 +40,7 @@ from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntityModel,
 )
 from snowflake.cli.api.project.schemas.entities.common import ProcessorMapping
+from snowflake.cli.api.rendering.jinja import jinja_render_from_file
 
 from tests.nativeapp.utils import assert_dir_snapshot
 from tests.testing_utils.files_and_dirs import temp_local_dir
@@ -175,6 +178,47 @@ def test_execute_in_sandbox_all_possible_none_cases(mock_sandbox):
         )
         is None
     )
+
+
+# --------------------------------------------------------
+# --------- callback source template rendering ----------
+# --------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "py_file",
+    [
+        '/tmp/evil"dir/my_file.py',
+        "/tmp/evil'dir/my_file.py",
+        "/tmp/evil\\dir/my_file.py",
+        '/tmp/evil"; import os; os.system("pwned")\n#/my_file.py',
+        "/tmp/normal/file.py",
+    ],
+)
+def test_callback_source_template_escapes_py_file(py_file):
+    """The rendered callback source must always produce valid Python where ``py_file`` is a
+    string literal — even when the path contains quotes, backslashes, or newlines.
+
+    Previously the template interpolated ``py_file`` into a raw-string literal
+    (``r"{{py_file}}"``), which allowed a crafted path to terminate the literal and inject
+    arbitrary Python. The ``tojson`` filter produces a properly escaped string literal.
+    """
+    rendered = jinja_render_from_file(
+        template_path=TEMPLATE_PATH, data={"py_file": py_file}
+    )
+
+    tree = ast.parse(rendered)
+    spec_calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "spec_from_file_location"
+    ]
+    assert spec_calls, "spec_from_file_location call not found in rendered template"
+
+    path_arg = spec_calls[0].args[1]
+    assert isinstance(path_arg, ast.Constant) and path_arg.value == py_file
 
 
 # --------------------------------------------------------

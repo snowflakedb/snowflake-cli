@@ -97,6 +97,8 @@ def _assure_repository_does_not_exist(om: ObjectManager, repository_name: FQN) -
 def _validate_origin_url(url: str) -> None:
     if not url.startswith("https://"):
         raise ClickException("Url address should start with 'https'")
+    if "'" in url:
+        raise ClickException("Url address must not contain single-quote characters")
 
 
 def _unique_new_object_name(

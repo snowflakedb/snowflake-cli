@@ -43,8 +43,10 @@ from snowflake.cli.api.commands.flags import (
     PasswordOption,
     PortOption,
     PrivateKeyPathOption,
+    ProtocolOption,
     RoleOption,
     SchemaOption,
+    SecondaryRolesOption,
     TokenFilePathOption,
     UserOption,
     WarehouseOption,
@@ -64,13 +66,14 @@ from snowflake.cli.api.config import (
 )
 from snowflake.cli.api.config_ng.masking import mask_sensitive_value
 from snowflake.cli.api.console import cli_console
-from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
     MessageResult,
     ObjectResult,
 )
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector import ProgrammingError
 from snowflake.connector.constants import CONNECTIONS_FILE
 
@@ -224,6 +227,11 @@ def add(
         *PortOption.param_decls,
         help="Port to communicate with on the host.",
     ),
+    protocol: Optional[str] = typer.Option(
+        None,
+        *ProtocolOption.param_decls,
+        help="Protocol to use for the connection, for example `https`.",
+    ),
     region: Optional[str] = typer.Option(
         None,
         "--region",
@@ -255,6 +263,15 @@ def add(
         *TokenFilePathOption.param_decls,
         help="Path to file with an OAuth token that should be used when connecting to Snowflake",
     ),
+    secondary_roles: Optional[str] = typer.Option(
+        None,
+        *SecondaryRolesOption.param_decls,
+        help=(
+            "Secondary roles mode applied when the session starts. "
+            "Supported values are `ALL` and `NONE`; pass `NONE` to run the "
+            "session only with the primary role."
+        ),
+    ),
     set_as_default: bool = typer.Option(
         False,
         "--default",
@@ -276,11 +293,13 @@ def add(
         "schema": schema,
         "host": host,
         "port": port,
+        "protocol": protocol,
         "region": region,
         "authenticator": authenticator,
         "workload_identity_provider": workload_identity_provider,
         "private_key_file": private_key_file,
         "token_file_path": token_file_path,
+        "secondary_roles": secondary_roles,
     }
 
     if not no_interactive:
@@ -433,7 +452,15 @@ def generate_jwt(
     if not connection_details.private_key_file:
         raise UsageError(msq_template.format("Private key file"))
 
-    passphrase = os.getenv("PRIVATE_KEY_PASSPHRASE", None)
+    # `PRIVATE_KEY_PASSPHRASE` env var takes precedence over the config-sourced
+    # `private_key_passphrase` (populated from `private_key_file_pwd` or
+    # `private_key_passphrase` in connections.toml) for back-compat.
+    env_passphrase = os.getenv("PRIVATE_KEY_PASSPHRASE")
+    passphrase = (
+        env_passphrase
+        if env_passphrase is not None
+        else connection_details.private_key_passphrase
+    )
 
     def _decrypt(passphrase: str | None):
         return connector.auth.get_token_from_private_key(
@@ -458,4 +485,48 @@ def generate_jwt(
         token = _decrypt(passphrase=passphrase)
         return MessageResult(token)
     except (ValueError, TypeError) as err:
+        raise ClickException(str(err))
+
+
+@app.command(requires_connection=True)
+def generate_workload_identity_token(
+    **options,
+) -> CommandResult:
+    """Generate a workload identity token for authenticating to Snowflake via a Workload Identity Federation (WIF) provider (AWS, AZURE, GCP, or OIDC). The token is printed to stdout."""
+    from snowflake.connector.wif_util import AttestationProvider, create_attestation
+
+    connection_details = get_cli_context().connection_context.update_from_config()
+
+    if not connection_details.workload_identity_provider:
+        raise UsageError(
+            "Workload identity provider is not set in the connection context, "
+            "but required for workload identity token generation."
+        )
+
+    try:
+        provider = AttestationProvider.from_string(
+            connection_details.workload_identity_provider
+        )
+
+        token = None
+        if provider == AttestationProvider.OIDC:
+            if connection_details.token:
+                token = connection_details.token
+            elif connection_details.token_file_path:
+                token = (
+                    SecurePath(connection_details.token_file_path)
+                    .read_text(file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB)
+                    .strip()
+                )
+            else:
+                raise UsageError(
+                    "OIDC provider requires a token. "
+                    "Set --token-file-path or configure 'token' in the connection."
+                )
+
+        attestation = create_attestation(provider=provider, token=token)
+        return MessageResult(attestation.credential)
+    except (UsageError, ClickException):
+        raise
+    except (ValueError, TypeError, ProgrammingError) as err:
         raise ClickException(str(err))

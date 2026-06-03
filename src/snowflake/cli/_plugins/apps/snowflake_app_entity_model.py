@@ -14,10 +14,10 @@
 
 from typing import List, Literal, Optional, Union
 
-# Default port exposed by Snowflake App services
+# Default port exposed by Snowflake App Runtime services
 DEFAULT_APP_PORT = 3000
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBaseWithArtifacts,
     MetaField,
@@ -84,26 +84,53 @@ class ImageRepositoryReference(UpdatableModel):
 
 
 class CodeStageReference(UpdatableModel):
-    """Reference to a code stage."""
+    """Reference to a code stage.
+
+    Supports both a fully-qualified identifier form (``DB.SCHEMA.STAGE``)
+    and a bare-name form (``STAGE``).  When only a name is provided the
+    app's database and schema are used implicitly at deploy time.
+    """
 
     name: str = IdentifierField(title="Name of the code stage")
+    schema_: Optional[str] = IdentifierField(
+        title="Schema of the code stage", alias="schema", default=None
+    )
+    database: Optional[str] = IdentifierField(
+        title="Database of the code stage", default=None
+    )
     encryption_type: Optional[str] = Field(
         title="Encryption type for the stage", default="SNOWFLAKE_SSE"
     )
 
 
-class SnowflakeAppMetaField(MetaField):
-    """Extended meta field for Snowflake Apps with title, description, icon."""
+class CodeWorkspaceReference(UpdatableModel):
+    """Reference to a code workspace."""
 
-    title: Optional[str] = Field(title="Title of the Snowflake App", default=None)
-    description: Optional[str] = Field(
-        title="Description of the Snowflake App", default=None
+    name: str = IdentifierField(title="Name of the code workspace")
+    schema_: Optional[str] = IdentifierField(
+        title="Schema of the code workspace", alias="schema", default=None
     )
-    icon: Optional[str] = Field(title="Icon for the Snowflake App", default=None)
+    database: Optional[str] = IdentifierField(
+        title="Database of the code workspace", default=None
+    )
+
+
+class SnowflakeAppMetaField(MetaField):
+    """Extended meta field for Snowflake App Runtime with title, description, icon."""
+
+    title: Optional[str] = Field(
+        title="Title of the Snowflake App Runtime", default=None
+    )
+    description: Optional[str] = Field(
+        title="Description of the Snowflake App Runtime", default=None
+    )
+    icon: Optional[str] = Field(
+        title="Icon for the Snowflake App Runtime", default=None
+    )
 
 
 class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
-    """Entity model for Snowflake App (snowflake-app) type."""
+    """Entity model for Snowflake App Runtime (snowflake-app) type."""
 
     type: Literal["snowflake-app"] = DiscriminatorField()  # noqa: A003
 
@@ -157,12 +184,60 @@ class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
         title="Stage for storing code artifacts", default=None
     )
 
+    code_workspace: Optional[CodeWorkspaceReference] = Field(
+        title="Workspace for storing code artifacts", default=None
+    )
+
+    @field_validator("code_stage", "code_workspace", mode="before")
+    @classmethod
+    def _validate_code_storage(cls, value):
+        """Accept either a dict, a plain name, or a ``DB.SCHEMA.NAME`` identifier.
+
+        When a string is provided it is parsed as an FQN.  Any missing
+        database/schema components are left as ``None`` and resolved to the
+        app's database/schema at deploy time.
+        """
+        if value is None or value == "null":
+            return None
+        if isinstance(value, str):
+            from snowflake.cli.api.identifiers import FQN
+
+            fqn = FQN.from_string(value)
+            parsed: dict = {"name": fqn.name}
+            if fqn.database:
+                parsed["database"] = fqn.database
+            if fqn.schema:
+                parsed["schema"] = fqn.schema
+            return parsed
+        return value
+
+    @model_validator(mode="after")
+    def _validate_single_code_storage(self):
+        """``code_stage`` and ``code_workspace`` are mutually exclusive."""
+        if self.code_stage is not None and self.code_workspace is not None:
+            raise ValueError("Specify either code_stage or code_workspace, not both.")
+        return self
+
     app_port: int = Field(title="Port the app listens on", default=DEFAULT_APP_PORT)
 
     runtime_image: str = Field(
         title="Runtime image used by SPCS artifact repo build/run",
         default="",
     )
+
+    spcs_test_project_type: Optional[str] = Field(
+        title="Project type override for SPCS_TEST builds",
+        default=None,
+    )
+
+    @field_validator("spcs_test_project_type", mode="before")
+    @classmethod
+    def _validate_spcs_test_project_type(cls, value):
+        if value is None or value == "null":
+            return None
+        if not isinstance(value, str):
+            raise ValueError("spcs_test_project_type must be a string or null")
+        return value.strip()
 
     build_image: Optional[str] = Field(
         title="Custom container image for building the app",

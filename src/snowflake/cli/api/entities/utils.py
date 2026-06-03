@@ -254,10 +254,16 @@ def execute_post_deploy_hooks(
                     f"Unsupported {deployed_object_type} post-deploy hook type: {hook}"
                 )
 
+        # `sql_scripts_paths` here come from a validated SqlScriptHookType
+        # (which rejects absolute paths and `..` from user config) or, in
+        # the in-memory v1->v2 conversion case, from a trusted tempfile
+        # produced by definition_conversion.convert_package_scripts. Either
+        # path source is trusted, so absolute paths are allowed here.
         scripts_content_list = render_script_templates(
             project_root,
             get_cli_context().template_context,
             sql_scripts_paths,
+            allow_absolute_paths=True,
         )
 
         sql_facade = get_snowflake_facade()
@@ -278,6 +284,7 @@ def render_script_templates(
     jinja_context: dict[str, Any],
     scripts: List[str],
     override_env: Optional[jinja2.Environment] = None,
+    allow_absolute_paths: bool = False,
 ) -> List[str]:
     """
     Input:
@@ -286,12 +293,22 @@ def render_script_templates(
     - scripts: list of script paths relative to the project root
     - override_env: optional jinja environment to use for rendering,
       if not provided, the environment will be chosen based on the template syntax
+    - allow_absolute_paths: if True, scripts may be absolute paths outside
+      project_root. Only safe for trusted internal callers (e.g. the
+      in-memory v1->v2 project definition conversion, which writes
+      generated tempfiles).
     Returns:
     - List of rendered scripts content
     Size of the return list is the same as the size of the input scripts list.
     """
     return [
-        render_script_template(project_root, jinja_context, script, override_env)
+        render_script_template(
+            project_root,
+            jinja_context,
+            script,
+            override_env,
+            allow_absolute_paths=allow_absolute_paths,
+        )
         for script in scripts
     ]
 
@@ -301,8 +318,12 @@ def render_script_template(
     jinja_context: dict[str, Any],
     script: str,
     override_env: Optional[jinja2.Environment] = None,
+    *,
+    allow_absolute_paths: bool = False,
 ) -> str:
-    script_full_path = SecurePath(project_root) / script
+    script_full_path = _resolve_script_path_within_project(
+        project_root, script, allow_absolute_paths=allow_absolute_paths
+    )
     try:
         template_content = script_full_path.read_text(file_size_limit_mb=UNLIMITED)
         env = override_env or choose_sql_jinja_env_based_on_template_syntax(
@@ -318,6 +339,37 @@ def render_script_template(
 
     except jinja2.UndefinedError as e:
         raise InvalidTemplateInFileError(script, e) from e
+
+
+def _resolve_script_path_within_project(
+    project_root: Path, script: str, *, allow_absolute_paths: bool
+) -> SecurePath:
+    """Resolve `script` relative to `project_root`, ensuring the final path
+    does not escape the project root via absolute paths or `..` traversal.
+
+    Raises ClickException if the resolved path would read a file outside
+    `project_root` and `allow_absolute_paths` is False.
+    """
+    resolved_root = Path(project_root).resolve()
+    candidate = Path(script)
+    if candidate.is_absolute():
+        if not allow_absolute_paths:
+            raise ClickException(
+                f"Refusing to read SQL script outside the project root: "
+                f"{script!r} is an absolute path."
+            )
+        resolved_candidate = candidate.resolve()
+    else:
+        resolved_candidate = (resolved_root / candidate).resolve()
+        try:
+            resolved_candidate.relative_to(resolved_root)
+        except ValueError:
+            raise ClickException(
+                f"Refusing to read SQL script outside the project root: "
+                f"{script!r} resolves to {resolved_candidate}, which is "
+                f"outside {resolved_root}."
+            )
+    return SecurePath(resolved_candidate)
 
 
 def validation_item_to_str(item: dict[str, str | int]):

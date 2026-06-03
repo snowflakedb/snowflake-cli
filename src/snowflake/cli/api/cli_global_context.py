@@ -70,6 +70,13 @@ class _CliGlobalContextManager:
     # in order to remove this logic (then make project_definition a non-cloned @property)
     override_project_definition: ProjectDefinition | None = None
 
+    # Identifies which "snow app" product flow the current command is running:
+    # "native_app" for Native App entities (application / application package),
+    # "snowflake_app" for Snowflake App Runtime entities (snowflake-app), or
+    # None for any other command. Set by the routing/decoration helpers in
+    # _plugins/nativeapp/v2_conversions/compat.py and read by telemetry.
+    app_flow: str | None = None
+
     _definition_manager: DefinitionManager | None = None
     enhanced_exit_codes: bool = False
 
@@ -179,9 +186,15 @@ class _CliGlobalContextManager:
 
         connections_file = get_connections_file()
 
+        # When using a custom config file, skip permission checks on the
+        # default connections file since the user explicitly opted out of defaults
+        check_connections_permissions = self.config_file_override is None
+
         connections_slice = ConfigSlice(
             path=connections_file,
-            options=ConfigSliceOptions(check_permissions=True, only_in_slice=False),
+            options=ConfigSliceOptions(
+                check_permissions=check_connections_permissions, only_in_slice=False
+            ),
             section="connections",
         )
 
@@ -283,6 +296,10 @@ class _CliGlobalContextAccess:
     @property
     def is_repl(self) -> bool:
         return self._manager.is_repl
+
+    @property
+    def app_flow(self) -> str | None:
+        return self._manager.app_flow
 
     @property
     def repl(self) -> Repl | None:

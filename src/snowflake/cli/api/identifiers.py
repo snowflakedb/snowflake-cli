@@ -28,6 +28,7 @@ from snowflake.cli.api.project.util import (
     VALID_IDENTIFIER_REGEX,
     identifier_for_url,
     sanitize_identifier,
+    to_string_literal,
     unquote_identifier,
 )
 
@@ -89,8 +90,8 @@ class FQN:
     @property
     def sql_identifier(self) -> str:
         if self.signature:
-            return f"IDENTIFIER('{self.identifier}'){self.signature}"
-        return f"IDENTIFIER('{self.identifier}')"
+            return f"IDENTIFIER({to_string_literal(self.identifier)}){self.signature}"
+        return f"IDENTIFIER({to_string_literal(self.identifier)})"
 
     def __str__(self):
         return self.identifier
@@ -221,3 +222,30 @@ class FQN:
 
     def to_dict(self) -> dict:
         return {"name": self.name, "schema": self.schema, "database": self.database}
+
+
+class AccountIdentifier:
+    def __init__(self, organization_name: str, account_name: str):
+        self.organization_name = organization_name.upper()
+        self.account_name = account_name.upper()
+
+    @classmethod
+    def from_string(cls, identifier: str) -> "AccountIdentifier":
+        if "-" in identifier and "." not in identifier:
+            org, account = identifier.split("-", 1)
+        elif "." in identifier and "-" not in identifier:
+            org, account = identifier.split(".", 1)
+        else:
+            org, account = identifier, ""
+        return cls(organization_name=org, account_name=account)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, AccountIdentifier):
+            return NotImplemented
+        return (
+            self.organization_name == other.organization_name
+            and self.account_name == other.account_name
+        )
+
+    def __str__(self) -> str:
+        return f"{self.organization_name}-{self.account_name}"

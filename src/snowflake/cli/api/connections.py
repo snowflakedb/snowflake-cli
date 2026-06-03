@@ -19,17 +19,32 @@ import logging
 import re
 import warnings
 from dataclasses import asdict, dataclass, field, fields, replace
+from hashlib import sha256
 from pathlib import Path
 from typing import Optional
 
 from snowflake.cli.api.config import get_connection_dict, get_default_connection_name
+from snowflake.cli.api.constants import IS_WINDOWS
 from snowflake.cli.api.exceptions import InvalidSchemaError
 from snowflake.connector import SnowflakeConnection
-from snowflake.connector.compat import IS_WINDOWS
 
 logger = logging.getLogger(__name__)
 
 schema_pattern = re.compile(r".+\..+")
+
+# Placeholder rendered in lieu of a credential value. Kept identical to
+# ``snowflake.cli.api.config_ng.masking.MASKED_VALUE`` so all log/debug
+# surfaces use one redaction style — that module isn't imported directly
+# to avoid a circular import via ``config_ng/__init__.py`` →
+# ``presentation`` → ``console`` → ``cli_global_context`` → this module.
+# See ``test_redacted_constant_matches_masking_module`` for the regression
+# guard that keeps the two in sync.
+_REDACTED: str = "****"
+
+# Length of the truncated hash fingerprint used in debug log lines. Long
+# enough that collisions among live cached connections are vanishingly
+# unlikely, short enough to stay readable.
+_KEY_FINGERPRINT_LEN: int = 12
 
 
 @dataclass
@@ -38,6 +53,7 @@ class ConnectionContext:
     connection_name: Optional[str] = None
     host: Optional[str] = None
     port: Optional[int] = None
+    protocol: Optional[str] = None
     account: Optional[str] = None
     database: Optional[str] = None
     role: Optional[str] = None
@@ -50,17 +66,17 @@ class ConnectionContext:
     private_key_raw: Optional[str] = field(default=None, repr=False)
     private_key_passphrase: Optional[str] = field(default=None, repr=False)
     warehouse: Optional[str] = None
-    mfa_passcode: Optional[str] = None
-    token: Optional[str] = None
+    mfa_passcode: Optional[str] = field(default=None, repr=False)
+    token: Optional[str] = field(default=None, repr=False)
     enable_diag: Optional[bool] = False
     diag_log_path: Optional[Path] = None
     diag_allowlist_path: Optional[Path] = None
     temporary_connection: bool = False
-    session_token: Optional[str] = None
-    master_token: Optional[str] = None
+    session_token: Optional[str] = field(default=None, repr=False)
+    master_token: Optional[str] = field(default=None, repr=False)
     token_file_path: Optional[Path] = None
     oauth_client_id: Optional[str] = None
-    oauth_client_secret: Optional[str] = None
+    oauth_client_secret: Optional[str] = field(default=None, repr=False)
     oauth_authorization_url: Optional[str] = None
     oauth_token_request_url: Optional[str] = None
     oauth_redirect_uri: Optional[str] = None
@@ -69,6 +85,7 @@ class ConnectionContext:
     oauth_enable_refresh_tokens: Optional[bool] = None
     oauth_enable_single_use_refresh_tokens: Optional[bool] = None
     client_store_temporary_credential: Optional[bool] = None
+    secondary_roles: Optional[str] = None
 
     # Internal flag to track if config has been loaded
     _config_loaded: bool = field(default=False, repr=False, init=False)
@@ -76,11 +93,45 @@ class ConnectionContext:
     VALIDATED_FIELD_NAMES = ["schema"]
 
     def present_values_as_dict(self) -> dict:
-        """Dictionary representation of this ConnectionContext for values that are not None"""
+        """Dictionary representation of this ConnectionContext for values that are not None.
+
+        Values are returned verbatim, including credential fields, because callers
+        use this dict to build a live Snowflake connection. Never pass the result
+        to a logger or other display sink — use :meth:`safe_values_as_dict` instead.
+        """
         return {
             k: v
             for (k, v) in asdict(self).items()
             if v is not None and not k.startswith("_")
+        }
+
+    @classmethod
+    def _sensitive_field_names(cls) -> frozenset[str]:
+        """Fields that must never appear unredacted in repr / debug logs.
+
+        Derived from the dataclass metadata: any field declared with
+        ``field(repr=False)`` is considered sensitive. Using the field
+        metadata as the single source of truth means that adding a new
+        credential to the dataclass with ``repr=False`` automatically
+        redacts it everywhere — there is no parallel allowlist to keep
+        in sync. Internal/private fields (``_config_loaded``) are
+        excluded.
+        """
+        return frozenset(
+            f.name for f in fields(cls) if not f.repr and not f.name.startswith("_")
+        )
+
+    def safe_values_as_dict(self) -> dict:
+        """Like :meth:`present_values_as_dict` but with credentials redacted.
+
+        Safe to pass to loggers or other display sinks. Sensitive fields whose
+        value is not ``None`` are replaced with a placeholder so the presence of
+        the field is still visible without leaking its contents.
+        """
+        sensitive = self._sensitive_field_names()
+        return {
+            k: (_REDACTED if k in sensitive else v)
+            for (k, v) in self.present_values_as_dict().items()
         }
 
     def clone(self) -> ConnectionContext:
@@ -112,6 +163,12 @@ class ConnectionContext:
         return self
 
     def update_from_config(self) -> ConnectionContext:
+        if self.temporary_connection:
+            # For temporary connections, all parameters come from CLI/env rather
+            # than a named connection in config.toml, so there is no config to merge.
+            self._config_loaded = True
+            return self
+
         connection_config = get_connection_dict(connection_name=self.connection_name)
         if "private_key_path" in connection_config:
             connection_config["private_key_file"] = connection_config[
@@ -124,9 +181,34 @@ class ConnectionContext:
         return self
 
     def __repr__(self) -> str:
-        """Minimal repr where None values have their keys omitted."""
-        items = [f"{k}={repr(v)}" for (k, v) in self.present_values_as_dict().items()]
+        """Minimal repr where None values have their keys omitted.
+
+        Credential-bearing fields are redacted so that repr can safely appear in
+        logs, telemetry, and error messages. Do NOT use ``repr(ctx)`` as a cache
+        or equality key — two distinct connections that differ only in their
+        credentials would produce the same repr. :class:`OpenConnectionCache`
+        uses :meth:`_full_cache_key` instead.
+        """
+        items = [f"{k}={repr(v)}" for (k, v) in self.safe_values_as_dict().items()]
         return f"{self.__class__.__name__}({', '.join(items)})"
+
+    def _full_cache_key(self) -> str:
+        """Unique key including credential values, for internal cache use only.
+
+        Hashing rather than concatenating means we don't retain raw passwords
+        / tokens as a long-lived dict-key string in the cache (which would
+        keep them pinned in memory and potentially expose them via core /
+        heap dumps). The hash is stable across the lifetime of the process
+        and unique enough to disambiguate two ``ConnectionContext`` objects
+        that share every non-secret field but differ by credential.
+
+        Distinct from ``repr(self)`` so that the credential-redacted repr
+        cannot collapse two distinct connections into the same cache entry.
+        Never log or display the raw hash; use ``key[:_KEY_FINGERPRINT_LEN]``
+        for diagnostic identifiers instead.
+        """
+        items = sorted(self.present_values_as_dict().items())
+        return sha256(repr(items).encode("utf-8")).hexdigest()
 
     def __setattr__(self, prop, val):
         """Runs registered validators before setting fields."""
@@ -209,6 +291,7 @@ class OpenConnectionCache:
 
     connections: dict[str, SnowflakeConnection]
     cleanup_futures: dict[str, asyncio.TimerHandle]
+    failures: dict[str, Exception]
 
     CONNECTION_CLEANUP_SEC: float = 10.0 * 60
     """Connections are closed this many seconds after the last time they are accessed."""
@@ -216,13 +299,25 @@ class OpenConnectionCache:
     def __init__(self):
         self.connections = {}
         self.cleanup_futures = {}
+        self.failures = {}
 
     def __getitem__(self, ctx):
         if not isinstance(ctx, ConnectionContext):
             raise ValueError(
                 f"Expected key to be ConnectionContext but got {repr(ctx)}"
             )
-        key = repr(ctx)
+        # Use the full (credential-including) cache key so connections that
+        # differ only by credentials do not collide. The key itself is never
+        # logged — see _insert for the safe variant used in log messages.
+        key = ctx._full_cache_key()  # noqa: SLF001
+        if key in self.failures:
+            # A prior attempt for this context already failed; re-raise rather
+            # than dialing again. Without this, every access of the CLI's
+            # global connection (pre-command telemetry, command body, error
+            # handler, post-command telemetry) would trigger an independent
+            # connect() call, producing duplicate LOGIN_HISTORY events on
+            # auth-policy rejection and similar deterministic failures.
+            raise self.failures[key]
         if not self._has_open_connection(key):
             self._insert(key, ctx)
         self._touch(key)
@@ -238,6 +333,11 @@ class OpenConnectionCache:
         for future in self.cleanup_futures.values():
             future.cancel()
         self.cleanup_futures.clear()
+        self.failures.clear()
+
+    def clear_failures(self):
+        """Forgets cached failed-connection attempts so they can be retried."""
+        self.failures.clear()
 
     def _has_open_connection(self, key: str):
         return key in self.connections
@@ -250,10 +350,18 @@ class OpenConnectionCache:
             # given ConnectionContext if get_env_value or get_connection_dict would
             # have returned different values (i.e. env / config have changed).
             self.connections[key] = ctx.build_connection()
-        except Exception:
+        except Exception as exc:
+            # Log the credential-redacted repr (not raw credentials) plus the
+            # opaque hash fingerprint, so the debug log (persisted to
+            # ~/.snowflake/logs/ by default) never contains password/token
+            # material but still lets operators correlate the failure with
+            # the matching _cleanup breadcrumb.
             logger.debug(
-                "ConnectionCache: failed to connect using %s; not caching.", key
+                "ConnectionCache: failed to connect using %s (key=%s); caching failure.",
+                repr(ctx),
+                key[:_KEY_FINGERPRINT_LEN],
             )
+            self.failures[key] = exc
             raise
 
     def _cancel_cleanup_future_if_exists(self, key: str):
@@ -286,7 +394,13 @@ class OpenConnectionCache:
     def _cleanup(self, key: str):
         """Closes the cached connection at the given key."""
         if key not in self.connections:
-            logger.debug("Cleaning up connection %s, but not found in cache!", key)
+            # The key itself is a SHA256 hash of the context (see
+            # ConnectionContext._full_cache_key) so a short prefix is safe to
+            # log and useful for correlating with the _insert breadcrumb.
+            logger.debug(
+                "Cleaning up connection %s, but not found in cache!",
+                key[:_KEY_FINGERPRINT_LEN],
+            )
 
         # doesn't cancel in-flight async queries
         self._cancel_cleanup_future_if_exists(key)

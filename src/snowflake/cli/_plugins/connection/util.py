@@ -22,6 +22,7 @@ from functools import lru_cache
 from typing import Any, Dict, Optional
 
 from click.exceptions import ClickException
+from snowflake.cli.api.identifiers import AccountIdentifier
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import DictCursor
 
@@ -111,15 +112,43 @@ def is_regionless_redirect(conn: SnowflakeConnection) -> bool:
 
 def get_host_region(host: str) -> str | None:
     """
-    Looks for hosts of form
-    <account>.[x.y.z].snowflakecomputing.com
-    Returns the three-part [region identifier] or None.
+    Extract the Snowsight region segment from a Snowflake host.
+
+    Supported shapes (all ending in .snowflakecomputing.com):
+        <account>.<region>.snowflakecomputing.com                    -> <region>
+            e.g. <acct>.us-east-1.snowflakecomputing.com             -> us-east-1
+        <account>.<region>.<cloud>.snowflakecomputing.com            -> <region>.<cloud>
+            where <cloud> ∈ {aws, azure, gcp}
+        <account>.<x>.<y>.<z>.snowflakecomputing.com                 -> <x>.<y>.<z>
+            (legacy VPS / PrivateLink)
+        *.local                                                      -> LOCAL_DEPLOYMENT_REGION
+
+    Regionless aliases (<org>-<account>.<deployment>.snowflakecomputing.com, recognizable
+    by a dash in the account component of a 4- or 5-part host) return None so callers
+    fall back to the allowlist lookup to find the real regioned host. 6-part VPS hosts
+    with dashed accounts are not ambiguous and are still parsed as regioned.
     """
     host_parts = host.split(".")
     if host_parts[-1] == "local":
         return LOCAL_DEPLOYMENT_REGION
-    elif len(host_parts) == 6:
-        return ".".join(host_parts[1:4])
+    if host_parts[-2:] != ["snowflakecomputing", "com"]:
+        return None
+    remaining = host_parts[:-2]
+    if len(remaining) < 2:
+        return None
+    account, region_parts = remaining[0], remaining[1:]
+    # The regionless-alias / regioned-host ambiguity only exists for 4- and 5-part
+    # hosts (where the leading token could be either `<org>-<account>` or a plain
+    # account). 6-part VPS/PrivateLink hosts are unambiguously regioned, so a dash
+    # in the account component there is a real account, not an alias marker.
+    if "-" in account and len(region_parts) <= 2:
+        return None
+    if len(region_parts) == 1:
+        return region_parts[0]
+    if len(region_parts) == 2 and region_parts[-1] in ("aws", "azure", "gcp"):
+        return ".".join(region_parts)
+    if len(region_parts) == 3:
+        return ".".join(region_parts)
     return None
 
 
@@ -191,6 +220,30 @@ def get_account(conn: SnowflakeConnection) -> str:
             return host_parts[0]
 
         raise MissingConnectionAccountError(conn)
+
+
+def get_account_identifier(conn: SnowflakeConnection) -> AccountIdentifier:
+    *_, cursor = conn.execute_string(
+        "SELECT CURRENT_ORGANIZATION_NAME() AS org, CURRENT_ACCOUNT_NAME() AS acct",
+        cursor_class=DictCursor,
+    )
+    result = cursor.fetchone()
+    if result is None:
+        raise ClickException(
+            "Could not determine account identifier: "
+            "CURRENT_ORGANIZATION_NAME() / CURRENT_ACCOUNT_NAME() returned no row."
+        )
+    org = result.get("ORG")
+    account = result.get("ACCT")
+    if not org or not account:
+        raise ClickException(
+            "Could not determine account identifier: "
+            f"CURRENT_ORGANIZATION_NAME()={org!r}, CURRENT_ACCOUNT_NAME()={account!r}."
+        )
+    return AccountIdentifier(
+        organization_name=org,
+        account_name=account,
+    )
 
 
 def get_snowsight_host(conn: SnowflakeConnection) -> str:

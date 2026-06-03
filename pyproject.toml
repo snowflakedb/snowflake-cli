@@ -27,26 +27,27 @@ readme = "README.md"
 dependencies = [
   # Actual project dependencies, from which we generate [project.dependencies] section serving as a lockfile for PyPi
   "click==8.1.8",
-  "GitPython==3.1.44",
+  "GitPython==3.1.50",
   "PyYAML==6.0.2",
   "id==1.5.0",
   "jinja2==3.1.6",
   "packaging==25.0",
-  "pip==25.3",
+  "pip==26.1.1",
   "pluggy==1.6.0",
   "prompt-toolkit==3.0.51",
   "protobuf>=5.29.6,<6",
   "pydantic==2.12.5",
-  "requests==2.32.4",
+  "requests==2.33.0",
   "requirements-parser==0.13.0",
   "rich==14.0.0",
   "setuptools==80.8.0",
-  "snowflake-connector-python[secure-local-storage]==3.18.0",
+  "snowflake-connector-python[secure-local-storage]==4.6.0",
   'snowflake-snowpark-python==1.41.0',
   "snowflake.core==1.10.0",
   "tomlkit==0.13.3",
   "typer==0.17.3",
   "urllib3>=2.6.3,<3",
+  "websocket-client>=1.6.0,<2",
 ]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -71,8 +72,10 @@ development = [
   "coverage==7.10.4",
   "factory-boy==3.3.3",
   "pre-commit>=3.5.0",
+  "pytest-cov==6.0.0",
   "pytest-httpserver==1.1.3",
   "pytest-randomly==3.16.0",
+  "pytest-xdist==3.6.1",
   "pytest==8.4.1",
   "syrupy==4.9.1",
   "uv==0.10.9",
@@ -103,10 +106,16 @@ python = "3.10"
 features = ["development"]
 
 [tool.hatch.envs.default.scripts]
-test = ["pytest tests/"]
+# Unit tests are parallelized with pytest-xdist. `loaded_modules` runs serially
+# in a fresh process because it asserts on `sys.modules` after CLI startup,
+# which is meaningless under a long-lived xdist worker.
+test = [
+  "pytest -n auto --dist=worksteal tests/",
+  "pytest -m loaded_modules tests/",
+]
 test-cov = [
-  "coverage run --source=snowflake.cli --module pytest tests/",
-  "coverage run --source=snowflake.cli --module pytest -m loaded_modules tests/",
+  "pytest --cov=snowflake.cli --cov-report= -n auto --dist=worksteal tests/",
+  "pytest --cov=snowflake.cli --cov-append --cov-report= -m loaded_modules tests/",
   "coverage report",
 ]
 legacy-pypi-build = [".compat/build_snowflake-cli-labs.sh"]
@@ -179,9 +188,15 @@ features = ["development"]
 [tool.hatch.envs.ud.scripts]
 check = [
   'pip uninstall --yes snowflake-connector-python',
+  # Clean up orphaned files from the namespace package directory
+  'echo "$(python -c "import site; print(site.getsitepackages()[0])")/snowflake/connector"',
+  'rm -rf "$(python -c "import site; print(site.getsitepackages()[0])")/snowflake/connector"',
+  'ls .hatch/ud/lib/python3.12/site-packages/snowflake',
   'pip install "git+https://github.com/snowflakedb/universal-driver@{env:UD_BRANCH:main}#subdirectory=python"',
-  'pytest -m "integration and not qa_only" -n5 --dist=worksteal --deflake-test-type=integration --ignore=tests_integration/tests_using_container_services tests_integration/ {args}',
+  "python -c \"from packaging.version import Version; import snowflake.connector; v = Version(snowflake.connector.__version__); assert v.major >= 5, 'Expected snowflake-connector-python >= 5, got ' + str(v)\"",
+  'pytest -m "integration and not qa_only" -n8 --maxfail=1000 --dist=worksteal --ignore=tests_integration/tests_using_container_services --ignore=tests_integration/nativeapp tests_integration/ {args}'
 ]
+
 
 [[tool.hatch.envs.local.matrix]]
 python = ["3.10", "3.11", "3.12", "3.13"]

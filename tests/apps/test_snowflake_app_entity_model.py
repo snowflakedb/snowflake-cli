@@ -42,6 +42,7 @@ class TestSnowflakeAppEntityModel:
         assert model.code_stage is None
         assert model.meta is None
         assert model.build_image is None
+        assert model.spcs_test_project_type is None
         assert model.execute_as_caller is True
         assert model.dev_roles is None
 
@@ -164,6 +165,60 @@ class TestSnowflakeAppEntityModel:
         )
         assert model.code_stage.encryption_type == "SNOWFLAKE_SSE"
 
+    def test_code_stage_as_bare_name_string(self):
+        """``code_stage: MY_STAGE`` (bare string) is accepted for
+        backwards-compatibility — db/schema are resolved to the app's
+        db/schema at deploy time."""
+        model = SnowflakeAppEntityModel(
+            type="snowflake-app",
+            identifier="my_app",
+            artifacts=["app/*"],
+            code_stage="MY_STAGE",
+        )
+        assert model.code_stage.name == "MY_STAGE"
+        assert model.code_stage.database is None
+        assert model.code_stage.schema_ is None
+
+    def test_code_stage_as_fully_qualified_identifier(self):
+        """``code_stage: DB.SCHEMA.STAGE`` is parsed into its components."""
+        model = SnowflakeAppEntityModel(
+            type="snowflake-app",
+            identifier="my_app",
+            artifacts=["app/*"],
+            code_stage="MY_DB.MY_SCHEMA.MY_STAGE",
+        )
+        assert model.code_stage.name == "MY_STAGE"
+        assert model.code_stage.schema_ == "MY_SCHEMA"
+        assert model.code_stage.database == "MY_DB"
+
+    def test_code_stage_as_schema_qualified_identifier(self):
+        """``code_stage: SCHEMA.STAGE`` fills schema_ only."""
+        model = SnowflakeAppEntityModel(
+            type="snowflake-app",
+            identifier="my_app",
+            artifacts=["app/*"],
+            code_stage="MY_SCHEMA.MY_STAGE",
+        )
+        assert model.code_stage.name == "MY_STAGE"
+        assert model.code_stage.schema_ == "MY_SCHEMA"
+        assert model.code_stage.database is None
+
+    def test_code_stage_dict_with_db_and_schema(self):
+        """Dict form with explicit database/schema is supported."""
+        model = SnowflakeAppEntityModel(
+            type="snowflake-app",
+            identifier="my_app",
+            artifacts=["app/*"],
+            code_stage={
+                "name": "MY_STAGE",
+                "database": "MY_DB",
+                "schema": "MY_SCHEMA",
+            },
+        )
+        assert model.code_stage.name == "MY_STAGE"
+        assert model.code_stage.database == "MY_DB"
+        assert model.code_stage.schema_ == "MY_SCHEMA"
+
     def test_meta_field_defaults(self):
         """Meta field sub-fields default to None."""
         model = SnowflakeAppEntityModel(
@@ -265,6 +320,25 @@ class TestSnowflakeAppEntityModel:
                 build_image='/my/"image":latest',
             )
 
+    def test_spcs_test_project_type_strips_whitespace(self):
+        model = SnowflakeAppEntityModel(
+            type="snowflake-app",
+            identifier="my_app",
+            artifacts=["app/*"],
+            spcs_test_project_type="  nextjs  ",
+        )
+        assert model.spcs_test_project_type == "nextjs"
+
+    @pytest.mark.parametrize("value", [None, "null"])
+    def test_spcs_test_project_type_allows_null_values(self, value):
+        model = SnowflakeAppEntityModel(
+            type="snowflake-app",
+            identifier="my_app",
+            artifacts=["app/*"],
+            spcs_test_project_type=value,
+        )
+        assert model.spcs_test_project_type is None
+
     def test_execute_as_caller_defaults_to_true(self):
         model = SnowflakeAppEntityModel(
             type="snowflake-app",
@@ -281,6 +355,17 @@ class TestSnowflakeAppEntityModel:
             execute_as_caller=False,
         )
         assert model.execute_as_caller is False
+
+    def test_code_storage_mutually_exclusive(self):
+        """``code_stage`` and ``code_workspace`` cannot both be set."""
+        with pytest.raises(ValueError, match="code_stage or code_workspace, not both"):
+            SnowflakeAppEntityModel(
+                type="snowflake-app",
+                identifier="my_app",
+                artifacts=["app/*"],
+                code_stage={"name": "MY_STAGE"},
+                code_workspace={"name": "MY_WORKSPACE"},
+            )
 
 
 class TestSnowflakeAppInProjectDefinition:
@@ -426,6 +511,23 @@ class TestSnowflakeAppInProjectDefinition:
         assert entity.meta.title == "My App Title"
         assert entity.meta.description == "My App Description"
         assert entity.meta.icon == "icon.png"
+
+    def test_snowflake_app_with_spcs_test_project_type_override(self):
+        definition_input = {
+            "definition_version": "2",
+            "entities": {
+                "my_app": {
+                    "type": "snowflake-app",
+                    "identifier": "MY_APP",
+                    "artifacts": ["app/*"],
+                    "spcs_test_project_type": "  nextjs  ",
+                }
+            },
+        }
+        result = render_definition_template(definition_input, {})
+        project = result.project_definition
+        entity = project.entities["my_app"]
+        assert entity.spcs_test_project_type == "nextjs"
 
 
 class TestSubModels:

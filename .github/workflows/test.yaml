@@ -14,14 +14,25 @@ on:
 env:
   TERM: unknown # Disables colors in rich
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
   define-matrix:
     uses: ./.github/workflows/matrix.yaml
+  changes:
+    uses: ./.github/workflows/changes.yaml
+  # Required check `tests (<os>, <py>)` must report on every PR, including
+  # docs/CODEOWNERS-only ones. A job-level `if:` on a matrix job prevents the
+  # matrix from expanding, so the per-cell required checks are never posted
+  # and the PR sits BLOCKED. Keep the gate at the step level instead — the
+  # matrix still expands and each cell posts a (no-op) success.
   tests:
-    needs: define-matrix
+    needs: [define-matrix, changes]
     strategy:
       fail-fast: true
       matrix:
@@ -32,40 +43,58 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Set up Python ${{ matrix.python-version }}
+      - if: needs.changes.outputs.code == 'true'
+        name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install hatch
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - if: needs.changes.outputs.code == 'true'
+        name: Cache hatch envs
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/hatch
+            ~/Library/Application Support/hatch
+            ~\AppData\Local\hatch
+          key: hatch-default-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('pyproject.toml', 'pylock.toml') }}
+          restore-keys: |
+            hatch-default-${{ runner.os }}-py${{ matrix.python-version }}-
+      - if: needs.changes.outputs.code == 'true'
+        name: Install hatch
         run: |
           pip install -U click==8.2.1 hatch==1.15.1 virtualenv==20.39.1
           hatch env create default
-      - name: Test with hatch
+      - if: needs.changes.outputs.code == 'true'
+        name: Test with hatch
         run: hatch run test-cov
-      - uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24
+      - if: needs.changes.outputs.code == 'true'
+        uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24
 
-  tests-config-ng:
-    needs: define-matrix
-    strategy:
-      fail-fast: true
-      matrix:
-        os: ${{ fromJSON(needs.define-matrix.outputs.os) }}
-        python-version: ${{ fromJSON(needs.define-matrix.outputs.python) }}
-    runs-on: ${{ matrix.os }}
-    env:
-      SNOWFLAKE_CLI_CONFIG_V2_ENABLED: 1
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install hatch
-        run: |
-          pip install -U click==8.2.1 hatch==1.15.1 virtualenv==20.39.1
-          hatch env create default
-      - name: Test with hatch
-        run: hatch run test-cov
-      - uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24
+  # Temporarily disabled; re-enable once config v2 (NG) is ready.
+  # tests-config-ng:
+  #   needs: define-matrix
+  #   strategy:
+  #     fail-fast: true
+  #     matrix:
+  #       os: ${{ fromJSON(needs.define-matrix.outputs.os) }}
+  #       python-version: ${{ fromJSON(needs.define-matrix.outputs.python) }}
+  #   runs-on: ${{ matrix.os }}
+  #   env:
+  #     SNOWFLAKE_CLI_CONFIG_V2_ENABLED: 1
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         persist-credentials: false
+  #     - name: Set up Python ${{ matrix.python-version }}
+  #       uses: actions/setup-python@v5
+  #       with:
+  #         python-version: ${{ matrix.python-version }}
+  #     - name: Install hatch
+  #       run: |
+  #         pip install -U click==8.2.1 hatch==1.15.1 virtualenv==20.39.1
+  #         hatch env create default
+  #     - name: Test with hatch
+  #       run: hatch run test-cov
+  #     - uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24

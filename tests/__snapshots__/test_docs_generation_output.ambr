@@ -3,178 +3,318 @@
   '''
   Given a prompt, the command generates a response using your choice of language model. In the simplest use case, the prompt is a single string. You may also provide a JSON file with conversation history including multiple prompts and responses for interactive chat-style usage.
   
-  Syntax
-  ===============================================================================
+  ## Syntax
   
-  .. code-block:: console
+  ```console
+  snow cortex complete
+    <text>
+    --model <model>
+    --backend <backend>
+    --file <file>
+    --connection <connection>
+    --host <host>
+    --port <port>
+    --protocol <protocol>
+    --account <account>
+    --user <user>
+    --password <password>
+    --authenticator <authenticator>
+    --workload-identity-provider <workload_identity_provider>
+    --private-key-file <private_key_file>
+    --token <token>
+    --token-file-path <token_file_path>
+    --database <database>
+    --schema <schema>
+    --role <role>
+    --warehouse <warehouse>
+    --temporary-connection
+    --mfa-passcode <mfa_passcode>
+    --enable-diag
+    --diag-log-path <diag_log_path>
+    --diag-allowlist-path <diag_allowlist_path>
+    --oauth-client-id <oauth_client_id>
+    --oauth-client-secret <oauth_client_secret>
+    --oauth-authorization-url <oauth_authorization_url>
+    --oauth-token-request-url <oauth_token_request_url>
+    --oauth-redirect-uri <oauth_redirect_uri>
+    --oauth-scope <oauth_scope>
+    --oauth-disable-pkce
+    --oauth-enable-refresh-tokens
+    --oauth-enable-single-use-refresh-tokens
+    --client-store-temporary-credential
+    --secondary-roles <secondary_roles>
+    --format <format>
+    --verbose
+    --debug
+    --silent
+    --enhanced-exit-codes
+    --decimal-precision <decimal_precision>
+  ```
   
-    snow cortex complete
-      <text>
-      --model <model>
-      --backend <backend>
-      --file <file>
-      --connection <connection>
-      --host <host>
-      --port <port>
-      --account <account>
-      --user <user>
-      --password <password>
-      --authenticator <authenticator>
-      --workload-identity-provider <workload_identity_provider>
-      --private-key-file <private_key_file>
-      --token <token>
-      --token-file-path <token_file_path>
-      --database <database>
-      --schema <schema>
-      --role <role>
-      --warehouse <warehouse>
-      --temporary-connection
-      --mfa-passcode <mfa_passcode>
-      --enable-diag
-      --diag-log-path <diag_log_path>
-      --diag-allowlist-path <diag_allowlist_path>
-      --oauth-client-id <oauth_client_id>
-      --oauth-client-secret <oauth_client_secret>
-      --oauth-authorization-url <oauth_authorization_url>
-      --oauth-token-request-url <oauth_token_request_url>
-      --oauth-redirect-uri <oauth_redirect_uri>
-      --oauth-scope <oauth_scope>
-      --oauth-disable-pkce
-      --oauth-enable-refresh-tokens
-      --oauth-enable-single-use-refresh-tokens
-      --client-store-temporary-credential
-      --format <format>
-      --verbose
-      --debug
-      --silent
-      --enhanced-exit-codes
-      --decimal-precision <decimal_precision>
+  ## Arguments
   
-  Arguments
-  ===============================================================================
+  <dl>
+  <dt><code className="samp"><em>text</em></code></dt>
+  <dd>
   
-  :samp:`{text}`
-    Prompt to be used to generate a completion. Cannot be combined with --file option.
+  *Optional*
   
-  Options
-  ===============================================================================
+  Prompt to be used to generate a completion. Cannot be combined with --file option.
   
-  :samp:`--model {TEXT}`
-    String specifying the model to be used. Default: llama3.1-70b.
+  </dd>
+  </dl>
   
-  :samp:`--backend [sql|rest]`
-    String specifying whether to use sql or rest backend. Default: rest.
   
-  :samp:`--file {FILE}`
-    JSON file containing conversation history to be used to generate a completion. Cannot be combined with TEXT argument.
+  ## Options
   
-  :samp:`--connection, -c, --environment {TEXT}`
-    Name of the connection, as defined in your `config.toml` file. Default: `default`.
+  <dl>
+  <dt><code className="samp">--model <em>TEXT</em></code></dt>
+  <dd>
   
-  :samp:`--host {TEXT}`
-    Host address for the connection. Overrides the value specified for the connection.
+  String specifying the model to be used. Default: llama3.1-70b.
   
-  :samp:`--port {INTEGER}`
-    Port for the connection. Overrides the value specified for the connection.
+  </dd>
+  <dt>`--backend [sql|rest]`</dt>
+  <dd>
   
-  :samp:`--account, --accountname {TEXT}`
-    Name assigned to your Snowflake account. Overrides the value specified for the connection.
+  String specifying whether to use sql or rest backend. Default: rest.
   
-  :samp:`--user, --username {TEXT}`
-    Username to connect to Snowflake. Overrides the value specified for the connection.
+  </dd>
+  <dt><code className="samp">--file <em>FILE</em></code></dt>
+  <dd>
   
-  :samp:`--password {TEXT}`
-    Snowflake password. Overrides the value specified for the connection.
+  JSON file containing conversation history to be used to generate a completion. Cannot be combined with TEXT argument.
   
-  :samp:`--authenticator {TEXT}`
-    Snowflake authenticator. Overrides the value specified for the connection.
+  </dd>
+  <dt><code className="samp">--connection, -c, --environment <em>TEXT</em></code></dt>
+  <dd>
   
-  :samp:`--workload-identity-provider {TEXT}`
-    Workload identity provider (AWS, AZURE, GCP, OIDC). Overrides the value specified for the connection.
+  Name of the connection, as defined in your `config.toml` file. Default: `default`.
   
-  :samp:`--private-key-file, --private-key-path {TEXT}`
-    Snowflake private key file path. Overrides the value specified for the connection.
+  </dd>
+  <dt><code className="samp">--host <em>TEXT</em></code></dt>
+  <dd>
   
-  :samp:`--token {TEXT}`
-    OAuth token to use when connecting to Snowflake.
+  Host address for the connection. Overrides the value specified for the connection.
   
-  :samp:`--token-file-path {TEXT}`
-    Path to file with an OAuth token to use when connecting to Snowflake.
+  </dd>
+  <dt><code className="samp">--port <em>INTEGER</em></code></dt>
+  <dd>
   
-  :samp:`--database, --dbname {TEXT}`
-    Database to use. Overrides the value specified for the connection.
+  Port for the connection. Overrides the value specified for the connection.
   
-  :samp:`--schema, --schemaname {TEXT}`
-    Database schema to use. Overrides the value specified for the connection.
+  </dd>
+  <dt><code className="samp">--protocol <em>TEXT</em></code></dt>
+  <dd>
   
-  :samp:`--role, --rolename {TEXT}`
-    Role to use. Overrides the value specified for the connection.
+  Protocol to use for the connection, for example `https`. Overrides the value specified for the connection.
   
-  :samp:`--warehouse {TEXT}`
-    Warehouse to use. Overrides the value specified for the connection.
+  </dd>
+  <dt><code className="samp">--account, --accountname <em>TEXT</em></code></dt>
+  <dd>
   
-  :samp:`--temporary-connection, -x`
-    Uses a connection defined with command-line parameters, instead of one defined in config. Default: False.
+  Name assigned to your Snowflake account. Overrides the value specified for the connection.
   
-  :samp:`--mfa-passcode {TEXT}`
-    Token to use for multi-factor authentication (MFA).
+  </dd>
+  <dt><code className="samp">--user, --username <em>TEXT</em></code></dt>
+  <dd>
   
-  :samp:`--enable-diag`
-    Whether to generate a connection diagnostic report. Default: False.
+  Username to connect to Snowflake. Overrides the value specified for the connection.
   
-  :samp:`--diag-log-path {TEXT}`
-    Path for the generated report. Defaults to system temporary directory. Default: <system_temporary_directory>.
+  </dd>
+  <dt><code className="samp">--password <em>TEXT</em></code></dt>
+  <dd>
   
-  :samp:`--diag-allowlist-path {TEXT}`
-    Path to a JSON file that contains allowlist parameters.
+  Snowflake password. Overrides the value specified for the connection.
   
-  :samp:`--oauth-client-id {TEXT}`
-    Value of client id provided by the Identity Provider for Snowflake integration.
+  </dd>
+  <dt><code className="samp">--authenticator <em>TEXT</em></code></dt>
+  <dd>
   
-  :samp:`--oauth-client-secret {TEXT}`
-    Value of the client secret provided by the Identity Provider for Snowflake integration.
+  Snowflake authenticator. Overrides the value specified for the connection.
   
-  :samp:`--oauth-authorization-url {TEXT}`
-    Identity Provider endpoint supplying the authorization code to the driver.
+  </dd>
+  <dt><code className="samp">--workload-identity-provider <em>TEXT</em></code></dt>
+  <dd>
   
-  :samp:`--oauth-token-request-url {TEXT}`
-    Identity Provider endpoint supplying the access tokens to the driver.
+  Workload identity provider (AWS, AZURE, GCP, OIDC). Overrides the value specified for the connection.
   
-  :samp:`--oauth-redirect-uri {TEXT}`
-    URI to use for authorization code redirection.
+  </dd>
+  <dt><code className="samp">--private-key-file, --private-key-path <em>TEXT</em></code></dt>
+  <dd>
   
-  :samp:`--oauth-scope {TEXT}`
-    Scope requested in the Identity Provider authorization request.
+  Snowflake private key file path. Overrides the value specified for the connection.
   
-  :samp:`--oauth-disable-pkce`
-    Disables Proof Key for Code Exchange (PKCE). Default: `False`.
+  </dd>
+  <dt><code className="samp">--token <em>TEXT</em></code></dt>
+  <dd>
   
-  :samp:`--oauth-enable-refresh-tokens`
-    Enables a silent re-authentication when the actual access token becomes outdated. Default: `False`.
+  OAuth token to use when connecting to Snowflake.
   
-  :samp:`--oauth-enable-single-use-refresh-tokens`
-    Whether to opt-in to single-use refresh token semantics. Default: `False`.
+  </dd>
+  <dt><code className="samp">--token-file-path <em>TEXT</em></code></dt>
+  <dd>
   
-  :samp:`--client-store-temporary-credential`
-    Store the temporary credential.
+  Path to file with an OAuth token to use when connecting to Snowflake.
   
-  :samp:`--format [TABLE|JSON|JSON_EXT|CSV]`
-    Specifies the output format. Default: TABLE.
+  </dd>
+  <dt><code className="samp">--database, --dbname <em>TEXT</em></code></dt>
+  <dd>
   
-  :samp:`--verbose, -v`
-    Displays log entries for log levels `info` and higher. Default: False.
+  Database to use. Overrides the value specified for the connection.
   
-  :samp:`--debug`
-    Displays log entries for log levels `debug` and higher; debug logs contain additional information. Default: False.
+  </dd>
+  <dt><code className="samp">--schema, --schemaname <em>TEXT</em></code></dt>
+  <dd>
   
-  :samp:`--silent`
-    Turns off intermediate output to console. Default: False.
+  Database schema to use. Overrides the value specified for the connection.
   
-  :samp:`--enhanced-exit-codes`
-    Differentiate exit error codes based on failure type. Default: False.
+  </dd>
+  <dt><code className="samp">--role, --rolename <em>TEXT</em></code></dt>
+  <dd>
   
-  :samp:`--decimal-precision {INTEGER}`
-    Number of decimal places to display for decimal values. Uses Python's default precision if not specified. [env var: SNOWFLAKE_DECIMAL_PRECISION].
+  Role to use. Overrides the value specified for the connection.
+  
+  </dd>
+  <dt><code className="samp">--warehouse <em>TEXT</em></code></dt>
+  <dd>
+  
+  Warehouse to use. Overrides the value specified for the connection.
+  
+  </dd>
+  <dt>`--temporary-connection, -x`</dt>
+  <dd>
+  
+  Uses a connection defined with command-line parameters, instead of one defined in config. Default: False.
+  
+  </dd>
+  <dt><code className="samp">--mfa-passcode <em>TEXT</em></code></dt>
+  <dd>
+  
+  Token to use for multi-factor authentication (MFA).
+  
+  </dd>
+  <dt>`--enable-diag`</dt>
+  <dd>
+  
+  Whether to generate a connection diagnostic report. Default: False.
+  
+  </dd>
+  <dt><code className="samp">--diag-log-path <em>TEXT</em></code></dt>
+  <dd>
+  
+  Path for the generated report. Defaults to system temporary directory. Default: <system_temporary_directory>.
+  
+  </dd>
+  <dt><code className="samp">--diag-allowlist-path <em>TEXT</em></code></dt>
+  <dd>
+  
+  Path to a JSON file that contains allowlist parameters.
+  
+  </dd>
+  <dt><code className="samp">--oauth-client-id <em>TEXT</em></code></dt>
+  <dd>
+  
+  Value of client id provided by the Identity Provider for Snowflake integration.
+  
+  </dd>
+  <dt><code className="samp">--oauth-client-secret <em>TEXT</em></code></dt>
+  <dd>
+  
+  Value of the client secret provided by the Identity Provider for Snowflake integration.
+  
+  </dd>
+  <dt><code className="samp">--oauth-authorization-url <em>TEXT</em></code></dt>
+  <dd>
+  
+  Identity Provider endpoint supplying the authorization code to the driver.
+  
+  </dd>
+  <dt><code className="samp">--oauth-token-request-url <em>TEXT</em></code></dt>
+  <dd>
+  
+  Identity Provider endpoint supplying the access tokens to the driver.
+  
+  </dd>
+  <dt><code className="samp">--oauth-redirect-uri <em>TEXT</em></code></dt>
+  <dd>
+  
+  URI to use for authorization code redirection.
+  
+  </dd>
+  <dt><code className="samp">--oauth-scope <em>TEXT</em></code></dt>
+  <dd>
+  
+  Scope requested in the Identity Provider authorization request.
+  
+  </dd>
+  <dt>`--oauth-disable-pkce`</dt>
+  <dd>
+  
+  Disables Proof Key for Code Exchange (PKCE). Default: `False`.
+  
+  </dd>
+  <dt>`--oauth-enable-refresh-tokens`</dt>
+  <dd>
+  
+  Enables a silent re-authentication when the actual access token becomes outdated. Default: `False`.
+  
+  </dd>
+  <dt>`--oauth-enable-single-use-refresh-tokens`</dt>
+  <dd>
+  
+  Whether to opt-in to single-use refresh token semantics. Default: `False`.
+  
+  </dd>
+  <dt>`--client-store-temporary-credential`</dt>
+  <dd>
+  
+  Store the temporary credential.
+  
+  </dd>
+  <dt><code className="samp">--secondary-roles <em>TEXT</em></code></dt>
+  <dd>
+  
+  Secondary roles mode applied when the session starts. Supported values are `ALL` and `NONE`; pass `NONE` to run the session only with the primary role.
+  
+  </dd>
+  <dt>`--format [TABLE|JSON|JSON_EXT|CSV]`</dt>
+  <dd>
+  
+  Specifies the output format. Default: TABLE.
+  
+  </dd>
+  <dt>`--verbose, -v`</dt>
+  <dd>
+  
+  Displays log entries for log levels `info` and higher. Default: False.
+  
+  </dd>
+  <dt>`--debug`</dt>
+  <dd>
+  
+  Displays log entries for log levels `debug` and higher; debug logs contain additional information. Default: False.
+  
+  </dd>
+  <dt>`--silent`</dt>
+  <dd>
+  
+  Turns off intermediate output to console. Default: False.
+  
+  </dd>
+  <dt>`--enhanced-exit-codes`</dt>
+  <dd>
+  
+  Differentiate exit error codes based on failure type. Default: False.
+  
+  </dd>
+  <dt><code className="samp">--decimal-precision <em>INTEGER</em></code></dt>
+  <dd>
+  
+  Number of decimal places to display for decimal values. Uses Python's default precision if not specified. [env var: SNOWFLAKE_DECIMAL_PRECISION].
+  
+  </dd>
+  </dl>
   
   '''
 # ---

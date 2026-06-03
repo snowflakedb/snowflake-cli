@@ -7,9 +7,13 @@ targets:
   dev:
     project_name: "project_descriptive_name_dev"
     templating_config: "DEV"
+    account_identifier: "MY_ORG-MY_ACCOUNT"
+    project_owner: "MY_ROLE"
   test:
     project_name: "project_descriptive_name_test"
     templating_config: "test"
+    account_identifier: "MY_ORG-MY_ACCOUNT"
+    project_owner: "MY_ROLE"
 
 templating:
   defaults:

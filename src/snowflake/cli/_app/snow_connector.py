@@ -45,9 +45,10 @@ from snowflake.cli.api.exceptions import (
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.secret import SecretType
 from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.api.utils.types import try_cast_to_bool
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.auth.workload_identity import ApiFederatedAuthenticationType
-from snowflake.connector.errors import DatabaseError, ForbiddenError
+from snowflake.connector.errors import DatabaseError
 
 log = logging.getLogger(__name__)
 
@@ -62,6 +63,9 @@ SUPPORTED_ENV_OVERRIDES = [
     "account",
     "user",
     "password",
+    "host",
+    "port",
+    "protocol",
     "authenticator",
     "workload_identity_provider",
     "private_key_file",
@@ -85,10 +89,28 @@ SUPPORTED_ENV_OVERRIDES = [
     "oauth_enable_refresh_tokens",
     "oauth_enable_single_use_refresh_tokens",
     "client_store_temporary_credential",
+    "secondary_roles",
 ]
 
 # mapping of found key -> key to set
-CONNECTION_KEY_ALIASES = {"private_key_path": "private_key_file"}
+CONNECTION_KEY_ALIASES = {
+    "private_key_path": "private_key_file",
+    # `private_key_file_pwd` is the name used by the snowflake-connector-python
+    # TOML config; we normalize it to the CLI-native `private_key_passphrase`.
+    "private_key_file_pwd": "private_key_passphrase",
+}
+
+# Env overrides that must be coerced to bool. Env vars arrive as strings; the
+# connector only warns on type mismatch and otherwise uses truthiness, so
+# `SNOWFLAKE_*=false` would incorrectly behave as True without coercion.
+_BOOLEAN_ENV_OVERRIDE_KEYS = frozenset(
+    {
+        "oauth_disable_pkce",
+        "oauth_enable_refresh_tokens",
+        "oauth_enable_single_use_refresh_tokens",
+        "client_store_temporary_credential",
+    }
+)
 
 
 class _BufferedMirrorStream(io.StringIO):
@@ -124,6 +146,21 @@ def _resolve_alias(key_or_alias: str):
     return CONNECTION_KEY_ALIASES.get(key_or_alias, key_or_alias)
 
 
+def _coerce_boolean_parameter(connection_key: str, value):
+    if connection_key not in _BOOLEAN_ENV_OVERRIDE_KEYS or isinstance(value, bool):
+        return value
+    try:
+        return try_cast_to_bool(value)
+    except ValueError:
+        log.warning(
+            "Expected boolean-compatible value for %s but got %r; "
+            "using raw value without conversion.",
+            connection_key,
+            value,
+        )
+        return value
+
+
 def _build_silent_streams(
     connection_parameters: Dict,
 ) -> tuple[_BufferedMirrorStream, _BufferedMirrorStream]:
@@ -151,6 +188,8 @@ def connect_to_snowflake(
     connection_name: Optional[str] = None,
     **overrides,
 ) -> SnowflakeConnection:
+    from snowflake.connector.errors import ForbiddenError
+
     if temporary_connection and connection_name:
         raise ClickException("Can't use connection name and temporary connection.")
     elif not temporary_connection and not connection_name:
@@ -192,6 +231,15 @@ def connect_to_snowflake(
         if connection_key not in connection_parameters and generic_env_value:
             connection_parameters[connection_key] = generic_env_value
 
+    # Coerce string booleans to real bools for parameters the connector expects
+    # as bool. Connection-specific env vars and TOML strings reach this point
+    # as strings, and the connector only warns on type mismatches — so
+    # `SNOWFLAKE_*=false` would pass through as truthy without coercion.
+    for connection_key in list(connection_parameters):
+        connection_parameters[connection_key] = _coerce_boolean_parameter(
+            connection_key, connection_parameters[connection_key]
+        )
+
     # Clean up connection params
     connection_parameters = {
         k: v for k, v in connection_parameters.items() if v is not None
@@ -225,6 +273,12 @@ def connect_to_snowflake(
             connection_parameters[
                 "connection_diag_allowlist_path"
             ] = diag_allowlist_path
+
+    # Determine token-based auth from the final merged parameters (flags/config/env).
+    # Keep the existing guard behavior above unchanged for now, but ensure keep-alive
+    # protections are applied whenever session/master tokens are actually used.
+    using_session_token = "session_token" in connection_parameters
+    using_master_token = "master_token" in connection_parameters
 
     # Make sure the connection is not closed if it was shared to the SnowCLI, instead of being created in the SnowCLI
     _avoid_closing_the_connection_if_it_was_shared(
@@ -299,9 +353,13 @@ def _load_private_key(connection_parameters: Dict, private_key_var_name: str) ->
         private_key_pem = _load_pem_from_file(
             connection_parameters[private_key_var_name]
         )
-        private_key = _load_pem_to_der(private_key_pem)
+        private_key = _load_pem_to_der(
+            private_key_pem,
+            passphrase=connection_parameters.get("private_key_passphrase"),
+        )
         connection_parameters["private_key"] = private_key.value
         del connection_parameters[private_key_var_name]
+        connection_parameters.pop("private_key_passphrase", None)
     else:
         raise CliError(
             "Private Key authentication requires authenticator set to SNOWFLAKE_JWT"
@@ -315,9 +373,13 @@ def _load_private_key_from_parameters(
         private_key_pem = _load_pem_from_parameters(
             connection_parameters[private_key_var_name]
         )
-        private_key = _load_pem_to_der(private_key_pem)
+        private_key = _load_pem_to_der(
+            private_key_pem,
+            passphrase=connection_parameters.get("private_key_passphrase"),
+        )
         connection_parameters["private_key"] = private_key.value
         del connection_parameters[private_key_var_name]
+        connection_parameters.pop("private_key_passphrase", None)
     else:
         raise CliError(
             "Private Key authentication requires authenticator set to SNOWFLAKE_JWT"
@@ -351,32 +413,44 @@ def _load_pem_from_parameters(private_key_raw: str) -> SecretType:
     return SecretType(private_key_raw.encode("utf-8"))
 
 
-def _load_pem_to_der(private_key_pem: SecretType) -> SecretType:
-    """
-    Given a private key file path (in PEM format), decode key data into DER
-    format
-    """
-    private_key_passphrase = SecretType(os.getenv("PRIVATE_KEY_PASSPHRASE", None))
-    if (
-        private_key_pem.value.startswith(ENCRYPTED_PKCS8_PK_HEADER)
-        and private_key_passphrase.value is None
-    ):
-        raise ClickException(
-            "Encrypted private key, you must provide the "
-            "passphrase in the environment variable PRIVATE_KEY_PASSPHRASE"
+def _validate_passphrase(passphrase: SecretType) -> None:
+    if passphrase.value is None:
+        raise CliError(
+            "Encrypted private key, you must provide the passphrase via the "
+            "`private_key_file_pwd` key in your connection config or the "
+            "`PRIVATE_KEY_PASSPHRASE` environment variable."
+        )
+    if passphrase.value == "":
+        raise CliError(
+            "PRIVATE_KEY_PASSPHRASE environment variable is set but empty. "
+            "Provide a non-empty passphrase or use an unencrypted private key."
         )
 
-    if not private_key_pem.value.startswith(
-        ENCRYPTED_PKCS8_PK_HEADER
-    ) and not private_key_pem.value.startswith(UNENCRYPTED_PKCS8_PK_HEADER):
-        raise ClickException(
+
+def _load_pem_to_der(
+    private_key_pem: SecretType, passphrase: Optional[str] = None
+) -> SecretType:
+    """
+    Given a private key file path (in PEM format), decode key data into DER
+    format. The ``PRIVATE_KEY_PASSPHRASE`` env var takes precedence over the
+    ``passphrase`` argument (sourced from ``private_key_file_pwd`` /
+    ``private_key_passphrase`` in the connection config) so existing setups
+    keep working.
+    """
+    env_passphrase = os.getenv("PRIVATE_KEY_PASSPHRASE")
+    resolved_passphrase = env_passphrase if env_passphrase is not None else passphrase
+    passphrase_secret = SecretType(resolved_passphrase)
+
+    if private_key_pem.value.startswith(ENCRYPTED_PKCS8_PK_HEADER):
+        _validate_passphrase(passphrase_secret)
+    elif private_key_pem.value.startswith(UNENCRYPTED_PKCS8_PK_HEADER):
+        passphrase_secret = SecretType(None)
+    else:
+        raise CliError(
             "Private key provided is not in PKCS#8 format. Please use correct format."
         )
 
-    if private_key_pem.value.startswith(UNENCRYPTED_PKCS8_PK_HEADER):
-        private_key_passphrase = SecretType(None)
-
-    return prepare_private_key(private_key_pem, private_key_passphrase)
+    return prepare_private_key(private_key_pem, passphrase_secret)
 
 
 def prepare_private_key(
