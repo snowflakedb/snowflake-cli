@@ -157,7 +157,13 @@ class DBTManager(SqlExecutionMixin):
         )
 
     def _get_supported_dbt_versions(self) -> List[str]:
-        row = self.execute_query(SUPPORTED_DBT_VERSIONS_QUERY).fetchone()
+        try:
+            row = self.execute_query(SUPPORTED_DBT_VERSIONS_QUERY).fetchone()
+        except ProgrammingError as exc:
+            raise CliError(
+                "Could not fetch supported dbt versions from server. "
+                "Ensure your Snowflake account supports SYSTEM$SUPPORTED_DBT_VERSIONS()."
+            ) from exc
         if row is None or row[0] is None:
             raise CliError("Could not fetch supported dbt versions from server.")
         try:
@@ -466,7 +472,6 @@ class DBTManager(SqlExecutionMixin):
         if dbt_cli_args:
             processed_args = self._process_dbt_args(dbt_cli_args)
             dbt_command = f"{dbt_command} {processed_args}".strip()
-        dbt_command_escaped = dbt_command.replace("'", "\\'")
         query = f"EXECUTE DBT PROJECT {name}"
         if dbt_version:
             query += f" dbt_version={to_string_literal(dbt_version)}"
@@ -475,7 +480,7 @@ class DBTManager(SqlExecutionMixin):
         env_vars_clause = self._format_env_vars_clause(env_vars)
         if env_vars_clause:
             query += env_vars_clause
-        query += f" args='{dbt_command_escaped}'"
+        query += f" args={to_string_literal(dbt_command)}"
         return self.execute_query(query, _exec_async=run_async)
 
     @staticmethod

@@ -935,6 +935,17 @@ class TestValidateDbtVersion:
         with pytest.raises(CliError, match="Could not parse supported dbt versions"):
             DBTManager()._get_supported_dbt_versions()  # noqa: SLF001
 
+    def test_get_supported_dbt_versions_raises_on_programming_error(
+        self, mock_execute_query
+    ):
+        mock_execute_query.side_effect = ProgrammingError("Unknown function")
+
+        with pytest.raises(
+            CliError,
+            match="Ensure your Snowflake account supports SYSTEM\\$SUPPORTED_DBT_VERSIONS",
+        ):
+            DBTManager()._get_supported_dbt_versions()  # noqa: SLF001
+
     def test_validate_dbt_version_passes_for_supported_version(
         self, mock_execute_query, mock_cursor
     ):
