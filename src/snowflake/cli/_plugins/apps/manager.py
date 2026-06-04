@@ -116,6 +116,12 @@ MANAGED_COMPUTE_POOL_FALLBACK_PARAM = (
     "ENABLE_APPLICATION_SERVICE_MANAGED_COMPUTE_POOL_FALLBACK"
 )
 
+# Artifact-repo build jobs run as single-instance SPCS job services whose
+# container is named ``main`` (instance ``0``). These coordinates are needed to
+# fetch build logs through ``SYSTEM$GET_SERVICE_LOGS``.
+BUILD_JOB_INSTANCE_ID = "0"
+BUILD_JOB_CONTAINER_NAME = "main"
+
 T = TypeVar("T")
 
 
@@ -875,7 +881,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
 
         The build source is specified by either *stage_fqn* (legacy stage
         flow) or *source_uri* (e.g. a ``snow://workspace/...`` URI for the
-        workspace flow).  Exactly one of the two must be provided.
+        workspace flow).          Exactly one of the two must be provided.
         """
         from snowflake.cli.api.project.util import to_string_literal
 
@@ -1015,9 +1021,24 @@ class SnowflakeAppManager(SqlExecutionMixin):
         log.debug("DESCRIBE APPLICATION SERVICE %s: %s", service_fqn, normalised)
         return normalised
 
-    def get_build_job_logs(self, build_job_fqn: FQN) -> list[str]:
-        """Fetch build logs for an artifact-repo build job."""
+    def get_build_job_logs(self, build_job_fqn: FQN, last: int = 500) -> list[str]:
+        """Fetch build logs for an artifact-repo build job.
+
+        Uses ``SYSTEM$GET_SERVICE_LOGS`` — the same mechanism that backs the
+        application logs surfaced by ``snow app events`` — rather than the build
+        job's ``SPCS_GET_LOGS`` table function. The build job is a single-instance
+        SPCS job service whose container is named :data:`BUILD_JOB_CONTAINER_NAME`.
+        """
+        from snowflake.cli.api.project.util import to_string_literal
+
         cursor = self.execute_query(
-            f"SELECT LOG FROM TABLE({build_job_fqn.identifier}!SPCS_GET_LOGS())",
+            f"CALL SYSTEM$GET_SERVICE_LOGS("
+            f"{to_string_literal(build_job_fqn.identifier)}, "
+            f"{to_string_literal(BUILD_JOB_INSTANCE_ID)}, "
+            f"{to_string_literal(BUILD_JOB_CONTAINER_NAME)}, "
+            f"{last})"
         )
-        return [str(row[0]) for row in cursor if row[0]]
+        row = cursor.fetchone()
+        if not row or not row[0]:
+            return []
+        return [line for line in str(row[0]).splitlines() if line]

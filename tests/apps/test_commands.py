@@ -1644,6 +1644,52 @@ class TestSnowflakeAppManager:
         assert logs == ""
 
     @patch(EXECUTE_QUERY)
+    def test_get_build_job_logs(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ("step 1\nstep 2\nstep 3",)
+        mock_execute.return_value = cursor
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        logs = SnowflakeAppManager().get_build_job_logs(fqn)
+        assert logs == ["step 1", "step 2", "step 3"]
+        mock_execute.assert_called_once_with(
+            "CALL SYSTEM$GET_SERVICE_LOGS('DB.SCHEMA.BUILD_JOB', '0', 'main', 500)"
+        )
+
+    @patch(EXECUTE_QUERY)
+    def test_get_build_job_logs_custom_last(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ("step 1",)
+        mock_execute.return_value = cursor
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        logs = SnowflakeAppManager().get_build_job_logs(fqn, last=100)
+        assert logs == ["step 1"]
+        mock_execute.assert_called_once_with(
+            "CALL SYSTEM$GET_SERVICE_LOGS('DB.SCHEMA.BUILD_JOB', '0', 'main', 100)"
+        )
+
+    @patch(EXECUTE_QUERY)
+    def test_get_build_job_logs_empty_result(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = None
+        mock_execute.return_value = cursor
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        logs = SnowflakeAppManager().get_build_job_logs(fqn)
+        assert logs == []
+
+    @patch(EXECUTE_QUERY)
+    def test_get_build_job_logs_blank_lines_skipped(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ("step 1\n\nstep 2\n",)
+        mock_execute.return_value = cursor
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        logs = SnowflakeAppManager().get_build_job_logs(fqn)
+        assert logs == ["step 1", "step 2"]
+
+    @patch(EXECUTE_QUERY)
     def test_get_service_endpoint_url(self, mock_execute):
         cursor = Mock()
         cursor.fetchone.return_value = {
