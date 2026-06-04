@@ -117,10 +117,10 @@ MANAGED_COMPUTE_POOL_FALLBACK_PARAM = (
 )
 
 # Artifact-repo build jobs run as single-instance SPCS job services whose
-# container is named ``main`` (instance ``0``). These coordinates are needed to
-# fetch build logs through ``SYSTEM$GET_SERVICE_LOGS``.
+# container is named ``builder`` (instance ``0``). These coordinates are needed
+# to fetch build logs through ``SYSTEM$GET_SERVICE_LOGS``.
 BUILD_JOB_INSTANCE_ID = "0"
-BUILD_JOB_CONTAINER_NAME = "main"
+BUILD_JOB_CONTAINER_NAME = "builder"
 
 T = TypeVar("T")
 

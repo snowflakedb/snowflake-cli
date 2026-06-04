@@ -1653,7 +1653,7 @@ class TestSnowflakeAppManager:
         logs = SnowflakeAppManager().get_build_job_logs(fqn)
         assert logs == ["step 1", "step 2", "step 3"]
         mock_execute.assert_called_once_with(
-            "CALL SYSTEM$GET_SERVICE_LOGS('DB.SCHEMA.BUILD_JOB', '0', 'main', 500)"
+            "CALL SYSTEM$GET_SERVICE_LOGS('DB.SCHEMA.BUILD_JOB', '0', 'builder', 500)"
         )
 
     @patch(EXECUTE_QUERY)
@@ -1666,7 +1666,7 @@ class TestSnowflakeAppManager:
         logs = SnowflakeAppManager().get_build_job_logs(fqn, last=100)
         assert logs == ["step 1"]
         mock_execute.assert_called_once_with(
-            "CALL SYSTEM$GET_SERVICE_LOGS('DB.SCHEMA.BUILD_JOB', '0', 'main', 100)"
+            "CALL SYSTEM$GET_SERVICE_LOGS('DB.SCHEMA.BUILD_JOB', '0', 'builder', 100)"
         )
 
     @patch(EXECUTE_QUERY)
