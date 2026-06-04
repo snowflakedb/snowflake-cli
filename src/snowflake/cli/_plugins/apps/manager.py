@@ -42,6 +42,7 @@ from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import ProjectPaths
 from snowflake.cli.api.project.util import to_identifier
+from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.utils.path_utils import resolve_without_follow
@@ -116,9 +117,11 @@ MANAGED_COMPUTE_POOL_FALLBACK_PARAM = (
     "ENABLE_APPLICATION_SERVICE_MANAGED_COMPUTE_POOL_FALLBACK"
 )
 
-# Artifact-repo build jobs run as single-instance SPCS job services whose
-# container is named ``builder`` (instance ``0``). These coordinates are needed
-# to fetch build logs through ``SYSTEM$GET_SERVICE_LOGS``.
+# Artifact-repo build jobs run as single-instance SPCS job services. The
+# container/instance to read logs from is resolved at runtime via
+# ``SHOW SERVICE CONTAINERS IN SERVICE``; these values are the expected defaults
+# (container ``builder``, instance ``0``) and are surfaced in the build-timeout
+# hint so users can fetch logs manually.
 BUILD_JOB_INSTANCE_ID = "0"
 BUILD_JOB_CONTAINER_NAME = "builder"
 
@@ -1021,21 +1024,86 @@ class SnowflakeAppManager(SqlExecutionMixin):
         log.debug("DESCRIBE APPLICATION SERVICE %s: %s", service_fqn, normalised)
         return normalised
 
+    def _resolve_build_job_container(
+        self, build_job_fqn: FQN
+    ) -> Optional[tuple[str, str]]:
+        """Resolve the ``(instance_id, container_name)`` for a build job.
+
+        Runs ``SHOW SERVICE CONTAINERS IN SERVICE`` (the build job is an SPCS
+        job service) and returns the coordinates of the container to read logs
+        from. When the service exposes more than one container, a warning lists
+        them and the container named :data:`BUILD_JOB_CONTAINER_NAME` is
+        preferred, falling back to the first one.
+
+        Returns ``None`` when no running container is reported yet (e.g. the
+        service is still ``PENDING``); such results are not cached so a later
+        poll can retry. Successful resolutions are cached per build job so the
+        ``SHOW`` query and any warning happen only once.
+        """
+        cache: Dict[str, tuple[str, str]] = self.__dict__.setdefault(
+            "_build_job_container_cache", {}
+        )
+        cache_key = build_job_fqn.identifier
+        if cache_key in cache:
+            return cache[cache_key]
+
+        cursor = self.execute_query(
+            f"SHOW SERVICE CONTAINERS IN SERVICE {build_job_fqn.identifier}",
+            cursor_class=DictCursor,
+        )
+        containers: list[tuple[str, str]] = []
+        for row in cursor:
+            normalised = {k.lower(): v for k, v in row.items()}
+            container_name = normalised.get("container_name")
+            instance_id = normalised.get("instance_id")
+            # A SUSPENDED/PENDING service reports NULL container fields.
+            if container_name is None or instance_id is None:
+                continue
+            containers.append((str(instance_id), str(container_name)))
+
+        if not containers:
+            return None
+
+        if len(containers) > 1:
+            listed = ", ".join(sanitize_for_terminal(name) for _, name in containers)
+            cli_console.warning(
+                f"Build job {sanitize_for_terminal(build_job_fqn.identifier)} "
+                f"has multiple containers: {listed}. Using "
+                f"'{BUILD_JOB_CONTAINER_NAME}' if present, otherwise the first."
+            )
+
+        resolved = next(
+            (
+                (instance_id, name)
+                for instance_id, name in containers
+                if name == BUILD_JOB_CONTAINER_NAME
+            ),
+            containers[0],
+        )
+        cache[cache_key] = resolved
+        return resolved
+
     def get_build_job_logs(self, build_job_fqn: FQN, last: int = 500) -> list[str]:
         """Fetch build logs for an artifact-repo build job.
 
         Uses ``SYSTEM$GET_SERVICE_LOGS`` — the same mechanism that backs the
         application logs surfaced by ``snow app events`` — rather than the build
-        job's ``SPCS_GET_LOGS`` table function. The build job is a single-instance
-        SPCS job service whose container is named :data:`BUILD_JOB_CONTAINER_NAME`.
+        job's ``SPCS_GET_LOGS`` table function. The build job's container and
+        instance are resolved at runtime via ``SHOW SERVICE CONTAINERS IN
+        SERVICE`` (see :meth:`_resolve_build_job_container`).
         """
         from snowflake.cli.api.project.util import to_string_literal
+
+        resolved = self._resolve_build_job_container(build_job_fqn)
+        if resolved is None:
+            return []
+        instance_id, container_name = resolved
 
         cursor = self.execute_query(
             f"CALL SYSTEM$GET_SERVICE_LOGS("
             f"{to_string_literal(build_job_fqn.identifier)}, "
-            f"{to_string_literal(BUILD_JOB_INSTANCE_ID)}, "
-            f"{to_string_literal(BUILD_JOB_CONTAINER_NAME)}, "
+            f"{to_string_literal(instance_id)}, "
+            f"{to_string_literal(container_name)}, "
             f"{last})"
         )
         row = cursor.fetchone()
