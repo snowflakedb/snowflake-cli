@@ -1785,6 +1785,28 @@ class TestSnowflakeAppManager:
             "CALL SYSTEM$GET_SERVICE_LOGS('DB.SCHEMA.BUILD_JOB', '0', 'foo', 500)"
         )
 
+    @patch("snowflake.cli._plugins.apps.manager.log")
+    @patch(EXECUTE_QUERY)
+    def test_get_build_job_logs_logs_show_result(self, mock_execute, mock_log):
+        show_cursor = self._build_show_containers_cursor(
+            [{"instance_id": 0, "container_name": "builder", "status": "READY"}]
+        )
+        logs_cursor = self._build_logs_cursor(("ok",))
+        mock_execute.side_effect = [show_cursor, logs_cursor]
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        SnowflakeAppManager().get_build_job_logs(fqn)
+
+        info_messages = [call.args[0] for call in mock_log.info.call_args_list]
+        assert any(
+            "SHOW SERVICE CONTAINERS IN SERVICE" in message for message in info_messages
+        )
+        # The container row itself is emitted at INFO for verbose visibility.
+        logged = " ".join(
+            str(arg) for call in mock_log.info.call_args_list for arg in call.args
+        )
+        assert "builder" in logged
+
     @patch(EXECUTE_QUERY)
     def test_get_build_job_logs_caches_container_resolution(self, mock_execute):
         show_cursor = self._build_show_containers_cursor(

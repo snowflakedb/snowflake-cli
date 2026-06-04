@@ -32,8 +32,6 @@ import typer
 from click import ClickException
 from snowflake.cli._plugins.apps.generate import _generate_snowflake_yml
 from snowflake.cli._plugins.apps.manager import (
-    BUILD_JOB_CONTAINER_NAME,
-    BUILD_JOB_INSTANCE_ID,
     DEFAULT_PERSONAL_SCHEMA,
     DEFINITION_FILENAME,
     SnowflakeAppManager,
@@ -692,9 +690,8 @@ def snowflake_app_deploy(
                     known_pending_states={"PENDING", "RUNNING"},
                     timeout_message=(
                         f"Artifact repo build timed out. Check build logs:\n"
-                        f"  CALL SYSTEM$GET_SERVICE_LOGS("
-                        f"'{artifact_build_job_fqn.identifier}', "
-                        f"'{BUILD_JOB_INSTANCE_ID}', '{BUILD_JOB_CONTAINER_NAME}')"
+                        f"  SELECT * FROM TABLE("
+                        f"{artifact_build_job_fqn.identifier}!SPCS_GET_LOGS())"
                     ),
                     on_poll=_make_build_log_streamer(manager, artifact_build_job_fqn),
                 )

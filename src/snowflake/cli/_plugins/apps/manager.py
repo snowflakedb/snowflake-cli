@@ -117,12 +117,10 @@ MANAGED_COMPUTE_POOL_FALLBACK_PARAM = (
     "ENABLE_APPLICATION_SERVICE_MANAGED_COMPUTE_POOL_FALLBACK"
 )
 
-# Artifact-repo build jobs run as single-instance SPCS job services. The
-# container/instance to read logs from is resolved at runtime via
-# ``SHOW SERVICE CONTAINERS IN SERVICE``; these values are the expected defaults
-# (container ``builder``, instance ``0``) and are surfaced in the build-timeout
-# hint so users can fetch logs manually.
-BUILD_JOB_INSTANCE_ID = "0"
+# Artifact-repo build jobs run as SPCS job services. The container/instance to
+# read logs from is resolved at runtime via ``SHOW SERVICE CONTAINERS IN
+# SERVICE``; when a service exposes multiple containers the one named ``builder``
+# is preferred.
 BUILD_JOB_CONTAINER_NAME = "builder"
 
 T = TypeVar("T")
@@ -884,7 +882,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
 
         The build source is specified by either *stage_fqn* (legacy stage
         flow) or *source_uri* (e.g. a ``snow://workspace/...`` URI for the
-        workspace flow).          Exactly one of the two must be provided.
+        workspace flow).  Exactly one of the two must be provided.
         """
         from snowflake.cli.api.project.util import to_string_literal
 
@@ -1051,11 +1049,21 @@ class SnowflakeAppManager(SqlExecutionMixin):
             f"SHOW SERVICE CONTAINERS IN SERVICE {build_job_fqn.identifier}",
             cursor_class=DictCursor,
         )
+        rows = [{k.lower(): v for k, v in row.items()} for row in cursor]
+
+        # Surface the raw result in verbose mode (INFO) to aid debugging.
+        log.info(
+            "SHOW SERVICE CONTAINERS IN SERVICE %s returned %d row(s):",
+            sanitize_for_terminal(build_job_fqn.identifier),
+            len(rows),
+        )
+        for row in rows:
+            log.info("  %s", sanitize_for_terminal(str(row)))
+
         containers: list[tuple[str, str]] = []
-        for row in cursor:
-            normalised = {k.lower(): v for k, v in row.items()}
-            container_name = normalised.get("container_name")
-            instance_id = normalised.get("instance_id")
+        for row in rows:
+            container_name = row.get("container_name")
+            instance_id = row.get("instance_id")
             # A SUSPENDED/PENDING service reports NULL container fields.
             if container_name is None or instance_id is None:
                 continue
