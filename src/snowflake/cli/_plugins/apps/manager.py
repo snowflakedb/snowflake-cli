@@ -46,6 +46,7 @@ from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.utils.path_utils import resolve_without_follow
+from snowflake.cli.api.utils.tty import is_tty_interactive
 from snowflake.connector.cursor import DictCursor
 from snowflake.connector.errors import ProgrammingError
 
@@ -457,8 +458,31 @@ class SnowflakeAppManager(SqlExecutionMixin):
     ``FQN``-based parameters that already use ``.sql_identifier``.
     """
 
+    def __init__(self, *args, interactive: Optional[bool] = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Whether to show the query spinner. ``None`` defers to TTY detection;
+        # callers (e.g. ``snow app deploy``) pass the resolved
+        # ``--interactive`` / ``--no-interactive`` flag.
+        self._interactive = interactive
+
+    @property
+    def _is_interactive(self) -> bool:
+        if self._interactive is not None:
+            return self._interactive
+        return is_tty_interactive()
+
     def execute_query(self, query: str, **kwargs):
-        """Execute a Snowflake query with CLI spinner feedback."""
+        """Execute a Snowflake query with CLI spinner feedback.
+
+        The spinner is only shown when running interactively. This honors the
+        ``--interactive`` / ``--no-interactive`` flag passed by the command and
+        falls back to TTY detection when the flag is not set, so the spinner is
+        skipped for non-interactive runs (``--no-interactive``, piped/redirected
+        output, CI, etc.) where its control characters would pollute captured
+        output.
+        """
+        if not self._is_interactive:
+            return super().execute_query(query, **kwargs)
         with cli_console.spinner() as spinner:
             spinner.add_task(description="", total=None)
             return super().execute_query(query, **kwargs)
