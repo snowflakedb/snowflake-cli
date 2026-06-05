@@ -391,6 +391,17 @@ def test(
 
     # Test connection
     cli_context = get_cli_context()
+    conn_ctx = cli_context.connection_context
+
+    # The connector's `enable_diag=True` runs ConnectionDiagnostic during
+    # connect() — a silent multi-second probe of every endpoint. Surface a
+    # heads-up so the wait isn't unexplained; our own per-endpoint stream
+    # comes later via `_connection_test_with_diag`.
+    if conn_ctx.enable_diag and cli_context.output_format == OutputFormat.TABLE:
+        cli_console.message(
+            "Running connector connectivity probe (this may take a moment)..."
+        )
+
     conn = cli_context.connection
 
     # Test session attributes
@@ -412,7 +423,6 @@ def test(
     except ProgrammingError as err:
         raise ClickException(str(err))
 
-    conn_ctx = cli_context.connection_context
     result = {
         "Connection name": conn_ctx.connection_name,
         "Status": "OK",
