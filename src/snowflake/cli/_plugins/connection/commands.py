@@ -398,9 +398,7 @@ def test(
     # heads-up so the wait isn't unexplained; our own per-endpoint stream
     # comes later via `_connection_test_with_diag`.
     if conn_ctx.enable_diag and cli_context.output_format == OutputFormat.TABLE:
-        cli_console.message(
-            "Running connector connectivity probe (this may take a moment)..."
-        )
+        cli_console.message("Running connector connectivity probe...")
 
     conn = cli_context.connection
 
