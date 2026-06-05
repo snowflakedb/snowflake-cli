@@ -1682,6 +1682,195 @@ class TestSnowflakeAppManager:
         logs = SnowflakeAppManager().get_service_logs(fqn)
         assert logs == ""
 
+    @staticmethod
+    def _build_show_containers_cursor(rows):
+        cursor = Mock()
+        cursor.__iter__ = Mock(return_value=iter(rows))
+        return cursor
+
+    @staticmethod
+    def _build_logs_cursor(value):
+        cursor = Mock()
+        cursor.fetchone.return_value = value
+        return cursor
+
+    @patch(EXECUTE_QUERY)
+    def test_get_build_job_logs(self, mock_execute):
+        show_cursor = self._build_show_containers_cursor(
+            [{"instance_id": 0, "container_name": "builder"}]
+        )
+        logs_cursor = self._build_logs_cursor(("step 1\nstep 2\nstep 3",))
+        mock_execute.side_effect = [show_cursor, logs_cursor]
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        logs = SnowflakeAppManager().get_build_job_logs(fqn)
+        assert logs == ["step 1", "step 2", "step 3"]
+
+        assert mock_execute.call_count == 2
+        show_call = mock_execute.call_args_list[0]
+        assert (
+            show_call.args[0]
+            == "SHOW SERVICE CONTAINERS IN SERVICE DB.SCHEMA.BUILD_JOB"
+        )
+        assert show_call.kwargs["cursor_class"] is DictCursor
+        assert mock_execute.call_args_list[1].args[0] == (
+            "CALL SYSTEM$GET_SERVICE_LOGS('DB.SCHEMA.BUILD_JOB', '0', 'builder', 500)"
+        )
+
+    @patch(EXECUTE_QUERY)
+    def test_get_build_job_logs_custom_last(self, mock_execute):
+        show_cursor = self._build_show_containers_cursor(
+            [{"instance_id": 0, "container_name": "builder"}]
+        )
+        logs_cursor = self._build_logs_cursor(("step 1",))
+        mock_execute.side_effect = [show_cursor, logs_cursor]
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        logs = SnowflakeAppManager().get_build_job_logs(fqn, last=100)
+        assert logs == ["step 1"]
+        assert mock_execute.call_args_list[1].args[0] == (
+            "CALL SYSTEM$GET_SERVICE_LOGS('DB.SCHEMA.BUILD_JOB', '0', 'builder', 100)"
+        )
+
+    @patch(EXECUTE_QUERY)
+    def test_get_build_job_logs_empty_result(self, mock_execute):
+        show_cursor = self._build_show_containers_cursor(
+            [{"instance_id": 0, "container_name": "builder"}]
+        )
+        logs_cursor = self._build_logs_cursor(None)
+        mock_execute.side_effect = [show_cursor, logs_cursor]
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        logs = SnowflakeAppManager().get_build_job_logs(fqn)
+        assert logs == []
+
+    @patch(EXECUTE_QUERY)
+    def test_get_build_job_logs_blank_lines_skipped(self, mock_execute):
+        show_cursor = self._build_show_containers_cursor(
+            [{"instance_id": 0, "container_name": "builder"}]
+        )
+        logs_cursor = self._build_logs_cursor(("step 1\n\nstep 2\n",))
+        mock_execute.side_effect = [show_cursor, logs_cursor]
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        logs = SnowflakeAppManager().get_build_job_logs(fqn)
+        assert logs == ["step 1", "step 2"]
+
+    @patch(EXECUTE_QUERY)
+    def test_get_build_job_logs_no_running_containers(self, mock_execute):
+        # SUSPENDED/PENDING service reports no usable containers.
+        show_cursor = self._build_show_containers_cursor([])
+        mock_execute.side_effect = [show_cursor]
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        logs = SnowflakeAppManager().get_build_job_logs(fqn)
+        assert logs == []
+        # No SYSTEM$GET_SERVICE_LOGS call when there is no container.
+        mock_execute.assert_called_once()
+
+    @patch(EXECUTE_QUERY)
+    def test_get_build_job_logs_skips_null_container_rows(self, mock_execute):
+        show_cursor = self._build_show_containers_cursor(
+            [{"instance_id": None, "container_name": None}]
+        )
+        mock_execute.side_effect = [show_cursor]
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        logs = SnowflakeAppManager().get_build_job_logs(fqn)
+        assert logs == []
+        mock_execute.assert_called_once()
+
+    @patch("snowflake.cli._plugins.apps.manager.cli_console")
+    @patch(EXECUTE_QUERY)
+    def test_get_build_job_logs_multiple_containers_prefers_builder(
+        self, mock_execute, mock_console
+    ):
+        show_cursor = self._build_show_containers_cursor(
+            [
+                {"instance_id": 0, "container_name": "sidecar"},
+                {"instance_id": 0, "container_name": "builder"},
+            ]
+        )
+        logs_cursor = self._build_logs_cursor(("ok",))
+        mock_execute.side_effect = [show_cursor, logs_cursor]
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        logs = SnowflakeAppManager().get_build_job_logs(fqn)
+        assert logs == ["ok"]
+        mock_console.warning.assert_called_once()
+        assert mock_execute.call_args_list[1].args[0] == (
+            "CALL SYSTEM$GET_SERVICE_LOGS('DB.SCHEMA.BUILD_JOB', '0', 'builder', 500)"
+        )
+
+    @patch("snowflake.cli._plugins.apps.manager.cli_console")
+    @patch(EXECUTE_QUERY)
+    def test_get_build_job_logs_multiple_containers_falls_back_to_first(
+        self, mock_execute, mock_console
+    ):
+        show_cursor = self._build_show_containers_cursor(
+            [
+                {"instance_id": 0, "container_name": "foo"},
+                {"instance_id": 1, "container_name": "bar"},
+            ]
+        )
+        logs_cursor = self._build_logs_cursor(("ok",))
+        mock_execute.side_effect = [show_cursor, logs_cursor]
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        logs = SnowflakeAppManager().get_build_job_logs(fqn)
+        assert logs == ["ok"]
+        mock_console.warning.assert_called_once()
+        assert mock_execute.call_args_list[1].args[0] == (
+            "CALL SYSTEM$GET_SERVICE_LOGS('DB.SCHEMA.BUILD_JOB', '0', 'foo', 500)"
+        )
+
+    @patch("snowflake.cli._plugins.apps.manager.log")
+    @patch(EXECUTE_QUERY)
+    def test_get_build_job_logs_logs_show_result(self, mock_execute, mock_log):
+        show_cursor = self._build_show_containers_cursor(
+            [{"instance_id": 0, "container_name": "builder", "status": "READY"}]
+        )
+        logs_cursor = self._build_logs_cursor(("ok",))
+        mock_execute.side_effect = [show_cursor, logs_cursor]
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        SnowflakeAppManager().get_build_job_logs(fqn)
+
+        info_messages = [call.args[0] for call in mock_log.info.call_args_list]
+        assert any(
+            "SHOW SERVICE CONTAINERS IN SERVICE" in message for message in info_messages
+        )
+        # The container row itself is emitted at INFO for verbose visibility.
+        logged = " ".join(
+            str(arg) for call in mock_log.info.call_args_list for arg in call.args
+        )
+        assert "builder" in logged
+
+    @patch(EXECUTE_QUERY)
+    def test_get_build_job_logs_caches_container_resolution(self, mock_execute):
+        show_cursor = self._build_show_containers_cursor(
+            [{"instance_id": 0, "container_name": "builder"}]
+        )
+        mock_execute.side_effect = [
+            show_cursor,
+            self._build_logs_cursor(("a",)),
+            self._build_logs_cursor(("a\nb",)),
+        ]
+
+        manager = SnowflakeAppManager()
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        assert manager.get_build_job_logs(fqn) == ["a"]
+        assert manager.get_build_job_logs(fqn) == ["a", "b"]
+
+        # SHOW SERVICE CONTAINERS runs once; only the log fetch repeats.
+        show_calls = [
+            call
+            for call in mock_execute.call_args_list
+            if call.args[0].startswith("SHOW SERVICE CONTAINERS")
+        ]
+        assert len(show_calls) == 1
+        assert mock_execute.call_count == 3
+
     @patch(EXECUTE_QUERY)
     def test_get_service_endpoint_url(self, mock_execute):
         cursor = Mock()
