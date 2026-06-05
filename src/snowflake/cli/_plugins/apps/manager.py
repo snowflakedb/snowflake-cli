@@ -37,6 +37,12 @@ ACCOUNT_ADMIN_SETUP_URL = (
     "account-admin-setup#after-setup"
 )
 
+# Placeholder object name used when probing destination privileges with
+# EXPLAIN_PRIVILEGES. The privileges required to create these objects depend on
+# the destination database/schema, not on the (not-yet-created) object name, so
+# a fixed placeholder is sufficient.
+PRIVILEGE_CHECK_OBJECT_NAME = "SNOWFLAKE_CLI_PRIVILEGE_CHECK"
+
 if TYPE_CHECKING:
     from snowflake.cli._plugins.apps.snowflake_app_entity_model import (
         SnowflakeAppEntityModel,
@@ -230,63 +236,139 @@ def _object_exists(object_type: str, name: str) -> bool:
         return False
 
 
+def _flatten_missing_privileges(node: Any) -> list[Dict[str, str]]:
+    """Flatten an ``EXPLAIN_PRIVILEGES`` JSON tree into a flat list of the
+    permission (leaf) nodes it reports.
+
+    The tree is composed of permission nodes (``{"privilege", "objectType",
+    "objectName"}``), ``allOf`` / ``oneOf`` group nodes, and the terminal
+    decision node ``{"authorized": true}``. With ``missing_only => true`` an
+    ``authorized`` node means nothing is missing, so it contributes nothing.
+    """
+    if not isinstance(node, dict):
+        return []
+    if node.get("authorized") is True:
+        return []
+    if any(key in node for key in ("privilege", "objectType", "objectName")):
+        return [node]
+    results: list[Dict[str, str]] = []
+    for group_key in ("allOf", "oneOf"):
+        for child in node.get(group_key, []) or []:
+            results.extend(_flatten_missing_privileges(child))
+    return results
+
+
+def _deploy_privilege_check_statements(database: str, schema: str) -> list[str]:
+    """Build the representative DDL ``snow app deploy`` issues against the
+    destination *database*/*schema*, for privilege probing via
+    ``EXPLAIN_PRIVILEGES``.
+
+    Object names are placeholders: the privileges required to create these
+    objects depend on the destination database and schema, not on the final
+    object name. Statements are emitted as plain (per-component quoted) dotted
+    identifiers rather than ``IDENTIFIER(...)`` so the privilege analyzer can
+    resolve the referenced objects.
+    """
+    placeholder = app_fqn(
+        database=database, schema=schema, name=PRIVILEGE_CHECK_OBJECT_NAME
+    ).identifier
+    return [
+        f"CREATE STAGE {placeholder} ENCRYPTION = (TYPE = 'SNOWFLAKE_SSE')",
+        f"CREATE ARTIFACT REPOSITORY {placeholder} TYPE=APPLICATION",
+        f"CREATE APPLICATION SERVICE {placeholder} "
+        f"FROM ARTIFACT REPOSITORY {placeholder} "
+        f"PACKAGE {PRIVILEGE_CHECK_OBJECT_NAME}",
+    ]
+
+
+def _format_missing_privileges(nodes: list[Dict[str, str]]) -> list[str]:
+    """Render missing-privilege nodes as de-duplicated, terminal-safe strings."""
+    formatted: list[str] = []
+    for node in nodes:
+        privilege = (node.get("privilege") or "").strip()
+        object_type = (node.get("objectType") or "").strip()
+        object_name = (node.get("objectName") or "").strip()
+        privilege_label = privilege if privilege else "any privilege"
+        target = " ".join(part for part in (object_type, object_name) if part)
+        description = (
+            f"{privilege_label} on {sanitize_for_terminal(target)}"
+            if target
+            else privilege_label
+        )
+        if description not in formatted:
+            formatted.append(description)
+    return formatted
+
+
 def _filter_accessible_remote_defaults(
     manager: "SnowflakeAppManager",
     params: Dict[str, str],
 ) -> Dict[str, str]:
     """Drop the account-configured destination database/schema when the current
-    role cannot access them.
+    role lacks the privileges to deploy there.
 
     The destination database and schema can be configured at the account level
     by an administrator (``DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE`` /
     ``DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA``), but the role running the CLI
-    may not have been granted access to them. Deploying against an inaccessible
-    destination fails late with an opaque error, so we verify access up front.
+    may not have been granted the privileges needed to build and deploy there.
+    Deploying against such a destination fails late with an opaque error, so we
+    probe up front: every representative statement ``snow app deploy`` runs is
+    analyzed with ``EXPLAIN_PRIVILEGES(… , missing_only => true, for_role =>
+    <current role>)``.
 
-    When the database (or its schema) is not visible to the current role, the
-    inaccessible values are removed from *params* and a warning is printed so
-    resolution falls back to the user's personal database — exactly as if no
-    account defaults were configured. Any error while checking is treated as
-    "not accessible" so the safe personal-database fallback is preferred over a
-    confusing downstream failure.
+    When the role is missing privileges (or no statement can be analyzed at all,
+    which means the destination cannot even be resolved), the destination is
+    removed from *params* and a warning lists the missing grants, so resolution
+    falls back to the user's personal database — exactly as if no account
+    defaults were configured. Statements that individually fail to analyze while
+    others succeed are ignored, so an unsupported statement never diverts a user
+    who otherwise has access.
 
-    Returns a copy of *params* with the inaccessible keys removed (or the
-    original dict unchanged when the destination is accessible or unset).
+    Returns a copy of *params* with the destination keys removed, or the
+    original dict unchanged when the destination is usable or unset.
     """
     database = params.get("database")
     if not database:
         return params
-    schema = params.get("schema")
+    schema = params.get("schema") or DEFAULT_PERSONAL_SCHEMA
 
-    def _accessible(check: Callable[[], bool], description: str) -> bool:
+    role = manager.current_role()
+    statements = _deploy_privilege_check_statements(database, schema)
+
+    missing: list[Dict[str, str]] = []
+    analyzed_any = False
+    failed_any = False
+    for statement in statements:
         try:
-            return check()
+            missing.extend(manager.get_missing_privileges(statement, role))
+            analyzed_any = True
         except Exception:
-            log.debug("Could not verify access to %s", description, exc_info=True)
-            return False
+            failed_any = True
+            log.debug(
+                "EXPLAIN_PRIVILEGES could not analyze statement: %s",
+                statement,
+                exc_info=True,
+            )
 
-    inaccessible: list[str] = []
-    if not _accessible(
-        lambda: manager.database_exists(database), f"database {database!r}"
-    ):
-        inaccessible.append(f"database '{sanitize_for_terminal(database)}'")
-    elif schema and not _accessible(
-        lambda: manager.schema_exists(database, schema),
-        f"schema {database!r}.{schema!r}",
-    ):
-        inaccessible.append(
-            f"schema '{sanitize_for_terminal(database)}."
-            f"{sanitize_for_terminal(schema)}'"
-        )
-
-    if not inaccessible:
+    if missing:
+        missing_descriptions = _format_missing_privileges(missing)
+    elif not analyzed_any and failed_any:
+        # Nothing could be analyzed — the current role most likely cannot
+        # resolve the destination at all, so treat it as inaccessible.
+        missing_descriptions = [
+            f"access to database '{sanitize_for_terminal(database)}'"
+        ]
+    else:
         return params
 
+    role_label = f" '{sanitize_for_terminal(role)}'" if role else ""
     cli_console.warning(
-        "Your current role does not have access to the account-configured "
-        f"Snowflake Apps destination ({', '.join(inaccessible)}). "
-        "Falling back to your personal database. Ask your account administrator "
-        f"to grant access to these objects: {ACCOUNT_ADMIN_SETUP_URL}"
+        f"Your current role{role_label} is missing privileges required to "
+        "deploy to the account-configured Snowflake Apps destination "
+        f"'{sanitize_for_terminal(database)}.{sanitize_for_terminal(schema)}': "
+        f"{', '.join(missing_descriptions)}. Falling back to your personal "
+        "database. Ask your account administrator to grant access: "
+        f"{ACCOUNT_ADMIN_SETUP_URL}"
     )
     filtered = dict(params)
     filtered.pop("database", None)
@@ -610,6 +692,50 @@ class SnowflakeAppManager(SqlExecutionMixin):
             cursor_class=DictCursor,
         )
         return cursor.fetchone() is not None
+
+    def current_role(self) -> Optional[str]:
+        """Return the active role name, or ``None`` when it cannot be resolved."""
+        try:
+            cursor = self.execute_query("SELECT CURRENT_ROLE()")
+            row = cursor.fetchone()
+            if row and row[0]:
+                return str(row[0])
+        except Exception:
+            log.warning("Could not resolve current role.", exc_info=True)
+        return None
+
+    def get_missing_privileges(
+        self, statement: str, role: Optional[str] = None
+    ) -> list[Dict[str, str]]:
+        """Return the privileges *role* is missing to run *statement*.
+
+        Calls ``EXPLAIN_PRIVILEGES(statement => …, missing_only => true
+        [, for_role => …])`` and flattens the returned JSON tree into a list
+        of permission dicts (``{"privilege", "objectType", "objectName"}``).
+
+        Returns an empty list when no privileges are missing (the server
+        responds with ``{"authorized": true}``). Propagates ``ProgrammingError``
+        when the statement cannot be analyzed — e.g. the current role cannot
+        resolve a referenced object, which itself signals missing access.
+        """
+        from snowflake.cli.api.project.util import to_string_literal
+
+        args = [
+            f"statement => {to_string_literal(statement)}",
+            "missing_only => true",
+        ]
+        if role:
+            args.append(f"for_role => {to_string_literal(role)}")
+        cursor = self.execute_query(f"CALL EXPLAIN_PRIVILEGES({', '.join(args)})")
+        row = cursor.fetchone()
+        if not row or not row[0]:
+            return []
+        try:
+            payload = json.loads(row[0])
+        except (TypeError, ValueError):
+            log.debug("Could not parse EXPLAIN_PRIVILEGES output: %r", row[0])
+            return []
+        return _flatten_missing_privileges(payload)
 
     def stage_exists(self, stage_fqn: FQN) -> bool:
         """Check if a stage exists."""

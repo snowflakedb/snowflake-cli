@@ -52,10 +52,10 @@ FETCH_SNOW_APPS_PARAMS = (
     "snowflake.cli._plugins.apps.manager.SnowflakeAppManager"
     ".fetch_snow_apps_parameters"
 )
-DATABASE_EXISTS = (
-    "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.database_exists"
+CURRENT_ROLE = "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.current_role"
+GET_MISSING_PRIVILEGES = (
+    "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.get_missing_privileges"
 )
-SCHEMA_EXISTS = "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.schema_exists"
 GET_PERSONAL_DATABASE = (
     "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.get_personal_database"
 )
@@ -883,6 +883,97 @@ class TestSchemaExists:
         mock_execute.return_value = cursor
 
         assert SnowflakeAppManager().schema_exists("MY_DB", "NO_SUCH") is False
+
+
+class TestCurrentRole:
+    @patch(EXECUTE_QUERY)
+    def test_returns_role(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ("ENGINEER",)
+        mock_execute.return_value = cursor
+
+        assert SnowflakeAppManager().current_role() == "ENGINEER"
+        assert mock_execute.call_args[0][0] == "SELECT CURRENT_ROLE()"
+
+    @patch(EXECUTE_QUERY)
+    def test_returns_none_when_unset(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = (None,)
+        mock_execute.return_value = cursor
+
+        assert SnowflakeAppManager().current_role() is None
+
+    @patch(EXECUTE_QUERY, side_effect=ProgrammingError("boom"))
+    def test_returns_none_on_error(self, mock_execute):
+        assert SnowflakeAppManager().current_role() is None
+
+
+class TestGetMissingPrivileges:
+    @patch(EXECUTE_QUERY)
+    def test_authorized_returns_empty(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ('{"authorized": true}',)
+        mock_execute.return_value = cursor
+
+        result = SnowflakeAppManager().get_missing_privileges(
+            "CREATE STAGE APPS.PUBLIC.x", "ENGINEER"
+        )
+        assert result == []
+        query = mock_execute.call_args[0][0]
+        assert "CALL EXPLAIN_PRIVILEGES(" in query
+        assert "statement => 'CREATE STAGE APPS.PUBLIC.x'" in query
+        assert "missing_only => true" in query
+        assert "for_role => 'ENGINEER'" in query
+
+    @patch(EXECUTE_QUERY)
+    def test_returns_flattened_missing_nodes(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = (
+            '{"allOf": [{"privilege": "USAGE", "objectType": "DATABASE", '
+            '"objectName": "APPS"}]}',
+        )
+        mock_execute.return_value = cursor
+
+        result = SnowflakeAppManager().get_missing_privileges(
+            "CREATE STAGE APPS.PUBLIC.x", "ENGINEER"
+        )
+        assert result == [
+            {"privilege": "USAGE", "objectType": "DATABASE", "objectName": "APPS"}
+        ]
+
+    @patch(EXECUTE_QUERY)
+    def test_omits_for_role_when_role_is_none(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ('{"authorized": true}',)
+        mock_execute.return_value = cursor
+
+        SnowflakeAppManager().get_missing_privileges("CREATE STAGE APPS.PUBLIC.x")
+        query = mock_execute.call_args[0][0]
+        assert "for_role" not in query
+
+    @patch(EXECUTE_QUERY)
+    def test_escapes_statement(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ('{"authorized": true}',)
+        mock_execute.return_value = cursor
+
+        SnowflakeAppManager().get_missing_privileges(
+            'CREATE STAGE "USER$x".PUBLIC.y', "ENGINEER"
+        )
+        query = mock_execute.call_args[0][0]
+        # Quoted personal-database identifiers survive inside the SQL literal.
+        assert '"USER$x".PUBLIC.y' in query
+
+    @patch(EXECUTE_QUERY)
+    def test_empty_response_returns_empty(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = None
+        mock_execute.return_value = cursor
+
+        assert (
+            SnowflakeAppManager().get_missing_privileges("CREATE STAGE A.B.C", "R")
+            == []
+        )
 
 
 class TestAppFqn:
@@ -2259,11 +2350,9 @@ class TestResolveDeployDefaults:
         },
     )
     @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
-    @patch(SCHEMA_EXISTS, return_value=True)
-    @patch(DATABASE_EXISTS, return_value=True)
-    def test_parameters_fill_gaps(
-        self, mock_db_exists, mock_schema_exists, mock_ctx, mock_params
-    ):
+    @patch(GET_MISSING_PRIVILEGES, return_value=[])
+    @patch(CURRENT_ROLE, return_value="ENGINEER")
+    def test_parameters_fill_gaps(self, mock_role, mock_missing, mock_ctx, mock_params):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
         entity = self._make_entity(database=None, schema=None)
@@ -2324,11 +2413,9 @@ class TestResolveDeployDefaults:
         GET_CLI_CONTEXT,
         return_value=_mock_connection_context(warehouse="CONN_WH"),
     )
-    @patch(SCHEMA_EXISTS, return_value=True)
-    @patch(DATABASE_EXISTS, return_value=True)
-    def test_params_beat_session(
-        self, mock_db_exists, mock_schema_exists, mock_ctx, mock_params
-    ):
+    @patch(GET_MISSING_PRIVILEGES, return_value=[])
+    @patch(CURRENT_ROLE, return_value="ENGINEER")
+    def test_params_beat_session(self, mock_role, mock_missing, mock_ctx, mock_params):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
         entity = self._make_entity(database=None, schema=None)
@@ -2385,34 +2472,21 @@ class TestResolveDeployDefaults:
     )
     @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
     @patch(GET_PERSONAL_DATABASE, return_value="USER$MYUSER")
-    @patch(DATABASE_EXISTS, return_value=False)
-    def test_inaccessible_param_database_falls_back_to_personal_db(
-        self, mock_db_exists, mock_personal, mock_ctx, mock_params, mock_console
-    ):
-        from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
-
-        entity = self._make_entity(database=None, schema=None)
-        result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
-        assert result["database"] == "USER$MYUSER"
-        assert result["schema"] == "PUBLIC"
-        mock_console.warning.assert_called_once()
-        warning = mock_console.warning.call_args[0][0]
-        assert "PARAM_DB" in warning
-        assert "account-admin-setup" in warning
-
-    @patch(MANAGER_CLI_CONSOLE)
     @patch(
-        FETCH_SNOW_APPS_PARAMS,
-        return_value={"database": "PARAM_DB", "schema": "PARAM_SCHEMA"},
+        GET_MISSING_PRIVILEGES,
+        return_value=[
+            {
+                "privilege": "CREATE STAGE",
+                "objectType": "SCHEMA",
+                "objectName": "PARAM_DB.PARAM_SCHEMA",
+            }
+        ],
     )
-    @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
-    @patch(GET_PERSONAL_DATABASE, return_value="USER$MYUSER")
-    @patch(SCHEMA_EXISTS, return_value=False)
-    @patch(DATABASE_EXISTS, return_value=True)
-    def test_inaccessible_param_schema_falls_back_to_personal_db(
+    @patch(CURRENT_ROLE, return_value="ENGINEER")
+    def test_missing_privileges_fall_back_to_personal_db(
         self,
-        mock_db_exists,
-        mock_schema_exists,
+        mock_role,
+        mock_missing,
         mock_personal,
         mock_ctx,
         mock_params,
@@ -2422,23 +2496,121 @@ class TestResolveDeployDefaults:
 
         entity = self._make_entity(database=None, schema=None)
         result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
-        # Both the database and schema fall back together so the app does not
-        # land in an inaccessible schema of an otherwise-visible database.
         assert result["database"] == "USER$MYUSER"
         assert result["schema"] == "PUBLIC"
         mock_console.warning.assert_called_once()
         warning = mock_console.warning.call_args[0][0]
+        assert "ENGINEER" in warning
+        assert "CREATE STAGE on SCHEMA PARAM_DB.PARAM_SCHEMA" in warning
         assert "PARAM_DB.PARAM_SCHEMA" in warning
+        assert "account-admin-setup" in warning
+
+    @patch(MANAGER_CLI_CONSOLE)
+    @patch(
+        FETCH_SNOW_APPS_PARAMS,
+        return_value={"database": "PARAM_DB", "schema": "PARAM_SCHEMA"},
+    )
+    @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
+    @patch(GET_PERSONAL_DATABASE, return_value="USER$MYUSER")
+    @patch(GET_MISSING_PRIVILEGES, side_effect=ProgrammingError("cannot resolve"))
+    @patch(CURRENT_ROLE, return_value="ENGINEER")
+    def test_unresolvable_destination_falls_back_to_personal_db(
+        self,
+        mock_role,
+        mock_missing,
+        mock_personal,
+        mock_ctx,
+        mock_params,
+        mock_console,
+    ):
+        from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
+
+        entity = self._make_entity(database=None, schema=None)
+        result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
+        # Every probe statement errored, so the destination cannot be resolved
+        # by the current role and we fall back to the personal database.
+        assert result["database"] == "USER$MYUSER"
+        assert result["schema"] == "PUBLIC"
+        mock_console.warning.assert_called_once()
+        assert "PARAM_DB" in mock_console.warning.call_args[0][0]
+
+
+class TestFlattenMissingPrivileges:
+    def test_authorized_returns_empty(self):
+        from snowflake.cli._plugins.apps.manager import _flatten_missing_privileges
+
+        assert _flatten_missing_privileges({"authorized": True}) == []
+
+    def test_single_permission_node(self):
+        from snowflake.cli._plugins.apps.manager import _flatten_missing_privileges
+
+        node = {"privilege": "USAGE", "objectType": "DATABASE", "objectName": "DB"}
+        assert _flatten_missing_privileges(node) == [node]
+
+    def test_nested_all_of_and_one_of(self):
+        from snowflake.cli._plugins.apps.manager import _flatten_missing_privileges
+
+        tree = {
+            "allOf": [
+                {"privilege": "USAGE", "objectType": "DATABASE", "objectName": "DB"},
+                {
+                    "oneOf": [
+                        {
+                            "privilege": "CREATE STAGE",
+                            "objectType": "SCHEMA",
+                            "objectName": "DB.SCH",
+                        }
+                    ]
+                },
+            ]
+        }
+        result = _flatten_missing_privileges(tree)
+        assert {n["privilege"] for n in result} == {"USAGE", "CREATE STAGE"}
+
+    def test_non_dict_returns_empty(self):
+        from snowflake.cli._plugins.apps.manager import _flatten_missing_privileges
+
+        assert _flatten_missing_privileges(None) == []
+        assert _flatten_missing_privileges("nope") == []
+
+
+class TestDeployPrivilegeCheckStatements:
+    def test_statements_reference_destination(self):
+        from snowflake.cli._plugins.apps.manager import (
+            PRIVILEGE_CHECK_OBJECT_NAME,
+            _deploy_privilege_check_statements,
+        )
+
+        statements = _deploy_privilege_check_statements("APPS", "PUBLIC")
+        assert any(s.startswith("CREATE STAGE APPS.PUBLIC.") for s in statements)
+        assert any("CREATE ARTIFACT REPOSITORY APPS.PUBLIC." in s for s in statements)
+        assert any("CREATE APPLICATION SERVICE APPS.PUBLIC." in s for s in statements)
+        assert all(PRIVILEGE_CHECK_OBJECT_NAME in s for s in statements)
+
+    def test_personal_database_is_quoted(self):
+        from snowflake.cli._plugins.apps.manager import (
+            _deploy_privilege_check_statements,
+        )
+
+        statements = _deploy_privilege_check_statements(
+            "USER$first.last@snowflake.com", "PUBLIC"
+        )
+        # Personal database names contain characters illegal in unquoted
+        # identifiers and must be quoted so EXPLAIN_PRIVILEGES can parse them.
+        assert all('"USER$first.last@snowflake.com".PUBLIC.' in s for s in statements)
 
 
 class TestFilterAccessibleRemoteDefaults:
-    """Direct tests for the account-default access check that protects deploy
+    """Direct tests for the account-default privilege check that protects deploy
     and setup from targeting a destination the current role cannot use."""
 
-    def _manager(self, *, db_exists=True, schema_exists=True):
+    def _manager(self, *, role="ENGINEER", missing=None, side_effect=None):
         manager = Mock()
-        manager.database_exists.return_value = db_exists
-        manager.schema_exists.return_value = schema_exists
+        manager.current_role.return_value = role
+        if side_effect is not None:
+            manager.get_missing_privileges.side_effect = side_effect
+        else:
+            manager.get_missing_privileges.return_value = missing or []
         return manager
 
     def test_no_database_returns_params_unchanged(self):
@@ -2449,61 +2621,93 @@ class TestFilterAccessibleRemoteDefaults:
         params = {"query_warehouse": "WH"}
         manager = self._manager()
         assert _filter_accessible_remote_defaults(manager, params) == params
-        manager.database_exists.assert_not_called()
+        manager.get_missing_privileges.assert_not_called()
 
     @patch(MANAGER_CLI_CONSOLE)
-    def test_accessible_destination_returns_params_unchanged(self, mock_console):
+    def test_no_missing_privileges_returns_params_unchanged(self, mock_console):
         from snowflake.cli._plugins.apps.manager import (
             _filter_accessible_remote_defaults,
         )
 
         params = {"database": "DB", "schema": "SCH", "query_warehouse": "WH"}
-        result = _filter_accessible_remote_defaults(
-            self._manager(db_exists=True, schema_exists=True), params
+        manager = self._manager(missing=[])
+        result = _filter_accessible_remote_defaults(manager, params)
+        assert result == params
+        mock_console.warning.assert_not_called()
+        # Every representative deploy statement is probed for the active role.
+        assert manager.get_missing_privileges.call_count == 3
+        for call in manager.get_missing_privileges.call_args_list:
+            assert call.args[1] == "ENGINEER"
+
+    @patch(MANAGER_CLI_CONSOLE)
+    def test_missing_privileges_drops_destination(self, mock_console):
+        from snowflake.cli._plugins.apps.manager import (
+            _filter_accessible_remote_defaults,
         )
+
+        manager = self._manager(
+            missing=[
+                {
+                    "privilege": "CREATE ARTIFACT REPOSITORY",
+                    "objectType": "SCHEMA",
+                    "objectName": "DB.SCH",
+                }
+            ]
+        )
+        params = {"database": "DB", "schema": "SCH", "query_warehouse": "WH"}
+        result = _filter_accessible_remote_defaults(manager, params)
+        assert result == {"query_warehouse": "WH"}
+        mock_console.warning.assert_called_once()
+        warning = mock_console.warning.call_args[0][0]
+        assert "CREATE ARTIFACT REPOSITORY on SCHEMA DB.SCH" in warning
+
+    @patch(MANAGER_CLI_CONSOLE)
+    def test_all_probes_error_drops_destination(self, mock_console):
+        from snowflake.cli._plugins.apps.manager import (
+            _filter_accessible_remote_defaults,
+        )
+
+        manager = self._manager(side_effect=ProgrammingError("cannot resolve"))
+        params = {"database": "DB", "schema": "SCH"}
+        result = _filter_accessible_remote_defaults(manager, params)
+        assert result == {}
+        mock_console.warning.assert_called_once()
+        assert "access to database 'DB'" in mock_console.warning.call_args[0][0]
+
+    @patch(MANAGER_CLI_CONSOLE)
+    def test_partial_probe_errors_do_not_drop_destination(self, mock_console):
+        from snowflake.cli._plugins.apps.manager import (
+            _filter_accessible_remote_defaults,
+        )
+
+        # First statement errors (e.g. unsupported), the rest report no missing
+        # privileges; an analysis error alone must not divert a user with access.
+        manager = Mock()
+        manager.current_role.return_value = "ENGINEER"
+        manager.get_missing_privileges.side_effect = [
+            ProgrammingError("unsupported"),
+            [],
+            [],
+        ]
+        params = {"database": "DB", "schema": "SCH"}
+        result = _filter_accessible_remote_defaults(manager, params)
         assert result == params
         mock_console.warning.assert_not_called()
 
     @patch(MANAGER_CLI_CONSOLE)
-    def test_inaccessible_database_drops_database_and_schema(self, mock_console):
+    def test_missing_schema_defaults_to_public(self, mock_console):
         from snowflake.cli._plugins.apps.manager import (
+            _deploy_privilege_check_statements,
             _filter_accessible_remote_defaults,
         )
 
-        manager = self._manager(db_exists=False)
-        params = {"database": "DB", "schema": "SCH", "query_warehouse": "WH"}
-        result = _filter_accessible_remote_defaults(manager, params)
-        assert result == {"query_warehouse": "WH"}
-        # The schema check is skipped when the database itself is inaccessible.
-        manager.schema_exists.assert_not_called()
-        mock_console.warning.assert_called_once()
-        assert "database 'DB'" in mock_console.warning.call_args[0][0]
-
-    @patch(MANAGER_CLI_CONSOLE)
-    def test_inaccessible_schema_drops_database_and_schema(self, mock_console):
-        from snowflake.cli._plugins.apps.manager import (
-            _filter_accessible_remote_defaults,
-        )
-
-        manager = self._manager(db_exists=True, schema_exists=False)
-        params = {"database": "DB", "schema": "SCH"}
-        result = _filter_accessible_remote_defaults(manager, params)
-        assert result == {}
-        mock_console.warning.assert_called_once()
-        assert "schema 'DB.SCH'" in mock_console.warning.call_args[0][0]
-
-    @patch(MANAGER_CLI_CONSOLE)
-    def test_check_error_is_treated_as_inaccessible(self, mock_console):
-        from snowflake.cli._plugins.apps.manager import (
-            _filter_accessible_remote_defaults,
-        )
-
-        manager = Mock()
-        manager.database_exists.side_effect = ProgrammingError("boom")
-        params = {"database": "DB", "schema": "SCH"}
-        result = _filter_accessible_remote_defaults(manager, params)
-        assert result == {}
-        mock_console.warning.assert_called_once()
+        manager = self._manager(missing=[])
+        params = {"database": "DB"}
+        _filter_accessible_remote_defaults(manager, params)
+        probed = manager.get_missing_privileges.call_args_list[0].args[0]
+        assert "DB.PUBLIC." in probed
+        # Sanity check the statement set is the deploy set.
+        assert probed in _deploy_privilege_check_statements("DB", "PUBLIC")
 
     @patch(MANAGER_CLI_CONSOLE)
     def test_does_not_mutate_input_params(self, mock_console):
@@ -2512,7 +2716,8 @@ class TestFilterAccessibleRemoteDefaults:
         )
 
         params = {"database": "DB", "schema": "SCH"}
-        _filter_accessible_remote_defaults(self._manager(db_exists=False), params)
+        manager = self._manager(side_effect=ProgrammingError("cannot resolve"))
+        _filter_accessible_remote_defaults(manager, params)
         assert params == {"database": "DB", "schema": "SCH"}
 
 
@@ -2911,9 +3116,9 @@ class TestSetupCommand:
     def test_inaccessible_account_default_falls_back_to_personal_db(
         self, mock_mgr_cls, mock_gen, runner, tmp_path
     ):
-        """When the account-configured destination database is not accessible
-        to the current role, setup falls back to the personal database (as if
-        no account default were set) and warns the user."""
+        """When the current role is missing privileges on the account-configured
+        destination, setup falls back to the personal database (as if no account
+        default were set) and warns the user."""
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
@@ -2922,7 +3127,14 @@ class TestSetupCommand:
             "schema": "PARAM_SCHEMA",
             "query_warehouse": "PARAM_WH",
         }
-        mock_mgr.database_exists.return_value = False
+        mock_mgr.current_role.return_value = "ENGINEER"
+        mock_mgr.get_missing_privileges.return_value = [
+            {
+                "privilege": "CREATE STAGE",
+                "objectType": "SCHEMA",
+                "objectName": "PARAM_DB.PARAM_SCHEMA",
+            }
+        ]
         mock_mgr.get_personal_database.return_value = "USER$MYUSER"
 
         with change_directory(tmp_path):
