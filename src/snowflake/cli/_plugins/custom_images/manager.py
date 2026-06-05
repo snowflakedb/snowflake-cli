@@ -22,6 +22,8 @@ import yaml
 from click import ClickException
 from snowflake.cli._plugins.custom_images.metrics import CustomImageCounterField
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
+from snowflake.cli.api.secure_path import SecurePath
 
 _FAIL_SEVERITIES = {"high", "critical"}
 
@@ -135,7 +137,9 @@ class CustomImageManager:
         }
 
     def _load_config(self, config_path: Path) -> dict:
-        with open(config_path) as f:
+        with SecurePath(config_path).open(
+            read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
+        ) as f:
             return yaml.safe_load(f)
 
     def _run_docker_command(
