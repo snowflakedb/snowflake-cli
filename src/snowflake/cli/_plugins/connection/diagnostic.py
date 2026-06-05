@@ -14,12 +14,12 @@
 
 """Connectivity diagnostics for `snow connection test --enable-diag`.
 
-Replicates the per-endpoint checks that SnowCD used to provide, sourcing
-endpoints from `SYSTEM$ALLOWLIST()` (or a JSON file passed via
-`--diag-allowlist-path`). Each resolvable endpoint is probed with a TCP
-connect, and TLS port 443 endpoints additionally have their certificate
-issuer and expiry recorded.
+Replicates the per-endpoint checks SnowCD used to provide. Endpoints come from
+`SYSTEM$ALLOWLIST()` (or a JSON file via `--diag-allowlist-path`); each one is
+probed with TCP connect, plus a TLS handshake on port 443 to capture the cert
+issuer and expiry.
 """
+
 from __future__ import annotations
 
 import json
@@ -28,19 +28,21 @@ import os
 import socket
 import ssl
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Iterable, Literal, Optional
 
 from click.exceptions import ClickException
-from snowflake.cli._plugins.connection.util import ALLOWLIST_QUERY
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import DictCursor
+
+from snowflake.cli._plugins.connection.util import ALLOWLIST_QUERY
 
 log = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT_SECONDS: float = 5.0
 TLS_PORT: int = 443
+ALLOWLIST_PRIVATELINK_QUERY = "SELECT SYSTEM$ALLOWLIST_PRIVATELINK()"
 
 Status = Literal["Healthy", "Unhealthy", "Skipped"]
 
@@ -49,32 +51,32 @@ Status = Literal["Healthy", "Unhealthy", "Skipped"]
 class EndpointCheck:
     host: str
     port: int
-    type: str  # noqa: A003 — intentional public field name, matches `SYSTEM$ALLOWLIST()` JSON
+    type: str  # noqa: A003 — public field name; matches `SYSTEM$ALLOWLIST()` JSON
     status: Status
     error: Optional[str] = None
     cert_issuer: Optional[str] = None
     cert_expires: Optional[str] = None
     latency_ms: Optional[float] = None
 
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
-
 
 @dataclass
 class DiagnosticReport:
     checks: list[EndpointCheck] = field(default_factory=list)
 
+    def _count(self, status: Status) -> int:
+        return sum(1 for c in self.checks if c.status == status)
+
     @property
     def healthy(self) -> int:
-        return sum(1 for c in self.checks if c.status == "Healthy")
+        return self._count("Healthy")
 
     @property
     def unhealthy(self) -> int:
-        return sum(1 for c in self.checks if c.status == "Unhealthy")
+        return self._count("Unhealthy")
 
     @property
     def skipped(self) -> int:
-        return sum(1 for c in self.checks if c.status == "Skipped")
+        return self._count("Skipped")
 
     @property
     def tested(self) -> int:
@@ -88,28 +90,28 @@ class DiagnosticReport:
         )
 
 
-ALLOWLIST_PRIVATELINK_QUERY = "SELECT SYSTEM$ALLOWLIST_PRIVATELINK()"
+# --------------------------------------------------------------------------- #
+# Allowlist loading
+# --------------------------------------------------------------------------- #
 
 
-def _query_allowlist(conn: SnowflakeConnection, sql: str, key: str) -> list[dict]:
-    """Run an allowlist-returning system function and parse its single JSON cell.
+def _query_json_list(conn: SnowflakeConnection, sql: str, key: str) -> list[dict]:
+    """Run an allowlist-returning system function; return its JSON list, or [] on any failure.
 
-    Returns `[]` on any failure (permission denied, function not present in
-    the deployment, malformed JSON). The caller must not let this raise.
+    Failures are silent because either query may be unavailable: low-priv roles
+    can't call `SYSTEM$ALLOWLIST()`, and `SYSTEM$ALLOWLIST_PRIVATELINK()` isn't
+    enabled in every deployment. The caller decides what to do with an empty
+    result (typically: fall back to the connection host).
     """
     try:
         *_, cursor = conn.execute_string(sql, cursor_class=DictCursor)
         row = cursor.fetchone()
-        if not row:
-            return []
-        raw = row.get(key)
-        if not raw:
-            return []
-        parsed = json.loads(raw)
-        return parsed if isinstance(parsed, list) else []
+        raw = row.get(key) if row else None
+        parsed = json.loads(raw) if raw else []
     except Exception:
         log.debug("Allowlist query failed: %s", sql, exc_info=True)
         return []
+    return parsed if isinstance(parsed, list) else []
 
 
 def _dedupe_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -118,10 +120,9 @@ def _dedupe_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for e in entries:
         key = (str(e.get("type", "")), str(e.get("host", "")), e.get("port"))
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append(e)
+        if key not in seen:
+            seen.add(key)
+            out.append(e)
     return out
 
 
@@ -130,14 +131,11 @@ def load_allowlist(
 ) -> list[dict[str, Any]]:
     """Return the raw allowlist as a list of `{type, host, port}` dicts.
 
-    If `allowlist_path` is given, parse it as JSON and use it directly.
-    Otherwise merge `SYSTEM$ALLOWLIST()` and `SYSTEM$ALLOWLIST_PRIVATELINK()`
-    on the open connection. PrivateLink entries are appended after the public
-    set; duplicate `(type, host, port)` triples are dropped. Either query may
-    fail (low-priv role, function unavailable in deployment) — failures are
-    silent and we return whatever we managed to collect, with the public
-    allowlist's failure handled by `run_diagnostic` (fall back to the
-    connection host) and the privatelink failure simply skipping that source.
+    If `allowlist_path` is given, parse it as JSON. Otherwise merge
+    `SYSTEM$ALLOWLIST()` and `SYSTEM$ALLOWLIST_PRIVATELINK()` from the open
+    connection, deduping `(type, host, port)`. Either query can fail silently
+    (low-priv role, function unavailable); the caller treats an empty result
+    as a signal to fall back to the connection host.
     """
     if allowlist_path is not None:
         try:
@@ -152,39 +150,28 @@ def load_allowlist(
             )
         return payload
 
-    # Public allowlist: let exceptions propagate so run_diagnostic's
-    # fallback-to-conn.host branch fires when the role lacks privileges.
-    *_, cursor = conn.execute_string(ALLOWLIST_QUERY, cursor_class=DictCursor)
-    public = json.loads(cursor.fetchone()["SYSTEM$ALLOWLIST()"])
-    privatelink = _query_allowlist(
+    public = _query_json_list(conn, ALLOWLIST_QUERY, "SYSTEM$ALLOWLIST()")
+    privatelink = _query_json_list(
         conn, ALLOWLIST_PRIVATELINK_QUERY, "SYSTEM$ALLOWLIST_PRIVATELINK()"
     )
-    if not isinstance(public, list):
-        public = []
     return _dedupe_entries([*public, *privatelink])
 
 
-def is_resolvable(host: str) -> bool:
-    """Return False for hostnames the OS resolver can never satisfy.
+# --------------------------------------------------------------------------- #
+# Endpoint probing
+# --------------------------------------------------------------------------- #
 
-    Allowlist entries can include wildcard patterns (e.g.
-    `*.region.snowflakecomputing.com`) and bare placeholder values; those are
-    counted as `Skipped` rather than `Unhealthy`.
-    """
-    if not host:
-        return False
-    if "*" in host:
-        return False
-    return True
+
+def is_resolvable(host: str) -> bool:
+    """False for hostnames the OS resolver can never satisfy (wildcards, empty)."""
+    return bool(host) and "*" not in host
 
 
 def _resolve_cafile() -> Optional[str]:
-    """Honour the same CA bundle env vars `snowflake-connector-python` reads.
+    """Honour `REQUESTS_CA_BUNDLE` then `SSL_CERT_FILE`, matching the connector.
 
-    `REQUESTS_CA_BUNDLE` wins (matches `requests` and the connector); falls
-    back to `SSL_CERT_FILE` (the OpenSSL convention). Returns `None` if
-    neither points at a readable file, in which case `ssl.create_default_context()`
-    will use the system trust store.
+    Returns `None` if neither points at a readable file, in which case
+    `ssl.create_default_context()` uses the system trust store.
     """
     for var in ("REQUESTS_CA_BUNDLE", "SSL_CERT_FILE"):
         path = os.environ.get(var)
@@ -193,30 +180,27 @@ def _resolve_cafile() -> Optional[str]:
     return None
 
 
-def _probe_tls(sock: socket.socket, host: str) -> tuple[Optional[str], Optional[str]]:
-    """Wrap `sock` in TLS and return `(issuer, not_after)` from the peer cert.
-
-    Caller is responsible for closing the underlying socket.
-    """
-    context = ssl.create_default_context(cafile=_resolve_cafile())
-    context.minimum_version = ssl.TLSVersion.TLSv1_2
-    with context.wrap_socket(sock, server_hostname=host) as ssock:
-        cert: Any = ssock.getpeercert() or {}
-    issuer_raw: Any = cert.get("issuer") or ()
-    issuer_cn: Optional[str] = None
-    for rdn in issuer_raw:
+def _issuer_org_name(cert: dict) -> Optional[str]:
+    """Extract organizationName from a peer cert's issuer RDN sequence."""
+    for rdn in cert.get("issuer") or ():
         for entry in rdn:
             if (
                 isinstance(entry, tuple)
                 and len(entry) == 2
                 and entry[0] == "organizationName"
             ):
-                issuer_cn = entry[1]
-                break
-        if issuer_cn:
-            break
+                return entry[1]
+    return None
+
+
+def _probe_tls(sock: socket.socket, host: str) -> tuple[Optional[str], Optional[str]]:
+    """Wrap `sock` in TLS; return `(issuer_org, not_after)` from the peer cert."""
+    context = ssl.create_default_context(cafile=_resolve_cafile())
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    with context.wrap_socket(sock, server_hostname=host) as ssock:
+        cert: Any = ssock.getpeercert() or {}
     not_after = cert.get("notAfter")
-    return issuer_cn, not_after if isinstance(not_after, str) else None
+    return _issuer_org_name(cert), not_after if isinstance(not_after, str) else None
 
 
 def check_endpoint(
@@ -228,40 +212,30 @@ def check_endpoint(
     """Probe a single endpoint. Never raises; failures map to Unhealthy."""
     if not is_resolvable(host):
         return EndpointCheck(
-            host=host,
-            port=port,
-            type=type_,
-            status="Skipped",
-            error="non-resolvable pattern",
+            host, port, type_, "Skipped", error="non-resolvable pattern"
         )
 
     try:
-        # getaddrinfo + connect together cover DNS and TCP reachability.
         start = time.perf_counter()
         sock = socket.create_connection((host, port), timeout=timeout)
         latency_ms = round((time.perf_counter() - start) * 1000, 1)
     except OSError as exc:
-        return EndpointCheck(
-            host=host,
-            port=port,
-            type=type_,
-            status="Unhealthy",
-            error=str(exc),
-        )
+        return EndpointCheck(host, port, type_, "Unhealthy", error=str(exc))
 
-    issuer = expires = None
     try:
         if port == TLS_PORT:
             try:
                 issuer, expires = _probe_tls(sock, host)
             except (ssl.SSLError, OSError) as exc:
                 return EndpointCheck(
-                    host=host,
-                    port=port,
-                    type=type_,
-                    status="Unhealthy",
+                    host,
+                    port,
+                    type_,
+                    "Unhealthy",
                     error=f"TLS handshake failed: {exc}",
                 )
+        else:
+            issuer = expires = None
     finally:
         try:
             sock.close()
@@ -269,10 +243,10 @@ def check_endpoint(
             pass
 
     return EndpointCheck(
-        host=host,
-        port=port,
-        type=type_,
-        status="Healthy",
+        host,
+        port,
+        type_,
+        "Healthy",
         cert_issuer=issuer,
         cert_expires=expires,
         latency_ms=latency_ms,
@@ -282,19 +256,17 @@ def check_endpoint(
 def _normalise_entries(
     entries: Iterable[dict[str, Any]],
 ) -> list[tuple[str, int, str]]:
-    """Pull (host, port, type) triples out of allowlist entries, dropping malformed rows."""
+    """Pull `(host, port, type)` triples from allowlist entries, dropping malformed rows."""
     out: list[tuple[str, int, str]] = []
     for entry in entries:
         host = entry.get("host")
-        port = entry.get("port", TLS_PORT)
-        type_ = entry.get("type", "UNKNOWN")
         if not isinstance(host, str):
             continue
         try:
-            port_int = int(port)
+            port = int(entry.get("port", TLS_PORT))
         except (TypeError, ValueError):
             continue
-        out.append((host, port_int, str(type_)))
+        out.append((host, port, str(entry.get("type", "UNKNOWN"))))
     return out
 
 
@@ -306,27 +278,22 @@ def run_diagnostic(
 ) -> DiagnosticReport:
     """Load the allowlist, probe each entry, return a full report.
 
-    Calls `on_check(...)` once per endpoint in input order; this is how the CLI
-    streams `Checking <TYPE>: <host> ✅` lines as the run progresses.
+    Calls `on_check(...)` once per endpoint in input order so the CLI can
+    stream `Checking <TYPE>: <host> ✅` lines as the run progresses.
 
-    If `SYSTEM$ALLOWLIST()` cannot be queried (no file path and the call
-    fails — typically a permission error for low-privilege roles), the
-    diagnostic falls back to checking just `(conn.host, 443)`.
+    If the queryable allowlist comes back empty (typically permission denied
+    on `SYSTEM$ALLOWLIST()` for low-privilege roles) and no `allowlist_path`
+    was supplied, fall back to checking just `(conn.host, 443)`.
     """
-    try:
-        allowlist = load_allowlist(conn, allowlist_path)
-    except ClickException:
-        raise
-    except Exception as exc:
+    allowlist = load_allowlist(conn, allowlist_path)
+    if not allowlist and allowlist_path is None:
         log.warning(
-            "Could not call SYSTEM$ALLOWLIST(); falling back to the connection host.",
-            exc_info=True,
+            "Allowlist empty (likely permission denied on SYSTEM$ALLOWLIST()); "
+            "falling back to the connection host."
         )
         allowlist = [
             {"type": "SNOWFLAKE_DEPLOYMENT", "host": conn.host, "port": TLS_PORT}
         ]
-        # Surface the fallback so users notice it in --enable-diag output.
-        log.info("Allowlist fetch failed: %s", exc)
 
     report = DiagnosticReport()
     for host, port, type_ in _normalise_entries(allowlist):
@@ -337,16 +304,19 @@ def run_diagnostic(
 
 
 def status_line(check: EndpointCheck) -> str:
-    """Return the streaming-line representation: `Checking <TYPE>: <host> <icon>`."""
+    """Format a streaming line: `Checking <TYPE>: <host> <icon>[ (detail)]`."""
     icon = {"Healthy": "✅", "Unhealthy": "❌", "Skipped": "⏭"}[check.status]
-    suffix = f" ({check.error})" if check.status == "Unhealthy" and check.error else ""
     if check.status == "Healthy" and check.latency_ms is not None:
         suffix = f" ({check.latency_ms} ms)"
+    elif check.status == "Unhealthy" and check.error:
+        suffix = f" ({check.error})"
+    else:
+        suffix = ""
     return f"Checking {check.type}: {check.host} {icon}{suffix}"
 
 
 # --------------------------------------------------------------------------- #
-# Network policy / IP rule diagnostic
+# Network policy snapshot
 # --------------------------------------------------------------------------- #
 
 
@@ -362,9 +332,9 @@ class NetworkRule:
 class NetworkPolicySnapshot:
     """Snapshot of network-policy state at the time of `snow connection test`.
 
-    `account_policy` and `user_policy` are the names returned by
-    `SHOW PARAMETERS LIKE 'NETWORK_POLICY'` at each scope; the effective
-    policy is `user_policy or account_policy` per Snowflake precedence rules.
+    `account_policy` and `user_policy` are the raw values from
+    `SHOW PARAMETERS LIKE 'NETWORK_POLICY'` at each scope; `effective_policy`
+    is `user_policy or account_policy` per Snowflake precedence.
     """
 
     current_ip: Optional[str] = None
@@ -373,96 +343,77 @@ class NetworkPolicySnapshot:
     effective_policy: Optional[str] = None
     allowed_ip_list: list[str] = field(default_factory=list)
     blocked_ip_list: list[str] = field(default_factory=list)
-    allowed_rule_list: list[str] = field(default_factory=list)
-    blocked_rule_list: list[str] = field(default_factory=list)
+    allowed_network_rule_list: list[str] = field(default_factory=list)
+    blocked_network_rule_list: list[str] = field(default_factory=list)
     rules: list[NetworkRule] = field(default_factory=list)
     error: Optional[str] = None
 
     def has_policy(self) -> bool:
         return self.effective_policy is not None
 
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "current_ip": self.current_ip,
-            "account_policy": self.account_policy,
-            "user_policy": self.user_policy,
-            "effective_policy": self.effective_policy,
-            "allowed_ip_list": self.allowed_ip_list,
-            "blocked_ip_list": self.blocked_ip_list,
-            "allowed_network_rule_list": self.allowed_rule_list,
-            "blocked_network_rule_list": self.blocked_rule_list,
-            "rules": [asdict(r) for r in self.rules],
-            "error": self.error,
-        }
 
+def _query_rows(conn: SnowflakeConnection, sql: str) -> list[dict]:
+    """Run a query and return rows as case-folded dicts; `[]` on any failure.
 
-def _safe_query(conn: SnowflakeConnection, sql: str) -> Optional[list[dict]]:
-    """Run a query through `execute_string`; return rows as dicts, or None on error.
-
-    Network-policy diagnostics are best-effort: a low-priv role may not be
-    able to call `SHOW PARAMETERS` at account scope or `DESCRIBE NETWORK
-    POLICY`. Fail closed and let the caller surface the gap.
+    Network-policy diagnostics are best-effort — a low-priv role may not be
+    able to `SHOW PARAMETERS` at account scope or `DESC NETWORK POLICY`. Fail
+    closed and let the caller surface the gap.
     """
     try:
         *_, cursor = conn.execute_string(sql, cursor_class=DictCursor)
-        return list(cursor)
+        return [{str(k).lower(): v for k, v in row.items()} for row in cursor]
     except Exception as exc:
         log.debug("Network-policy query failed: %s\n%s", sql, exc)
-        return None
+        return []
 
 
-def _scalar_value(rows: Optional[list[dict]], column: str) -> Optional[str]:
+def _scalar_value(rows: list[dict], column: str) -> Optional[str]:
     if not rows:
         return None
-    val = rows[0].get(column)
+    val = rows[0].get(column.lower())
     return str(val) if val not in (None, "") else None
 
 
 def _split_csv(value: Optional[str]) -> list[str]:
-    if not value:
-        return []
-    return [v.strip() for v in value.split(",") if v.strip()]
+    return [v.strip() for v in (value or "").split(",") if v.strip()]
 
 
 def _describe_network_policy(
-    conn: SnowflakeConnection, name: str, snapshot: NetworkPolicySnapshot
-) -> bool:
-    """Populate snapshot allow/block lists from `DESC NETWORK POLICY <name>`.
-
-    Returns True if the DESC succeeded (any row came back), False otherwise.
-    """
-    rows = _safe_query(conn, f"DESC NETWORK POLICY IDENTIFIER('{name}')")
+    conn: SnowflakeConnection, name: str
+) -> Optional[dict[str, list[str]]]:
+    """Return parsed allow/block lists from `DESC NETWORK POLICY`, or None on failure."""
+    rows = _query_rows(conn, f"DESC NETWORK POLICY IDENTIFIER('{name}')")
     if not rows:
-        return False
-    by_name: dict[str, str] = {}
-    for row in rows:
-        prop = row.get("name") or row.get("NAME")
-        val = row.get("value") or row.get("VALUE")
-        if prop and val is not None:
-            by_name[str(prop).upper()] = str(val)
-    snapshot.allowed_ip_list = _split_csv(by_name.get("ALLOWED_IP_LIST"))
-    snapshot.blocked_ip_list = _split_csv(by_name.get("BLOCKED_IP_LIST"))
-    snapshot.allowed_rule_list = _split_csv(by_name.get("ALLOWED_NETWORK_RULE_LIST"))
-    snapshot.blocked_rule_list = _split_csv(by_name.get("BLOCKED_NETWORK_RULE_LIST"))
-    return True
+        return None
+    by_name = {
+        str(r["name"]).upper(): str(r["value"])
+        for r in rows
+        if r.get("name") and r.get("value") is not None
+    }
+    return {
+        "allowed_ip_list": _split_csv(by_name.get("ALLOWED_IP_LIST")),
+        "blocked_ip_list": _split_csv(by_name.get("BLOCKED_IP_LIST")),
+        "allowed_network_rule_list": _split_csv(
+            by_name.get("ALLOWED_NETWORK_RULE_LIST")
+        ),
+        "blocked_network_rule_list": _split_csv(
+            by_name.get("BLOCKED_NETWORK_RULE_LIST")
+        ),
+    }
 
 
 def _describe_network_rule(
     conn: SnowflakeConnection, qualified_name: str
 ) -> Optional[NetworkRule]:
-    rows = _safe_query(conn, f"DESC NETWORK RULE IDENTIFIER('{qualified_name}')")
+    rows = _query_rows(conn, f"DESC NETWORK RULE IDENTIFIER('{qualified_name}')")
     if not rows:
         return None
     head = rows[0]
-    keys = {k.lower(): k for k in head.keys()}
-    mode = head.get(keys.get("mode", ""), "") or ""
-    type_ = head.get(keys.get("type", ""), "") or ""
-    raw_values = head.get(keys.get("value_list", ""), "") or ""
     return NetworkRule(
         name=qualified_name,
-        mode=str(mode),
-        type=str(type_),
-        values=_split_csv(str(raw_values)),
+        mode=str(head.get("mode") or ""),
+        type=str(head.get("type") or ""),
+        values=_split_csv(str(head.get("value_list") or "")),
     )
 
 
@@ -471,47 +422,54 @@ def collect_network_policy(
 ) -> NetworkPolicySnapshot:
     """Best-effort snapshot of the active network policy and its referenced rules.
 
-    Sources, in order of precedence:
-      1. `SHOW PARAMETERS LIKE 'NETWORK_POLICY' FOR USER <user>` (user-level wins)
+    Order of precedence:
+      1. `SHOW PARAMETERS LIKE 'NETWORK_POLICY' FOR USER <user>` (user wins)
       2. `SHOW PARAMETERS LIKE 'NETWORK_POLICY' IN ACCOUNT`
-      3. `DESC NETWORK POLICY <effective_name>` for the inline allow/block lists
+      3. `DESC NETWORK POLICY <effective>` for inline allow/block lists
       4. `DESC NETWORK RULE <each>` for referenced rule values
 
     Always returns a snapshot; failures populate `snapshot.error` instead.
     """
     snapshot = NetworkPolicySnapshot()
 
-    # CURRENT_IP_ADDRESS() is the documented function. SYSTEM$GET_CLIENT_IP
-    # exists in some internal deployments but is not generally available.
-    ip_rows = _safe_query(conn, "SELECT CURRENT_IP_ADDRESS() AS IP")
-    if ip_rows:
-        snapshot.current_ip = _scalar_value(ip_rows, "IP")
-
-    account_rows = _safe_query(conn, "SHOW PARAMETERS LIKE 'NETWORK_POLICY' IN ACCOUNT")
-    snapshot.account_policy = _scalar_value(account_rows, "value")
-
+    snapshot.current_ip = _scalar_value(
+        _query_rows(conn, "SELECT CURRENT_IP_ADDRESS() AS IP"), "IP"
+    )
+    snapshot.account_policy = _scalar_value(
+        _query_rows(conn, "SHOW PARAMETERS LIKE 'NETWORK_POLICY' IN ACCOUNT"), "value"
+    )
     if user:
-        user_rows = _safe_query(
-            conn,
-            f"SHOW PARAMETERS LIKE 'NETWORK_POLICY' FOR USER IDENTIFIER('{user}')",
+        snapshot.user_policy = _scalar_value(
+            _query_rows(
+                conn,
+                f"SHOW PARAMETERS LIKE 'NETWORK_POLICY' FOR USER IDENTIFIER('{user}')",
+            ),
+            "value",
         )
-        snapshot.user_policy = _scalar_value(user_rows, "value")
-
     snapshot.effective_policy = snapshot.user_policy or snapshot.account_policy
 
-    if snapshot.effective_policy:
-        described = _describe_network_policy(conn, snapshot.effective_policy, snapshot)
-        if not described:
-            snapshot.error = (
-                f"Could not DESC NETWORK POLICY {snapshot.effective_policy} "
-                "(role lacks privilege?). Allowed/blocked lists not shown."
-            )
-        for rule_name in (
-            *snapshot.allowed_rule_list,
-            *snapshot.blocked_rule_list,
-        ):
-            rule = _describe_network_rule(conn, rule_name)
-            if rule is not None:
-                snapshot.rules.append(rule)
+    if not snapshot.effective_policy:
+        return snapshot
+
+    described = _describe_network_policy(conn, snapshot.effective_policy)
+    if described is None:
+        snapshot.error = (
+            f"Could not DESC NETWORK POLICY {snapshot.effective_policy} "
+            "(role lacks privilege?). Allowed/blocked lists not shown."
+        )
+        return snapshot
+
+    snapshot.allowed_ip_list = described["allowed_ip_list"]
+    snapshot.blocked_ip_list = described["blocked_ip_list"]
+    snapshot.allowed_network_rule_list = described["allowed_network_rule_list"]
+    snapshot.blocked_network_rule_list = described["blocked_network_rule_list"]
+
+    for rule_name in (
+        *snapshot.allowed_network_rule_list,
+        *snapshot.blocked_network_rule_list,
+    ):
+        rule = _describe_network_rule(conn, rule_name)
+        if rule is not None:
+            snapshot.rules.append(rule)
 
     return snapshot

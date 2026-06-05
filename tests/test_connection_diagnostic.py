@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Tests for `snow connection test --enable-diag` SnowCD-style diagnostics."""
+
 from __future__ import annotations
 
 import json
@@ -24,6 +25,7 @@ from unittest import mock
 
 import pytest
 from click.exceptions import ClickException
+
 from snowflake.cli._plugins.connection.diagnostic import (
     DiagnosticReport,
     EndpointCheck,
@@ -192,12 +194,15 @@ def test_check_endpoint_marks_unhealthy_on_dns_failure():
 
 def test_check_endpoint_marks_unhealthy_on_tls_failure():
     fake_sock = mock.MagicMock()
-    with mock.patch(
-        "snowflake.cli._plugins.connection.diagnostic.socket.create_connection",
-        return_value=fake_sock,
-    ), mock.patch(
-        "snowflake.cli._plugins.connection.diagnostic._probe_tls",
-        side_effect=ssl.SSLError("cert verify failed"),
+    with (
+        mock.patch(
+            "snowflake.cli._plugins.connection.diagnostic.socket.create_connection",
+            return_value=fake_sock,
+        ),
+        mock.patch(
+            "snowflake.cli._plugins.connection.diagnostic._probe_tls",
+            side_effect=ssl.SSLError("cert verify failed"),
+        ),
     ):
         result = check_endpoint("x.com", 443, "SNOWFLAKE_DEPLOYMENT")
     assert result.status == "Unhealthy"
@@ -206,12 +211,15 @@ def test_check_endpoint_marks_unhealthy_on_tls_failure():
 
 def test_check_endpoint_records_latency_and_cert():
     fake_sock = mock.MagicMock()
-    with mock.patch(
-        "snowflake.cli._plugins.connection.diagnostic.socket.create_connection",
-        return_value=fake_sock,
-    ), mock.patch(
-        "snowflake.cli._plugins.connection.diagnostic._probe_tls",
-        return_value=("DigiCert Inc", "Jan 19 23:59:59 2027 GMT"),
+    with (
+        mock.patch(
+            "snowflake.cli._plugins.connection.diagnostic.socket.create_connection",
+            return_value=fake_sock,
+        ),
+        mock.patch(
+            "snowflake.cli._plugins.connection.diagnostic._probe_tls",
+            return_value=("DigiCert Inc", "Jan 19 23:59:59 2027 GMT"),
+        ),
     ):
         result = check_endpoint("x.com", 443, "SNOWFLAKE_DEPLOYMENT")
     assert result.status == "Healthy"
@@ -223,12 +231,15 @@ def test_check_endpoint_records_latency_and_cert():
 
 def test_check_endpoint_skips_tls_for_port_80():
     fake_sock = mock.MagicMock()
-    with mock.patch(
-        "snowflake.cli._plugins.connection.diagnostic.socket.create_connection",
-        return_value=fake_sock,
-    ), mock.patch(
-        "snowflake.cli._plugins.connection.diagnostic._probe_tls"
-    ) as probe_tls:
+    with (
+        mock.patch(
+            "snowflake.cli._plugins.connection.diagnostic.socket.create_connection",
+            return_value=fake_sock,
+        ),
+        mock.patch(
+            "snowflake.cli._plugins.connection.diagnostic._probe_tls"
+        ) as probe_tls,
+    ):
         result = check_endpoint("crl.example.com", 80, "CRL_DISTRIBUTION_POINT")
     probe_tls.assert_not_called()
     assert result.status == "Healthy"
@@ -380,7 +391,7 @@ def test_collect_network_policy_user_overrides_account():
     assert snap.user_policy == "USER_POLICY"
     assert snap.effective_policy == "USER_POLICY"
     assert snap.allowed_ip_list == ["0.0.0.0/0"]
-    assert snap.allowed_rule_list == ["DB.SCHEMA.NR1"]
+    assert snap.allowed_network_rule_list == ["DB.SCHEMA.NR1"]
     assert len(snap.rules) == 1
     assert snap.rules[0].values == ["1.0.0.0/8", "2.0.0.0/8"]
     assert snap.rules[0].mode == "INGRESS"

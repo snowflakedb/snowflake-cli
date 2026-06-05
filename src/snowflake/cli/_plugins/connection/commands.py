@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import os.path
+from dataclasses import asdict
 from pathlib import Path
 from typing import Optional
 
@@ -27,8 +28,13 @@ from click import (  # type: ignore
     UsageError,
 )
 from click.core import ParameterSource  # type: ignore
+from snowflake.connector import ProgrammingError
+from snowflake.connector.constants import CONNECTIONS_FILE
+
 from snowflake import connector
 from snowflake.cli._plugins.connection.diagnostic import (
+    DiagnosticReport,
+    NetworkPolicySnapshot,
     collect_network_policy,
     run_diagnostic,
     status_line,
@@ -79,8 +85,6 @@ from snowflake.cli.api.output.types import (
     ObjectResult,
 )
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.connector import ProgrammingError
-from snowflake.connector.constants import CONNECTIONS_FILE
 
 app = SnowTyperFactory(
     name="connection",
@@ -432,54 +436,58 @@ def _connection_test_with_diag(
     conn_ctx,
     connection_summary: dict,
 ) -> CommandResult:
-    """Run the SnowCD-style per-endpoint diagnostic and assemble the full result.
+    """Run the SnowCD-style per-endpoint diagnostic and assemble the result.
 
-    Streams `Checking <TYPE>: <host> <icon>` lines for human (TABLE) output and
-    appends a per-endpoint table plus a `Results: ...` summary line. For JSON
-    output the streaming is suppressed and the structured payload carries the
-    diagnostic data instead.
+    For TABLE output: streams `Checking <TYPE>: <host> <icon>` lines as the
+    run progresses, then appends a per-endpoint table, a network-policy block,
+    and a `Results: ...` summary line.
+
+    For JSON / CSV output: returns the structured diagnostic nested under a
+    `Diagnostic` key so consumers can read everything off one object.
     """
     from snowflake.cli.api.output.formats import OutputFormat
-    from snowflake.cli.api.output.types import MultipleResults
 
     is_table_output = get_cli_context().output_format == OutputFormat.TABLE
 
     if is_table_output:
         cli_console.message("Fetching allowlist from Snowflake...")
-
-    def _stream(check):
-        if is_table_output:
-            cli_console.message(status_line(check))
-
     report = run_diagnostic(
         conn=conn,
         allowlist_path=conn_ctx.diag_allowlist_path,
-        on_check=_stream,
+        on_check=lambda c: (
+            cli_console.message(status_line(c)) if is_table_output else None
+        ),
     )
 
     if is_table_output:
         cli_console.message("Inspecting network policies...")
     policy = collect_network_policy(conn, user=conn.user)
 
-    diagnostic_payload = {
-        "checks": [c.to_dict() for c in report.checks],
-        "healthy": report.healthy,
-        "unhealthy": report.unhealthy,
-        "skipped": report.skipped,
-        "tested": report.tested,
-        "network_policy": policy.to_dict(),
-    }
-
     if not is_table_output:
-        # JSON / CSV output gets the structured payload nested in the
-        # connection summary so consumers can read everything off one object.
-        connection_summary["Diagnostic"] = diagnostic_payload
+        connection_summary["Diagnostic"] = {
+            "checks": [asdict(c) for c in report.checks],
+            "healthy": report.healthy,
+            "unhealthy": report.unhealthy,
+            "skipped": report.skipped,
+            "tested": report.tested,
+            "network_policy": asdict(policy),
+        }
         return ObjectResult(connection_summary)
 
-    # TABLE output: keep the connection summary clean. The per-endpoint
-    # table, network policy block, and summary line below carry the data.
+    return _diagnostic_table_results(connection_summary, report, policy)
+
+
+def _diagnostic_table_results(
+    connection_summary: dict,
+    report: DiagnosticReport,
+    policy: NetworkPolicySnapshot,
+) -> CommandResult:
+    """Assemble the TABLE-format output: summary, per-endpoint rows, policy block, totals."""
+    from snowflake.cli.api.output.types import MultipleResults
+
     results = MultipleResults()
     results.add(ObjectResult(connection_summary))
+
     tested_rows = [
         {
             "url": c.host,
@@ -494,6 +502,7 @@ def _connection_test_with_diag(
     ]
     if tested_rows:
         results.add(CollectionResult(tested_rows))
+
     if policy.has_policy():
         policy_summary = {
             "Effective network policy": policy.effective_policy,
@@ -503,8 +512,10 @@ def _connection_test_with_diag(
             "Current IP": policy.current_ip or "(unknown)",
             "Allowed IPs": ", ".join(policy.allowed_ip_list) or "(none)",
             "Blocked IPs": ", ".join(policy.blocked_ip_list) or "(none)",
-            "Allowed network rules": ", ".join(policy.allowed_rule_list) or "(none)",
-            "Blocked network rules": ", ".join(policy.blocked_rule_list) or "(none)",
+            "Allowed network rules": ", ".join(policy.allowed_network_rule_list)
+            or "(none)",
+            "Blocked network rules": ", ".join(policy.blocked_network_rule_list)
+            or "(none)",
         }
         if policy.error:
             policy_summary["Note"] = policy.error
