@@ -207,11 +207,25 @@ def config_init(config_file: Optional[Path]):
         detect_encoding_environment()
 
 
+def _canonical_encoding(enc: str) -> str:
+    """Return the canonical codec name for enc.
+
+    Routes through codecs.lookup so that aliases such as 'utf8', 'UTF_8', or
+    'u8' all resolve to 'utf-8', keeping mismatch detection consistent with
+    how _validate_encoding works.  Falls back to simple lower/replace for
+    unrecognised strings so detection never crashes on exotic platform values.
+    """
+    try:
+        return codecs.lookup(enc).name
+    except LookupError:
+        return enc.lower().replace("_", "-")
+
+
 def detect_encoding_environment():
     """Detect encoding configuration and warn about mismatches"""
-    fs_encoding = sys.getfilesystemencoding().lower().replace("_", "-")
-    default_encoding = sys.getdefaultencoding().lower().replace("_", "-")
-    locale_encoding = locale.getpreferredencoding().lower().replace("_", "-")
+    fs_encoding = _canonical_encoding(sys.getfilesystemencoding())
+    default_encoding = _canonical_encoding(sys.getdefaultencoding())
+    locale_encoding = _canonical_encoding(locale.getpreferredencoding())
 
     # Warn on mismatches
     encodings = {fs_encoding, default_encoding, locale_encoding}

@@ -977,3 +977,50 @@ def test_connection_config_from_dict_preserves_known_and_other_settings():
         "user": "u",
         "custom_setting": "value",
     }
+
+
+@pytest.mark.parametrize(
+    "alias",
+    ["utf8", "UTF8", "UTF_8", "u8"],
+)
+def test_encoding_alias_no_false_mismatch_warning(config_file, monkeypatch, alias):
+    """Platforms reporting a utf-8 alias (e.g. 'utf8') must not trigger a mismatch
+    warning — they are equivalent to 'utf-8' after codecs.lookup normalisation."""
+    monkeypatch.setattr("sys.getfilesystemencoding", lambda: alias)
+    monkeypatch.setattr("sys.getdefaultencoding", lambda: alias)
+    monkeypatch.setattr("locale.getpreferredencoding", lambda: alias)
+
+    config_content = ""
+    with config_file(config_content) as cfg:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            config_init(cfg)
+
+        encoding_warnings = [
+            warning for warning in w if "encoding" in str(warning.message).lower()
+        ]
+        assert len(encoding_warnings) == 0, (
+            f"Alias {alias!r} should normalise to 'utf-8' and produce no warning, "
+            f"got: {[str(x.message) for x in encoding_warnings]}"
+        )
+
+
+def test_encoding_mixed_aliases_no_false_mismatch_warning(config_file, monkeypatch):
+    """utf-8 and utf8 are the same codec; mixing aliases must not trigger a mismatch."""
+    monkeypatch.setattr("sys.getfilesystemencoding", lambda: "utf-8")
+    monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf8")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda: "UTF_8")
+
+    config_content = ""
+    with config_file(config_content) as cfg:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            config_init(cfg)
+
+        encoding_warnings = [
+            warning for warning in w if "encoding" in str(warning.message).lower()
+        ]
+        assert len(encoding_warnings) == 0, (
+            f"Mixed utf-8 aliases should produce no warning, "
+            f"got: {[str(x.message) for x in encoding_warnings]}"
+        )
