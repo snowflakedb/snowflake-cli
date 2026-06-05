@@ -75,3 +75,20 @@ class CodeBundleManager(SqlExecutionMixin):
         if_exists_clause = "IF EXISTS " if if_exists else ""
         query = f"DROP CODE BUNDLE {if_exists_clause}{fqn.sql_identifier}"
         return self.execute_query(query)
+
+    def alter(
+        self,
+        name: FQN,
+        rename_to: Optional[str] = None,
+        add_version: Optional[str] = None,
+    ) -> SnowflakeCursor:
+        if name is None or not name.name:
+            raise CliError("Code bundle name is required.")
+        fqn = name.using_connection(self._conn)
+        query = f"ALTER CODE BUNDLE {fqn.sql_identifier}"
+        if rename_to is not None:
+            new_fqn = FQN.from_string(rename_to).using_connection(self._conn)
+            query += f" RENAME TO {new_fqn.sql_identifier}"
+        elif add_version is not None:
+            query += f" ADD VERSION FROM {to_string_literal(add_version)}"
+        return self.execute_query(query)
