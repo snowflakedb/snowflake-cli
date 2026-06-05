@@ -414,11 +414,10 @@ def _filter_accessible_remote_defaults(
     role_label = f" '{sanitize_for_terminal(role)}'" if role else ""
     cli_console.warning(
         f"Your current role{role_label} is missing privileges required to "
-        "deploy to the account-configured Snowflake Apps destination "
-        f"'{sanitize_for_terminal(database)}.{sanitize_for_terminal(schema)}': "
-        f"{', '.join(missing_descriptions)}. Falling back to your personal "
-        "database. Ask your account administrator to grant access: "
-        f"{ACCOUNT_ADMIN_SETUP_URL}"
+        "deploy to the account-configured Snowflake App Runtime destination "
+        f"'{sanitize_for_terminal(database)}.{sanitize_for_terminal(schema)}'. "
+        "Falling back to your personal database. Ask your account administrator "
+        f"to grant access: {ACCOUNT_ADMIN_SETUP_URL}"
     )
     filtered = dict(params)
     filtered.pop("database", None)
@@ -434,7 +433,7 @@ def _resolve_deploy_defaults(
     """Resolve deploy defaults using a four-tier precedence:
 
     1. Values explicitly set in ``snowflake.yml`` (highest priority)
-    2. SnowApps parameters (``SHOW PARAMETERS LIKE 'DEFAULT_SNOWFLAKE_APPS_%' IN USER``)
+    2. Snowflake App Runtime parameters (``SHOW PARAMETERS LIKE 'DEFAULT_SNOWFLAKE_APPS_%' IN USER``)
     3. Built-in defaults (personal DB for database, ``<app-id>_REPO`` for artifact repository)
     4. Current session values (lowest priority)
 
@@ -471,13 +470,13 @@ def _resolve_deploy_defaults(
         "schema": fqn.schema,
     }
 
-    # ── 2. SnowApps parameters (user-level) ──────────────────────────
+    # ── 2. Snowflake App Runtime parameters (user-level) ─────────────
     param_vals: Dict[str, Optional[str]] = {}
-    cli_console.step("Fetching SnowApps account parameters...")
+    cli_console.step("Fetching Snowflake App Runtime account parameters...")
     raw_params = manager.fetch_snow_apps_parameters()
     if raw_params:
         cli_console.step(
-            "Loaded SnowApps parameters: "
+            "Loaded Snowflake App Runtime parameters: "
             + ", ".join(f"{k}={v}" for k, v in raw_params.items())
         )
         # Drop the account-configured destination database/schema when the
@@ -1051,7 +1050,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         return self._is_boolean_param_true(MANAGED_COMPUTE_POOL_FALLBACK_PARAM)
 
     def fetch_snow_apps_parameters(self) -> Dict[str, str]:
-        """Fetch SnowApps default parameters for the current user.
+        """Fetch Snowflake App Runtime default parameters for the current user.
 
         Runs ``SHOW PARAMETERS LIKE 'DEFAULT_SNOWFLAKE_APPS_%' IN USER``
         and returns a dict whose keys match the internal resolution names
@@ -1075,7 +1074,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
             return result
         except ProgrammingError:
             log.warning(
-                "Could not fetch SnowApps user parameters – skipping.",
+                "Could not fetch Snowflake App Runtime user parameters – skipping.",
                 exc_info=True,
             )
             return {}

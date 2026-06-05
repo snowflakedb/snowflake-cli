@@ -2501,7 +2501,7 @@ class TestResolveDeployDefaults:
         mock_console.warning.assert_called_once()
         warning = mock_console.warning.call_args[0][0]
         assert "ENGINEER" in warning
-        assert "CREATE STAGE on SCHEMA PARAM_DB.PARAM_SCHEMA" in warning
+        assert "Snowflake App Runtime" in warning
         assert "PARAM_DB.PARAM_SCHEMA" in warning
         assert "account-admin-setup" in warning
 
@@ -2700,7 +2700,11 @@ class TestFilterAccessibleRemoteDefaults:
         assert result == {"query_warehouse": "WH"}
         mock_console.warning.assert_called_once()
         warning = mock_console.warning.call_args[0][0]
-        assert "CREATE ARTIFACT REPOSITORY on SCHEMA DB.SCH" in warning
+        # The warning names the destination and feature, not the specific grants
+        # (those are only in the verbose INFO logs).
+        assert "Snowflake App Runtime" in warning
+        assert "'DB.SCH'" in warning
+        assert "CREATE ARTIFACT REPOSITORY" not in warning
 
     @patch(MANAGER_CLI_CONSOLE)
     def test_all_probes_error_drops_destination(self, mock_console):
@@ -2713,7 +2717,7 @@ class TestFilterAccessibleRemoteDefaults:
         result = _filter_accessible_remote_defaults(manager, params)
         assert result == {}
         mock_console.warning.assert_called_once()
-        assert "access to database 'DB'" in mock_console.warning.call_args[0][0]
+        assert "'DB.SCH'" in mock_console.warning.call_args[0][0]
 
     @patch(MANAGER_CLI_CONSOLE)
     def test_any_probe_error_drops_destination(self, mock_console):
@@ -2733,7 +2737,7 @@ class TestFilterAccessibleRemoteDefaults:
         result = _filter_accessible_remote_defaults(manager, params)
         assert result == {}
         mock_console.warning.assert_called_once()
-        assert "access to database 'DB'" in mock_console.warning.call_args[0][0]
+        assert "'DB.SCH'" in mock_console.warning.call_args[0][0]
 
     @patch(MANAGER_CLI_CONSOLE)
     def test_missing_schema_defaults_to_public(self, mock_console):
@@ -3068,7 +3072,7 @@ class TestSetupCommand:
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_flags_beat_parameters(self, mock_mgr_cls, mock_gen, runner, tmp_path):
-        """CLI flags should override SnowApps parameters."""
+        """CLI flags should override Snowflake App Runtime parameters."""
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
@@ -3113,7 +3117,7 @@ class TestSetupCommand:
     def test_setup_shows_parameter_provenance(
         self, mock_mgr_cls, mock_gen, runner, tmp_path
     ):
-        """Resolved values from SnowApps parameters should show 'account parameter' provenance."""
+        """Resolved values from Snowflake App Runtime parameters should show 'account parameter' provenance."""
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
