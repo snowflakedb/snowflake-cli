@@ -29,6 +29,11 @@ from tests_common import IS_WINDOWS
 
 JAPANESE_SQL_CONTENT = "select '日本語テスト' as RESULT;\n"
 JAPANESE_EXPECTED_VALUE = "日本語テスト"
+# UTF-8 bytes for JAPANESE_EXPECTED_VALUE decoded as cp1252 (the default Windows
+# encoding on most Western-locale systems).  All bytes happen to be valid cp1252,
+# so the read succeeds but returns this mojibake string instead of the original.
+# Computed via: '日本語テスト'.encode('utf-8').decode('cp1252')
+JAPANESE_UTF8_AS_CP1252 = "æ—¥æœ¬èªžãƒ†ã‚¹ãƒˆ"
 
 GERMAN_SQL_CONTENT = "select 'Ä Ö Ü ß Straße' as RESULT;\n"
 GERMAN_EXPECTED_VALUE = "Ä Ö Ü ß Straße"
@@ -78,7 +83,8 @@ class TestEncodingScenarios:
             ["sql", "-f", str(sql_file)],
         )
 
-        assert result.json != [{"RESULT": JAPANESE_EXPECTED_VALUE}]
+        assert result.exit_code == 0, result.output
+        assert result.json == [{"RESULT": JAPANESE_UTF8_AS_CP1252}]
 
 
 @contextlib.contextmanager
