@@ -32,17 +32,22 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Iterable, Literal, Optional
 
-from click.exceptions import ClickException
+from snowflake.cli._plugins.connection.util import ALLOWLIST_QUERY
+from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.util import identifier_to_show_like_pattern
+from snowflake.cli.api.sanitizers import sanitize_for_terminal
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import DictCursor
-
-from snowflake.cli._plugins.connection.util import ALLOWLIST_QUERY
 
 log = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT_SECONDS: float = 5.0
 TLS_PORT: int = 443
 ALLOWLIST_PRIVATELINK_QUERY = "SELECT SYSTEM$ALLOWLIST_PRIVATELINK()"
+ALLOWLIST_FILE_SIZE_LIMIT_MB: float = 1.0
+NETWORK_POLICY_PARAM_NAME = "NETWORK_POLICY"
 
 Status = Literal["Healthy", "Unhealthy", "Skipped"]
 
@@ -139,14 +144,20 @@ def load_allowlist(
     """
     if allowlist_path is not None:
         try:
-            payload = json.loads(Path(allowlist_path).read_text())
+            payload = json.loads(
+                SecurePath(allowlist_path).read_text(
+                    file_size_limit_mb=ALLOWLIST_FILE_SIZE_LIMIT_MB
+                )
+            )
         except (OSError, json.JSONDecodeError) as exc:
-            raise ClickException(
-                f"Could not read allowlist file {allowlist_path}: {exc}"
+            raise CliError(
+                f"Could not read allowlist file {allowlist_path}: {exc}. "
+                "Check the path and that the file is valid JSON."
             )
         if not isinstance(payload, list):
-            raise ClickException(
-                f"Allowlist file {allowlist_path} must contain a JSON array."
+            raise CliError(
+                f"Allowlist file {allowlist_path} must contain a JSON array "
+                "of {type, host, port} entries."
             )
         return payload
 
@@ -304,15 +315,22 @@ def run_diagnostic(
 
 
 def status_line(check: EndpointCheck) -> str:
-    """Format a streaming line: `Checking <TYPE>: <host> <icon>[ (detail)]`."""
+    """Format a streaming line: `Checking <TYPE>: <host> <icon>[ (detail)]`.
+
+    Server-derived fields (`host`, `type`) are sanitised before display so
+    crafted ANSI sequences in an allowlist response cannot rewrite the
+    terminal.
+    """
     icon = {"Healthy": "✅", "Unhealthy": "❌", "Skipped": "⏭"}[check.status]
+    host = sanitize_for_terminal(check.host) or ""
+    type_ = sanitize_for_terminal(check.type) or ""
     if check.status == "Healthy" and check.latency_ms is not None:
         suffix = f" ({check.latency_ms} ms)"
     elif check.status == "Unhealthy" and check.error:
-        suffix = f" ({check.error})"
+        suffix = f" ({sanitize_for_terminal(check.error)})"
     else:
         suffix = ""
-    return f"Checking {check.type}: {check.host} {icon}{suffix}"
+    return f"Checking {type_}: {host} {icon}{suffix}"
 
 
 # --------------------------------------------------------------------------- #
@@ -378,11 +396,23 @@ def _split_csv(value: Optional[str]) -> list[str]:
     return [v.strip() for v in (value or "").split(",") if v.strip()]
 
 
+def _safe_fqn(name: str) -> Optional[FQN]:
+    """Parse an identifier, returning `None` if it fails the FQN regex."""
+    try:
+        return FQN.from_string(name)
+    except Exception:
+        log.debug("Could not parse identifier as FQN: %r", name)
+        return None
+
+
 def _describe_network_policy(
     conn: SnowflakeConnection, name: str
 ) -> Optional[dict[str, list[str]]]:
     """Return parsed allow/block lists from `DESC NETWORK POLICY`, or None on failure."""
-    rows = _query_rows(conn, f"DESC NETWORK POLICY IDENTIFIER('{name}')")
+    fqn = _safe_fqn(name)
+    if fqn is None:
+        return None
+    rows = _query_rows(conn, f"DESC NETWORK POLICY {fqn.sql_identifier}")
     if not rows:
         return None
     by_name = {
@@ -405,7 +435,10 @@ def _describe_network_policy(
 def _describe_network_rule(
     conn: SnowflakeConnection, qualified_name: str
 ) -> Optional[NetworkRule]:
-    rows = _query_rows(conn, f"DESC NETWORK RULE IDENTIFIER('{qualified_name}')")
+    fqn = _safe_fqn(qualified_name)
+    if fqn is None:
+        return None
+    rows = _query_rows(conn, f"DESC NETWORK RULE {fqn.sql_identifier}")
     if not rows:
         return None
     head = rows[0]
@@ -435,17 +468,22 @@ def collect_network_policy(
     snapshot.current_ip = _scalar_value(
         _query_rows(conn, "SELECT CURRENT_IP_ADDRESS() AS IP"), "IP"
     )
+    policy_pattern = identifier_to_show_like_pattern(NETWORK_POLICY_PARAM_NAME)
     snapshot.account_policy = _scalar_value(
-        _query_rows(conn, "SHOW PARAMETERS LIKE 'NETWORK_POLICY' IN ACCOUNT"), "value"
+        _query_rows(conn, f"SHOW PARAMETERS LIKE {policy_pattern} IN ACCOUNT"),
+        "value",
     )
-    if user:
-        snapshot.user_policy = _scalar_value(
-            _query_rows(
-                conn,
-                f"SHOW PARAMETERS LIKE 'NETWORK_POLICY' FOR USER IDENTIFIER('{user}')",
-            ),
-            "value",
-        )
+    if isinstance(user, str) and user.strip():
+        user_fqn = _safe_fqn(user)
+        if user_fqn is not None:
+            snapshot.user_policy = _scalar_value(
+                _query_rows(
+                    conn,
+                    f"SHOW PARAMETERS LIKE {policy_pattern} "
+                    f"FOR USER {user_fqn.sql_identifier}",
+                ),
+                "value",
+            )
     snapshot.effective_policy = snapshot.user_policy or snapshot.account_policy
 
     if not snapshot.effective_policy:

@@ -28,9 +28,6 @@ from click import (  # type: ignore
     UsageError,
 )
 from click.core import ParameterSource  # type: ignore
-from snowflake.connector import ProgrammingError
-from snowflake.connector.constants import CONNECTIONS_FILE
-
 from snowflake import connector
 from snowflake.cli._plugins.connection.diagnostic import (
     DiagnosticReport,
@@ -78,13 +75,18 @@ from snowflake.cli.api.config import (
 from snowflake.cli.api.config_ng.masking import mask_sensitive_value
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
+from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
     MessageResult,
+    MultipleResults,
     ObjectResult,
 )
+from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.secure_path import SecurePath
+from snowflake.connector import ProgrammingError
+from snowflake.connector.constants import CONNECTIONS_FILE
 
 app = SnowTyperFactory(
     name="connection",
@@ -445,8 +447,6 @@ def _connection_test_with_diag(
     For JSON / CSV output: returns the structured diagnostic nested under a
     `Diagnostic` key so consumers can read everything off one object.
     """
-    from snowflake.cli.api.output.formats import OutputFormat
-
     is_table_output = get_cli_context().output_format == OutputFormat.TABLE
 
     if is_table_output:
@@ -477,25 +477,36 @@ def _connection_test_with_diag(
     return _diagnostic_table_results(connection_summary, report, policy)
 
 
+def _safe(value: Optional[str], fallback: str = "") -> str:
+    """Return `value` with ANSI escapes stripped, or `fallback` when missing."""
+    if value is None or value == "":
+        return fallback
+    return sanitize_for_terminal(value) or fallback
+
+
 def _diagnostic_table_results(
     connection_summary: dict,
     report: DiagnosticReport,
     policy: NetworkPolicySnapshot,
 ) -> CommandResult:
-    """Assemble the TABLE-format output: summary, per-endpoint rows, policy block, totals."""
-    from snowflake.cli.api.output.types import MultipleResults
+    """Assemble the TABLE-format output: summary, per-endpoint rows, policy block, totals.
 
+    Every server-derived string (host, IP, policy/rule names, allow/block lists,
+    cert metadata) is run through `sanitize_for_terminal` before display so a
+    crafted response from `SYSTEM$ALLOWLIST()` or `DESC NETWORK POLICY` cannot
+    inject ANSI escape sequences into the user's terminal.
+    """
     results = MultipleResults()
     results.add(ObjectResult(connection_summary))
 
     tested_rows = [
         {
-            "url": c.host,
-            "type": c.type,
+            "url": _safe(c.host),
+            "type": _safe(c.type),
             "status": c.status,
             "latency_ms": c.latency_ms if c.latency_ms is not None else "",
-            "issuer": c.cert_issuer or "",
-            "cert_expires": c.cert_expires or "",
+            "issuer": _safe(c.cert_issuer),
+            "cert_expires": _safe(c.cert_expires),
         }
         for c in report.checks
         if c.status != "Skipped"
@@ -505,30 +516,43 @@ def _diagnostic_table_results(
 
     if policy.has_policy():
         policy_summary = {
-            "Effective network policy": policy.effective_policy,
+            "Effective network policy": _safe(policy.effective_policy),
             "Source": "user" if policy.user_policy else "account",
-            "Account-level": policy.account_policy or "(none)",
-            "User-level": policy.user_policy or "(none)",
-            "Current IP": policy.current_ip or "(unknown)",
-            "Allowed IPs": ", ".join(policy.allowed_ip_list) or "(none)",
-            "Blocked IPs": ", ".join(policy.blocked_ip_list) or "(none)",
-            "Allowed network rules": ", ".join(policy.allowed_network_rule_list)
+            "Account-level": _safe(policy.account_policy, "(none)"),
+            "User-level": _safe(policy.user_policy, "(none)"),
+            "Current IP": _safe(policy.current_ip, "(unknown)"),
+            "Allowed IPs": ", ".join(
+                sanitize_for_terminal(v) or "" for v in policy.allowed_ip_list
+            )
             or "(none)",
-            "Blocked network rules": ", ".join(policy.blocked_network_rule_list)
+            "Blocked IPs": ", ".join(
+                sanitize_for_terminal(v) or "" for v in policy.blocked_ip_list
+            )
+            or "(none)",
+            "Allowed network rules": ", ".join(
+                sanitize_for_terminal(v) or "" for v in policy.allowed_network_rule_list
+            )
+            or "(none)",
+            "Blocked network rules": ", ".join(
+                sanitize_for_terminal(v) or "" for v in policy.blocked_network_rule_list
+            )
             or "(none)",
         }
         if policy.error:
-            policy_summary["Note"] = policy.error
+            # `error` interpolates the server-supplied policy name.
+            policy_summary["Note"] = _safe(policy.error)
         results.add(ObjectResult(policy_summary))
         if policy.rules:
             results.add(
                 CollectionResult(
                     [
                         {
-                            "rule": r.name,
-                            "mode": r.mode,
-                            "type": r.type,
-                            "values": ", ".join(r.values),
+                            "rule": _safe(r.name),
+                            "mode": _safe(r.mode),
+                            "type": _safe(r.type),
+                            "values": ", ".join(
+                                sanitize_for_terminal(v) or "" for v in r.values
+                            ),
                         }
                         for r in policy.rules
                     ]
@@ -537,7 +561,7 @@ def _diagnostic_table_results(
     elif policy.current_ip:
         results.add(
             MessageResult(
-                f"No network policy in effect (current IP: {policy.current_ip})."
+                f"No network policy in effect (current IP: {_safe(policy.current_ip)})."
             )
         )
     results.add(MessageResult(report.summary_line()))

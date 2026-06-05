@@ -24,8 +24,6 @@ from tempfile import NamedTemporaryFile
 from unittest import mock
 
 import pytest
-from click.exceptions import ClickException
-
 from snowflake.cli._plugins.connection.diagnostic import (
     DiagnosticReport,
     EndpointCheck,
@@ -37,6 +35,7 @@ from snowflake.cli._plugins.connection.diagnostic import (
     run_diagnostic,
     status_line,
 )
+from snowflake.cli.api.exceptions import CliError
 
 ALLOWLIST_FIXTURE = [
     {
@@ -81,6 +80,16 @@ def test_status_line_includes_error_for_unhealthy():
     assert "DNS fail" in line
 
 
+def test_status_line_strips_ansi_from_server_host():
+    """Server-supplied host must not be able to inject ANSI escapes into the terminal."""
+    malicious = "\x1b[31mevil.com\x1b[0m"
+    line = status_line(
+        EndpointCheck(malicious, 443, "SNOWFLAKE_DEPLOYMENT", "Healthy", latency_ms=1.0)
+    )
+    assert "\x1b" not in line
+    assert "evil.com" in line
+
+
 def test_load_allowlist_from_file():
     with NamedTemporaryFile("w+", suffix=".json", delete=False) as f:
         f.write(json.dumps(ALLOWLIST_FIXTURE))
@@ -95,7 +104,7 @@ def test_load_allowlist_file_invalid_json_raises():
     with NamedTemporaryFile("w+", suffix=".json", delete=False) as f:
         f.write("not json")
         path = Path(f.name)
-    with pytest.raises(ClickException):
+    with pytest.raises(CliError):
         load_allowlist(mock.MagicMock(), path)
 
 
@@ -351,13 +360,15 @@ def _scripted_cursor(rows):
 
 def test_collect_network_policy_user_overrides_account():
     conn = mock.MagicMock()
+    seen_sql: list[str] = []
 
     def execute_string(sql, cursor_class=None):
+        seen_sql.append(sql)
         if "CURRENT_IP_ADDRESS" in sql:
             return (_scripted_cursor([{"IP": "1.2.3.4"}]),)
-        if "NETWORK_POLICY' IN ACCOUNT" in sql:
+        if "SHOW PARAMETERS" in sql and "IN ACCOUNT" in sql:
             return (_scripted_cursor([{"value": "ACCT_POLICY"}]),)
-        if "NETWORK_POLICY' FOR USER" in sql:
+        if "SHOW PARAMETERS" in sql and "FOR USER" in sql:
             return (_scripted_cursor([{"value": "USER_POLICY"}]),)
         if "DESC NETWORK POLICY" in sql:
             return (
@@ -396,6 +407,13 @@ def test_collect_network_policy_user_overrides_account():
     assert snap.rules[0].values == ["1.0.0.0/8", "2.0.0.0/8"]
     assert snap.rules[0].mode == "INGRESS"
     assert snap.rules[0].type == "IPV4"
+    # Identifiers must be wrapped in IDENTIFIER('...') — never bare-interpolated.
+    user_sql = next(s for s in seen_sql if "FOR USER" in s)
+    assert "IDENTIFIER('alice')" in user_sql
+    desc_sql = next(s for s in seen_sql if "DESC NETWORK POLICY" in s)
+    assert "IDENTIFIER('USER_POLICY')" in desc_sql
+    rule_sql = next(s for s in seen_sql if "DESC NETWORK RULE" in s)
+    assert "IDENTIFIER('DB.SCHEMA.NR1')" in rule_sql
 
 
 def test_collect_network_policy_handles_no_policy():
