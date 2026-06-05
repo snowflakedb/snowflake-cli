@@ -35,6 +35,7 @@ from snowflake.cli._plugins.apps.manager import (
     DEFAULT_PERSONAL_SCHEMA,
     DEFINITION_FILENAME,
     SnowflakeAppManager,
+    _filter_accessible_remote_defaults,
     _get_entity,
     _poll_until,
     _resolve_deploy_defaults,
@@ -124,6 +125,9 @@ def snowflake_app_setup(
     metrics = ctx.metrics
     with metrics.span("snowflake_app.setup.resolve_defaults"):
         params = manager.fetch_snow_apps_parameters()
+        # Drop the account-configured destination database/schema the current
+        # role cannot access so resolution falls back to the personal database.
+        params = _filter_accessible_remote_defaults(manager, params)
         managed_compute_pool_enabled = manager.is_managed_compute_pool_enabled()
 
     def _resolve(
