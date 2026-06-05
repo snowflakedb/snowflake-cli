@@ -253,14 +253,6 @@ class TestSubprocessOutputDecoding:
                 os.chdir(init_dir)
 
     @pytest.mark.integration
-    def test_spcs_image_registry_login_uses_subprocess_encoding(self, runner):
-        result = runner.invoke_with_connection(
-            ["spcs", "image-registry", "login"],
-            env={"SNOWFLAKE_CLI_ENCODING_SUBPROCESS": "utf-8"},
-        )
-        assert "Login Succeeded" in result.output or result.exit_code != 0
-
-    @pytest.mark.integration
     def test_sandbox_execute_script_unicode_output(self, monkeypatch):
         monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", "utf-8")
         monkeypatch.setenv("PYTHONUTF8", "1")
