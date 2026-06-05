@@ -263,11 +263,23 @@ def _deploy_privilege_check_statements(database: str, schema: str) -> list[str]:
     destination *database*/*schema*, for privilege probing via
     ``EXPLAIN_PRIVILEGES``.
 
-    Object names are placeholders: the privileges required to create these
-    objects depend on the destination database and schema, not on the final
-    object name. Statements are emitted as plain (per-component quoted) dotted
-    identifiers rather than ``IDENTIFIER(...)`` so the privilege analyzer can
-    resolve the referenced objects.
+    We probe two statements: ``CREATE STAGE`` and ``CREATE ARTIFACT
+    REPOSITORY``. Object names are placeholders — the required privileges depend
+    on the destination database and schema, not the final object name — and are
+    emitted as plain (per-component quoted) dotted identifiers rather than
+    ``IDENTIFIER(...)`` so the analyzer can resolve them. Together these two
+    require ``USAGE`` on the database and ``CREATE`` on the schema, the
+    privileges that distinguish an accessible destination from an inaccessible
+    one.
+
+    Limitation: this is not the full set of statements ``snow app deploy`` runs.
+    The others cannot be probed because they reference objects that do not exist
+    at check time (artifact repository, package, build/app service, stage
+    contents) — ``EXPLAIN_PRIVILEGES`` rejects those with "requires access on all
+    objects" regardless of grants — or they need only ``USAGE`` already implied
+    by the two probes (``SHOW`` / ``USE``), or they belong to the workspace
+    upload flow used only for the personal-database default rather than the
+    account-configured destination checked here.
     """
     placeholder = app_fqn(
         database=database, schema=schema, name=PRIVILEGE_CHECK_OBJECT_NAME
@@ -275,9 +287,6 @@ def _deploy_privilege_check_statements(database: str, schema: str) -> list[str]:
     return [
         f"CREATE STAGE {placeholder} ENCRYPTION = (TYPE = 'SNOWFLAKE_SSE')",
         f"CREATE ARTIFACT REPOSITORY {placeholder} TYPE=APPLICATION",
-        f"CREATE APPLICATION SERVICE {placeholder} "
-        f"FROM ARTIFACT REPOSITORY {placeholder} "
-        f"PACKAGE {PRIVILEGE_CHECK_OBJECT_NAME}",
     ]
 
 
@@ -333,33 +342,74 @@ def _filter_accessible_remote_defaults(
     schema = params.get("schema") or DEFAULT_PERSONAL_SCHEMA
 
     role = manager.current_role()
+    cli_console.step(
+        "Checking deploy privileges on the account-configured destination "
+        f"{sanitize_for_terminal(database)}.{sanitize_for_terminal(schema)}..."
+    )
     statements = _deploy_privilege_check_statements(database, schema)
+    log.info(
+        "Probing deploy privileges as role %r on %r statement(s).",
+        role,
+        len(statements),
+    )
 
+    # The check fails if any probe statement reports missing privileges *or*
+    # raises. With the reduced statement set (which references only the
+    # destination database/schema) a ``ProgrammingError`` means the role cannot
+    # analyze/resolve the destination — e.g. ``EXPLAIN_PRIVILEGES`` rejects it
+    # with "requires access on all objects" — which is itself a failure, not a
+    # condition to skip.
     missing: list[Dict[str, str]] = []
-    analyzed_any = False
-    failed_any = False
+    check_failed = False
     for statement in statements:
         try:
-            missing.extend(manager.get_missing_privileges(statement, role))
-            analyzed_any = True
-        except Exception:
-            failed_any = True
-            log.debug(
-                "EXPLAIN_PRIVILEGES could not analyze statement: %s",
+            statement_missing = manager.get_missing_privileges(statement, role)
+        except Exception as exc:
+            check_failed = True
+            log.info(
+                "Privilege check: failed to analyze statement: %s (%s)",
                 statement,
-                exc_info=True,
+                exc,
             )
+            log.debug(
+                "EXPLAIN_PRIVILEGES error detail for: %s", statement, exc_info=True
+            )
+            continue
+        if statement_missing:
+            check_failed = True
+            log.info(
+                "Privilege check: missing %s for: %s",
+                _format_missing_privileges(statement_missing),
+                statement,
+            )
+            missing.extend(statement_missing)
+        else:
+            log.info("Privilege check: OK for: %s", statement)
 
-    if missing:
-        missing_descriptions = _format_missing_privileges(missing)
-    elif not analyzed_any and failed_any:
-        # Nothing could be analyzed — the current role most likely cannot
-        # resolve the destination at all, so treat it as inaccessible.
-        missing_descriptions = [
-            f"access to database '{sanitize_for_terminal(database)}'"
-        ]
-    else:
+    if not check_failed:
+        log.info(
+            "Privilege check passed: role %r has the privileges to deploy to " "%r.%r.",
+            role,
+            database,
+            schema,
+        )
         return params
+
+    # Prefer the specific missing privileges when EXPLAIN_PRIVILEGES returned
+    # them; otherwise the failure came from an analysis error, which means the
+    # role cannot resolve the destination at all.
+    missing_descriptions = _format_missing_privileges(missing) or [
+        f"access to database '{sanitize_for_terminal(database)}'"
+    ]
+
+    log.info(
+        "Privilege check failed: role %r is missing %s on %r.%r; "
+        "falling back to the personal database.",
+        role,
+        missing_descriptions,
+        database,
+        schema,
+    )
 
     role_label = f" '{sanitize_for_terminal(role)}'" if role else ""
     cli_console.warning(

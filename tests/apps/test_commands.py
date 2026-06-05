@@ -2582,10 +2582,18 @@ class TestDeployPrivilegeCheckStatements:
         )
 
         statements = _deploy_privilege_check_statements("APPS", "PUBLIC")
+        # Exactly two statements are probed: CREATE STAGE and CREATE ARTIFACT
+        # REPOSITORY, both referencing only the destination database/schema.
+        assert len(statements) == 2
         assert any(s.startswith("CREATE STAGE APPS.PUBLIC.") for s in statements)
         assert any("CREATE ARTIFACT REPOSITORY APPS.PUBLIC." in s for s in statements)
-        assert any("CREATE APPLICATION SERVICE APPS.PUBLIC." in s for s in statements)
         assert all(PRIVILEGE_CHECK_OBJECT_NAME in s for s in statements)
+        # Statements that reference not-yet-existing objects, only need USAGE, or
+        # belong to the workspace flow are intentionally excluded.
+        joined = " ".join(statements)
+        assert "CREATE APPLICATION SERVICE" not in joined
+        assert "CREATE WORKSPACE" not in joined
+        assert "SHOW" not in joined
 
     def test_personal_database_is_quoted(self):
         from snowflake.cli._plugins.apps.manager import (
@@ -2634,10 +2642,43 @@ class TestFilterAccessibleRemoteDefaults:
         result = _filter_accessible_remote_defaults(manager, params)
         assert result == params
         mock_console.warning.assert_not_called()
+        # A step message announces the privilege-check phase to the user.
+        mock_console.step.assert_called_once()
+        assert "Checking deploy privileges" in mock_console.step.call_args[0][0]
+        assert "DB.SCH" in mock_console.step.call_args[0][0]
         # Every representative deploy statement is probed for the active role.
-        assert manager.get_missing_privileges.call_count == 3
+        assert manager.get_missing_privileges.call_count == 2
         for call in manager.get_missing_privileges.call_args_list:
             assert call.args[1] == "ENGINEER"
+
+    @patch(MANAGER_CLI_CONSOLE)
+    def test_verbose_logs_per_statement_and_summary(self, mock_console, caplog):
+        import logging
+
+        from snowflake.cli._plugins.apps.manager import (
+            _filter_accessible_remote_defaults,
+        )
+
+        manager = self._manager(
+            missing=[
+                {
+                    "privilege": "CREATE STAGE",
+                    "objectType": "SCHEMA",
+                    "objectName": "DB.SCH",
+                }
+            ]
+        )
+        params = {"database": "DB", "schema": "SCH"}
+        with caplog.at_level(
+            logging.INFO, logger="snowflake.cli._plugins.apps.manager"
+        ):
+            _filter_accessible_remote_defaults(manager, params)
+        messages = "\n".join(r.getMessage() for r in caplog.records)
+        # Per-statement results and a final summary are emitted at INFO so they
+        # surface under --verbose.
+        assert "Privilege check: missing" in messages
+        assert "Privilege check failed" in messages
+        assert "CREATE STAGE on SCHEMA DB.SCH" in messages
 
     @patch(MANAGER_CLI_CONSOLE)
     def test_missing_privileges_drops_destination(self, mock_console):
@@ -2675,24 +2716,24 @@ class TestFilterAccessibleRemoteDefaults:
         assert "access to database 'DB'" in mock_console.warning.call_args[0][0]
 
     @patch(MANAGER_CLI_CONSOLE)
-    def test_partial_probe_errors_do_not_drop_destination(self, mock_console):
+    def test_any_probe_error_drops_destination(self, mock_console):
         from snowflake.cli._plugins.apps.manager import (
             _filter_accessible_remote_defaults,
         )
 
-        # First statement errors (e.g. unsupported), the rest report no missing
-        # privileges; an analysis error alone must not divert a user with access.
+        # A probe error means the role cannot analyze/resolve the destination,
+        # so the check fails even if another statement reports no missing grants.
         manager = Mock()
         manager.current_role.return_value = "ENGINEER"
         manager.get_missing_privileges.side_effect = [
-            ProgrammingError("unsupported"),
-            [],
+            ProgrammingError("requires access on all objects"),
             [],
         ]
         params = {"database": "DB", "schema": "SCH"}
         result = _filter_accessible_remote_defaults(manager, params)
-        assert result == params
-        mock_console.warning.assert_not_called()
+        assert result == {}
+        mock_console.warning.assert_called_once()
+        assert "access to database 'DB'" in mock_console.warning.call_args[0][0]
 
     @patch(MANAGER_CLI_CONSOLE)
     def test_missing_schema_defaults_to_public(self, mock_console):
@@ -2725,6 +2766,19 @@ class TestFilterAccessibleRemoteDefaults:
 
 
 class TestSetupCommand:
+    @pytest.fixture(autouse=True)
+    def _assume_destination_accessible(self):
+        """Resolution/precedence tests assume the active role can access the
+        account-configured destination. The privilege probe itself is covered by
+        ``TestFilterAccessibleRemoteDefaults`` and ``TestSetupPrivilegeFallback``,
+        so patch it to a pass-through here to keep these tests focused.
+        """
+        with patch(
+            "snowflake.cli._plugins.apps.commands._filter_accessible_remote_defaults",
+            side_effect=lambda manager, params: params,
+        ):
+            yield
+
     @patch(
         "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
         return_value="definition_version: '2'\n",
@@ -3112,44 +3166,6 @@ class TestSetupCommand:
         "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
         return_value="definition_version: '2'\n",
     )
-    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
-    def test_inaccessible_account_default_falls_back_to_personal_db(
-        self, mock_mgr_cls, mock_gen, runner, tmp_path
-    ):
-        """When the current role is missing privileges on the account-configured
-        destination, setup falls back to the personal database (as if no account
-        default were set) and warns the user."""
-        mock_mgr = mock_mgr_cls.return_value
-        mock_mgr.is_managed_compute_pool_enabled.return_value = False
-        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
-        mock_mgr.fetch_snow_apps_parameters.return_value = {
-            "database": "PARAM_DB",
-            "schema": "PARAM_SCHEMA",
-            "query_warehouse": "PARAM_WH",
-        }
-        mock_mgr.current_role.return_value = "ENGINEER"
-        mock_mgr.get_missing_privileges.return_value = [
-            {
-                "privilege": "CREATE STAGE",
-                "objectType": "SCHEMA",
-                "objectName": "PARAM_DB.PARAM_SCHEMA",
-            }
-        ]
-        mock_mgr.get_personal_database.return_value = "USER$MYUSER"
-
-        with change_directory(tmp_path):
-            result = runner.invoke(["app", "setup", "--app-name", "my_app"])
-            assert result.exit_code == 0, result.output
-
-        resolved = mock_gen.call_args[0][1]
-        assert resolved["database"] == "USER$MYUSER"
-        assert resolved["schema"] == "PUBLIC"
-        assert mock_gen.call_args.kwargs["use_workspace"] is True
-
-    @patch(
-        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
-        return_value="definition_version: '2'\n",
-    )
     @patch("snowflake.cli._plugins.apps.commands.get_connection_dict")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_setup_uses_stage_when_database_resolved_from_session(
@@ -3265,6 +3281,78 @@ class TestSetupCommand:
 
 
 # ── perform_bundle tests ──────────────────────────────────────────────
+
+
+class TestSetupPrivilegeFallback:
+    """End-to-end ``snow app setup`` coverage that exercises the real privilege
+    probe (no pass-through patch) and asserts the personal-database fallback."""
+
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
+        return_value="definition_version: '2'\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_missing_privileges_fall_back_to_personal_db(
+        self, mock_mgr_cls, mock_gen, runner, tmp_path
+    ):
+        """When the current role is missing privileges on the account-configured
+        destination, setup falls back to the personal database (as if no account
+        default were set) and warns the user."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "database": "PARAM_DB",
+            "schema": "PARAM_SCHEMA",
+            "query_warehouse": "PARAM_WH",
+        }
+        mock_mgr.current_role.return_value = "ENGINEER"
+        mock_mgr.get_missing_privileges.return_value = [
+            {
+                "privilege": "CREATE STAGE",
+                "objectType": "SCHEMA",
+                "objectName": "PARAM_DB.PARAM_SCHEMA",
+            }
+        ]
+        mock_mgr.get_personal_database.return_value = "USER$MYUSER"
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+            assert result.exit_code == 0, result.output
+
+        resolved = mock_gen.call_args[0][1]
+        assert resolved["database"] == "USER$MYUSER"
+        assert resolved["schema"] == "PUBLIC"
+        assert mock_gen.call_args.kwargs["use_workspace"] is True
+
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
+        return_value="definition_version: '2'\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_accessible_destination_is_used(
+        self, mock_mgr_cls, mock_gen, runner, tmp_path
+    ):
+        """When the role has the privileges (no missing), the account-configured
+        destination is used as-is."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "database": "PARAM_DB",
+            "schema": "PARAM_SCHEMA",
+            "query_warehouse": "PARAM_WH",
+        }
+        mock_mgr.current_role.return_value = "ENGINEER"
+        mock_mgr.get_missing_privileges.return_value = []
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+            assert result.exit_code == 0, result.output
+
+        resolved = mock_gen.call_args[0][1]
+        assert resolved["database"] == "PARAM_DB"
+        assert resolved["schema"] == "PARAM_SCHEMA"
 
 
 class TestPerformBundle:
