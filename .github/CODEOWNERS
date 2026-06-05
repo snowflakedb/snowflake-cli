@@ -6,3 +6,11 @@
 /tests_integration/apps/ @snowflakedb/snowcli @snowflakedb/client-side-interfaces @snowflakedb/native-apps
 /tests/__snapshots__/ @snowflakedb/snowcli @snowflakedb/client-side-interfaces @snowflakedb/native-apps
 /tests_integration/__snapshots__/ @snowflakedb/snowcli @snowflakedb/client-side-interfaces @snowflakedb/native-apps
+
+# Nativeapp plugin
+/src/snowflake/cli/_plugins/nativeapp/ @snowflakedb/snowcli @snowflakedb/client-side-interfaces @snowflakedb/native-apps
+/tests/nativeapp/ @snowflakedb/snowcli @snowflakedb/client-side-interfaces @snowflakedb/native-apps
+/tests_integration/nativeapp/ @snowflakedb/snowcli @snowflakedb/client-side-interfaces @snowflakedb/native-apps
+
+# Release notes
+/RELEASE-NOTES.md @snowflakedb/snowcli @snowflakedb/client-side-interfaces @snowflakedb/native-apps
