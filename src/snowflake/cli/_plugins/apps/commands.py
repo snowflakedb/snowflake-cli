@@ -442,6 +442,7 @@ def snowflake_app_deploy(
     upload_only: bool,
     build_only: bool,
     deploy_only: bool,
+    interactive: Optional[bool] = None,
 ) -> CommandResult:
     """Build and deploy a Snowflake App Runtime through upload, build, and deploy phases."""
     phase_flags = sum((upload_only, build_only, deploy_only))
@@ -501,7 +502,7 @@ def snowflake_app_deploy(
     app_icon = entity.meta.icon if entity.meta else None
 
     # ── Resolve defaults (snowflake.yml > account parameters > built-in) ──
-    manager = SnowflakeAppManager()
+    manager = SnowflakeAppManager(interactive=interactive)
     defaults = _resolve_deploy_defaults(entity, manager, app_name=app_name)
 
     database = defaults["database"]

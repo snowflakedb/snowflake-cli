@@ -758,8 +758,8 @@ class TestGenerateSnowflakeYml:
 
 
 class TestSnowflakeAppManagerQuerySpinner:
-    def test_execute_query_wraps_query_with_spinner(self):
-        manager = SnowflakeAppManager()
+    def test_execute_query_wraps_query_with_spinner_when_interactive(self):
+        manager = SnowflakeAppManager(interactive=True)
         with patch(
             "snowflake.cli._plugins.apps.manager.cli_console.spinner"
         ) as mock_spinner, patch(
@@ -778,6 +778,45 @@ class TestSnowflakeAppManagerQuerySpinner:
                 description="",
                 total=None,
             )
+            mock_super_execute.assert_called_once_with(
+                "SELECT 1", cursor_class=DictCursor
+            )
+
+    def test_execute_query_skips_spinner_when_non_interactive(self):
+        manager = SnowflakeAppManager(interactive=False)
+        with patch(
+            "snowflake.cli._plugins.apps.manager.cli_console.spinner"
+        ) as mock_spinner, patch(
+            "snowflake.cli.api.sql_execution.BaseSqlExecutor.execute_query"
+        ) as mock_super_execute:
+            cursor = Mock()
+            mock_super_execute.return_value = cursor
+
+            result = manager.execute_query("SELECT 1", cursor_class=DictCursor)
+
+            assert result is cursor
+            mock_spinner.assert_not_called()
+            mock_super_execute.assert_called_once_with(
+                "SELECT 1", cursor_class=DictCursor
+            )
+
+    def test_execute_query_falls_back_to_tty_detection_when_unset(self):
+        manager = SnowflakeAppManager()
+        with patch(
+            "snowflake.cli._plugins.apps.manager.is_tty_interactive",
+            return_value=False,
+        ), patch(
+            "snowflake.cli._plugins.apps.manager.cli_console.spinner"
+        ) as mock_spinner, patch(
+            "snowflake.cli.api.sql_execution.BaseSqlExecutor.execute_query"
+        ) as mock_super_execute:
+            cursor = Mock()
+            mock_super_execute.return_value = cursor
+
+            result = manager.execute_query("SELECT 1", cursor_class=DictCursor)
+
+            assert result is cursor
+            mock_spinner.assert_not_called()
             mock_super_execute.assert_called_once_with(
                 "SELECT 1", cursor_class=DictCursor
             )

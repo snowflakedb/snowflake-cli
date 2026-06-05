@@ -532,7 +532,11 @@ def app_deploy(
             },
         )
         return snowflake_app_deploy(
-            options.get("entity_id") or None, upload_only, build_only, deploy_only
+            options.get("entity_id") or None,
+            upload_only,
+            build_only,
+            deploy_only,
+            interactive=interactive,
         )
 
     _reject_snowflake_app_options(
