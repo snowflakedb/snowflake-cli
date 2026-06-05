@@ -510,3 +510,151 @@ def test_delete_query_with_if_exists(mock_connector, mock_ctx, runner):
 def test_delete_requires_identifier(runner):
     result = runner.invoke(["notebook", "code", "delete"])
     assert result.exit_code != 0
+
+
+def test_alter_help(runner):
+    result = runner.invoke(["notebook", "code", "alter", "--help"])
+
+    assert result.exit_code == 0, result.output
+    assert "--rename-to" in result.output
+    assert "--add-version" in result.output
+
+
+@mock.patch.object(CodeBundleManager, "alter")
+def test_alter_calls_manager_with_rename_to(mock_alter, runner, mock_statement_success):
+    mock_alter.return_value = mock_statement_success()
+    name = "my_bundle"
+
+    result = runner.invoke(
+        ["notebook", "code", "alter", name, "--rename-to", "new_bundle"]
+    )
+
+    assert result.exit_code == 0, result.output
+    mock_alter.assert_called_once_with(
+        name=FQN.from_string(name),
+        rename_to="new_bundle",
+        add_version=None,
+    )
+
+
+@mock.patch.object(CodeBundleManager, "alter")
+def test_alter_calls_manager_with_add_version(
+    mock_alter, runner, mock_statement_success
+):
+    mock_alter.return_value = mock_statement_success()
+    name = "my_bundle"
+
+    result = runner.invoke(
+        ["notebook", "code", "alter", name, "--add-version", "@stage/path"]
+    )
+
+    assert result.exit_code == 0, result.output
+    mock_alter.assert_called_once_with(
+        name=FQN.from_string(name),
+        rename_to=None,
+        add_version="@stage/path",
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+def test_alter_query_with_rename_to(mock_connector, mock_ctx, runner):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(
+        ["notebook", "code", "alter", "my_bundle", "--rename-to", "new_bundle"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == (
+        "ALTER CODE BUNDLE IDENTIFIER('MockDatabase.MockSchema.my_bundle') "
+        "RENAME TO IDENTIFIER('MockDatabase.MockSchema.new_bundle')"
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+def test_alter_query_with_add_version(mock_connector, mock_ctx, runner):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(
+        ["notebook", "code", "alter", "my_bundle", "--add-version", "@stage/path"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == (
+        "ALTER CODE BUNDLE IDENTIFIER('MockDatabase.MockSchema.my_bundle') "
+        "ADD VERSION FROM '@stage/path'"
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+def test_alter_query_escapes_add_version(mock_connector, mock_ctx, runner):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(
+        ["notebook", "code", "alter", "my_bundle", "--add-version", "it's_path"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == (
+        "ALTER CODE BUNDLE IDENTIFIER('MockDatabase.MockSchema.my_bundle') "
+        "ADD VERSION FROM 'it''s_path'"
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+def test_alter_query_with_fqn_rename_to(mock_connector, mock_ctx, runner):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(
+        [
+            "notebook",
+            "code",
+            "alter",
+            "my_bundle",
+            "--rename-to",
+            "mydb.myschema.new_bundle",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == (
+        "ALTER CODE BUNDLE IDENTIFIER('MockDatabase.MockSchema.my_bundle') "
+        "RENAME TO IDENTIFIER('mydb.myschema.new_bundle')"
+    )
+
+
+def test_alter_rejects_both_options(runner):
+    result = runner.invoke(
+        [
+            "notebook",
+            "code",
+            "alter",
+            "my_bundle",
+            "--rename-to",
+            "new_bundle",
+            "--add-version",
+            "@stage/path",
+        ]
+    )
+
+    assert result.exit_code != 0
+    assert "--rename-to" in result.output
+    assert "--add-version" in result.output
+    assert "incompatible" in result.output
+
+
+def test_alter_rejects_neither_option(runner):
+    result = runner.invoke(["notebook", "code", "alter", "my_bundle"])
+
+    assert result.exit_code != 0
+    assert "--rename-to" in result.output
+    assert "--add-version" in result.output
+
+
+def test_alter_requires_identifier(runner):
+    result = runner.invoke(["notebook", "code", "alter"])
+    assert result.exit_code != 0

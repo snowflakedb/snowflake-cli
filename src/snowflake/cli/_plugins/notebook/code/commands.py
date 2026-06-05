@@ -76,6 +76,21 @@ InAccountOption = typer.Option(
     "--in-account",
     help="Lists code bundles across the entire account.",
 )
+RenameToOption = typer.Option(
+    None,
+    "--rename-to",
+    help="New name for the code bundle.",
+    show_default=False,
+)
+AddVersionOption = typer.Option(
+    None,
+    "--add-version",
+    help=(
+        "Source location for a new version of the code bundle. Supports stage path "
+        "(starting with '@') or workspace path (starting with 'snow://workspace/')."
+    ),
+    show_default=False,
+)
 
 
 @app.command(requires_connection=True)
@@ -130,4 +145,26 @@ def delete(
 ) -> CommandResult:
     """Drops a code bundle."""
     cursor = CodeBundleManager().drop(name=identifier, if_exists=if_exists)
+    return MessageResult(cursor.fetchone()[0])
+
+
+@app.command(requires_connection=True)
+def alter(
+    identifier: Annotated[FQN, CODE_BUNDLE_IDENTIFIER],
+    rename_to: Optional[str] = RenameToOption,
+    add_version: Optional[str] = AddVersionOption,
+    **options,
+) -> CommandResult:
+    """Alters a code bundle by renaming it or adding a new version."""
+    if rename_to is not None and add_version is not None:
+        raise IncompatibleParametersError(["--rename-to", "--add-version"])
+    if rename_to is None and add_version is None:
+        raise CliError(
+            "Exactly one of '--rename-to' or '--add-version' must be provided."
+        )
+    cursor = CodeBundleManager().alter(
+        name=identifier,
+        rename_to=rename_to,
+        add_version=add_version,
+    )
     return MessageResult(cursor.fetchone()[0])
