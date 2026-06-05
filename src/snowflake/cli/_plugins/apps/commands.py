@@ -57,6 +57,7 @@ from snowflake.cli.api.output.types import (
     ObjectResult,
 )
 from snowflake.cli.api.project.util import identifier_for_url
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector.errors import ProgrammingError
 
 log = logging.getLogger(__name__)
@@ -108,7 +109,7 @@ def snowflake_app_setup(
             "Only letters, digits, and underscores are allowed."
         )
 
-    project_file = Path.cwd() / DEFINITION_FILENAME
+    project_file = SecurePath(Path.cwd()) / DEFINITION_FILENAME
     if not dry_run and project_file.exists():
         return MessageResult(
             f"{DEFINITION_FILENAME} already exists. Skipping initialization."
