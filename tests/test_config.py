@@ -29,6 +29,7 @@ from snowflake.cli.api.config import (
     get_config_section,
     get_connection_dict,
     get_default_connection_dict,
+    get_encoding_diagnostics,
     get_env_variable_name,
     get_file_io_encoding,
     get_subprocess_encoding,
@@ -876,7 +877,7 @@ def test_detect_encoding_non_utf8_warning(config_file, monkeypatch):
 
     config_content = ""
     with config_file(config_content) as cfg:
-        with pytest.warns(UserWarning, match="Platform encoding is cp1252, not utf-8"):
+        with pytest.warns(UserWarning, match="Encoding mismatch detected"):
             config_init(cfg)
 
 
@@ -1024,3 +1025,61 @@ def test_encoding_mixed_aliases_no_false_mismatch_warning(config_file, monkeypat
             f"Mixed utf-8 aliases should produce no warning, "
             f"got: {[str(x.message) for x in encoding_warnings]}"
         )
+
+
+# ── get_encoding_diagnostics tests ───────────────────────────────────────────
+
+
+def test_encoding_diagnostics_clean_system(monkeypatch):
+    """All three platform encodings agree on utf-8 → no issues."""
+    monkeypatch.setattr("sys.getfilesystemencoding", lambda: "utf-8")
+    monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-8")
+    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
+    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", raising=False)
+
+    result = get_encoding_diagnostics()
+    assert result == "No encoding issues - your system is properly configured."
+
+
+def test_encoding_diagnostics_mismatch(monkeypatch):
+    """Different encodings across the three sources → mismatch report."""
+    monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
+    monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-16")
+    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
+    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", raising=False)
+
+    result = get_encoding_diagnostics()
+    assert "Encoding mismatch detected" in result
+    assert "cp1252" in result
+    assert "utf-8" in result
+    assert "utf-16" in result
+    assert "PYTHONUTF8" in result
+
+
+def test_encoding_diagnostics_non_utf8(monkeypatch):
+    """Single consistent non-utf-8 encoding → platform encoding report."""
+    monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
+    monkeypatch.setattr("sys.getdefaultencoding", lambda: "cp1252")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda: "cp1252")
+    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
+    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", raising=False)
+
+    result = get_encoding_diagnostics()
+    assert "cp1252" in result
+    assert "utf-8" in result
+    assert "PYTHONUTF8" in result
+    assert "No encoding issues" not in result
+
+
+def test_encoding_diagnostics_both_configured(monkeypatch):
+    """When both CLI encodings are explicitly configured → no issues reported."""
+    monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
+    monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-16")
+    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "utf-8")
+    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", "utf-8")
+
+    result = get_encoding_diagnostics()
+    assert result == "No encoding issues - your system is properly configured."

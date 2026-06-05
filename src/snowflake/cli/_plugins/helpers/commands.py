@@ -31,6 +31,7 @@ from snowflake.cli.api.config import (
     ConnectionConfig,
     add_connection_to_proper_file,
     get_all_connections,
+    get_encoding_diagnostics,
     set_config_value,
 )
 from snowflake.cli.api.config_provider import ALTERNATIVE_CONFIG_ENV_VAR
@@ -469,3 +470,16 @@ def generate_project_schema(
         return ObjectResult(schema)
 
     return MessageResult(json.dumps(schema, indent=2, sort_keys=True))
+
+
+@app.command(name="detect-encoding", requires_connection=False)
+def detect_encoding(**options) -> CommandResult:
+    """
+    Show the encoding configuration for the current environment.
+
+    Displays the platform encoding settings and flags any discrepancies that
+    could cause file corruption when sharing projects across platforms.
+    Run this command after seeing an encoding warning to get the full details
+    and recommended remediation steps.
+    """
+    return MessageResult(get_encoding_diagnostics())
