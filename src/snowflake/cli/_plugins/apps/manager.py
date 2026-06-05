@@ -29,6 +29,14 @@ DEFAULT_PERSONAL_SCHEMA = "PUBLIC"
 DEFAULT_PERSONAL_WORKSPACE_NAME = "SNOWFLAKE_APPS"
 WORKSPACE_LIVE_VERSION_PATH = "versions/live"
 
+# Snowsight admin-setup docs, surfaced when the account-configured destination
+# database/schema is not accessible to the current role so the user knows where
+# to ask their administrator for access.
+ACCOUNT_ADMIN_SETUP_URL = (
+    "https://docs.snowflake.com/en/developer-guide/snowflake-app-runtime/"
+    "account-admin-setup#after-setup"
+)
+
 if TYPE_CHECKING:
     from snowflake.cli._plugins.apps.snowflake_app_entity_model import (
         SnowflakeAppEntityModel,
@@ -222,6 +230,70 @@ def _object_exists(object_type: str, name: str) -> bool:
         return False
 
 
+def _filter_accessible_remote_defaults(
+    manager: "SnowflakeAppManager",
+    params: Dict[str, str],
+) -> Dict[str, str]:
+    """Drop the account-configured destination database/schema when the current
+    role cannot access them.
+
+    The destination database and schema can be configured at the account level
+    by an administrator (``DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE`` /
+    ``DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA``), but the role running the CLI
+    may not have been granted access to them. Deploying against an inaccessible
+    destination fails late with an opaque error, so we verify access up front.
+
+    When the database (or its schema) is not visible to the current role, the
+    inaccessible values are removed from *params* and a warning is printed so
+    resolution falls back to the user's personal database — exactly as if no
+    account defaults were configured. Any error while checking is treated as
+    "not accessible" so the safe personal-database fallback is preferred over a
+    confusing downstream failure.
+
+    Returns a copy of *params* with the inaccessible keys removed (or the
+    original dict unchanged when the destination is accessible or unset).
+    """
+    database = params.get("database")
+    if not database:
+        return params
+    schema = params.get("schema")
+
+    def _accessible(check: Callable[[], bool], description: str) -> bool:
+        try:
+            return check()
+        except Exception:
+            log.debug("Could not verify access to %s", description, exc_info=True)
+            return False
+
+    inaccessible: list[str] = []
+    if not _accessible(
+        lambda: manager.database_exists(database), f"database {database!r}"
+    ):
+        inaccessible.append(f"database '{sanitize_for_terminal(database)}'")
+    elif schema and not _accessible(
+        lambda: manager.schema_exists(database, schema),
+        f"schema {database!r}.{schema!r}",
+    ):
+        inaccessible.append(
+            f"schema '{sanitize_for_terminal(database)}."
+            f"{sanitize_for_terminal(schema)}'"
+        )
+
+    if not inaccessible:
+        return params
+
+    cli_console.warning(
+        "Your current role does not have access to the account-configured "
+        f"Snowflake Apps destination ({', '.join(inaccessible)}). "
+        "Falling back to your personal database. Ask your account administrator "
+        f"to grant access to these objects: {ACCOUNT_ADMIN_SETUP_URL}"
+    )
+    filtered = dict(params)
+    filtered.pop("database", None)
+    filtered.pop("schema", None)
+    return filtered
+
+
 def _resolve_deploy_defaults(
     entity: "SnowflakeAppEntityModel",
     manager: "SnowflakeAppManager",
@@ -276,6 +348,10 @@ def _resolve_deploy_defaults(
             "Loaded SnowApps parameters: "
             + ", ".join(f"{k}={v}" for k, v in raw_params.items())
         )
+        # Drop the account-configured destination database/schema when the
+        # current role cannot access them so resolution falls back to the
+        # personal database below.
+        raw_params = _filter_accessible_remote_defaults(manager, raw_params)
         param_vals = dict(raw_params)
 
     # ── 3. Built-in defaults ────────────────────────────────────────────

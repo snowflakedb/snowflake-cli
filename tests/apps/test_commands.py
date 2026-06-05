@@ -52,6 +52,14 @@ FETCH_SNOW_APPS_PARAMS = (
     "snowflake.cli._plugins.apps.manager.SnowflakeAppManager"
     ".fetch_snow_apps_parameters"
 )
+DATABASE_EXISTS = (
+    "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.database_exists"
+)
+SCHEMA_EXISTS = "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.schema_exists"
+GET_PERSONAL_DATABASE = (
+    "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.get_personal_database"
+)
+MANAGER_CLI_CONSOLE = "snowflake.cli._plugins.apps.manager.cli_console"
 
 
 _SNOWFLAKE_APP_YML = """definition_version: '2'
@@ -2251,7 +2259,11 @@ class TestResolveDeployDefaults:
         },
     )
     @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
-    def test_parameters_fill_gaps(self, mock_ctx, mock_params):
+    @patch(SCHEMA_EXISTS, return_value=True)
+    @patch(DATABASE_EXISTS, return_value=True)
+    def test_parameters_fill_gaps(
+        self, mock_db_exists, mock_schema_exists, mock_ctx, mock_params
+    ):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
         entity = self._make_entity(database=None, schema=None)
@@ -2312,7 +2324,11 @@ class TestResolveDeployDefaults:
         GET_CLI_CONTEXT,
         return_value=_mock_connection_context(warehouse="CONN_WH"),
     )
-    def test_params_beat_session(self, mock_ctx, mock_params):
+    @patch(SCHEMA_EXISTS, return_value=True)
+    @patch(DATABASE_EXISTS, return_value=True)
+    def test_params_beat_session(
+        self, mock_db_exists, mock_schema_exists, mock_ctx, mock_params
+    ):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
         entity = self._make_entity(database=None, schema=None)
@@ -2361,6 +2377,143 @@ class TestResolveDeployDefaults:
             entity, SnowflakeAppManager(), app_name="OVERRIDE_NAME"
         )
         assert result["artifact_repository"] == "OVERRIDE_NAME_REPO"
+
+    @patch(MANAGER_CLI_CONSOLE)
+    @patch(
+        FETCH_SNOW_APPS_PARAMS,
+        return_value={"database": "PARAM_DB", "schema": "PARAM_SCHEMA"},
+    )
+    @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
+    @patch(GET_PERSONAL_DATABASE, return_value="USER$MYUSER")
+    @patch(DATABASE_EXISTS, return_value=False)
+    def test_inaccessible_param_database_falls_back_to_personal_db(
+        self, mock_db_exists, mock_personal, mock_ctx, mock_params, mock_console
+    ):
+        from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
+
+        entity = self._make_entity(database=None, schema=None)
+        result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
+        assert result["database"] == "USER$MYUSER"
+        assert result["schema"] == "PUBLIC"
+        mock_console.warning.assert_called_once()
+        warning = mock_console.warning.call_args[0][0]
+        assert "PARAM_DB" in warning
+        assert "account-admin-setup" in warning
+
+    @patch(MANAGER_CLI_CONSOLE)
+    @patch(
+        FETCH_SNOW_APPS_PARAMS,
+        return_value={"database": "PARAM_DB", "schema": "PARAM_SCHEMA"},
+    )
+    @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
+    @patch(GET_PERSONAL_DATABASE, return_value="USER$MYUSER")
+    @patch(SCHEMA_EXISTS, return_value=False)
+    @patch(DATABASE_EXISTS, return_value=True)
+    def test_inaccessible_param_schema_falls_back_to_personal_db(
+        self,
+        mock_db_exists,
+        mock_schema_exists,
+        mock_personal,
+        mock_ctx,
+        mock_params,
+        mock_console,
+    ):
+        from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
+
+        entity = self._make_entity(database=None, schema=None)
+        result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
+        # Both the database and schema fall back together so the app does not
+        # land in an inaccessible schema of an otherwise-visible database.
+        assert result["database"] == "USER$MYUSER"
+        assert result["schema"] == "PUBLIC"
+        mock_console.warning.assert_called_once()
+        warning = mock_console.warning.call_args[0][0]
+        assert "PARAM_DB.PARAM_SCHEMA" in warning
+
+
+class TestFilterAccessibleRemoteDefaults:
+    """Direct tests for the account-default access check that protects deploy
+    and setup from targeting a destination the current role cannot use."""
+
+    def _manager(self, *, db_exists=True, schema_exists=True):
+        manager = Mock()
+        manager.database_exists.return_value = db_exists
+        manager.schema_exists.return_value = schema_exists
+        return manager
+
+    def test_no_database_returns_params_unchanged(self):
+        from snowflake.cli._plugins.apps.manager import (
+            _filter_accessible_remote_defaults,
+        )
+
+        params = {"query_warehouse": "WH"}
+        manager = self._manager()
+        assert _filter_accessible_remote_defaults(manager, params) == params
+        manager.database_exists.assert_not_called()
+
+    @patch(MANAGER_CLI_CONSOLE)
+    def test_accessible_destination_returns_params_unchanged(self, mock_console):
+        from snowflake.cli._plugins.apps.manager import (
+            _filter_accessible_remote_defaults,
+        )
+
+        params = {"database": "DB", "schema": "SCH", "query_warehouse": "WH"}
+        result = _filter_accessible_remote_defaults(
+            self._manager(db_exists=True, schema_exists=True), params
+        )
+        assert result == params
+        mock_console.warning.assert_not_called()
+
+    @patch(MANAGER_CLI_CONSOLE)
+    def test_inaccessible_database_drops_database_and_schema(self, mock_console):
+        from snowflake.cli._plugins.apps.manager import (
+            _filter_accessible_remote_defaults,
+        )
+
+        manager = self._manager(db_exists=False)
+        params = {"database": "DB", "schema": "SCH", "query_warehouse": "WH"}
+        result = _filter_accessible_remote_defaults(manager, params)
+        assert result == {"query_warehouse": "WH"}
+        # The schema check is skipped when the database itself is inaccessible.
+        manager.schema_exists.assert_not_called()
+        mock_console.warning.assert_called_once()
+        assert "database 'DB'" in mock_console.warning.call_args[0][0]
+
+    @patch(MANAGER_CLI_CONSOLE)
+    def test_inaccessible_schema_drops_database_and_schema(self, mock_console):
+        from snowflake.cli._plugins.apps.manager import (
+            _filter_accessible_remote_defaults,
+        )
+
+        manager = self._manager(db_exists=True, schema_exists=False)
+        params = {"database": "DB", "schema": "SCH"}
+        result = _filter_accessible_remote_defaults(manager, params)
+        assert result == {}
+        mock_console.warning.assert_called_once()
+        assert "schema 'DB.SCH'" in mock_console.warning.call_args[0][0]
+
+    @patch(MANAGER_CLI_CONSOLE)
+    def test_check_error_is_treated_as_inaccessible(self, mock_console):
+        from snowflake.cli._plugins.apps.manager import (
+            _filter_accessible_remote_defaults,
+        )
+
+        manager = Mock()
+        manager.database_exists.side_effect = ProgrammingError("boom")
+        params = {"database": "DB", "schema": "SCH"}
+        result = _filter_accessible_remote_defaults(manager, params)
+        assert result == {}
+        mock_console.warning.assert_called_once()
+
+    @patch(MANAGER_CLI_CONSOLE)
+    def test_does_not_mutate_input_params(self, mock_console):
+        from snowflake.cli._plugins.apps.manager import (
+            _filter_accessible_remote_defaults,
+        )
+
+        params = {"database": "DB", "schema": "SCH"}
+        _filter_accessible_remote_defaults(self._manager(db_exists=False), params)
+        assert params == {"database": "DB", "schema": "SCH"}
 
 
 # ── CLI command tests ─────────────────────────────────────────────────
@@ -2739,6 +2892,37 @@ class TestSetupCommand:
             "service_compute_pool": "PARAM_SVC_POOL",
             "build_eai": "PARAM_EAI",
         }
+        mock_mgr.get_personal_database.return_value = "USER$MYUSER"
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+            assert result.exit_code == 0, result.output
+
+        resolved = mock_gen.call_args[0][1]
+        assert resolved["database"] == "USER$MYUSER"
+        assert resolved["schema"] == "PUBLIC"
+        assert mock_gen.call_args.kwargs["use_workspace"] is True
+
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
+        return_value="definition_version: '2'\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_inaccessible_account_default_falls_back_to_personal_db(
+        self, mock_mgr_cls, mock_gen, runner, tmp_path
+    ):
+        """When the account-configured destination database is not accessible
+        to the current role, setup falls back to the personal database (as if
+        no account default were set) and warns the user."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "database": "PARAM_DB",
+            "schema": "PARAM_SCHEMA",
+            "query_warehouse": "PARAM_WH",
+        }
+        mock_mgr.database_exists.return_value = False
         mock_mgr.get_personal_database.return_value = "USER$MYUSER"
 
         with change_directory(tmp_path):
