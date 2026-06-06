@@ -34,6 +34,7 @@ from rich.text import Text
 from snowflake.cli._plugins.dcm import styles
 from snowflake.cli._plugins.dcm.reporters.analyze import _files_from_response
 from snowflake.cli._plugins.dcm.reporters.base import Reporter
+from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.secure_path import SecurePath
 
@@ -374,6 +375,13 @@ class DependenciesReporter(Reporter[Dict[str, Any]]):
             self._written_path,
         )
 
+    def print_summary(self) -> None:
+        """Print summary without a leading blank line."""
+        renderables = self._generate_summary_renderables()
+        for renderable in renderables:
+            cli_console.styled_message(renderable.plain, style=renderable.style)
+        cli_console.styled_message("\n")
+
     def _generate_summary_renderables(self) -> List[Text]:
         graph = self._graph if self._graph is not None else DependencyGraph()
         if graph.node_count == 0:
@@ -387,13 +395,14 @@ class DependenciesReporter(Reporter[Dict[str, Any]]):
         deps_word = "dependency" if graph.edge_count == 1 else "dependencies"
         return [
             Text(
-                f"Dependency diagram for {graph.node_count} {objects_word} "
+                f"  Dependency diagram for {graph.node_count} {objects_word} "
                 f"and {graph.edge_count} {deps_word} written to:",
-                styles.PASS_STYLE,
+                style="dim",
             ),
-            Text(f"\n  {self._written_path}", styles.FILE_PATH_STYLE),
+            Text(f"  {self._written_path}", styles.FILE_PATH_STYLE),
             Text(
-                "\nOpen it in your IDE's Markdown preview to explore the graph.",
+                "  Open it in your IDE's Markdown preview to explore the graph.",
+                style="dim",
             ),
         ]
 
