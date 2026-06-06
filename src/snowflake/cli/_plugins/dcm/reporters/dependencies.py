@@ -376,10 +376,11 @@ class DependenciesReporter(Reporter[Dict[str, Any]]):
         )
 
     def print_summary(self) -> None:
-        """Print summary without a leading blank line."""
+        """Print summary without a leading blank line, one item per line."""
         renderables = self._generate_summary_renderables()
         for renderable in renderables:
             cli_console.styled_message(renderable.plain, style=renderable.style)
+            cli_console.styled_message("\n")
         cli_console.styled_message("\n")
 
     def _generate_summary_renderables(self) -> List[Text]:
@@ -395,13 +396,13 @@ class DependenciesReporter(Reporter[Dict[str, Any]]):
         deps_word = "dependency" if graph.edge_count == 1 else "dependencies"
         return [
             Text(
-                f"  Dependency diagram for {graph.node_count} {objects_word} "
+                f"    Dependency diagram for {graph.node_count} {objects_word} "
                 f"and {graph.edge_count} {deps_word} written to:",
                 style="dim",
             ),
-            Text(f"  {self._written_path}", styles.FILE_PATH_STYLE),
+            Text(f"    {self._written_path}", styles.FILE_PATH_STYLE),
             Text(
-                "  Open it in your IDE's Markdown preview to explore the graph.",
+                "    Open it in your IDE's Markdown preview to explore the graph.",
                 style="dim",
             ),
         ]
