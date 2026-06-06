@@ -96,7 +96,7 @@ _CLASS_DEFS: List[str] = [
 ]
 
 _MERMAID_INIT = (
-    '%%{init: {"flowchart": {"curve": "step", '
+    '%%{init: {"flowchart": {"curve": "bumpX", '
     '"rankSpacing": 80, "nodeSpacing": 40}}}%%'
 )
 
