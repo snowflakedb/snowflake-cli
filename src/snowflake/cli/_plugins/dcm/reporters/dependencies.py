@@ -95,10 +95,7 @@ _CLASS_DEFS: List[str] = [
     "classDef task      fill:#64748b,stroke:#334155,stroke-width:2px,color:#fff",
 ]
 
-_MERMAID_INIT = (
-    '%%{init: {"flowchart": {"curve": "bumpX", '
-    '"rankSpacing": 80, "nodeSpacing": 40}}}%%'
-)
+_MERMAID_INIT = '%%{init: {"layout": "elk"}}%%'
 
 
 @dataclass
