@@ -16,7 +16,6 @@ entities:
     service_compute_pool:
       name: snowcli_compute_pool
     build_eai: null
-    service_eai: null
     artifact_repository:
       name: SNOW_APPS_DEFAULT_ARTIFACT_REPOSITORY
     code_stage:

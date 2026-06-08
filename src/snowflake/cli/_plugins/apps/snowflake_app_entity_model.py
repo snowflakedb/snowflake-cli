@@ -12,10 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Literal, Optional, Union
-
-# Default port exposed by Snowflake App Runtime services
-DEFAULT_APP_PORT = 3000
+from typing import Literal, Optional, Union
 
 from pydantic import Field, field_validator, model_validator
 from snowflake.cli.api.project.schemas.entities.common import (
@@ -68,18 +65,6 @@ class ArtifactRepositoryReference(UpdatableModel):
     )
     database: Optional[str] = IdentifierField(
         title="Database of the artifact repository", default=None
-    )
-
-
-class ImageRepositoryReference(UpdatableModel):
-    """Reference to an image repository used for container image storage."""
-
-    name: str = IdentifierField(title="Name of the image repository")
-    schema_: Optional[str] = IdentifierField(
-        title="Schema of the image repository", alias="schema", default=None
-    )
-    database: Optional[str] = IdentifierField(
-        title="Database of the image repository", default=None
     )
 
 
@@ -160,24 +145,16 @@ class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
         title="External access integration for build", default=None
     )
 
-    service_eai: Union[ExternalAccessReference, None] = Field(
-        title="External access integration for service", default=None
-    )
-
-    @field_validator("build_eai", "service_eai", mode="before")
+    @field_validator("build_eai", mode="before")
     @classmethod
     def _validate_eai(cls, value):
-        """Allow null/None values for EAI fields."""
+        """Allow null/None values for the EAI field."""
         if value is None or value == "null":
             return None
         return value
 
     artifact_repository: Optional[ArtifactRepositoryReference] = Field(
         title="Artifact repository for the app", default=None
-    )
-
-    image_repository: Optional[ImageRepositoryReference] = Field(
-        title="Image repository for container images", default=None
     )
 
     code_stage: Optional[CodeStageReference] = Field(
@@ -218,8 +195,6 @@ class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
             raise ValueError("Specify either code_stage or code_workspace, not both.")
         return self
 
-    app_port: int = Field(title="Port the app listens on", default=DEFAULT_APP_PORT)
-
     runtime_image: str = Field(
         title="Runtime image used by SPCS artifact repo build/run",
         default="",
@@ -238,37 +213,3 @@ class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
         if not isinstance(value, str):
             raise ValueError("spcs_test_project_type must be a string or null")
         return value.strip()
-
-    build_image: Optional[str] = Field(
-        title="Custom container image for building the app",
-        default=None,
-    )
-
-    @field_validator("build_image", mode="before")
-    @classmethod
-    def _validate_build_image(cls, value):
-        if value is None:
-            return None
-        if not isinstance(value, str) or not value.strip():
-            raise ValueError("build_image must be a non-empty string")
-        value = value.strip()
-        import re
-
-        if re.search(r"\s", value):
-            raise ValueError(f"build_image must not contain whitespace, got: {value!r}")
-        _unsafe_chars = {"$", '"'}
-        found = _unsafe_chars.intersection(value)
-        if found:
-            raise ValueError(
-                f"build_image contains unsafe character(s) {found}, got: {value!r}"
-            )
-        return value
-
-    execute_as_caller: bool = Field(
-        title="Whether the service runs with caller privileges",
-        default=True,
-    )
-
-    dev_roles: Optional[List[str]] = Field(
-        title="Development roles for the app", default=None
-    )
