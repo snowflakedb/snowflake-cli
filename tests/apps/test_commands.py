@@ -612,7 +612,6 @@ class TestGenerateSnowflakeYml:
         # code_workspace is a shared workspace, fully-qualified.
         assert "code_workspace: TEST_DB.SNOW_APPS.SNOWFLAKE_APPS" in result
         assert "code_stage:" not in result
-        assert "image_repository" not in result
         assert "artifact_repository" not in result
 
     def test_generates_yml_with_code_stage_when_not_using_workspace(self):
@@ -3492,9 +3491,8 @@ class TestBundleCommand:
 
 class TestValidateCommand:
     @staticmethod
-    def _make_validate_entity(app_port=3000):
+    def _make_validate_entity():
         entity = Mock()
-        entity.app_port = app_port
         entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP")
         return entity
 
@@ -4792,8 +4790,6 @@ class TestDeployCommand:
         entity.meta = None
         entity.runtime_image = "runtime:latest"
         entity.query_warehouse = "WH"
-        entity.build_image = None
-        entity.execute_as_caller = False
         entity.artifact_repository = None
         entity.build_compute_pool = None
         entity.service_compute_pool = None
@@ -4932,8 +4928,6 @@ class TestDeployCommand:
         entity.meta = None
         entity.runtime_image = "runtime:latest"
         entity.query_warehouse = "WH"
-        entity.build_image = None
-        entity.execute_as_caller = False
         entity.artifact_repository = None
         entity.build_compute_pool = None
         entity.service_compute_pool = None
@@ -5033,8 +5027,6 @@ class TestDeployCommand:
         entity.meta = None
         entity.runtime_image = "runtime:latest"
         entity.query_warehouse = "WH"
-        entity.build_image = None
-        entity.execute_as_caller = False
         entity.artifact_repository = None
         entity.build_compute_pool = None
         entity.service_compute_pool = None
@@ -5133,8 +5125,6 @@ class TestDeployCommand:
         entity.meta = None
         entity.runtime_image = "runtime:latest"
         entity.query_warehouse = "WH"
-        entity.build_image = None
-        entity.execute_as_caller = False
         entity.artifact_repository = None
         entity.build_compute_pool = None
         entity.service_compute_pool = None
@@ -5230,8 +5220,6 @@ class TestDeployCommand:
         entity.meta = None
         entity.runtime_image = "runtime:latest"
         entity.query_warehouse = "WH"
-        entity.build_image = None
-        entity.execute_as_caller = False
         entity.artifact_repository = None
         entity.build_compute_pool = None
         entity.service_compute_pool = None
@@ -5743,8 +5731,6 @@ class TestDeployCommand:
         entity.meta = None
         entity.runtime_image = "runtime:latest"
         entity.query_warehouse = "WH"
-        entity.build_image = None
-        entity.execute_as_caller = False
         entity.artifact_repository = None
         entity.build_compute_pool = Mock()
         entity.build_compute_pool.name = "YML_BUILD_POOL"
@@ -5848,8 +5834,6 @@ class TestDeployCommand:
         entity.meta = None
         entity.runtime_image = "runtime:latest"
         entity.query_warehouse = "WH"
-        entity.build_image = None
-        entity.execute_as_caller = False
         entity.artifact_repository = None
         entity.build_compute_pool = None
         entity.service_compute_pool = None
@@ -5952,8 +5936,6 @@ class TestDeployCommand:
         entity.meta = None
         entity.runtime_image = "runtime:latest"
         entity.query_warehouse = "WH"
-        entity.build_image = None
-        entity.execute_as_caller = False
         entity.artifact_repository = None
         entity.build_compute_pool = Mock()
         entity.build_compute_pool.name = "YML_BUILD_POOL"
