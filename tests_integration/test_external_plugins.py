@@ -25,10 +25,27 @@ from tests_integration.testing_utils.assertions.test_result_assertions import (
 @pytest.fixture(scope="module")
 def install_plugins():
     import subprocess
+    import sys
 
     path = Path(__file__).parent.parent / "test_external_plugins"
-    subprocess.check_call(["pip", "install", path / "multilingual_hello_command_group"])
-    subprocess.check_call(["pip", "install", path / "snowpark_hello_single_command"])
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            str(path / "multilingual_hello_command_group"),
+        ]
+    )
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            str(path / "snowpark_hello_single_command"),
+        ]
+    )
 
 
 @pytest.mark.integration
