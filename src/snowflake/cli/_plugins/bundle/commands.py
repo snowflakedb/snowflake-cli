@@ -15,7 +15,7 @@
 from typing import Optional, Tuple
 
 import typer
-from snowflake.cli._plugins.notebook.code.manager import CodeBundleManager
+from snowflake.cli._plugins.bundle.manager import CodeBundleManager
 from snowflake.cli._plugins.object.common import CommentOption
 from snowflake.cli.api.commands.flags import IfExistsOption, identifier_argument
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
@@ -25,7 +25,7 @@ from snowflake.cli.api.output.types import CommandResult, MessageResult, QueryRe
 from typing_extensions import Annotated
 
 app = SnowTyperFactory(
-    name="code",
+    name="bundle",
     help="Manages Snowflake Code Bundles.",
 )
 
