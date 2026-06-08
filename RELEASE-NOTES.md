@@ -21,6 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
+* Upgraded `pip` from 26.1.1 to 26.1.2.
 
 
 # v3.20.0
