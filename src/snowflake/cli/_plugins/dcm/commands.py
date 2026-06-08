@@ -548,7 +548,7 @@ def analyze_errors(
     project_id = context.project_identifier
 
     manager = DCMProjectManager()
-    tracker = DeployProgressTracker(conn=manager.connection, operation="analyze")
+    tracker = DeployProgressTracker(conn=manager.connection, operation="compile")
     with tracker.session():
         effective_stage = manager.sync_local_files(
             project_identifier=project_id,
@@ -564,7 +564,8 @@ def analyze_errors(
                 save_output=save_output,
                 command_name="analyze-errors",
             ),
-            phase_name="ANALYZE",
+            phase_name="COMPILE",
+            simulated_phases=["RENDER"],
         )
 
     reporter = AnalyzeErrorsReporter(save_output=save_output)
