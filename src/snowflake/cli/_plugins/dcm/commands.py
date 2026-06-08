@@ -32,6 +32,9 @@ from snowflake.cli._plugins.dcm.reporters import (
     TestReporter,
 )
 from snowflake.cli._plugins.dcm.utils import (
+    RENDERED_DEFINITIONS_FOLDER,
+    announce_compile_separator,
+    announce_rendered_definitions,
     clear_command_artifacts,
     mock_dcm_response,
 )
@@ -528,10 +531,11 @@ def raw_analyze(
 
 
 @app.command(
+    name="compile",
     requires_connection=True,
     hidden=not FeatureFlag.ENABLE_DCM_EARLY_ACCESS.is_enabled(),
 )
-def analyze_errors(
+def compile_project(
     identifier: Optional[FQN] = optional_dcm_identifier,
     from_location: SecurePath = from_option,
     variables: Optional[List[str]] = variables_flag,
@@ -540,9 +544,9 @@ def analyze_errors(
     **options,
 ):
     """
-    Analyzes a DCM Project and prints a formatted list of errors found.
+    Compiles a DCM Project and prints a formatted list of errors found.
     """
-    clear_command_artifacts("analyze-errors")
+    clear_command_artifacts("compile", folder_name=RENDERED_DEFINITIONS_FOLDER)
 
     context = _resolve_context_with_required_manifest(from_location, identifier, target)
     project_id = context.project_identifier
@@ -562,14 +566,20 @@ def analyze_errors(
                 from_stage=effective_stage,
                 variables=variables,
                 save_output=save_output,
-                command_name="analyze-errors",
+                command_name="compile",
+                output_folder_name=RENDERED_DEFINITIONS_FOLDER,
             ),
             phase_name="COMPILE",
             simulated_phases=["RENDER"],
         )
 
     reporter = AnalyzeErrorsReporter(save_output=save_output)
-    return reporter.process(result)
+    if save_output:
+        announce_rendered_definitions()
+    try:
+        return reporter.process(result)
+    finally:
+        announce_compile_separator()
 
 
 @app.command(requires_connection=True)

@@ -19,6 +19,7 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, Dict, Generator
 
+from rich.style import Style
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
@@ -30,10 +31,25 @@ from snowflake.cli.api.stage_path import StagePath
 log = logging.getLogger(__name__)
 
 OUTPUT_FOLDER = "out"
+# Local folder (under out/) where the backend-rendered project definitions are
+# downloaded. Shared by the ``compile`` and ``dependencies`` commands so the
+# rendered output always lands in the same, descriptively-named place.
+RENDERED_DEFINITIONS_FOLDER = "rendered_definitions"
+# Width of the trailing separator line printed at the end of a ``compile`` run.
+COMPILE_SEPARATOR_WIDTH = 61
 
 
-def clear_command_artifacts(command_name: str) -> None:
-    """Clear previous artifacts for the given command from the out/ directory."""
+def clear_command_artifacts(
+    command_name: str,
+    *,
+    folder_name: str | None = None,
+) -> None:
+    """Clear previous artifacts for the given command from the out/ directory.
+
+    ``folder_name`` defaults to ``command_name`` but can be set independently for
+    commands whose artifacts folder doesn't share the command name (e.g.
+    ``compile`` writes ``compile.json`` and ``rendered_definitions/``).
+    """
     output_dir = SecurePath(OUTPUT_FOLDER)
     if not output_dir.exists():
         return
@@ -42,15 +58,50 @@ def clear_command_artifacts(command_name: str) -> None:
     if json_file.exists():
         json_file.unlink()
 
-    artifacts_dir = output_dir / command_name
+    artifacts_dir = output_dir / (folder_name or command_name)
     if artifacts_dir.exists():
         artifacts_dir.rmdir(recursive=True)
 
     log.info("Cleared previous artifacts for command '%s'.", command_name)
 
 
-def save_command_response(command_name: str, raw_data: Dict[str, Any] | str) -> None:
-    """Save raw JSON response to out/<command>.json."""
+def announce_rendered_definitions() -> None:
+    """Print a label and a gray, clickable line to the rendered definitions folder.
+
+    No-op when the folder doesn't exist (e.g. the backend produced no rendered
+    output). Used by ``compile`` after a ``--save-output`` run to point the user
+    at the downloaded definitions.
+    """
+    folder = SecurePath(OUTPUT_FOLDER) / RENDERED_DEFINITIONS_FOLDER
+    if not folder.exists():
+        return
+    abs_path = folder.path.resolve()
+    cli_console.styled_message("\n")
+    cli_console.styled_message("Rendered definitions saved to: ")
+    cli_console.styled_message("\n")
+    cli_console.styled_message(
+        f"{abs_path}",
+        style=Style(color="grey50", link=f"file://{abs_path}"),
+    )
+    cli_console.styled_message("\n")
+
+
+def announce_compile_separator() -> None:
+    """Print a separator line marking the end of a ``compile`` run."""
+    cli_console.styled_message("=" * COMPILE_SEPARATOR_WIDTH)
+    cli_console.styled_message("\n")
+
+
+def save_command_response(
+    command_name: str,
+    raw_data: Dict[str, Any] | str,
+    announce: bool = True,
+) -> None:
+    """Save raw JSON response to out/<command_name>.json.
+
+    When ``announce`` is False the "Artifacts saved to" step is suppressed (the
+    file is still written) so callers can present their own output layout.
+    """
     output_dir = SecurePath(OUTPUT_FOLDER)
     output_dir.mkdir(exist_ok=True)
     json_file = output_dir / f"{command_name}.json"
@@ -67,20 +118,22 @@ def save_command_response(command_name: str, raw_data: Dict[str, Any] | str) -> 
         command_name,
         json_file.resolve(),
     )
-    cli_console.step(f"Artifacts saved to: {output_dir.path.resolve()}")
+    if announce:
+        cli_console.step(f"Artifacts saved to: {output_dir.path.resolve()}")
 
 
 @contextmanager
 def collect_output(
-    project_identifier: FQN, command_name: str
+    project_identifier: FQN, command_name: str, folder_name: str | None = None
 ) -> Generator[str, None, None]:
     """
     Context manager for handling command output artifacts - creates temporary stage,
-    downloads files to out/<command_name>/ folder after execution.
+    downloads files to out/<folder_name>/ folder after execution.
 
     Args:
         project_identifier: The DCM project identifier
-        command_name: Name of the command, used for the output subdirectory
+        command_name: Name of the command, used for logging
+        folder_name: Local output subdirectory under out/ (defaults to command_name)
 
     Yields:
         str: The effective output path to use in the DCM command
@@ -99,7 +152,7 @@ def collect_output(
     effective_output_path = StagePath.from_stage_str(
         temp_stage_fqn.identifier
     ).joinpath("/outputs")
-    local_output_path = SecurePath(OUTPUT_FOLDER) / command_name
+    local_output_path = SecurePath(OUTPUT_FOLDER) / (folder_name or command_name)
 
     try:
         yield effective_output_path.absolute_path()
@@ -155,8 +208,7 @@ def _load_debug_data(command_name: str, file_number: int):
         if command_name in (
             "test",
             "refresh",
-            "analyze",
-            "analyze-errors",
+            "compile",
         ):
             data = data[0]
 
