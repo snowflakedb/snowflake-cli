@@ -4351,7 +4351,7 @@ class TestResolveCodeStorage:
             app_name="MY_APP",
         )
         assert storage == _CodeStorage(
-            use_workspace=True,
+            type="workspace",
             name="MY_WS",
             database_override="WS_DB",
             schema_override="WS_SCHEMA",
@@ -4367,7 +4367,7 @@ class TestResolveCodeStorage:
             schema="TEST_SCHEMA",
             app_name="MY_APP",
         )
-        assert storage.use_workspace is False
+        assert storage.type == "stage"
         assert storage.name == "MY_STAGE"
 
     def test_explicit_stage_on_personal_db_is_honored_with_warning(self):
@@ -4384,7 +4384,7 @@ class TestResolveCodeStorage:
                 app_name="MY_APP",
             )
         assert storage == _CodeStorage(
-            use_workspace=False,
+            type="stage",
             name="MY_APP_CODE",
             database_override=None,
             schema_override=None,
@@ -4399,7 +4399,7 @@ class TestResolveCodeStorage:
             schema="TEST_SCHEMA",
             app_name="MY_APP",
         )
-        assert storage.use_workspace is False
+        assert storage.type == "stage"
         assert storage.name == "MY_APP_CODE"
 
     def test_no_code_storage_on_personal_db_defaults_to_workspace(self):
@@ -4409,7 +4409,7 @@ class TestResolveCodeStorage:
             schema="PUBLIC",
             app_name="MY_APP",
         )
-        assert storage.use_workspace is True
+        assert storage.type == "workspace"
         assert storage.name == "SNOWFLAKE_APPS"
 
 

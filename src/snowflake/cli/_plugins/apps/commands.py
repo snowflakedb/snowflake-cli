@@ -26,7 +26,7 @@ import json
 import logging
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, NamedTuple, Optional
+from typing import TYPE_CHECKING, Callable, Literal, NamedTuple, Optional
 
 import typer
 from click import ClickException
@@ -84,16 +84,18 @@ SOURCE_DEFAULT = "default"
 SOURCE_MISSING = "missing"
 
 
+_CodeStorageType = Literal["workspace", "stage"]
+
+
 class _CodeStorage(NamedTuple):
     """Resolved code-storage backend for an app deploy/teardown.
 
-    ``use_workspace`` selects between the workspace flow (``True``) and the
-    stage flow (``False``). ``name`` plus the optional database/schema
-    overrides identify the backing object; ``encryption_type`` applies only to
-    the stage flow.
+    ``type`` selects between the ``"workspace"`` and ``"stage"`` flows.
+    ``name`` plus the optional database/schema overrides identify the backing
+    object; ``encryption_type`` applies only to the stage flow.
     """
 
-    use_workspace: bool
+    type: _CodeStorageType  # noqa: A003
     name: str
     database_override: Optional[str]
     schema_override: Optional[str]
@@ -131,7 +133,7 @@ def _resolve_code_storage(
 
     if entity.code_workspace is not None:
         return _CodeStorage(
-            use_workspace=True,
+            type="workspace",
             name=entity.code_workspace.name,
             database_override=entity.code_workspace.database,
             schema_override=entity.code_workspace.schema_,
@@ -149,7 +151,7 @@ def _resolve_code_storage(
                 "supported there."
             )
         return _CodeStorage(
-            use_workspace=False,
+            type="stage",
             name=entity.code_stage.name,
             database_override=entity.code_stage.database,
             schema_override=entity.code_stage.schema_,
@@ -160,14 +162,14 @@ def _resolve_code_storage(
     # the destination supports.
     if destination_is_personal:
         return _CodeStorage(
-            use_workspace=True,
+            type="workspace",
             name=DEFAULT_PERSONAL_WORKSPACE_NAME,
             database_override=None,
             schema_override=None,
             encryption_type="SNOWFLAKE_SSE",
         )
     return _CodeStorage(
-        use_workspace=False,
+        type="stage",
         name=f"{app_name}_CODE",
         database_override=None,
         schema_override=None,
@@ -611,7 +613,7 @@ def snowflake_app_deploy(
     storage = _resolve_code_storage(
         entity, database=database, schema=schema, app_name=app_name
     )
-    use_workspace = storage.use_workspace
+    use_workspace = storage.type == "workspace"
     storage_name = storage.name
     storage_db_override = storage.database_override
     storage_schema_override = storage.schema_override
@@ -967,7 +969,7 @@ def snowflake_app_teardown(
     storage = _resolve_code_storage(
         entity, database=db, schema=schema, app_name=app_name
     )
-    use_workspace = storage.use_workspace
+    use_workspace = storage.type == "workspace"
     storage_name = storage.name
     storage_db = storage.database_override or db
     storage_schema = storage.schema_override or schema
