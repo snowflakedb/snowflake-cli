@@ -122,14 +122,18 @@ class DCMProjectManager(SqlExecutionMixin):
         query = self._build_deploy_query(
             project_identifier, from_stage, configuration, variables, alias, skip_plan
         )
-        cursor = self._conn.cursor()
-        cursor.execute_async(query)
+        # Closing the cursor does not cancel the async query; it keeps running
+        # server-side and its results are fetched later via the sfqid (see
+        # DeployProgressTracker.run_deploy_poll -> get_results_from_sfqid).
+        with self._conn.cursor() as cursor:
+            cursor.execute_async(query)
+            sfqid = cursor.sfqid
         log.info(
             "DCM deploy async submitted (project_identifier=%s, sfqid=%s).",
             project_identifier,
-            cursor.sfqid,
+            sfqid,
         )
-        return cursor.sfqid
+        return sfqid
 
     def raw_analyze(
         self,
@@ -290,14 +294,17 @@ class DCMProjectManager(SqlExecutionMixin):
             skip_plan,
         )
         query = self._build_purge_query(project_identifier, alias, skip_plan)
-        cursor = self._conn.cursor()
-        cursor.execute_async(query)
+        # Closing the cursor does not cancel the async query; results are
+        # fetched later via the sfqid (see run_deploy_poll).
+        with self._conn.cursor() as cursor:
+            cursor.execute_async(query)
+            sfqid = cursor.sfqid
         log.info(
             "DCM purge async submitted (project_identifier=%s, sfqid=%s).",
             project_identifier,
-            cursor.sfqid,
+            sfqid,
         )
-        return cursor.sfqid
+        return sfqid
 
     @staticmethod
     def _build_purge_query(
