@@ -87,6 +87,20 @@ class TestUploadDetailsLayout:
         assert lines[6].startswith("PLAN")
         assert all(not line.startswith("DEPLOY") for line in lines)
 
+    def test_purge_mode_has_no_upload_and_renders_purge_label(self):
+        # purge runs entirely server-side: no UPLOAD phase, and the final
+        # DEPLOY phase is displayed as PURGE.
+        tracker = DeployProgressTracker(conn=MagicMock(), operation="purge")
+
+        lines = _stripped_lines(tracker._render().plain)  # noqa: SLF001
+
+        assert all(not line.startswith("UPLOAD") for line in lines)
+        assert lines[0].startswith("RENDER")
+        assert lines[1].startswith("COMPILE")
+        assert lines[2].startswith("PLAN")
+        assert lines[3].startswith("PURGE")
+        assert all(not line.startswith("DEPLOY") for line in lines)
+
     def test_running_progress_phase_shows_pip_style_bar(self):
         """PLAN/DEPLOY phases that report 0–100 progress render a
         heavy-horizontal pip-style bar with a ``╺`` leading edge while in
@@ -107,32 +121,32 @@ class TestUploadDetailsLayout:
         assert "░" not in deploy_line
 
     def test_running_no_progress_phase_shows_spinner_glyph(self):
-        """ANALYZE (and PLAN in plan mode) have no progress bar — they show
+        """COMPILE (and PLAN in plan mode) have no progress bar — they show
         an animated braille spinner where the running indicator goes."""
-        tracker = DeployProgressTracker(conn=MagicMock(), operation="analyze")
+        tracker = DeployProgressTracker(conn=MagicMock(), operation="compile")
         tracker.complete_upload()
-        # Mark ANALYZE running, then verify a spinner glyph appears on its line.
-        tracker._get_phase("ANALYZE").observe_running(0, datetime.now())  # noqa: SLF001
+        # Mark COMPILE running, then verify a spinner glyph appears on its line.
+        tracker._get_phase("COMPILE").observe_running(0, datetime.now())  # noqa: SLF001
 
         rendered = tracker._render().plain  # noqa: SLF001
-        analyze_line = next(line for line in rendered.split("\n") if "ANALYZE" in line)
+        compile_line = next(line for line in rendered.split("\n") if "COMPILE" in line)
 
         # The static "…" placeholder is gone; one of the braille spinner
         # frames is on the line instead.
-        assert "…" not in analyze_line
-        assert any(frame in analyze_line for frame in _SPINNER_FRAMES)
+        assert "…" not in compile_line
+        assert any(frame in compile_line for frame in _SPINNER_FRAMES)
 
-    def test_analyze_mode_renders_upload_then_analyze(self):
-        tracker = self._tracker(operation="analyze")
+    def test_compile_mode_renders_upload_render_compile(self):
+        tracker = self._tracker(operation="compile")
 
         lines = _stripped_lines(tracker._render().plain)  # noqa: SLF001
 
         assert lines[0].startswith("UPLOAD")
-        assert lines[4].startswith("ANALYZE")
-        assert all(
-            not line.startswith(("RENDER", "COMPILE", "PLAN", "DEPLOY"))
-            for line in lines
-        )
+        assert lines[4].startswith("RENDER")
+        assert lines[5].startswith("COMPILE")
+        # ANALYZE is an implementation detail and is never shown as a phase;
+        # neither are the later PLAN/DEPLOY phases.
+        assert all(not line.startswith(("PLAN", "DEPLOY", "ANALYZE")) for line in lines)
 
     def test_no_details_block_when_context_is_unset(self):
         tracker = self._tracker(with_context=False)

@@ -37,23 +37,37 @@ from snowflake.connector.cursor import SnowflakeCursor
 log = logging.getLogger(__name__)
 
 UPLOAD_PHASE = "UPLOAD"
-ANALYZE_PHASE = "ANALYZE"
 BACKEND_PHASES = ["RENDER", "COMPILE", "PLAN", "DEPLOY"]
 PLAN_OPERATION_PHASES = ["RENDER", "COMPILE", "PLAN"]
-# "analyze" has no server-side progress phases — UPLOAD is rendered, then a
-# single ANALYZE phase shows the live spinner while the server analyzes.
-OperationMode = Literal["deploy", "plan", "analyze"]
+# The "compile" operation runs the server-side ANALYZE statement, but ANALYZE
+# is an implementation detail and is never shown as a phase. The user sees the
+# same RENDER → COMPILE vocabulary as the other operations; it simply stops
+# after COMPILE (there are no server-side progress phases to poll, so RENDER is
+# fast-forwarded and COMPILE shows the live spinner while the server works).
+COMPILE_OPERATION_PHASES = ["RENDER", "COMPILE"]
+OperationMode = Literal["deploy", "plan", "compile", "purge"]
 
-# Server-side phase list per operation mode (UPLOAD is always first; the
-# remainder reflects what each command actually runs on the server).
+# Server-side phase list per operation mode. UPLOAD is first for operations
+# that sync local files; purge runs entirely on the server (no local upload),
+# so it has no UPLOAD phase. Every operation uses the same
+# RENDER → COMPILE → PLAN → DEPLOY/PURGE vocabulary.
 _PHASES_BY_OPERATION: dict[OperationMode, list[str]] = {
     "deploy": [UPLOAD_PHASE, *BACKEND_PHASES],
     "plan": [UPLOAD_PHASE, *PLAN_OPERATION_PHASES],
-    "analyze": [UPLOAD_PHASE, ANALYZE_PHASE],
+    "compile": [UPLOAD_PHASE, *COMPILE_OPERATION_PHASES],
+    "purge": [*BACKEND_PHASES],
 }
 
 # Only PLAN and DEPLOY emit a meaningful 0-100 progress value.
 PHASES_WITH_PROGRESS_BAR = {"PLAN", "DEPLOY"}
+
+# Per-operation display aliases for phase names. The internal phase name must
+# stay aligned with what ``SYSTEM$GET_DCM_PROJECT_PROGRESS`` reports (purge
+# runs the standard DEPLOY phase server-side), but the user-facing label can
+# differ — purge shows ``PURGE`` instead of ``DEPLOY``.
+_DISPLAY_NAME_OVERRIDES: dict[OperationMode, dict[str, str]] = {
+    "purge": {"DEPLOY": "PURGE"},
+}
 
 _FAST_POLL_INTERVAL = 1.0  # seconds — used for the first 100 s
 _SLOW_POLL_INTERVAL = 10.0  # seconds — used after 100 s (~85 % fewer calls)
@@ -209,6 +223,9 @@ class DeployProgressTracker:
                 return phase
         raise KeyError(name)
 
+    def _has_upload_phase(self) -> bool:
+        return any(p.name == UPLOAD_PHASE for p in self._phases)
+
     def _refresh_display(self) -> None:
         """Force an immediate Live repaint (state changed; don't wait for tick)."""
         if self._live is not None:
@@ -282,7 +299,8 @@ class DeployProgressTracker:
             return
 
         console = get_console()
-        self.start_upload()
+        if self._has_upload_phase():
+            self.start_upload()
         with Live(
             self, console=console, refresh_per_second=_LIVE_REFRESH_PER_SECOND
         ) as live:
@@ -290,7 +308,8 @@ class DeployProgressTracker:
             try:
                 yield self
             except Exception:
-                self.fail_upload()
+                if self._has_upload_phase():
+                    self.fail_upload()
                 live.refresh()
                 raise
             finally:
@@ -422,7 +441,7 @@ class DeployProgressTracker:
         if phase.name == UPLOAD_PHASE:
             return self._upload_file_total > 0
         if phase.name in PHASES_WITH_PROGRESS_BAR:
-            return self._operation == "deploy"
+            return self._operation in ("deploy", "purge")
         return False
 
     def _append_progress_bar(self, out: Text, progress: int) -> None:
@@ -455,12 +474,22 @@ class DeployProgressTracker:
         for summary in self._upload_file_summaries:
             out.append(f"  {summary}\n", style="dim")
 
+    def _display_name(self, phase: _Phase) -> str:
+        """User-facing label for a phase.
+
+        Defaults to the internal phase name but can be overridden per
+        operation (see :data:`_DISPLAY_NAME_OVERRIDES`) so that, e.g., purge
+        renders ``PURGE`` while still tracking the server's ``DEPLOY`` phase.
+        """
+        overrides = _DISPLAY_NAME_OVERRIDES.get(self._operation, {})
+        return overrides.get(phase.name, phase.name)
+
     def _render_phase_line(self, out: Text, phase: _Phase) -> None:
         # Wall-clock start time is intentionally omitted — the parenthesised
         # elapsed duration that follows the status indicator is the single
         # source of timing information.
         duration_str = self._duration_suffix(phase)
-        name_col = f"{phase.name:<{_PHASE_COL_WIDTH}}"
+        name_col = f"{self._display_name(phase):<{_PHASE_COL_WIDTH}}"
 
         if phase.status == PhaseStatus.DONE:
             out.append(name_col, style=styles.PHASE_DONE_STYLE)
@@ -530,10 +559,11 @@ class DeployProgressTracker:
     def run_deploy_poll(self, sfqid: str) -> SnowflakeCursor:
         """Poll server-side deploy progress until the query finishes.
 
-        Call inside :meth:`session` after upload completes.
+        Call inside :meth:`session` after upload completes (if any).
         """
         self._sfqid = sfqid
-        self.complete_upload()
+        if self._has_upload_phase():
+            self.complete_upload()
 
         start = time.monotonic()
         with self._ensure_live() as live:
