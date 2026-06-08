@@ -618,6 +618,7 @@ class TestPlanReporterTerse:
             ("removed", styles.DROP_STYLE),
             ("unset", styles.DROP_STYLE),
             ("modified", styles.ALTER_STYLE),
+            ("changed", styles.ALTER_STYLE),
             ("renamed", styles.ALTER_STYLE),
         ],
     )

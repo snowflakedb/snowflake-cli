@@ -57,7 +57,8 @@ _KIND_INFO: Dict[str, _KindInfo] = {
     "added": _KindInfo((0, 0), styles.CREATE_STYLE),
     "set": _KindInfo((0, 1), styles.CREATE_STYLE),
     "modified": _KindInfo((1, 0), styles.ALTER_STYLE),
-    "renamed": _KindInfo((1, 1), styles.ALTER_STYLE),
+    "changed": _KindInfo((1, 1), styles.ALTER_STYLE),
+    "renamed": _KindInfo((1, 2), styles.ALTER_STYLE),
     "removed": _KindInfo((2, 0), styles.DROP_STYLE),
     "unset": _KindInfo((2, 1), styles.DROP_STYLE),
 }
