@@ -152,7 +152,12 @@ def _load_debug_data(command_name: str, file_number: int):
         data = json.load(f)
 
     if isinstance(data, list) and len(data) > 0:
-        if command_name in ("test", "refresh", "analyze"):
+        if command_name in (
+            "test",
+            "refresh",
+            "analyze",
+            "analyze-errors",
+        ):
             data = data[0]
 
     return data

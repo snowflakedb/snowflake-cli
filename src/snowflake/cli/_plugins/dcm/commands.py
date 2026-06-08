@@ -25,6 +25,7 @@ from snowflake.cli._plugins.dcm.manager import DCMProjectManager
 from snowflake.cli._plugins.dcm.models import DCMManifest, DCMTarget, TargetContext
 from snowflake.cli._plugins.dcm.progress import DeployProgressTracker
 from snowflake.cli._plugins.dcm.reporters import (
+    AnalyzeErrorsReporter,
     AnalyzeReporter,
     PlanReporter,
     RefreshReporter,
@@ -523,6 +524,51 @@ def raw_analyze(
         )
 
     reporter = AnalyzeReporter(save_output=save_output)
+    return reporter.process(result)
+
+
+@app.command(
+    requires_connection=True,
+    hidden=not FeatureFlag.ENABLE_DCM_EARLY_ACCESS.is_enabled(),
+)
+def analyze_errors(
+    identifier: Optional[FQN] = optional_dcm_identifier,
+    from_location: SecurePath = from_option,
+    variables: Optional[List[str]] = variables_flag,
+    target: Optional[str] = target_option,
+    save_output: bool = save_output_option,
+    **options,
+):
+    """
+    Analyzes a DCM Project and prints a formatted list of errors found.
+    """
+    clear_command_artifacts("analyze-errors")
+
+    context = _resolve_context_with_required_manifest(from_location, identifier, target)
+    project_id = context.project_identifier
+
+    manager = DCMProjectManager()
+    tracker = DeployProgressTracker(conn=manager.connection, operation="compile")
+    with tracker.session():
+        effective_stage = manager.sync_local_files(
+            project_identifier=project_id,
+            source_directory=str(from_location.path),
+            progress=tracker,
+        )
+        result = tracker.run_loader_phase(
+            lambda: manager.raw_analyze(
+                project_identifier=project_id,
+                configuration=context.configuration,
+                from_stage=effective_stage,
+                variables=variables,
+                save_output=save_output,
+                command_name="analyze-errors",
+            ),
+            phase_name="COMPILE",
+            simulated_phases=["RENDER"],
+        )
+
+    reporter = AnalyzeErrorsReporter(save_output=save_output)
     return reporter.process(result)
 
 
