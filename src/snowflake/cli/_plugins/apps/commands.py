@@ -46,7 +46,11 @@ from snowflake.cli._plugins.apps.manager import (
 from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.cli_global_context import get_cli_context
-from snowflake.cli.api.config import get_connection_dict, get_default_connection_name
+from snowflake.cli.api.config import (
+    get_connection_dict,
+    get_default_connection_name,
+    get_file_io_encoding,
+)
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
@@ -57,7 +61,6 @@ from snowflake.cli.api.output.types import (
     ObjectResult,
 )
 from snowflake.cli.api.project.util import identifier_for_url
-from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector.errors import ProgrammingError
 
 log = logging.getLogger(__name__)
@@ -108,8 +111,8 @@ def snowflake_app_setup(
             f"Invalid app name '{resolved_app_name}'. "
             "Only letters, digits, and underscores are allowed."
         )
-
-    project_file = SecurePath(Path.cwd()) / DEFINITION_FILENAME
+    encoding = get_file_io_encoding()
+    project_file = Path.cwd() / DEFINITION_FILENAME
     if not dry_run and project_file.exists():
         return MessageResult(
             f"{DEFINITION_FILENAME} already exists. Skipping initialization."
@@ -232,7 +235,8 @@ def snowflake_app_setup(
                 resolved_app_name,
                 resolved_values,
                 use_workspace=use_workspace,
-            )
+            ),
+            encoding=encoding,
         )
 
     is_json = get_cli_context().output_format.is_json

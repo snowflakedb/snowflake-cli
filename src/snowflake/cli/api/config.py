@@ -43,7 +43,7 @@ from snowflake.cli.api.exceptions import (
     UnsupportedConfigSectionTypeError,
 )
 from snowflake.cli.api.sanitizers import sanitize_source_error
-from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.secure_utils import (
     file_permissions_are_strict,
     windows_get_not_whitelisted_users_with_access,
@@ -748,22 +748,16 @@ def get_feature_flags_section() -> Dict[str, bool | Literal["UNKNOWN"]]:
 def _read_config_file_toml() -> dict:
     # TOML files are always UTF-8 by spec; don't apply user's file_io encoding
     return tomlkit.loads(
-        SecurePath(get_config_manager().file_path).read_text(
-            file_size_limit_mb=UNLIMITED, encoding="utf-8"
-        )
+        get_config_manager().file_path.read_text(encoding="utf-8")
     ).unwrap()
 
 
 def _read_connections_toml() -> dict:
     # TOML files are always UTF-8 by spec; don't apply user's file_io encoding
-    return tomlkit.loads(
-        SecurePath(get_connections_file()).read_text(
-            file_size_limit_mb=UNLIMITED, encoding="utf-8"
-        )
-    ).unwrap()
+    return tomlkit.loads(get_connections_file().read_text(encoding="utf-8")).unwrap()
 
 
 def _update_connections_toml(connections: dict):
     # TOML files are always UTF-8 by spec; don't apply user's file_io encoding
-    with SecurePath(get_connections_file()).open("w", encoding="utf-8") as f:
+    with open(get_connections_file(), "w", encoding="utf-8") as f:
         f.write(tomlkit.dumps(connections))

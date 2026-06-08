@@ -49,6 +49,7 @@ from snowflake.cli._plugins.nativeapp.codegen.snowpark.models import (
 from snowflake.cli._plugins.stage.diff import to_stage_path
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.cli_global_context import get_cli_context, span
+from snowflake.cli.api.config import get_file_io_encoding
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.metrics import CLICounterField
@@ -57,7 +58,6 @@ from snowflake.cli.api.project.schemas.entities.common import (
     ProcessorMapping,
 )
 from snowflake.cli.api.rendering.jinja import jinja_render_from_file
-from snowflake.cli.api.secure_path import SecurePath
 
 DEFAULT_TIMEOUT = 30
 TEMPLATE_PATH = Path(__file__).parent / "callback_source.py.jinja"
@@ -219,7 +219,7 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
                 if grant_statements is not None:
                     collected_output.append(grant_statements)
 
-                with SecurePath(sql_file).open("a") as file:
+                with open(sql_file, "a", encoding=get_file_io_encoding()) as file:
                     if insert_newline:
                         file.write("\n")
                     insert_newline = True
@@ -504,7 +504,7 @@ def edit_setup_script_with_exec_imm_sql(
         return
 
     # For every SQL file, add SQL statement 'execute immediate' to __generated.sql script.
-    with SecurePath(generated_file_path).open("a") as file:
+    with open(generated_file_path, "a", encoding=get_file_io_encoding()) as file:
         for sql_file in collected_sql_files:
             sql_file_relative_path = sql_file.relative_to(
                 deploy_root

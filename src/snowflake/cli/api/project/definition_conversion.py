@@ -21,6 +21,7 @@ from snowflake.cli._plugins.nativeapp.entities.application_package import (
 )
 from snowflake.cli._plugins.snowpark.common import is_name_a_templated_one
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.config import get_file_io_encoding
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import (
     DEFAULT_ENV_FILE,
@@ -52,7 +53,6 @@ from snowflake.cli.api.project.schemas.v1.snowpark.callable import (
 from snowflake.cli.api.project.schemas.v1.snowpark.snowpark import Snowpark
 from snowflake.cli.api.project.schemas.v1.streamlit.streamlit import Streamlit
 from snowflake.cli.api.rendering.jinja import get_basic_jinja_env
-from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils.definition_rendering import render_definition_template
 from snowflake.cli.api.utils.dict_utils import deep_merge_dicts
 
@@ -551,7 +551,9 @@ def _convert_package_script_files(
             # the package scripts on disk, so we'll write them to a temporary file
             d = _get_temp_dir().name
             _, script_file = mkstemp(dir=d, suffix="_converted.sql", text=True)
-        SecurePath(project_root / script_file).write_text(new_contents)
+        (project_root / script_file).write_text(
+            new_contents, encoding=get_file_io_encoding()
+        )
         # When converting in-memory, `script_file` is an absolute path to a
         # generated tempfile. That is intentionally outside the project root
         # and does not go through user config, so we bypass the relative-path

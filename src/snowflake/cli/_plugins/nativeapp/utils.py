@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Iterable, Optional, Union
 
 from click import ClickException
-from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
+from snowflake.cli.api.config import get_file_io_encoding
 
 
 def needs_confirmation(needs_confirm: bool, auto_yes: bool) -> bool:
@@ -43,7 +43,7 @@ def get_first_paragraph_from_markdown_file(file_path: Path) -> Optional[str]:
     if not file_path.exists():
         raise FileNotFoundError(file_path)
 
-    with SecurePath(file_path).open("r", read_file_limit_mb=UNLIMITED) as markdown_file:
+    with open(file_path, "r", encoding=get_file_io_encoding()) as markdown_file:
         paragraph_text = None
 
         for line in markdown_file:

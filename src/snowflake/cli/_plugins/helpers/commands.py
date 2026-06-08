@@ -32,6 +32,7 @@ from snowflake.cli.api.config import (
     add_connection_to_proper_file,
     get_all_connections,
     get_encoding_diagnostics,
+    get_file_io_encoding,
     set_config_value,
 )
 from snowflake.cli.api.config_provider import ALTERNATIVE_CONFIG_ENV_VAR
@@ -104,11 +105,10 @@ def v1_to_v2(
         manager.project_root, pd, accept_templates, manager.template_context
     )
 
-    snowflake_yml_path = SecurePath("snowflake.yml")
-    snowflake_yml_path.rename("snowflake_V1.yml")
+    SecurePath("snowflake.yml").rename("snowflake_V1.yml")
     if has_local_yml:
         SecurePath("snowflake.local.yml").rename("snowflake_V1.local.yml")
-    with snowflake_yml_path.open("w") as file:
+    with open("snowflake.yml", "w", encoding=get_file_io_encoding()) as file:
         yaml.dump(
             pd_v2.model_dump(
                 exclude_unset=True, exclude_none=True, mode="json", by_alias=True
