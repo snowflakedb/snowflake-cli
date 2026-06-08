@@ -4370,25 +4370,27 @@ class TestResolveCodeStorage:
         assert storage.use_workspace is False
         assert storage.name == "MY_STAGE"
 
-    def test_explicit_stage_on_personal_db_is_overridden_to_workspace(self):
-        """A ``code_stage`` aimed at a personal database (as produced by older
-        ``snow app setup`` runs) is repaired by routing to the shared
-        workspace, since the stage could never be created there."""
+    def test_explicit_stage_on_personal_db_is_honored_with_warning(self):
+        """An explicit ``code_stage`` aimed at a personal database is honored
+        (the user's choice wins); a warning is emitted because stages are
+        generally unsupported in personal databases."""
         stage = Mock(database=None, schema_=None, encryption_type="SNOWFLAKE_SSE")
         stage.name = "MY_APP_CODE"
-        storage = _resolve_code_storage(
-            self._entity(code_stage=stage),
-            database="USER$SNOTEBAERT",
-            schema="PUBLIC",
-            app_name="MY_APP",
-        )
+        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_console:
+            storage = _resolve_code_storage(
+                self._entity(code_stage=stage),
+                database="USER$SNOTEBAERT",
+                schema="PUBLIC",
+                app_name="MY_APP",
+            )
         assert storage == _CodeStorage(
-            use_workspace=True,
-            name="SNOWFLAKE_APPS",
+            use_workspace=False,
+            name="MY_APP_CODE",
             database_override=None,
             schema_override=None,
             encryption_type="SNOWFLAKE_SSE",
         )
+        mock_console.warning.assert_called_once()
 
     def test_no_code_storage_on_regular_db_defaults_to_stage(self):
         storage = _resolve_code_storage(
@@ -5334,7 +5336,7 @@ class TestDeployCommand:
         "snowflake.cli._plugins.apps.commands._resolve_entity_id",
         return_value="my_app",
     )
-    def test_deploy_personal_db_with_code_stage_uses_workspace(
+    def test_deploy_personal_db_with_code_stage_is_honored_with_warning(
         self,
         mock_resolve,
         mock_get_entity,
@@ -5346,10 +5348,9 @@ class TestDeployCommand:
         runner,
         tmp_path,
     ):
-        """A ``code_stage`` pointing at a personal database (produced by older
-        ``snow app setup`` runs) must be repaired at deploy time: code is
-        uploaded to the shared workspace, no stage is created, and the user is
-        warned."""
+        """An explicit ``code_stage`` pointing at a personal database is honored
+        (the stage flow runs), but the user is warned that stages are generally
+        unsupported in personal databases."""
         from snowflake.cli.api.project.project_paths import ProjectPaths
 
         entity = Mock()
@@ -5382,8 +5383,8 @@ class TestDeployCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.stage_exists.return_value = False
         mock_mgr.artifact_repo_exists.return_value = False
-        mock_mgr.workspace_last_subdirectory_uri.return_value = "snow://workspace/USER$SNOTEBAERT.PUBLIC.SNOWFLAKE_APPS/versions/last/MY_APP"
         mock_mgr.build_app_artifact_repo.return_value = (
             "Build job submitted: USER$SNOTEBAERT.PUBLIC.BUILD_JOB_123"
         )
@@ -5399,14 +5400,14 @@ class TestDeployCommand:
             _write_snowflake_app_yml(tmp_path)
             result = runner.invoke(["app", "deploy"])
             assert result.exit_code == 0, result.output
-            assert "does not support stages" in result.output
+            assert "generally does not support stages" in result.output
 
-        mock_mgr.create_stage.assert_not_called()
-        mock_mgr.create_workspace.assert_called_once_with(
-            FQN(database="USER$SNOTEBAERT", schema="PUBLIC", name="SNOWFLAKE_APPS")
-        )
+        mock_mgr.create_workspace.assert_not_called()
+        mock_mgr.create_stage.assert_called_once()
         mock_mgr.build_app_artifact_repo.assert_called_once_with(
-            source_uri=mock_mgr.workspace_last_subdirectory_uri.return_value,
+            stage_fqn=FQN(
+                database="USER$SNOTEBAERT", schema="PUBLIC", name="MY_APP_CODE"
+            ),
             artifact_repo_fqn="USER$SNOTEBAERT.PUBLIC.MY_APP_REPO",
             app_id="MY_APP",
             compute_pool="BUILD_POOL",

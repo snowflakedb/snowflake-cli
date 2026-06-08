@@ -121,9 +121,9 @@ def _resolve_code_storage(
     Resolution order:
 
     1. Explicit ``code_workspace`` → workspace, as configured.
-    2. Explicit ``code_stage`` → stage, as configured, *unless* the destination
-       is a personal database, in which case the stage is overridden to the
-       shared workspace with a warning.
+    2. Explicit ``code_stage`` → stage, as configured. When the destination is
+       a personal database a warning is emitted (stages are generally
+       unsupported there), but the user's explicit choice is still honored.
     3. Neither configured → workspace when the destination is a personal
        database, otherwise a stage named ``<app>_CODE``.
     """
@@ -144,15 +144,9 @@ def _resolve_code_storage(
                 f"code_stage '{sanitize_for_terminal(entity.code_stage.name)}' "
                 "is configured, but the resolved destination database "
                 f"'{sanitize_for_terminal(str(database))}' is a personal "
-                "database, which does not support stages. Uploading app code "
-                f"to the '{DEFAULT_PERSONAL_WORKSPACE_NAME}' workspace instead."
-            )
-            return _CodeStorage(
-                use_workspace=True,
-                name=DEFAULT_PERSONAL_WORKSPACE_NAME,
-                database_override=None,
-                schema_override=None,
-                encryption_type="SNOWFLAKE_SSE",
+                "database, which generally does not support stages. Honoring "
+                "the configured stage; the deploy may fail if stages are not "
+                "supported there."
             )
         return _CodeStorage(
             use_workspace=False,

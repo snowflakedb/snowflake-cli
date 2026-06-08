@@ -22,7 +22,7 @@
 
 ## Fixes and improvements
 * Upgraded `pip` from 26.1.1 to 26.1.2.
-* `snow app setup` and `snow app deploy` now always upload app code to a workspace when the resolved destination is a personal database (`USER$<user>`), instead of attempting to create a stage there. Personal databases do not support stages, so the previous behavior could generate a `snowflake.yml` (or fall back at deploy time) that failed with a stage-creation error whenever the personal database was selected via an account parameter or the current connection rather than the built-in default. Existing project files that point a `code_stage` at a personal database are now transparently routed to the shared `SNOWFLAKE_APPS` workspace with a warning.
+* `snow app setup` and `snow app deploy` now default to a workspace (instead of a stage) for app code whenever the resolved destination is a personal database (`USER$<user>`), which do not support stages. An explicitly configured `code_stage` is still honored, with a warning when the destination is a personal database.
 
 
 # v3.20.0
