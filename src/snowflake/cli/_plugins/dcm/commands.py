@@ -526,10 +526,11 @@ def raw_analyze(
 
 
 @app.command(
+    name="compile",
     requires_connection=True,
     hidden=not FeatureFlag.ENABLE_DCM_EARLY_ACCESS.is_enabled(),
 )
-def analyze(
+def compile_project(
     identifier: Optional[FQN] = optional_dcm_identifier,
     from_location: SecurePath = from_option,
     variables: Optional[List[str]] = variables_flag,
@@ -538,9 +539,9 @@ def analyze(
     **options,
 ):
     """
-    Analyzes a DCM Project and prints a formatted list of errors found.
+    Compiles a DCM Project and prints a formatted list of errors found.
     """
-    clear_command_artifacts("analyze")
+    clear_command_artifacts("compile")
 
     context = _resolve_context_with_required_manifest(from_location, identifier, target)
     project_id = context.project_identifier
@@ -560,7 +561,7 @@ def analyze(
                 from_stage=effective_stage,
                 variables=variables,
                 save_output=save_output,
-                command_name="analyze",
+                command_name="compile",
             ),
             phase_name="ANALYZE",
         )

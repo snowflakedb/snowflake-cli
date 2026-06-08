@@ -322,7 +322,7 @@ class AnalyzeErrorsReporter(Reporter[_FileFindings]):
 
     def __init__(self, save_output: bool = False):
         super().__init__(save_output=save_output)
-        self.command_name = "analyze"
+        self.command_name = "compile"
         self._error_count = 0
         self._warning_count = 0
         self._info_count = 0

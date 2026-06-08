@@ -1467,8 +1467,8 @@ class TestDCMRawAnalyze:
         _assert_format_result(payload, json.loads(analyze_response), format_name)
 
 
-class TestDCMAnalyze:
-    def test_analyze_basic_no_errors(
+class TestDCMCompile:
+    def test_compile_basic_no_errors(
         self,
         mock_dcm_manager,
         mock_deploy_tracker,
@@ -1485,7 +1485,7 @@ class TestDCMAnalyze:
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
-            result = runner.invoke(["dcm", "analyze", "fooBar"])
+            result = runner.invoke(["dcm", "compile", "fooBar"])
 
         assert result.exit_code == 0, result.output
         assert "Static analysis of DCM Project files found no errors." in result.output
@@ -1496,10 +1496,10 @@ class TestDCMAnalyze:
             from_stage="TMP_STAGE",
             variables=None,
             save_output=False,
-            command_name="analyze",
+            command_name="compile",
         )
 
-    def test_analyze_with_errors_exits_with_formatted_output(
+    def test_compile_with_errors_exits_with_formatted_output(
         self,
         mock_dcm_manager,
         mock_deploy_tracker,
@@ -1559,7 +1559,7 @@ class TestDCMAnalyze:
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
-            result = runner.invoke(["dcm", "analyze", "fooBar"])
+            result = runner.invoke(["dcm", "compile", "fooBar"])
 
         assert result.exit_code == 1, result.output
         assert "sources/definitions/bad.sql" in result.output
@@ -1574,7 +1574,7 @@ class TestDCMAnalyze:
         assert "Static analysis of DCM Project files found 2 errors." in result.output
         assert "sources/definitions/ok.sql" not in result.output
 
-    def test_analyze_with_variables(
+    def test_compile_with_variables(
         self,
         mock_dcm_manager,
         mock_deploy_tracker,
@@ -1591,7 +1591,7 @@ class TestDCMAnalyze:
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
-            result = runner.invoke(["dcm", "analyze", "fooBar", "-D", "key=value"])
+            result = runner.invoke(["dcm", "compile", "fooBar", "-D", "key=value"])
 
         assert result.exit_code == 0, result.output
         mock_dcm_manager().raw_analyze.assert_called_once_with(
@@ -1600,10 +1600,10 @@ class TestDCMAnalyze:
             from_stage="TMP_STAGE",
             variables=["key=value"],
             save_output=False,
-            command_name="analyze",
+            command_name="compile",
         )
 
-    def test_analyze_with_target(
+    def test_compile_with_target(
         self,
         mock_dcm_manager,
         mock_deploy_tracker,
@@ -1634,7 +1634,7 @@ class TestDCMAnalyze:
         )
 
         with project_directory("dcm_project"):
-            result = runner.invoke(["dcm", "analyze", "--target", "dev"])
+            result = runner.invoke(["dcm", "compile", "--target", "dev"])
 
         assert result.exit_code == 0, result.output
         mock_dcm_manager().raw_analyze.assert_called_once_with(
@@ -1643,10 +1643,10 @@ class TestDCMAnalyze:
             from_stage="TMP_STAGE",
             variables=None,
             save_output=False,
-            command_name="analyze",
+            command_name="compile",
         )
 
-    def test_analyze_with_save_output(
+    def test_compile_with_save_output(
         self,
         mock_dcm_manager,
         mock_deploy_tracker,
@@ -1663,7 +1663,7 @@ class TestDCMAnalyze:
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
-            result = runner.invoke(["dcm", "analyze", "fooBar", "--save-output"])
+            result = runner.invoke(["dcm", "compile", "fooBar", "--save-output"])
 
         assert result.exit_code == 0, result.output
         mock_dcm_manager().raw_analyze.assert_called_once_with(
@@ -1672,10 +1672,10 @@ class TestDCMAnalyze:
             from_stage="TMP_STAGE",
             variables=None,
             save_output=True,
-            command_name="analyze",
+            command_name="compile",
         )
 
-    def test_analyze_with_save_output_saves_response(
+    def test_compile_with_save_output_saves_response(
         self,
         mock_dcm_manager,
         mock_deploy_tracker,
@@ -1707,26 +1707,26 @@ class TestDCMAnalyze:
         mock_manifest_load.return_value = _manifest_without_config()
 
         with change_directory(tmp_path):
-            result = runner.invoke(["dcm", "analyze", "fooBar", "--save-output"])
+            result = runner.invoke(["dcm", "compile", "fooBar", "--save-output"])
 
             assert result.exit_code == 0, result.output
-            _assert_json_dumped("analyze", analyze_response, tmp_path)
+            _assert_json_dumped("compile", analyze_response, tmp_path)
 
-    def test_analyze_from_stage_fails(
+    def test_compile_from_stage_fails(
         self, mock_dcm_manager, runner, project_directory
     ):
-        result = runner.invoke(["dcm", "analyze", "fooBar", "--from", "@my_stage"])
+        result = runner.invoke(["dcm", "compile", "fooBar", "--from", "@my_stage"])
         assert result.exit_code == 1, result.output
         assert "Stage paths are not supported" in result.output
 
-    def test_analyze_hidden_from_help_without_early_access(self, runner):
+    def test_compile_hidden_from_help_without_early_access(self, runner):
         """The analyze command is gated on ENABLE_DCM_EARLY_ACCESS and hidden by default."""
         result = runner.invoke(["dcm", "--help"])
         assert result.exit_code == 0
-        assert "analyze" not in result.output
+        assert "compile" not in result.output
 
     @pytest.mark.parametrize("format_name", ["json", "json_ext"])
-    def test_analyze_with_json_formats_returns_response(
+    def test_compile_with_json_formats_returns_response(
         self,
         mock_dcm_manager,
         mock_deploy_tracker,
@@ -1746,7 +1746,7 @@ class TestDCMAnalyze:
 
         with project_directory("dcm_project"):
             result = runner.invoke(
-                ["dcm", "analyze", "fooBar", "--format", format_name]
+                ["dcm", "compile", "fooBar", "--format", format_name]
             )
 
         assert result.exit_code == 0, result.output

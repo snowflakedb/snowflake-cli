@@ -160,8 +160,7 @@ def _load_debug_data(command_name: str, file_number: int):
         if command_name in (
             "test",
             "refresh",
-            "analyze",
-            "analyze-errors",
+            "compile",
             "dependencies",
         ):
             data = data[0]
