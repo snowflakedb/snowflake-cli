@@ -29,6 +29,31 @@ DEFAULT_PERSONAL_SCHEMA = "PUBLIC"
 DEFAULT_PERSONAL_WORKSPACE_NAME = "SNOWFLAKE_APPS"
 WORKSPACE_LIVE_VERSION_PATH = "versions/live"
 
+# Snowflake assigns every user a *personal database* named ``USER$<username>``.
+# Personal databases do not support stages, so app code destined for one must
+# be uploaded to a workspace instead. The ``USER$`` prefix is system-assigned
+# and always upper case; the username portion's case is preserved by Snowflake
+# and is irrelevant to this check.
+PERSONAL_DATABASE_PREFIX = "USER$"
+
+
+def is_personal_database(database: Optional[str]) -> bool:
+    """Return ``True`` when *database* is a Snowflake personal database (PDB).
+
+    Personal databases are named ``USER$<username>`` and do not support
+    stages, so the Snowflake App Runtime flow must upload code to a workspace
+    rather than a stage whenever the resolved destination is one of them.
+
+    The check tolerates quoted identifiers (e.g.
+    ``"USER$first.last@domain.com"``) by stripping the surrounding quotes
+    before matching the system-assigned ``USER$`` prefix.
+    """
+    if not database:
+        return False
+    name = identifier_to_str(database.strip())
+    return name.upper().startswith(PERSONAL_DATABASE_PREFIX)
+
+
 # Snowsight admin-setup docs, surfaced when the account-configured destination
 # database/schema is not accessible to the current role so the user knows where
 # to ask their administrator for access.
@@ -55,7 +80,7 @@ from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import ProjectPaths
-from snowflake.cli.api.project.util import to_identifier
+from snowflake.cli.api.project.util import identifier_to_str, to_identifier
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
