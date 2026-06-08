@@ -16,8 +16,10 @@ from unittest.mock import Mock, patch
 
 import pytest
 from snowflake.cli._plugins.apps.commands import (
+    _CodeStorage,
     _log_service_logs,
     _make_build_log_streamer,
+    _resolve_code_storage,
 )
 from snowflake.cli._plugins.apps.generate import (
     _generate_snowflake_yml,
@@ -32,6 +34,7 @@ from snowflake.cli._plugins.apps.manager import (
     _resolve_entity_id,
     _ts,
     app_fqn,
+    is_personal_database,
     perform_bundle,
 )
 from snowflake.cli.api.cli_global_context import get_cli_context_manager
@@ -1089,6 +1092,27 @@ class TestSnowflakeAppManager:
         mock_execute.return_value = cursor
 
         assert SnowflakeAppManager().get_personal_database() is None
+
+    @pytest.mark.parametrize(
+        "database, expected",
+        [
+            ("USER$ADMIN", True),
+            ("user$admin", True),  # prefix match is case-insensitive
+            ("USER$guy.bloom@snowflake.com", True),
+            ('"USER$guy.bloom@snowflake.com"', True),  # quoted identifier
+            ('"USER$first.last@x.com"', True),
+            ("TEST_DB", False),
+            ("MY_USER_DB", False),  # USER$ prefix only, not substring
+            ("DB$USER", False),
+            ("", False),
+            (None, False),
+        ],
+    )
+    def test_is_personal_database(self, database, expected):
+        """Personal databases are named ``USER$<user>`` and must be detected
+        regardless of identifier quoting so the deploy flow routes them to a
+        workspace (stages are unsupported in personal databases)."""
+        assert is_personal_database(database) is expected
 
     @patch(EXECUTE_QUERY)
     def test_stage_exists_returns_true(self, mock_execute):
@@ -3198,6 +3222,37 @@ class TestSetupCommand:
         "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
         return_value="definition_version: '2'\n",
     )
+    @patch("snowflake.cli._plugins.apps.commands.get_connection_dict")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_setup_uses_workspace_when_session_database_is_personal(
+        self, mock_mgr_cls, mock_get_conn, mock_gen, runner, tmp_path
+    ):
+        """A personal database resolved from the session (not the personal-DB
+        default tier, e.g. because ``get_personal_database`` returned ``None``)
+        must still emit ``code_workspace`` — personal databases never support
+        stages."""
+        mock_get_conn.return_value = {"database": "USER$SNOTEBAERT"}
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "schema": "PUBLIC",
+            "query_warehouse": "PARAM_WH",
+        }
+        mock_mgr.get_personal_database.return_value = None
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+            assert result.exit_code == 0, result.output
+
+        resolved = mock_gen.call_args[0][1]
+        assert resolved["database"] == "USER$SNOTEBAERT"
+        assert mock_gen.call_args.kwargs["use_workspace"] is True
+
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
+        return_value="definition_version: '2'\n",
+    )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_managed_compute_pool_omits_compute_pools(
         self, mock_mgr_cls, mock_gen, runner, tmp_path
@@ -4270,6 +4325,92 @@ class TestEventsCommand:
             assert span[CLIMetricsSpan.ERROR_KEY] == ProgrammingError.__name__
 
 
+class TestResolveCodeStorage:
+    """Unit coverage for the workspace-vs-stage backend selection.
+
+    A personal database (``USER$<user>``) never supports stages, so the
+    resolver must route every personal-database destination to a workspace —
+    even when ``snowflake.yml`` explicitly configures a stage or omits code
+    storage entirely.
+    """
+
+    @staticmethod
+    def _entity(*, code_stage=None, code_workspace=None):
+        entity = Mock()
+        entity.code_stage = code_stage
+        entity.code_workspace = code_workspace
+        return entity
+
+    def test_explicit_workspace_is_honored(self):
+        ws = Mock(database="WS_DB", schema_="WS_SCHEMA")
+        ws.name = "MY_WS"
+        storage = _resolve_code_storage(
+            self._entity(code_workspace=ws),
+            database="TEST_DB",
+            schema="TEST_SCHEMA",
+            app_name="MY_APP",
+        )
+        assert storage == _CodeStorage(
+            use_workspace=True,
+            name="MY_WS",
+            database_override="WS_DB",
+            schema_override="WS_SCHEMA",
+            encryption_type="SNOWFLAKE_SSE",
+        )
+
+    def test_explicit_stage_on_regular_db_is_honored(self):
+        stage = Mock(database=None, schema_=None, encryption_type="SNOWFLAKE_SSE")
+        stage.name = "MY_STAGE"
+        storage = _resolve_code_storage(
+            self._entity(code_stage=stage),
+            database="TEST_DB",
+            schema="TEST_SCHEMA",
+            app_name="MY_APP",
+        )
+        assert storage.use_workspace is False
+        assert storage.name == "MY_STAGE"
+
+    def test_explicit_stage_on_personal_db_is_overridden_to_workspace(self):
+        """A ``code_stage`` aimed at a personal database (as produced by older
+        ``snow app setup`` runs) is repaired by routing to the shared
+        workspace, since the stage could never be created there."""
+        stage = Mock(database=None, schema_=None, encryption_type="SNOWFLAKE_SSE")
+        stage.name = "MY_APP_CODE"
+        storage = _resolve_code_storage(
+            self._entity(code_stage=stage),
+            database="USER$SNOTEBAERT",
+            schema="PUBLIC",
+            app_name="MY_APP",
+        )
+        assert storage == _CodeStorage(
+            use_workspace=True,
+            name="SNOWFLAKE_APPS",
+            database_override=None,
+            schema_override=None,
+            encryption_type="SNOWFLAKE_SSE",
+        )
+
+    def test_no_code_storage_on_regular_db_defaults_to_stage(self):
+        storage = _resolve_code_storage(
+            self._entity(),
+            database="TEST_DB",
+            schema="TEST_SCHEMA",
+            app_name="MY_APP",
+        )
+        assert storage.use_workspace is False
+        assert storage.name == "MY_APP_CODE"
+
+    def test_no_code_storage_on_personal_db_defaults_to_workspace(self):
+        storage = _resolve_code_storage(
+            self._entity(),
+            database="USER$SNOTEBAERT",
+            schema="PUBLIC",
+            app_name="MY_APP",
+        )
+        assert storage.use_workspace is True
+        assert storage.name == "SNOWFLAKE_APPS"
+
+
 # ── Deploy CLI command tests ──────────────────────────────────────────
 
 
@@ -5165,6 +5306,112 @@ class TestDeployCommand:
             compute_pool="BUILD_POOL",
             database="TEST_DB",
             schema="TEST_SCHEMA",
+            runtime_image="runtime:latest",
+            build_eai="MY_EAI",
+            project_type="",
+        )
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.StageManager")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "USER$SNOTEBAERT",
+            "schema": "PUBLIC",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "USER$SNOTEBAERT",
+            "artifact_repo_schema": "PUBLIC",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_personal_db_with_code_stage_uses_workspace(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        mock_stage_manager_cls,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """A ``code_stage`` pointing at a personal database (produced by older
+        ``snow app setup`` runs) must be repaired at deploy time: code is
+        uploaded to the shared workspace, no stage is created, and the user is
+        warned."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "USER$SNOTEBAERT"
+        fqn.schema = "PUBLIC"
+        entity.fqn = fqn
+        entity.code_stage = Mock(
+            encryption_type="SNOWFLAKE_SSE",
+            database=None,
+            schema_=None,
+        )
+        entity.code_stage.name = "MY_APP_CODE"
+        entity.code_workspace = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.runtime_image = "runtime:latest"
+        entity.query_warehouse = "WH"
+        entity.artifact_repository = None
+        entity.build_compute_pool = None
+        entity.service_compute_pool = None
+        entity.build_eai = None
+        mock_get_entity.return_value = entity
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.artifact_repo_exists.return_value = False
+        mock_mgr.workspace_last_subdirectory_uri.return_value = "snow://workspace/USER$SNOTEBAERT.PUBLIC.SNOWFLAKE_APPS/versions/last/MY_APP"
+        mock_mgr.build_app_artifact_repo.return_value = (
+            "Build job submitted: USER$SNOTEBAERT.PUBLIC.BUILD_JOB_123"
+        )
+        mock_poll.side_effect = [
+            "DONE",
+            {
+                "url": "my-app.snowflakecomputing.app",
+                "is_upgrading": "false",
+            },
+        ]
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "deploy"])
+            assert result.exit_code == 0, result.output
+            assert "does not support stages" in result.output
+
+        mock_mgr.create_stage.assert_not_called()
+        mock_mgr.create_workspace.assert_called_once_with(
+            FQN(database="USER$SNOTEBAERT", schema="PUBLIC", name="SNOWFLAKE_APPS")
+        )
+        mock_mgr.build_app_artifact_repo.assert_called_once_with(
+            source_uri=mock_mgr.workspace_last_subdirectory_uri.return_value,
+            artifact_repo_fqn="USER$SNOTEBAERT.PUBLIC.MY_APP_REPO",
+            app_id="MY_APP",
+            compute_pool="BUILD_POOL",
+            database="USER$SNOTEBAERT",
+            schema="PUBLIC",
             runtime_image="runtime:latest",
             build_eai="MY_EAI",
             project_type="",
