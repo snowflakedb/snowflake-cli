@@ -5836,6 +5836,25 @@
   |                                            Full list of supported versions   |
   |                                            can be found at                   |
   |                                            https://docs.snowflake.com/en/us… |
+  | --env                                TEXT  Selects the target environment    |
+  |                                            from env.yml at execution time.   |
+  |                                            Use 'NO_ENV' to skip env.yml      |
+  |                                            entirely.                         |
+  | --env-vars                           TEXT  Environment variable overrides as |
+  |                                            a YAML/JSON object, e.g.          |
+  |                                            '{"DBT_FOO": "1", "DBT_BAR":      |
+  |                                            "2"}'. Values must be strings;    |
+  |                                            numbers, booleans, null, nested   |
+  |                                            objects, and arrays are rejected  |
+  |                                            (quote scalars, e.g. 'DBT_FOO:    |
+  |                                            "1"'). Keys must start with       |
+  |                                            'DBT_' and contain only letters,  |
+  |                                            digits, and underscores. Values   |
+  |                                            with the DBT_ENV_SECRET_ prefix   |
+  |                                            are accepted but appear in the    |
+  |                                            SQL text and query history; for   |
+  |                                            real secrets prefer the secrets:  |
+  |                                            block in env.yml.                 |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -6021,6 +6040,25 @@
   |                                            Full list of supported versions   |
   |                                            can be found at                   |
   |                                            https://docs.snowflake.com/en/us… |
+  | --env                                TEXT  Selects the target environment    |
+  |                                            from env.yml at execution time.   |
+  |                                            Use 'NO_ENV' to skip env.yml      |
+  |                                            entirely.                         |
+  | --env-vars                           TEXT  Environment variable overrides as |
+  |                                            a YAML/JSON object, e.g.          |
+  |                                            '{"DBT_FOO": "1", "DBT_BAR":      |
+  |                                            "2"}'. Values must be strings;    |
+  |                                            numbers, booleans, null, nested   |
+  |                                            objects, and arrays are rejected  |
+  |                                            (quote scalars, e.g. 'DBT_FOO:    |
+  |                                            "1"'). Keys must start with       |
+  |                                            'DBT_' and contain only letters,  |
+  |                                            digits, and underscores. Values   |
+  |                                            with the DBT_ENV_SECRET_ prefix   |
+  |                                            are accepted but appear in the    |
+  |                                            SQL text and query history; for   |
+  |                                            real secrets prefer the secrets:  |
+  |                                            block in env.yml.                 |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -6206,6 +6244,25 @@
   |                                            Full list of supported versions   |
   |                                            can be found at                   |
   |                                            https://docs.snowflake.com/en/us… |
+  | --env                                TEXT  Selects the target environment    |
+  |                                            from env.yml at execution time.   |
+  |                                            Use 'NO_ENV' to skip env.yml      |
+  |                                            entirely.                         |
+  | --env-vars                           TEXT  Environment variable overrides as |
+  |                                            a YAML/JSON object, e.g.          |
+  |                                            '{"DBT_FOO": "1", "DBT_BAR":      |
+  |                                            "2"}'. Values must be strings;    |
+  |                                            numbers, booleans, null, nested   |
+  |                                            objects, and arrays are rejected  |
+  |                                            (quote scalars, e.g. 'DBT_FOO:    |
+  |                                            "1"'). Keys must start with       |
+  |                                            'DBT_' and contain only letters,  |
+  |                                            digits, and underscores. Values   |
+  |                                            with the DBT_ENV_SECRET_ prefix   |
+  |                                            are accepted but appear in the    |
+  |                                            SQL text and query history; for   |
+  |                                            real secrets prefer the secrets:  |
+  |                                            block in env.yml.                 |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -6391,6 +6448,25 @@
   |                                            Full list of supported versions   |
   |                                            can be found at                   |
   |                                            https://docs.snowflake.com/en/us… |
+  | --env                                TEXT  Selects the target environment    |
+  |                                            from env.yml at execution time.   |
+  |                                            Use 'NO_ENV' to skip env.yml      |
+  |                                            entirely.                         |
+  | --env-vars                           TEXT  Environment variable overrides as |
+  |                                            a YAML/JSON object, e.g.          |
+  |                                            '{"DBT_FOO": "1", "DBT_BAR":      |
+  |                                            "2"}'. Values must be strings;    |
+  |                                            numbers, booleans, null, nested   |
+  |                                            objects, and arrays are rejected  |
+  |                                            (quote scalars, e.g. 'DBT_FOO:    |
+  |                                            "1"'). Keys must start with       |
+  |                                            'DBT_' and contain only letters,  |
+  |                                            digits, and underscores. Values   |
+  |                                            with the DBT_ENV_SECRET_ prefix   |
+  |                                            are accepted but appear in the    |
+  |                                            SQL text and query history; for   |
+  |                                            real secrets prefer the secrets:  |
+  |                                            block in env.yml.                 |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -6576,6 +6652,25 @@
   |                                            Full list of supported versions   |
   |                                            can be found at                   |
   |                                            https://docs.snowflake.com/en/us… |
+  | --env                                TEXT  Selects the target environment    |
+  |                                            from env.yml at execution time.   |
+  |                                            Use 'NO_ENV' to skip env.yml      |
+  |                                            entirely.                         |
+  | --env-vars                           TEXT  Environment variable overrides as |
+  |                                            a YAML/JSON object, e.g.          |
+  |                                            '{"DBT_FOO": "1", "DBT_BAR":      |
+  |                                            "2"}'. Values must be strings;    |
+  |                                            numbers, booleans, null, nested   |
+  |                                            objects, and arrays are rejected  |
+  |                                            (quote scalars, e.g. 'DBT_FOO:    |
+  |                                            "1"'). Keys must start with       |
+  |                                            'DBT_' and contain only letters,  |
+  |                                            digits, and underscores. Values   |
+  |                                            with the DBT_ENV_SECRET_ prefix   |
+  |                                            are accepted but appear in the    |
+  |                                            SQL text and query history; for   |
+  |                                            real secrets prefer the secrets:  |
+  |                                            block in env.yml.                 |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -6761,6 +6856,25 @@
   |                                            Full list of supported versions   |
   |                                            can be found at                   |
   |                                            https://docs.snowflake.com/en/us… |
+  | --env                                TEXT  Selects the target environment    |
+  |                                            from env.yml at execution time.   |
+  |                                            Use 'NO_ENV' to skip env.yml      |
+  |                                            entirely.                         |
+  | --env-vars                           TEXT  Environment variable overrides as |
+  |                                            a YAML/JSON object, e.g.          |
+  |                                            '{"DBT_FOO": "1", "DBT_BAR":      |
+  |                                            "2"}'. Values must be strings;    |
+  |                                            numbers, booleans, null, nested   |
+  |                                            objects, and arrays are rejected  |
+  |                                            (quote scalars, e.g. 'DBT_FOO:    |
+  |                                            "1"'). Keys must start with       |
+  |                                            'DBT_' and contain only letters,  |
+  |                                            digits, and underscores. Values   |
+  |                                            with the DBT_ENV_SECRET_ prefix   |
+  |                                            are accepted but appear in the    |
+  |                                            SQL text and query history; for   |
+  |                                            real secrets prefer the secrets:  |
+  |                                            block in env.yml.                 |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -6946,6 +7060,25 @@
   |                                            Full list of supported versions   |
   |                                            can be found at                   |
   |                                            https://docs.snowflake.com/en/us… |
+  | --env                                TEXT  Selects the target environment    |
+  |                                            from env.yml at execution time.   |
+  |                                            Use 'NO_ENV' to skip env.yml      |
+  |                                            entirely.                         |
+  | --env-vars                           TEXT  Environment variable overrides as |
+  |                                            a YAML/JSON object, e.g.          |
+  |                                            '{"DBT_FOO": "1", "DBT_BAR":      |
+  |                                            "2"}'. Values must be strings;    |
+  |                                            numbers, booleans, null, nested   |
+  |                                            objects, and arrays are rejected  |
+  |                                            (quote scalars, e.g. 'DBT_FOO:    |
+  |                                            "1"'). Keys must start with       |
+  |                                            'DBT_' and contain only letters,  |
+  |                                            digits, and underscores. Values   |
+  |                                            with the DBT_ENV_SECRET_ prefix   |
+  |                                            are accepted but appear in the    |
+  |                                            SQL text and query history; for   |
+  |                                            real secrets prefer the secrets:  |
+  |                                            block in env.yml.                 |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -7131,6 +7264,25 @@
   |                                            Full list of supported versions   |
   |                                            can be found at                   |
   |                                            https://docs.snowflake.com/en/us… |
+  | --env                                TEXT  Selects the target environment    |
+  |                                            from env.yml at execution time.   |
+  |                                            Use 'NO_ENV' to skip env.yml      |
+  |                                            entirely.                         |
+  | --env-vars                           TEXT  Environment variable overrides as |
+  |                                            a YAML/JSON object, e.g.          |
+  |                                            '{"DBT_FOO": "1", "DBT_BAR":      |
+  |                                            "2"}'. Values must be strings;    |
+  |                                            numbers, booleans, null, nested   |
+  |                                            objects, and arrays are rejected  |
+  |                                            (quote scalars, e.g. 'DBT_FOO:    |
+  |                                            "1"'). Keys must start with       |
+  |                                            'DBT_' and contain only letters,  |
+  |                                            digits, and underscores. Values   |
+  |                                            with the DBT_ENV_SECRET_ prefix   |
+  |                                            are accepted but appear in the    |
+  |                                            SQL text and query history; for   |
+  |                                            real secrets prefer the secrets:  |
+  |                                            block in env.yml.                 |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -7316,6 +7468,25 @@
   |                                            Full list of supported versions   |
   |                                            can be found at                   |
   |                                            https://docs.snowflake.com/en/us… |
+  | --env                                TEXT  Selects the target environment    |
+  |                                            from env.yml at execution time.   |
+  |                                            Use 'NO_ENV' to skip env.yml      |
+  |                                            entirely.                         |
+  | --env-vars                           TEXT  Environment variable overrides as |
+  |                                            a YAML/JSON object, e.g.          |
+  |                                            '{"DBT_FOO": "1", "DBT_BAR":      |
+  |                                            "2"}'. Values must be strings;    |
+  |                                            numbers, booleans, null, nested   |
+  |                                            objects, and arrays are rejected  |
+  |                                            (quote scalars, e.g. 'DBT_FOO:    |
+  |                                            "1"'). Keys must start with       |
+  |                                            'DBT_' and contain only letters,  |
+  |                                            digits, and underscores. Values   |
+  |                                            with the DBT_ENV_SECRET_ prefix   |
+  |                                            are accepted but appear in the    |
+  |                                            SQL text and query history; for   |
+  |                                            real secrets prefer the secrets:  |
+  |                                            block in env.yml.                 |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -7501,6 +7672,25 @@
   |                                            Full list of supported versions   |
   |                                            can be found at                   |
   |                                            https://docs.snowflake.com/en/us… |
+  | --env                                TEXT  Selects the target environment    |
+  |                                            from env.yml at execution time.   |
+  |                                            Use 'NO_ENV' to skip env.yml      |
+  |                                            entirely.                         |
+  | --env-vars                           TEXT  Environment variable overrides as |
+  |                                            a YAML/JSON object, e.g.          |
+  |                                            '{"DBT_FOO": "1", "DBT_BAR":      |
+  |                                            "2"}'. Values must be strings;    |
+  |                                            numbers, booleans, null, nested   |
+  |                                            objects, and arrays are rejected  |
+  |                                            (quote scalars, e.g. 'DBT_FOO:    |
+  |                                            "1"'). Keys must start with       |
+  |                                            'DBT_' and contain only letters,  |
+  |                                            digits, and underscores. Values   |
+  |                                            with the DBT_ENV_SECRET_ prefix   |
+  |                                            are accepted but appear in the    |
+  |                                            SQL text and query history; for   |
+  |                                            real secrets prefer the secrets:  |
+  |                                            block in env.yml.                 |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -7686,6 +7876,25 @@
   |                                            Full list of supported versions   |
   |                                            can be found at                   |
   |                                            https://docs.snowflake.com/en/us… |
+  | --env                                TEXT  Selects the target environment    |
+  |                                            from env.yml at execution time.   |
+  |                                            Use 'NO_ENV' to skip env.yml      |
+  |                                            entirely.                         |
+  | --env-vars                           TEXT  Environment variable overrides as |
+  |                                            a YAML/JSON object, e.g.          |
+  |                                            '{"DBT_FOO": "1", "DBT_BAR":      |
+  |                                            "2"}'. Values must be strings;    |
+  |                                            numbers, booleans, null, nested   |
+  |                                            objects, and arrays are rejected  |
+  |                                            (quote scalars, e.g. 'DBT_FOO:    |
+  |                                            "1"'). Keys must start with       |
+  |                                            'DBT_' and contain only letters,  |
+  |                                            digits, and underscores. Values   |
+  |                                            with the DBT_ENV_SECRET_ prefix   |
+  |                                            are accepted but appear in the    |
+  |                                            SQL text and query history; for   |
+  |                                            real secrets prefer the secrets:  |
+  |                                            block in env.yml.                 |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -7871,6 +8080,25 @@
   |                                            Full list of supported versions   |
   |                                            can be found at                   |
   |                                            https://docs.snowflake.com/en/us… |
+  | --env                                TEXT  Selects the target environment    |
+  |                                            from env.yml at execution time.   |
+  |                                            Use 'NO_ENV' to skip env.yml      |
+  |                                            entirely.                         |
+  | --env-vars                           TEXT  Environment variable overrides as |
+  |                                            a YAML/JSON object, e.g.          |
+  |                                            '{"DBT_FOO": "1", "DBT_BAR":      |
+  |                                            "2"}'. Values must be strings;    |
+  |                                            numbers, booleans, null, nested   |
+  |                                            objects, and arrays are rejected  |
+  |                                            (quote scalars, e.g. 'DBT_FOO:    |
+  |                                            "1"'). Keys must start with       |
+  |                                            'DBT_' and contain only letters,  |
+  |                                            digits, and underscores. Values   |
+  |                                            with the DBT_ENV_SECRET_ prefix   |
+  |                                            are accepted but appear in the    |
+  |                                            SQL text and query history; for   |
+  |                                            real secrets prefer the secrets:  |
+  |                                            block in env.yml.                 |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -8056,6 +8284,25 @@
   |                                            Full list of supported versions   |
   |                                            can be found at                   |
   |                                            https://docs.snowflake.com/en/us… |
+  | --env                                TEXT  Selects the target environment    |
+  |                                            from env.yml at execution time.   |
+  |                                            Use 'NO_ENV' to skip env.yml      |
+  |                                            entirely.                         |
+  | --env-vars                           TEXT  Environment variable overrides as |
+  |                                            a YAML/JSON object, e.g.          |
+  |                                            '{"DBT_FOO": "1", "DBT_BAR":      |
+  |                                            "2"}'. Values must be strings;    |
+  |                                            numbers, booleans, null, nested   |
+  |                                            objects, and arrays are rejected  |
+  |                                            (quote scalars, e.g. 'DBT_FOO:    |
+  |                                            "1"'). Keys must start with       |
+  |                                            'DBT_' and contain only letters,  |
+  |                                            digits, and underscores. Values   |
+  |                                            with the DBT_ENV_SECRET_ prefix   |
+  |                                            are accepted but appear in the    |
+  |                                            SQL text and query history; for   |
+  |                                            real secrets prefer the secrets:  |
+  |                                            block in env.yml.                 |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -25171,6 +25418,25 @@
   |                                            Full list of supported versions   |
   |                                            can be found at                   |
   |                                            https://docs.snowflake.com/en/us… |
+  | --env                                TEXT  Selects the target environment    |
+  |                                            from env.yml at execution time.   |
+  |                                            Use 'NO_ENV' to skip env.yml      |
+  |                                            entirely.                         |
+  | --env-vars                           TEXT  Environment variable overrides as |
+  |                                            a YAML/JSON object, e.g.          |
+  |                                            '{"DBT_FOO": "1", "DBT_BAR":      |
+  |                                            "2"}'. Values must be strings;    |
+  |                                            numbers, booleans, null, nested   |
+  |                                            objects, and arrays are rejected  |
+  |                                            (quote scalars, e.g. 'DBT_FOO:    |
+  |                                            "1"'). Keys must start with       |
+  |                                            'DBT_' and contain only letters,  |
+  |                                            digits, and underscores. Values   |
+  |                                            with the DBT_ENV_SECRET_ prefix   |
+  |                                            are accepted but appear in the    |
+  |                                            SQL text and query history; for   |
+  |                                            real secrets prefer the secrets:  |
+  |                                            block in env.yml.                 |
   | --help         -h                          Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+

@@ -204,6 +204,26 @@ def before_callback(
         show_default=False,
         help="dbt Core version to use for execution (ephemeral, does not change project configuration). Full list of supported versions can be found at https://docs.snowflake.com/en/user-guide/data-engineering/dbt-projects-on-snowflake-dbt-core-versions",
     ),
+    environment: Optional[str] = typer.Option(
+        None,
+        "--env",
+        show_default=False,
+        help="Selects the target environment from env.yml at execution time. "
+        "Use 'NO_ENV' to skip env.yml entirely.",
+    ),
+    env_vars: Optional[str] = typer.Option(
+        None,
+        "--env-vars",
+        show_default=False,
+        help="Environment variable overrides as a YAML/JSON object, e.g. "
+        '\'{"DBT_FOO": "1", "DBT_BAR": "2"}\'. '
+        "Values must be strings; numbers, booleans, null, nested objects, "
+        "and arrays are rejected (quote scalars, e.g. 'DBT_FOO: \"1\"'). "
+        "Keys must start with 'DBT_' and contain only letters, digits, and "
+        "underscores. Values with the DBT_ENV_SECRET_ prefix are accepted "
+        "but appear in the SQL text and query history; for real secrets "
+        "prefer the secrets: block in env.yml.",
+    ),
     **options,
 ):
     """Handles global options passed before the command and takes pipeline name to be accessed through child context later."""
@@ -228,7 +248,17 @@ for cmd in DBT_COMMANDS:
         name = FQN.from_string(ctx.parent.params["name"])
         run_async = ctx.parent.params["run_async"]
         dbt_version = ctx.parent.params.get("dbt_version")
-        execute_args = (dbt_command, name, run_async, dbt_version, *dbt_cli_args)
+        environment = ctx.parent.params.get("environment")
+        env_vars = ctx.parent.params.get("env_vars")
+        execute_args = (
+            dbt_command,
+            name,
+            run_async,
+            dbt_version,
+            environment,
+            env_vars,
+            *dbt_cli_args,
+        )
         dbt_manager = DBTManager()
 
         if run_async is True:

@@ -937,3 +937,215 @@ class TestValidateRole:
 
         assert result is False
         mock_execute_query.assert_called_once_with("use role invalid_role")
+
+
+class TestExecute:
+    @pytest.mark.parametrize(
+        "kwargs,extra_args,expected_query",
+        [
+            pytest.param(
+                {"environment": "dev"},
+                (),
+                "EXECUTE DBT PROJECT pipeline ENVIRONMENT='dev' args='run'",
+                id="environment-only",
+            ),
+            pytest.param(
+                {"environment": "NO_ENV"},
+                (),
+                "EXECUTE DBT PROJECT pipeline ENVIRONMENT='NO_ENV' args='run'",
+                id="environment-no-env-sentinel",
+            ),
+            pytest.param(
+                {"env_vars": '{"DBT_FOO": "1"}'},
+                (),
+                "EXECUTE DBT PROJECT pipeline ENV_VARS=('DBT_FOO'='1') args='run'",
+                id="env-vars-json-single",
+            ),
+            pytest.param(
+                {"env_vars": '{"DBT_FOO": "1", "DBT_BAR": "2"}'},
+                (),
+                "EXECUTE DBT PROJECT pipeline "
+                "ENV_VARS=('DBT_FOO'='1', 'DBT_BAR'='2') args='run'",
+                id="env-vars-json-multi",
+            ),
+            pytest.param(
+                {"env_vars": "{DBT_FOO: '1', DBT_BAR: '2'}"},
+                (),
+                "EXECUTE DBT PROJECT pipeline "
+                "ENV_VARS=('DBT_FOO'='1', 'DBT_BAR'='2') args='run'",
+                id="env-vars-yaml-quoted-strings",
+            ),
+            pytest.param(
+                {"env_vars": '{"DBT_URL": "https://example.com/?a=b"}'},
+                (),
+                "EXECUTE DBT PROJECT pipeline "
+                "ENV_VARS=('DBT_URL'='https://example.com/?a=b') args='run'",
+                id="env-vars-value-with-equals",
+            ),
+            pytest.param(
+                {"env_vars": 'DBT_MSG: "it\'s"'},
+                (),
+                "EXECUTE DBT PROJECT pipeline "
+                "ENV_VARS=('DBT_MSG'='it\\'s') args='run'",
+                id="env-vars-value-with-single-quote-escaped",
+            ),
+            pytest.param(
+                {
+                    "dbt_version": "1.9.0",
+                    "environment": "prod",
+                    "env_vars": '{"DBT_FOO": "1"}',
+                },
+                (),
+                "EXECUTE DBT PROJECT pipeline dbt_version='1.9.0' "
+                "ENVIRONMENT='prod' ENV_VARS=('DBT_FOO'='1') args='run'",
+                id="all-options-ordering",
+            ),
+        ],
+    )
+    def test_execute_builds_expected_sql(
+        self, mock_execute_query, kwargs, extra_args, expected_query
+    ):
+        DBTManager().execute(
+            "run",
+            FQN.from_string("pipeline"),
+            False,
+            kwargs.get("dbt_version"),
+            kwargs.get("environment"),
+            kwargs.get("env_vars"),
+            *extra_args,
+        )
+
+        mock_execute_query.assert_called_once_with(expected_query, _exec_async=False)
+
+    def test_execute_no_env_options_omits_clauses(self, mock_execute_query):
+        DBTManager().execute("run", FQN.from_string("pipeline"), False)
+
+        mock_execute_query.assert_called_once_with(
+            "EXECUTE DBT PROJECT pipeline args='run'", _exec_async=False
+        )
+
+    @pytest.mark.parametrize(
+        "raw_value,expected_error",
+        [
+            pytest.param(
+                '"just_a_string"',
+                "must be a YAML/JSON object",
+                id="non-mapping-string",
+            ),
+            pytest.param(
+                "[1, 2, 3]",
+                "must be a YAML/JSON object",
+                id="non-mapping-list",
+            ),
+            pytest.param(
+                '{"DBT_X": null}',
+                "must not be null",
+                id="null-value",
+            ),
+            pytest.param(
+                '{"DBT_X": 1}',
+                "must be a string",
+                id="int-value",
+            ),
+            pytest.param(
+                '{"DBT_X": 1.5}',
+                "must be a string",
+                id="float-value",
+            ),
+            pytest.param(
+                '{"DBT_X": true}',
+                "must be a string",
+                id="bool-value",
+            ),
+            pytest.param(
+                '{"DBT_X": {"nested": "1"}}',
+                "must be a string",
+                id="nested-object",
+            ),
+            pytest.param(
+                '{"DBT_X": ["1", "2"]}',
+                "must be a string",
+                id="nested-array",
+            ),
+            pytest.param(
+                "{not: valid: yaml: at: all",
+                "must be valid YAML/JSON",
+                id="malformed-yaml",
+            ),
+            pytest.param(
+                '{"DBT_FOO": "1", "DBT_FOO": "2"}',
+                "duplicate key",
+                id="duplicate-key",
+            ),
+            pytest.param(
+                '{"": "v"}',
+                "must not be empty",
+                id="empty-key",
+            ),
+            pytest.param(
+                '{"FOO": "1"}',
+                "must start with",
+                id="key-missing-dbt-prefix",
+            ),
+            pytest.param(
+                '{"DBT-FOO": "1"}',
+                "ASCII letters",
+                id="key-invalid-chars-hyphen",
+            ),
+            pytest.param(
+                '{"DBT FOO": "1"}',
+                "ASCII letters",
+                id="key-invalid-chars-space",
+            ),
+        ],
+    )
+    def test_execute_env_vars_invalid_input_raises(
+        self, mock_execute_query, raw_value, expected_error
+    ):
+        with pytest.raises(CliError) as exc:
+            DBTManager().execute(
+                "run",
+                FQN.from_string("pipeline"),
+                False,
+                None,
+                None,
+                raw_value,
+            )
+
+        assert expected_error in str(exc.value.message)
+        mock_execute_query.assert_not_called()
+
+    def test_execute_env_vars_secret_prefix_warns(self, mock_execute_query, capsys):
+        DBTManager().execute(
+            "run",
+            FQN.from_string("pipeline"),
+            False,
+            None,
+            None,
+            '{"DBT_ENV_SECRET_TOKEN": "xyz"}',
+        )
+
+        captured = capsys.readouterr()
+        assert "DBT_ENV_SECRET_" in captured.out
+        assert "DBT_ENV_SECRET_TOKEN" in captured.out
+        mock_execute_query.assert_called_once_with(
+            "EXECUTE DBT PROJECT pipeline "
+            "ENV_VARS=('DBT_ENV_SECRET_TOKEN'='xyz') args='run'",
+            _exec_async=False,
+        )
+
+    def test_execute_async_with_env_vars(self, mock_execute_query):
+        DBTManager().execute(
+            "compile",
+            FQN.from_string("pipeline"),
+            True,
+            None,
+            "dev",
+            '{"DBT_FOO": "1"}',
+        )
+
+        mock_execute_query.assert_called_once_with(
+            "EXECUTE DBT PROJECT pipeline ENVIRONMENT='dev' "
+            "ENV_VARS=('DBT_FOO'='1') args='compile'",
+            _exec_async=True,
+        )

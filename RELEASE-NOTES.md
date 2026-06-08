@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Added `--env` and `--env-vars` flags to `snow dbt execute`. `--env` selects an environment block from the project's `env.yml` at execution time (use `NO_ENV` to skip `env.yml` entirely). `--env-vars` accepts a YAML/JSON object of `KEY: value` overrides applied on top of the selected environment, mirroring `dbt run --vars` syntax. Values must be strings; nested objects, arrays, `null`, and unquoted non-string scalars (e.g. `1`, `true`) are rejected. Inline `DBT_ENV_SECRET_*` keys emit a warning pointing users to the safer `secrets:` block in `env.yml`.
 
 ## Fixes and improvements
 * Fixed `snow app setup` incorrectly treating system-default parameter values as admin-configured values. After running `ALTER ACCOUNT UNSET` on `DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL` or `DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL`, those fields no longer appear in the generated `snowflake.yml` or `--dry-run` output.

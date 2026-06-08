@@ -707,3 +707,79 @@ def test_execute_with_dbt_version(
         assert result.exit_code == 0, result.output
         assert "Running with dbt=1.10.15" in result.output
         assert "Done. PASS=2 WARN=0 ERROR=0 SKIP=0 NO-OP=0 TOTAL=2" in result.output
+
+
+@pytest.mark.integration
+def test_execute_with_env_and_env_vars(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    """Exercise --env and --env-vars against a real Snowflake DBT PROJECT.
+
+    Requires the test account to have ``ENABLE_DBT_ENV_VARS = TRUE`` (the
+    server-side parameter that gates ``ENV_VARS`` / ``ENVIRONMENT`` options on
+    ``EXECUTE DBT PROJECT``). This is the default in recent GS builds in QA /
+    integration channels; if the test fails with a parser error on
+    ``ENV_VARS=(...)``, check that the account is on a build that has the
+    feature enabled.
+
+    The fixture model reads DBT_FOO and DBT_BAR via dbt env_var() with a
+    "unset" default. env.yml defines two environments (dev, prod), each
+    setting both vars. We verify that:
+      * --env=dev applies the dev block
+      * --env=prod applies the prod block
+      * --env=prod --env-vars '{"DBT_FOO": "..."}' overrides DBT_FOO while
+        DBT_BAR still comes from env.yml
+      * --env=NO_ENV skips env.yml so env_var() falls back to the default
+    """
+    with project_directory("dbt_project_with_env_vars") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_project_env_{ts}"
+
+        _setup_dbt_profile(root_dir, snowflake_session)
+        result = runner.invoke_with_connection_json(["dbt", "deploy", name])
+        assert result.exit_code == 0, result.output
+
+        def _run_and_fetch(extra_args: list[str]) -> dict:
+            run_result = runner.invoke_passthrough_with_connection(
+                args=["dbt", "execute", *extra_args],
+                passthrough_args=[name, "run"],
+            )
+            assert run_result.exit_code == 0, run_result.output
+
+            query_result = runner.invoke_with_connection_json(
+                ["sql", "-q", "select foo, bar from my_first_dbt_model;"]
+            )
+            assert query_result.exit_code == 0, query_result.output
+            assert len(query_result.json) == 1, query_result.json
+            return query_result.json[0]
+
+        # 1. --env=dev → dev block from env.yml
+        row = _run_and_fetch(["--env=dev"])
+        assert row["FOO"] == "dev_foo", row
+        assert row["BAR"] == "dev_bar", row
+
+        # 2. --env=prod → prod block from env.yml
+        row = _run_and_fetch(["--env=prod"])
+        assert row["FOO"] == "prod_foo", row
+        assert row["BAR"] == "prod_bar", row
+
+        # 3. --env-vars overrides one key from the prod block
+        row = _run_and_fetch(
+            ["--env=prod", "--env-vars", '{"DBT_FOO": "override_foo"}']
+        )
+        assert row["FOO"] == "override_foo", row
+        assert row["BAR"] == "prod_bar", row
+
+        # 4. --env=NO_ENV skips env.yml → env_var() default fires
+        row = _run_and_fetch(["--env=NO_ENV"])
+        assert row["FOO"] == "unset", row
+        assert row["BAR"] == "unset", row
+
+        # 5. --env-vars without --env still applies (and env.yml's
+        # default_environment 'dev' provides the un-overridden var)
+        row = _run_and_fetch(["--env-vars", '{"DBT_FOO": "only_foo"}'])
+        assert row["FOO"] == "only_foo", row
+        assert row["BAR"] == "dev_bar", row
