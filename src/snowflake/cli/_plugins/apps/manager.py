@@ -29,6 +29,20 @@ DEFAULT_PERSONAL_SCHEMA = "PUBLIC"
 DEFAULT_PERSONAL_WORKSPACE_NAME = "SNOWFLAKE_APPS"
 WORKSPACE_LIVE_VERSION_PATH = "versions/live"
 
+# Snowsight admin-setup docs, surfaced when the account-configured destination
+# database/schema is not accessible to the current role so the user knows where
+# to ask their administrator for access.
+ACCOUNT_ADMIN_SETUP_URL = (
+    "https://docs.snowflake.com/en/developer-guide/snowflake-app-runtime/"
+    "account-admin-setup#after-setup"
+)
+
+# Placeholder object name used when probing destination privileges with
+# EXPLAIN_PRIVILEGES. The privileges required to create these objects depend on
+# the destination database/schema, not on the (not-yet-created) object name, so
+# a fixed placeholder is sufficient.
+PRIVILEGE_CHECK_OBJECT_NAME = "SNOWFLAKE_CLI_PRIVILEGE_CHECK"
+
 if TYPE_CHECKING:
     from snowflake.cli._plugins.apps.snowflake_app_entity_model import (
         SnowflakeAppEntityModel,
@@ -42,9 +56,11 @@ from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import ProjectPaths
 from snowflake.cli.api.project.util import to_identifier
+from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.utils.path_utils import resolve_without_follow
+from snowflake.cli.api.utils.tty import is_tty_interactive
 from snowflake.connector.cursor import DictCursor
 from snowflake.connector.errors import ProgrammingError
 
@@ -115,6 +131,12 @@ MANAGED_COMPUTE_POOL_PARAM = "ENABLE_APPLICATION_SERVICE_MANAGED_COMPUTE_POOL"
 MANAGED_COMPUTE_POOL_FALLBACK_PARAM = (
     "ENABLE_APPLICATION_SERVICE_MANAGED_COMPUTE_POOL_FALLBACK"
 )
+
+# Artifact-repo build jobs run as SPCS job services. The container/instance to
+# read logs from is resolved at runtime via ``SHOW SERVICE CONTAINERS IN
+# SERVICE``; when a service exposes multiple containers the one named ``builder``
+# is preferred.
+BUILD_JOB_CONTAINER_NAME = "builder"
 
 T = TypeVar("T")
 
@@ -214,6 +236,195 @@ def _object_exists(object_type: str, name: str) -> bool:
         return False
 
 
+def _flatten_missing_privileges(node: Any) -> list[Dict[str, str]]:
+    """Flatten an ``EXPLAIN_PRIVILEGES`` JSON tree into a flat list of the
+    permission (leaf) nodes it reports.
+
+    The tree is composed of permission nodes (``{"privilege", "objectType",
+    "objectName"}``), ``allOf`` / ``oneOf`` group nodes, and the terminal
+    decision node ``{"authorized": true}``. With ``missing_only => true`` an
+    ``authorized`` node means nothing is missing, so it contributes nothing.
+    """
+    if not isinstance(node, dict):
+        return []
+    if node.get("authorized") is True:
+        return []
+    if any(key in node for key in ("privilege", "objectType", "objectName")):
+        return [node]
+    results: list[Dict[str, str]] = []
+    for group_key in ("allOf", "oneOf"):
+        for child in node.get(group_key, []) or []:
+            results.extend(_flatten_missing_privileges(child))
+    return results
+
+
+def _deploy_privilege_check_statements(database: str, schema: str) -> list[str]:
+    """Build the representative DDL ``snow app deploy`` issues against the
+    destination *database*/*schema*, for privilege probing via
+    ``EXPLAIN_PRIVILEGES``.
+
+    We probe two statements: ``CREATE STAGE`` and ``CREATE ARTIFACT
+    REPOSITORY``. Object names are placeholders — the required privileges depend
+    on the destination database and schema, not the final object name — and are
+    emitted as plain (per-component quoted) dotted identifiers rather than
+    ``IDENTIFIER(...)`` so the analyzer can resolve them. Together these two
+    require ``USAGE`` on the database and ``CREATE`` on the schema, the
+    privileges that distinguish an accessible destination from an inaccessible
+    one.
+
+    Limitation: this is not the full set of statements ``snow app deploy`` runs.
+    The others cannot be probed because they reference objects that do not exist
+    at check time (artifact repository, package, build/app service, stage
+    contents) — ``EXPLAIN_PRIVILEGES`` rejects those with "requires access on all
+    objects" regardless of grants — or they need only ``USAGE`` already implied
+    by the two probes (``SHOW`` / ``USE``), or they belong to the workspace
+    upload flow used only for the personal-database default rather than the
+    account-configured destination checked here.
+    """
+    placeholder = app_fqn(
+        database=database, schema=schema, name=PRIVILEGE_CHECK_OBJECT_NAME
+    ).identifier
+    return [
+        f"CREATE STAGE {placeholder} ENCRYPTION = (TYPE = 'SNOWFLAKE_SSE')",
+        f"CREATE ARTIFACT REPOSITORY {placeholder} TYPE=APPLICATION",
+    ]
+
+
+def _format_missing_privileges(nodes: list[Dict[str, str]]) -> list[str]:
+    """Render missing-privilege nodes as de-duplicated, terminal-safe strings."""
+    formatted: list[str] = []
+    for node in nodes:
+        privilege = (node.get("privilege") or "").strip()
+        object_type = (node.get("objectType") or "").strip()
+        object_name = (node.get("objectName") or "").strip()
+        privilege_label = privilege if privilege else "any privilege"
+        target = " ".join(part for part in (object_type, object_name) if part)
+        description = (
+            f"{privilege_label} on {sanitize_for_terminal(target)}"
+            if target
+            else privilege_label
+        )
+        if description not in formatted:
+            formatted.append(description)
+    return formatted
+
+
+def _filter_accessible_remote_defaults(
+    manager: "SnowflakeAppManager",
+    params: Dict[str, str],
+) -> Dict[str, str]:
+    """Drop the account-configured destination database/schema when the current
+    role lacks the privileges to deploy there.
+
+    The destination database and schema can be configured at the account level
+    by an administrator (``DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE`` /
+    ``DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA``), but the role running the CLI
+    may not have been granted the privileges needed to build and deploy there.
+    Deploying against such a destination fails late with an opaque error, so we
+    probe up front: every representative statement ``snow app deploy`` runs is
+    analyzed with ``EXPLAIN_PRIVILEGES(… , missing_only => true, for_role =>
+    <current role>)``.
+
+    When the role is missing privileges (or no statement can be analyzed at all,
+    which means the destination cannot even be resolved), the destination is
+    removed from *params* and a warning lists the missing grants, so resolution
+    falls back to the user's personal database — exactly as if no account
+    defaults were configured. Statements that individually fail to analyze while
+    others succeed are ignored, so an unsupported statement never diverts a user
+    who otherwise has access.
+
+    Returns a copy of *params* with the destination keys removed, or the
+    original dict unchanged when the destination is usable or unset.
+    """
+    database = params.get("database")
+    if not database:
+        return params
+    schema = params.get("schema") or DEFAULT_PERSONAL_SCHEMA
+
+    role = manager.current_role()
+    cli_console.step(
+        "Checking deploy privileges on the account-configured destination "
+        f"{sanitize_for_terminal(database)}.{sanitize_for_terminal(schema)}..."
+    )
+    statements = _deploy_privilege_check_statements(database, schema)
+    log.info(
+        "Probing deploy privileges as role %r on %r statement(s).",
+        role,
+        len(statements),
+    )
+
+    # The check fails if any probe statement reports missing privileges *or*
+    # raises. With the reduced statement set (which references only the
+    # destination database/schema) a ``ProgrammingError`` means the role cannot
+    # analyze/resolve the destination — e.g. ``EXPLAIN_PRIVILEGES`` rejects it
+    # with "requires access on all objects" — which is itself a failure, not a
+    # condition to skip.
+    missing: list[Dict[str, str]] = []
+    check_failed = False
+    for statement in statements:
+        try:
+            statement_missing = manager.get_missing_privileges(statement, role)
+        except Exception as exc:
+            check_failed = True
+            log.info(
+                "Privilege check: failed to analyze statement: %s (%s)",
+                statement,
+                exc,
+            )
+            log.debug(
+                "EXPLAIN_PRIVILEGES error detail for: %s", statement, exc_info=True
+            )
+            continue
+        if statement_missing:
+            check_failed = True
+            log.info(
+                "Privilege check: missing %s for: %s",
+                _format_missing_privileges(statement_missing),
+                statement,
+            )
+            missing.extend(statement_missing)
+        else:
+            log.info("Privilege check: OK for: %s", statement)
+
+    if not check_failed:
+        log.info(
+            "Privilege check passed: role %r has the privileges to deploy to " "%r.%r.",
+            role,
+            database,
+            schema,
+        )
+        return params
+
+    # Prefer the specific missing privileges when EXPLAIN_PRIVILEGES returned
+    # them; otherwise the failure came from an analysis error, which means the
+    # role cannot resolve the destination at all.
+    missing_descriptions = _format_missing_privileges(missing) or [
+        f"access to database '{sanitize_for_terminal(database)}'"
+    ]
+
+    log.info(
+        "Privilege check failed: role %r is missing %s on %r.%r; "
+        "falling back to the personal database.",
+        role,
+        missing_descriptions,
+        database,
+        schema,
+    )
+
+    role_label = f" '{sanitize_for_terminal(role)}'" if role else ""
+    cli_console.warning(
+        f"Your current role{role_label} is missing privileges required to "
+        "deploy to the account-configured Snowflake App Runtime destination "
+        f"'{sanitize_for_terminal(database)}.{sanitize_for_terminal(schema)}'. "
+        "Falling back to your personal database. Ask your account administrator "
+        f"to grant access: {ACCOUNT_ADMIN_SETUP_URL}"
+    )
+    filtered = dict(params)
+    filtered.pop("database", None)
+    filtered.pop("schema", None)
+    return filtered
+
+
 def _resolve_deploy_defaults(
     entity: "SnowflakeAppEntityModel",
     manager: "SnowflakeAppManager",
@@ -222,7 +433,7 @@ def _resolve_deploy_defaults(
     """Resolve deploy defaults using a four-tier precedence:
 
     1. Values explicitly set in ``snowflake.yml`` (highest priority)
-    2. SnowApps parameters (``SHOW PARAMETERS LIKE 'DEFAULT_SNOWFLAKE_APPS_%' IN USER``)
+    2. Snowflake App Runtime parameters (``SHOW PARAMETERS LIKE 'DEFAULT_SNOWFLAKE_APPS_%' IN USER``)
     3. Built-in defaults (personal DB for database, ``<app-id>_REPO`` for artifact repository)
     4. Current session values (lowest priority)
 
@@ -259,15 +470,19 @@ def _resolve_deploy_defaults(
         "schema": fqn.schema,
     }
 
-    # ── 2. SnowApps parameters (user-level) ──────────────────────────
+    # ── 2. Snowflake App Runtime parameters (user-level) ─────────────
     param_vals: Dict[str, Optional[str]] = {}
-    cli_console.step("Fetching SnowApps account parameters...")
+    cli_console.step("Fetching Snowflake App Runtime account parameters...")
     raw_params = manager.fetch_snow_apps_parameters()
     if raw_params:
         cli_console.step(
-            "Loaded SnowApps parameters: "
+            "Loaded Snowflake App Runtime parameters: "
             + ", ".join(f"{k}={v}" for k, v in raw_params.items())
         )
+        # Drop the account-configured destination database/schema when the
+        # current role cannot access them so resolution falls back to the
+        # personal database below.
+        raw_params = _filter_accessible_remote_defaults(manager, raw_params)
         param_vals = dict(raw_params)
 
     # ── 3. Built-in defaults ────────────────────────────────────────────
@@ -450,8 +665,31 @@ class SnowflakeAppManager(SqlExecutionMixin):
     ``FQN``-based parameters that already use ``.sql_identifier``.
     """
 
+    def __init__(self, *args, interactive: Optional[bool] = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Whether to show the query spinner. ``None`` defers to TTY detection;
+        # callers (e.g. ``snow app deploy``) pass the resolved
+        # ``--interactive`` / ``--no-interactive`` flag.
+        self._interactive = interactive
+
+    @property
+    def _is_interactive(self) -> bool:
+        if self._interactive is not None:
+            return self._interactive
+        return is_tty_interactive()
+
     def execute_query(self, query: str, **kwargs):
-        """Execute a Snowflake query with CLI spinner feedback."""
+        """Execute a Snowflake query with CLI spinner feedback.
+
+        The spinner is only shown when running interactively. This honors the
+        ``--interactive`` / ``--no-interactive`` flag passed by the command and
+        falls back to TTY detection when the flag is not set, so the spinner is
+        skipped for non-interactive runs (``--no-interactive``, piped/redirected
+        output, CI, etc.) where its control characters would pollute captured
+        output.
+        """
+        if not self._is_interactive:
+            return super().execute_query(query, **kwargs)
         with cli_console.spinner() as spinner:
             spinner.add_task(description="", total=None)
             return super().execute_query(query, **kwargs)
@@ -503,6 +741,50 @@ class SnowflakeAppManager(SqlExecutionMixin):
             cursor_class=DictCursor,
         )
         return cursor.fetchone() is not None
+
+    def current_role(self) -> Optional[str]:
+        """Return the active role name, or ``None`` when it cannot be resolved."""
+        try:
+            cursor = self.execute_query("SELECT CURRENT_ROLE()")
+            row = cursor.fetchone()
+            if row and row[0]:
+                return str(row[0])
+        except Exception:
+            log.warning("Could not resolve current role.", exc_info=True)
+        return None
+
+    def get_missing_privileges(
+        self, statement: str, role: Optional[str] = None
+    ) -> list[Dict[str, str]]:
+        """Return the privileges *role* is missing to run *statement*.
+
+        Calls ``EXPLAIN_PRIVILEGES(statement => …, missing_only => true
+        [, for_role => …])`` and flattens the returned JSON tree into a list
+        of permission dicts (``{"privilege", "objectType", "objectName"}``).
+
+        Returns an empty list when no privileges are missing (the server
+        responds with ``{"authorized": true}``). Propagates ``ProgrammingError``
+        when the statement cannot be analyzed — e.g. the current role cannot
+        resolve a referenced object, which itself signals missing access.
+        """
+        from snowflake.cli.api.project.util import to_string_literal
+
+        args = [
+            f"statement => {to_string_literal(statement)}",
+            "missing_only => true",
+        ]
+        if role:
+            args.append(f"for_role => {to_string_literal(role)}")
+        cursor = self.execute_query(f"CALL EXPLAIN_PRIVILEGES({', '.join(args)})")
+        row = cursor.fetchone()
+        if not row or not row[0]:
+            return []
+        try:
+            payload = json.loads(row[0])
+        except (TypeError, ValueError):
+            log.debug("Could not parse EXPLAIN_PRIVILEGES output: %r", row[0])
+            return []
+        return _flatten_missing_privileges(payload)
 
     def stage_exists(self, stage_fqn: FQN) -> bool:
         """Check if a stage exists."""
@@ -768,7 +1050,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         return self._is_boolean_param_true(MANAGED_COMPUTE_POOL_FALLBACK_PARAM)
 
     def fetch_snow_apps_parameters(self) -> Dict[str, str]:
-        """Fetch SnowApps default parameters for the current user.
+        """Fetch Snowflake App Runtime default parameters for the current user.
 
         Runs ``SHOW PARAMETERS LIKE 'DEFAULT_SNOWFLAKE_APPS_%' IN USER``
         and returns a dict whose keys match the internal resolution names
@@ -792,7 +1074,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
             return result
         except ProgrammingError:
             log.warning(
-                "Could not fetch SnowApps user parameters – skipping.",
+                "Could not fetch Snowflake App Runtime user parameters – skipping.",
                 exc_info=True,
             )
             return {}
@@ -1015,9 +1297,99 @@ class SnowflakeAppManager(SqlExecutionMixin):
         log.debug("DESCRIBE APPLICATION SERVICE %s: %s", service_fqn, normalised)
         return normalised
 
-    def get_build_job_logs(self, build_job_fqn: FQN) -> list[str]:
-        """Fetch build logs for an artifact-repo build job."""
-        cursor = self.execute_query(
-            f"SELECT LOG FROM TABLE({build_job_fqn.identifier}!SPCS_GET_LOGS())",
+    def _resolve_build_job_container(
+        self, build_job_fqn: FQN
+    ) -> Optional[tuple[str, str]]:
+        """Resolve the ``(instance_id, container_name)`` for a build job.
+
+        Runs ``SHOW SERVICE CONTAINERS IN SERVICE`` (the build job is an SPCS
+        job service) and returns the coordinates of the container to read logs
+        from. When the service exposes more than one container, a warning lists
+        them and the container named :data:`BUILD_JOB_CONTAINER_NAME` is
+        preferred, falling back to the first one.
+
+        Returns ``None`` when no running container is reported yet (e.g. the
+        service is still ``PENDING``); such results are not cached so a later
+        poll can retry. Successful resolutions are cached per build job so the
+        ``SHOW`` query and any warning happen only once.
+        """
+        cache: Dict[str, tuple[str, str]] = self.__dict__.setdefault(
+            "_build_job_container_cache", {}
         )
-        return [str(row[0]) for row in cursor if row[0]]
+        cache_key = build_job_fqn.identifier
+        if cache_key in cache:
+            return cache[cache_key]
+
+        cursor = self.execute_query(
+            f"SHOW SERVICE CONTAINERS IN SERVICE {build_job_fqn.identifier}",
+            cursor_class=DictCursor,
+        )
+        rows = [{k.lower(): v for k, v in row.items()} for row in cursor]
+
+        # Surface the raw result in verbose mode (INFO) to aid debugging.
+        log.info(
+            "SHOW SERVICE CONTAINERS IN SERVICE %s returned %d row(s):",
+            sanitize_for_terminal(build_job_fqn.identifier),
+            len(rows),
+        )
+        for row in rows:
+            log.info("  %s", sanitize_for_terminal(str(row)))
+
+        containers: list[tuple[str, str]] = []
+        for row in rows:
+            container_name = row.get("container_name")
+            instance_id = row.get("instance_id")
+            # A SUSPENDED/PENDING service reports NULL container fields.
+            if container_name is None or instance_id is None:
+                continue
+            containers.append((str(instance_id), str(container_name)))
+
+        if not containers:
+            return None
+
+        if len(containers) > 1:
+            listed = ", ".join(sanitize_for_terminal(name) for _, name in containers)
+            cli_console.warning(
+                f"Build job {sanitize_for_terminal(build_job_fqn.identifier)} "
+                f"has multiple containers: {listed}. Using "
+                f"'{BUILD_JOB_CONTAINER_NAME}' if present, otherwise the first."
+            )
+
+        resolved = next(
+            (
+                (instance_id, name)
+                for instance_id, name in containers
+                if name == BUILD_JOB_CONTAINER_NAME
+            ),
+            containers[0],
+        )
+        cache[cache_key] = resolved
+        return resolved
+
+    def get_build_job_logs(self, build_job_fqn: FQN, last: int = 500) -> list[str]:
+        """Fetch build logs for an artifact-repo build job.
+
+        Uses ``SYSTEM$GET_SERVICE_LOGS`` — the same mechanism that backs the
+        application logs surfaced by ``snow app events`` — rather than the build
+        job's ``SPCS_GET_LOGS`` table function. The build job's container and
+        instance are resolved at runtime via ``SHOW SERVICE CONTAINERS IN
+        SERVICE`` (see :meth:`_resolve_build_job_container`).
+        """
+        from snowflake.cli.api.project.util import to_string_literal
+
+        resolved = self._resolve_build_job_container(build_job_fqn)
+        if resolved is None:
+            return []
+        instance_id, container_name = resolved
+
+        cursor = self.execute_query(
+            f"CALL SYSTEM$GET_SERVICE_LOGS("
+            f"{to_string_literal(build_job_fqn.identifier)}, "
+            f"{to_string_literal(instance_id)}, "
+            f"{to_string_literal(container_name)}, "
+            f"{last})"
+        )
+        row = cursor.fetchone()
+        if not row or not row[0]:
+            return []
+        return [line for line in str(row[0]).splitlines() if line]
