@@ -425,15 +425,18 @@ def purge(
     if not force:
         _confirm_purge(project_id)
 
-    with cli_console.spinner() as spinner:
-        spinner.add_task(description=f"Purging dcm project {project_id}", total=None)
-        if skip_plan:
-            cli_console.warning("Skipping planning step")
-        result = DCMProjectManager().purge(
+    if skip_plan:
+        cli_console.warning("Skipping planning step")
+
+    manager = DCMProjectManager()
+    tracker = DeployProgressTracker(conn=manager.connection, operation="purge")
+    with tracker.session():
+        sfqid = manager.purge_async(
             project_identifier=project_id,
             alias=alias,
             skip_plan=skip_plan,
         )
+        result = tracker.run_deploy_poll(sfqid)
 
     reporter = PlanReporter(save_output=save_output, command_name="purge")
     return reporter.process(result)

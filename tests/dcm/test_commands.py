@@ -615,6 +615,7 @@ class TestDCMPurge:
         user_inputs,
         expected_prompt_count,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
@@ -622,7 +623,10 @@ class TestDCMPurge:
         mock_connect,
     ):
         mock_prompt.side_effect = user_inputs
-        mock_dcm_manager().purge.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().purge_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
@@ -632,7 +636,7 @@ class TestDCMPurge:
 
         assert result.exit_code == 0, result.output
         assert mock_prompt.call_count == expected_prompt_count
-        mock_dcm_manager().purge.assert_called_once_with(
+        mock_dcm_manager().purge_async.assert_called_once_with(
             project_identifier=FQN.from_string(project_identifier),
             alias=None,
             skip_plan=False,
@@ -645,13 +649,17 @@ class TestDCMPurge:
         self,
         mock_prompt,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().purge.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().purge_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
@@ -661,7 +669,7 @@ class TestDCMPurge:
 
         assert result.exit_code == 0, result.output
 
-        mock_dcm_manager().purge.assert_called_once_with(
+        mock_dcm_manager().purge_async.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             alias="my_alias",
             skip_plan=False,
@@ -686,7 +694,7 @@ class TestDCMPurge:
             result = runner.invoke(["dcm", "purge", "fooBar", "--interactive"])
 
         assert result.exit_code != 0
-        mock_dcm_manager().purge.assert_not_called()
+        mock_dcm_manager().purge_async.assert_not_called()
 
     @mock.patch(
         "snowflake.cli._plugins.dcm.commands.typer.prompt",
@@ -696,13 +704,17 @@ class TestDCMPurge:
         self,
         mock_prompt,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().purge.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().purge_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
                 "manifest_version": 2,
@@ -718,7 +730,7 @@ class TestDCMPurge:
             result = runner.invoke(["dcm", "purge", "--target", "dev", "--interactive"])
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().purge.assert_called_once_with(
+        mock_dcm_manager().purge_async.assert_called_once_with(
             project_identifier=FQN.from_string("my_project"),
             alias=None,
             skip_plan=False,
@@ -732,13 +744,17 @@ class TestDCMPurge:
         self,
         mock_prompt,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().purge.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().purge_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
@@ -748,7 +764,7 @@ class TestDCMPurge:
         assert "  Project identifier mismatch" in result.output
         assert "Expected: fooBar" in result.output
         assert "provided: wrong_project" in result.output
-        mock_dcm_manager().purge.assert_called_once()
+        mock_dcm_manager().purge_async.assert_called_once()
 
     @mock.patch(
         "snowflake.cli._plugins.dcm.commands.typer.prompt", return_value="purge fooBar"
@@ -757,6 +773,7 @@ class TestDCMPurge:
         self,
         mock_prompt,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         mock_cursor,
@@ -764,7 +781,8 @@ class TestDCMPurge:
         tmp_path,
     ):
         plan_response = {"version": 2, "changeset": []}
-        mock_dcm_manager().purge.return_value = _plan_cursor(
+        mock_dcm_manager().purge_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
             mock_cursor, json.dumps(plan_response)
         )
         mock_manifest_load.return_value = _manifest_without_config()
@@ -784,13 +802,17 @@ class TestDCMPurge:
         mock_confirm_purge,
         extra_args,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().purge.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().purge_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
@@ -798,7 +820,7 @@ class TestDCMPurge:
 
         assert result.exit_code == 0, result.output
         mock_confirm_purge.assert_not_called()
-        mock_dcm_manager().purge.assert_called_once_with(
+        mock_dcm_manager().purge_async.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             alias=None,
             skip_plan=False,
@@ -823,7 +845,7 @@ class TestDCMPurge:
             "Cannot purge the DCM project non-interactively without --force"
             in result.output
         )
-        mock_dcm_manager().purge.assert_not_called()
+        mock_dcm_manager().purge_async.assert_not_called()
 
     @mock.patch(
         "snowflake.cli.api.commands.flags.is_tty_interactive", return_value=False
@@ -848,7 +870,7 @@ class TestDCMPurge:
             "Cannot purge the DCM project non-interactively without --force"
             in result.output
         )
-        mock_dcm_manager().purge.assert_not_called()
+        mock_dcm_manager().purge_async.assert_not_called()
 
     @mock.patch(
         "snowflake.cli.api.commands.flags.is_tty_interactive", return_value=True
@@ -861,13 +883,17 @@ class TestDCMPurge:
         mock_prompt,
         mock_is_tty,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().purge.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().purge_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
@@ -875,7 +901,7 @@ class TestDCMPurge:
 
         assert result.exit_code == 0, result.output
         mock_prompt.assert_called()
-        mock_dcm_manager().purge.assert_called_once()
+        mock_dcm_manager().purge_async.assert_called_once()
 
 
 class TestDCMPlan:

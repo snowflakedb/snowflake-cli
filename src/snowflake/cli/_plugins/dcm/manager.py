@@ -270,12 +270,47 @@ class DCMProjectManager(SqlExecutionMixin):
             project_identifier,
             skip_plan,
         )
+        query = self._build_purge_query(project_identifier, alias, skip_plan)
+        return self.execute_query(query=query)
+
+    def purge_async(
+        self,
+        project_identifier: FQN,
+        alias: str | None = None,
+        skip_plan: bool = False,
+    ) -> str:
+        """
+        Submits a purge query asynchronously and returns the Snowflake query ID (sfqid).
+        Use with :class:`~snowflake.cli._plugins.dcm.progress.DeployProgressTracker`
+        to poll progress and obtain the final result cursor.
+        """
+        log.info(
+            "Submitting DCM purge async (project_identifier=%s, skip_plan=%s).",
+            project_identifier,
+            skip_plan,
+        )
+        query = self._build_purge_query(project_identifier, alias, skip_plan)
+        cursor = self._conn.cursor()
+        cursor.execute_async(query)
+        log.info(
+            "DCM purge async submitted (project_identifier=%s, sfqid=%s).",
+            project_identifier,
+            cursor.sfqid,
+        )
+        return cursor.sfqid
+
+    @staticmethod
+    def _build_purge_query(
+        project_identifier: FQN,
+        alias: str | None,
+        skip_plan: bool,
+    ) -> str:
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} PURGE"
         if alias:
             query += f' AS "{alias}"'
         if skip_plan:
             query += " SKIP PLAN"
-        return self.execute_query(query=query)
+        return query
 
     def test(self, project_identifier: FQN) -> SnowflakeCursor:
         log.info(

@@ -148,6 +148,20 @@ class TestUploadDetailsLayout:
         # neither are the later PLAN/DEPLOY phases.
         assert all(not line.startswith(("PLAN", "DEPLOY", "ANALYZE")) for line in lines)
 
+    def test_purge_mode_plan_and_purge_show_progress_bar(self):
+        """In purge mode, PLAN and the PURGE-labelled DEPLOY phase must render
+        a pip-style bar (not a spinner), mirroring the deploy-mode behaviour."""
+        tracker = DeployProgressTracker(conn=MagicMock(), operation="purge")
+        # The internal phase name remains DEPLOY (server-reported); only the
+        # rendered label changes to PURGE.
+        tracker._get_phase("DEPLOY").observe_running(50, datetime.now())  # noqa: SLF001
+
+        rendered = tracker._render().plain  # noqa: SLF001
+        purge_line = next(line for line in rendered.split("\n") if "PURGE" in line)
+
+        assert "━" in purge_line
+        assert " 50%" in purge_line
+
     def test_no_details_block_when_context_is_unset(self):
         tracker = self._tracker(with_context=False)
 
