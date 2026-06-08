@@ -23,8 +23,11 @@ from snowflake.cli._plugins.dcm.exceptions import (
 )
 from snowflake.cli._plugins.dcm.manager import DCMProjectManager
 from snowflake.cli._plugins.dcm.models import DCMManifest, DCMTarget, TargetContext
+from snowflake.cli._plugins.dcm.progress import DeployProgressTracker
 from snowflake.cli._plugins.dcm.reporters import (
+    AnalyzeErrorsReporter,
     AnalyzeReporter,
+    DependenciesReporter,
     PlanReporter,
     RefreshReporter,
     TestReporter,
@@ -336,17 +339,18 @@ def deploy(
     context = _resolve_context_with_required_manifest(from_location, identifier, target)
     project_id = context.project_identifier
 
-    manager = DCMProjectManager()
-    effective_stage = manager.sync_local_files(
-        project_identifier=project_id,
-        source_directory=str(from_location.path),
-    )
+    if skip_plan:
+        cli_console.warning("Skipping planning step")
 
-    with cli_console.spinner() as spinner:
-        spinner.add_task(description=f"Deploying dcm project {project_id}", total=None)
-        if skip_plan:
-            cli_console.warning("Skipping planning step")
-        result = manager.deploy(
+    manager = DCMProjectManager()
+    tracker = DeployProgressTracker(conn=manager.connection)
+    with tracker.session():
+        effective_stage = manager.sync_local_files(
+            project_identifier=project_id,
+            source_directory=str(from_location.path),
+            progress=tracker,
+        )
+        sfqid = manager.deploy_async(
             project_identifier=project_id,
             configuration=context.configuration,
             from_stage=effective_stage,
@@ -354,6 +358,7 @@ def deploy(
             alias=alias,
             skip_plan=skip_plan,
         )
+        result = tracker.run_deploy_poll(sfqid)
 
     reporter = PlanReporter(save_output=save_output, command_name="deploy")
     return reporter.process(result)
@@ -461,20 +466,24 @@ def plan(
     project_id = context.project_identifier
 
     manager = DCMProjectManager()
-    effective_stage = manager.sync_local_files(
-        project_identifier=project_id,
-        source_directory=str(from_location.path),
-    )
-
-    with cli_console.spinner() as spinner:
-        spinner.add_task(description=f"Planning dcm project {project_id}", total=None)
-        result = manager.plan(
+    tracker = DeployProgressTracker(conn=manager.connection, operation="plan")
+    with tracker.session():
+        effective_stage = manager.sync_local_files(
             project_identifier=project_id,
-            configuration=context.configuration,
-            from_stage=effective_stage,
-            variables=variables,
-            save_output=save_output,
-            delta=delta,
+            source_directory=str(from_location.path),
+            progress=tracker,
+        )
+        result = tracker.run_loader_phase(
+            lambda: manager.plan(
+                project_identifier=project_id,
+                configuration=context.configuration,
+                from_stage=effective_stage,
+                variables=variables,
+                save_output=save_output,
+                delta=delta,
+            ),
+            phase_name="PLAN",
+            simulated_phases=("RENDER", "COMPILE"),
         )
 
     reporter = PlanReporter(save_output=save_output, command_name="plan")
@@ -513,6 +522,100 @@ def raw_analyze(
         )
 
     reporter = AnalyzeReporter(save_output=save_output)
+    return reporter.process(result)
+
+
+@app.command(
+    name="compile",
+    requires_connection=True,
+    hidden=not FeatureFlag.ENABLE_DCM_EARLY_ACCESS.is_enabled(),
+)
+def compile_project(
+    identifier: Optional[FQN] = optional_dcm_identifier,
+    from_location: SecurePath = from_option,
+    variables: Optional[List[str]] = variables_flag,
+    target: Optional[str] = target_option,
+    save_output: bool = save_output_option,
+    **options,
+):
+    """
+    Compiles a DCM Project and prints a formatted list of errors found.
+    """
+    clear_command_artifacts("compile")
+
+    context = _resolve_context_with_required_manifest(from_location, identifier, target)
+    project_id = context.project_identifier
+
+    manager = DCMProjectManager()
+    tracker = DeployProgressTracker(conn=manager.connection, operation="analyze")
+    with tracker.session():
+        effective_stage = manager.sync_local_files(
+            project_identifier=project_id,
+            source_directory=str(from_location.path),
+            progress=tracker,
+        )
+        result = tracker.run_loader_phase(
+            lambda: manager.raw_analyze(
+                project_identifier=project_id,
+                configuration=context.configuration,
+                from_stage=effective_stage,
+                variables=variables,
+                save_output=save_output,
+                command_name="compile",
+            ),
+            phase_name="ANALYZE",
+        )
+
+    reporter = AnalyzeErrorsReporter(save_output=save_output)
+    return reporter.process(result)
+
+
+@app.command(
+    requires_connection=True,
+    hidden=not FeatureFlag.ENABLE_DCM_EARLY_ACCESS.is_enabled(),
+)
+def dependencies(
+    identifier: Optional[FQN] = optional_dcm_identifier,
+    from_location: SecurePath = from_option,
+    variables: Optional[List[str]] = variables_flag,
+    target: Optional[str] = target_option,
+    save_output: bool = save_output_option,
+    **options,
+):
+    """
+    Analyzes a DCM Project and generates a dependency diagram.
+
+    The diagram is written as a Mermaid flowchart in a Markdown file that can
+    be opened in your IDE's Markdown preview to explore object dependencies.
+    """
+    clear_command_artifacts("dependencies")
+
+    context = _resolve_context_with_required_manifest(from_location, identifier, target)
+    project_id = context.project_identifier
+
+    manager = DCMProjectManager()
+    tracker = DeployProgressTracker(conn=manager.connection, operation="analyze")
+    with tracker.session():
+        effective_stage = manager.sync_local_files(
+            project_identifier=project_id,
+            source_directory=str(from_location.path),
+            progress=tracker,
+        )
+        result = tracker.run_loader_phase(
+            lambda: manager.raw_analyze(
+                project_identifier=project_id,
+                configuration=context.configuration,
+                from_stage=effective_stage,
+                variables=variables,
+                save_output=save_output,
+                command_name="dependencies",
+            ),
+            phase_name="ANALYZE",
+        )
+
+    reporter = DependenciesReporter(
+        project_identifier=project_id, save_output=save_output
+    )
     return reporter.process(result)
 
 

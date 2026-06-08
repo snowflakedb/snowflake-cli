@@ -23,12 +23,23 @@ STATUS_STYLE = Style(color=_COLOR_BLUE)
 REMOVED_STYLE = Style(color="red", italic=True)
 INSERTED_STYLE = Style(color="green", italic=True)
 
-# Test
+# Test / Analyze
 PASS_STYLE = Style(color="green")
 FAIL_STYLE = Style(color="red")
+WARNING_STYLE = Style(color="yellow")
+# INFO-severity analyze findings: plain blue (distinct from bold-blue file headers).
+INFO_STYLE = Style(color="blue")
 
 # Plan
 CREATE_STYLE = Style(color="green")
 ALTER_STYLE = Style(color="yellow")
 DROP_STYLE = Style(color="red")
 UNKNOWN_STYLE = Style(color=_COLOR_BLUE)
+
+# Deploy progress phases
+PHASE_DONE_STYLE = Style(color="green", bold=True)
+PHASE_RUNNING_STYLE = Style(color="blue", bold=True)
+PHASE_FAILED_STYLE = Style(color="red", bold=True)
+
+# Analyze (file/source path headers stand out in bold blue).
+FILE_PATH_STYLE = Style(color="blue", bold=True)

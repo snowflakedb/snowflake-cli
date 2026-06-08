@@ -14,13 +14,17 @@ from snowflake.cli.api.utils.path_utils import change_directory
 
 
 def _analyze_response(files=None):
-    """Helper to create a JSON analyze response string."""
+    """Helper to create a JSON analyze response string.
+
+    Uses the new server response shape: ``issues[]`` arrays with a ``severity``
+    field at each level (file / definition / top-level).
+    """
     if files is None:
         files = [
             {
                 "sourcePath": "sources/definitions/ok.sql",
-                "definitions": [{"name": "OK", "errors": []}],
-                "errors": [],
+                "definitions": [{"name": "OK", "issues": []}],
+                "issues": [],
             }
         ]
     return json.dumps({"files": files})
@@ -73,6 +77,22 @@ def mock_manifest_load():
 @pytest.fixture
 def mock_object_manager():
     with mock.patch("snowflake.cli._plugins.dcm.commands.ObjectManager") as _fixture:
+        yield _fixture
+
+
+@pytest.fixture
+def mock_deploy_tracker():
+    with mock.patch(
+        "snowflake.cli._plugins.dcm.commands.DeployProgressTracker"
+    ) as _fixture:
+        # ``run_loader_phase`` is expected to invoke its first-arg callable
+        # (the SQL execution closure) and return its result. The real
+        # implementation does that around a live spinner; in tests we just
+        # call the closure directly so ``manager.raw_analyze`` / ``manager.plan``
+        # actually runs and downstream assertions still hold.
+        _fixture.return_value.run_loader_phase.side_effect = (
+            lambda execute_fn, **_kwargs: execute_fn()
+        )
         yield _fixture
 
 
@@ -188,13 +208,17 @@ class TestDCMDeploy:
     def test_deploy_project(
         self,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
@@ -203,7 +227,7 @@ class TestDCMDeploy:
 
         assert result.exit_code == 0, result.output
 
-        mock_dcm_manager().deploy.assert_called_once_with(
+        mock_dcm_manager().deploy_async.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
@@ -215,13 +239,17 @@ class TestDCMDeploy:
     def test_deploy_project_with_variables(
         self,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
@@ -229,7 +257,7 @@ class TestDCMDeploy:
             result = runner.invoke(["dcm", "deploy", "fooBar", "-D", "key=value"])
         assert result.exit_code == 0, result.output
 
-        mock_dcm_manager().deploy.assert_called_once_with(
+        mock_dcm_manager().deploy_async.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
@@ -241,13 +269,17 @@ class TestDCMDeploy:
     def test_deploy_project_with_alias(
         self,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
@@ -255,7 +287,7 @@ class TestDCMDeploy:
             result = runner.invoke(["dcm", "deploy", "fooBar", "--alias", "my_alias"])
         assert result.exit_code == 0, result.output
 
-        mock_dcm_manager().deploy.assert_called_once_with(
+        mock_dcm_manager().deploy_async.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
@@ -269,13 +301,17 @@ class TestDCMDeploy:
         self,
         _mock_create,
         mock_dcm_manager,
+        mock_deploy_tracker,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
         """Test that files are synced to project stage when from_stage is not provided."""
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_dcm_manager().sync_local_files.return_value = (
             "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
         )
@@ -284,13 +320,14 @@ class TestDCMDeploy:
             result = runner.invoke(["dcm", "deploy", "my_project"])
             assert result.exit_code == 0, result.output
 
-        call_args = mock_dcm_manager().deploy.call_args
+        call_args = mock_dcm_manager().deploy_async.call_args
         assert "DCM_FOOBAR" in call_args.kwargs["from_stage"]
         assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
 
     def test_deploy_project_with_from_local_directory(
         self,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
@@ -298,7 +335,10 @@ class TestDCMDeploy:
         mock_connect,
         tmp_path,
     ):
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_dcm_manager().sync_local_files.return_value = (
             "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
         )
@@ -319,21 +359,26 @@ class TestDCMDeploy:
         mock_dcm_manager().sync_local_files.assert_called_once_with(
             project_identifier=FQN.from_string("my_project"),
             source_directory=str(source_dir),
+            progress=mock_deploy_tracker.return_value,
         )
 
-        call_args = mock_dcm_manager().deploy.call_args
+        call_args = mock_dcm_manager().deploy_async.call_args
         assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
 
     def test_deploy_with_target_flag(
         self,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
@@ -350,7 +395,7 @@ class TestDCMDeploy:
             result = runner.invoke(["dcm", "deploy", "--target", "dev"])
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().deploy.assert_called_once_with(
+        mock_dcm_manager().deploy_async.assert_called_once_with(
             project_identifier=FQN.from_string("my_project"),
             configuration=None,
             from_stage="TMP_STAGE",
@@ -362,13 +407,17 @@ class TestDCMDeploy:
     def test_deploy_with_default_target(
         self,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
@@ -385,7 +434,7 @@ class TestDCMDeploy:
             result = runner.invoke(["dcm", "deploy"])
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().deploy.assert_called_once_with(
+        mock_dcm_manager().deploy_async.assert_called_once_with(
             project_identifier=FQN.from_string("my_project"),
             configuration=None,
             from_stage="TMP_STAGE",
@@ -397,6 +446,7 @@ class TestDCMDeploy:
     def test_deploy_explicit_identifier_still_uses_target_config(
         self,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
@@ -405,7 +455,10 @@ class TestDCMDeploy:
     ):
         """When explicit identifier is provided, it overrides target's project_name
         but configuration from target should still be applied."""
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
@@ -429,7 +482,7 @@ class TestDCMDeploy:
             )
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().deploy.assert_called_once_with(
+        mock_dcm_manager().deploy_async.assert_called_once_with(
             project_identifier=FQN.from_string("explicit_project"),
             configuration="DEV_CONFIG",
             from_stage="TMP_STAGE",
@@ -441,13 +494,17 @@ class TestDCMDeploy:
     def test_deploy_with_target_uses_configuration(
         self,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
@@ -469,7 +526,7 @@ class TestDCMDeploy:
             result = runner.invoke(["dcm", "deploy", "--target", "dev"])
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().deploy.assert_called_once_with(
+        mock_dcm_manager().deploy_async.assert_called_once_with(
             project_identifier=FQN.from_string("my_project"),
             configuration="DEV_CONFIG",
             from_stage="TMP_STAGE",
@@ -481,6 +538,7 @@ class TestDCMDeploy:
     def test_deploy_with_save_output(
         self,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         mock_cursor,
@@ -488,7 +546,8 @@ class TestDCMDeploy:
         tmp_path,
     ):
         plan_response = {"version": 2, "changeset": []}
-        mock_dcm_manager().deploy.return_value = _plan_cursor(
+        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
             mock_cursor, json.dumps(plan_response)
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
@@ -504,6 +563,7 @@ class TestDCMDeploy:
     def test_deploy_with_json_formats_returns_response(
         self,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         mock_cursor,
@@ -512,8 +572,9 @@ class TestDCMDeploy:
         format_name,
     ):
         plan_response = {"version": 2, "changeset": []}
-        mock_dcm_manager().deploy.return_value = _mock_cursor_for_format(
-            mock_cursor, plan_response, format_name
+        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = (
+            _mock_cursor_for_format(mock_cursor, plan_response, format_name)
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
@@ -979,6 +1040,7 @@ class TestDCMPlan:
         mock_dcm_manager().sync_local_files.assert_called_once_with(
             project_identifier=FQN.from_string("my_project"),
             source_directory=str(source_dir),
+            progress=mock.ANY,
         )
 
         call_args = mock_dcm_manager().plan.call_args
@@ -1078,7 +1140,7 @@ class TestDCMRawAnalyze:
                 {
                     "sourcePath": "sources/definitions/bad.sql",
                     "definitions": [],
-                    "errors": [{"message": "syntax error"}],
+                    "issues": [{"message": "syntax error", "severity": "ERROR"}],
                 }
             ]
         )
@@ -1091,7 +1153,7 @@ class TestDCMRawAnalyze:
         with project_directory("dcm_project"):
             result = runner.invoke(["dcm", "raw-analyze", "fooBar"])
         assert result.exit_code == 1, result.output
-        assert "1 error(s)" in result.output
+        assert "Static analysis of DCM Project files found 1 error." in result.output
 
     def test_raw_analyze_with_variables(
         self,
@@ -1347,8 +1409,8 @@ class TestDCMRawAnalyze:
             "files": [
                 {
                     "sourcePath": "sources/definitions/ok.sql",
-                    "definitions": [{"name": "OK", "errors": []}],
-                    "errors": [],
+                    "definitions": [{"name": "OK", "issues": []}],
+                    "issues": [],
                 }
             ]
         }
@@ -1403,6 +1465,434 @@ class TestDCMRawAnalyze:
         assert result.exit_code == 0, result.output
         payload = json.loads(result.output)
         _assert_format_result(payload, json.loads(analyze_response), format_name)
+
+
+class TestDCMCompile:
+    def test_compile_basic_no_errors(
+        self,
+        mock_dcm_manager,
+        mock_deploy_tracker,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
+            rows=[(_analyze_response(),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "compile", "fooBar"])
+
+        assert result.exit_code == 0, result.output
+        assert "Static analysis of DCM Project files found no errors." in result.output
+
+        mock_dcm_manager().raw_analyze.assert_called_once_with(
+            project_identifier=FQN.from_string("fooBar"),
+            configuration=None,
+            from_stage="TMP_STAGE",
+            variables=None,
+            save_output=False,
+            command_name="compile",
+        )
+
+    def test_compile_with_errors_exits_with_formatted_output(
+        self,
+        mock_dcm_manager,
+        mock_deploy_tracker,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        error_response = _analyze_response(
+            files=[
+                {
+                    "source_path": "sources/definitions/bad.sql",
+                    "definitions": [
+                        {
+                            "id": {
+                                "name": "MY_TABLE",
+                                "schema": "PUBLIC",
+                                "database": "MY_DB",
+                                "domain": "TABLE",
+                            },
+                            "refined_domain": "table",
+                            "issues": [
+                                {
+                                    "source_position": {"line": 3, "column": 0},
+                                    "message": "column FOO not found",
+                                    "code": "001632",
+                                    "type": "syntax_error",
+                                    "severity": "ERROR",
+                                }
+                            ],
+                        }
+                    ],
+                    "issues": [
+                        {
+                            "source_position": {"line": 1, "column": 0},
+                            "message": "file-level syntax error",
+                            "code": "001597",
+                            "type": "syntax_error",
+                            "severity": "ERROR",
+                        }
+                    ],
+                },
+                {
+                    "source_path": "sources/definitions/ok.sql",
+                    "definitions": [
+                        {"id": {"name": "OK", "domain": "TABLE"}, "issues": []}
+                    ],
+                    "issues": [],
+                },
+            ]
+        )
+        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
+            rows=[(error_response,)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "compile", "fooBar"])
+
+        assert result.exit_code == 1, result.output
+        assert "sources/definitions/bad.sql" in result.output
+        assert "file-level syntax error" in result.output
+        assert "MY_DB.PUBLIC.MY_TABLE (TABLE)" in result.output
+        assert "column FOO not found" in result.output
+        # No per-finding header (code / line / column / "error" label) is rendered.
+        assert "[001597]" not in result.output
+        assert "[001632]" not in result.output
+        assert "line 1:0" not in result.output
+        assert "line 3:0" not in result.output
+        assert "Static analysis of DCM Project files found 2 errors." in result.output
+        assert "sources/definitions/ok.sql" not in result.output
+
+    def test_compile_with_variables(
+        self,
+        mock_dcm_manager,
+        mock_deploy_tracker,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
+            rows=[(_analyze_response(),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "compile", "fooBar", "-D", "key=value"])
+
+        assert result.exit_code == 0, result.output
+        mock_dcm_manager().raw_analyze.assert_called_once_with(
+            project_identifier=FQN.from_string("fooBar"),
+            configuration=None,
+            from_stage="TMP_STAGE",
+            variables=["key=value"],
+            save_output=False,
+            command_name="compile",
+        )
+
+    def test_compile_with_target(
+        self,
+        mock_dcm_manager,
+        mock_deploy_tracker,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
+            rows=[(_analyze_response(),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = DCMManifest.from_dict(
+            {
+                "manifest_version": 2,
+                "type": "dcm_project",
+                "default_target": "dev",
+                "targets": {
+                    "dev": {
+                        "project_name": "my_project",
+                        "templating_config": "dev_config",
+                        **_DEFAULT_TARGET_FIELDS,
+                    }
+                },
+                "templating": {"configurations": {"dev_config": {}}},
+            }
+        )
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "compile", "--target", "dev"])
+
+        assert result.exit_code == 0, result.output
+        mock_dcm_manager().raw_analyze.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            configuration="DEV_CONFIG",
+            from_stage="TMP_STAGE",
+            variables=None,
+            save_output=False,
+            command_name="compile",
+        )
+
+    def test_compile_with_save_output(
+        self,
+        mock_dcm_manager,
+        mock_deploy_tracker,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
+            rows=[(_analyze_response(),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "compile", "fooBar", "--save-output"])
+
+        assert result.exit_code == 0, result.output
+        mock_dcm_manager().raw_analyze.assert_called_once_with(
+            project_identifier=FQN.from_string("fooBar"),
+            configuration=None,
+            from_stage="TMP_STAGE",
+            variables=None,
+            save_output=True,
+            command_name="compile",
+        )
+
+    def test_compile_with_save_output_saves_response(
+        self,
+        mock_dcm_manager,
+        mock_deploy_tracker,
+        mock_manifest_load,
+        runner,
+        mock_cursor,
+        mock_connect,
+        tmp_path,
+    ):
+        analyze_response = {
+            "files": [
+                {
+                    "source_path": "sources/definitions/ok.sql",
+                    "definitions": [
+                        {
+                            "id": {"name": "OK", "domain": "TABLE"},
+                            "refined_domain": "table",
+                            "issues": [],
+                        }
+                    ],
+                    "issues": [],
+                }
+            ]
+        }
+        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
+            rows=[(json.dumps(analyze_response),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["dcm", "compile", "fooBar", "--save-output"])
+
+            assert result.exit_code == 0, result.output
+            _assert_json_dumped("compile", analyze_response, tmp_path)
+
+    def test_compile_from_stage_fails(
+        self, mock_dcm_manager, runner, project_directory
+    ):
+        result = runner.invoke(["dcm", "compile", "fooBar", "--from", "@my_stage"])
+        assert result.exit_code == 1, result.output
+        assert "Stage paths are not supported" in result.output
+
+    def test_compile_hidden_from_help_without_early_access(self, runner):
+        """The analyze command is gated on ENABLE_DCM_EARLY_ACCESS and hidden by default."""
+        result = runner.invoke(["dcm", "--help"])
+        assert result.exit_code == 0
+        assert "compile" not in result.output
+
+    @pytest.mark.parametrize("format_name", ["json", "json_ext"])
+    def test_compile_with_json_formats_returns_response(
+        self,
+        mock_dcm_manager,
+        mock_deploy_tracker,
+        mock_manifest_load,
+        runner,
+        mock_cursor,
+        mock_connect,
+        project_directory,
+        format_name,
+    ):
+        analyze_response = _analyze_response()
+        mock_dcm_manager().raw_analyze.return_value = _mock_cursor_for_format(
+            mock_cursor, json.loads(analyze_response), format_name
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "compile", "fooBar", "--format", format_name]
+            )
+
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.output)
+        _assert_format_result(payload, json.loads(analyze_response), format_name)
+
+
+def _dependencies_response():
+    """Analyze response with a table feeding a dynamic table (one edge)."""
+    return json.dumps(
+        {
+            "files": [
+                {
+                    "source_path": "sources/definitions/raw.sql",
+                    "definitions": [
+                        {
+                            "id": {
+                                "name": "CUSTOMER",
+                                "schema": "RAW",
+                                "database": "DB",
+                                "domain": "TABLE",
+                            },
+                            "dependencies": [],
+                            "refined_domain": "table",
+                            "issues": [],
+                        }
+                    ],
+                    "issues": [],
+                },
+                {
+                    "source_path": "sources/definitions/analytics.sql",
+                    "definitions": [
+                        {
+                            "id": {
+                                "name": "ENRICHED",
+                                "schema": "ANALYTICS",
+                                "database": "DB",
+                                "domain": "TABLE",
+                            },
+                            "dependencies": [
+                                {
+                                    "source_id": {
+                                        "name": "CUSTOMER",
+                                        "schema": "RAW",
+                                        "database": "DB",
+                                        "domain": "TABLE",
+                                    }
+                                }
+                            ],
+                            "refined_domain": "dynamic_table",
+                            "properties": [{"name": "TARGET_LAG", "value": "1 day"}],
+                            "issues": [],
+                        }
+                    ],
+                    "issues": [],
+                },
+            ]
+        }
+    )
+
+
+class TestDCMDependencies:
+    def test_dependencies_writes_markdown_and_links_to_it(
+        self,
+        mock_dcm_manager,
+        mock_deploy_tracker,
+        mock_manifest_load,
+        runner,
+        mock_cursor,
+        mock_connect,
+        tmp_path,
+    ):
+        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
+            rows=[(_dependencies_response(),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["dcm", "dependencies", "fooBar"])
+
+            assert result.exit_code == 0, result.output
+
+            dependencies_file = tmp_path / "out" / "dependencies.md"
+            assert dependencies_file.exists()
+            content = dependencies_file.read_text()
+
+        assert "# DCM Project dependencies for" in content
+        assert "flowchart LR" in content
+        assert "Table: CUSTOMER\\nDB.RAW" in content
+        assert "Dynamic Table [lag: 1 day]\\nENRICHED\\nDB.ANALYTICS" in content
+        assert "CUSTOMER --> ENRICHED" in content
+
+        # The CLI points the user at the generated file.
+        assert "dependencies.md" in result.output
+
+        mock_dcm_manager().raw_analyze.assert_called_once_with(
+            project_identifier=FQN.from_string("fooBar"),
+            configuration=None,
+            from_stage="TMP_STAGE",
+            variables=None,
+            save_output=False,
+            command_name="dependencies",
+        )
+
+    def test_dependencies_with_variables(
+        self,
+        mock_dcm_manager,
+        mock_deploy_tracker,
+        mock_manifest_load,
+        runner,
+        mock_cursor,
+        mock_connect,
+        tmp_path,
+    ):
+        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
+            rows=[(_dependencies_response(),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["dcm", "dependencies", "fooBar", "-D", "key=value"])
+
+        assert result.exit_code == 0, result.output
+        mock_dcm_manager().raw_analyze.assert_called_once_with(
+            project_identifier=FQN.from_string("fooBar"),
+            configuration=None,
+            from_stage="TMP_STAGE",
+            variables=["key=value"],
+            save_output=False,
+            command_name="dependencies",
+        )
+
+    def test_dependencies_hidden_from_help_without_early_access(self, runner):
+        result = runner.invoke(["dcm", "--help"])
+        assert result.exit_code == 0
+        assert "dependencies" not in result.output
+
+    def test_dependencies_from_stage_fails(self, mock_dcm_manager, runner, tmp_path):
+        with change_directory(tmp_path):
+            result = runner.invoke(
+                ["dcm", "dependencies", "fooBar", "--from", "@my_stage"]
+            )
+        assert result.exit_code == 1, result.output
+        assert "Stage paths are not supported" in result.output
 
 
 class TestDCMList:
@@ -2154,6 +2644,7 @@ class TestAccountIdentifierValidationForCommands:
     def test_deploy_calls_check_account_identifier(
         self,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         mock_check_account_identifier,
         runner,
@@ -2161,7 +2652,10 @@ class TestAccountIdentifierValidationForCommands:
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 

@@ -1,4 +1,41 @@
 # serializer version: 1
+# name: TestPlanReporterTerse.test_alter_with_added_dmf_and_nested_expectation
+  '''
+  ALTER    TABLE                DCM_DEMO_1_DEV3.ANALYTICS.ENRICHED_ORDER_DETAILS
+  └─ added SNOWFLAKE.CORE.NULL_COUNT$V1(CUSTOMER_CITY)
+     └─ added NO_MISSING_CITIES
+        └─ set expression = value = 0
+  
+  Planned 1 entity (0 to create, 1 to alter, 0 to drop).
+  ================================================================================
+  
+  '''
+# ---
+# name: TestPlanReporterTerse.test_alter_with_modified_grants_nested
+  '''
+  ALTER    ROLE                 DCM_DEVELOPER
+  ├─ added DATABASE_ROLE DCM_DEMO_1_DEV3.ADMIN_DEV3
+  ├─ added ROLE TEST_TEAM_OWNER_DEV3
+  ├─ modified ON SCHEMA DCM_DEMO_1_DEV2.TEST_TEAM
+  │  └─ added OWNERSHIP
+  ├─ removed DATABASE_ROLE DCM_DEMO_1_DEV2.ADMIN_DEV2
+  └─ removed ROLE TEST_TEAM_OWNER_DEV2
+  
+  Planned 1 entity (0 to create, 1 to alter, 0 to drop).
+  ================================================================================
+  
+  '''
+# ---
+# name: TestPlanReporterTerse.test_alter_with_removed_data_metric_function
+  '''
+  ALTER    TABLE                DCM_DEMO_1_DEV2.ANALYTICS.ENRICHED_ORDER_DETAILS
+  └─ removed SNOWHOUSE_IMPORT.CORE.NULL_COUNT$V1(CUSTOMER_CITY)
+  
+  Planned 1 entity (0 to create, 1 to alter, 0 to drop).
+  ================================================================================
+  
+  '''
+# ---
 # name: TestPlanReporterTerse.test_full_ordering
   '''
   CREATE   DATABASE             D1
@@ -10,6 +47,7 @@
   DROP     TABLE                T_OLD
   
   Planned 7 entities (3 to create, 2 to alter, 2 to drop).
+  ================================================================================
   
   '''
 # ---
@@ -20,6 +58,7 @@
   DROP     ROLE                 OLD_ROLE
   
   Planned 3 entities (1 to create, 1 to alter, 1 to drop).
+  ================================================================================
   
   '''
 # ---
@@ -28,6 +67,7 @@
   CREATE   TABLE                DB.SCH.ORDERS
   
   Planned 1 entity (1 to create, 0 to alter, 0 to drop).
+  ================================================================================
   
   '''
 # ---

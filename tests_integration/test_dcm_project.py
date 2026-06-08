@@ -678,13 +678,13 @@ INSERT INTO {base_table_name} (id, name, email) VALUES
         result = runner.invoke_with_connection(["dcm", "refresh", project_name])
         assert result.exit_code == 0, result.output
         # Should show at least 1 table was refreshed
-        assert_last_stdout_line_equals("1 refreshed.", result)
+        assert "1 Dynamic Table refreshed successfully." in result.output
 
         # 5) Run dcm refresh command again. Response should be different because there's nothing to update
         result = runner.invoke_with_connection(["dcm", "refresh", project_name])
         assert result.exit_code == 0, result.output
-        # Should show at least 1 table was refreshed
-        assert_last_stdout_line_equals("1 up-to-date.", result)
+        # Up-to-date tables still count as a successful refresh
+        assert "1 Dynamic Table refreshed successfully." in result.output
 
 
 @pytest.mark.qa_only
@@ -760,7 +760,9 @@ expectation levels_must_be_higher_than_zero (value = 0);
 
         result = runner.invoke_with_connection(["dcm", "test", project_name])
         assert result.exit_code == 1, result.output
-        assert "0 passed, 1 failed out of 1 total." in result.output
+        assert (
+            "Ran 1 data quality test: 0 passed, 1 failed expectation." in result.output
+        )
 
         # 3) Fix the data and run test command again
         fix_data_sql = f"""
@@ -770,7 +772,9 @@ UPDATE {table_name} SET level = 5 WHERE level < 5;
 
         result = runner.invoke_with_connection(["dcm", "test", project_name])
         assert result.exit_code == 0, result.output
-        assert_last_stdout_line_equals("1 passed, 0 failed out of 1 total.", result)
+        assert (
+            "Ran 1 data quality test: 1 passed, 0 failed expectations." in result.output
+        )
 
 
 @pytest.mark.qa_only
@@ -809,7 +813,7 @@ def test_dcm_end_to_end_workflow(
         )
         assert result.exit_code == 0, result.output
         _extract_and_validate_raw_analyze_json(result.output)
-        assert "Analysis completed successfully." in result.output
+        assert "Static analysis of DCM Project files found no errors." in result.output
 
         result = runner.invoke_with_connection_json(
             ["dcm", "plan", "-D", f"db='{test_database}'", "--save-output"]
@@ -868,7 +872,7 @@ def test_dcm_raw_analyze_with_save_output(
             ]
         )
         assert result.exit_code == 0, result.output
-        assert "Analysis completed successfully." in result.output
+        assert "Static analysis of DCM Project files found no errors." in result.output
 
         output_path = project_root / "out"
         assert output_path.exists(), f"Output directory out was not created."
@@ -911,7 +915,7 @@ def test_dcm_raw_analyze_with_errors(
         # raw-analyze should detect the error and fail with exit code 1
         result = runner.invoke_with_connection(["dcm", "raw-analyze", project_name])
         assert result.exit_code == 1, result.output
-        assert "Analysis found 1 error(s)." in result.output
+        assert "Static analysis of DCM Project files found 1 error(s)." in result.output
 
 
 @pytest.mark.qa_only
