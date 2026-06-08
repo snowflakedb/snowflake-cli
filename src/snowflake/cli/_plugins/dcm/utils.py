@@ -58,6 +58,11 @@ def clear_command_artifacts(
     if json_file.exists():
         json_file.unlink()
 
+    # Some commands (e.g. ``dependencies``) also emit a Markdown artifact.
+    markdown_file = output_dir / f"{command_name}.md"
+    if markdown_file.exists():
+        markdown_file.unlink()
+
     artifacts_dir = output_dir / (folder_name or command_name)
     if artifacts_dir.exists():
         artifacts_dir.rmdir(recursive=True)
@@ -69,8 +74,8 @@ def announce_rendered_definitions() -> None:
     """Print a label and a gray, clickable line to the rendered definitions folder.
 
     No-op when the folder doesn't exist (e.g. the backend produced no rendered
-    output). Used by ``compile`` after a ``--save-output`` run to point the user
-    at the downloaded definitions.
+    output). Used by the ``compile`` and ``dependencies`` commands after a
+    ``--save-output`` run to point the user at the downloaded definitions.
     """
     folder = SecurePath(OUTPUT_FOLDER) / RENDERED_DEFINITIONS_FOLDER
     if not folder.exists():
@@ -209,6 +214,7 @@ def _load_debug_data(command_name: str, file_number: int):
             "test",
             "refresh",
             "compile",
+            "dependencies",
         ):
             data = data[0]
 
