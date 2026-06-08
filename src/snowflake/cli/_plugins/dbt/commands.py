@@ -21,6 +21,7 @@ import typer
 from click import types
 from snowflake.cli._plugins.dbt.constants import (
     DBT_COMMANDS,
+    ENV_FILENAME,
     OUTPUT_COLUMN_NAME,
     PROFILES_FILENAME,
     RESULT_COLUMN_NAME,
@@ -72,6 +73,16 @@ UnsetDefaultTargetOption = OverrideableOption(
     "--unset-default-target",
     mutually_exclusive=["default_target"],
 )
+DefaultEnvironmentOption = OverrideableOption(
+    None,
+    "--default-environment",
+    mutually_exclusive=["unset_default_environment"],
+)
+UnsetDefaultEnvironmentOption = OverrideableOption(
+    False,
+    "--unset-default-environment",
+    mutually_exclusive=["default_environment"],
+)
 
 add_object_command_aliases(
     app=app,
@@ -87,6 +98,11 @@ add_object_command_aliases(
 
 def _env_callback(value: Optional[str]) -> Optional[str]:
     return _reject_control_chars(value, "--env")
+
+
+def _default_environment_callback(value: Optional[str]) -> Optional[str]:
+    return _reject_control_chars(value, "--default-environment")
+
 
 
 @app.command(
@@ -105,6 +121,16 @@ def deploy_dbt(
         show_default=False,
         default=None,
     ),
+    env_file_dir: Optional[str] = typer.Option(
+        help=(
+            f"Path to directory containing {ENV_FILENAME}. If provided, the file is "
+            f"injected into the deployed project root, overwriting any {ENV_FILENAME} "
+            f"present in --source."
+        ),
+        show_default=False,
+        default=None,
+        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_ENV_VARS.is_enabled(),
+    ),
     force: Optional[bool] = typer.Option(
         False,
         help="Overwrites conflicting files in the project, if any.",
@@ -114,6 +140,20 @@ def deploy_dbt(
     ),
     unset_default_target: Optional[bool] = UnsetDefaultTargetOption(
         help="Unset the default target for the dbt project. Mutually exclusive with --default-target.",
+    ),
+    default_environment: Optional[str] = DefaultEnvironmentOption(
+        help=(
+            f"Default environment for the dbt project (DEFAULT_ENVIRONMENT). "
+            f"Selects the environment block from {ENV_FILENAME} that the project "
+            f"compiles and executes with by default. "
+            f"Mutually exclusive with --unset-default-environment."
+        ),
+        callback=_default_environment_callback,
+        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_ENV_VARS.is_enabled(),
+    ),
+    unset_default_environment: Optional[bool] = UnsetDefaultEnvironmentOption(
+        help="Unset the default environment for the dbt project. Mutually exclusive with --default-environment.",
+        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_ENV_VARS.is_enabled(),
     ),
     external_access_integrations: Optional[list[str]] = typer.Option(
         None,
@@ -144,9 +184,12 @@ def deploy_dbt(
     """
     project_path = SecurePath(source) if source is not None else SecurePath.cwd()
     profiles_dir_path = SecurePath(profiles_dir) if profiles_dir else project_path
+    env_file_path = SecurePath(env_file_dir) if env_file_dir else None
     attrs = DBTDeployAttributes(
         default_target=default_target,
         unset_default_target=unset_default_target,
+        default_environment=default_environment,
+        unset_default_environment=unset_default_environment,
         external_access_integrations=external_access_integrations,
         install_local_deps=install_local_deps,
         dbt_version=dbt_version,
@@ -156,6 +199,7 @@ def deploy_dbt(
             name,
             path=project_path.resolve(),
             profiles_path=profiles_dir_path.resolve(),
+            env_file_path=env_file_path.resolve() if env_file_path else None,
             force=force,
             attrs=attrs,
         )

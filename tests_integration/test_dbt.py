@@ -21,7 +21,7 @@ import pytest
 import yaml
 
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
+from snowflake.cli._plugins.dbt.constants import ENV_FILENAME, PROFILES_FILENAME
 
 
 def _setup_dbt_profile(root_dir: Path, snowflake_session):
@@ -48,6 +48,17 @@ def _assert_default_target(name, runner, default_target):
         assert result.json[0]["default_target"] is None
     else:
         assert result.json[0]["default_target"].lower() == default_target
+
+
+def _assert_default_environment(name, runner, default_environment):
+    result = runner.invoke_with_connection_json(["dbt", "list", "--like", name.upper()])
+    assert result.exit_code == 0, result.output
+    assert len(result.json) == 1
+    row = result.json[0]
+    if default_environment is None:
+        assert row.get("default_environment") in (None, "")
+    else:
+        assert row["default_environment"].lower() == default_environment.lower()
 
 
 def _fetch_creation_date(name, runner) -> datetime.datetime:
@@ -371,6 +382,99 @@ def test_deploy_with_default_target(
         )
         assert result.exit_code == 0, result.output
         _assert_default_target(name, runner, None)
+
+
+@pytest.mark.integration
+@pytest.mark.qa_only
+def test_deploy_with_default_environment(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    """Exercise --default-environment / --unset-default-environment lifecycle."""
+    with project_directory("dbt_project") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_project_default_env_{ts}"
+
+        _setup_dbt_profile(root_dir, snowflake_session)
+
+        # Stage env.yml inside the project source so the server has something to
+        # match the DEFAULT_ENVIRONMENT against.
+        env_yml = {
+            "env_config": {
+                "default_environment": "dev",
+                "environments": [
+                    {"name": "dev", "env": {"DBT_FOO": "bar"}},
+                    {"name": "prod", "env": {"DBT_FOO": "baz"}},
+                ],
+            }
+        }
+        (root_dir / ENV_FILENAME).write_text(yaml.dump(env_yml))
+
+        # 1. CREATE path: deploy with --default-environment=dev
+        result = runner.invoke_with_connection_json(
+            ["dbt", "deploy", name, "--default-environment", "dev"]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_default_environment(name, runner, "dev")
+
+        # 2. ALTER SET path: change the default environment on existing object
+        result = runner.invoke_with_connection_json(
+            ["dbt", "deploy", name, "--default-environment", "prod"]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_default_environment(name, runner, "prod")
+
+        # 3. ALTER UNSET path: clear the default environment
+        result = runner.invoke_with_connection_json(
+            ["dbt", "deploy", name, "--unset-default-environment"]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_default_environment(name, runner, None)
+
+
+@pytest.mark.integration
+@pytest.mark.qa_only
+def test_deploy_with_env_file_dir(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    """Exercise --env-file-dir injection."""
+    with project_directory("dbt_project") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_project_env_file_dir_{ts}"
+
+        _setup_dbt_profile(root_dir, snowflake_session)
+
+        # env.yml lives outside the project source — analogous to --profiles-dir.
+        env_dir = Path(root_dir).parent / "envs"
+        env_dir.mkdir(parents=True, exist_ok=True)
+        env_yml = {
+            "env_config": {
+                "default_environment": "dev",
+                "environments": [
+                    {"name": "dev", "env": {"DBT_FOO": "bar"}},
+                ],
+            }
+        }
+        (env_dir / ENV_FILENAME).write_text(yaml.dump(env_yml))
+
+        result = runner.invoke_with_connection_json(
+            [
+                "dbt",
+                "deploy",
+                name,
+                "--env-file-dir",
+                str(env_dir.resolve()),
+                "--default-environment",
+                "dev",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_default_environment(name, runner, "dev")
 
 
 @pytest.mark.integration

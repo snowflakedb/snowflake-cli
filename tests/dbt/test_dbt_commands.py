@@ -194,6 +194,102 @@ class TestDBTDeploy:
         assert str(mock_deploy.call_args[0][0]) == "TEST_PIPELINE"
         assert call_kwargs["profiles_path"] == SecurePath(new_profiles_directory)
 
+    def test_dbt_deploy_with_env_file_dir(
+        self, runner, dbt_project_path, env_yml_dir, mock_deploy
+    ):
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                f"--env-file-dir={env_yml_dir}",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        mock_deploy.assert_called_once()
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["env_file_path"] == SecurePath(env_yml_dir)
+
+    def test_dbt_deploy_without_env_file_dir_passes_none(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        mock_deploy.assert_called_once()
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["env_file_path"] is None
+
+    def test_deploy_with_default_environment_passes_to_manager(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                "--default-environment=dev",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        mock_deploy.assert_called_once()
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["attrs"].default_environment == "dev"
+        assert call_kwargs["attrs"].unset_default_environment is False
+
+    def test_deploy_with_unset_default_environment_passes_to_manager(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                "--unset-default-environment",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        mock_deploy.assert_called_once()
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["attrs"].default_environment is None
+        assert call_kwargs["attrs"].unset_default_environment is True
+
+    def test_deploy_with_both_default_environment_and_unset_default_environment_fails(
+        self,
+        mock_connect,
+        runner,
+        dbt_project_path,
+    ):
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                "--default-environment=dev",
+                "--unset-default-environment",
+            ]
+        )
+
+        assert result.exit_code == 2, result.output
+        # Box-rendered error wraps across lines; check the key parts.
+        assert "'--unset-default-environment'" in result.output
+        assert "'--default-environment'" in result.output
+        assert "incompatible" in result.output
+
     def test_deploy_with_default_target_passes_to_manager(
         self, runner, dbt_project_path, mock_deploy
     ):
