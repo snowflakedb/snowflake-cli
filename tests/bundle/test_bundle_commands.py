@@ -15,19 +15,19 @@
 from unittest import mock
 
 import pytest
-from snowflake.cli._plugins.notebook.code.manager import CodeBundleManager
+from snowflake.cli._plugins.bundle.manager import CodeBundleManager
 from snowflake.cli.api.identifiers import FQN
 
 
-def test_code_group_help(runner):
-    result = runner.invoke(["notebook", "code", "--help"])
+def test_bundle_group_help(runner):
+    result = runner.invoke(["bundle", "--help"])
 
     assert result.exit_code == 0, result.output
     assert "Snowflake Code Bundles" in result.output
 
 
-def test_code_create_help(runner):
-    result = runner.invoke(["notebook", "code", "create", "--help"])
+def test_create_help(runner):
+    result = runner.invoke(["bundle", "create", "--help"])
 
     assert result.exit_code == 0, result.output
     assert "--source" in result.output
@@ -68,8 +68,7 @@ def test_create_calls_manager(
 
     result = runner.invoke(
         [
-            "notebook",
-            "code",
+            "bundle",
             "create",
             name,
             "--source",
@@ -102,7 +101,7 @@ def test_create_query_no_comment(mock_connector, mock_ctx, runner, source):
     mock_connector.return_value = ctx
     name = "my_bundle"
 
-    result = runner.invoke(["notebook", "code", "create", name, "--source", source])
+    result = runner.invoke(["bundle", "create", name, "--source", source])
     assert result.exit_code == 0, result.output
     assert ctx.get_query() == (
         f"CREATE CODE BUNDLE IDENTIFIER('MockDatabase.MockSchema.{name}') "
@@ -117,8 +116,7 @@ def test_create_query_with_comment(mock_connector, mock_ctx, runner):
 
     result = runner.invoke(
         [
-            "notebook",
-            "code",
+            "bundle",
             "create",
             "my_bundle",
             "--source",
@@ -141,8 +139,7 @@ def test_create_query_escapes_comment(mock_connector, mock_ctx, runner):
 
     result = runner.invoke(
         [
-            "notebook",
-            "code",
+            "bundle",
             "create",
             "my_bundle",
             "--source",
@@ -165,8 +162,7 @@ def test_create_query_with_overwrite(mock_connector, mock_ctx, runner):
 
     result = runner.invoke(
         [
-            "notebook",
-            "code",
+            "bundle",
             "create",
             "my_bundle",
             "--source",
@@ -189,8 +185,7 @@ def test_create_query_with_overwrite_and_comment(mock_connector, mock_ctx, runne
 
     result = runner.invoke(
         [
-            "notebook",
-            "code",
+            "bundle",
             "create",
             "my_bundle",
             "--source",
@@ -215,8 +210,7 @@ def test_create_query_with_skip_if_exists(mock_connector, mock_ctx, runner):
 
     result = runner.invoke(
         [
-            "notebook",
-            "code",
+            "bundle",
             "create",
             "my_bundle",
             "--source",
@@ -235,8 +229,7 @@ def test_create_query_with_skip_if_exists(mock_connector, mock_ctx, runner):
 def test_create_rejects_overwrite_with_skip_if_exists(runner):
     result = runner.invoke(
         [
-            "notebook",
-            "code",
+            "bundle",
             "create",
             "my_bundle",
             "--source",
@@ -252,24 +245,24 @@ def test_create_rejects_overwrite_with_skip_if_exists(runner):
 
 
 def test_create_rejects_empty_source(runner):
-    result = runner.invoke(["notebook", "code", "create", "my_bundle", "--source", ""])
+    result = runner.invoke(["bundle", "create", "my_bundle", "--source", ""])
     assert result.exit_code != 0
     assert "Source is required." in result.output
 
 
 def test_create_requires_source(runner):
-    result = runner.invoke(["notebook", "code", "create", "my_bundle"])
+    result = runner.invoke(["bundle", "create", "my_bundle"])
     assert result.exit_code != 0
     assert "--source" in result.output or "Missing option" in result.output
 
 
 def test_create_requires_identifier(runner):
-    result = runner.invoke(["notebook", "code", "create", "--source", "@stage/path"])
+    result = runner.invoke(["bundle", "create", "--source", "@stage/path"])
     assert result.exit_code != 0
 
 
 def test_list_help(runner):
-    result = runner.invoke(["notebook", "code", "list", "--help"])
+    result = runner.invoke(["bundle", "list", "--help"])
 
     assert result.exit_code == 0, result.output
     assert "code bundles" in result.output.lower()
@@ -281,7 +274,7 @@ def test_list_help(runner):
 def test_list_calls_manager(mock_show, runner, mock_cursor):
     mock_show.return_value = mock_cursor(rows=[], columns=[])
 
-    result = runner.invoke(["notebook", "code", "list"])
+    result = runner.invoke(["bundle", "list"])
 
     assert result.exit_code == 0, result.output
     mock_show.assert_called_once_with(like=None, scope=(None, None), in_account=False)
@@ -291,7 +284,7 @@ def test_list_calls_manager(mock_show, runner, mock_cursor):
 def test_list_calls_manager_with_like(mock_show, runner, mock_cursor):
     mock_show.return_value = mock_cursor(rows=[], columns=[])
 
-    result = runner.invoke(["notebook", "code", "list", "--like", "my%"])
+    result = runner.invoke(["bundle", "list", "--like", "my%"])
 
     assert result.exit_code == 0, result.output
     mock_show.assert_called_once_with(like="my%", scope=(None, None), in_account=False)
@@ -302,7 +295,7 @@ def test_list_query(mock_connector, mock_ctx, runner):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    result = runner.invoke(["notebook", "code", "list"])
+    result = runner.invoke(["bundle", "list"])
 
     assert result.exit_code == 0, result.output
     assert ctx.get_query() == "SHOW CODE BUNDLES"
@@ -313,7 +306,7 @@ def test_list_query_with_like(mock_connector, mock_ctx, runner):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    result = runner.invoke(["notebook", "code", "list", "--like", "my%"])
+    result = runner.invoke(["bundle", "list", "--like", "my%"])
 
     assert result.exit_code == 0, result.output
     assert ctx.get_query() == "SHOW CODE BUNDLES LIKE 'my%'"
@@ -324,7 +317,7 @@ def test_list_query_with_like_short_flag(mock_connector, mock_ctx, runner):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    result = runner.invoke(["notebook", "code", "list", "-l", "foo%"])
+    result = runner.invoke(["bundle", "list", "-l", "foo%"])
 
     assert result.exit_code == 0, result.output
     assert ctx.get_query() == "SHOW CODE BUNDLES LIKE 'foo%'"
@@ -335,21 +328,21 @@ def test_list_query_escapes_like(mock_connector, mock_ctx, runner):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    result = runner.invoke(["notebook", "code", "list", "--like", "it's%"])
+    result = runner.invoke(["bundle", "list", "--like", "it's%"])
 
     assert result.exit_code == 0, result.output
     assert ctx.get_query() == "SHOW CODE BUNDLES LIKE 'it''s%'"
 
 
 def test_list_invalid_scope(runner):
-    result = runner.invoke(["notebook", "code", "list", "--in", "account", "mydb"])
+    result = runner.invoke(["bundle", "list", "--in", "account", "mydb"])
 
     assert result.exit_code != 0
     assert "Scope must be" in result.output
 
 
 def test_list_empty_scope_name(runner):
-    result = runner.invoke(["notebook", "code", "list", "--in", "database", ""])
+    result = runner.invoke(["bundle", "list", "--in", "database", ""])
 
     assert result.exit_code != 0
     assert "cannot be empty" in result.output
@@ -360,7 +353,7 @@ def test_list_query_with_in_database(mock_connector, mock_ctx, runner):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    result = runner.invoke(["notebook", "code", "list", "--in", "database", "mydb"])
+    result = runner.invoke(["bundle", "list", "--in", "database", "mydb"])
 
     assert result.exit_code == 0, result.output
     assert ctx.get_query() == "SHOW CODE BUNDLES IN DATABASE IDENTIFIER('mydb')"
@@ -371,9 +364,7 @@ def test_list_query_with_in_schema(mock_connector, mock_ctx, runner):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    result = runner.invoke(
-        ["notebook", "code", "list", "--in", "schema", "mydb.myschema"]
-    )
+    result = runner.invoke(["bundle", "list", "--in", "schema", "mydb.myschema"])
 
     assert result.exit_code == 0, result.output
     assert ctx.get_query() == "SHOW CODE BUNDLES IN SCHEMA IDENTIFIER('mydb.myschema')"
@@ -385,7 +376,7 @@ def test_list_query_with_like_and_in(mock_connector, mock_ctx, runner):
     mock_connector.return_value = ctx
 
     result = runner.invoke(
-        ["notebook", "code", "list", "--like", "my%", "--in", "database", "mydb"]
+        ["bundle", "list", "--like", "my%", "--in", "database", "mydb"]
     )
 
     assert result.exit_code == 0, result.output
@@ -399,14 +390,14 @@ def test_list_scope_case_insensitive(mock_connector, mock_ctx, runner):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    result = runner.invoke(["notebook", "code", "list", "--in", "DATABASE", "mydb"])
+    result = runner.invoke(["bundle", "list", "--in", "DATABASE", "mydb"])
 
     assert result.exit_code == 0, result.output
     assert ctx.get_query() == "SHOW CODE BUNDLES IN DATABASE IDENTIFIER('mydb')"
 
 
 def test_list_help_shows_in_account(runner):
-    result = runner.invoke(["notebook", "code", "list", "--help"])
+    result = runner.invoke(["bundle", "list", "--help"])
 
     assert result.exit_code == 0, result.output
     assert "--in-account" in result.output
@@ -417,7 +408,7 @@ def test_list_query_with_in_account(mock_connector, mock_ctx, runner):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    result = runner.invoke(["notebook", "code", "list", "--in-account"])
+    result = runner.invoke(["bundle", "list", "--in-account"])
 
     assert result.exit_code == 0, result.output
     assert ctx.get_query() == "SHOW CODE BUNDLES IN ACCOUNT"
@@ -428,9 +419,7 @@ def test_list_query_with_like_and_in_account(mock_connector, mock_ctx, runner):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    result = runner.invoke(
-        ["notebook", "code", "list", "--like", "my%", "--in-account"]
-    )
+    result = runner.invoke(["bundle", "list", "--like", "my%", "--in-account"])
 
     assert result.exit_code == 0, result.output
     assert ctx.get_query() == "SHOW CODE BUNDLES LIKE 'my%' IN ACCOUNT"
@@ -438,7 +427,7 @@ def test_list_query_with_like_and_in_account(mock_connector, mock_ctx, runner):
 
 def test_list_rejects_in_and_in_account(runner):
     result = runner.invoke(
-        ["notebook", "code", "list", "--in", "database", "mydb", "--in-account"]
+        ["bundle", "list", "--in", "database", "mydb", "--in-account"]
     )
 
     assert result.exit_code != 0
@@ -447,7 +436,7 @@ def test_list_rejects_in_and_in_account(runner):
 
 
 def test_delete_help(runner):
-    result = runner.invoke(["notebook", "code", "delete", "--help"])
+    result = runner.invoke(["bundle", "delete", "--help"])
 
     assert result.exit_code == 0, result.output
     assert "--if-exists" in result.output
@@ -472,7 +461,7 @@ def test_delete_calls_manager(
     mock_drop.return_value = mock_statement_success()
     name = "my_bundle"
 
-    result = runner.invoke(["notebook", "code", "delete", name, *if_exists_args])
+    result = runner.invoke(["bundle", "delete", name, *if_exists_args])
 
     assert result.exit_code == 0, result.output
     mock_drop.assert_called_once_with(
@@ -486,7 +475,7 @@ def test_delete_query(mock_connector, mock_ctx, runner):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    result = runner.invoke(["notebook", "code", "delete", "my_bundle"])
+    result = runner.invoke(["bundle", "delete", "my_bundle"])
 
     assert result.exit_code == 0, result.output
     assert ctx.get_query() == (
@@ -499,7 +488,7 @@ def test_delete_query_with_if_exists(mock_connector, mock_ctx, runner):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    result = runner.invoke(["notebook", "code", "delete", "my_bundle", "--if-exists"])
+    result = runner.invoke(["bundle", "delete", "my_bundle", "--if-exists"])
 
     assert result.exit_code == 0, result.output
     assert ctx.get_query() == (
@@ -508,12 +497,12 @@ def test_delete_query_with_if_exists(mock_connector, mock_ctx, runner):
 
 
 def test_delete_requires_identifier(runner):
-    result = runner.invoke(["notebook", "code", "delete"])
+    result = runner.invoke(["bundle", "delete"])
     assert result.exit_code != 0
 
 
 def test_alter_help(runner):
-    result = runner.invoke(["notebook", "code", "alter", "--help"])
+    result = runner.invoke(["bundle", "alter", "--help"])
 
     assert result.exit_code == 0, result.output
     assert "--rename-to" in result.output
@@ -525,9 +514,7 @@ def test_alter_calls_manager_with_rename_to(mock_alter, runner, mock_statement_s
     mock_alter.return_value = mock_statement_success()
     name = "my_bundle"
 
-    result = runner.invoke(
-        ["notebook", "code", "alter", name, "--rename-to", "new_bundle"]
-    )
+    result = runner.invoke(["bundle", "alter", name, "--rename-to", "new_bundle"])
 
     assert result.exit_code == 0, result.output
     mock_alter.assert_called_once_with(
@@ -544,9 +531,7 @@ def test_alter_calls_manager_with_add_version(
     mock_alter.return_value = mock_statement_success()
     name = "my_bundle"
 
-    result = runner.invoke(
-        ["notebook", "code", "alter", name, "--add-version", "@stage/path"]
-    )
+    result = runner.invoke(["bundle", "alter", name, "--add-version", "@stage/path"])
 
     assert result.exit_code == 0, result.output
     mock_alter.assert_called_once_with(
@@ -562,7 +547,7 @@ def test_alter_query_with_rename_to(mock_connector, mock_ctx, runner):
     mock_connector.return_value = ctx
 
     result = runner.invoke(
-        ["notebook", "code", "alter", "my_bundle", "--rename-to", "new_bundle"]
+        ["bundle", "alter", "my_bundle", "--rename-to", "new_bundle"]
     )
 
     assert result.exit_code == 0, result.output
@@ -578,7 +563,7 @@ def test_alter_query_with_add_version(mock_connector, mock_ctx, runner):
     mock_connector.return_value = ctx
 
     result = runner.invoke(
-        ["notebook", "code", "alter", "my_bundle", "--add-version", "@stage/path"]
+        ["bundle", "alter", "my_bundle", "--add-version", "@stage/path"]
     )
 
     assert result.exit_code == 0, result.output
@@ -594,7 +579,7 @@ def test_alter_query_escapes_add_version(mock_connector, mock_ctx, runner):
     mock_connector.return_value = ctx
 
     result = runner.invoke(
-        ["notebook", "code", "alter", "my_bundle", "--add-version", "it's_path"]
+        ["bundle", "alter", "my_bundle", "--add-version", "it's_path"]
     )
 
     assert result.exit_code == 0, result.output
@@ -611,8 +596,7 @@ def test_alter_query_with_fqn_rename_to(mock_connector, mock_ctx, runner):
 
     result = runner.invoke(
         [
-            "notebook",
-            "code",
+            "bundle",
             "alter",
             "my_bundle",
             "--rename-to",
@@ -630,8 +614,7 @@ def test_alter_query_with_fqn_rename_to(mock_connector, mock_ctx, runner):
 def test_alter_rejects_both_options(runner):
     result = runner.invoke(
         [
-            "notebook",
-            "code",
+            "bundle",
             "alter",
             "my_bundle",
             "--rename-to",
@@ -648,7 +631,7 @@ def test_alter_rejects_both_options(runner):
 
 
 def test_alter_rejects_neither_option(runner):
-    result = runner.invoke(["notebook", "code", "alter", "my_bundle"])
+    result = runner.invoke(["bundle", "alter", "my_bundle"])
 
     assert result.exit_code != 0
     assert "--rename-to" in result.output
@@ -656,5 +639,5 @@ def test_alter_rejects_neither_option(runner):
 
 
 def test_alter_requires_identifier(runner):
-    result = runner.invoke(["notebook", "code", "alter"])
+    result = runner.invoke(["bundle", "alter"])
     assert result.exit_code != 0
