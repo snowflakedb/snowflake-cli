@@ -457,14 +457,14 @@ class DeployProgressTracker:
         in_progress = 0 < filled < _BAR_WIDTH
 
         if in_progress:
-            out.append(_BAR_CELL * filled + _BAR_LEADING_EDGE, style="blue")
+            out.append(_BAR_CELL * filled + _BAR_LEADING_EDGE, style=styles.BLUE)
             out.append(_BAR_CELL * (_BAR_WIDTH - filled - 1), style="dim")
         elif filled == 0:
             out.append(_BAR_CELL * _BAR_WIDTH, style="dim")
         else:
-            out.append(_BAR_CELL * _BAR_WIDTH, style="blue")
+            out.append(_BAR_CELL * _BAR_WIDTH, style=styles.BLUE)
 
-        out.append(f" {progress:>3}%", style="blue")
+        out.append(f" {progress:>3}%", style=styles.BLUE)
 
     def _append_upload_details(self, out: Text) -> None:
         """Render the stage-creation message and folder counters indented
@@ -509,7 +509,7 @@ class DeployProgressTracker:
                 # Blue matches the active-indicator color used by the
                 # pip-style progress bar so all "this phase is in flight"
                 # signals share the same hue.
-                out.append(_spinner_glyph(), style="blue")
+                out.append(_spinner_glyph(), style=styles.BLUE)
             out.append(duration_str + "\n", style="dim")
         else:  # PENDING
             out.append(name_col + "·\n", style="dim")
