@@ -3137,6 +3137,220 @@ class TestSetupCommand:
         return_value="definition_version: '2'\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_warehouse_flag_beats_account_param(
+        self, mock_mgr_cls, mock_gen, runner, tmp_path
+    ):
+        """--warehouse CLI flag should override the account parameter and show 'user input' provenance."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "database": "PARAM_DB",
+            "schema": "PARAM_SCHEMA",
+            "query_warehouse": "PARAM_WH",
+        }
+
+        from tests_common import change_directory
+
+        with change_directory(tmp_path):
+            result = runner.invoke(
+                [
+                    "app",
+                    "setup",
+                    "--app-name",
+                    "my_app",
+                    "--warehouse",
+                    "MY_WAREHOUSE",
+                ]
+            )
+            assert result.exit_code == 0, result.output
+
+        resolved = mock_gen.call_args[0][1]
+        assert resolved["warehouse"] == "MY_WAREHOUSE"
+        assert "warehouse: MY_WAREHOUSE  (user input)" in result.output
+
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
+        return_value="definition_version: '2'\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_database_flag_beats_account_param(
+        self, mock_mgr_cls, mock_gen, runner, tmp_path
+    ):
+        """--database CLI flag should override the account parameter and show 'user input' provenance."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "database": "PARAM_DB",
+            "schema": "PARAM_SCHEMA",
+            "query_warehouse": "PARAM_WH",
+        }
+
+        from tests_common import change_directory
+
+        with change_directory(tmp_path):
+            result = runner.invoke(
+                [
+                    "app",
+                    "setup",
+                    "--app-name",
+                    "my_app",
+                    "--database",
+                    "MY_DATABASE",
+                ]
+            )
+            assert result.exit_code == 0, result.output
+
+        resolved = mock_gen.call_args[0][1]
+        assert resolved["database"] == "MY_DATABASE"
+        assert "database: MY_DATABASE  (user input)" in result.output
+
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
+        return_value="definition_version: '2'\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_schema_flag_beats_account_param(
+        self, mock_mgr_cls, mock_gen, runner, tmp_path
+    ):
+        """--schema CLI flag should override the account parameter and show 'user input' provenance."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "database": "PARAM_DB",
+            "schema": "PARAM_SCHEMA",
+            "query_warehouse": "PARAM_WH",
+        }
+
+        from tests_common import change_directory
+
+        with change_directory(tmp_path):
+            result = runner.invoke(
+                [
+                    "app",
+                    "setup",
+                    "--app-name",
+                    "my_app",
+                    "--schema",
+                    "MY_SCHEMA",
+                ]
+            )
+            assert result.exit_code == 0, result.output
+
+        resolved = mock_gen.call_args[0][1]
+        assert resolved["schema"] == "MY_SCHEMA"
+        assert "schema: MY_SCHEMA  (user input)" in result.output
+
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
+        return_value="definition_version: '2'\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_all_three_flags_beat_account_params(
+        self, mock_mgr_cls, mock_gen, runner, tmp_path
+    ):
+        """--warehouse, --database, and --schema flags should all override account parameters."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "database": "PARAM_DB",
+            "schema": "PARAM_SCHEMA",
+            "query_warehouse": "PARAM_WH",
+        }
+
+        from tests_common import change_directory
+
+        with change_directory(tmp_path):
+            result = runner.invoke(
+                [
+                    "app",
+                    "setup",
+                    "--app-name",
+                    "my_app",
+                    "--warehouse",
+                    "MY_WH",
+                    "--database",
+                    "MY_DB",
+                    "--schema",
+                    "MY_SCHEMA",
+                ]
+            )
+            assert result.exit_code == 0, result.output
+
+        resolved = mock_gen.call_args[0][1]
+        assert resolved["warehouse"] == "MY_WH"
+        assert resolved["database"] == "MY_DB"
+        assert resolved["schema"] == "MY_SCHEMA"
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_warehouse_flag_satisfies_missing_warehouse_requirement(
+        self, mock_mgr_cls, runner, tmp_path
+    ):
+        """--warehouse should prevent the 'Missing warehouse' error even when
+        no account parameter or connection default is configured."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "database": "PARAM_DB",
+            "schema": "PARAM_SCHEMA",
+        }
+
+        from tests_common import change_directory
+
+        with change_directory(tmp_path):
+            result = runner.invoke(
+                [
+                    "app",
+                    "setup",
+                    "--app-name",
+                    "my_app",
+                    "--warehouse",
+                    "EXPLICIT_WH",
+                ]
+            )
+            assert result.exit_code == 0, result.output
+            assert "Missing warehouse" not in result.output
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_database_flag_satisfies_missing_database_requirement(
+        self, mock_mgr_cls, runner, tmp_path
+    ):
+        """--database should prevent the 'Missing database' error even when
+        no account parameter, personal DB, or connection default is configured."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.get_personal_database.return_value = None
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "schema": "PARAM_SCHEMA",
+            "query_warehouse": "PARAM_WH",
+        }
+
+        from tests_common import change_directory
+
+        with change_directory(tmp_path):
+            result = runner.invoke(
+                [
+                    "app",
+                    "setup",
+                    "--app-name",
+                    "my_app",
+                    "--database",
+                    "EXPLICIT_DB",
+                ]
+            )
+            assert result.exit_code == 0, result.output
+            assert "Missing database" not in result.output
+
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
+        return_value="definition_version: '2'\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_setup_shows_parameter_provenance(
         self, mock_mgr_cls, mock_gen, runner, tmp_path
     ):
