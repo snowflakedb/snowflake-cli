@@ -322,7 +322,10 @@ class AnalyzeErrorsReporter(Reporter[_FileFindings]):
 
     def __init__(self, save_output: bool = False):
         super().__init__(save_output=save_output)
-        self.command_name = "analyze-errors"
+        self.command_name = "compile"
+        # ``compile`` prints its own "Rendered definitions saved to:" line, so
+        # suppress the generic "Artifacts saved to" step.
+        self.announce_save = False
         self._error_count = 0
         self._warning_count = 0
         self._info_count = 0

@@ -27,11 +27,15 @@ from snowflake.cli._plugins.dcm.progress import DeployProgressTracker
 from snowflake.cli._plugins.dcm.reporters import (
     AnalyzeErrorsReporter,
     AnalyzeReporter,
+    DependenciesReporter,
     PlanReporter,
     RefreshReporter,
     TestReporter,
 )
 from snowflake.cli._plugins.dcm.utils import (
+    RENDERED_DEFINITIONS_FOLDER,
+    announce_compile_separator,
+    announce_rendered_definitions,
     clear_command_artifacts,
     mock_dcm_response,
 )
@@ -528,10 +532,11 @@ def raw_analyze(
 
 
 @app.command(
+    name="compile",
     requires_connection=True,
     hidden=not FeatureFlag.ENABLE_DCM_EARLY_ACCESS.is_enabled(),
 )
-def analyze_errors(
+def compile_project(
     identifier: Optional[FQN] = optional_dcm_identifier,
     from_location: SecurePath = from_option,
     variables: Optional[List[str]] = variables_flag,
@@ -540,9 +545,9 @@ def analyze_errors(
     **options,
 ):
     """
-    Analyzes a DCM Project and prints a formatted list of errors found.
+    Compiles a DCM Project and prints a formatted list of errors found.
     """
-    clear_command_artifacts("analyze-errors")
+    clear_command_artifacts("compile", folder_name=RENDERED_DEFINITIONS_FOLDER)
 
     context = _resolve_context_with_required_manifest(from_location, identifier, target)
     project_id = context.project_identifier
@@ -562,14 +567,75 @@ def analyze_errors(
                 from_stage=effective_stage,
                 variables=variables,
                 save_output=save_output,
-                command_name="analyze-errors",
+                command_name="compile",
+                output_folder_name=RENDERED_DEFINITIONS_FOLDER,
             ),
             phase_name="COMPILE",
             simulated_phases=["RENDER"],
         )
 
     reporter = AnalyzeErrorsReporter(save_output=save_output)
-    return reporter.process(result)
+    if save_output:
+        announce_rendered_definitions()
+    try:
+        return reporter.process(result)
+    finally:
+        announce_compile_separator()
+
+
+@app.command(
+    requires_connection=True,
+    hidden=not FeatureFlag.ENABLE_DCM_EARLY_ACCESS.is_enabled(),
+)
+def dependencies(
+    identifier: Optional[FQN] = optional_dcm_identifier,
+    from_location: SecurePath = from_option,
+    variables: Optional[List[str]] = variables_flag,
+    target: Optional[str] = target_option,
+    save_output: bool = save_output_option,
+    **options,
+):
+    """
+    Analyzes a DCM Project and generates a dependency diagram.
+
+    The diagram is written as a Mermaid flowchart in a Markdown file that can
+    be opened in your IDE's Markdown preview to explore object dependencies.
+    """
+    clear_command_artifacts("dependencies", folder_name=RENDERED_DEFINITIONS_FOLDER)
+
+    context = _resolve_context_with_required_manifest(from_location, identifier, target)
+    project_id = context.project_identifier
+
+    manager = DCMProjectManager()
+    tracker = DeployProgressTracker(conn=manager.connection, operation="compile")
+    with tracker.session():
+        effective_stage = manager.sync_local_files(
+            project_identifier=project_id,
+            source_directory=str(from_location.path),
+            progress=tracker,
+        )
+        result = tracker.run_loader_phase(
+            lambda: manager.raw_analyze(
+                project_identifier=project_id,
+                configuration=context.configuration,
+                from_stage=effective_stage,
+                variables=variables,
+                save_output=save_output,
+                command_name="dependencies",
+                output_folder_name=RENDERED_DEFINITIONS_FOLDER,
+            ),
+            phase_name="COMPILE",
+            simulated_phases=["RENDER"],
+        )
+
+    reporter = DependenciesReporter(
+        project_identifier=project_id, save_output=save_output
+    )
+    try:
+        return reporter.process(result)
+    finally:
+        if save_output:
+            announce_rendered_definitions()
 
 
 @app.command(requires_connection=True)

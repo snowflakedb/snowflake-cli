@@ -143,6 +143,7 @@ class DCMProjectManager(SqlExecutionMixin):
         variables: List[str] | None = None,
         save_output: bool = False,
         command_name: str = "raw-analyze",
+        output_folder_name: str | None = None,
     ):
         log.info(
             "Running DCM analyze manager operation (command_name=%s, project_identifier=%s, has_configuration=%s, variables_count=%d, save_output=%s).",
@@ -158,7 +159,9 @@ class DCMProjectManager(SqlExecutionMixin):
 
         if save_output:
             with collect_output(
-                project_identifier, command_name=command_name
+                project_identifier,
+                command_name=command_name,
+                folder_name=output_folder_name,
             ) as output_stage:
                 query += f" OUTPUT_PATH {output_stage}"
                 result = self.execute_query(query=query)

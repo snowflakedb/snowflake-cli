@@ -1511,7 +1511,7 @@ class TestDCMAnalyze:
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
-            result = runner.invoke(["dcm", "analyze-errors", "fooBar"])
+            result = runner.invoke(["dcm", "compile", "fooBar"])
 
         assert result.exit_code == 0, result.output
         assert "Static analysis of DCM Project files found no errors." in result.output
@@ -1522,7 +1522,8 @@ class TestDCMAnalyze:
             from_stage="TMP_STAGE",
             variables=None,
             save_output=False,
-            command_name="analyze-errors",
+            command_name="compile",
+            output_folder_name="rendered_definitions",
         )
 
     def test_analyze_with_errors_exits_with_formatted_output(
@@ -1585,7 +1586,7 @@ class TestDCMAnalyze:
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
-            result = runner.invoke(["dcm", "analyze-errors", "fooBar"])
+            result = runner.invoke(["dcm", "compile", "fooBar"])
 
         assert result.exit_code == 1, result.output
         assert "sources/definitions/bad.sql" in result.output
@@ -1617,9 +1618,7 @@ class TestDCMAnalyze:
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
-            result = runner.invoke(
-                ["dcm", "analyze-errors", "fooBar", "-D", "key=value"]
-            )
+            result = runner.invoke(["dcm", "compile", "fooBar", "-D", "key=value"])
 
         assert result.exit_code == 0, result.output
         mock_dcm_manager().raw_analyze.assert_called_once_with(
@@ -1628,7 +1627,8 @@ class TestDCMAnalyze:
             from_stage="TMP_STAGE",
             variables=["key=value"],
             save_output=False,
-            command_name="analyze-errors",
+            command_name="compile",
+            output_folder_name="rendered_definitions",
         )
 
     def test_analyze_with_target(
@@ -1662,7 +1662,7 @@ class TestDCMAnalyze:
         )
 
         with project_directory("dcm_project"):
-            result = runner.invoke(["dcm", "analyze-errors", "--target", "dev"])
+            result = runner.invoke(["dcm", "compile", "--target", "dev"])
 
         assert result.exit_code == 0, result.output
         mock_dcm_manager().raw_analyze.assert_called_once_with(
@@ -1671,7 +1671,8 @@ class TestDCMAnalyze:
             from_stage="TMP_STAGE",
             variables=None,
             save_output=False,
-            command_name="analyze-errors",
+            command_name="compile",
+            output_folder_name="rendered_definitions",
         )
 
     def test_analyze_with_save_output(
@@ -1691,7 +1692,7 @@ class TestDCMAnalyze:
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
-            result = runner.invoke(["dcm", "analyze-errors", "fooBar", "--save-output"])
+            result = runner.invoke(["dcm", "compile", "fooBar", "--save-output"])
 
         assert result.exit_code == 0, result.output
         mock_dcm_manager().raw_analyze.assert_called_once_with(
@@ -1700,7 +1701,8 @@ class TestDCMAnalyze:
             from_stage="TMP_STAGE",
             variables=None,
             save_output=True,
-            command_name="analyze-errors",
+            command_name="compile",
+            output_folder_name="rendered_definitions",
         )
 
     def test_analyze_with_save_output_saves_response(
@@ -1735,25 +1737,23 @@ class TestDCMAnalyze:
         mock_manifest_load.return_value = _manifest_without_config()
 
         with change_directory(tmp_path):
-            result = runner.invoke(["dcm", "analyze-errors", "fooBar", "--save-output"])
+            result = runner.invoke(["dcm", "compile", "fooBar", "--save-output"])
 
             assert result.exit_code == 0, result.output
-            _assert_json_dumped("analyze-errors", analyze_response, tmp_path)
+            _assert_json_dumped("compile", analyze_response, tmp_path)
 
     def test_analyze_from_stage_fails(
         self, mock_dcm_manager, runner, project_directory
     ):
-        result = runner.invoke(
-            ["dcm", "analyze-errors", "fooBar", "--from", "@my_stage"]
-        )
+        result = runner.invoke(["dcm", "compile", "fooBar", "--from", "@my_stage"])
         assert result.exit_code == 1, result.output
         assert "Stage paths are not supported" in result.output
 
-    def test_analyze_hidden_from_help_without_early_access(self, runner):
-        """The analyze command is gated on ENABLE_DCM_EARLY_ACCESS and hidden by default."""
+    def test_compile_hidden_from_help_without_early_access(self, runner):
+        """The compile command is gated on ENABLE_DCM_EARLY_ACCESS and hidden by default."""
         result = runner.invoke(["dcm", "--help"])
         assert result.exit_code == 0
-        assert "analyze" not in result.output
+        assert "compile" not in result.output
 
     @pytest.mark.parametrize("format_name", ["json", "json_ext"])
     def test_analyze_with_json_formats_returns_response(
@@ -1776,12 +1776,155 @@ class TestDCMAnalyze:
 
         with project_directory("dcm_project"):
             result = runner.invoke(
-                ["dcm", "analyze-errors", "fooBar", "--format", format_name]
+                ["dcm", "compile", "fooBar", "--format", format_name]
             )
 
         assert result.exit_code == 0, result.output
         payload = json.loads(result.output)
         _assert_format_result(payload, json.loads(analyze_response), format_name)
+
+
+def _dependencies_response():
+    """Analyze response with a table feeding a dynamic table (one edge)."""
+    return json.dumps(
+        {
+            "files": [
+                {
+                    "source_path": "sources/definitions/raw.sql",
+                    "definitions": [
+                        {
+                            "id": {
+                                "name": "CUSTOMER",
+                                "schema": "RAW",
+                                "database": "DB",
+                                "domain": "TABLE",
+                            },
+                            "dependencies": [],
+                            "refined_domain": "table",
+                            "issues": [],
+                        }
+                    ],
+                    "issues": [],
+                },
+                {
+                    "source_path": "sources/definitions/analytics.sql",
+                    "definitions": [
+                        {
+                            "id": {
+                                "name": "ENRICHED",
+                                "schema": "ANALYTICS",
+                                "database": "DB",
+                                "domain": "TABLE",
+                            },
+                            "dependencies": [
+                                {
+                                    "source_id": {
+                                        "name": "CUSTOMER",
+                                        "schema": "RAW",
+                                        "database": "DB",
+                                        "domain": "TABLE",
+                                    }
+                                }
+                            ],
+                            "refined_domain": "dynamic_table",
+                            "properties": [{"name": "TARGET_LAG", "value": "1 day"}],
+                            "issues": [],
+                        }
+                    ],
+                    "issues": [],
+                },
+            ]
+        }
+    )
+
+
+class TestDCMDependencies:
+    def test_dependencies_writes_markdown_and_links_to_it(
+        self,
+        mock_dcm_manager,
+        mock_deploy_tracker,
+        mock_manifest_load,
+        runner,
+        mock_cursor,
+        mock_connect,
+        tmp_path,
+    ):
+        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
+            rows=[(_dependencies_response(),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["dcm", "dependencies", "fooBar"])
+
+            assert result.exit_code == 0, result.output
+
+            dependencies_file = tmp_path / "out" / "dependencies.md"
+            assert dependencies_file.exists()
+            content = dependencies_file.read_text()
+
+        assert "# DCM Project dependencies for" in content
+        assert "flowchart LR" in content
+        assert "Table: CUSTOMER\\nDB.RAW" in content
+        assert "Dynamic Table [lag: 1 day]\\nENRICHED\\nDB.ANALYTICS" in content
+        assert "CUSTOMER --> ENRICHED" in content
+
+        # The CLI points the user at the generated file.
+        assert "dependencies.md" in result.output
+
+        mock_dcm_manager().raw_analyze.assert_called_once_with(
+            project_identifier=FQN.from_string("fooBar"),
+            configuration=None,
+            from_stage="TMP_STAGE",
+            variables=None,
+            save_output=False,
+            command_name="dependencies",
+            output_folder_name="rendered_definitions",
+        )
+
+    def test_dependencies_with_variables(
+        self,
+        mock_dcm_manager,
+        mock_deploy_tracker,
+        mock_manifest_load,
+        runner,
+        mock_cursor,
+        mock_connect,
+        tmp_path,
+    ):
+        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
+            rows=[(_dependencies_response(),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["dcm", "dependencies", "fooBar", "-D", "key=value"])
+
+        assert result.exit_code == 0, result.output
+        mock_dcm_manager().raw_analyze.assert_called_once_with(
+            project_identifier=FQN.from_string("fooBar"),
+            configuration=None,
+            from_stage="TMP_STAGE",
+            variables=["key=value"],
+            save_output=False,
+            command_name="dependencies",
+            output_folder_name="rendered_definitions",
+        )
+
+    def test_dependencies_hidden_from_help_without_early_access(self, runner):
+        result = runner.invoke(["dcm", "--help"])
+        assert result.exit_code == 0
+        assert "dependencies" not in result.output
+
+    def test_dependencies_from_stage_fails(self, mock_dcm_manager, runner, tmp_path):
+        with change_directory(tmp_path):
+            result = runner.invoke(
+                ["dcm", "dependencies", "fooBar", "--from", "@my_stage"]
+            )
+        assert result.exit_code == 1, result.output
+        assert "Stage paths are not supported" in result.output
 
 
 class TestDCMList:

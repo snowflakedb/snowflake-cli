@@ -3,6 +3,8 @@ from unittest import mock
 
 from snowflake.cli._plugins.dcm.utils import (
     OUTPUT_FOLDER,
+    RENDERED_DEFINITIONS_FOLDER,
+    announce_rendered_definitions,
     clear_command_artifacts,
     save_command_response,
 )
@@ -52,6 +54,43 @@ class TestClearCommandArtifacts:
         with change_directory(tmp_path):
             clear_command_artifacts("plan")
 
+    def test_clears_custom_folder_name(self, tmp_path):
+        with change_directory(tmp_path):
+            out_dir = tmp_path / OUTPUT_FOLDER
+            out_dir.mkdir()
+            compile_json = out_dir / "compile.json"
+            compile_json.write_text('{"old": "data"}')
+            rendered_dir = out_dir / RENDERED_DEFINITIONS_FOLDER
+            rendered_dir.mkdir()
+            (rendered_dir / "manifest.yml").write_text("name: x")
+
+            clear_command_artifacts(
+                "compile",
+                folder_name=RENDERED_DEFINITIONS_FOLDER,
+            )
+
+            assert not compile_json.exists()
+            assert not rendered_dir.exists()
+
+
+class TestAnnounceRenderedDefinitions:
+    def test_prints_path_when_folder_exists(self, tmp_path, capsys):
+        with change_directory(tmp_path):
+            rendered_dir = tmp_path / OUTPUT_FOLDER / RENDERED_DEFINITIONS_FOLDER
+            rendered_dir.mkdir(parents=True)
+
+            announce_rendered_definitions()
+
+            out = capsys.readouterr().out
+            assert "Rendered definitions saved to:" in out
+            assert RENDERED_DEFINITIONS_FOLDER in out
+
+    def test_noop_when_folder_missing(self, tmp_path, capsys):
+        with change_directory(tmp_path):
+            announce_rendered_definitions()
+
+            assert "Rendered definitions saved to:" not in capsys.readouterr().out
+
 
 class TestSaveCommandResponse:
     def test_saves_json_file_from_string_payload(self, tmp_path):
@@ -81,6 +120,12 @@ class TestSaveCommandResponse:
 
             assert (tmp_path / OUTPUT_FOLDER).exists()
             assert (tmp_path / OUTPUT_FOLDER / "refresh.json").exists()
+
+    def test_saves_compile_response_under_command_name(self, tmp_path):
+        with change_directory(tmp_path):
+            save_command_response("compile", {"files": []})
+
+            assert (tmp_path / OUTPUT_FOLDER / "compile.json").exists()
 
     def test_handles_write_error_gracefully(self, tmp_path):
         with change_directory(tmp_path):
