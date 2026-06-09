@@ -29,6 +29,7 @@
 * Fixed `snow app deploy` failing on Windows when uploading app code to a workspace (connector error `253006`, `ER_FILE_NOT_EXISTS`) due to a malformed local file URI.
 * The `build_eai` field of a `snowflake-app` entity can now be specified as a bare string (e.g. `build_eai: MY_EAI`) in addition to the existing `build_eai:\n  name: MY_EAI` object form.
 * `snow app setup` now honors the `--warehouse`, `--database`, and `--schema` connection options as explicit overrides for the generated `snowflake.yml`, taking precedence over account parameters and the connection defaults. This lets users target a warehouse, database, or schema other than the account defaults. When `--database` is specified, `--schema` must also be specified.
+* `snow dbt` no longer rejects valid `--dbt-version` values (e.g. `2.0.0-preview.175`) that don't match a hard-coded client-side regex. Versions are now validated against the server's supported list, with unsupported versions failing fast and listing the actual supported set.
 
 
 # v3.20.0
@@ -46,8 +47,6 @@
 * Fixed `snow sql` table output rendering as a series of `|` characters when selecting many columns into a non-terminal destination (e.g. piped or redirected output).
 * `get_account_identifier()` and `snow spcs service build-image` now raise a clear, user-visible error when `CURRENT_ORGANIZATION_NAME()` / `CURRENT_ACCOUNT_NAME()` return no row or a NULL value, instead of a cryptic `TypeError: 'NoneType' object is not subscriptable` / `AttributeError: 'NoneType' object has no attribute 'lower'`.
 * `snow app setup` and `snow app deploy` now verify the current role can deploy to the account-configured destination (the `DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE` / `DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA` account defaults) before using it. When the role is missing the required privileges, the commands fall back to your personal database — as if no account default were set — and print a warning listing the missing grants and pointing you to your account administrator.
-* `snow dbt deploy --dbt-version` now validates the requested version against the server's supported list (`SYSTEM$SUPPORTED_DBT_VERSIONS()`) before uploading project files, instead of a hard-coded client-side regex. Unsupported versions fail fast with a message listing the actual supported versions, and the CLI no longer rejects valid versions that don't match its old regex (e.g. `2.0.0-preview.175`). `snow dbt execute --dbt-version` no longer performs client-side validation either; the server returns the same supported-versions message if the value is unknown.
-* `snow dbt` no longer rejects valid `--dbt-version` values (e.g. `2.0.0-preview.175`) that don't match a hard-coded client-side regex. Versions are now validated against the server's supported list, with unsupported versions failing fast and listing the actual supported set.
 
 
 # v3.19.0
