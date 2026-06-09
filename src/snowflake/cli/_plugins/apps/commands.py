@@ -26,13 +26,14 @@ import json
 import logging
 import re
 from pathlib import Path
-from typing import Callable, Optional
+from typing import TYPE_CHECKING, Callable, Literal, NamedTuple, Optional
 
 import typer
 from click import ClickException
 from snowflake.cli._plugins.apps.generate import _generate_snowflake_yml
 from snowflake.cli._plugins.apps.manager import (
     DEFAULT_PERSONAL_SCHEMA,
+    DEFAULT_PERSONAL_WORKSPACE_NAME,
     DEFINITION_FILENAME,
     SnowflakeAppManager,
     _filter_accessible_remote_defaults,
@@ -42,6 +43,7 @@ from snowflake.cli._plugins.apps.manager import (
     _resolve_entity_id,
     _ts,
     app_fqn,
+    is_personal_database,
     perform_bundle,
 )
 from snowflake.cli._plugins.connection.util import make_snowsight_url
@@ -62,7 +64,13 @@ from snowflake.cli.api.output.types import (
     ObjectResult,
 )
 from snowflake.cli.api.project.util import identifier_for_url
+from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.connector.errors import ProgrammingError
+
+if TYPE_CHECKING:
+    from snowflake.cli._plugins.apps.snowflake_app_entity_model import (
+        SnowflakeAppEntityModel,
+    )
 
 log = logging.getLogger(__name__)
 
@@ -78,6 +86,99 @@ SOURCE_ACCOUNT_PARAM = "account parameter"
 SOURCE_CURRENT_SESSION = "current session"
 SOURCE_DEFAULT = "default"
 SOURCE_MISSING = "missing"
+
+
+_CodeStorageType = Literal["workspace", "stage"]
+
+
+class _CodeStorage(NamedTuple):
+    """Resolved code-storage backend for an app deploy/teardown.
+
+    ``type`` selects between the ``"workspace"`` and ``"stage"`` flows.
+    ``name`` plus the optional database/schema overrides identify the backing
+    object; ``encryption_type`` applies only to the stage flow.
+    """
+
+    type: _CodeStorageType  # noqa: A003
+    name: str
+    database_override: Optional[str]
+    schema_override: Optional[str]
+    encryption_type: str
+
+
+def _resolve_code_storage(
+    entity: "SnowflakeAppEntityModel",
+    *,
+    database: Optional[str],
+    schema: Optional[str],
+    app_name: str,
+) -> _CodeStorage:
+    """Decide whether app code is uploaded to a workspace or a stage.
+
+    Personal databases (``USER$<user>``) do not support stages, so any app
+    whose *resolved* destination database is a personal database must use a
+    workspace — regardless of what (if anything) ``snowflake.yml`` configured.
+    This both honors explicit configuration for non-personal destinations and
+    repairs project files that predate personal-database detection (a
+    ``code_stage`` pointing at a personal database, or no code-storage block at
+    all) by transparently routing them through the shared
+    ``SNOWFLAKE_APPS`` workspace.
+
+    Resolution order:
+
+    1. Explicit ``code_workspace`` → workspace, as configured.
+    2. Explicit ``code_stage`` → stage, as configured. When the destination is
+       a personal database a warning is emitted (stages are generally
+       unsupported there), but the user's explicit choice is still honored.
+    3. Neither configured → workspace when the destination is a personal
+       database, otherwise a stage named ``<app>_CODE``.
+    """
+    destination_is_personal = is_personal_database(database)
+
+    if entity.code_workspace is not None:
+        return _CodeStorage(
+            type="workspace",
+            name=entity.code_workspace.name,
+            database_override=entity.code_workspace.database,
+            schema_override=entity.code_workspace.schema_,
+            encryption_type="SNOWFLAKE_SSE",  # unused in workspace flow
+        )
+
+    if entity.code_stage is not None:
+        if destination_is_personal:
+            cli_console.warning(
+                f"code_stage '{sanitize_for_terminal(entity.code_stage.name)}' "
+                "is configured, but the resolved destination database "
+                f"'{sanitize_for_terminal(str(database))}' is a personal "
+                "database, which generally does not support stages. Honoring "
+                "the configured stage; the deploy may fail if stages are not "
+                "supported there."
+            )
+        return _CodeStorage(
+            type="stage",
+            name=entity.code_stage.name,
+            database_override=entity.code_stage.database,
+            schema_override=entity.code_stage.schema_,
+            encryption_type=entity.code_stage.encryption_type or "SNOWFLAKE_SSE",
+        )
+
+    # Neither code_workspace nor code_stage configured: pick the backend that
+    # the destination supports.
+    if destination_is_personal:
+        return _CodeStorage(
+            type="workspace",
+            name=DEFAULT_PERSONAL_WORKSPACE_NAME,
+            database_override=None,
+            schema_override=None,
+            encryption_type="SNOWFLAKE_SSE",
+        )
+    return _CodeStorage(
+        type="stage",
+        name=f"{app_name}_CODE",
+        database_override=None,
+        schema_override=None,
+        encryption_type="SNOWFLAKE_SSE",
+    )
 
 
 def snowflake_app_setup(
@@ -233,7 +334,15 @@ def snowflake_app_setup(
     resolved_values = {k: v[0] for k, v in resolved.items()}
 
     if not dry_run:
-        use_workspace = resolved["database"][1] == SOURCE_DEFAULT
+        # Use a workspace whenever the destination is a personal database:
+        # either it was resolved from the built-in personal-DB default tier,
+        # or it arrived via an account parameter / the current session but is
+        # still a ``USER$<user>`` personal database. Personal databases do not
+        # support stages, so emitting ``code_stage`` for one would produce a
+        # ``snowflake.yml`` that always fails at deploy time.
+        use_workspace = resolved["database"][
+            1
+        ] == SOURCE_DEFAULT or is_personal_database(resolved_values["database"])
         project_file.write_text(
             _generate_snowflake_yml(
                 resolved_app_name,
@@ -476,27 +585,6 @@ def snowflake_app_deploy(
     database = fqn.database or conn.database
     schema = fqn.schema or conn.schema
 
-    # ── Resolve code storage backend ──────────────────────────────────
-    # ``code_stage`` and ``code_workspace`` are mutually exclusive (enforced
-    # by the entity model). When only one is provided, that backend is used.
-    # When neither is configured, fall back to a code stage named ``<app>_CODE``.
-    use_workspace = entity.code_workspace is not None
-    if use_workspace:
-        storage_name = entity.code_workspace.name
-        storage_db_override = entity.code_workspace.database
-        storage_schema_override = entity.code_workspace.schema_
-        encryption_type = "SNOWFLAKE_SSE"  # unused in workspace flow
-    elif entity.code_stage is not None:
-        storage_name = entity.code_stage.name
-        storage_db_override = entity.code_stage.database
-        storage_schema_override = entity.code_stage.schema_
-        encryption_type = entity.code_stage.encryption_type or "SNOWFLAKE_SSE"
-    else:
-        storage_name = f"{app_name}_CODE"
-        storage_db_override = None
-        storage_schema_override = None
-        encryption_type = "SNOWFLAKE_SSE"
-
     build_compute_pool = (
         entity.build_compute_pool.name if entity.build_compute_pool else None
     )
@@ -520,6 +608,21 @@ def snowflake_app_deploy(
     service_compute_pool = defaults["service_compute_pool"]
     query_warehouse = defaults["query_warehouse"]
     build_eai = defaults["build_eai"]
+
+    # ── Resolve code storage backend ──────────────────────────────────
+    # ``code_stage`` and ``code_workspace`` are mutually exclusive (enforced
+    # by the entity model). The backend is chosen here — after the destination
+    # database is resolved — because a personal database does not support
+    # stages and must always use a workspace, even when ``snowflake.yml``
+    # specifies a stage or omits code storage entirely.
+    storage = _resolve_code_storage(
+        entity, database=database, schema=schema, app_name=app_name
+    )
+    use_workspace = storage.type == "workspace"
+    storage_name = storage.name
+    storage_db_override = storage.database_override
+    storage_schema_override = storage.schema_override
+    encryption_type = storage.encryption_type
 
     # User-supplied compute pools are always passed through to the server
     # (forwarded as the 4th argument to
@@ -866,18 +969,15 @@ def snowflake_app_teardown(
     service_fqn = app_fqn(database=db, schema=schema, name=app_name)
     is_application_service = manager.is_application_service(service_fqn)
 
-    use_workspace = entity.code_workspace is not None
-    if use_workspace:
-        storage_name = entity.code_workspace.name
-        storage_db = entity.code_workspace.database or db
-        storage_schema = entity.code_workspace.schema_ or schema
-    elif entity.code_stage is not None:
-        storage_name = entity.code_stage.name
-        storage_db = entity.code_stage.database or db
-        storage_schema = entity.code_stage.schema_ or schema
-    else:
-        storage_name = f"{app_name}_CODE"
-        storage_db, storage_schema = db, schema
+    # Mirror the deploy-time backend selection so a personal-database app is
+    # torn down via its workspace rather than a (never-created) stage.
+    storage = _resolve_code_storage(
+        entity, database=db, schema=schema, app_name=app_name
+    )
+    use_workspace = storage.type == "workspace"
+    storage_name = storage.name
+    storage_db = storage.database_override or db
+    storage_schema = storage.schema_override or schema
 
     storage_fqn = app_fqn(database=storage_db, schema=storage_schema, name=storage_name)
     build_job_fqn = app_fqn(database=db, schema=schema, name=f"{app_name}_BUILD_JOB")
