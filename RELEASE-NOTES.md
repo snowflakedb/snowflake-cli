@@ -46,6 +46,7 @@
 ## New additions
 * Added a `--protocol` option (plus matching `SNOWFLAKE_PROTOCOL` env var and `protocol` config key) to `snow connection add` and the global connection overrides. This allows selecting `http` or `https` as the connection protocol without editing `config.toml`, which is primarily useful for local development against `http` deployments.
 * Added `snow helpers generate-project-schema` command to emit a JSON Schema for the `snowflake.yml` project definition file. The output follows [JSON Schema Draft 2020-12](https://json-schema.org/draft/2020-12/schema) and can be plugged into supported editors (e.g. VS Code via the YAML extension) or CI pipelines to get completion and to catch structural mistakes (unknown keys, wrong types, missing required fields) before a deploy. The schema is generated from the CLI's own models, so some cross-field and semantic checks are still only applied at load/deploy time. Use `--definition-version` to select the project definition version (`1`, `1.1`, or `2`; defaults to `2`) and `--output-file`/`-o` to write the schema to a file.
+* Added `--server-session-keep-alive` global connection flag (plus matching `SNOWFLAKE_SERVER_SESSION_KEEP_ALIVE` env var and `server_session_keep_alive` config key) that prevents Snowflake from closing idle sessions. Useful for long-running operations or connections held open between multiple operations.
 
 ## Fixes and improvements
 * Fixed `TooManyFilesError` during `snow streamlit deploy` when `main_file` is a descendant of a directory listed in `artifacts`.
