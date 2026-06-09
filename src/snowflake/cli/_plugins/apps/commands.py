@@ -261,6 +261,16 @@ def snowflake_app_setup(
     cli_db = getattr(conn, "database", None) or None
     cli_schema = getattr(conn, "schema", None) or None
 
+    # A user-supplied database must be paired with an explicit schema: schema
+    # resolution would otherwise fall back to an account parameter or the
+    # personal-database default, silently placing the app in a schema that does
+    # not belong to the requested database.
+    if cli_db and not cli_schema:
+        raise CliError(
+            "--schema is required when --database is specified. "
+            "Provide --schema to select the schema within the requested database."
+        )
+
     session_wh = conn_config.get("warehouse") or None
     session_db = conn_config.get("database") or None
     session_schema = conn_config.get("schema") or None
