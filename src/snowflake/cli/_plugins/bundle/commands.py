@@ -91,6 +91,12 @@ AddVersionOption = typer.Option(
     ),
     show_default=False,
 )
+EntrypointOption = typer.Option(
+    ...,
+    "--entrypoint",
+    help="Entrypoint file path within the code bundle.",
+    show_default=False,
+)
 
 
 @app.command(requires_connection=True)
@@ -167,4 +173,15 @@ def alter(
         rename_to=rename_to,
         add_version=add_version,
     )
+    return MessageResult(cursor.fetchone()[0])
+
+
+@app.command(requires_connection=True)
+def execute(
+    identifier: Annotated[FQN, CODE_BUNDLE_IDENTIFIER],
+    entrypoint: Annotated[str, EntrypointOption],
+    **options,
+) -> CommandResult:
+    """Executes a code bundle at the given entrypoint."""
+    cursor = CodeBundleManager().execute(name=identifier, entrypoint=entrypoint)
     return MessageResult(cursor.fetchone()[0])
