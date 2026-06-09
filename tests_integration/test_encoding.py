@@ -167,7 +167,7 @@ class TestWarnings:
             ), f"Unexpected encoding warnings on UTF-8 Unix: {encoding_warnings}"
 
     @pytest.mark.integration
-    def test_no_warning_when_both_encodings_configured(self, runner):
+    def test_no_warning_when_all_encodings_configured(self, runner):
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
 
@@ -176,6 +176,7 @@ class TestWarnings:
                 env={
                     "SNOWFLAKE_CLI_ENCODING_FILE_IO": "utf-8",
                     "SNOWFLAKE_CLI_ENCODING_SUBPROCESS": "utf-8",
+                    "SNOWFLAKE_CLI_ENCODING_STDOUT": "utf-8",
                 },
             )
 
@@ -295,15 +296,9 @@ class TestStdoutEncodingToFile:
         self,
         output_file: Path,
         config_path: Path,
-        extra_env: dict,
+        env: dict,
     ) -> subprocess.CompletedProcess:
         """Spawn snow as a subprocess with stdout redirected to *output_file*."""
-        env = {
-            # Inherit the full environment so the process can find its
-            # dependencies, then layer the caller's overrides on top.
-            **os.environ,
-            **extra_env,
-        }
         with output_file.open("wb") as fh:
             return subprocess.run(
                 [
@@ -316,7 +311,7 @@ class TestStdoutEncodingToFile:
                     "--connection",
                     "integration",
                     "--format",
-                    "JSON",
+                    "CSV",
                     "-q",
                     f"select '{_EURO}' as euro_sign",
                 ],
@@ -331,33 +326,18 @@ class TestStdoutEncodingToFile:
     )
     def test_redirected_stdout_without_encoding_writes_cp1252(self, runner, tmp_path):
         """Without SNOWFLAKE_CLI_ENCODING_STDOUT, snow uses the Windows system
-        default encoding (cp1252) for stdout.  The Euro sign is encoded as the
+        default encoding (cp1252) for stdout. The Euro sign is encoded as the
         single byte 0x80 — not the three UTF-8 bytes a reader opening the file
         as UTF-8 would expect, producing garbled output."""
         output_file = tmp_path / "output.txt"
         env_without = {
             k: v for k, v in os.environ.items() if k != "SNOWFLAKE_CLI_ENCODING_STDOUT"
         }
-        with output_file.open("wb") as fh:
-            proc = subprocess.run(
-                [
-                    sys.executable,
-                    "-m",
-                    "snowflake.cli._app",
-                    "--config-file",
-                    str(runner._test_config_path),
-                    "sql",
-                    "--connection",
-                    "integration",
-                    "--format",
-                    "JSON",
-                    "-q",
-                    f"select '{_EURO}' as euro_sign",
-                ],
-                stdout=fh,
-                stderr=subprocess.DEVNULL,
-                env=env_without,
-            )
+        proc = self._run_snow_to_file(
+            output_file,
+            runner._test_config_path,
+            env=env_without,
+        )
 
         assert proc.returncode == 0
         raw = output_file.read_bytes()
@@ -369,14 +349,14 @@ class TestStdoutEncodingToFile:
     @pytest.mark.skipif(not IS_WINDOWS, reason="Windows stdout encoding test")
     def test_redirected_stdout_with_encoding_writes_utf8(self, runner, tmp_path):
         """With SNOWFLAKE_CLI_ENCODING_STDOUT=utf-8, snow reconfigures sys.stdout
-        to UTF-8 before producing any output.  The Euro sign is encoded as the
+        to UTF-8 before producing any output. The Euro sign is encoded as the
         three UTF-8 bytes E2 82 AC, so the file is valid UTF-8 and the character
         round-trips correctly."""
         output_file = tmp_path / "output.txt"
         proc = self._run_snow_to_file(
             output_file,
             runner._test_config_path,
-            extra_env={"SNOWFLAKE_CLI_ENCODING_STDOUT": "utf-8"},
+            env={**os.environ, "SNOWFLAKE_CLI_ENCODING_STDOUT": "utf-8"},
         )
 
         assert proc.returncode == 0
