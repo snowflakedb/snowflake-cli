@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
 import os
 import sys
 import warnings
@@ -761,8 +762,13 @@ def test_stdout_encoding_from_env(configured_encoding, monkeypatch):
     assert encoding == configured_encoding
 
 
-def test_stdout_encoding_from_config_file(config_file):
+def test_stdout_encoding_from_config_file(config_file, monkeypatch):
     """Test stdout encoding can be configured in config.toml"""
+    # Monkeypatch sys.stdout so apply_stdout_encoding does not mutate the
+    # real stdout (which would corrupt subsequent tests on non-UTF-8 systems).
+    fake_stdout = io.TextIOWrapper(io.BytesIO(), encoding="ascii")
+    monkeypatch.setattr("sys.stdout", fake_stdout)
+
     config_content = """
 [cli.encoding]
 stdout = "cp1252"
@@ -778,7 +784,6 @@ def test_apply_stdout_encoding_reconfigures_stdout(monkeypatch):
     """apply_stdout_encoding should call sys.stdout.reconfigure with the given encoding"""
     mock_stdout = mock.MagicMock()
     monkeypatch.setattr("sys.stdout", mock_stdout)
-    monkeypatch.setattr("sys.platform", "linux")  # skip Windows-specific path
 
     apply_stdout_encoding("utf-8")
 
@@ -797,12 +802,9 @@ def test_apply_stdout_encoding_none_is_noop(monkeypatch):
 
 def test_apply_stdout_encoding_survives_unsupported_operation(monkeypatch):
     """apply_stdout_encoding must not crash when reconfigure raises UnsupportedOperation"""
-    import io
-
     mock_stdout = mock.MagicMock()
     mock_stdout.reconfigure.side_effect = io.UnsupportedOperation("not writable")
     monkeypatch.setattr("sys.stdout", mock_stdout)
-    monkeypatch.setattr("sys.platform", "linux")
 
     apply_stdout_encoding("utf-8")  # should not raise
 
@@ -885,6 +887,10 @@ def test_detect_encoding_no_warning_when_configured(config_file, monkeypatch):
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
     monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-16")
+    # Monkeypatch sys.stdout so apply_stdout_encoding does not mutate the
+    # real stdout stream (which would corrupt subsequent tests on non-UTF-8 systems).
+    fake_stdout = io.TextIOWrapper(io.BytesIO(), encoding="ascii")
+    monkeypatch.setattr("sys.stdout", fake_stdout)
 
     config_content = """
 [cli.encoding]
