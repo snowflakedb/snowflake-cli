@@ -41,18 +41,14 @@ class ComputePoolReference(UpdatableModel):
 
 
 class ExternalAccessReference(UpdatableModel):
-    """Reference to an external access integration."""
+    """Reference to an external access integration.
+
+    External access integrations are account-level objects, so only a name is
+    accepted (no database/schema qualification).
+    """
 
     name: Optional[str] = IdentifierField(
         title="Name of the external access integration", default=None
-    )
-    schema_: Optional[str] = IdentifierField(
-        title="Schema of the external access integration",
-        alias="schema",
-        default=None,
-    )
-    database: Optional[str] = IdentifierField(
-        title="Database of the external access integration", default=None
     )
 
 
@@ -148,9 +144,15 @@ class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
     @field_validator("build_eai", mode="before")
     @classmethod
     def _validate_eai(cls, value):
-        """Allow null/None values for the EAI field."""
+        """Accept a bare name string, a mapping with ``name``, or null/None.
+
+        External access integrations are account-level objects, so a plain
+        string is treated as the integration name (e.g. ``build_eai: MY_EAI``).
+        """
         if value is None or value == "null":
             return None
+        if isinstance(value, str):
+            return {"name": value}
         return value
 
     artifact_repository: Optional[ArtifactRepositoryReference] = Field(
