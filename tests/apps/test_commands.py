@@ -1211,6 +1211,59 @@ class TestSnowflakeAppManager:
             == "snow://workspace/DB.SCHEMA.WORKSPACE/versions/last/MY_APP"
         )
 
+    @patch(EXECUTE_QUERY)
+    def test_upload_to_workspace_builds_native_file_uri(self, mock_execute, tmp_path):
+        """The PUT source must come from the native local path via
+        ``_local_path_to_file_uri`` and be embedded without an extra layer of
+        quoting. Using ``Path.as_posix()`` here produced ``file://C:/...`` on
+        Windows, which the connector rejects with error 253006."""
+        from snowflake.cli._plugins.apps.manager import _local_path_to_file_uri
+
+        (tmp_path / "app.py").write_text("print('hi')")
+        fqn = FQN(database="DB", schema="SCHEMA", name="WORKSPACE")
+
+        results = list(
+            SnowflakeAppManager().upload_to_workspace(
+                local_root=tmp_path,
+                workspace_fqn=fqn,
+                target_subdirectory="MY_APP",
+                overwrite=True,
+            )
+        )
+
+        assert [r["source"] for r in results] == ["app.py"]
+        expected_uri = _local_path_to_file_uri(str((tmp_path / "app.py").resolve()))
+        put_query = mock_execute.call_args_list[0][0][0]
+        assert put_query == (
+            f"PUT {expected_uri} "
+            f"'snow://workspace/DB.SCHEMA.WORKSPACE/versions/live/MY_APP/' "
+            f"auto_compress=false overwrite=true"
+        )
+        # The helper output is embedded directly, never re-wrapped in another
+        # string literal (which would yield an invalid ``PUT ''file://...''``).
+        assert "''file://" not in put_query
+
+    @pytest.mark.parametrize(
+        "native_path,expected_uri",
+        [
+            # Windows drive path keeps native backslashes; allowed unquoted so
+            # returned bare. The previous as_posix() form ``file://C:/...`` was
+            # the bug.
+            ("C:\\Users\\dev\\bundle\\app.py", "file://C:\\Users\\dev\\bundle\\app.py"),
+            # A space forces a quoted literal with doubled backslashes.
+            (
+                "C:\\My Apps\\bundle\\app.py",
+                "'file://C:\\\\My Apps\\\\bundle\\\\app.py'",
+            ),
+            # POSIX absolute path yields the valid three-slash form.
+            ("/home/dev/bundle/app.py", "file:///home/dev/bundle/app.py"),
+        ],
+    )
+    def test_local_path_to_file_uri(self, native_path, expected_uri):
+        from snowflake.cli._plugins.apps.manager import _local_path_to_file_uri
+
+        assert _local_path_to_file_uri(native_path) == expected_uri
+
     @staticmethod
     def _find_query(call_args_list, substr):
         for call in call_args_list:
@@ -5312,6 +5365,338 @@ class TestDeployCommand:
             build_eai="MY_EAI",
             project_type="",
         )
+
+    @patch("snowflake.cli._plugins.apps.commands.StageManager")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_create_stage_privilege_error_includes_role_guidance(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        mock_stage_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        """A privilege error while creating the code stage is rewrapped with
+        the failed action, the stage object, the role, and a privileges hint."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = Mock(
+            encryption_type="SNOWFLAKE_SSE",
+            database=None,
+            schema_=None,
+        )
+        entity.code_stage.name = "MY_STAGE"
+        entity.code_workspace = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.artifact_repository = None
+        mock_get_entity.return_value = entity
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        create_error = ProgrammingError("Insufficient privileges")
+        create_error.errno = 3001
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.stage_exists.return_value = False
+        mock_mgr.create_stage.side_effect = create_error
+        mock_mgr.current_role.return_value = "APP_DEPLOYER"
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            _reset_command_metrics()
+            result = runner.invoke(["app", "deploy"])
+            assert result.exit_code == 1, result.output
+            assert (
+                "Failed to create stage 'TEST_DB.TEST_SCHEMA.MY_STAGE'" in result.output
+            )
+            assert "role 'APP_DEPLOYER'" in result.output
+            assert "CREATE STAGE on the schema" in result.output
+            prepare_span = _get_completed_span("snowflake_app.upload.prepare_stage")
+            assert prepare_span[CLIMetricsSpan.ERROR_KEY] == CliError.__name__
+
+        mock_mgr.build_app_artifact_repo.assert_not_called()
+
+    @patch("snowflake.cli._plugins.apps.commands.StageManager")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_clear_stage_privilege_error_includes_role_guidance(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        mock_stage_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        """A privilege error while clearing an existing stage reports the clear
+        action and the WRITE privilege hint, and falls back to a generic role
+        phrase when the role cannot be resolved."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = Mock(
+            encryption_type="SNOWFLAKE_SSE",
+            database=None,
+            schema_=None,
+        )
+        entity.code_stage.name = "MY_STAGE"
+        entity.code_workspace = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.artifact_repository = None
+        mock_get_entity.return_value = entity
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.stage_exists.return_value = True
+        mock_mgr.clear_stage.side_effect = ProgrammingError("Insufficient privileges")
+        mock_mgr.current_role.return_value = None
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            _reset_command_metrics()
+            result = runner.invoke(["app", "deploy"])
+            assert result.exit_code == 1, result.output
+            assert (
+                "Failed to clear existing stage 'TEST_DB.TEST_SCHEMA.MY_STAGE'"
+                in result.output
+            )
+            assert "your role" in result.output
+            assert "WRITE on the stage" in result.output
+
+        mock_mgr.create_stage.assert_not_called()
+        mock_mgr.build_app_artifact_repo.assert_not_called()
+
+    @patch("snowflake.cli._plugins.apps.commands.StageManager")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "USER$DEV",
+            "schema": "PUBLIC",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "USER$DEV",
+            "artifact_repo_schema": "PUBLIC",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_create_workspace_privilege_error_includes_role_guidance(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        mock_stage_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        """A privilege error while creating the workspace is rewrapped with the
+        failed action, the workspace object, the role, and a privileges hint."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "USER$DEV"
+        fqn.schema = "PUBLIC"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.code_workspace = Mock(database=None, schema_=None)
+        entity.code_workspace.name = "SNOWFLAKE_APPS"
+        entity.artifacts = []
+        entity.meta = None
+        entity.artifact_repository = None
+        mock_get_entity.return_value = entity
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        create_error = ProgrammingError("Insufficient privileges")
+        create_error.errno = 3001
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.workspace_subdirectory_uri.return_value = (
+            "snow://workspace/USER$DEV.PUBLIC.SNOWFLAKE_APPS/versions/live/MY_APP"
+        )
+        mock_mgr.create_workspace.side_effect = create_error
+        mock_mgr.current_role.return_value = "APP_DEPLOYER"
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            _reset_command_metrics()
+            result = runner.invoke(["app", "deploy"])
+            assert result.exit_code == 1, result.output
+            assert (
+                "Failed to create workspace "
+                "'USER$DEV.PUBLIC.SNOWFLAKE_APPS'" in result.output
+            )
+            assert "role 'APP_DEPLOYER'" in result.output
+            assert "CREATE WORKSPACE on the schema" in result.output
+            prepare_span = _get_completed_span("snowflake_app.upload.prepare_workspace")
+            assert prepare_span[CLIMetricsSpan.ERROR_KEY] == CliError.__name__
+
+        mock_mgr.clear_workspace_subdirectory.assert_not_called()
+        mock_mgr.build_app_artifact_repo.assert_not_called()
+
+    @patch("snowflake.cli._plugins.apps.commands.StageManager")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "USER$DEV",
+            "schema": "PUBLIC",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "USER$DEV",
+            "artifact_repo_schema": "PUBLIC",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_clear_workspace_privilege_error_includes_role_guidance(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        mock_stage_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        """A privilege error while clearing existing workspace files reports the
+        clear action and the WRITE privilege hint, and falls back to a generic
+        role phrase when the role cannot be resolved."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "USER$DEV"
+        fqn.schema = "PUBLIC"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.code_workspace = Mock(database=None, schema_=None)
+        entity.code_workspace.name = "SNOWFLAKE_APPS"
+        entity.artifacts = []
+        entity.meta = None
+        entity.artifact_repository = None
+        mock_get_entity.return_value = entity
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.workspace_subdirectory_uri.return_value = (
+            "snow://workspace/USER$DEV.PUBLIC.SNOWFLAKE_APPS/versions/live/MY_APP"
+        )
+        mock_mgr.clear_workspace_subdirectory.side_effect = ProgrammingError(
+            "Insufficient privileges"
+        )
+        mock_mgr.current_role.return_value = None
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            _reset_command_metrics()
+            result = runner.invoke(["app", "deploy"])
+            assert result.exit_code == 1, result.output
+            assert (
+                "Failed to clear workspace files "
+                "'USER$DEV.PUBLIC.SNOWFLAKE_APPS'" in result.output
+            )
+            assert "your role" in result.output
+            assert "WRITE on the workspace" in result.output
+
+        mock_mgr.create_workspace.assert_called_once()
+        mock_mgr.build_app_artifact_repo.assert_not_called()
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
     @patch("snowflake.cli._plugins.apps.commands.StageManager")
