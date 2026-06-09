@@ -39,6 +39,20 @@ maintainer for review.
 
 ---
 
+## Design principles
+
+**Verbs for commands, nouns for groups.** The group is the entity (`snow git`,
+`snow stage`), the command is the action (`fetch`, `create`, `list`). Avoid dashes in
+command names unless the concept truly cannot be expressed otherwise.
+
+**Find the closest existing command first.** Match its flag names, output
+type, and default behavior. Consistency across groups beats local cleverness.
+
+**Commands are what, flags are how.** Flags are configuration and conditions for a
+command (`--force`, `--delta`, `--if-exists`), not an alternate operation.
+
+---
+
 ## Which case are you in?
 
 **Adding a command to an existing group** — skip to
