@@ -25,6 +25,7 @@ from snowflake.cli.api.cli_global_context import fork_cli_context
 from snowflake.cli.api.config import (
     ConfigFileTooWidePermissionsError,
     ConnectionConfig,
+    apply_stdout_encoding,
     config_init,
     get_config_section,
     get_connection_dict,
@@ -32,6 +33,7 @@ from snowflake.cli.api.config import (
     get_encoding_diagnostics,
     get_env_variable_name,
     get_file_io_encoding,
+    get_stdout_encoding,
     get_subprocess_encoding,
     set_config_value,
 )
@@ -747,6 +749,64 @@ subprocess = "utf-8"
         assert encoding == "utf-8"
 
 
+@pytest.mark.parametrize("configured_encoding", [None, "utf-8", "cp1252"])
+def test_stdout_encoding_from_env(configured_encoding, monkeypatch):
+    """Test stdout encoding respects environment variable configuration"""
+    if configured_encoding:
+        monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_STDOUT", configured_encoding)
+    else:
+        monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_STDOUT", raising=False)
+
+    encoding = get_stdout_encoding()
+    assert encoding == configured_encoding
+
+
+def test_stdout_encoding_from_config_file(config_file):
+    """Test stdout encoding can be configured in config.toml"""
+    config_content = """
+[cli.encoding]
+stdout = "cp1252"
+"""
+    with config_file(config_content) as cfg:
+        config_init(cfg)
+
+        encoding = get_stdout_encoding()
+        assert encoding == "cp1252"
+
+
+def test_apply_stdout_encoding_reconfigures_stdout(monkeypatch):
+    """apply_stdout_encoding should call sys.stdout.reconfigure with the given encoding"""
+    mock_stdout = mock.MagicMock()
+    monkeypatch.setattr("sys.stdout", mock_stdout)
+    monkeypatch.setattr("sys.platform", "linux")  # skip Windows-specific path
+
+    apply_stdout_encoding("cp1252")
+
+    mock_stdout.reconfigure.assert_called_once_with(encoding="cp1252")
+
+
+def test_apply_stdout_encoding_none_is_noop(monkeypatch):
+    """apply_stdout_encoding(None) must not touch sys.stdout"""
+    mock_stdout = mock.MagicMock()
+    monkeypatch.setattr("sys.stdout", mock_stdout)
+
+    apply_stdout_encoding(None)
+
+    mock_stdout.reconfigure.assert_not_called()
+
+
+def test_apply_stdout_encoding_survives_unsupported_operation(monkeypatch):
+    """apply_stdout_encoding must not crash when reconfigure raises UnsupportedOperation"""
+    import io
+
+    mock_stdout = mock.MagicMock()
+    mock_stdout.reconfigure.side_effect = io.UnsupportedOperation("not writable")
+    monkeypatch.setattr("sys.stdout", mock_stdout)
+    monkeypatch.setattr("sys.platform", "linux")
+
+    apply_stdout_encoding("utf-8")  # should not raise
+
+
 def test_encoding_defaults_to_none(config_file):
     """Test that encoding defaults to None (platform default) when not configured"""
     config_content = ""
@@ -755,6 +815,7 @@ def test_encoding_defaults_to_none(config_file):
 
         assert get_file_io_encoding() is None
         assert get_subprocess_encoding() is None
+        assert get_stdout_encoding() is None
 
 
 @pytest.mark.parametrize("show_warnings", [True, False, None])
@@ -829,6 +890,7 @@ def test_detect_encoding_no_warning_when_configured(config_file, monkeypatch):
 [cli.encoding]
 file_io = "utf-8"
 subprocess = "utf-8"
+stdout = "utf-8"
 """
     with config_file(config_content) as cfg:
         with warnings.catch_warnings(record=True) as w:
@@ -917,12 +979,16 @@ file_io = "{config_value}"
 def test_invalid_encoding_from_env_raises_error(monkeypatch):
     monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "not-a-real-encoding")
     monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", "not-a-real-encoding")
+    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_STDOUT", "not-a-real-encoding")
 
     with pytest.raises(ClickException, match="Invalid encoding 'not-a-real-encoding'"):
         get_file_io_encoding()
 
     with pytest.raises(ClickException, match="Invalid encoding 'not-a-real-encoding'"):
         get_subprocess_encoding()
+
+    with pytest.raises(ClickException, match="Invalid encoding 'not-a-real-encoding'"):
+        get_stdout_encoding()
 
 
 def test_invalid_encoding_from_config_file_raises_error(
@@ -931,6 +997,7 @@ def test_invalid_encoding_from_config_file_raises_error(
 ):
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", raising=False)
+    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_STDOUT", raising=False)
 
     config_content = f"""
 [cli.encoding]
@@ -950,6 +1017,25 @@ show_warnings = false
             ClickException, match="Invalid encoding 'not-a-real-encoding'"
         ):
             get_subprocess_encoding()
+
+
+def test_invalid_stdout_encoding_from_config_file_raises_during_init(
+    config_file,
+    monkeypatch,
+):
+    """Invalid stdout encoding raises a ClickException during config_init (applied eagerly)."""
+    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_STDOUT", raising=False)
+
+    config_content = """
+[cli.encoding]
+stdout = "not-a-real-encoding"
+show_warnings = false
+"""
+    with config_file(config_content) as cfg:
+        with pytest.raises(
+            ClickException, match="Invalid encoding 'not-a-real-encoding'"
+        ):
+            config_init(cfg)
 
 
 @pytest.mark.parametrize("bad_value", ["just-a-string", 42, True, ["a", "b"]])
@@ -1074,12 +1160,13 @@ def test_encoding_diagnostics_non_utf8(monkeypatch):
 
 
 def test_encoding_diagnostics_both_configured(monkeypatch):
-    """When both CLI encodings are explicitly configured → no issues reported."""
+    """When all CLI encodings are explicitly configured → no issues reported."""
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
     monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-16")
     monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "utf-8")
     monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", "utf-8")
+    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_STDOUT", "utf-8")
 
     result = get_encoding_diagnostics()
     assert result == "No encoding issues - your system is properly configured."

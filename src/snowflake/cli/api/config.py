@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import codecs
+import io
 import locale
 import logging
 import os
@@ -203,6 +204,7 @@ def config_init(config_file: Optional[Path]):
         _initialise_config(config_manager.file_path)
     _read_config_file()
     create_initial_loggers()
+    apply_stdout_encoding(get_stdout_encoding())
     if should_show_encoding_warnings():
         detect_encoding_environment()
 
@@ -243,11 +245,17 @@ def get_encoding_diagnostics() -> str:
         "   [cli.encoding]\n"
         '   file_io = "utf-8"\n'
         '   subprocess = "utf-8"\n'
-        "3. Set environment variables: SNOWFLAKE_CLI_ENCODING_FILE_IO='utf-8' "
-        "and SNOWFLAKE_CLI_ENCODING_SUBPROCESS='utf-8'"
+        '   stdout = "utf-8"\n'
+        "3. Set environment variables: SNOWFLAKE_CLI_ENCODING_FILE_IO='utf-8', "
+        "SNOWFLAKE_CLI_ENCODING_SUBPROCESS='utf-8', "
+        "and SNOWFLAKE_CLI_ENCODING_STDOUT='utf-8'"
     )
 
-    if get_file_io_encoding() is not None and get_subprocess_encoding() is not None:
+    if (
+        get_file_io_encoding() is not None
+        and get_subprocess_encoding() is not None
+        and get_stdout_encoding() is not None
+    ):
         return "No encoding issues - your system is properly configured."
 
     if len(encodings) > 1:
@@ -277,13 +285,18 @@ def detect_encoding_environment():
     # Warn on mismatches
     encodings = {fs_encoding, default_encoding, locale_encoding}
 
-    # if both encoding options are configured we assume the user knows what they are doing
-    if get_file_io_encoding() is None or get_subprocess_encoding() is None:
-        if len(encodings) > 1 or locale_encoding != "utf-8":
-            warnings.warn(
-                "Encoding mismatch detected. "
-                "Run 'snow helpers detect-encoding' for more details."
-            )
+    # if all encoding options are configured we assume the user knows what they are doing
+    if (
+        get_file_io_encoding() is not None
+        and get_subprocess_encoding() is not None
+        and get_stdout_encoding() is not None
+    ):
+        return
+    if len(encodings) > 1 or locale_encoding != "utf-8":
+        warnings.warn(
+            "Encoding mismatch detected. "
+            "Run 'snow helpers detect-encoding' for more details."
+        )
 
 
 def add_connection_to_proper_file(name: str, connection_config: ConnectionConfig):
@@ -522,6 +535,31 @@ def get_subprocess_encoding() -> Optional[str]:
     """Get configured subprocess encoding, or None for platform default"""
     value = get_config_value(*ENCODING_SECTION_PATH, key="subprocess", default=None)
     return _validate_encoding(value, "cli.encoding.subprocess")
+
+
+def get_stdout_encoding() -> Optional[str]:
+    """Get configured stdout encoding, or None for platform default.
+
+    When set, sys.stdout is reconfigured so that redirected output
+    (e.g. ``snow sql ... > file.txt``) uses the specified encoding instead of
+    the default.  Set via config ``cli.encoding.stdout`` or the
+    ``SNOWFLAKE_CLI_ENCODING_STDOUT`` environment variable.
+    """
+    value = get_config_value(*ENCODING_SECTION_PATH, key="stdout", default=None)
+    return _validate_encoding(value, "cli.encoding.stdout")
+
+
+def apply_stdout_encoding(encoding: Optional[str]) -> None:
+    """Reconfigure sys.stdout with *encoding* when provided.
+
+    Safe to call unconditionally — a None encoding is a no-op.
+    """
+    if encoding is None:
+        return
+    try:
+        sys.stdout.reconfigure(encoding=encoding)  # type: ignore[attr-defined,union-attr]
+    except (AttributeError, io.UnsupportedOperation):
+        pass
 
 
 def should_show_encoding_warnings() -> bool:
