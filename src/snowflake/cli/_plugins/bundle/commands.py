@@ -176,12 +176,23 @@ def alter(
     return MessageResult(cursor.fetchone()[0])
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
 def execute(
+    ctx: typer.Context,
     identifier: Annotated[FQN, CODE_BUNDLE_IDENTIFIER],
     entrypoint: Annotated[str, EntrypointOption],
     **options,
 ) -> CommandResult:
-    """Executes a code bundle at the given entrypoint."""
-    cursor = CodeBundleManager().execute(name=identifier, entrypoint=entrypoint)
+    """Executes a code bundle at the given entrypoint.
+
+    Any additional arguments after the known options will be passed to the code bundle.
+    For example: snow bundle execute my_bundle --entrypoint src/main.py -- --custom-arg value
+    """
+    arguments = ctx.args if ctx.args else None
+    cursor = CodeBundleManager().execute(
+        name=identifier, entrypoint=entrypoint, arguments=arguments
+    )
     return MessageResult(cursor.fetchone()[0])

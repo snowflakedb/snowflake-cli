@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
@@ -93,7 +93,12 @@ class CodeBundleManager(SqlExecutionMixin):
             query += f" ADD VERSION FROM {to_string_literal(add_version)}"
         return self.execute_query(query)
 
-    def execute(self, name: FQN, entrypoint: str) -> SnowflakeCursor:
+    def execute(
+        self,
+        name: FQN,
+        entrypoint: str,
+        arguments: Optional[List[str]] = None,
+    ) -> SnowflakeCursor:
         if name is None or not name.name:
             raise CliError("Code bundle name is required.")
         if not entrypoint:
@@ -103,4 +108,6 @@ class CodeBundleManager(SqlExecutionMixin):
             f"EXECUTE CODE BUNDLE {fqn.sql_identifier} "
             f"ENTRYPOINT={to_string_literal(entrypoint)}"
         )
+        if arguments:
+            query += f" ARGUMENTS={to_string_literal(' '.join(arguments))}"
         return self.execute_query(query)
