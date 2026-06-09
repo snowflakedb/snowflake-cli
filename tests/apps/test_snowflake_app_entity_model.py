@@ -59,11 +59,7 @@ class TestSnowflakeAppEntityModel:
                 "schema": "MY_SCHEMA",
                 "database": "MY_DB",
             },
-            build_eai={
-                "name": "BUILD_EAI",
-                "schema": "MY_SCHEMA",
-                "database": "MY_DB",
-            },
+            build_eai={"name": "BUILD_EAI"},
             artifact_repository={
                 "name": "ARTIFACT_REPO",
                 "schema": "MY_SCHEMA",
@@ -80,8 +76,6 @@ class TestSnowflakeAppEntityModel:
         assert model.service_compute_pool.schema_ == "MY_SCHEMA"
         assert model.service_compute_pool.database == "MY_DB"
         assert model.build_eai.name == "BUILD_EAI"
-        assert model.build_eai.schema_ == "MY_SCHEMA"
-        assert model.build_eai.database == "MY_DB"
         assert model.artifact_repository.name == "ARTIFACT_REPO"
         assert model.artifact_repository.schema_ == "MY_SCHEMA"
         assert model.artifact_repository.database == "MY_DB"
@@ -132,6 +126,18 @@ class TestSnowflakeAppEntityModel:
             identifier="my_app",
             artifacts=["app/*"],
             build_eai={"name": "MY_EAI"},
+        )
+        assert model.build_eai.name == "MY_EAI"
+
+    def test_eai_validator_bare_string(self):
+        """``build_eai: MY_EAI`` (bare string) is treated as the integration
+        name. External access integrations are account-level objects, so no
+        database/schema qualification is applied."""
+        model = SnowflakeAppEntityModel(
+            type="snowflake-app",
+            identifier="my_app",
+            artifacts=["app/*"],
+            build_eai="MY_EAI",
         )
         assert model.build_eai.name == "MY_EAI"
 
@@ -325,11 +331,7 @@ class TestSnowflakeAppInProjectDefinition:
                         "schema": "SVC_SCHEMA",
                         "database": "SVC_DB",
                     },
-                    "build_eai": {
-                        "name": "BUILD_EAI",
-                        "schema": "EAI_SCHEMA",
-                        "database": "EAI_DB",
-                    },
+                    "build_eai": {"name": "BUILD_EAI"},
                     "artifact_repository": {
                         "name": "ARTIFACT_REPO",
                         "schema": "REPO_SCHEMA",
@@ -348,8 +350,6 @@ class TestSnowflakeAppInProjectDefinition:
         assert entity.service_compute_pool.schema_ == "SVC_SCHEMA"
         assert entity.service_compute_pool.database == "SVC_DB"
         assert entity.build_eai.name == "BUILD_EAI"
-        assert entity.build_eai.schema_ == "EAI_SCHEMA"
-        assert entity.build_eai.database == "EAI_DB"
         assert entity.artifact_repository.name == "ARTIFACT_REPO"
         assert entity.artifact_repository.schema_ == "REPO_SCHEMA"
         assert entity.artifact_repository.database == "REPO_DB"
@@ -418,16 +418,11 @@ class TestSubModels:
     def test_external_access_reference(self):
         ref = ExternalAccessReference(name="MY_EAI")
         assert ref.name == "MY_EAI"
-        assert ref.schema_ is None
-        assert ref.database is None
 
-    def test_external_access_reference_with_database_schema(self):
-        ref = ExternalAccessReference(
-            name="MY_EAI", schema="MY_SCHEMA", database="MY_DB"
-        )
-        assert ref.name == "MY_EAI"
-        assert ref.schema_ == "MY_SCHEMA"
-        assert ref.database == "MY_DB"
+    def test_external_access_reference_rejects_database_schema(self):
+        """EAIs are account-level objects, so database/schema are not accepted."""
+        with pytest.raises(ValueError):
+            ExternalAccessReference(name="MY_EAI", schema="MY_SCHEMA", database="MY_DB")
 
     def test_artifact_repository_reference(self):
         ref = ArtifactRepositoryReference(name="MY_REPO")
