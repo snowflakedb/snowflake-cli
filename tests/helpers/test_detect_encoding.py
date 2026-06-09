@@ -24,6 +24,7 @@ def test_detect_encoding_clean_system(runner, monkeypatch):
     monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-8")
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", raising=False)
+    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_STDOUT", raising=False)
 
     result = runner.invoke(["helpers", COMMAND])
 
@@ -40,6 +41,7 @@ def test_detect_encoding_mismatch(runner, monkeypatch):
     monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-16")
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", raising=False)
+    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_STDOUT", raising=False)
 
     result = runner.invoke(["helpers", COMMAND])
 
@@ -59,6 +61,7 @@ def test_detect_encoding_non_utf8(runner, monkeypatch):
     monkeypatch.setattr("locale.getpreferredencoding", lambda: "cp1252")
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", raising=False)
+    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_STDOUT", raising=False)
 
     result = runner.invoke(["helpers", COMMAND])
 
@@ -76,6 +79,7 @@ def test_detect_encoding_both_configured(runner, monkeypatch):
     monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-16")
     monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "utf-8")
     monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", "utf-8")
+    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_STDOUT", "utf-8")
 
     result = runner.invoke(["helpers", COMMAND])
 

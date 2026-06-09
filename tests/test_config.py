@@ -780,9 +780,9 @@ def test_apply_stdout_encoding_reconfigures_stdout(monkeypatch):
     monkeypatch.setattr("sys.stdout", mock_stdout)
     monkeypatch.setattr("sys.platform", "linux")  # skip Windows-specific path
 
-    apply_stdout_encoding("cp1252")
+    apply_stdout_encoding("utf-8")
 
-    mock_stdout.reconfigure.assert_called_once_with(encoding="cp1252")
+    mock_stdout.reconfigure.assert_called_once_with(encoding="utf-8")
 
 
 def test_apply_stdout_encoding_none_is_noop(monkeypatch):
