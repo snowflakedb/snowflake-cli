@@ -15,6 +15,8 @@
 import contextlib
 import locale
 import os
+import subprocess
+import sys
 import tempfile
 import warnings
 from pathlib import Path
@@ -270,3 +272,115 @@ class TestSubprocessOutputDecoding:
 
         assert result.returncode == 0, result.stderr
         assert "日本語テスト café Straße" in result.stdout
+
+
+# Euro sign (U+20AC).  In UTF-8: E2 82 AC.  In cp1252 (Windows default): 0x80.
+_EURO = "€"
+_EURO_UTF8 = _EURO.encode("utf-8")  # b'\xe2\x82\xac'
+_EURO_CP1252 = _EURO.encode("cp1252")  # b'\x80'
+
+
+class TestStdoutEncodingToFile:
+    """Verify that SNOWFLAKE_CLI_ENCODING_STDOUT controls the bytes written to a
+    file when snow's stdout is redirected (not a TTY).
+
+    These tests run snow as a real subprocess with stdout attached to a binary
+    file handle so the bytes in the file are exactly what Python wrote — there
+    is no intermediary re-encoding from a shell. They are Windows-only because
+    on Linux/macOS the default encoding is already UTF-8 so the bug never
+    manifests.
+    """
+
+    def _run_snow_to_file(
+        self,
+        output_file: Path,
+        config_path: Path,
+        extra_env: dict,
+    ) -> subprocess.CompletedProcess:
+        """Spawn snow as a subprocess with stdout redirected to *output_file*."""
+        env = {
+            # Inherit the full environment so the process can find its
+            # dependencies, then layer the caller's overrides on top.
+            **os.environ,
+            **extra_env,
+        }
+        with output_file.open("wb") as fh:
+            return subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "snowflake.cli._app",
+                    "--config-file",
+                    str(config_path),
+                    "sql",
+                    "--connection",
+                    "integration",
+                    "--format",
+                    "JSON",
+                    "-q",
+                    f"select '{_EURO}' as euro_sign",
+                ],
+                stdout=fh,
+                stderr=subprocess.DEVNULL,
+                env=env,
+            )
+
+    @pytest.mark.integration
+    @pytest.mark.skipif(
+        not IS_WINDOWS, reason="Windows stdout encoding regression test"
+    )
+    def test_redirected_stdout_without_encoding_writes_cp1252(self, runner, tmp_path):
+        """Without SNOWFLAKE_CLI_ENCODING_STDOUT, snow uses the Windows system
+        default encoding (cp1252) for stdout.  The Euro sign is encoded as the
+        single byte 0x80 — not the three UTF-8 bytes a reader opening the file
+        as UTF-8 would expect, producing garbled output."""
+        output_file = tmp_path / "output.txt"
+        env_without = {
+            k: v for k, v in os.environ.items() if k != "SNOWFLAKE_CLI_ENCODING_STDOUT"
+        }
+        with output_file.open("wb") as fh:
+            proc = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "snowflake.cli._app",
+                    "--config-file",
+                    str(runner._test_config_path),
+                    "sql",
+                    "--connection",
+                    "integration",
+                    "--format",
+                    "JSON",
+                    "-q",
+                    f"select '{_EURO}' as euro_sign",
+                ],
+                stdout=fh,
+                stderr=subprocess.DEVNULL,
+                env=env_without,
+            )
+
+        assert proc.returncode == 0
+        raw = output_file.read_bytes()
+        # cp1252 byte for €, NOT the three UTF-8 bytes
+        assert _EURO_CP1252 in raw
+        assert _EURO_UTF8 not in raw
+
+    @pytest.mark.integration
+    @pytest.mark.skipif(not IS_WINDOWS, reason="Windows stdout encoding test")
+    def test_redirected_stdout_with_encoding_writes_utf8(self, runner, tmp_path):
+        """With SNOWFLAKE_CLI_ENCODING_STDOUT=utf-8, snow reconfigures sys.stdout
+        to UTF-8 before producing any output.  The Euro sign is encoded as the
+        three UTF-8 bytes E2 82 AC, so the file is valid UTF-8 and the character
+        round-trips correctly."""
+        output_file = tmp_path / "output.txt"
+        proc = self._run_snow_to_file(
+            output_file,
+            runner._test_config_path,
+            extra_env={"SNOWFLAKE_CLI_ENCODING_STDOUT": "utf-8"},
+        )
+
+        assert proc.returncode == 0
+        raw = output_file.read_bytes()
+        assert _EURO_UTF8 in raw
+        # Confirm the cp1252 single-byte form is absent
+        assert _EURO_CP1252 not in raw
