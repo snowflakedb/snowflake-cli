@@ -946,6 +946,17 @@ class TestValidateDbtVersion:
         ):
             DBTManager()._get_supported_dbt_versions()  # noqa: SLF001
 
+    def test_get_supported_dbt_versions_raises_on_empty_list(
+        self, mock_execute_query, mock_cursor
+    ):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[(_supported_versions_payload(),)],
+            columns=["SYSTEM$SUPPORTED_DBT_VERSIONS()"],
+        )
+
+        with pytest.raises(CliError, match="Server returned no supported dbt versions"):
+            DBTManager()._get_supported_dbt_versions()  # noqa: SLF001
+
     def test_validate_dbt_version_passes_for_supported_version(
         self, mock_execute_query, mock_cursor
     ):

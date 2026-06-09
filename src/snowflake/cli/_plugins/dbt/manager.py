@@ -173,11 +173,14 @@ class DBTManager(SqlExecutionMixin):
                 "Could not parse supported dbt versions from server."
             ) from exc
         try:
-            return [e["dbt_version"] for e in entries]
+            versions = [e["dbt_version"] for e in entries]
         except (KeyError, TypeError) as exc:
             raise CliError(
                 "Could not parse supported dbt versions from server."
             ) from exc
+        if not versions:
+            raise CliError("Server returned no supported dbt versions.")
+        return versions
 
     def _validate_dbt_version(self, dbt_version: str) -> None:
         supported = self._get_supported_dbt_versions()
