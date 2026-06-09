@@ -92,3 +92,15 @@ class CodeBundleManager(SqlExecutionMixin):
         elif add_version is not None:
             query += f" ADD VERSION FROM {to_string_literal(add_version)}"
         return self.execute_query(query)
+
+    def execute(self, name: FQN, entrypoint: str) -> SnowflakeCursor:
+        if name is None or not name.name:
+            raise CliError("Code bundle name is required.")
+        if not entrypoint:
+            raise CliError("Entrypoint is required.")
+        fqn = name.using_connection(self._conn)
+        query = (
+            f"EXECUTE CODE BUNDLE {fqn.sql_identifier} "
+            f"ENTRYPOINT={to_string_literal(entrypoint)}"
+        )
+        return self.execute_query(query)
