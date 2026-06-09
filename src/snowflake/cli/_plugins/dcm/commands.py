@@ -847,9 +847,13 @@ def refresh(
     context = _resolve_context_with_optional_manifest(from_location, identifier, target)
     project_id = context.project_identifier
 
-    with cli_console.spinner() as spinner:
-        spinner.add_task(description=f"Refreshing dcm project {project_id}", total=None)
-        result = DCMProjectManager().refresh(project_identifier=project_id)
+    manager = DCMProjectManager()
+    tracker = DeployProgressTracker(conn=manager.connection, operation="refresh")
+    with tracker.session():
+        result = tracker.run_loader_phase(
+            lambda: manager.refresh(project_identifier=project_id),
+            phase_name="REFRESH",
+        )
 
     reporter = RefreshReporter(save_output=save_output)
     return reporter.process(result)
@@ -872,9 +876,13 @@ def test(
     context = _resolve_context_with_optional_manifest(from_location, identifier, target)
     project_id = context.project_identifier
 
-    with cli_console.spinner() as spinner:
-        spinner.add_task(description=f"Testing dcm project {project_id}", total=None)
-        result = DCMProjectManager().test(project_identifier=project_id)
+    manager = DCMProjectManager()
+    tracker = DeployProgressTracker(conn=manager.connection, operation="test")
+    with tracker.session():
+        result = tracker.run_loader_phase(
+            lambda: manager.test(project_identifier=project_id),
+            phase_name="TEST",
+        )
 
     reporter = TestReporter(save_output=save_output)
     return reporter.process(result)
