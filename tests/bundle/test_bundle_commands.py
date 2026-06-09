@@ -641,3 +641,68 @@ def test_alter_rejects_neither_option(runner):
 def test_alter_requires_identifier(runner):
     result = runner.invoke(["bundle", "alter"])
     assert result.exit_code != 0
+
+
+def test_execute_help(runner):
+    result = runner.invoke(["bundle", "execute", "--help"])
+
+    assert result.exit_code == 0, result.output
+    assert "--entrypoint" in result.output
+    assert "IDENTIFIER" in result.output
+
+
+@mock.patch.object(CodeBundleManager, "execute")
+def test_execute_calls_manager(mock_execute, runner, mock_statement_success):
+    mock_execute.return_value = mock_statement_success()
+    name = "my_bundle"
+
+    result = runner.invoke(["bundle", "execute", name, "--entrypoint", "src/main.py"])
+
+    assert result.exit_code == 0, result.output
+    mock_execute.assert_called_once_with(
+        name=FQN.from_string(name),
+        entrypoint="src/main.py",
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+def test_execute_query(mock_connector, mock_ctx, runner):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(
+        ["bundle", "execute", "my_bundle", "--entrypoint", "src/main.py"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == (
+        "EXECUTE CODE BUNDLE IDENTIFIER('MockDatabase.MockSchema.my_bundle') "
+        "ENTRYPOINT='src/main.py'"
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+def test_execute_query_escapes_entrypoint(mock_connector, mock_ctx, runner):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(
+        ["bundle", "execute", "my_bundle", "--entrypoint", "it's_main.py"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == (
+        "EXECUTE CODE BUNDLE IDENTIFIER('MockDatabase.MockSchema.my_bundle') "
+        "ENTRYPOINT='it''s_main.py'"
+    )
+
+
+def test_execute_requires_entrypoint(runner):
+    result = runner.invoke(["bundle", "execute", "my_bundle"])
+    assert result.exit_code != 0
+    assert "--entrypoint" in result.output or "Missing option" in result.output
+
+
+def test_execute_requires_identifier(runner):
+    result = runner.invoke(["bundle", "execute", "--entrypoint", "src/main.py"])
+    assert result.exit_code != 0
