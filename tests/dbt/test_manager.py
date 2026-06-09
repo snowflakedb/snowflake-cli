@@ -986,7 +986,7 @@ class TestExecute:
                 {"env_vars": 'DBT_MSG: "it\'s"'},
                 (),
                 "EXECUTE DBT PROJECT pipeline "
-                "ENV_VARS=('DBT_MSG'='it\\'s') args='run'",
+                "ENV_VARS=('DBT_MSG'='it''s') args='run'",
                 id="env-vars-value-with-single-quote-escaped",
             ),
             pytest.param(
@@ -1096,6 +1096,11 @@ class TestExecute:
                 '{"DBT FOO": "1"}',
                 "ASCII letters",
                 id="key-invalid-chars-space",
+            ),
+            pytest.param(
+                '{"DBT_FOO": "value\\nwith\\nnewlines"}',
+                "must not contain control characters",
+                id="value-control-char",
             ),
         ],
     )

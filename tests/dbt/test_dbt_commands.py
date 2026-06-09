@@ -810,7 +810,7 @@ class TestDBTExecute:
                     "run",
                 ],
                 "EXECUTE DBT PROJECT pipeline_name "
-                "ENV_VARS=('DBT_MSG'='it\\'s') args='run'",
+                "ENV_VARS=('DBT_MSG'='it''s') args='run'",
                 id="env-vars-value-with-single-quote-escaped",
             ),
             pytest.param(
@@ -933,6 +933,11 @@ class TestDBTExecute:
                 "ASCII letters",
                 id="key-invalid-chars-space",
             ),
+            pytest.param(
+                '{"DBT_FOO": "value\\nwith\\nnewlines"}',
+                "must not contain control characters",
+                id="value-control-char",
+            ),
         ],
     )
     def test_dbt_execute_env_vars_invalid_input(
@@ -949,8 +954,22 @@ class TestDBTExecute:
             ]
         )
 
-        assert result.exit_code != 0
+        assert result.exit_code == 1
         assert expected_error in result.output
+
+    def test_dbt_execute_env_with_control_char_rejected(self, mock_connect, runner):
+        result = runner.invoke(
+            [
+                "dbt",
+                "execute",
+                "--env=dev\nprod",
+                "pipeline_name",
+                "run",
+            ]
+        )
+
+        assert result.exit_code == 1
+        assert "must not contain control characters" in result.output
 
     def test_dbt_execute_env_vars_secret_prefix_warns(
         self, mock_connect, mock_cursor, runner

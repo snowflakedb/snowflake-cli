@@ -30,6 +30,7 @@ from snowflake.cli._plugins.dbt.constants import (
 from snowflake.cli._plugins.dbt.manager import (
     DBTDeployAttributes,
     DBTManager,
+    _reject_control_chars,
 )
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
@@ -40,6 +41,7 @@ from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CommandResult,
@@ -86,6 +88,10 @@ add_object_command_aliases(
 
 
 SEMANTIC_VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+(-[a-zA-Z0-9]+)?$")
+
+
+def _env_callback(value: Optional[str]) -> Optional[str]:
+    return _reject_control_chars(value, "--env")
 
 
 class SemanticVersionType(click.ParamType):
@@ -208,6 +214,8 @@ def before_callback(
         None,
         "--env",
         show_default=False,
+        callback=_env_callback,
+        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_ENV_VARS.is_enabled(),
         help="Selects the target environment from env.yml at execution time. "
         "Use 'NO_ENV' to skip env.yml entirely.",
     ),
@@ -215,14 +223,15 @@ def before_callback(
         None,
         "--env-vars",
         show_default=False,
+        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_ENV_VARS.is_enabled(),
         help="Environment variable overrides as a YAML/JSON object, e.g. "
         '\'{"DBT_FOO": "1", "DBT_BAR": "2"}\'. '
         "Values must be strings; numbers, booleans, null, nested objects, "
         "and arrays are rejected (quote scalars, e.g. 'DBT_FOO: \"1\"'). "
         "Keys must start with 'DBT_' and contain only letters, digits, and "
-        "underscores. Values with the DBT_ENV_SECRET_ prefix are accepted "
-        "but appear in the SQL text and query history; for real secrets "
-        "prefer the secrets: block in env.yml.",
+        "underscores. Variables with the DBT_ENV_SECRET_ prefix are accepted "
+        "but appear in the SQL text and query history; to avoid that, use "
+        "the secrets: block in env.yml.",
     ),
     **options,
 ):

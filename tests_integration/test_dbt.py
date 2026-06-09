@@ -710,6 +710,7 @@ def test_execute_with_dbt_version(
 
 
 @pytest.mark.integration
+@pytest.mark.qa_only
 def test_execute_with_env_and_env_vars(
     runner,
     snowflake_session,
@@ -717,13 +718,6 @@ def test_execute_with_env_and_env_vars(
     project_directory,
 ):
     """Exercise --env and --env-vars against a real Snowflake DBT PROJECT.
-
-    Requires the test account to have ``ENABLE_DBT_ENV_VARS = TRUE`` (the
-    server-side parameter that gates ``ENV_VARS`` / ``ENVIRONMENT`` options on
-    ``EXECUTE DBT PROJECT``). This is the default in recent GS builds in QA /
-    integration channels; if the test fails with a parser error on
-    ``ENV_VARS=(...)``, check that the account is on a build that has the
-    feature enabled.
 
     The fixture model reads DBT_FOO and DBT_BAR via dbt env_var() with a
     "unset" default. env.yml defines two environments (dev, prod), each

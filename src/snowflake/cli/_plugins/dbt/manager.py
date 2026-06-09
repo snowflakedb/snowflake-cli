@@ -29,6 +29,7 @@ from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
@@ -37,14 +38,24 @@ from snowflake.connector.errors import ProgrammingError
 DBT_ENV_SECRET_PREFIX = "DBT_ENV_SECRET_"
 _ENV_VAR_KEY_PREFIX = "DBT_"
 _ENV_VAR_KEY_RE = re.compile(r"^[A-Za-z0-9_]+$")
+_CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
+
+
+def _reject_control_chars(value: Optional[str], flag_name: str) -> Optional[str]:
+    if value is not None and _CONTROL_CHAR_RE.search(value):
+        raise CliError(
+            f"{flag_name} must not contain control characters "
+            f"(newlines, tabs, etc.)"
+        )
+    return value
 
 
 class _NoDuplicatesSafeLoader(yaml.SafeLoader):
     """yaml.SafeLoader that rejects duplicate mapping keys.
 
-    PyYAML's default behavior is silent last-wins, but the SQL parser rejects
-    duplicates outright (DBT_ENV_VARS_DUPLICATE_KEY) — match that here so the
-    user gets a clear local error instead of a server round-trip.
+    PyYAML's default behavior is silent last-wins, but the server-side SQL
+    parser rejects duplicates outright. Match that here so the user gets a
+    clear local error instead of a server round-trip.
     """
 
 
@@ -428,8 +439,7 @@ class DBTManager(SqlExecutionMixin):
         if dbt_version:
             query += f" dbt_version='{dbt_version}'"
         if environment:
-            environment_escaped = environment.replace("'", "\\'")
-            query += f" ENVIRONMENT='{environment_escaped}'"
+            query += f" ENVIRONMENT={to_string_literal(environment)}"
         env_vars_clause = self._format_env_vars_clause(env_vars)
         if env_vars_clause:
             query += env_vars_clause
@@ -441,19 +451,19 @@ class DBTManager(SqlExecutionMixin):
         if not env_vars:
             return ""
         pairs = DBTManager._parse_env_vars(env_vars)
+        if not pairs:
+            return ""
         secret_keys = [k for k in pairs if k.startswith(DBT_ENV_SECRET_PREFIX)]
         if secret_keys:
             cli_console.warning(
                 f"--env-vars contains key(s) with the {DBT_ENV_SECRET_PREFIX} prefix "
                 f"({', '.join(secret_keys)}); these values will appear in the SQL "
-                f"text and query history. For real secrets, declare them in the "
-                f"secrets: block of env.yml referencing a Snowflake SECRET object."
+                f"text and query history. To avoid that, use the secrets: block "
+                f"in env.yml referencing a Snowflake SECRET object."
             )
-
-        def _escape(s: str) -> str:
-            return s.replace("'", "\\'")
-
-        items = ", ".join(f"'{_escape(k)}'='{_escape(v)}'" for k, v in pairs.items())
+        items = ", ".join(
+            f"{to_string_literal(k)}={to_string_literal(v)}" for k, v in pairs.items()
+        )
         return f" ENV_VARS=({items})"
 
     @staticmethod
@@ -490,6 +500,11 @@ class DBTManager(SqlExecutionMixin):
                     f"--env-vars value for {k!r} must be a string, "
                     f"got {type(v).__name__}; quote scalars in YAML/JSON "
                     f"(e.g. '{k}: \"1\"' instead of '{k}: 1')"
+                )
+            if _CONTROL_CHAR_RE.search(v):
+                raise CliError(
+                    f"--env-vars value for {k!r} must not contain control "
+                    f"characters (newlines, tabs, etc.)"
                 )
             result[k] = v
         return result
