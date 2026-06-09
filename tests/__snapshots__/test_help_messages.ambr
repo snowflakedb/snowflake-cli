@@ -331,6 +331,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -490,6 +493,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -731,6 +737,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -906,6 +915,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -1152,6 +1164,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -1319,6 +1334,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -1485,6 +1503,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -1647,6 +1668,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -1814,6 +1838,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -1980,6 +2007,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -2141,6 +2171,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -2333,6 +2366,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -2506,6 +2542,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -2675,6 +2714,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -2853,6 +2895,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -3017,6 +3062,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -3294,6 +3342,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -3450,6 +3501,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -3655,6 +3709,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -3824,6 +3881,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -4056,6 +4116,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -4246,6 +4309,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -4404,6 +4470,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -4768,6 +4837,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -4915,6 +4987,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -5195,6 +5270,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -5480,6 +5558,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -5629,6 +5710,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -5780,6 +5864,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -5939,6 +6026,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -6124,6 +6214,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -6309,6 +6402,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -6494,6 +6590,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -6679,6 +6778,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -6864,6 +6966,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -7049,6 +7154,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -7234,6 +7342,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -7419,6 +7530,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -7604,6 +7718,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -7789,6 +7906,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -7974,6 +8094,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -8159,6 +8282,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -8343,6 +8469,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -8524,6 +8653,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -8687,6 +8819,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -8844,6 +8979,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -9010,6 +9148,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -9169,6 +9310,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -9326,6 +9470,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -9488,6 +9635,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -9650,6 +9800,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -9813,6 +9966,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -9994,6 +10150,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -10155,6 +10314,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -10315,6 +10477,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -10475,6 +10640,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -10673,6 +10841,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -10822,6 +10993,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -10973,6 +11147,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -11144,6 +11321,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -11294,6 +11474,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -11448,6 +11631,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -11603,6 +11789,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -11757,6 +11946,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -11915,6 +12107,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -12077,6 +12272,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -12329,6 +12527,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -12482,6 +12683,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -12644,6 +12848,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -12794,6 +13001,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -12944,6 +13154,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -13094,6 +13307,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -13286,6 +13502,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -13443,6 +13662,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -13602,6 +13824,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -13772,6 +13997,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -14108,6 +14336,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -14274,6 +14505,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -14429,6 +14663,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -14586,6 +14823,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -14743,6 +14983,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -14905,6 +15148,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -15069,6 +15315,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -15218,6 +15467,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -15370,6 +15622,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -15629,6 +15884,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -15784,6 +16042,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -15934,6 +16195,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -16086,6 +16350,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -16236,6 +16503,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -16386,6 +16656,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -16556,6 +16829,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -16707,6 +16983,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -16857,6 +17136,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -17008,6 +17290,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -17167,6 +17452,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -17348,6 +17636,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -17496,6 +17787,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -17653,6 +17947,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -17827,6 +18124,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -17980,6 +18280,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -18132,6 +18435,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -18286,6 +18592,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -18442,6 +18751,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -18600,6 +18912,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -18750,6 +19065,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -18974,6 +19292,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -19181,6 +19502,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -19337,6 +19661,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -19486,6 +19813,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -19640,6 +19970,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -19815,6 +20148,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -19964,6 +20300,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -20113,6 +20452,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -20262,6 +20604,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -20411,6 +20756,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -20569,6 +20917,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -20730,6 +21081,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -20889,6 +21243,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -21038,6 +21395,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -21234,6 +21594,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -21387,6 +21750,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -21536,6 +21902,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -21702,6 +22071,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -21853,6 +22225,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -22167,6 +22542,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -22348,6 +22726,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -22506,6 +22887,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -22655,6 +23039,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -22806,6 +23193,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -22957,6 +23347,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -23125,6 +23518,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -23278,6 +23674,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -23436,6 +23835,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -23587,6 +23989,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -23784,6 +24189,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -23934,6 +24342,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -24086,6 +24497,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -24236,6 +24650,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -24387,6 +24804,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -24545,6 +24965,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -24717,6 +25140,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -24869,6 +25295,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -25289,6 +25718,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |

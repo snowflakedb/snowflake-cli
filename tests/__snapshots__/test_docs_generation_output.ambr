@@ -43,6 +43,7 @@
     --oauth-enable-single-use-refresh-tokens
     --client-store-temporary-credential
     --secondary-roles <secondary_roles>
+    --server-session-keep-alive
     --format <format>
     --verbose
     --debug
@@ -276,6 +277,12 @@
   <dd>
   
   Secondary roles mode applied when the session starts. Supported values are `ALL` and `NONE`; pass `NONE` to run the session only with the primary role.
+  
+  </dd>
+  <dt>`--server-session-keep-alive`</dt>
+  <dd>
+  
+  Keep the session active indefinitely, even if there is no activity from the user.
   
   </dd>
   <dt>`--format [TABLE|JSON|JSON_EXT|CSV]`</dt>
