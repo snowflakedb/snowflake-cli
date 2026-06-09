@@ -45,6 +45,7 @@ def test_failing_plugin(
 @pytest.fixture(scope="module")
 def _install_plugin(test_root_path):
     import subprocess
+    import sys
 
     path = test_root_path / ".." / "test_external_plugins" / "failing_plugin"
-    subprocess.check_call(["pip", "install", path])
+    subprocess.check_call([sys.executable, "-m", "pip", "install", str(path)])

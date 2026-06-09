@@ -37,14 +37,10 @@ class TestSnowflakeAppEntityModel:
         assert model.build_compute_pool is None
         assert model.service_compute_pool is None
         assert model.build_eai is None
-        assert model.service_eai is None
         assert model.artifact_repository is None
         assert model.code_stage is None
         assert model.meta is None
-        assert model.build_image is None
         assert model.spcs_test_project_type is None
-        assert model.execute_as_caller is True
-        assert model.dev_roles is None
 
     def test_full_model(self):
         """Model can be created with all fields."""
@@ -68,11 +64,6 @@ class TestSnowflakeAppEntityModel:
                 "schema": "MY_SCHEMA",
                 "database": "MY_DB",
             },
-            service_eai={
-                "name": "SERVICE_EAI",
-                "schema": "MY_SCHEMA",
-                "database": "MY_DB",
-            },
             artifact_repository={
                 "name": "ARTIFACT_REPO",
                 "schema": "MY_SCHEMA",
@@ -80,9 +71,6 @@ class TestSnowflakeAppEntityModel:
             },
             code_stage={"name": "MY_STAGE", "encryption_type": "SNOWFLAKE_SSE"},
             meta={"title": "My App", "description": "A test app", "icon": "icon.png"},
-            build_image="/custom/builder:1.0",
-            execute_as_caller=True,
-            dev_roles=["DEV_ROLE_1", "DEV_ROLE_2"],
         )
         assert model.query_warehouse == "TEST_WH"
         assert model.build_compute_pool.name == "BUILD_POOL"
@@ -94,9 +82,6 @@ class TestSnowflakeAppEntityModel:
         assert model.build_eai.name == "BUILD_EAI"
         assert model.build_eai.schema_ == "MY_SCHEMA"
         assert model.build_eai.database == "MY_DB"
-        assert model.service_eai.name == "SERVICE_EAI"
-        assert model.service_eai.schema_ == "MY_SCHEMA"
-        assert model.service_eai.database == "MY_DB"
         assert model.artifact_repository.name == "ARTIFACT_REPO"
         assert model.artifact_repository.schema_ == "MY_SCHEMA"
         assert model.artifact_repository.database == "MY_DB"
@@ -105,9 +90,6 @@ class TestSnowflakeAppEntityModel:
         assert model.meta.title == "My App"
         assert model.meta.description == "A test app"
         assert model.meta.icon == "icon.png"
-        assert model.build_image == "/custom/builder:1.0"
-        assert model.execute_as_caller is True
-        assert model.dev_roles == ["DEV_ROLE_1", "DEV_ROLE_2"]
 
     @pytest.mark.parametrize("value", [None, "null"])
     def test_compute_pool_validator_none_values(self, value):
@@ -140,10 +122,8 @@ class TestSnowflakeAppEntityModel:
             identifier="my_app",
             artifacts=["app/*"],
             build_eai=value,
-            service_eai=value,
         )
         assert model.build_eai is None
-        assert model.service_eai is None
 
     def test_eai_validator_dict_value(self):
         """EAI validator passes through dict values."""
@@ -231,95 +211,6 @@ class TestSnowflakeAppEntityModel:
         assert model.meta.description is None
         assert model.meta.icon is None
 
-    def test_build_image_defaults_to_none(self):
-        model = SnowflakeAppEntityModel(
-            type="snowflake-app",
-            identifier="my_app",
-            artifacts=["app/*"],
-        )
-        assert model.build_image is None
-
-    def test_build_image_accepts_valid_image(self):
-        model = SnowflakeAppEntityModel(
-            type="snowflake-app",
-            identifier="my_app",
-            artifacts=["app/*"],
-            build_image="/my/custom/builder:2.0",
-        )
-        assert model.build_image == "/my/custom/builder:2.0"
-
-    def test_build_image_strips_whitespace(self):
-        model = SnowflakeAppEntityModel(
-            type="snowflake-app",
-            identifier="my_app",
-            artifacts=["app/*"],
-            build_image="  /my/custom/builder:2.0  ",
-        )
-        assert model.build_image == "/my/custom/builder:2.0"
-
-    def test_build_image_rejects_empty_string(self):
-        with pytest.raises(ValueError, match="non-empty string"):
-            SnowflakeAppEntityModel(
-                type="snowflake-app",
-                identifier="my_app",
-                artifacts=["app/*"],
-                build_image="",
-            )
-
-    def test_build_image_rejects_whitespace_only(self):
-        with pytest.raises(ValueError, match="non-empty string"):
-            SnowflakeAppEntityModel(
-                type="snowflake-app",
-                identifier="my_app",
-                artifacts=["app/*"],
-                build_image="   ",
-            )
-
-    def test_build_image_rejects_internal_whitespace(self):
-        with pytest.raises(ValueError, match="must not contain whitespace"):
-            SnowflakeAppEntityModel(
-                type="snowflake-app",
-                identifier="my_app",
-                artifacts=["app/*"],
-                build_image="/my image:latest",
-            )
-
-    def test_build_image_rejects_newline(self):
-        with pytest.raises(ValueError, match="must not contain whitespace"):
-            SnowflakeAppEntityModel(
-                type="snowflake-app",
-                identifier="my_app",
-                artifacts=["app/*"],
-                build_image="/my/image:latest\n/other",
-            )
-
-    def test_build_image_rejects_carriage_return(self):
-        with pytest.raises(ValueError, match="must not contain whitespace"):
-            SnowflakeAppEntityModel(
-                type="snowflake-app",
-                identifier="my_app",
-                artifacts=["app/*"],
-                build_image="/my/image\r:latest",
-            )
-
-    def test_build_image_rejects_dollar_sign(self):
-        with pytest.raises(ValueError, match="unsafe character"):
-            SnowflakeAppEntityModel(
-                type="snowflake-app",
-                identifier="my_app",
-                artifacts=["app/*"],
-                build_image="/my/$image:latest",
-            )
-
-    def test_build_image_rejects_double_quote(self):
-        with pytest.raises(ValueError, match="unsafe character"):
-            SnowflakeAppEntityModel(
-                type="snowflake-app",
-                identifier="my_app",
-                artifacts=["app/*"],
-                build_image='/my/"image":latest',
-            )
-
     def test_spcs_test_project_type_strips_whitespace(self):
         model = SnowflakeAppEntityModel(
             type="snowflake-app",
@@ -338,23 +229,6 @@ class TestSnowflakeAppEntityModel:
             spcs_test_project_type=value,
         )
         assert model.spcs_test_project_type is None
-
-    def test_execute_as_caller_defaults_to_true(self):
-        model = SnowflakeAppEntityModel(
-            type="snowflake-app",
-            identifier="my_app",
-            artifacts=["app/*"],
-        )
-        assert model.execute_as_caller is True
-
-    def test_execute_as_caller_can_be_set_false(self):
-        model = SnowflakeAppEntityModel(
-            type="snowflake-app",
-            identifier="my_app",
-            artifacts=["app/*"],
-            execute_as_caller=False,
-        )
-        assert model.execute_as_caller is False
 
     def test_code_storage_mutually_exclusive(self):
         """``code_stage`` and ``code_workspace`` cannot both be set."""
@@ -456,11 +330,6 @@ class TestSnowflakeAppInProjectDefinition:
                         "schema": "EAI_SCHEMA",
                         "database": "EAI_DB",
                     },
-                    "service_eai": {
-                        "name": "SERVICE_EAI",
-                        "schema": "EAI_SCHEMA",
-                        "database": "EAI_DB",
-                    },
                     "artifact_repository": {
                         "name": "ARTIFACT_REPO",
                         "schema": "REPO_SCHEMA",
@@ -481,9 +350,6 @@ class TestSnowflakeAppInProjectDefinition:
         assert entity.build_eai.name == "BUILD_EAI"
         assert entity.build_eai.schema_ == "EAI_SCHEMA"
         assert entity.build_eai.database == "EAI_DB"
-        assert entity.service_eai.name == "SERVICE_EAI"
-        assert entity.service_eai.schema_ == "EAI_SCHEMA"
-        assert entity.service_eai.database == "EAI_DB"
         assert entity.artifact_repository.name == "ARTIFACT_REPO"
         assert entity.artifact_repository.schema_ == "REPO_SCHEMA"
         assert entity.artifact_repository.database == "REPO_DB"
