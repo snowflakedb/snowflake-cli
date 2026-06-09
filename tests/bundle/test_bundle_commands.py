@@ -662,6 +662,36 @@ def test_execute_calls_manager(mock_execute, runner, mock_statement_success):
     mock_execute.assert_called_once_with(
         name=FQN.from_string(name),
         entrypoint="src/main.py",
+        arguments=None,
+    )
+
+
+@mock.patch.object(CodeBundleManager, "execute")
+def test_execute_calls_manager_with_arguments(
+    mock_execute, runner, mock_statement_success
+):
+    mock_execute.return_value = mock_statement_success()
+    name = "my_bundle"
+
+    result = runner.invoke(
+        [
+            "bundle",
+            "execute",
+            name,
+            "--entrypoint",
+            "src/main.py",
+            "--",
+            "--custom-arg",
+            "value",
+            "--another-flag",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    mock_execute.assert_called_once_with(
+        name=FQN.from_string(name),
+        entrypoint="src/main.py",
+        arguments=["--custom-arg", "value", "--another-flag"],
     )
 
 
@@ -678,6 +708,59 @@ def test_execute_query(mock_connector, mock_ctx, runner):
     assert ctx.get_query() == (
         "EXECUTE CODE BUNDLE IDENTIFIER('MockDatabase.MockSchema.my_bundle') "
         "ENTRYPOINT='src/main.py'"
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+def test_execute_query_with_arguments(mock_connector, mock_ctx, runner):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(
+        [
+            "bundle",
+            "execute",
+            "my_bundle",
+            "--entrypoint",
+            "src/main.py",
+            "--",
+            "--custom-arg",
+            "value",
+            "--another-flag",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == (
+        "EXECUTE CODE BUNDLE IDENTIFIER('MockDatabase.MockSchema.my_bundle') "
+        "ENTRYPOINT='src/main.py' "
+        "ARGUMENTS='--custom-arg value --another-flag'"
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+def test_execute_query_escapes_arguments(mock_connector, mock_ctx, runner):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(
+        [
+            "bundle",
+            "execute",
+            "my_bundle",
+            "--entrypoint",
+            "src/main.py",
+            "--",
+            "it's",
+            "fine",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == (
+        "EXECUTE CODE BUNDLE IDENTIFIER('MockDatabase.MockSchema.my_bundle') "
+        "ENTRYPOINT='src/main.py' "
+        "ARGUMENTS='it''s fine'"
     )
 
 
