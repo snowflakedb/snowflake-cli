@@ -1240,3 +1240,60 @@ def test_upload_directory_recursive_exclude_directory_does_not_exclude_similarly
     call_str = str(mock_execute_query.call_args)
     assert "venv.txt" in call_str
     assert "test.txt" not in call_str
+
+
+# ---------- status ----------
+
+
+def test_status_help(runner):
+    result = runner.invoke(["bundle", "status", "--help"])
+
+    assert result.exit_code == 0, result.output
+    assert "QUERY_ID" in result.output
+
+
+@mock.patch.object(CodeBundleManager, "get_status")
+def test_status_calls_manager(mock_get_status, runner):
+    mock_get_status.return_value = "RUNNING"
+    query_id = "01b7f000-0000-0000-0000-000000000000"
+
+    result = runner.invoke(["bundle", "status", query_id])
+
+    assert result.exit_code == 0, result.output
+    assert "RUNNING" in result.output
+    assert query_id in result.output
+    mock_get_status.assert_called_once_with(query_id=query_id)
+
+
+@mock.patch("snowflake.connector.connect")
+def test_status_calls_connection_get_query_status(mock_connector, mock_ctx, runner):
+    from snowflake.connector.constants import QueryStatus
+
+    ctx = mock_ctx()
+    ctx.get_query_status = mock.MagicMock(return_value=QueryStatus.SUCCESS)
+    mock_connector.return_value = ctx
+    query_id = "01b7f000-0000-0000-0000-000000000000"
+
+    result = runner.invoke(["bundle", "status", query_id])
+
+    assert result.exit_code == 0, result.output
+    assert "SUCCESS" in result.output
+    ctx.get_query_status.assert_called_once_with(query_id)
+
+
+@mock.patch("snowflake.connector.connect")
+def test_status_invalid_query_id(mock_connector, mock_ctx, runner):
+    ctx = mock_ctx()
+    ctx.get_query_status = mock.MagicMock(side_effect=ValueError("bad uuid"))
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(["bundle", "status", "not-a-uuid"])
+
+    assert result.exit_code != 0
+    assert "Invalid query ID" in result.output
+
+
+def test_status_requires_query_id(runner):
+    result = runner.invoke(["bundle", "status"])
+
+    assert result.exit_code != 0
