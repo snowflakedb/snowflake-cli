@@ -1297,3 +1297,51 @@ def test_status_requires_query_id(runner):
     result = runner.invoke(["bundle", "status"])
 
     assert result.exit_code != 0
+
+
+# ---------- cancel ----------
+
+
+def test_cancel_help(runner):
+    result = runner.invoke(["bundle", "cancel", "--help"])
+
+    assert result.exit_code == 0, result.output
+    assert "QUERY_ID" in result.output
+
+
+@mock.patch.object(CodeBundleManager, "cancel")
+def test_cancel_calls_manager(mock_cancel, runner):
+    cursor = mock.MagicMock()
+    cursor.fetchone.return_value = ("query 01b... successfully cancelled.",)
+    mock_cancel.return_value = cursor
+    query_id = "01b7f000-0000-0000-0000-000000000000"
+
+    result = runner.invoke(["bundle", "cancel", query_id])
+
+    assert result.exit_code == 0, result.output
+    assert "successfully cancelled" in result.output
+    mock_cancel.assert_called_once_with(query_id=query_id)
+
+
+@mock.patch("snowflake.connector.connect")
+def test_cancel_executes_system_cancel_query(mock_connector, mock_ctx, runner):
+    ctx = mock_ctx()
+    cursor = mock.MagicMock()
+    cursor.execute.return_value = cursor
+    cursor.fetchone.return_value = ("ok",)
+    ctx.cursor = mock.MagicMock(return_value=cursor)
+    mock_connector.return_value = ctx
+    query_id = "01b7f000-0000-0000-0000-000000000000"
+
+    result = runner.invoke(["bundle", "cancel", query_id])
+
+    assert result.exit_code == 0, result.output
+    cursor.execute.assert_called_once_with(
+        "SELECT SYSTEM$CANCEL_QUERY(%s)", (query_id,)
+    )
+
+
+def test_cancel_requires_query_id(runner):
+    result = runner.invoke(["bundle", "cancel"])
+
+    assert result.exit_code != 0

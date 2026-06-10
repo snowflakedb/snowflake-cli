@@ -127,6 +127,13 @@ class CodeBundleManager(SqlExecutionMixin):
             raise CliError(f"Invalid query ID: {query_id}") from e
         return status.name
 
+    def cancel(self, query_id: str) -> SnowflakeCursor:
+        if not query_id:
+            raise CliError("Query ID is required.")
+        return self._conn.cursor().execute(
+            "SELECT SYSTEM$CANCEL_QUERY(%s)", (query_id,)
+        )
+
     def process_source(self, source: str, exclude: Optional[List[str]] = None) -> str:
         """Resolve a user-provided --source value.
 
