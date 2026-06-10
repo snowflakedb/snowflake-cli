@@ -1093,8 +1093,15 @@ class SnowflakeAppManager(SqlExecutionMixin):
             for row in cursor:
                 param_name = (row.get("key") or row.get("KEY") or "").upper()
                 param_value = row.get("value") or row.get("VALUE") or ""
+                # Skip parameters at the system-default level. Snowflake
+                # returns an empty string for ``level`` when a parameter has
+                # never been explicitly set at the account or user level;
+                # a non-empty ``value`` in that case is merely the built-in
+                # default (e.g. ``SYSTEM_COMPUTE_POOL_CPU``) and should not
+                # be treated as an admin-configured value.
+                param_level = row.get("level") or row.get("LEVEL") or ""
                 mapped_key = _SNOW_APPS_PARAM_MAP.get(param_name)
-                if mapped_key and param_value:
+                if mapped_key and param_value and param_level:
                     result[mapped_key] = param_value
             return result
         except ProgrammingError:
