@@ -2127,26 +2127,35 @@ class TestFetchSnowAppsParameters:
         cursor.__iter__ = Mock(
             return_value=iter(
                 [
-                    {"key": "DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE", "value": "MY_WH"},
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE",
+                        "value": "MY_WH",
+                        "level": "ACCOUNT",
+                    },
                     {
                         "key": "DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL",
                         "value": "MY_POOL",
+                        "level": "ACCOUNT",
                     },
                     {
                         "key": "DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL",
                         "value": "SVC_POOL",
+                        "level": "ACCOUNT",
                     },
                     {
                         "key": "DEFAULT_SNOWFLAKE_APPS_BUILD_EXTERNAL_ACCESS_INTEGRATION",
                         "value": "MY_EAI",
+                        "level": "ACCOUNT",
                     },
                     {
                         "key": "DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE",
                         "value": "MY_DB",
+                        "level": "ACCOUNT",
                     },
                     {
                         "key": "DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA",
                         "value": "MY_SCHEMA",
+                        "level": "ACCOUNT",
                     },
                 ]
             )
@@ -2170,8 +2179,16 @@ class TestFetchSnowAppsParameters:
         cursor.__iter__ = Mock(
             return_value=iter(
                 [
-                    {"key": "DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE", "value": "MY_WH"},
-                    {"key": "DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL", "value": ""},
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE",
+                        "value": "MY_WH",
+                        "level": "ACCOUNT",
+                    },
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL",
+                        "value": "",
+                        "level": "ACCOUNT",
+                    },
                 ]
             )
         )
@@ -2186,8 +2203,16 @@ class TestFetchSnowAppsParameters:
         cursor.__iter__ = Mock(
             return_value=iter(
                 [
-                    {"key": "DEFAULT_SNOWFLAKE_APPS_UNKNOWN_PARAM", "value": "FOO"},
-                    {"key": "DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE", "value": "MY_WH"},
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_UNKNOWN_PARAM",
+                        "value": "FOO",
+                        "level": "ACCOUNT",
+                    },
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE",
+                        "value": "MY_WH",
+                        "level": "ACCOUNT",
+                    },
                 ]
             )
         )
@@ -2216,12 +2241,53 @@ class TestFetchSnowAppsParameters:
         cursor = Mock()
         cursor.__iter__ = Mock(
             return_value=iter(
-                [{"KEY": "DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE", "VALUE": "MY_WH"}]
+                [
+                    {
+                        "KEY": "DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE",
+                        "VALUE": "MY_WH",
+                        "LEVEL": "ACCOUNT",
+                    }
+                ]
             )
         )
         mock_execute.return_value = cursor
         result = SnowflakeAppManager().fetch_snow_apps_parameters()
         assert result == {"query_warehouse": "MY_WH"}
+
+    @patch(EXECUTE_QUERY)
+    def test_ignores_system_default_level_parameters(self, mock_execute):
+        """Parameters with an empty level are system defaults, not explicitly
+        configured values, and must be ignored even when value is non-empty."""
+        cursor = Mock()
+        cursor.__iter__ = Mock(
+            return_value=iter(
+                [
+                    # level="" means Snowflake is reporting the built-in default
+                    # (e.g. after ALTER ACCOUNT UNSET). Should be skipped.
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL",
+                        "value": "SYSTEM_COMPUTE_POOL_CPU",
+                        "level": "",
+                    },
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL",
+                        "value": "SYSTEM_COMPUTE_POOL_CPU",
+                        "level": "",
+                    },
+                    # Explicitly set at account level — should be included.
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE",
+                        "value": "MY_WH",
+                        "level": "ACCOUNT",
+                    },
+                ]
+            )
+        )
+        mock_execute.return_value = cursor
+        result = SnowflakeAppManager().fetch_snow_apps_parameters()
+        assert result == {"query_warehouse": "MY_WH"}
+        assert "build_compute_pool" not in result
+        assert "service_compute_pool" not in result
 
 
 # ── is_managed_compute_pool_enabled tests ─────────────────────────────
