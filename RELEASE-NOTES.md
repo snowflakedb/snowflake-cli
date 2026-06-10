@@ -21,6 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
+* Fixed `snow app setup` incorrectly treating system-default parameter values as admin-configured values. After running `ALTER ACCOUNT UNSET` on `DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL` or `DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL`, those fields no longer appear in the generated `snowflake.yml` or `--dry-run` output.
 * Upgraded `pip` from 26.1.1 to 26.1.2.
 * `snow app setup` and `snow app deploy` now default to a workspace (instead of a stage) for app code whenever the resolved destination is a personal database (`USER$<user>`), which do not support stages. An explicitly configured `code_stage` is still honored, with a warning when the destination is a personal database.
 * Fixed `snow app deploy` failing on Windows when uploading app code to a workspace (connector error `253006`, `ER_FILE_NOT_EXISTS`) due to a malformed local file URI.
