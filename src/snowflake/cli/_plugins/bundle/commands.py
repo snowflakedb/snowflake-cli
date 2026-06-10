@@ -241,3 +241,13 @@ def status(
     """Returns the execution status of an async code bundle execution."""
     status_name = CodeBundleManager().get_status(query_id=query_id)
     return MessageResult(f"Query {query_id}: {status_name}")
+
+
+@app.command(requires_connection=True)
+def cancel(
+    query_id: str = QueryIdArgument,
+    **options,
+) -> CommandResult:
+    """Cancels an async code bundle execution."""
+    cursor = CodeBundleManager().cancel(query_id=query_id)
+    return MessageResult(cursor.fetchone()[0])
