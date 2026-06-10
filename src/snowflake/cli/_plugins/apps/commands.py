@@ -679,12 +679,26 @@ def snowflake_app_deploy(
             with metrics.span("snowflake_app.upload"):
                 if use_workspace:
                     with metrics.span("snowflake_app.upload.prepare_workspace"):
-                        cli_console.step(f"Creating workspace {storage_fqn}")
-                        manager.create_workspace(storage_fqn)
-                        cli_console.step(
-                            f"Clearing existing workspace files in {workspace_source_uri}/"
-                        )
-                        manager.clear_workspace_subdirectory(storage_fqn, app_name)
+                        action = "create workspace"
+                        required_privilege = "CREATE WORKSPACE on the schema"
+                        try:
+                            cli_console.step(f"Creating workspace {storage_fqn}")
+                            manager.create_workspace(storage_fqn)
+                            action = "clear workspace files"
+                            required_privilege = "WRITE on the workspace"
+                            cli_console.step(
+                                f"Clearing existing workspace files in {workspace_source_uri}/"
+                            )
+                            manager.clear_workspace_subdirectory(storage_fqn, app_name)
+                        except ProgrammingError as e:
+                            role = manager.current_role()
+                            role_clause = f"role '{role}'" if role else "your role"
+                            raise CliError(
+                                f"Failed to {action} '{storage_fqn.identifier}': {e}. "
+                                f"Verify that {role_clause} has the required "
+                                f"privileges (USAGE on the database and schema, "
+                                f"and {required_privilege})."
+                            ) from e
                     with metrics.span("snowflake_app.upload.push_workspace_files"):
                         cli_console.step(
                             f"Uploading bundled files to {workspace_source_uri}"
@@ -709,12 +723,35 @@ def snowflake_app_deploy(
                         manager.ensure_workspace_live_version(storage_fqn)
                 else:
                     with metrics.span("snowflake_app.upload.prepare_stage"):
-                        if manager.stage_exists(storage_fqn):
-                            cli_console.step(f"Clearing existing stage @{storage_fqn}")
-                            manager.clear_stage(storage_fqn)
-                        else:
-                            cli_console.step(f"Creating stage @{storage_fqn}")
-                            manager.create_stage(storage_fqn, encryption_type)
+                        stage_already_exists = manager.stage_exists(storage_fqn)
+                        try:
+                            if stage_already_exists:
+                                cli_console.step(
+                                    f"Clearing existing stage @{storage_fqn}"
+                                )
+                                manager.clear_stage(storage_fqn)
+                            else:
+                                cli_console.step(f"Creating stage @{storage_fqn}")
+                                manager.create_stage(storage_fqn, encryption_type)
+                        except ProgrammingError as e:
+                            action = (
+                                "clear existing stage"
+                                if stage_already_exists
+                                else "create stage"
+                            )
+                            required_privilege = (
+                                "WRITE on the stage"
+                                if stage_already_exists
+                                else "CREATE STAGE on the schema"
+                            )
+                            role = manager.current_role()
+                            role_clause = f"role '{role}'" if role else "your role"
+                            raise CliError(
+                                f"Failed to {action} '{storage_fqn.identifier}': {e}. "
+                                f"Verify that {role_clause} has the required "
+                                f"privileges (USAGE on the database and schema, "
+                                f"and {required_privilege})."
+                            ) from e
 
                     with metrics.span("snowflake_app.upload.push_stage_files"):
                         cli_console.step(f"Uploading bundled files to @{storage_fqn}")

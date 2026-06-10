@@ -91,6 +91,33 @@ from snowflake.connector.errors import ProgrammingError
 
 log = logging.getLogger(__name__)
 
+# Characters allowed in a ``file://`` URI without wrapping it in a quoted
+# string literal. Mirrors the stage manager's equivalent so workspace PUT
+# statements escape local paths identically.
+_UNQUOTED_FILE_URI_REGEX = r"[\w/*?\-.=&{}$#[\]\"\\!@%^+:]+"
+
+
+def _local_path_to_file_uri(local_path: str) -> str:
+    """Return a ``file://`` URI for *local_path*, ready to embed in a PUT.
+
+    *local_path* must use the platform's native separators (e.g. backslashes
+    on Windows); do not pass a ``Path.as_posix()`` string, as Snowflake's
+    file-URI parser expects native Windows paths and a forward-slash drive
+    path such as ``file://C:/...`` is rejected on Windows (connector error
+    253006, ER_FILE_NOT_EXISTS).
+
+    The returned value is either a bare URI (when it contains only characters
+    allowed unquoted) or a single-quoted string literal. When quoting is
+    required, backslashes are doubled because Snowflake's file-URI parser
+    treats ``\\`` as an escape prefix even inside a string literal.
+    """
+    from snowflake.cli.api.project.util import to_string_literal
+
+    uri = f"file://{local_path}"
+    if re.fullmatch(_UNQUOTED_FILE_URI_REGEX, uri):
+        return uri
+    return to_string_literal(uri.replace("\\", "\\\\"))
+
 
 def app_fqn(
     *,
@@ -972,9 +999,14 @@ class SnowflakeAppManager(SqlExecutionMixin):
                 if rel_dir != Path(".")
                 else f"{base_uri}/"
             )
-            file_uri = f"file://{path.resolve().as_posix()}"
+            # Build the local file URI from the *native* path (not as_posix):
+            # Snowflake's file-URI parser rejects forward-slash Windows drive
+            # paths like ``file://C:/...`` (raising connector error 253006,
+            # ER_FILE_NOT_EXISTS). ``local_path_to_file_uri`` returns a value
+            # ready to embed directly, so it must not be re-quoted.
+            local_uri = _local_path_to_file_uri(str(path.resolve()))
             self.execute_query(
-                f"PUT {to_string_literal(file_uri)} {to_string_literal(dest_dir)} "
+                f"PUT {local_uri} {to_string_literal(dest_dir)} "
                 f"auto_compress=false overwrite={overwrite_str}"
             )
             yield {"source": str(rel), "target": f"{dest_dir}{path.name}"}
