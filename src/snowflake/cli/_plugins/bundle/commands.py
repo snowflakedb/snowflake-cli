@@ -97,6 +97,11 @@ EntrypointOption = typer.Option(
     help="Entrypoint file path within the code bundle.",
     show_default=False,
 )
+AsyncOption = typer.Option(
+    False,
+    "--async",
+    help="Run the bundle execution asynchronously and return the query ID immediately.",
+)
 
 
 @app.command(requires_connection=True)
@@ -184,6 +189,7 @@ def execute(
     ctx: typer.Context,
     identifier: Annotated[FQN, CODE_BUNDLE_IDENTIFIER],
     entrypoint: Annotated[str, EntrypointOption],
+    is_async: bool = AsyncOption,
     **options,
 ) -> CommandResult:
     """Executes a code bundle at the given entrypoint.
@@ -193,6 +199,11 @@ def execute(
     """
     arguments = ctx.args if ctx.args else None
     cursor = CodeBundleManager().execute(
-        name=identifier, entrypoint=entrypoint, arguments=arguments
+        name=identifier,
+        entrypoint=entrypoint,
+        arguments=arguments,
+        run_async=is_async,
     )
+    if is_async:
+        return MessageResult(f"Request submitted. Query ID: {cursor.sfqid}")
     return MessageResult(cursor.fetchone()[0])
