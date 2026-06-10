@@ -12,6 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import fnmatch
+import glob
+import os
+import random
+from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
 from snowflake.cli.api.exceptions import CliError
@@ -112,3 +117,61 @@ class CodeBundleManager(SqlExecutionMixin):
         if arguments:
             query += f" ARGUMENTS={to_string_literal(' '.join(arguments))}"
         return self.execute_query(query, _exec_async=run_async)
+
+    def process_source(self, source: str, exclude: Optional[List[str]] = None) -> str:
+        """Resolve a user-provided --source value.
+
+        Returns the source unchanged for stage paths (``@...``) and workspace
+        paths (``snow://...``). For local paths (``file://...`` or no protocol
+        prefix), creates a temporary stage, uploads the directory recursively,
+        and returns the resulting stage path.
+        """
+        if source.startswith("@"):
+            return source
+        source_lower = source.lower()
+        if source_lower.startswith("snow://"):
+            return source
+        if source_lower.startswith("file://") or "://" not in source:
+            local_path = source[7:] if source_lower.startswith("file://") else source
+            stage_name = f"tmp_bundle_stage_{random.randint(1000000, 9999999)}"
+            self.execute_query(f"CREATE OR REPLACE TEMPORARY STAGE {stage_name}")
+            self._upload_directory_recursive(local_path, stage_name, exclude=exclude)
+            return f"@{stage_name}"
+        raise CliError(
+            f"Invalid source: '{source}'. Source must be a Snowflake stage "
+            "path (starting with '@'), a Snowflake workspace path (starting "
+            "with 'snow://'), or a local file system path (starting with "
+            "'file://' or no protocol prefix)."
+        )
+
+    def _upload_directory_recursive(
+        self,
+        local_path: str,
+        stage_name: str,
+        exclude: Optional[List[str]] = None,
+    ) -> None:
+        """Upload all files from local_path to stage, preserving directory structure."""
+        root_path = Path(local_path)
+        if not root_path.is_dir():
+            raise CliError(f"Source path '{local_path}' is not a directory.")
+        glob_pattern = os.path.join(glob.escape(local_path), "**", "*")
+
+        for file_path_str in glob.iglob(glob_pattern, recursive=True):
+            file_path = Path(file_path_str)
+            if not file_path.is_file():
+                continue
+            if exclude and any(
+                fnmatch.fnmatchcase(part, pattern)
+                for part in file_path.parts
+                for pattern in exclude
+            ):
+                continue
+            relative_path = file_path.relative_to(root_path)
+            stage_subdir = str(relative_path.parent)
+            if stage_subdir == ".":
+                stage_dest = f"@{stage_name}"
+            else:
+                stage_dest = f"@{stage_name}/{stage_subdir}"
+            self.execute_query(
+                f"PUT file://{file_path} {stage_dest} auto_compress=false"
+            )

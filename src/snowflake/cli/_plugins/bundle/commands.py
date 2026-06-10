@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import typer
 from snowflake.cli._plugins.bundle.manager import CodeBundleManager
@@ -37,9 +37,9 @@ SourceOption = typer.Option(
     "--source",
     "-s",
     help=(
-        "Source location of the notebook project. Supports stage path "
-        "(starting with '@') or workspace path "
-        "(starting with 'snow://workspace/')."
+        "Source location for the code bundle. Supports stage path (starting "
+        "with '@'), workspace path (starting with 'snow://workspace/'), or "
+        "local file system path (starting with 'file://' or no protocol prefix)."
     ),
     show_default=False,
 )
@@ -52,6 +52,20 @@ SkipIfExistsOption = typer.Option(
     False,
     "--skip-if-exists",
     help="Skip creation if the code bundle already exists (CREATE ... IF NOT EXISTS).",
+)
+ExcludeOption = typer.Option(
+    None,
+    "--exclude",
+    help=(
+        "Glob pattern for files or directories to exclude when uploading a "
+        "local source directory. Can be specified multiple times. Patterns "
+        "are matched against each path component, so a pattern like 'venv' "
+        "excludes any file or directory named 'venv' at any depth (e.g. both "
+        "/venv/ and /dir/venv/), while '*.pyc' excludes all .pyc files "
+        "anywhere in the tree. Only applies when --source is a local path; "
+        "ignored for stage or workspace sources."
+    ),
+    show_default=False,
 )
 LikeOption = typer.Option(
     None,
@@ -111,14 +125,19 @@ def create(
     comment: Optional[str] = CommentOption(),
     overwrite: bool = OverwriteOption,
     skip_if_exists: bool = SkipIfExistsOption,
+    exclude: Optional[List[str]] = ExcludeOption,
     **options,
 ) -> CommandResult:
     """Creates a code bundle for a notebook project."""
     if overwrite and skip_if_exists:
         raise IncompatibleParametersError(["--overwrite", "--skip-if-exists"])
-    cursor = CodeBundleManager().create(
+    if not source:
+        raise CliError("Source is required.")
+    manager = CodeBundleManager()
+    processed_source = manager.process_source(source, exclude=exclude)
+    cursor = manager.create(
         name=identifier,
-        source=source,
+        source=processed_source,
         comment=comment,
         overwrite=overwrite,
         skip_if_exists=skip_if_exists,

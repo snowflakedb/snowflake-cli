@@ -34,6 +34,7 @@ def test_create_help(runner):
     assert "--comment" in result.output
     assert "--overwrite" in result.output
     assert "--skip-if-exists" in result.output
+    assert "--exclude" in result.output
 
 
 @pytest.mark.parametrize(
@@ -816,3 +817,426 @@ def test_execute_async(mock_connector, mock_ctx, runner):
         "EXECUTE CODE BUNDLE IDENTIFIER('MockDatabase.MockSchema.my_bundle') "
         "ENTRYPOINT='src/main.py'"
     )
+
+
+# ---------- create from local source / --exclude ----------
+
+
+@mock.patch("snowflake.cli._plugins.bundle.manager.random.randint")
+@mock.patch("snowflake.connector.connect")
+def test_create_with_local_source_uploads_and_creates(
+    mock_connector, mock_randint, mock_ctx, runner, tmp_path
+):
+    mock_randint.return_value = 1234567
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    (tmp_path / "main.py").write_text("print('hi')")
+
+    result = runner.invoke(["bundle", "create", "my_bundle", "--source", str(tmp_path)])
+
+    assert result.exit_code == 0, result.output
+    queries = ctx.get_queries()
+    assert queries[0] == "CREATE OR REPLACE TEMPORARY STAGE tmp_bundle_stage_1234567"
+    assert any(
+        q.startswith("PUT file://")
+        and "main.py" in q
+        and "@tmp_bundle_stage_1234567 " in q
+        and "auto_compress=false" in q
+        for q in queries[1:-1]
+    ), queries
+    assert queries[-1] == (
+        "CREATE CODE BUNDLE IDENTIFIER('MockDatabase.MockSchema.my_bundle') "
+        "FROM '@tmp_bundle_stage_1234567'"
+    )
+
+
+@mock.patch("snowflake.cli._plugins.bundle.manager.random.randint")
+@mock.patch("snowflake.connector.connect")
+def test_create_with_file_protocol_source(
+    mock_connector, mock_randint, mock_ctx, runner, tmp_path
+):
+    mock_randint.return_value = 7654321
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    (tmp_path / "main.py").write_text("print('hi')")
+
+    result = runner.invoke(
+        ["bundle", "create", "my_bundle", "--source", f"file://{tmp_path}"]
+    )
+
+    assert result.exit_code == 0, result.output
+    queries = ctx.get_queries()
+    assert queries[0] == "CREATE OR REPLACE TEMPORARY STAGE tmp_bundle_stage_7654321"
+    assert queries[-1] == (
+        "CREATE CODE BUNDLE IDENTIFIER('MockDatabase.MockSchema.my_bundle') "
+        "FROM '@tmp_bundle_stage_7654321'"
+    )
+
+
+@mock.patch("snowflake.cli._plugins.bundle.manager.random.randint")
+@mock.patch("snowflake.connector.connect")
+def test_create_with_local_source_and_exclude(
+    mock_connector, mock_randint, mock_ctx, runner, tmp_path
+):
+    mock_randint.return_value = 1234567
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    (tmp_path / "keep.py").write_text("keep")
+    (tmp_path / "skip.pyc").write_text("skip")
+    cache_dir = tmp_path / "__pycache__"
+    cache_dir.mkdir()
+    (cache_dir / "cached.pyc").write_text("cached")
+
+    result = runner.invoke(
+        [
+            "bundle",
+            "create",
+            "my_bundle",
+            "--source",
+            str(tmp_path),
+            "--exclude",
+            "*.pyc",
+            "--exclude",
+            "__pycache__",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    queries = ctx.get_queries()
+    put_queries = [q for q in queries if q.startswith("PUT file://")]
+    assert len(put_queries) == 1, queries
+    assert "keep.py" in put_queries[0]
+    assert all("skip.pyc" not in q for q in queries)
+    assert all("cached.pyc" not in q for q in queries)
+
+
+@mock.patch.object(CodeBundleManager, "execute_query")
+def test_create_with_invalid_protocol(mock_execute_query, runner):
+    result = runner.invoke(
+        ["bundle", "create", "my_bundle", "--source", "http://invalid/path"]
+    )
+
+    assert result.exit_code != 0
+    assert "Invalid source: 'http://invalid/path'" in result.output
+    mock_execute_query.assert_not_called()
+
+
+# ---------- CodeBundleManager.process_source ----------
+
+
+@mock.patch.object(CodeBundleManager, "execute_query")
+def test_process_source_with_stage_path(mock_execute_query):
+    manager = CodeBundleManager()
+    assert manager.process_source("@my_stage/path") == "@my_stage/path"
+    mock_execute_query.assert_not_called()
+
+
+@mock.patch.object(CodeBundleManager, "execute_query")
+def test_process_source_with_snow_protocol(mock_execute_query):
+    manager = CodeBundleManager()
+    assert (
+        manager.process_source('snow://workspace/"test_workspace"')
+        == 'snow://workspace/"test_workspace"'
+    )
+    mock_execute_query.assert_not_called()
+
+
+@mock.patch.object(CodeBundleManager, "execute_query")
+def test_process_source_with_snow_protocol_uppercase(mock_execute_query):
+    manager = CodeBundleManager()
+    assert (
+        manager.process_source('SNOW://workspace/"test_workspace"')
+        == 'SNOW://workspace/"test_workspace"'
+    )
+    mock_execute_query.assert_not_called()
+
+
+@mock.patch.object(CodeBundleManager, "_upload_directory_recursive")
+@mock.patch.object(CodeBundleManager, "execute_query")
+@mock.patch("snowflake.cli._plugins.bundle.manager.random.randint")
+def test_process_source_with_file_protocol(
+    mock_randint, mock_execute_query, mock_upload
+):
+    mock_randint.return_value = 1234567
+    manager = CodeBundleManager()
+    assert manager.process_source("file:///path/to/local/dir") == (
+        "@tmp_bundle_stage_1234567"
+    )
+    mock_execute_query.assert_called_once_with(
+        "CREATE OR REPLACE TEMPORARY STAGE tmp_bundle_stage_1234567"
+    )
+    mock_upload.assert_called_once_with(
+        "/path/to/local/dir", "tmp_bundle_stage_1234567", exclude=None
+    )
+
+
+@mock.patch.object(CodeBundleManager, "_upload_directory_recursive")
+@mock.patch.object(CodeBundleManager, "execute_query")
+@mock.patch("snowflake.cli._plugins.bundle.manager.random.randint")
+def test_process_source_with_file_protocol_uppercase(
+    mock_randint, mock_execute_query, mock_upload
+):
+    mock_randint.return_value = 7654321
+    manager = CodeBundleManager()
+    assert manager.process_source("FILE:///path/to/local/dir") == (
+        "@tmp_bundle_stage_7654321"
+    )
+    mock_execute_query.assert_called_once_with(
+        "CREATE OR REPLACE TEMPORARY STAGE tmp_bundle_stage_7654321"
+    )
+    mock_upload.assert_called_once_with(
+        "/path/to/local/dir", "tmp_bundle_stage_7654321", exclude=None
+    )
+
+
+@mock.patch.object(CodeBundleManager, "_upload_directory_recursive")
+@mock.patch.object(CodeBundleManager, "execute_query")
+@mock.patch("snowflake.cli._plugins.bundle.manager.random.randint")
+def test_process_source_with_local_path_no_protocol(
+    mock_randint, mock_execute_query, mock_upload
+):
+    mock_randint.return_value = 9999999
+    manager = CodeBundleManager()
+    assert manager.process_source("/path/to/local/dir") == ("@tmp_bundle_stage_9999999")
+    mock_execute_query.assert_called_once_with(
+        "CREATE OR REPLACE TEMPORARY STAGE tmp_bundle_stage_9999999"
+    )
+    mock_upload.assert_called_once_with(
+        "/path/to/local/dir", "tmp_bundle_stage_9999999", exclude=None
+    )
+
+
+@mock.patch.object(CodeBundleManager, "_upload_directory_recursive")
+@mock.patch.object(CodeBundleManager, "execute_query")
+@mock.patch("snowflake.cli._plugins.bundle.manager.random.randint")
+def test_process_source_with_relative_local_path(
+    mock_randint, mock_execute_query, mock_upload
+):
+    mock_randint.return_value = 1111111
+    manager = CodeBundleManager()
+    assert manager.process_source("relative/path/to/dir") == (
+        "@tmp_bundle_stage_1111111"
+    )
+    mock_execute_query.assert_called_once_with(
+        "CREATE OR REPLACE TEMPORARY STAGE tmp_bundle_stage_1111111"
+    )
+    mock_upload.assert_called_once_with(
+        "relative/path/to/dir", "tmp_bundle_stage_1111111", exclude=None
+    )
+
+
+@mock.patch.object(CodeBundleManager, "_upload_directory_recursive")
+@mock.patch.object(CodeBundleManager, "execute_query")
+@mock.patch("snowflake.cli._plugins.bundle.manager.random.randint")
+def test_process_source_passes_exclude(mock_randint, mock_execute_query, mock_upload):
+    mock_randint.return_value = 1234567
+    manager = CodeBundleManager()
+    manager.process_source("/local/dir", exclude=["*.pyc", "__pycache__"])
+    mock_upload.assert_called_once_with(
+        "/local/dir", "tmp_bundle_stage_1234567", exclude=["*.pyc", "__pycache__"]
+    )
+
+
+@mock.patch.object(CodeBundleManager, "execute_query")
+def test_process_source_with_invalid_protocol_raises(mock_execute_query):
+    from snowflake.cli.api.exceptions import CliError
+
+    manager = CodeBundleManager()
+    with pytest.raises(CliError) as exc_info:
+        manager.process_source("http://invalid/path")
+    assert "Invalid source: 'http://invalid/path'" in str(exc_info.value)
+    assert "Snowflake stage path" in str(exc_info.value)
+    mock_execute_query.assert_not_called()
+
+
+@mock.patch.object(CodeBundleManager, "execute_query")
+def test_process_source_with_https_protocol_raises(mock_execute_query):
+    from snowflake.cli.api.exceptions import CliError
+
+    manager = CodeBundleManager()
+    with pytest.raises(CliError) as exc_info:
+        manager.process_source("https://example.com/path")
+    assert "Invalid source: 'https://example.com/path'" in str(exc_info.value)
+    mock_execute_query.assert_not_called()
+
+
+# ---------- CodeBundleManager._upload_directory_recursive ----------
+
+
+@mock.patch.object(CodeBundleManager, "execute_query")
+def test_upload_directory_recursive_with_flat_structure(mock_execute_query, tmp_path):
+    (tmp_path / "file1.py").write_text("content1")
+    (tmp_path / "file2.py").write_text("content2")
+
+    manager = CodeBundleManager()
+    manager._upload_directory_recursive(str(tmp_path), "test_stage")  # noqa: SLF001
+
+    assert mock_execute_query.call_count == 2
+    calls = [str(call) for call in mock_execute_query.call_args_list]
+    assert any(
+        "PUT file://" in call and "file1.py" in call and "@test_stage" in call
+        for call in calls
+    )
+    assert any(
+        "PUT file://" in call and "file2.py" in call and "@test_stage" in call
+        for call in calls
+    )
+
+
+@mock.patch.object(CodeBundleManager, "execute_query")
+def test_upload_directory_recursive_with_nested_structure(mock_execute_query, tmp_path):
+    (tmp_path / "root_file.py").write_text("root content")
+    subdir = tmp_path / "subdir"
+    subdir.mkdir()
+    (subdir / "nested_file.py").write_text("nested content")
+    deep_subdir = subdir / "deep"
+    deep_subdir.mkdir()
+    (deep_subdir / "deep_file.py").write_text("deep content")
+
+    manager = CodeBundleManager()
+    manager._upload_directory_recursive(str(tmp_path), "test_stage")  # noqa: SLF001
+
+    assert mock_execute_query.call_count == 3
+    calls = [str(call) for call in mock_execute_query.call_args_list]
+    assert any(
+        "@test_stage auto_compress=false" in call and "root_file.py" in call
+        for call in calls
+    )
+    assert any(
+        "@test_stage/subdir" in call and "nested_file.py" in call for call in calls
+    )
+    assert any(
+        "@test_stage/subdir/deep" in call and "deep_file.py" in call for call in calls
+    )
+
+
+@mock.patch.object(CodeBundleManager, "execute_query")
+def test_upload_directory_recursive_not_a_directory(mock_execute_query, tmp_path):
+    from snowflake.cli.api.exceptions import CliError
+
+    file_path = tmp_path / "not_a_dir.txt"
+    file_path.write_text("content")
+
+    manager = CodeBundleManager()
+    with pytest.raises(CliError) as exc_info:
+        manager._upload_directory_recursive(  # noqa: SLF001
+            str(file_path), "test_stage"
+        )
+    assert "is not a directory" in str(exc_info.value)
+    mock_execute_query.assert_not_called()
+
+
+@mock.patch.object(CodeBundleManager, "execute_query")
+def test_upload_directory_recursive_nonexistent_path(mock_execute_query, tmp_path):
+    from snowflake.cli.api.exceptions import CliError
+
+    nonexistent_path = tmp_path / "nonexistent"
+
+    manager = CodeBundleManager()
+    with pytest.raises(CliError) as exc_info:
+        manager._upload_directory_recursive(  # noqa: SLF001
+            str(nonexistent_path), "test_stage"
+        )
+    assert "is not a directory" in str(exc_info.value)
+    mock_execute_query.assert_not_called()
+
+
+@mock.patch.object(CodeBundleManager, "execute_query")
+def test_upload_directory_recursive_empty_directory(mock_execute_query, tmp_path):
+    empty_dir = tmp_path / "empty"
+    empty_dir.mkdir()
+
+    manager = CodeBundleManager()
+    manager._upload_directory_recursive(str(empty_dir), "test_stage")  # noqa: SLF001
+
+    mock_execute_query.assert_not_called()
+
+
+@mock.patch.object(CodeBundleManager, "execute_query")
+def test_upload_directory_recursive_skips_subdirectories(mock_execute_query, tmp_path):
+    (tmp_path / "file.py").write_text("content")
+    subdir = tmp_path / "subdir"
+    subdir.mkdir()
+
+    manager = CodeBundleManager()
+    manager._upload_directory_recursive(str(tmp_path), "test_stage")  # noqa: SLF001
+
+    assert mock_execute_query.call_count == 1
+    call_str = str(mock_execute_query.call_args)
+    assert "file.py" in call_str
+
+
+@mock.patch.object(CodeBundleManager, "execute_query")
+def test_upload_directory_recursive_excludes_by_filename(mock_execute_query, tmp_path):
+    (tmp_path / "keep.py").write_text("keep")
+    (tmp_path / "skip.pyc").write_text("skip")
+
+    manager = CodeBundleManager()
+    manager._upload_directory_recursive(  # noqa: SLF001
+        str(tmp_path), "test_stage", exclude=["*.pyc"]
+    )
+
+    assert mock_execute_query.call_count == 1
+    call_str = str(mock_execute_query.call_args)
+    assert "keep.py" in call_str
+    assert "skip.pyc" not in call_str
+
+
+@mock.patch.object(CodeBundleManager, "execute_query")
+def test_upload_directory_recursive_excludes_directory(mock_execute_query, tmp_path):
+    (tmp_path / "keep.py").write_text("keep")
+    cache_dir = tmp_path / "__pycache__"
+    cache_dir.mkdir()
+    (cache_dir / "cached.pyc").write_text("cached")
+
+    manager = CodeBundleManager()
+    manager._upload_directory_recursive(  # noqa: SLF001
+        str(tmp_path), "test_stage", exclude=["__pycache__"]
+    )
+
+    assert mock_execute_query.call_count == 1
+    call_str = str(mock_execute_query.call_args)
+    assert "keep.py" in call_str
+    assert "cached.pyc" not in call_str
+
+
+@mock.patch.object(CodeBundleManager, "execute_query")
+def test_upload_directory_recursive_excludes_multiple_patterns(
+    mock_execute_query, tmp_path
+):
+    (tmp_path / "keep.py").write_text("keep")
+    (tmp_path / "skip.pyc").write_text("skip pyc")
+    git_dir = tmp_path / ".git"
+    git_dir.mkdir()
+    (git_dir / "config").write_text("git config")
+
+    manager = CodeBundleManager()
+    manager._upload_directory_recursive(  # noqa: SLF001
+        str(tmp_path), "test_stage", exclude=["*.pyc", ".git"]
+    )
+
+    assert mock_execute_query.call_count == 1
+    call_str = str(mock_execute_query.call_args)
+    assert "keep.py" in call_str
+    assert "skip.pyc" not in call_str
+    assert "config" not in call_str
+
+
+@mock.patch.object(CodeBundleManager, "execute_query")
+def test_upload_directory_recursive_exclude_directory_does_not_exclude_similarly_named_file(
+    mock_execute_query, tmp_path
+):
+    (tmp_path / "venv.txt").write_text("not excluded")
+    venv_dir = tmp_path / "venv"
+    venv_dir.mkdir()
+    (venv_dir / "test.txt").write_text("excluded")
+
+    manager = CodeBundleManager()
+    manager._upload_directory_recursive(  # noqa: SLF001
+        str(tmp_path), "test_stage", exclude=["venv"]
+    )
+
+    assert mock_execute_query.call_count == 1
+    call_str = str(mock_execute_query.call_args)
+    assert "venv.txt" in call_str
+    assert "test.txt" not in call_str
