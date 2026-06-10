@@ -16,8 +16,11 @@ permissions:
 
 jobs:
   cortex-review:
+    # Maintainers only (for now): same-repo PRs authored by an org
+    # owner/member or repo collaborator, gated further by the opt-in label.
     if: |
       github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) &&
       github.event.pull_request.draft == false &&
       contains(github.event.pull_request.labels.*.name, 'enable-ai-e2e-review') &&
       (github.event.action != 'labeled' || github.event.label.name == 'enable-ai-e2e-review')
