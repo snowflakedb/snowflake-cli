@@ -21,6 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
+* The `snow app setup` `--compute-pool` option and the `build_compute_pool` / `service_compute_pool` fields of a `snowflake-app` entity are now hidden and undocumented (omitted from `--help` and the generated project-definition JSON schema). They remain fully functional: `snow app setup` and `snow app deploy` still honor the `DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL` / `DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL` account parameters and any compute pools configured in `snowflake.yml`. The `ENABLE_APPLICATION_SERVICE_MANAGED_COMPUTE_POOL` and `ENABLE_APPLICATION_SERVICE_MANAGED_COMPUTE_POOL_FALLBACK` parameter checks (and the related deploy-time warning) have been removed.
 * Upgraded `pip` from 26.1.1 to 26.1.2.
 * `snow app setup` and `snow app deploy` now default to a workspace (instead of a stage) for app code whenever the resolved destination is a personal database (`USER$<user>`), which do not support stages. An explicitly configured `code_stage` is still honored, with a warning when the destination is a personal database.
 * Fixed `snow app deploy` failing on Windows when uploading app code to a workspace (connector error `253006`, `ER_FILE_NOT_EXISTS`) due to a malformed local file URI.
