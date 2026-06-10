@@ -253,11 +253,27 @@ def snowflake_app_setup(
 
     # ── Pre-compute current session values ─────────────────────────────
     conn = ctx.connection_context
-    session_wh = (
-        getattr(conn, "warehouse", None) or conn_config.get("warehouse") or None
-    )
-    session_db = getattr(conn, "database", None) or conn_config.get("database") or None
-    session_schema = getattr(conn, "schema", None) or conn_config.get("schema") or None
+    # ``conn.warehouse/database/schema`` are only non-None when the user
+    # explicitly passed the corresponding connection-override flag on the
+    # command line (e.g. ``--warehouse MY_WH``).  Values from the
+    # connection config file come through ``conn_config`` instead.
+    cli_wh = getattr(conn, "warehouse", None) or None
+    cli_db = getattr(conn, "database", None) or None
+    cli_schema = getattr(conn, "schema", None) or None
+
+    # A user-supplied database must be paired with an explicit schema: schema
+    # resolution would otherwise fall back to an account parameter or the
+    # personal-database default, silently placing the app in a schema that does
+    # not belong to the requested database.
+    if cli_db and not cli_schema:
+        raise CliError(
+            "--schema is required when --database is specified. "
+            "Provide --schema to select the schema within the requested database."
+        )
+
+    session_wh = conn_config.get("warehouse") or None
+    session_db = conn_config.get("database") or None
+    session_schema = conn_config.get("schema") or None
 
     personal_db = manager.get_personal_database()
     personal_schema = DEFAULT_PERSONAL_SCHEMA if personal_db else None
@@ -265,6 +281,7 @@ def snowflake_app_setup(
     # ── Resolve each field ────────────────────────────────────────────
     resolved = {
         "database": _resolve(
+            user_input=cli_db,
             account_param=params.get("database"),
             default_value=personal_db,
             current_session=session_db,
@@ -272,11 +289,13 @@ def snowflake_app_setup(
         # TODO: Support per-app schema (e.g. APPS.APP_<app_id>) instead of
         # a single shared schema for all apps.
         "schema": _resolve(
+            user_input=cli_schema,
             account_param=params.get("schema"),
             default_value=personal_schema,
             current_session=session_schema,
         ),
         "warehouse": _resolve(
+            user_input=cli_wh,
             account_param=params.get("query_warehouse"),
             current_session=session_wh,
         ),
@@ -312,19 +331,17 @@ def snowflake_app_setup(
     }
 
     # ── Validate required values ─────────────────────────────────────
-    # TODO: database, warehouse, and schema cannot be passed as arguments
-    # yet — they must come from account parameters or the current session.
     if not resolved["database"][0]:
         raise ClickException(
-            "Missing database. Set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE account parameter or check your connection."
+            "Missing database. Provide --database, set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE account parameter, or check your connection."
         )
     if not resolved["schema"][0]:
         raise ClickException(
-            "Missing schema. Set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA account parameter or check your connection."
+            "Missing schema. Provide --schema, set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA account parameter, or check your connection."
         )
     if not resolved["warehouse"][0]:
         raise ClickException(
-            "Missing warehouse. Set the DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE account parameter or check your connection."
+            "Missing warehouse. Provide --warehouse, set the DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE account parameter, or check your connection."
         )
 
     resolved_values = {k: v[0] for k, v in resolved.items()}
