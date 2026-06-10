@@ -25,6 +25,7 @@
 * `snow app setup` and `snow app deploy` now default to a workspace (instead of a stage) for app code whenever the resolved destination is a personal database (`USER$<user>`), which do not support stages. An explicitly configured `code_stage` is still honored, with a warning when the destination is a personal database.
 * Fixed `snow app deploy` failing on Windows when uploading app code to a workspace (connector error `253006`, `ER_FILE_NOT_EXISTS`) due to a malformed local file URI.
 * The `build_eai` field of a `snowflake-app` entity can now be specified as a bare string (e.g. `build_eai: MY_EAI`) in addition to the existing `build_eai:\n  name: MY_EAI` object form.
+* `snow app setup` now honors the `--warehouse`, `--database`, and `--schema` connection options as explicit overrides for the generated `snowflake.yml`, taking precedence over account parameters and the connection defaults. This lets users target a warehouse, database, or schema other than the account defaults. When `--database` is specified, `--schema` must also be specified.
 
 
 # v3.20.0
