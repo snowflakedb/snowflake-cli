@@ -5047,6 +5047,10 @@
                                                                                   
    Executes a code bundle at the given entrypoint.                                
                                                                                   
+   Any additional arguments after the known options will be passed to the code    
+   bundle. For example: snow bundle execute my_bundle --entrypoint src/main.py -- 
+   --custom-arg value                                                             
+                                                                                  
   +- Arguments ------------------------------------------------------------------+
   | *    identifier      TEXT  Identifier of the code bundle; for example:       |
   |                            MY_CODE_BUNDLE                                    |
@@ -5055,6 +5059,8 @@
   +- Options --------------------------------------------------------------------+
   | *  --entrypoint          TEXT  Entrypoint file path within the code bundle.  |
   |                                [required]                                    |
+  |    --async                     Run the bundle execution asynchronously and   |
+  |                                return the query ID immediately.              |
   |    --help        -h            Show this message and exit.                   |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+

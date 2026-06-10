@@ -663,6 +663,7 @@ def test_execute_calls_manager(mock_execute, runner, mock_statement_success):
         name=FQN.from_string(name),
         entrypoint="src/main.py",
         arguments=None,
+        run_async=False,
     )
 
 
@@ -692,6 +693,7 @@ def test_execute_calls_manager_with_arguments(
         name=FQN.from_string(name),
         entrypoint="src/main.py",
         arguments=["--custom-arg", "value", "--another-flag"],
+        run_async=False,
     )
 
 
@@ -789,3 +791,28 @@ def test_execute_requires_entrypoint(runner):
 def test_execute_requires_identifier(runner):
     result = runner.invoke(["bundle", "execute", "--entrypoint", "src/main.py"])
     assert result.exit_code != 0
+
+
+@mock.patch("snowflake.connector.connect")
+def test_execute_async(mock_connector, mock_ctx, runner):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(
+        [
+            "bundle",
+            "execute",
+            "my_bundle",
+            "--entrypoint",
+            "src/main.py",
+            "--async",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert result.output.startswith("Request submitted. Query ID:")
+    assert ctx.kwargs[0]["_exec_async"] is True
+    assert ctx.get_query() == (
+        "EXECUTE CODE BUNDLE IDENTIFIER('MockDatabase.MockSchema.my_bundle') "
+        "ENTRYPOINT='src/main.py'"
+    )
