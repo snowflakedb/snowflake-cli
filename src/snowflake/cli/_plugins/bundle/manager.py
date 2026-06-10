@@ -98,6 +98,7 @@ class CodeBundleManager(SqlExecutionMixin):
         name: FQN,
         entrypoint: str,
         arguments: Optional[List[str]] = None,
+        run_async: bool = False,
     ) -> SnowflakeCursor:
         if name is None or not name.name:
             raise CliError("Code bundle name is required.")
@@ -110,4 +111,4 @@ class CodeBundleManager(SqlExecutionMixin):
         )
         if arguments:
             query += f" ARGUMENTS={to_string_literal(' '.join(arguments))}"
-        return self.execute_query(query)
+        return self.execute_query(query, _exec_async=run_async)
