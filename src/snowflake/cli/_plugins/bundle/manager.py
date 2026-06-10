@@ -118,6 +118,15 @@ class CodeBundleManager(SqlExecutionMixin):
             query += f" ARGUMENTS={to_string_literal(' '.join(arguments))}"
         return self.execute_query(query, _exec_async=run_async)
 
+    def get_status(self, query_id: str) -> str:
+        if not query_id:
+            raise CliError("Query ID is required.")
+        try:
+            status = self._conn.get_query_status(query_id)
+        except ValueError as e:
+            raise CliError(f"Invalid query ID: {query_id}") from e
+        return status.name
+
     def process_source(self, source: str, exclude: Optional[List[str]] = None) -> str:
         """Resolve a user-provided --source value.
 

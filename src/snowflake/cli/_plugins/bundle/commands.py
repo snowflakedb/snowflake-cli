@@ -116,6 +116,11 @@ AsyncOption = typer.Option(
     "--async",
     help="Run the bundle execution asynchronously and return the query ID immediately.",
 )
+QueryIdArgument = typer.Argument(
+    ...,
+    help="Snowflake query ID returned by `bundle execute --async`.",
+    show_default=False,
+)
 
 
 @app.command(requires_connection=True)
@@ -226,3 +231,13 @@ def execute(
     if is_async:
         return MessageResult(f"Request submitted. Query ID: {cursor.sfqid}")
     return MessageResult(cursor.fetchone()[0])
+
+
+@app.command(requires_connection=True)
+def status(
+    query_id: str = QueryIdArgument,
+    **options,
+) -> CommandResult:
+    """Returns the execution status of an async code bundle execution."""
+    status_name = CodeBundleManager().get_status(query_id=query_id)
+    return MessageResult(f"Query {query_id}: {status_name}")
