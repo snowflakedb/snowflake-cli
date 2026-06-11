@@ -1345,3 +1345,90 @@ def test_cancel_requires_query_id(runner):
     result = runner.invoke(["bundle", "cancel"])
 
     assert result.exit_code != 0
+
+
+# ---------- history ----------
+
+
+def test_history_help(runner):
+    result = runner.invoke(["bundle", "history", "--help"])
+
+    assert result.exit_code == 0, result.output
+    assert "IDENTIFIER" in result.output
+    assert "--result-limit" in result.output
+
+
+@mock.patch.object(CodeBundleManager, "history")
+def test_history_calls_manager(mock_history, runner, mock_cursor):
+    mock_history.return_value = mock_cursor(rows=[], columns=[])
+    name = "my_bundle"
+
+    result = runner.invoke(["bundle", "history", name])
+
+    assert result.exit_code == 0, result.output
+    mock_history.assert_called_once_with(name=FQN.from_string(name), result_limit=100)
+
+
+@mock.patch.object(CodeBundleManager, "history")
+def test_history_passes_result_limit(mock_history, runner, mock_cursor):
+    mock_history.return_value = mock_cursor(rows=[], columns=[])
+    name = "my_bundle"
+
+    result = runner.invoke(["bundle", "history", name, "--result-limit", "50"])
+
+    assert result.exit_code == 0, result.output
+    mock_history.assert_called_once_with(name=FQN.from_string(name), result_limit=50)
+
+
+@mock.patch("snowflake.connector.connect")
+def test_history_query(mock_connector, mock_ctx, runner):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(["bundle", "history", "my_bundle"])
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == (
+        "SELECT * FROM TABLE("
+        "SNOWFLAKE.INFORMATION_SCHEMA.CODE_BUNDLE_HISTORY("
+        "BUNDLE_NAME => 'MockDatabase.MockSchema.my_bundle', "
+        "RESULT_LIMIT => 100))"
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+def test_history_query_with_result_limit(mock_connector, mock_ctx, runner):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(["bundle", "history", "my_bundle", "--result-limit", "5"])
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == (
+        "SELECT * FROM TABLE("
+        "SNOWFLAKE.INFORMATION_SCHEMA.CODE_BUNDLE_HISTORY("
+        "BUNDLE_NAME => 'MockDatabase.MockSchema.my_bundle', "
+        "RESULT_LIMIT => 5))"
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+def test_history_query_escapes_quote(mock_connector, mock_ctx, runner):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(["bundle", "history", '"it\'s_bundle"'])
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == (
+        "SELECT * FROM TABLE("
+        "SNOWFLAKE.INFORMATION_SCHEMA.CODE_BUNDLE_HISTORY("
+        "BUNDLE_NAME => 'MockDatabase.MockSchema.\"it''s_bundle\"', "
+        "RESULT_LIMIT => 100))"
+    )
+
+
+def test_history_requires_identifier(runner):
+    result = runner.invoke(["bundle", "history"])
+
+    assert result.exit_code != 0

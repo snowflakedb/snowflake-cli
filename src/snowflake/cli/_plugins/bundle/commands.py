@@ -121,6 +121,11 @@ QueryIdArgument = typer.Argument(
     help="Snowflake query ID returned by `bundle execute --async`.",
     show_default=False,
 )
+ResultLimitOption = typer.Option(
+    100,
+    "--result-limit",
+    help="Maximum number of history rows to return.",
+)
 
 
 @app.command(requires_connection=True)
@@ -251,3 +256,15 @@ def cancel(
     """Cancels an async code bundle execution."""
     cursor = CodeBundleManager().cancel(query_id=query_id)
     return MessageResult(cursor.fetchone()[0])
+
+
+@app.command(requires_connection=True)
+def history(
+    identifier: Annotated[FQN, CODE_BUNDLE_IDENTIFIER],
+    result_limit: int = ResultLimitOption,
+    **options,
+) -> CommandResult:
+    """Returns the execution history of a code bundle."""
+    return QueryResult(
+        CodeBundleManager().history(name=identifier, result_limit=result_limit)
+    )
