@@ -79,3 +79,11 @@ def mock_execute_query():
         "snowflake.cli._plugins.dbt.manager.DBTManager.execute_query"
     ) as _fixture:
         yield _fixture
+
+
+@pytest.fixture
+def mock_validate_dbt_version():
+    with mock.patch(
+        "snowflake.cli._plugins.dbt.manager.DBTManager._validate_dbt_version"
+    ) as _fixture:
+        yield _fixture

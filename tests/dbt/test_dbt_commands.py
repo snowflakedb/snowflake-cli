@@ -23,6 +23,7 @@ from snowflake.cli._plugins.dbt.constants import (
     PROFILES_FILENAME,
     RESULT_COLUMN_NAME,
 )
+from snowflake.cli.api.exceptions import CliArgumentError
 from snowflake.cli.api.secure_path import SecurePath
 
 
@@ -346,23 +347,6 @@ class TestDBTDeploy:
         call_kwargs = mock_deploy.call_args[1]
         assert call_kwargs["attrs"].dbt_version == "1.9.0"
 
-    def test_deploy_with_invalid_dbt_version_fails(
-        self, runner, dbt_project_path, mock_deploy
-    ):
-        result = runner.invoke(
-            [
-                "dbt",
-                "deploy",
-                "TEST_PIPELINE",
-                f"--source={dbt_project_path}",
-                "--dbt-version=1.9",
-            ]
-        )
-
-        assert result.exit_code == 2, result.output
-        assert "Invalid version format '1.9'" in result.output
-        mock_deploy.assert_not_called()
-
     def test_deploy_with_patch_version_passes_to_manager(
         self, runner, dbt_project_path, mock_deploy
     ):
@@ -399,6 +383,54 @@ class TestDBTDeploy:
         call_kwargs = mock_deploy.call_args[1]
         assert call_kwargs["attrs"].dbt_version == "2.0.0-preview"
 
+    def test_deploy_with_dotted_prerelease_version_passes_to_manager(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                "--dbt-version=2.0.0-preview.175",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        mock_deploy.assert_called_once()
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["attrs"].dbt_version == "2.0.0-preview.175"
+
+    def test_deploy_with_invalid_dbt_version_returns_exit_code_2(
+        self, runner, dbt_project_path
+    ):
+        def raise_invalid_version(*args, **kwargs):
+            raise CliArgumentError(
+                "Invalid value '99.99.99' for --dbt-version. "
+                "Supported versions: 1.9.4."
+            )
+
+        with mock.patch(
+            "snowflake.cli._plugins.dbt.manager.DBTManager._validate_dbt_version",
+            side_effect=raise_invalid_version,
+        ), mock.patch(
+            "snowflake.cli._plugins.dbt.manager.DBTManager._validate_profiles",
+            return_value=None,
+        ):
+            result = runner.invoke(
+                [
+                    "dbt",
+                    "deploy",
+                    "TEST_PIPELINE",
+                    f"--source={dbt_project_path}",
+                    "--dbt-version=99.99.99",
+                    "--enhanced-exit-codes",
+                ]
+            )
+
+        assert result.exit_code == 2, result.output
+        assert "Invalid value '99.99.99'" in result.output
+
 
 class TestDBTExecute:
     @pytest.mark.parametrize(
@@ -428,7 +460,7 @@ class TestDBTExecute:
             ),
             pytest.param(
                 ["dbt", "execute", "pipeline_name", "compile", "--vars '{foo:bar}'"],
-                "EXECUTE DBT PROJECT pipeline_name args='compile --vars \\'{foo:bar}\\''",
+                "EXECUTE DBT PROJECT pipeline_name args='compile --vars ''{foo:bar}'''",
                 id="with-dbt-vars",
             ),
             pytest.param(
@@ -477,7 +509,7 @@ class TestDBTExecute:
                     "--vars",
                     '{"key": "value"}',
                 ],
-                "EXECUTE DBT PROJECT pipeline_name args='run --vars \\'{\"key\": \"value\"}\\''",
+                "EXECUTE DBT PROJECT pipeline_name args='run --vars ''{\"key\": \"value\"}'''",
                 id="vars-json-format",
             ),
             pytest.param(
@@ -489,7 +521,7 @@ class TestDBTExecute:
                     "--vars",
                     '{"key": "value", "date": 20180101}',
                 ],
-                'EXECUTE DBT PROJECT pipeline_name args=\'run --vars \\\'{"key": "value", "date": 20180101}\\\'\'',
+                "EXECUTE DBT PROJECT pipeline_name args='run --vars ''{\"key\": \"value\", \"date\": 20180101}'''",
                 id="vars-json-multiple-keys",
             ),
             pytest.param(
@@ -501,7 +533,7 @@ class TestDBTExecute:
                     "--vars",
                     "{key: value, date: 20180101}",
                 ],
-                "EXECUTE DBT PROJECT pipeline_name args='run --vars \\'{key: value, date: 20180101}\\''",
+                "EXECUTE DBT PROJECT pipeline_name args='run --vars ''{key: value, date: 20180101}'''",
                 id="vars-yaml-format",
             ),
             pytest.param(
@@ -513,7 +545,7 @@ class TestDBTExecute:
                     "--vars",
                     "key: value",
                 ],
-                "EXECUTE DBT PROJECT pipeline_name args='run --vars \\'key: value\\''",
+                "EXECUTE DBT PROJECT pipeline_name args='run --vars ''key: value'''",
                 id="vars-single-key-value",
             ),
             pytest.param(
@@ -525,7 +557,7 @@ class TestDBTExecute:
                     "--vars",
                     "{foo: foobar}",
                 ],
-                "EXECUTE DBT PROJECT pipeline_name args='run --vars \\'{foo: foobar}\\''",
+                "EXECUTE DBT PROJECT pipeline_name args='run --vars ''{foo: foobar}'''",
                 id="vars-yaml-with-braces",
             ),
             pytest.param(
@@ -539,7 +571,7 @@ class TestDBTExecute:
                     "--select",
                     "my_model",
                 ],
-                "EXECUTE DBT PROJECT pipeline_name args='run --vars \\'start_date: 2016-06-01\\' --select my_model'",
+                "EXECUTE DBT PROJECT pipeline_name args='run --vars ''start_date: 2016-06-01'' --select my_model'",
                 id="vars-with-other-flags",
             ),
         ],
@@ -661,20 +693,6 @@ class TestDBTExecute:
             mock_connect.mocked_ctx.get_query()
             == "EXECUTE DBT PROJECT pipeline_name dbt_version='2.0.0' args='run'"
         )
-
-    def test_dbt_execute_with_invalid_dbt_version_fails(self, mock_connect, runner):
-        result = runner.invoke(
-            [
-                "dbt",
-                "execute",
-                "--dbt-version=1.2.3.beta",
-                "pipeline_name",
-                "run",
-            ]
-        )
-
-        assert result.exit_code == 2, result.output
-        assert "Invalid version format '1.2.3.beta'" in result.output
 
     def test_dbt_execute_with_patch_version(self, mock_connect, mock_cursor, runner):
         cursor = mock_cursor(
@@ -841,7 +859,7 @@ class TestDBTExecute:
                     '{"key": "value"}',
                 ],
                 "EXECUTE DBT PROJECT pipeline_name ENVIRONMENT='dev' "
-                "ENV_VARS=('DBT_OVERRIDE'='1') args='run --vars \\'{\"key\": \"value\"}\\''",
+                "ENV_VARS=('DBT_OVERRIDE'='1') args='run --vars ''{\"key\": \"value\"}'''",
                 id="env-vars-with-dbt-vars-flag",
             ),
         ],
@@ -1019,4 +1037,29 @@ class TestDBTExecute:
             mock_connect.mocked_ctx.get_query()
             == "EXECUTE DBT PROJECT pipeline_name ENVIRONMENT='dev' "
             "ENV_VARS=('DBT_FOO'='1') args='compile'"
+        )
+
+    def test_dbt_execute_with_dotted_prerelease_version(
+        self, mock_connect, mock_cursor, runner
+    ):
+        cursor = mock_cursor(
+            rows=[(True, "very detailed logs")],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "execute",
+                "--dbt-version=2.0.0-preview.175",
+                "pipeline_name",
+                "run",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert (
+            mock_connect.mocked_ctx.get_query()
+            == "EXECUTE DBT PROJECT pipeline_name dbt_version='2.0.0-preview.175' args='run'"
         )
