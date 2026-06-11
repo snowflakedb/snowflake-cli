@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -28,10 +29,55 @@ from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
+
+DBT_ENV_SECRET_PREFIX = "DBT_ENV_SECRET_"
+_ENV_VAR_KEY_PREFIX = "DBT_"
+_ENV_VAR_KEY_RE = re.compile(r"^[A-Za-z0-9_]+$")
+_CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
+
+
+def _reject_control_chars(value: Optional[str], flag_name: str) -> Optional[str]:
+    if value is not None and _CONTROL_CHAR_RE.search(value):
+        raise CliError(
+            f"{flag_name} must not contain control characters "
+            f"(newlines, tabs, etc.)"
+        )
+    return value
+
+
+class _NoDuplicatesSafeLoader(yaml.SafeLoader):
+    """yaml.SafeLoader that rejects duplicate mapping keys.
+
+    PyYAML's default behavior is silent last-wins, but the server-side SQL
+    parser rejects duplicates outright. Match that here so the user gets a
+    clear local error instead of a server round-trip.
+    """
+
+
+def _no_duplicates_constructor(loader, node, deep=False):
+    mapping = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if key in mapping:
+            raise yaml.constructor.ConstructorError(
+                None,
+                None,
+                f"duplicate key {key!r}",
+                key_node.start_mark,
+            )
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
+
+
+_NoDuplicatesSafeLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+    _no_duplicates_constructor,
+)
 
 
 class DBTObjectEditableAttributes(TypedDict):
@@ -381,6 +427,8 @@ class DBTManager(SqlExecutionMixin):
         name: FQN,
         run_async: bool,
         dbt_version: Optional[str] = None,
+        environment: Optional[str] = None,
+        env_vars: Optional[str] = None,
         *dbt_cli_args,
     ) -> SnowflakeCursor:
         if dbt_cli_args:
@@ -390,8 +438,76 @@ class DBTManager(SqlExecutionMixin):
         query = f"EXECUTE DBT PROJECT {name}"
         if dbt_version:
             query += f" dbt_version='{dbt_version}'"
+        if environment:
+            query += f" ENVIRONMENT={to_string_literal(environment)}"
+        env_vars_clause = self._format_env_vars_clause(env_vars)
+        if env_vars_clause:
+            query += env_vars_clause
         query += f" args='{dbt_command_escaped}'"
         return self.execute_query(query, _exec_async=run_async)
+
+    @staticmethod
+    def _format_env_vars_clause(env_vars: Optional[str]) -> str:
+        if not env_vars:
+            return ""
+        pairs = DBTManager._parse_env_vars(env_vars)
+        if not pairs:
+            return ""
+        secret_keys = [k for k in pairs if k.startswith(DBT_ENV_SECRET_PREFIX)]
+        if secret_keys:
+            cli_console.warning(
+                f"--env-vars contains key(s) with the {DBT_ENV_SECRET_PREFIX} prefix "
+                f"({', '.join(secret_keys)}); these values will appear in the SQL "
+                f"text and query history. To avoid that, use the secrets: block "
+                f"in env.yml referencing a Snowflake SECRET object."
+            )
+        items = ", ".join(
+            f"{to_string_literal(k)}={to_string_literal(v)}" for k, v in pairs.items()
+        )
+        return f" ENV_VARS=({items})"
+
+    @staticmethod
+    def _parse_env_vars(raw: str) -> Dict[str, str]:
+        try:
+            parsed = yaml.load(raw, Loader=_NoDuplicatesSafeLoader)
+        except yaml.constructor.ConstructorError as e:
+            raise CliError(f"--env-vars contains a duplicate key: {e.problem}")
+        except yaml.YAMLError as e:
+            raise CliError(f"--env-vars must be valid YAML/JSON: {e}")
+        if not isinstance(parsed, dict):
+            raise CliError(
+                "--env-vars must be a YAML/JSON object, " f"got {type(parsed).__name__}"
+            )
+        result: Dict[str, str] = {}
+        for k, v in parsed.items():
+            if not isinstance(k, str):
+                raise CliError(f"--env-vars key must be a string, got {k!r}")
+            if not k:
+                raise CliError("--env-vars key must not be empty")
+            if not _ENV_VAR_KEY_RE.match(k):
+                raise CliError(
+                    f"--env-vars key {k!r} must contain only ASCII letters, "
+                    f"digits, and underscores"
+                )
+            if not k.startswith(_ENV_VAR_KEY_PREFIX):
+                raise CliError(
+                    f"--env-vars key {k!r} must start with " f"{_ENV_VAR_KEY_PREFIX!r}"
+                )
+            if v is None:
+                raise CliError(f"--env-vars value for {k!r} must not be null")
+            if not isinstance(v, str):
+                raise CliError(
+                    f"--env-vars value for {k!r} must be a string, "
+                    f"got {type(v).__name__}; quote scalars in YAML/JSON "
+                    f"(e.g. '{k}: \"1\"' instead of '{k}: 1')"
+                )
+            if _CONTROL_CHAR_RE.search(v):
+                raise CliError(
+                    f"--env-vars value for {k!r} must not contain control "
+                    f"characters (newlines, tabs, etc.)"
+                )
+            result[k] = v
+        return result
 
     @staticmethod
     def _process_dbt_args(dbt_cli_args: tuple) -> str:

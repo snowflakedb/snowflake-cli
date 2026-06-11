@@ -1,0 +1,10 @@
+version: 2
+
+models:
+  - name: my_first_dbt_model
+    description: "Reads env vars via dbt env_var()"
+    columns:
+      - name: foo
+        description: "Value of DBT_FOO"
+      - name: bar
+        description: "Value of DBT_BAR"

@@ -76,3 +76,4 @@ class FeatureFlag(FeatureFlagMixin):
         "ENFORCE_STRICT_CONFIG_PERMISSIONS", False
     )
     ENABLE_SPCS_BUILD_IMAGE = BooleanFlag("ENABLE_SPCS_BUILD_IMAGE", False)
+    ENABLE_DBT_PROJECT_ENV_VARS = BooleanFlag("ENABLE_DBT_PROJECT_ENV_VARS", False)
