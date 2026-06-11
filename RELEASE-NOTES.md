@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Added `--no-prompt-exit-repl` option and configuration setting to skip the exit confirmation prompt in the SQL REPL.
 
 ## Fixes and improvements
 * Fixed `snow app setup` incorrectly treating system-default parameter values as admin-configured values. After running `ALTER ACCOUNT UNSET` on `DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL` or `DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL`, those fields no longer appear in the generated `snowflake.yml` or `--dry-run` output.
