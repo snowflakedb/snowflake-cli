@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
+from contextlib import contextmanager
 from unittest.mock import Mock, patch
 
 import pytest
@@ -3811,6 +3813,103 @@ class TestBundleCommand:
             result = runner.invoke(["app", "bundle", "--entity-id", "custom_app"])
             assert result.exit_code == 0, result.output
             mock_resolve.assert_called_once_with("custom_app")
+
+
+# ── Non-ASCII definition encoding regression tests ────────────────────
+
+
+class TestBundleNonAsciiDefinitionEncoding:
+    """Regression tests for the Windows-only ``UnicodeDecodeError`` raised while
+    bundling a project whose ``snowflake.yml`` contains non-ASCII characters.
+
+    The project definition is read while resolving the snowflake-app flow (and
+    again during bundling). Without an explicit ``encoding=`` the read falls
+    back to the platform default, which on Windows is the ANSI code page
+    (cp1252). Bytes undefined there — e.g. the UTF-8 encoding of U+0401
+    (Cyrillic Yo, 0xD0 0x81) — raise ``UnicodeDecodeError``. macOS/Linux
+    default to UTF-8 so the bug never reproduces there. ``SecurePath`` and the
+    project-definition loader now read UTF-8 explicitly.
+    """
+
+    # U+0401 encodes to UTF-8 bytes 0xD0 0x81; 0x81 is undefined in cp1252.
+    _YML_WITH_NON_ASCII = (
+        "definition_version: '2'\n"
+        "entities:\n"
+        "  my_app:\n"
+        "    type: snowflake-app\n"
+        "    identifier: my_app\n"
+        "    meta:\n"
+        '      title: "Demo \u0401 app"\n'
+        "    artifacts:\n"
+        "      - src: app/*\n"
+        "        dest: ./\n"
+    )
+
+    @staticmethod
+    @contextmanager
+    def _simulated_ansi_locale(simulated_encoding="cp1252"):
+        """Force text-mode opens that omit ``encoding=`` to use a non-UTF-8 code
+        page, mimicking the Windows ANSI default in-process on any host OS.
+
+        ``pathlib.Path.open`` forwards the ``"locale"`` sentinel (or ``None``)
+        when the caller does not pass ``encoding=``; both are substituted so the
+        regression reproduces deterministically. Reads that pass an explicit
+        ``encoding`` (e.g. the post-fix UTF-8 reads) are left untouched.
+        """
+        real_open = io.open
+
+        def fake_open(
+            file,
+            mode="r",
+            buffering=-1,
+            encoding=None,
+            errors=None,
+            newline=None,
+            closefd=True,
+            opener=None,
+        ):
+            if "b" not in mode and encoding in (None, "locale"):
+                encoding = simulated_encoding
+            return real_open(
+                file, mode, buffering, encoding, errors, newline, closefd, opener
+            )
+
+        with patch("io.open", fake_open):
+            yield
+
+    def _write_project(self, tmp_path):
+        app_dir = tmp_path / "app"
+        app_dir.mkdir()
+        (app_dir / "main.py").write_text("print('hello')\n", encoding="utf-8")
+        (tmp_path / "snowflake.yml").write_text(
+            self._YML_WITH_NON_ASCII, encoding="utf-8"
+        )
+
+    def test_simulation_reproduces_decode_error_for_unguarded_reads(self, tmp_path):
+        """Sanity check: the ANSI-locale simulation does raise for an unguarded
+        (no ``encoding=``) read, so the regression tests below are meaningful."""
+        self._write_project(tmp_path)
+        with self._simulated_ansi_locale():
+            with pytest.raises(UnicodeDecodeError):
+                (tmp_path / "snowflake.yml").read_text()
+            # An explicit UTF-8 read still succeeds under the same simulation.
+            assert "\u0401" in (tmp_path / "snowflake.yml").read_text(encoding="utf-8")
+
+    def test_bundle_succeeds_with_non_ascii_definition(self, runner, tmp_path):
+        self._write_project(tmp_path)
+        with change_directory(tmp_path):
+            with self._simulated_ansi_locale():
+                result = runner.invoke(["app", "bundle"])
+        assert result.exit_code == 0, result.output
+        assert "Bundle generated at" in result.output
+
+    def test_validate_succeeds_with_non_ascii_definition(self, runner, tmp_path):
+        self._write_project(tmp_path)
+        with change_directory(tmp_path):
+            with self._simulated_ansi_locale():
+                result = runner.invoke(["app", "validate"])
+        assert result.exit_code == 0, result.output
+        assert "Valid Snowflake App Runtime project" in result.output
 
 
 # ── Validate CLI command tests ────────────────────────────────────────

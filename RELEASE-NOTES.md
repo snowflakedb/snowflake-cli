@@ -30,6 +30,7 @@
 * The `build_eai` field of a `snowflake-app` entity can now be specified as a bare string (e.g. `build_eai: MY_EAI`) in addition to the existing `build_eai:\n  name: MY_EAI` object form.
 * `snow app setup` now honors the `--warehouse`, `--database`, and `--schema` connection options as explicit overrides for the generated `snowflake.yml`, taking precedence over account parameters and the connection defaults. This lets users target a warehouse, database, or schema other than the account defaults. When `--database` is specified, `--schema` must also be specified.
 * `snow dbt` no longer rejects valid `--dbt-version` values (e.g. `2.0.0-preview.175`) that don't match a hard-coded client-side regex. Versions are now validated against the server's supported list, with unsupported versions failing fast and listing the actual supported set.
+* Fixed `snow app deploy` and `snow app validate` failing on Windows with a `UnicodeDecodeError` when `snowflake.yml` contained non-ASCII characters (e.g. a non-Latin app title or description). Project definition files — and all other text files accessed through the CLI's `SecurePath` helper — are now read and written as UTF-8 instead of falling back to the platform default code page (cp1252 on Windows).
 
 
 # v3.20.0

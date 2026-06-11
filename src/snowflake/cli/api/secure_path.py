@@ -172,19 +172,32 @@ class SecurePath:
         Return the decoded contents of the file as a string.
         Raises an error of the file exceeds the specified size limit.
         For details, check pathlib.Path.read_text()
+
+        Defaults to UTF-8 unless an ``encoding`` is supplied. Without this the
+        platform default encoding is used, which on Windows is the ANSI code
+        page (e.g. cp1252) and raises ``UnicodeDecodeError`` on files
+        containing bytes undefined in that code page.
         """
         self._assert_exists_and_is_file()
         self._assert_file_size_limit(file_size_limit_mb)
         log.info("Reading file %s", self._path)
+        if not args:
+            kwargs.setdefault("encoding", "utf-8")
         return self._path.read_text(*args, **kwargs)
 
     def write_text(self, *args, **kwargs):
         """
         Open the file pointed to in text mode, write data to it, and close the file.
+
+        Defaults to UTF-8 unless an ``encoding`` is supplied, so files are
+        written consistently across platforms regardless of the locale's
+        preferred encoding.
         """
         if not self.exists():
             self.touch()
         log.info("Writing to file %s", self._path)
+        if len(args) < 2:
+            kwargs.setdefault("encoding", "utf-8")
         self.path.write_text(*args, **kwargs)
 
     @contextmanager
@@ -212,6 +225,14 @@ class SecurePath:
             self.assert_is_file()
         else:
             self.touch()  # makes sure permissions of freshly-created file are strict
+
+        # Default text-mode reads/writes to UTF-8 unless the caller specifies an
+        # encoding. Without this Python falls back to the platform default
+        # (the ANSI code page, e.g. cp1252, on Windows), which raises
+        # UnicodeDecodeError on files containing bytes undefined in that code
+        # page. Binary modes ('b') must not receive an encoding argument.
+        if "b" not in mode:
+            open_kwargs.setdefault("encoding", "utf-8")
 
         log.info("Opening file %s in mode '%s'", self._path, mode)
         with self._path.open(mode=mode, **open_kwargs) as fd:
