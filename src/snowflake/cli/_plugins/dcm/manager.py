@@ -290,7 +290,7 @@ class DCMProjectManager(SqlExecutionMixin):
 
                 cli_console.step("Uploading files to temporary stage.")
                 for result in stage_manager.put_recursive(
-                    local_path=source_path.path,
+                    local_path=tmp_path,
                     stage_path=stage_fqn.identifier,
                     temp_directory=tmp_path,
                 ):
