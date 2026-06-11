@@ -167,23 +167,6 @@ _SNOW_APPS_PARAM_MAP = {
     "DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA": "schema",
 }
 
-# Backend parameter that opts an account into Snowflake-managed build compute
-# pools.  When enabled, the CLI omits ``build_compute_pool`` from generated
-# project files and forwards an empty string to
-# ``SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO`` so the server allocates a
-# managed pool on the user's behalf.
-MANAGED_COMPUTE_POOL_PARAM = "ENABLE_APPLICATION_SERVICE_MANAGED_COMPUTE_POOL"
-
-# Companion to :data:`MANAGED_COMPUTE_POOL_PARAM`. When the managed-pool
-# parameter is on, this parameter controls whether the server falls back to
-# user-specified compute pools (``true``) or strictly enforces the managed
-# pool (``false``). The CLI uses it to decide whether to honor or strip
-# ``build_compute_pool`` / ``service_compute_pool`` values supplied via
-# ``snowflake.yml`` during ``snow app deploy``.
-MANAGED_COMPUTE_POOL_FALLBACK_PARAM = (
-    "ENABLE_APPLICATION_SERVICE_MANAGED_COMPUTE_POOL_FALLBACK"
-)
-
 # Artifact-repo build jobs run as SPCS job services. The container/instance to
 # read logs from is resolved at runtime via ``SHOW SERVICE CONTAINERS IN
 # SERVICE``; when a service exposes multiple containers the one named ``builder``
@@ -1065,46 +1048,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
         """
         desc = self.describe_app_service(service_fqn)
         return self.resolve_application_service_url_from_describe(desc)
-
-    def _is_boolean_param_true(self, param_name: str) -> bool:
-        """Return True when the named boolean backend parameter is set to
-        ``"true"`` for the current session.
-
-        The check is intentionally tolerant: any error (e.g. the parameter
-        is not exposed to the current role) and any unset/non-true value
-        return ``False`` so callers fall back to the conservative default.
-        """
-        try:
-            cursor = self.execute_query(
-                f"SHOW PARAMETERS LIKE '{param_name}'",
-                cursor_class=DictCursor,
-            )
-            for row in cursor:
-                value = (row.get("value") or row.get("VALUE") or "").strip().lower()
-                return value == "true"
-            return False
-        except ProgrammingError:
-            return False
-
-    def is_managed_compute_pool_enabled(self) -> bool:
-        """Return True when the backend parameter
-        :data:`MANAGED_COMPUTE_POOL_PARAM` is set to ``"true"`` for the
-        current session.
-        """
-        return self._is_boolean_param_true(MANAGED_COMPUTE_POOL_PARAM)
-
-    def is_managed_compute_pool_fallback_enabled(self) -> bool:
-        """Return True when the backend parameter
-        :data:`MANAGED_COMPUTE_POOL_FALLBACK_PARAM` is set to ``"true"`` for
-        the current session.
-
-        When this is true (and managed pools are enabled), the server honors
-        user-specified compute pools as a fallback to the managed pool, so
-        the CLI passes ``snowflake.yml`` values through unchanged. When
-        false (the default), the server enforces the managed pool and the
-        CLI strips any user-specified pools with a warning.
-        """
-        return self._is_boolean_param_true(MANAGED_COMPUTE_POOL_FALLBACK_PARAM)
 
     def fetch_snow_apps_parameters(self) -> Dict[str, str]:
         """Fetch Snowflake App Runtime default parameters for the current user.

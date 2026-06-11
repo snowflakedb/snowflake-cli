@@ -30,11 +30,9 @@ def _generate_snowflake_yml(
 
     Optional keys: ``build_compute_pool``, ``service_compute_pool``,
     ``build_eai``.  When omitted or ``None`` the corresponding block is left
-    out of the generated YAML.  ``build_compute_pool`` and
-    ``service_compute_pool`` should both be omitted when the backend opts
-    the account into managed compute pools (see
-    :data:`MANAGED_COMPUTE_POOL_PARAM`).  ``build_eai`` is omitted when no
-    external access integration is required by the builder service.
+    out of the generated YAML, letting the server allocate compute pools at
+    deploy time.  ``build_eai`` is omitted when no external access
+    integration is required by the builder service.
 
     The artifact repository is omitted from the generated YAML; the CLI
     will default to ``<app-id>_REPO`` at deploy time.

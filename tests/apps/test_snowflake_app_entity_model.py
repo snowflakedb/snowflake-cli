@@ -108,6 +108,15 @@ class TestSnowflakeAppEntityModel:
         )
         assert model.build_compute_pool.name == "MY_POOL"
 
+    def test_compute_pool_fields_hidden_from_json_schema(self):
+        """The compute-pool fields stay functional but are excluded from the
+        generated JSON schema (hidden/undocumented via SkipJsonSchema)."""
+        properties = SnowflakeAppEntityModel.model_json_schema()["properties"]
+        assert "build_compute_pool" not in properties
+        assert "service_compute_pool" not in properties
+        # Sibling fields remain documented.
+        assert "query_warehouse" in properties
+
     @pytest.mark.parametrize("value", [None, "null"])
     def test_eai_validator_none_values(self, value):
         """EAI validator accepts None and 'null' as None."""

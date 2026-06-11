@@ -15,6 +15,7 @@
 from typing import Literal, Optional, Union
 
 from pydantic import Field, field_validator, model_validator
+from pydantic.json_schema import SkipJsonSchema
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBaseWithArtifacts,
     MetaField,
@@ -121,11 +122,16 @@ class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
         title="Warehouse to use for queries", default=None
     )
 
-    build_compute_pool: Union[ComputePoolReference, None] = Field(
+    # ``build_compute_pool`` and ``service_compute_pool`` remain fully
+    # functional (still parsed from ``snowflake.yml`` and forwarded to the
+    # server when present), but are intentionally hidden/undocumented:
+    # ``SkipJsonSchema`` excludes them from the generated project-definition
+    # JSON schema so editor completion and docs do not advertise them.
+    build_compute_pool: SkipJsonSchema[Union[ComputePoolReference, None]] = Field(
         title="Compute pool for building the app", default=None
     )
 
-    service_compute_pool: Union[ComputePoolReference, None] = Field(
+    service_compute_pool: SkipJsonSchema[Union[ComputePoolReference, None]] = Field(
         title="Compute pool for running the app service", default=None
     )
 
