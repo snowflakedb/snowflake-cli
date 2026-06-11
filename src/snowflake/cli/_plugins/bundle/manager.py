@@ -134,6 +134,18 @@ class CodeBundleManager(SqlExecutionMixin):
             "SELECT SYSTEM$CANCEL_QUERY(%s)", (query_id,)
         )
 
+    def history(self, name: FQN, result_limit: int = 100) -> SnowflakeCursor:
+        if name is None or not name.name:
+            raise CliError("Code bundle name is required.")
+        fqn = name.using_connection(self._conn)
+        query = (
+            "SELECT * FROM TABLE("
+            "SNOWFLAKE.INFORMATION_SCHEMA.CODE_BUNDLE_HISTORY("
+            f"BUNDLE_NAME => {to_string_literal(fqn.identifier)}, "
+            f"RESULT_LIMIT => {int(result_limit)}))"
+        )
+        return self.execute_query(query)
+
     def process_source(self, source: str, exclude: Optional[List[str]] = None) -> str:
         """Resolve a user-provided --source value.
 
