@@ -859,7 +859,7 @@ class TestDBTExecute:
                     '{"key": "value"}',
                 ],
                 "EXECUTE DBT PROJECT pipeline_name ENVIRONMENT='dev' "
-                "ENV_VARS=('DBT_OVERRIDE'='1') args='run --vars \\'{\"key\": \"value\"}\\''",
+                "ENV_VARS=('DBT_OVERRIDE'='1') args='run --vars ''{\"key\": \"value\"}'''",
                 id="env-vars-with-dbt-vars-flag",
             ),
         ],
