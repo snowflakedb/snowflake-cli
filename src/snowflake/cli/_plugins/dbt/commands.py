@@ -104,7 +104,6 @@ def _default_environment_callback(value: Optional[str]) -> Optional[str]:
     return _reject_control_chars(value, "--default-environment")
 
 
-
 @app.command(
     "deploy",
     requires_connection=True,
@@ -143,7 +142,7 @@ def deploy_dbt(
     ),
     default_environment: Optional[str] = DefaultEnvironmentOption(
         help=(
-            f"Default environment for the dbt project (DEFAULT_ENVIRONMENT). "
+            f"Default environment for the dbt project. "
             f"Selects the environment block from {ENV_FILENAME} that the project "
             f"compiles and executes with by default. "
             f"Mutually exclusive with --unset-default-environment."

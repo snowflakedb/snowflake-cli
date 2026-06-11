@@ -1186,6 +1186,36 @@ dev
                 assert "# " not in line
                 assert "secret hint" not in line
 
+    def test_prepare_env_file_rejects_duplicate_keys(self, tmp_path_factory):
+        env_path = tmp_path_factory.mktemp("envs")
+        (env_path / ENV_FILENAME).write_text(
+            "env_config:\n"
+            "  environments:\n"
+            "  - name: dev\n"
+            "    env:\n"
+            "      DBT_FOO: 'first'\n"
+            "      DBT_FOO: 'second'\n"
+        )
+        tmp_dbt_path = tmp_path_factory.mktemp("dbt")
+
+        with pytest.raises(CliError) as exc_info:
+            DBTManager._prepare_env_file(env_path, tmp_dbt_path)  # noqa: SLF001
+
+        assert "duplicate key" in exc_info.value.message
+        assert "DBT_FOO" in exc_info.value.message
+
+    def test_prepare_env_file_rejects_malformed_yaml(self, tmp_path_factory):
+        env_path = tmp_path_factory.mktemp("envs")
+        (env_path / ENV_FILENAME).write_text(
+            "env_config:\n" "  environments\n" "    - bad: : indentation\n"
+        )
+        tmp_dbt_path = tmp_path_factory.mktemp("dbt")
+
+        with pytest.raises(CliError) as exc_info:
+            DBTManager._prepare_env_file(env_path, tmp_dbt_path)  # noqa: SLF001
+
+        assert "is not valid YAML" in exc_info.value.message
+
 
 class TestValidateDbtVersion:
     def test_get_supported_dbt_versions_parses_response(

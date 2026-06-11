@@ -503,7 +503,13 @@ class DBTManager(SqlExecutionMixin):
         with source_env_file.open(
             read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
         ) as sfd, target_env_file.open(mode="w") as tfd:
-            yaml.safe_dump(yaml.safe_load(sfd), tfd)
+            try:
+                parsed = yaml.load(sfd, Loader=_NoDuplicatesSafeLoader)
+            except yaml.constructor.ConstructorError as e:
+                raise CliError(f"{ENV_FILENAME} has {e.problem}")
+            except yaml.YAMLError as e:
+                raise CliError(f"{ENV_FILENAME} is not valid YAML: {e}")
+            yaml.safe_dump(parsed, tfd)
 
     def execute(
         self,
@@ -554,7 +560,7 @@ class DBTManager(SqlExecutionMixin):
         try:
             parsed = yaml.load(raw, Loader=_NoDuplicatesSafeLoader)
         except yaml.constructor.ConstructorError as e:
-            raise CliError(f"--env-vars contains a duplicate key: {e.problem}")
+            raise CliError(f"--env-vars has {e.problem}")
         except yaml.YAMLError as e:
             raise CliError(f"--env-vars must be valid YAML/JSON: {e}")
         if not isinstance(parsed, dict):
