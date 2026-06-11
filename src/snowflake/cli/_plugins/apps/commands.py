@@ -229,7 +229,6 @@ def snowflake_app_setup(
         # Drop the account-configured destination database/schema the current
         # role cannot access so resolution falls back to the personal database.
         params = _filter_accessible_remote_defaults(manager, params)
-        managed_compute_pool_enabled = manager.is_managed_compute_pool_enabled()
 
     def _resolve(
         user_input=None,
@@ -299,28 +298,18 @@ def snowflake_app_setup(
             account_param=params.get("query_warehouse"),
             current_session=session_wh,
         ),
-        # TODO: Consider removing --compute-pool argument once services can run
-        # in the system default compute pool (SYSTEM_COMPUTE_POOL_CPU).
-        # When the backend opts the account into managed compute pools we
-        # deliberately skip resolving both ``build_compute_pool`` and
-        # ``service_compute_pool`` so the fields are omitted from the
-        # generated ``snowflake.yml`` and the server picks the pools at
-        # deploy time.
-        "build_compute_pool": (
-            (None, SOURCE_MISSING)
-            if managed_compute_pool_enabled
-            else _resolve(
-                user_input=compute_pool,
-                account_param=params.get("build_compute_pool"),
-            )
+        # Compute pools are resolved from the (hidden) ``--compute-pool`` flag
+        # and the ``DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL`` /
+        # ``DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL`` account parameters.
+        # Both stay omitted from the generated ``snowflake.yml`` when neither
+        # source provides a value, letting the server pick pools at deploy time.
+        "build_compute_pool": _resolve(
+            user_input=compute_pool,
+            account_param=params.get("build_compute_pool"),
         ),
-        "service_compute_pool": (
-            (None, SOURCE_MISSING)
-            if managed_compute_pool_enabled
-            else _resolve(
-                user_input=compute_pool,
-                account_param=params.get("service_compute_pool"),
-            )
+        "service_compute_pool": _resolve(
+            user_input=compute_pool,
+            account_param=params.get("service_compute_pool"),
         ),
         # TODO: Remove --build-eai argument once the builder service no longer
         # requires an external access integration.
@@ -636,33 +625,12 @@ def snowflake_app_deploy(
     storage_schema_override = storage.schema_override
     encryption_type = storage.encryption_type
 
-    # User-supplied compute pools are always passed through to the server
-    # (forwarded as the 4th argument to
+    # Compute pools resolved from ``snowflake.yml`` or the
+    # ``DEFAULT_SNOWFLAKE_APPS_*_COMPUTE_POOL`` account parameters are passed
+    # through to the server: forwarded as the 4th argument to
     # ``SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO`` and emitted as
-    # ``IN COMPUTE POOL`` in ``CREATE APPLICATION SERVICE``).  However, when
-    # the account has managed compute pools enforced
-    # (``ENABLE_APPLICATION_SERVICE_MANAGED_COMPUTE_POOL`` is true and the
-    # companion ``..._FALLBACK`` parameter is false), the server may
-    # reject or override those values.  In that case we warn the user up
-    # front so they know why the deploy might not behave as configured.
-    if (
-        (build_compute_pool or service_compute_pool)
-        and manager.is_managed_compute_pool_enabled()
-        and not manager.is_managed_compute_pool_fallback_enabled()
-    ):
-        if build_compute_pool:
-            cli_console.warning(
-                f"build_compute_pool '{build_compute_pool}' is configured "
-                "but managed compute pools are enforced for this account; "
-                "the server may not honor this value."
-            )
-        if service_compute_pool:
-            cli_console.warning(
-                f"service_compute_pool '{service_compute_pool}' is configured "
-                "but managed compute pools are enforced for this account; "
-                "the server may not honor this value."
-            )
-
+    # ``IN COMPUTE POOL`` in ``CREATE APPLICATION SERVICE``. When neither
+    # source provides a value the server allocates the pools itself.
     ar_name = defaults["artifact_repository"]
     ar_database = defaults["artifact_repo_database"]
     ar_schema = defaults["artifact_repo_schema"]
