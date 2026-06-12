@@ -14,21 +14,19 @@
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import List
 
 from snowflake.cli._plugins.dcm.models import MANIFEST_FILE_NAME, SOURCES_FOLDER
 from snowflake.cli._plugins.dcm.utils import collect_output
 from snowflake.cli._plugins.stage.diff import _to_diff_line
 from snowflake.cli._plugins.stage.manager import StageManager
-from snowflake.cli.api.artifacts.utils import bundle_artifacts
+from snowflake.cli.api.artifacts.bundle_map import BundleMap
+from snowflake.cli.api.artifacts.utils import symlink_or_copy
 from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.console.console import cli_console
-from snowflake.cli.api.constants import (
-    ObjectType,
-    PatternMatchingType,
-)
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.project.project_paths import ProjectPaths
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
@@ -274,15 +272,12 @@ class DCMProjectManager(SqlExecutionMixin):
                 source_path.path, stage_fqn.identifier
             )
 
-            project_paths = ProjectPaths(project_root=source_path.path)
-            project_paths.remove_up_bundle_root()
-            SecurePath(project_paths.bundle_root).mkdir(parents=True, exist_ok=True)
-
-            try:
-                bundle_artifacts(
-                    project_paths,
-                    plan.artifacts,
-                    pattern_type=PatternMatchingType.GLOB,
+            with TemporaryDirectory() as tmp:
+                tmp_path = Path(tmp)
+                DCMProjectManager._bundle_definition_files(
+                    project_root=source_path.path,
+                    bundle_root=tmp_path,
+                    artifacts=plan.artifacts,
                 )
 
                 stage_manager = StageManager()
@@ -293,13 +288,11 @@ class DCMProjectManager(SqlExecutionMixin):
 
                 DCMProjectManager._report_files_to_be_deployed(plan)
 
-                cli_console.step(
-                    f"Uploading files from local {project_paths.bundle_root} directory to temporary stage."
-                )
+                cli_console.step("Uploading files to temporary stage.")
                 for result in stage_manager.put_recursive(
-                    local_path=project_paths.bundle_root,
+                    local_path=tmp_path,
                     stage_path=stage_fqn.identifier,
-                    temp_directory=project_paths.bundle_root,
+                    temp_directory=tmp_path,
                 ):
                     log.info(
                         "Uploaded %s to %s",
@@ -314,8 +307,6 @@ class DCMProjectManager(SqlExecutionMixin):
                         entry.file.relative_to(source_path.path),
                         entry.dest,
                     )
-            finally:
-                project_paths.clean_up_output()
 
         log.info(
             "Finished syncing DCM files (project_identifier=%s, stage=%s).",
@@ -323,6 +314,28 @@ class DCMProjectManager(SqlExecutionMixin):
             stage_fqn.identifier,
         )
         return stage_fqn.identifier
+
+    @staticmethod
+    def _bundle_definition_files(
+        project_root: Path, bundle_root: Path, artifacts: List[PathMapping]
+    ) -> None:
+        bundle_map = BundleMap(
+            project_root=project_root,
+            deploy_root=bundle_root,
+        )
+        for artifact in artifacts:
+            bundle_map.add(artifact)
+
+        for absolute_src, absolute_dest in bundle_map.all_mappings(
+            absolute=True, expand_directories=True
+        ):
+            if absolute_src.is_file():
+                symlink_or_copy(
+                    absolute_src,
+                    absolute_dest,
+                    deploy_root=bundle_root,
+                    project_root=project_root,
+                )
 
     @staticmethod
     def _build_upload_plan(source_path: Path, stage_root: str) -> UploadPlan:
