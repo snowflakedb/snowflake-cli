@@ -18,7 +18,7 @@ Cortex AI End-to-End PR Review Script
 Uses Cortex Code CLI as an autonomous agent to verify PR changes.
 Cortex Code handles all tool execution (file reading, command running,
 SQL queries) natively - this script just orchestrates the setup,
-passes the prompt, and posts the result as a PR comment.
+passes the prompt, and posts the result as a PR comment overwriting previous comment.
 """
 
 from __future__ import annotations
