@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import json
 import logging
 from typing import List, Optional
 
@@ -28,13 +27,11 @@ from snowflake.cli._plugins.dcm.reporters import (
     AnalyzeReporter,
     PlanReporter,
     RefreshReporter,
-    Reporter,
     TestReporter,
 )
 from snowflake.cli._plugins.dcm.utils import (
     clear_command_artifacts,
     mock_dcm_response,
-    save_command_response,
 )
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
@@ -60,8 +57,6 @@ from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN, AccountIdentifier
 from snowflake.cli.api.output.types import (
-    CollectionResult,
-    EmptyResult,
     MessageResult,
     QueryResult,
 )
@@ -69,7 +64,6 @@ from snowflake.cli.api.project.util import same_identifiers
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutor
-from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__name__)
 
@@ -304,52 +298,6 @@ def _resolve_context_with_optional_manifest(
     return context
 
 
-def _process_plan_result(
-    cursor: SnowflakeCursor,
-    command_name: str = "plan",
-    save_output: bool = False,
-) -> CollectionResult | EmptyResult:
-    """
-    Process plan result, detecting format and returning appropriate result type.
-
-    For new format (version 2), uses the appropriate plan reporter.
-    For old format, returns raw data as CollectionResult.
-    """
-    rows = list(cursor)
-    if not rows:
-        # TODO: when support for old plan api is removed, move this logic into Reporter class completely
-        if save_output:
-            save_command_response(command_name, {})
-        return CollectionResult([])
-
-    first_row = rows[0]
-    first_value = list(first_row)[0] if first_row else None
-    if not first_value:
-        # TODO: when support for old plan api is removed, move this logic into Reporter class completely
-        if save_output:
-            save_command_response(command_name, {})
-        return CollectionResult([])
-
-    data = json.loads(first_value)
-
-    # Handle new format with reporter.
-    # Uses process_payload (not process) because we need to branch on
-    # old vs. new format and return CollectionResult for old format.
-    if isinstance(data, dict) and data.get("version", 0) == 2:
-        log.info(
-            "Detected DCM plan result version 2 format.",
-        )
-        reporter = PlanReporter(save_output=save_output, command_name=command_name)
-        reporter.process_payload(data)
-        return Reporter.format_aware_result(cursor, first_value)
-
-    # Old format
-    log.info("Detected legacy DCM plan result format.")
-    if save_output:
-        save_command_response(command_name, first_value)
-    return CollectionResult(data)
-
-
 add_object_command_aliases(
     app=app,
     object_type=ObjectType.DCM_PROJECT,
@@ -407,7 +355,8 @@ def deploy(
             skip_plan=skip_plan,
         )
 
-    return _process_plan_result(result, command_name="deploy", save_output=save_output)
+    reporter = PlanReporter(save_output=save_output, command_name="deploy")
+    return reporter.process(result)
 
 
 _PURGE_CONFIRM_COMMAND = "PURGE"
@@ -483,7 +432,8 @@ def purge(
             skip_plan=skip_plan,
         )
 
-    return _process_plan_result(result, command_name="purge", save_output=save_output)
+    reporter = PlanReporter(save_output=save_output, command_name="purge")
+    return reporter.process(result)
 
 
 @app.command(requires_connection=True)
@@ -494,6 +444,12 @@ def plan(
     variables: Optional[List[str]] = variables_flag,
     target: Optional[str] = target_option,
     save_output: bool = save_output_option,
+    delta: bool = typer.Option(
+        False,
+        "--delta",
+        help="Process only statements changed since the last `deploy`, plus statements potentially impacted by those changes.",
+        hidden=not FeatureFlag.ENABLE_DCM_EARLY_ACCESS.is_enabled(),
+    ),
     **options,
 ):
     """
@@ -518,9 +474,11 @@ def plan(
             from_stage=effective_stage,
             variables=variables,
             save_output=save_output,
+            delta=delta,
         )
 
-    return _process_plan_result(result, command_name="plan", save_output=save_output)
+    reporter = PlanReporter(save_output=save_output, command_name="plan")
+    return reporter.process(result)
 
 
 @app.command(requires_connection=True, hidden=True)

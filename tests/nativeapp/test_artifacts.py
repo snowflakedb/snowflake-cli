@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -41,7 +42,7 @@ from tests.nativeapp.utils import (
     assert_dir_snapshot,
 )
 from tests.testing_utils.files_and_dirs import temp_local_dir
-from tests_common import change_directory
+from tests_common import IS_WINDOWS, change_directory
 
 
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
@@ -144,6 +145,48 @@ def test_no_artifacts(project_definition_files):
             deploy_root=Path(project_root, "deploy"),
             artifacts=[],
         )
+
+
+@pytest.mark.skipif(
+    IS_WINDOWS, reason="Symlinks on Windows are restricted to Developer mode or admins"
+)
+def test_build_bundle_skips_nested_symlink_escaping_project_root(tmp_path):
+    """
+    End-to-end regression for SNOW-3417049 through the actual `snow app
+    bundle/deploy` entry point (`build_bundle` -> nativeapp `bundle_artifacts`,
+    which uses ``expand_directories=False`` and therefore does not enter
+    BundleMap's pruned walk). A nested symlink whose target escapes the
+    project root must not produce any deploy-root entry that resolves outside
+    the project; legitimate siblings must still be bundled.
+    """
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    (project_root / "snowflake.yml").write_text("# empty")
+    (project_root / "src").mkdir()
+    (project_root / "src" / "main.py").write_text("# main")
+
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secret.txt").write_text("sensitive data")
+
+    os.symlink(outside, project_root / "src" / "escape", target_is_directory=True)
+
+    deploy_root = project_root / "output" / "deploy"
+    build_bundle(
+        project_root,
+        deploy_root,
+        [PathMapping(src="src", dest="./src/")],
+    )
+
+    # Legitimate sibling is bundled.
+    assert (deploy_root / "src" / "src" / "main.py").exists()
+
+    # No deploy-root entry resolves outside the project root.
+    real_root = Path(os.path.realpath(project_root))
+    for path in deploy_root.rglob("*"):
+        if path.is_file() or path.is_symlink():
+            real = Path(os.path.realpath(path))
+            assert real == real_root or real_root in real.parents
 
 
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)

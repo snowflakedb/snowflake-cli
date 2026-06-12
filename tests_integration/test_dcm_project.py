@@ -451,6 +451,44 @@ def test_dcm_plan_with_save_output(
 
 @pytest.mark.qa_only
 @pytest.mark.integration
+def test_dcm_plan_with_delta(
+    runner,
+    test_database,
+    dcm_project_directory,
+    object_name_provider,
+):
+    project_name = object_name_provider.create_and_get_next_object_name()
+
+    with dcm_project_directory("dcm_project"):
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection(
+            [
+                "dcm",
+                "deploy",
+                project_name,
+                "-D",
+                f"table_name='{test_database}.PUBLIC.PlanDeltaTestTable'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection(
+            [
+                "dcm",
+                "plan",
+                project_name,
+                "--delta",
+                "-D",
+                f"table_name='{test_database}.PUBLIC.PlanDeltaTestTable'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
 @pytest.mark.parametrize("format_name", ["JSON", "JSON_EXT"])
 @pytest.mark.parametrize("command", ["plan", "raw-analyze"])
 def test_dcm_command_respects_format_option(

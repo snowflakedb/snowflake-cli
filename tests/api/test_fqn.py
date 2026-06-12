@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import re
 from io import StringIO
 from unittest import mock
 from unittest.mock import MagicMock
@@ -61,40 +60,71 @@ class TestSqlIdentifier:
         assert fqn.sql_identifier == "IDENTIFIER('db.schema.func')(string, int)"
 
     @pytest.mark.parametrize(
-        "payload",
+        "name, expected",
         [
-            # Single-quote breakout with DROP TABLE
-            '"app_name\'); DROP TABLE sensitive_data --"',
-            # Privilege escalation
-            '"x\'); GRANT ALL PRIVILEGES ON ACCOUNT TO ROLE attacker --"',
-            # Data exfiltration via UNION
-            '"t\'); SELECT * FROM secrets; --"',
+            # Non-ASCII: passed through unchanged — no unicode-escape transformation
+            ('"café"', "IDENTIFIER('\"café\"')"),
+            # Backslash: passed through unchanged
+            ('"a\\\\b"', "IDENTIFIER('\"a\\\\b\"')"),
         ],
     )
-    def test_injection_payloads_are_escaped(self, payload):
-        """Single-quote injection payloads must be escaped — the single quote
-        must not terminate the IDENTIFIER('...') string literal."""
+    def test_non_ascii_and_backslash_identifiers_unchanged(self, name, expected):
+        """Non-ASCII characters and backslashes must pass through unmodified.
+        This ensures we don't break identifiers like 'café' that already exist
+        in Snowflake — transforming them would cause the CLI to reference a
+        different object than the one created."""
+        fqn = FQN(name=name, database=None, schema=None)
+        assert fqn.sql_identifier == expected
+
+    @pytest.mark.parametrize(
+        "payload, expected",
+        [
+            # Single quotes are doubled (SQL standard escaping)
+            (
+                '"app_name\'); DROP TABLE sensitive_data --"',
+                "IDENTIFIER('\"app_name''); DROP TABLE sensitive_data --\"')",
+            ),
+            (
+                '"x\'); GRANT ALL PRIVILEGES ON ACCOUNT TO ROLE attacker --"',
+                "IDENTIFIER('\"x''); GRANT ALL PRIVILEGES ON ACCOUNT TO ROLE attacker --\"')",
+            ),
+            (
+                '"t\'); SELECT * FROM secrets; --"',
+                "IDENTIFIER('\"t''); SELECT * FROM secrets; --\"')",
+            ),
+            # Backslash-before-quote bypass: the connector's split_statements treats \'
+            # as an escape pair, so bare '' doubling leaves \'' which gets split into
+            # (escape pair \') + (closing quote '), producing two statements.
+            # to_string_literal doubles the entire backslash run before the quote so the
+            # splitter consumes all \\ pairs and '' is the escaped quote.
+            (
+                '"x\\\';DROP TABLE t;--"',
+                "IDENTIFIER('\"x\\\\'';DROP TABLE t;--\"')",
+            ),
+            # Even-backslash-before-quote: two backslashes then a single quote.
+            # split_statements consumes \\ (pair) then \' (pair), leaving bare '
+            # to exit the string — the entire run must be doubled.
+            (
+                '"x\\\\\';DROP TABLE t;--"',
+                "IDENTIFIER('\"x\\\\\\\\'';DROP TABLE t;--\"')",
+            ),
+        ],
+    )
+    def test_injection_payloads_are_escaped(self, payload, expected):
+        """Single quotes in identifiers are doubled (SQL standard), keeping
+        the value inside the IDENTIFIER('...') wrapper intact."""
         fqn = FQN.from_string(payload)
-        sql_id = fqn.sql_identifier
-
-        # The result must still start/end with the IDENTIFIER() wrapper
-        assert sql_id.startswith("IDENTIFIER('")
-        assert sql_id.endswith("')")
-
-        # No unescaped single quote may appear between the outer quotes
-        inner = sql_id[len("IDENTIFIER('") : -len("')")]
-
-        # Any ' in the inner content must be preceded by a backslash
-        unescaped = re.search(r"(?<!\\)'", inner)
-        assert (
-            unescaped is None
-        ), f"Unescaped single quote found in sql_identifier output: {sql_id!r}"
+        assert fqn.sql_identifier == expected
 
     @pytest.mark.parametrize(
         "payload",
         [
             '"app_name\'); DROP TABLE sensitive_data --"',
             '"x\'); GRANT ALL PRIVILEGES ON ACCOUNT TO ROLE attacker --"',
+            # Backslash-before-quote (odd run): must produce exactly 1 statement
+            '"x\\\';DROP TABLE t;--"',
+            # Backslash-before-quote (even run): must produce exactly 1 statement
+            '"x\\\\\';DROP TABLE t;--"',
         ],
     )
     def test_injection_payloads_produce_single_statement(self, payload):

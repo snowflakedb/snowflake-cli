@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 from abc import ABC
+from pathlib import PurePosixPath, PureWindowsPath
 from typing import Any, Dict, Generic, List, Optional, TypeVar, Union
 
 from pydantic import Field, PrivateAttr, field_validator
@@ -39,6 +40,29 @@ class SqlScriptHookType(UpdatableModel):
     @property
     def display_path(self):
         return self._display_path or self.sql_script
+
+    @field_validator("sql_script", mode="after")
+    @classmethod
+    def validate_sql_script_path(cls, value: str) -> str:
+        if not value:
+            raise ValueError("sql_script must not be empty")
+        if "\x00" in value:
+            raise ValueError("sql_script must not contain null bytes")
+        # Reject both POSIX and Windows absolute paths so that snowflake.yml
+        # on one platform cannot be used to read arbitrary files on another.
+        if PurePosixPath(value).is_absolute() or PureWindowsPath(value).is_absolute():
+            raise ValueError(
+                f"sql_script must be a relative path within the project root, "
+                f"got absolute path: {value!r}"
+            )
+        # Reject parent-directory traversal components.
+        parts = PurePosixPath(value).parts + PureWindowsPath(value).parts
+        if ".." in parts:
+            raise ValueError(
+                f"sql_script must not contain parent directory references "
+                f"('..'), got: {value!r}"
+            )
+        return value
 
 
 # Currently sql_script is the only supported hook type. Change to a Union once other hook types are added

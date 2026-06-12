@@ -31,6 +31,7 @@ _KNOWN_SIG_GLOBAL_PARAMETERS_WITH_CONNECTION = [
     "connection",
     "host",
     "port",
+    "protocol",
     "account",
     "user",
     "password",
@@ -60,6 +61,7 @@ _KNOWN_SIG_GLOBAL_PARAMETERS_WITH_CONNECTION = [
     "oauth_enable_refresh_tokens",
     "oauth_enable_single_use_refresh_tokens",
     "client_store_temporary_credential",
+    "secondary_roles",
 ] + _KNOWN_SIG_GLOBAL_PARAMETERS
 
 

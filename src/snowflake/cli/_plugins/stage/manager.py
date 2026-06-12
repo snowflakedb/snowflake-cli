@@ -299,7 +299,9 @@ class StageManager(SqlExecutionMixin):
         uri = f"file://{local_path}"
         if re.fullmatch(UNQUOTED_FILE_URI_REGEX, uri):
             return uri
-        return to_string_literal(uri)
+        # Snowflake's PUT/GET file-URI parser interprets `\` as an escape prefix
+        # even inside a string literal, so Windows paths need `\` doubled.
+        return to_string_literal(uri.replace("\\", "\\\\"))
 
     def list_files(
         self, stage_name: str | StagePath, pattern: str | None = None

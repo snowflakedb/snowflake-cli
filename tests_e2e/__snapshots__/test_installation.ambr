@@ -29,8 +29,8 @@
   |                                     installation.                            |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | app                  Manages Snowflake Native Apps and Snowflake Apps        |
-  |                      Deploy.                                                 |
+  | app                  Manages Snowflake Native Apps and Snowflake App         |
+  |                      Runtime.                                                |
   | auth                 Manages authentication methods.                         |
   | connection           Manages connections to Snowflake.                       |
   | cortex               Provides access to Snowflake Cortex.                    |
@@ -95,7 +95,7 @@
   |                                     installation.                            |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | app            Manages Snowflake Native Apps and Snowflake Apps Deploy.      |
+  | app            Manages Snowflake Native Apps and Snowflake App Runtime.      |
   | auth           Manages authentication methods.                               |
   | connection     Manages connections to Snowflake.                             |
   | cortex         Provides access to Snowflake Cortex.                          |
@@ -141,8 +141,8 @@
   |                                     installation.                            |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | app                  Manages Snowflake Native Apps and Snowflake Apps        |
-  |                      Deploy.                                                 |
+  | app                  Manages Snowflake Native Apps and Snowflake App         |
+  |                      Runtime.                                                |
   | auth                 Manages authentication methods.                         |
   | connection           Manages connections to Snowflake.                       |
   | cortex               Provides access to Snowflake Cortex.                    |
@@ -227,7 +227,7 @@
   |                                     installation.                            |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | app            Manages Snowflake Native Apps and Snowflake Apps Deploy.      |
+  | app            Manages Snowflake Native Apps and Snowflake App Runtime.      |
   | auth           Manages authentication methods.                               |
   | connection     Manages connections to Snowflake.                             |
   | cortex         Provides access to Snowflake Cortex.                          |

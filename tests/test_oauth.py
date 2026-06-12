@@ -131,10 +131,10 @@ def test_oauth_from_env_variables(mock_connect, runner, config_file):
         oauth_token_request_url="https://localhost:8000/token",
         oauth_redirect_uri="http://localhost:8001/snowflake/oauth-redirect",
         oauth_scope="session:role:PUBLIC",
-        oauth_disable_pkce="True",
-        oauth_enable_refresh_tokens="True",
-        oauth_enable_single_use_refresh_tokens="True",
-        client_store_temporary_credential="True",
+        oauth_disable_pkce=True,
+        oauth_enable_refresh_tokens=True,
+        oauth_enable_single_use_refresh_tokens=True,
+        client_store_temporary_credential=True,
     )
 
 
@@ -169,8 +169,33 @@ def test_oauth_from_env_variables_and_temporary_connection(mock_connect, runner)
         oauth_token_request_url="https://localhost:8000/token",
         oauth_redirect_uri="http://localhost:8001/snowflake/oauth-redirect",
         oauth_scope="session:role:PUBLIC",
-        oauth_disable_pkce="True",
-        oauth_enable_refresh_tokens="True",
-        oauth_enable_single_use_refresh_tokens="True",
-        client_store_temporary_credential="True",
+        oauth_disable_pkce=True,
+        oauth_enable_refresh_tokens=True,
+        oauth_enable_single_use_refresh_tokens=True,
+        client_store_temporary_credential=True,
     )
+
+
+@mock.patch.dict(
+    os.environ,
+    {
+        "SNOWFLAKE_AUTHENTICATOR": "externalbrowser",
+        "SNOWFLAKE_CLIENT_STORE_TEMPORARY_CREDENTIAL": "false",
+        "SNOWFLAKE_OAUTH_DISABLE_PKCE": "0",
+        "SNOWFLAKE_OAUTH_ENABLE_REFRESH_TOKENS": "False",
+        "SNOWFLAKE_OAUTH_ENABLE_SINGLE_USE_REFRESH_TOKENS": "false",
+    },
+    clear=True,
+)
+@mock.patch("snowflake.connector.connect")
+def test_boolean_env_overrides_coerce_falsy_values(mock_connect, runner):
+    """Regression test for #2495: env-var boolean values must be coerced so
+    that "false"/"0" do not pass through as truthy strings to the connector.
+    """
+    runner.invoke(["sql", "-q", "select 1", "-x", "--account", "acct"])
+
+    _, kwargs = mock_connect.call_args
+    assert kwargs["client_store_temporary_credential"] is False
+    assert kwargs["oauth_disable_pkce"] is False
+    assert kwargs["oauth_enable_refresh_tokens"] is False
+    assert kwargs["oauth_enable_single_use_refresh_tokens"] is False

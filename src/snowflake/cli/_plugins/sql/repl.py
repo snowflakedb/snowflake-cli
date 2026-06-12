@@ -60,17 +60,22 @@ class Repl:
         data: dict | None = None,
         retain_comments: bool = False,
         template_syntax_config: SQLTemplateSyntaxConfig = SQLTemplateSyntaxConfig(),
+        local_only: bool = False,
+        no_prompt_exit_repl: bool = False,
     ):
         """Requires a `SqlManager` instance to execute queries.
 
         'pass through' variables for SqlManager.execute method:
         `data` should contain the variables used for template processing,
-        `retain_comments` how to handle comments in queries
+        `retain_comments` how to handle comments in queries,
+        `local_only` whether `!source`/`!load` of remote URLs is disabled.
         """
         super().__init__()
         self._data = data or {}
         self._retain_comments = retain_comments
         self._template_syntax_config = template_syntax_config
+        self._local_only = local_only
+        self._no_prompt_exit_repl = no_prompt_exit_repl
         self._history = FileHistory(_get_history_file())
         self._lexer = PygmentsLexer(CliLexer)
         self._completer = cli_completer
@@ -193,17 +198,6 @@ class Repl:
             if self._next_input == default_text:
                 self._next_input = None
 
-    def yn_prompt(self, msg: str) -> str:
-        """Yes/No prompt."""
-        return self.session.prompt(
-            msg,
-            lexer=None,
-            completer=None,
-            multiline=False,
-            wrap_lines=False,
-            key_bindings=self._yes_no_keybindings,
-        )
-
     @property
     def _welcome_banner(self) -> str:
         return "Welcome to Snowflake-CLI REPL\nType 'exit' or 'quit' to leave"
@@ -223,6 +217,7 @@ class Repl:
             data=self._data,
             retain_comments=self._retain_comments,
             template_syntax_config=self._template_syntax_config,
+            local_only=self._local_only,
         )
         return cursors
 
@@ -259,6 +254,10 @@ class Repl:
                 except Exception as e:
                     log.debug("error occurred: %s", e)
                     cli_console.warning(f"\nError occurred: {e}")
+                    # Connect failures are cached by OpenConnectionCache; drop
+                    # the cache so the next query can redial after the user
+                    # fixes config or a transient blip clears.
+                    get_cli_context_manager().connection_cache.clear_failures()
 
             except KeyboardInterrupt:  # a.k.a Ctrl-C
                 log.debug("user interrupted with Ctrl-C")
@@ -266,14 +265,16 @@ class Repl:
 
             except EOFError:  # a.k.a Ctrl-D
                 log.debug("user interrupted with Ctrl-D")
-                should_exit = self.ask_yn("Do you want to leave?")
-                log.debug("user answered: %r", should_exit)
-                if should_exit:
+
+                if self._no_prompt_exit_repl:
+                    raise EOFError
+                elif self.ask_yn("Do you want to leave?"):
                     raise EOFError
                 continue
 
             except Exception as e:
                 cli_console.warning(f"\nError occurred: {e}")
+                get_cli_context_manager().connection_cache.clear_failures()
 
     def set_next_input(self, text: str) -> None:
         """Set the text that will be used as the next REPL input."""
@@ -295,7 +296,14 @@ class Repl:
         try:
             while True:
                 log.debug("asking user: %s", question)
-                answer = self.yn_prompt(f"{question} (y/n): ")
+                answer = self.session.prompt(
+                    f"{question} (y/n): ",
+                    lexer=None,
+                    completer=None,
+                    multiline=False,
+                    wrap_lines=False,
+                    key_bindings=self._yes_no_keybindings,
+                )
                 log.debug("user answered: %s", answer)
 
                 return answer == "y"

@@ -39,6 +39,7 @@ from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
+    IfExistsOption,
     IfNotExistsOption,
     OverrideableOption,
     entity_argument,
@@ -177,7 +178,30 @@ add_object_command_aliases(
         help_example='`list --like "my%"` lists all services that begin with “my”.'
     ),
     scope_option=scope_option(help_example="`list --in compute-pool my_pool`"),
+    ommit_commands=["drop"],
 )
+
+
+@app.command(requires_connection=True)
+def drop(
+    name: FQN = ServiceNameArgument,
+    if_exists: bool = IfExistsOption(),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="Drops the service along with any block storage volumes it contains. Without this flag, dropping a service that contains block storage volumes fails.",
+        is_flag=True,
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Drops a service.
+    """
+    return SingleQueryResult(
+        ServiceManager().drop(
+            service_name=name.sql_identifier, if_exists=if_exists, force=force
+        )
+    )
 
 
 @app.command(requires_connection=True)

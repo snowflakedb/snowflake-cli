@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 from textwrap import dedent
@@ -5,12 +6,19 @@ from unittest import mock
 
 import pytest
 import yaml
-from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
+from snowflake.cli._plugins.dbt.constants import (
+    PROFILES_FILENAME,
+    SUPPORTED_DBT_VERSIONS_QUERY,
+)
 from snowflake.cli._plugins.dbt.manager import DBTDeployAttributes, DBTManager
-from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.exceptions import CliArgumentError, CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector import ProgrammingError
+
+
+def _supported_versions_payload(*versions: str) -> str:
+    return json.dumps([{"dbt_version": v} for v in versions])
 
 
 class TestDeploy:
@@ -708,6 +716,7 @@ dev
         mock_get_cli_context,
         mock_from_resource,
         mock_validate_role,
+        mock_validate_dbt_version,
     ):
         DBTManager().deploy(
             fqn=FQN.from_string("test_project"),
@@ -732,6 +741,7 @@ dev
         mock_get_cli_context,
         mock_from_resource,
         mock_validate_role,
+        mock_validate_dbt_version,
     ):
         DBTManager().deploy(
             fqn=FQN.from_string("test_project"),
@@ -756,6 +766,7 @@ dev
         mock_get_cli_context,
         mock_from_resource,
         mock_validate_role,
+        mock_validate_dbt_version,
     ):
         mock_get_dbt_object_attributes.return_value = {
             "default_target": None,
@@ -793,6 +804,7 @@ dev
         mock_get_cli_context,
         mock_from_resource,
         mock_validate_role,
+        mock_validate_dbt_version,
     ):
         mock_get_dbt_object_attributes.return_value = {
             "default_target": None,
@@ -817,6 +829,159 @@ dev
             calls[1][0][0]
             == f"ALTER DBT PROJECT test_project ADD VERSION\nFROM {mock_from_resource()}"
         )
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_aborts_before_upload_when_version_unsupported(
+        self,
+        mock_put_recursive,
+        mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_cursor,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[(_supported_versions_payload("1.9.4", "1.10.15"),)],
+            columns=["SYSTEM$SUPPORTED_DBT_VERSIONS()"],
+        )
+
+        with pytest.raises(CliArgumentError) as exc_info:
+            DBTManager().deploy(
+                fqn=FQN.from_string("test_project"),
+                path=SecurePath(dbt_project_path),
+                profiles_path=SecurePath(dbt_project_path),
+                force=False,
+                attrs=DBTDeployAttributes(dbt_version="99.99.99"),
+            )
+
+        msg = exc_info.value.message
+        assert "99.99.99" in msg
+        assert "1.9.4" in msg
+        assert "1.10.15" in msg
+        mock_execute_query.assert_called_once_with(SUPPORTED_DBT_VERSIONS_QUERY)
+        mock_create.assert_not_called()
+        mock_put_recursive.assert_not_called()
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_does_not_validate_when_version_not_specified(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+        mock_validate_dbt_version,
+    ):
+        DBTManager().deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            attrs=DBTDeployAttributes(),
+        )
+
+        mock_validate_dbt_version.assert_not_called()
+
+
+class TestValidateDbtVersion:
+    def test_get_supported_dbt_versions_parses_response(
+        self, mock_execute_query, mock_cursor
+    ):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[(_supported_versions_payload("1.9.4", "1.10.15"),)],
+            columns=["SYSTEM$SUPPORTED_DBT_VERSIONS()"],
+        )
+
+        result = DBTManager()._get_supported_dbt_versions()  # noqa: SLF001
+
+        assert result == ["1.9.4", "1.10.15"]
+        mock_execute_query.assert_called_once_with(SUPPORTED_DBT_VERSIONS_QUERY)
+
+    def test_get_supported_dbt_versions_raises_on_empty_result(
+        self, mock_execute_query, mock_cursor
+    ):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[], columns=["SYSTEM$SUPPORTED_DBT_VERSIONS()"]
+        )
+
+        with pytest.raises(CliError, match="Could not fetch supported dbt versions"):
+            DBTManager()._get_supported_dbt_versions()  # noqa: SLF001
+
+    def test_get_supported_dbt_versions_raises_on_null_value(
+        self, mock_execute_query, mock_cursor
+    ):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[(None,)], columns=["SYSTEM$SUPPORTED_DBT_VERSIONS()"]
+        )
+
+        with pytest.raises(CliError, match="Could not fetch supported dbt versions"):
+            DBTManager()._get_supported_dbt_versions()  # noqa: SLF001
+
+    def test_get_supported_dbt_versions_raises_on_invalid_json(
+        self, mock_execute_query, mock_cursor
+    ):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[("not json",)], columns=["SYSTEM$SUPPORTED_DBT_VERSIONS()"]
+        )
+
+        with pytest.raises(CliError, match="Could not parse supported dbt versions"):
+            DBTManager()._get_supported_dbt_versions()  # noqa: SLF001
+
+    def test_get_supported_dbt_versions_raises_on_programming_error(
+        self, mock_execute_query
+    ):
+        mock_execute_query.side_effect = ProgrammingError("Unknown function")
+
+        with pytest.raises(
+            CliError,
+            match="Ensure your Snowflake account supports SYSTEM\\$SUPPORTED_DBT_VERSIONS",
+        ):
+            DBTManager()._get_supported_dbt_versions()  # noqa: SLF001
+
+    def test_get_supported_dbt_versions_raises_on_empty_list(
+        self, mock_execute_query, mock_cursor
+    ):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[(_supported_versions_payload(),)],
+            columns=["SYSTEM$SUPPORTED_DBT_VERSIONS()"],
+        )
+
+        with pytest.raises(CliError, match="Server returned no supported dbt versions"):
+            DBTManager()._get_supported_dbt_versions()  # noqa: SLF001
+
+    def test_validate_dbt_version_passes_for_supported_version(
+        self, mock_execute_query, mock_cursor
+    ):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[(_supported_versions_payload("1.9.4"),)],
+            columns=["SYSTEM$SUPPORTED_DBT_VERSIONS()"],
+        )
+
+        DBTManager()._validate_dbt_version("1.9.4")  # noqa: SLF001
+
+    def test_validate_dbt_version_raises_for_unsupported_version(
+        self, mock_execute_query, mock_cursor
+    ):
+        mock_execute_query.return_value = mock_cursor(
+            rows=[(_supported_versions_payload("1.9.4", "1.10.15"),)],
+            columns=["SYSTEM$SUPPORTED_DBT_VERSIONS()"],
+        )
+
+        with pytest.raises(CliArgumentError) as exc_info:
+            DBTManager()._validate_dbt_version("99.99.99")  # noqa: SLF001
+
+        msg = exc_info.value.message
+        assert "99.99.99" in msg
+        assert "1.9.4" in msg
+        assert "1.10.15" in msg
 
 
 class TestGetDBTObjectAttributes:
@@ -937,3 +1102,220 @@ class TestValidateRole:
 
         assert result is False
         mock_execute_query.assert_called_once_with("use role invalid_role")
+
+
+class TestExecute:
+    @pytest.mark.parametrize(
+        "kwargs,extra_args,expected_query",
+        [
+            pytest.param(
+                {"environment": "dev"},
+                (),
+                "EXECUTE DBT PROJECT pipeline ENVIRONMENT='dev' args='run'",
+                id="environment-only",
+            ),
+            pytest.param(
+                {"environment": "NO_ENV"},
+                (),
+                "EXECUTE DBT PROJECT pipeline ENVIRONMENT='NO_ENV' args='run'",
+                id="environment-no-env-sentinel",
+            ),
+            pytest.param(
+                {"env_vars": '{"DBT_FOO": "1"}'},
+                (),
+                "EXECUTE DBT PROJECT pipeline ENV_VARS=('DBT_FOO'='1') args='run'",
+                id="env-vars-json-single",
+            ),
+            pytest.param(
+                {"env_vars": '{"DBT_FOO": "1", "DBT_BAR": "2"}'},
+                (),
+                "EXECUTE DBT PROJECT pipeline "
+                "ENV_VARS=('DBT_FOO'='1', 'DBT_BAR'='2') args='run'",
+                id="env-vars-json-multi",
+            ),
+            pytest.param(
+                {"env_vars": "{DBT_FOO: '1', DBT_BAR: '2'}"},
+                (),
+                "EXECUTE DBT PROJECT pipeline "
+                "ENV_VARS=('DBT_FOO'='1', 'DBT_BAR'='2') args='run'",
+                id="env-vars-yaml-quoted-strings",
+            ),
+            pytest.param(
+                {"env_vars": '{"DBT_URL": "https://example.com/?a=b"}'},
+                (),
+                "EXECUTE DBT PROJECT pipeline "
+                "ENV_VARS=('DBT_URL'='https://example.com/?a=b') args='run'",
+                id="env-vars-value-with-equals",
+            ),
+            pytest.param(
+                {"env_vars": 'DBT_MSG: "it\'s"'},
+                (),
+                "EXECUTE DBT PROJECT pipeline "
+                "ENV_VARS=('DBT_MSG'='it''s') args='run'",
+                id="env-vars-value-with-single-quote-escaped",
+            ),
+            pytest.param(
+                {
+                    "dbt_version": "1.9.0",
+                    "environment": "prod",
+                    "env_vars": '{"DBT_FOO": "1"}',
+                },
+                (),
+                "EXECUTE DBT PROJECT pipeline dbt_version='1.9.0' "
+                "ENVIRONMENT='prod' ENV_VARS=('DBT_FOO'='1') args='run'",
+                id="all-options-ordering",
+            ),
+        ],
+    )
+    def test_execute_builds_expected_sql(
+        self, mock_execute_query, kwargs, extra_args, expected_query
+    ):
+        DBTManager().execute(
+            "run",
+            FQN.from_string("pipeline"),
+            False,
+            kwargs.get("dbt_version"),
+            kwargs.get("environment"),
+            kwargs.get("env_vars"),
+            *extra_args,
+        )
+
+        mock_execute_query.assert_called_once_with(expected_query, _exec_async=False)
+
+    def test_execute_no_env_options_omits_clauses(self, mock_execute_query):
+        DBTManager().execute("run", FQN.from_string("pipeline"), False)
+
+        mock_execute_query.assert_called_once_with(
+            "EXECUTE DBT PROJECT pipeline args='run'", _exec_async=False
+        )
+
+    @pytest.mark.parametrize(
+        "raw_value,expected_error",
+        [
+            pytest.param(
+                '"just_a_string"',
+                "must be a YAML/JSON object",
+                id="non-mapping-string",
+            ),
+            pytest.param(
+                "[1, 2, 3]",
+                "must be a YAML/JSON object",
+                id="non-mapping-list",
+            ),
+            pytest.param(
+                '{"DBT_X": null}',
+                "must not be null",
+                id="null-value",
+            ),
+            pytest.param(
+                '{"DBT_X": 1}',
+                "must be a string",
+                id="int-value",
+            ),
+            pytest.param(
+                '{"DBT_X": 1.5}',
+                "must be a string",
+                id="float-value",
+            ),
+            pytest.param(
+                '{"DBT_X": true}',
+                "must be a string",
+                id="bool-value",
+            ),
+            pytest.param(
+                '{"DBT_X": {"nested": "1"}}',
+                "must be a string",
+                id="nested-object",
+            ),
+            pytest.param(
+                '{"DBT_X": ["1", "2"]}',
+                "must be a string",
+                id="nested-array",
+            ),
+            pytest.param(
+                "{not: valid: yaml: at: all",
+                "must be valid YAML/JSON",
+                id="malformed-yaml",
+            ),
+            pytest.param(
+                '{"DBT_FOO": "1", "DBT_FOO": "2"}',
+                "duplicate key",
+                id="duplicate-key",
+            ),
+            pytest.param(
+                '{"": "v"}',
+                "must not be empty",
+                id="empty-key",
+            ),
+            pytest.param(
+                '{"FOO": "1"}',
+                "must start with",
+                id="key-missing-dbt-prefix",
+            ),
+            pytest.param(
+                '{"DBT-FOO": "1"}',
+                "ASCII letters",
+                id="key-invalid-chars-hyphen",
+            ),
+            pytest.param(
+                '{"DBT FOO": "1"}',
+                "ASCII letters",
+                id="key-invalid-chars-space",
+            ),
+            pytest.param(
+                '{"DBT_FOO": "value\\nwith\\nnewlines"}',
+                "must not contain control characters",
+                id="value-control-char",
+            ),
+        ],
+    )
+    def test_execute_env_vars_invalid_input_raises(
+        self, mock_execute_query, raw_value, expected_error
+    ):
+        with pytest.raises(CliError) as exc:
+            DBTManager().execute(
+                "run",
+                FQN.from_string("pipeline"),
+                False,
+                None,
+                None,
+                raw_value,
+            )
+
+        assert expected_error in str(exc.value.message)
+        mock_execute_query.assert_not_called()
+
+    def test_execute_env_vars_secret_prefix_warns(self, mock_execute_query, capsys):
+        DBTManager().execute(
+            "run",
+            FQN.from_string("pipeline"),
+            False,
+            None,
+            None,
+            '{"DBT_ENV_SECRET_TOKEN": "xyz"}',
+        )
+
+        captured = capsys.readouterr()
+        assert "DBT_ENV_SECRET_" in captured.out
+        assert "DBT_ENV_SECRET_TOKEN" in captured.out
+        mock_execute_query.assert_called_once_with(
+            "EXECUTE DBT PROJECT pipeline "
+            "ENV_VARS=('DBT_ENV_SECRET_TOKEN'='xyz') args='run'",
+            _exec_async=False,
+        )
+
+    def test_execute_async_with_env_vars(self, mock_execute_query):
+        DBTManager().execute(
+            "compile",
+            FQN.from_string("pipeline"),
+            True,
+            None,
+            "dev",
+            '{"DBT_FOO": "1"}',
+        )
+
+        mock_execute_query.assert_called_once_with(
+            "EXECUTE DBT PROJECT pipeline ENVIRONMENT='dev' "
+            "ENV_VARS=('DBT_FOO'='1') args='compile'",
+            _exec_async=True,
+        )

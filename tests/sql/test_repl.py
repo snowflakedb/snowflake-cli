@@ -69,6 +69,24 @@ def test_exit_sequence(user_inputs, repl, os_agnostic_snapshot, capsys):
     os_agnostic_snapshot.assert_match(output)
 
 
+def test_repl_clears_cached_failure_after_query_error(repl):
+    """A transient connect failure mid-REPL must not poison the cache for
+    the remainder of the session — otherwise every subsequent query would
+    re-raise the cached exception until the user relaunches `snow sql`.
+    """
+    cache = get_cli_context_manager().connection_cache
+    with mock.patch.object(repl, "_initialize_connection"), mock.patch.object(
+        cache, "clear_failures"
+    ) as mock_clear_failures, mock.patch.object(
+        repl, "_execute", side_effect=Exception("transient connect blip")
+    ), mock.patch.object(
+        repl.session, "prompt", side_effect=iter(("select 1;", "exit", "y"))
+    ):
+        repl.run()
+
+    mock_clear_failures.assert_called_once()
+
+
 def test_repl_full_app(runner, os_agnostic_snapshot, mock_cursor):
     user_inputs = iter(("exit", "y"))
     mocked_cursor = [
@@ -538,3 +556,41 @@ class TestReplPasteHandling:
         enter_handler(enter_event)
 
         buffer.validate_and_handle.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "command_args, env_var, config_value, ask_yn_called",
+    [
+        # test command arg
+        (["--no-prompt-exit-repl"], {}, {}, False),
+        # test env var
+        ([], {"SNOWFLAKE_CLI_NO_PROMPT_EXIT_REPL": "true"}, {}, False),
+        # test config value
+        ([], {}, {"no_prompt_exit_repl": "true"}, False),
+        # test default
+        ([], {}, {}, True),
+    ],
+)
+@mock.patch("snowflake.cli.api.config.get_config_section")
+@mock.patch("snowflake.cli._plugins.sql.repl.Repl.ask_yn")
+@mock.patch("snowflake.cli._plugins.sql.repl.Repl.repl_prompt")
+@mock.patch("snowflake.cli._plugins.sql.repl.Repl._initialize_connection")
+def test_no_prompt_exit_repl(
+    mock__initialize_connection,
+    mock_repl_prompt,
+    mock_ask_yn,
+    mock_get_config_section,
+    runner,
+    command_args,
+    env_var,
+    config_value,
+    ask_yn_called,
+):
+    mock_repl_prompt.side_effect = EOFError
+    mock_ask_yn.return_value = True
+    mock_get_config_section.return_value = config_value
+
+    with mock.patch.dict(os.environ, env_var):
+        runner.invoke(["sql", *command_args])
+
+    assert mock_ask_yn.called is ask_yn_called

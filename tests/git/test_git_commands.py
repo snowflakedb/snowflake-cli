@@ -118,6 +118,47 @@ def test_list_tags_like(mock_connector, runner, mock_ctx):
     assert ctx.get_query() == "show git tags like 'PATTERN' in repo_name"
 
 
+@pytest.mark.parametrize(
+    "subcommand, sql_verb",
+    [("list-branches", "branches"), ("list-tags", "tags")],
+)
+@pytest.mark.parametrize(
+    "like_pattern, expected_literal",
+    [
+        # Plain single quote injection: ''-doubling keeps the payload as data.
+        (
+            "foo'; drop table users; --",
+            "'foo''; drop table users; --'",
+        ),
+        # Backslash-before-quote payload: the connector's client-side
+        # split_statements treats \' as an escape pair, so plain ''-doubling
+        # alone would still let ;DROP TABLE be sliced off as a separate
+        # statement. to_string_literal also doubles the leading backslash.
+        (
+            "x\\';DROP TABLE t;--",
+            "'x\\\\'';DROP TABLE t;--'",
+        ),
+    ],
+)
+@mock.patch("snowflake.connector.connect")
+def test_git_list_like_escapes_string_literal(
+    mock_connector,
+    runner,
+    mock_ctx,
+    subcommand,
+    sql_verb,
+    like_pattern,
+    expected_literal,
+):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    result = runner.invoke(["git", subcommand, "repo_name", "--like", like_pattern])
+
+    assert result.exit_code == 0, result.output
+    expected_query = f"show git {sql_verb} like {expected_literal} in repo_name"
+    assert ctx.get_query() == expected_query
+
+
 @mock.patch("snowflake.connector.connect")
 def test_list_files(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
@@ -252,6 +293,50 @@ def test_setup_invalid_url_error(mock_om_describe, mock_connector, runner, mock_
     assert result.exit_code == 1, result.output
     assert "Error" in result.output
     assert "Url address should start with 'https'" in result.output
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
+def test_setup_url_with_single_quote_rejected(
+    mock_om_describe, mock_connector, runner, mock_ctx
+):
+    mock_om_describe.side_effect = ProgrammingError(
+        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+    )
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    malicious_url = "https://example.com/repo'); GRANT ROLE ACCOUNTADMIN TO USER a;--"
+    communication = f"{malicious_url}\nn\n\n"
+    result = runner.invoke(["git", "setup", "repo_name"], input=communication)
+
+    assert result.exit_code == 1, result.output
+    assert "Error" in result.output
+    assert "Url address must not contain single-quote characters" in result.output
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
+def test_setup_escapes_single_quote_in_password(
+    mock_om_show, mock_om_describe, mock_connector, runner, mock_ctx, mock_cursor
+):
+    mock_om_show.return_value = mock_cursor([], [])
+    mock_om_describe.side_effect = ProgrammingError(
+        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+    )
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    password_with_quote = "pa'ss"
+    communication = "\n".join(
+        [EXAMPLE_URL, "y", "", "john_doe", password_with_quote, "new_integration", ""]
+    )
+    result = runner.invoke(["git", "setup", "repo_name"], input=communication)
+
+    assert result.exit_code == 0, result.output
+    query = ctx.get_query()
+    assert "password = 'pa''ss'" in query
+    assert "password = 'pa'ss'" not in query
 
 
 @mock.patch("snowflake.connector.connect")

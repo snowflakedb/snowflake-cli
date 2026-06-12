@@ -342,6 +342,42 @@ def test_show_with_all_options_combined(mock_execute_query, mock_cursor):
     mock_execute_query.assert_called_once_with(expected_query)
 
 
+@pytest.mark.parametrize(
+    "like_pattern, expected_query",
+    [
+        (
+            "foo'; drop table users; --",
+            "show tables like 'foo''; drop table users; --'",
+        ),
+        # Backslash-before-quote payload: the connector's client-side
+        # split_statements treats \' as an escape pair, so plain ''-doubling
+        # would still let ;DROP TABLE be sliced off as a second statement.
+        # to_string_literal also doubles the leading backslash, keeping the
+        # whole payload inside a single literal.
+        (
+            "x\\';DROP TABLE t;--",
+            "show tables like 'x\\\\'';DROP TABLE t;--'",
+        ),
+        # % and _ remain wildcards (LIKE pattern semantics preserved).
+        ("foo%bar_baz", "show tables like 'foo%bar_baz'"),
+    ],
+)
+@mock.patch("snowflake.cli._plugins.object.manager.ObjectManager.execute_query")
+def test_show_like_escapes_string_literal(
+    mock_execute_query, mock_cursor, like_pattern, expected_query
+):
+    """A single quote (or backslash-quote) in --like must be escaped so it
+    cannot terminate the LIKE literal and inject additional SQL statements,
+    while LIKE wildcards (% and _) are left untouched."""
+    from snowflake.cli._plugins.object.manager import ObjectManager
+
+    mock_execute_query.return_value = mock_cursor(["row"], [])
+
+    ObjectManager().show(object_type="table", like=like_pattern)
+
+    mock_execute_query.assert_called_once_with(expected_query)
+
+
 @mock.patch("snowflake.connector")
 @pytest.mark.parametrize(
     "object_type, object_name",

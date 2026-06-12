@@ -17,6 +17,7 @@ from urllib.parse import urlparse
 from snowflake.cli._plugins.spcs.common import handle_object_already_exists
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
@@ -85,7 +86,10 @@ class ImageRepositoryManager(SqlExecutionMixin):
 
     def list_images(self, repo_name: str, like_option: str) -> SnowflakeCursor:
         if like_option:
-            query = f"show images like '{like_option}' in image repository {repo_name}"
+            query = (
+                f"show images like {to_string_literal(like_option)} "
+                f"in image repository {repo_name}"
+            )
         else:
             query = f"show images in image repository {repo_name}"
         return self.execute_query(query)

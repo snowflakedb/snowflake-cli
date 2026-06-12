@@ -81,3 +81,5 @@ You should now be able to run `snow` and get the CLI message.
 
 Have a feature idea? Running into a bug? Want to contribute? We'd love to hear from you!
 Please open or review issues, open pull requests, or reach out to us on <developers@snowflake.com>
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and contribution guidelines.

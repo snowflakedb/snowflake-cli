@@ -26,6 +26,10 @@
   | --port                                INTEGER  Port for the connection.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
   | --account,--accountname               TEXT     Name assigned to your         |
   |                                                Snowflake account. Overrides  |
   |                                                the value specified for the   |
@@ -108,6 +112,12 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
