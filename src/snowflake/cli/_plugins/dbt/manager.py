@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from collections import defaultdict
 from dataclasses import dataclass
@@ -53,6 +54,24 @@ def _reject_control_chars(value: Optional[str], flag_name: str) -> Optional[str]
             f"(newlines, tabs, etc.)"
         )
     return value
+
+
+def _collect_shell_env_vars() -> tuple[Dict[str, str], int]:
+    """Collect DBT_* environment variables from os.environ for --use-shell-env-vars.
+
+    Returns (forwarded vars sorted by key, count of dropped DBT_ENV_SECRET_*
+    keys). Sorting makes the resulting SQL text deterministic across shells.
+    """
+    forwarded: Dict[str, str] = {}
+    dropped_secret_count = 0
+    for key, value in os.environ.items():
+        if not key.startswith(_ENV_VAR_KEY_PREFIX):
+            continue
+        if key.startswith(DBT_ENV_SECRET_PREFIX):
+            dropped_secret_count += 1
+            continue
+        forwarded[key] = value
+    return dict(sorted(forwarded.items())), dropped_secret_count
 
 
 class _NoDuplicatesSafeLoader(yaml.SafeLoader):
@@ -526,6 +545,7 @@ class DBTManager(SqlExecutionMixin):
         dbt_version: Optional[str] = None,
         environment: Optional[str] = None,
         env_vars: Optional[str] = None,
+        use_shell_env_vars: bool = False,
         *dbt_cli_args,
     ) -> SnowflakeCursor:
         if dbt_cli_args:
@@ -536,17 +556,48 @@ class DBTManager(SqlExecutionMixin):
             query += f" dbt_version={to_string_literal(dbt_version)}"
         if environment:
             query += f" ENVIRONMENT={to_string_literal(environment)}"
-        env_vars_clause = self._format_env_vars_clause(env_vars)
+
+        merged: Dict[str, str] = {}
+        if use_shell_env_vars:
+            shell_vars, dropped_secret_count = _collect_shell_env_vars()
+            if dropped_secret_count:
+                cli_console.message(
+                    f"--use-shell-env-vars: dropped {dropped_secret_count} "
+                    f"{DBT_ENV_SECRET_PREFIX}* environment variable(s) from "
+                    "shell. To forward secrets, use the secrets: block in "
+                    "env.yml referencing a Snowflake SECRET object, or pass "
+                    "them explicitly via --env-vars."
+                )
+            if shell_vars:
+                cli_console.warning(
+                    f"--use-shell-env-vars: forwarded {len(shell_vars)} shell "
+                    "environment variable(s) into query text. Never put "
+                    "credentials, tokens, passwords, or other confidential "
+                    "data in shell environment variables starting with the "
+                    "DBT_* prefix."
+                )
+            else:
+                cli_console.message(
+                    "--use-shell-env-vars: no DBT_* environment variables "
+                    "found in shell. To export, use:\n"
+                    "  bash/zsh:   export DBT_FOO=value\n"
+                    "  fish:       set -gx DBT_FOO value\n"
+                    '  PowerShell: $env:DBT_FOO = "value"\n'
+                    "  cmd.exe:    set DBT_FOO=value\n"
+                    "If running under sudo, use `sudo -E` to preserve the "
+                    "environment."
+                )
+            merged.update(shell_vars)
+        if env_vars:
+            merged.update(self._parse_env_vars(env_vars))
+        env_vars_clause = self._format_env_vars_clause_from_dict(merged)
         if env_vars_clause:
             query += env_vars_clause
         query += f" args={to_string_literal(dbt_command)}"
         return self.execute_query(query, _exec_async=run_async)
 
     @staticmethod
-    def _format_env_vars_clause(env_vars: Optional[str]) -> str:
-        if not env_vars:
-            return ""
-        pairs = DBTManager._parse_env_vars(env_vars)
+    def _format_env_vars_clause_from_dict(pairs: Dict[str, str]) -> str:
         if not pairs:
             return ""
         secret_keys = [k for k in pairs if k.startswith(DBT_ENV_SECRET_PREFIX)]

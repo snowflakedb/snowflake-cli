@@ -250,6 +250,18 @@ def before_callback(
         "but appear in the SQL text and query history; to avoid that, use "
         "the secrets: block in env.yml.",
     ),
+    use_shell_env_vars: bool = typer.Option(
+        False,
+        "--use-shell-env-vars",
+        show_default=False,
+        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_ENV_VARS.is_enabled(),
+        help="Forward exported shell environment variables (DBT_* prefix, "
+        "excluding DBT_ENV_SECRET_*) as ENV_VARS=(). Overridden by "
+        "--env-vars on collisions. WARNING: forwarded values are embedded "
+        "as literals in the query and appear in Snowflake query history. "
+        "Never put credentials, tokens, passwords, or other confidential "
+        "data in shell environment variables starting with the DBT_* prefix.",
+    ),
     **options,
 ):
     """Handles global options passed before the command and takes pipeline name to be accessed through child context later."""
@@ -276,6 +288,7 @@ for cmd in DBT_COMMANDS:
         dbt_version = ctx.parent.params.get("dbt_version")
         environment = ctx.parent.params.get("environment")
         env_vars = ctx.parent.params.get("env_vars")
+        use_shell_env_vars = ctx.parent.params.get("use_shell_env_vars", False)
         execute_args = (
             dbt_command,
             name,
@@ -283,6 +296,7 @@ for cmd in DBT_COMMANDS:
             dbt_version,
             environment,
             env_vars,
+            use_shell_env_vars,
             *dbt_cli_args,
         )
         dbt_manager = DBTManager()

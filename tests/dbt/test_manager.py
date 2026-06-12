@@ -1728,3 +1728,67 @@ class TestExecute:
             "ENV_VARS=('DBT_FOO'='1') args='compile'",
             _exec_async=True,
         )
+
+
+class TestCollectShellEnvVars:
+    """Direct manager-level coverage of _collect_shell_env_vars."""
+
+    def test_returns_sorted_dict_and_zero_dropped(self, clean_dbt_env):
+        from snowflake.cli._plugins.dbt.manager import _collect_shell_env_vars
+
+        clean_dbt_env.setenv("DBT_ZULU", "z")
+        clean_dbt_env.setenv("DBT_ALPHA", "a")
+        clean_dbt_env.setenv("DBT_MIKE", "m")
+
+        forwarded, dropped = _collect_shell_env_vars()
+
+        assert list(forwarded.items()) == [
+            ("DBT_ALPHA", "a"),
+            ("DBT_MIKE", "m"),
+            ("DBT_ZULU", "z"),
+        ]
+        assert dropped == 0
+
+    def test_excludes_non_dbt_keys(self, clean_dbt_env):
+        from snowflake.cli._plugins.dbt.manager import _collect_shell_env_vars
+
+        clean_dbt_env.setenv("DBT_FOO", "1")
+        clean_dbt_env.setenv("PATH", "/bin")
+        clean_dbt_env.setenv("AWS_ACCESS_KEY", "key")
+        clean_dbt_env.setenv("DBTFOO", "no-underscore")  # missing underscore
+        clean_dbt_env.setenv("XDBT_FOO", "wrong-prefix")
+
+        forwarded, dropped = _collect_shell_env_vars()
+
+        assert forwarded == {"DBT_FOO": "1"}
+        assert dropped == 0
+
+    def test_drops_secret_prefixed_keys(self, clean_dbt_env):
+        from snowflake.cli._plugins.dbt.manager import _collect_shell_env_vars
+
+        clean_dbt_env.setenv("DBT_FOO", "1")
+        clean_dbt_env.setenv("DBT_ENV_SECRET_TOKEN", "shhh")
+        clean_dbt_env.setenv("DBT_ENV_SECRET_API_KEY", "shhh2")
+
+        forwarded, dropped = _collect_shell_env_vars()
+
+        assert forwarded == {"DBT_FOO": "1"}
+        assert dropped == 2
+
+    def test_empty_environment_returns_empty(self, clean_dbt_env):
+        from snowflake.cli._plugins.dbt.manager import _collect_shell_env_vars
+
+        forwarded, dropped = _collect_shell_env_vars()
+
+        assert forwarded == {}
+        assert dropped == 0
+
+    def test_only_secrets_returns_empty_dict_with_count(self, clean_dbt_env):
+        from snowflake.cli._plugins.dbt.manager import _collect_shell_env_vars
+
+        clean_dbt_env.setenv("DBT_ENV_SECRET_TOKEN", "shhh")
+
+        forwarded, dropped = _collect_shell_env_vars()
+
+        assert forwarded == {}
+        assert dropped == 1
