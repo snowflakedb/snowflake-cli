@@ -37,7 +37,7 @@ from snowflake.cli._app.snow_connector import update_connection_details_with_pri
 # Constants
 # ---------------------------------------------------------------------------
 
-_ENV_PREFIX = "SNOWFLAKE_CONNECTIONS_INTEGRATION"
+_ENV_PREFIX = "SNOWFLAKE_CONNECTIONS_E2EREVIEWER"
 
 AGENT_PROMPT_TEMPLATE = """\
 You are an autonomous end-to-end verification agent for the snowflake-cli project.
@@ -61,7 +61,7 @@ tests_e2e/                    - end-to-end tests
 - You have a dedicated Snowflake playground database: {playground_db}
   You can CREATE, DROP, INSERT, ALTER anything in it. It will be destroyed
   after your run completes.
-- Connection: --connection integration (points to the playground database)
+- Connection: --connection e2ereviewer (points to the playground database)
 - You have `gh` CLI available to fetch PR details.
 
 ## How to investigate changes
@@ -137,7 +137,7 @@ One of: PASS / FAIL / SKIP with one sentence justification.
 
 
 def connect_snowflake() -> snowflake.connector.SnowflakeConnection:
-    """Connect using SNOWFLAKE_CONNECTIONS_INTEGRATION_* env vars."""
+    """Connect using SNOWFLAKE_CONNECTIONS_E2EREVIEWER_* env vars."""
     config: dict = {
         "application": "CORTEX_PR_REVIEW",
         "authenticator": os.environ.get(
@@ -310,7 +310,7 @@ def main():
             conn_config["private_key_file"] = private_key_file
 
         # Write TOML — use multi-line string for private key path
-        toml_lines = ["[integration]"]
+        toml_lines = ["[e2ereviewer]"]
         for key, val in conn_config.items():
             if val:
                 escaped = val.replace("\\", "\\\\").replace('"', '\\"')
@@ -343,7 +343,7 @@ def main():
                     "--model",
                     model,
                     "--connection",
-                    "integration",
+                    "e2ereviewer",
                     "--workdir",
                     os.getcwd(),
                     "--plan",
