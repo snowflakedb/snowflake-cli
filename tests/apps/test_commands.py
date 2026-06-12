@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import io
 from contextlib import contextmanager
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -3848,33 +3848,34 @@ class TestBundleNonAsciiDefinitionEncoding:
     @staticmethod
     @contextmanager
     def _simulated_ansi_locale(simulated_encoding="cp1252"):
-        """Force text-mode opens that omit ``encoding=`` to use a non-UTF-8 code
-        page, mimicking the Windows ANSI default in-process on any host OS.
+        """Force text-mode file opens that omit an explicit ``encoding=`` to use
+        a non-UTF-8 code page, mimicking the Windows ANSI default in-process on
+        any host OS.
 
-        ``pathlib.Path.open`` forwards the ``"locale"`` sentinel (or ``None``)
-        when the caller does not pass ``encoding=``; both are substituted so the
+        We patch ``pathlib.Path.open`` (rather than ``io.open``) because it is
+        the version-independent seam every read funnels through: in some Python
+        versions ``pathlib`` captures ``io.open`` at import time, so patching
+        ``io.open`` would not intercept ``Path`` reads. ``Path.open`` /
+        ``Path.read_text`` forward the ``"locale"`` sentinel (or ``None``) when
+        the caller does not pass ``encoding=``; both are substituted so the
         regression reproduces deterministically. Reads that pass an explicit
         ``encoding`` (e.g. the post-fix UTF-8 reads) are left untouched.
         """
-        real_open = io.open
+        real_open = Path.open
 
         def fake_open(
-            file,
+            self,
             mode="r",
             buffering=-1,
             encoding=None,
             errors=None,
             newline=None,
-            closefd=True,
-            opener=None,
         ):
             if "b" not in mode and encoding in (None, "locale"):
                 encoding = simulated_encoding
-            return real_open(
-                file, mode, buffering, encoding, errors, newline, closefd, opener
-            )
+            return real_open(self, mode, buffering, encoding, errors, newline)
 
-        with patch("io.open", fake_open):
+        with patch.object(Path, "open", fake_open):
             yield
 
     def _write_project(self, tmp_path):
