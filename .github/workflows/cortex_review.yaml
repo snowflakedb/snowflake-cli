@@ -20,24 +20,42 @@ jobs:
   # review job `needs:` this one, the secret-bearing job never starts for an
   # unauthorized trigger.
   authorize:
-    # Cheap declarative pre-filters: same-repo (forks can't reach secrets), a
-    # trusted PR author, not a draft, the opt-in label is present, and — on a
+    # Cheap declarative pre-filters: same-repo (forks can't reach secrets),
+    # not a draft, the opt-in label is present, and — on a
     # `labeled` event — it's our label that was just added.
     if: |
       github.event.pull_request.head.repo.full_name == github.repository &&
-      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) &&
       github.event.pull_request.draft == false &&
       contains(github.event.pull_request.labels.*.name, 'enable-ai-e2e-review') &&
       (github.event.action != 'labeled' || github.event.label.name == 'enable-ai-e2e-review')
     runs-on: ubuntu-latest
     steps:
+      # author_association returns CONTRIBUTOR for org members with private membership
+      # visibility, making it unreliable for access control. Checking repo permission
+      # directly avoids that and is consistent with the triggering-actor check below.
+      - name: Check PR author is a maintainer
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          perm="$(gh api "repos/${REPO}/collaborators/${AUTHOR}/permission" --jq '.permission')"
+          echo "PR author '${AUTHOR}' has '${perm}' permission on ${REPO}."
+          case "${perm}" in
+            admin)
+              echo "Authorized: '${AUTHOR}' is an admin." ;;
+            *)
+              echo "::error::PR author '${AUTHOR}' has '${perm}' access. Only admins can have their PRs reviewed."
+              exit 1 ;;
+          esac
       # author_association above only vouches for the PR author, not for whoever
       # triggered this run. A triage-access contributor can apply the opt-in
       # label to a trusted member's PR, so verify the triggering actor (the
       # label applier, on `labeled` events) has write access themselves. The
       # collaborator-permission endpoint reports triage as `read`, so requiring
       # write/admin excludes it. set -e makes any API error fail closed.
-      - name: Require the triggering actor to be a maintainer
+      - name: Require the triggering actor to be an admin
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ACTOR: ${{ github.actor }}
@@ -47,10 +65,10 @@ jobs:
           perm="$(gh api "repos/${REPO}/collaborators/${ACTOR}/permission" --jq '.permission')"
           echo "Triggering actor '${ACTOR}' has '${perm}' permission on ${REPO}."
           case "${perm}" in
-            admin | write)
-              echo "Authorized: '${ACTOR}' is a maintainer." ;;
+            admin)
+              echo "Authorized: '${ACTOR}' is an admin." ;;
             *)
-              echo "::error::Actor '${ACTOR}' has '${perm}' access. Only maintainers (write/admin) can trigger the Cortex review; triage/read users cannot enable it by applying the label."
+              echo "::error::Actor '${ACTOR}' has '${perm}' access. Only admins can trigger the Cortex review."
               exit 1 ;;
           esac
 
