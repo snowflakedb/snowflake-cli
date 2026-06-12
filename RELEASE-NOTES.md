@@ -19,8 +19,10 @@
 ## Deprecations
 
 ## New additions
+* Added `--no-prompt-exit-repl` option and configuration setting to skip the exit confirmation prompt in the SQL REPL.
 
 ## Fixes and improvements
+* The `snow app setup` `--compute-pool` option and the `build_compute_pool` / `service_compute_pool` fields of a `snowflake-app` entity are now hidden and undocumented (omitted from `--help` and the generated project-definition JSON schema). They remain fully functional: `snow app setup` and `snow app deploy` still honor the `DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL` / `DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL` account parameters and any compute pools configured in `snowflake.yml`. The `ENABLE_APPLICATION_SERVICE_MANAGED_COMPUTE_POOL` and `ENABLE_APPLICATION_SERVICE_MANAGED_COMPUTE_POOL_FALLBACK` parameter checks (and the related deploy-time warning) have been removed.
 * Fixed `snow app setup` incorrectly treating system-default parameter values as admin-configured values. After running `ALTER ACCOUNT UNSET` on `DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL` or `DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL`, those fields no longer appear in the generated `snowflake.yml` or `--dry-run` output.
 * Upgraded `pip` from 26.1.1 to 26.1.2.
 * `snow app setup` and `snow app deploy` now default to a workspace (instead of a stage) for app code whenever the resolved destination is a personal database (`USER$<user>`), which do not support stages. An explicitly configured `code_stage` is still honored, with a warning when the destination is a personal database.
@@ -28,6 +30,7 @@
 * The `build_eai` field of a `snowflake-app` entity can now be specified as a bare string (e.g. `build_eai: MY_EAI`) in addition to the existing `build_eai:\n  name: MY_EAI` object form.
 * `snow app setup` now honors the `--warehouse`, `--database`, and `--schema` connection options as explicit overrides for the generated `snowflake.yml`, taking precedence over account parameters and the connection defaults. This lets users target a warehouse, database, or schema other than the account defaults. When `--database` is specified, `--schema` must also be specified.
 * `snow dcm` commands now use the system temporary folder to bundle project files before uploading, rather than creating the `output` project directory and dropping it afterward
+* `snow dbt` no longer rejects valid `--dbt-version` values (e.g. `2.0.0-preview.175`) that don't match a hard-coded client-side regex. Versions are now validated against the server's supported list, with unsupported versions failing fast and listing the actual supported set.
 
 
 # v3.20.0

@@ -3339,15 +3339,13 @@
    does not apply to Native App projects.                                         
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --app-name              TEXT  Name of the Snowflake App Runtime to           |
-  |                               initialize. Defaults to the current directory  |
-  |                               name.                                          |
-  | --dry-run                     Only print the resolved configuration values   |
-  |                               without writing snowflake.yml.                 |
-  | --compute-pool          TEXT  Compute pool for building and running the app. |
-  | --build-eai             TEXT  External access integration used during the    |
-  |                               app build.                                     |
-  | --help          -h            Show this message and exit.                    |
+  | --app-name           TEXT  Name of the Snowflake App Runtime to initialize.  |
+  |                            Defaults to the current directory name.           |
+  | --dry-run                  Only print the resolved configuration values      |
+  |                            without writing snowflake.yml.                    |
+  | --build-eai          TEXT  External access integration used during the app   |
+  |                            build.                                            |
+  | --help       -h            Show this message and exit.                       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -21973,83 +21971,98 @@
    The command supports variable substitution that happens on client-side.        
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --query           -q                      TEXT             Query to execute. |
-  | --filename        -f                      FILE             File to execute.  |
-  | --stdin           -i                                       Read the query    |
-  |                                                            from standard     |
-  |                                                            input. Use it     |
-  |                                                            when piping input |
-  |                                                            to this command.  |
-  | --variable        -D                      TEXT             String in format  |
-  |                                                            of key=value. If  |
-  |                                                            provided the SQL  |
-  |                                                            content will be   |
-  |                                                            treated as        |
-  |                                                            template and      |
-  |                                                            rendered using    |
-  |                                                            provided data.    |
-  | --retain-commen…                                           Retains comments  |
-  |                                                            in queries passed |
-  |                                                            to Snowflake      |
-  | --single-transa…      --no-single-tra…                     Connects with     |
-  |                                                            autocommit        |
-  |                                                            disabled. Wraps   |
-  |                                                            BEGIN/COMMIT      |
-  |                                                            around statements |
-  |                                                            to execute them   |
-  |                                                            as a single       |
-  |                                                            transaction,      |
-  |                                                            ensuring all      |
-  |                                                            commands complete |
-  |                                                            successfully or   |
-  |                                                            no change is      |
-  |                                                            applied.          |
-  |                                                            [default:         |
-  |                                                            no-single-transa… |
-  | --enable-templa…                          [LEGACY|STANDAR  Syntax used to    |
-  |                                           D|JINJA|ALL|NON  resolve variables |
-  |                                           E]               before passing    |
-  |                                                            queries to        |
-  |                                                            Snowflake.        |
-  |                                                            [default: LEGACY, |
-  |                                                            STANDARD]         |
-  | --local-only                                               Restrict !source  |
-  |                                                            and !load to      |
-  |                                                            local files. When |
-  |                                                            set,              |
-  |                                                            !source/!load     |
-  |                                                            directives that   |
-  |                                                            reference http:// |
-  |                                                            or https:// URLs  |
-  |                                                            are rejected      |
-  |                                                            instead of being  |
-  |                                                            fetched. Use this |
-  |                                                            flag in           |
-  |                                                            environments      |
-  |                                                            where SQL inputs  |
-  |                                                            should not        |
-  |                                                            trigger outbound  |
-  |                                                            network requests, |
-  |                                                            or when running   |
-  |                                                            SQL files whose   |
-  |                                                            content should be |
-  |                                                            reviewed locally  |
-  |                                                            before execution. |
-  | --project         -p                      TEXT             Path where the    |
-  |                                                            Snowflake project |
-  |                                                            is stored.        |
-  |                                                            Defaults to the   |
-  |                                                            current working   |
-  |                                                            directory.        |
-  | --env                                     TEXT             String in the     |
-  |                                                            format key=value. |
-  |                                                            Overrides         |
-  |                                                            variables from    |
-  |                                                            the env section   |
-  |                                                            used for          |
-  |                                                            templates.        |
-  | --help            -h                                       Show this message |
-  |                                                            and exit.         |
+  | --query            -q                     TEXT              Query to         |
+  |                                                             execute.         |
+  | --filename         -f                     FILE              File to execute. |
+  | --stdin            -i                                       Read the query   |
+  |                                                             from standard    |
+  |                                                             input. Use it    |
+  |                                                             when piping      |
+  |                                                             input to this    |
+  |                                                             command.         |
+  | --variable         -D                     TEXT              String in format |
+  |                                                             of key=value. If |
+  |                                                             provided the SQL |
+  |                                                             content will be  |
+  |                                                             treated as       |
+  |                                                             template and     |
+  |                                                             rendered using   |
+  |                                                             provided data.   |
+  | --retain-comments                                           Retains comments |
+  |                                                             in queries       |
+  |                                                             passed to        |
+  |                                                             Snowflake        |
+  | --single-transac…      --no-single-tr…                      Connects with    |
+  |                                                             autocommit       |
+  |                                                             disabled. Wraps  |
+  |                                                             BEGIN/COMMIT     |
+  |                                                             around           |
+  |                                                             statements to    |
+  |                                                             execute them as  |
+  |                                                             a single         |
+  |                                                             transaction,     |
+  |                                                             ensuring all     |
+  |                                                             commands         |
+  |                                                             complete         |
+  |                                                             successfully or  |
+  |                                                             no change is     |
+  |                                                             applied.         |
+  |                                                             [default:        |
+  |                                                             no-single-trans… |
+  | --enable-templat…                         [LEGACY|STANDARD  Syntax used to   |
+  |                                           |JINJA|ALL|NONE]  resolve          |
+  |                                                             variables before |
+  |                                                             passing queries  |
+  |                                                             to Snowflake.    |
+  |                                                             [default:        |
+  |                                                             LEGACY,          |
+  |                                                             STANDARD]        |
+  | --local-only                                                Restrict !source |
+  |                                                             and !load to     |
+  |                                                             local files.     |
+  |                                                             When set,        |
+  |                                                             !source/!load    |
+  |                                                             directives that  |
+  |                                                             reference        |
+  |                                                             http:// or       |
+  |                                                             https:// URLs    |
+  |                                                             are rejected     |
+  |                                                             instead of being |
+  |                                                             fetched. Use     |
+  |                                                             this flag in     |
+  |                                                             environments     |
+  |                                                             where SQL inputs |
+  |                                                             should not       |
+  |                                                             trigger outbound |
+  |                                                             network          |
+  |                                                             requests, or     |
+  |                                                             when running SQL |
+  |                                                             files whose      |
+  |                                                             content should   |
+  |                                                             be reviewed      |
+  |                                                             locally before   |
+  |                                                             execution.       |
+  | --no-prompt-exit…                                           Do not prompt    |
+  |                                                             before exiting   |
+  |                                                             the REPL.        |
+  | --project          -p                     TEXT              Path where the   |
+  |                                                             Snowflake        |
+  |                                                             project is       |
+  |                                                             stored. Defaults |
+  |                                                             to the current   |
+  |                                                             working          |
+  |                                                             directory.       |
+  | --env                                     TEXT              String in the    |
+  |                                                             format           |
+  |                                                             key=value.       |
+  |                                                             Overrides        |
+  |                                                             variables from   |
+  |                                                             the env section  |
+  |                                                             used for         |
+  |                                                             templates.       |
+  | --help             -h                                       Show this        |
+  |                                                             message and      |
+  |                                                             exit.            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |

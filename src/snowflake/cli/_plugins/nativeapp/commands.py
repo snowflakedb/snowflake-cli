@@ -169,6 +169,7 @@ def app_setup(
         None,
         "--compute-pool",
         help="Compute pool for building and running the app.",
+        hidden=True,
     ),
     build_eai: Optional[str] = typer.Option(
         None,
