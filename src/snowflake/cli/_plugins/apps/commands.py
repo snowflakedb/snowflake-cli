@@ -233,7 +233,6 @@ def snowflake_app_setup(
         # Drop the account-configured destination database/schema the current
         # role cannot access so resolution falls back to the personal database.
         params = _filter_accessible_remote_defaults(manager, params)
-        managed_compute_pool_enabled = manager.is_managed_compute_pool_enabled()
 
     def _resolve(
         user_input=None,
@@ -257,11 +256,27 @@ def snowflake_app_setup(
 
     # ── Pre-compute current session values ─────────────────────────────
     conn = ctx.connection_context
-    session_wh = (
-        getattr(conn, "warehouse", None) or conn_config.get("warehouse") or None
-    )
-    session_db = getattr(conn, "database", None) or conn_config.get("database") or None
-    session_schema = getattr(conn, "schema", None) or conn_config.get("schema") or None
+    # ``conn.warehouse/database/schema`` are only non-None when the user
+    # explicitly passed the corresponding connection-override flag on the
+    # command line (e.g. ``--warehouse MY_WH``).  Values from the
+    # connection config file come through ``conn_config`` instead.
+    cli_wh = getattr(conn, "warehouse", None) or None
+    cli_db = getattr(conn, "database", None) or None
+    cli_schema = getattr(conn, "schema", None) or None
+
+    # A user-supplied database must be paired with an explicit schema: schema
+    # resolution would otherwise fall back to an account parameter or the
+    # personal-database default, silently placing the app in a schema that does
+    # not belong to the requested database.
+    if cli_db and not cli_schema:
+        raise CliError(
+            "--schema is required when --database is specified. "
+            "Provide --schema to select the schema within the requested database."
+        )
+
+    session_wh = conn_config.get("warehouse") or None
+    session_db = conn_config.get("database") or None
+    session_schema = conn_config.get("schema") or None
 
     personal_db = manager.get_personal_database()
     personal_schema = DEFAULT_PERSONAL_SCHEMA if personal_db else None
@@ -269,6 +284,7 @@ def snowflake_app_setup(
     # ── Resolve each field ────────────────────────────────────────────
     resolved = {
         "database": _resolve(
+            user_input=cli_db,
             account_param=params.get("database"),
             default_value=personal_db,
             current_session=session_db,
@@ -276,36 +292,28 @@ def snowflake_app_setup(
         # TODO: Support per-app schema (e.g. APPS.APP_<app_id>) instead of
         # a single shared schema for all apps.
         "schema": _resolve(
+            user_input=cli_schema,
             account_param=params.get("schema"),
             default_value=personal_schema,
             current_session=session_schema,
         ),
         "warehouse": _resolve(
+            user_input=cli_wh,
             account_param=params.get("query_warehouse"),
             current_session=session_wh,
         ),
-        # TODO: Consider removing --compute-pool argument once services can run
-        # in the system default compute pool (SYSTEM_COMPUTE_POOL_CPU).
-        # When the backend opts the account into managed compute pools we
-        # deliberately skip resolving both ``build_compute_pool`` and
-        # ``service_compute_pool`` so the fields are omitted from the
-        # generated ``snowflake.yml`` and the server picks the pools at
-        # deploy time.
-        "build_compute_pool": (
-            (None, SOURCE_MISSING)
-            if managed_compute_pool_enabled
-            else _resolve(
-                user_input=compute_pool,
-                account_param=params.get("build_compute_pool"),
-            )
+        # Compute pools are resolved from the (hidden) ``--compute-pool`` flag
+        # and the ``DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL`` /
+        # ``DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL`` account parameters.
+        # Both stay omitted from the generated ``snowflake.yml`` when neither
+        # source provides a value, letting the server pick pools at deploy time.
+        "build_compute_pool": _resolve(
+            user_input=compute_pool,
+            account_param=params.get("build_compute_pool"),
         ),
-        "service_compute_pool": (
-            (None, SOURCE_MISSING)
-            if managed_compute_pool_enabled
-            else _resolve(
-                user_input=compute_pool,
-                account_param=params.get("service_compute_pool"),
-            )
+        "service_compute_pool": _resolve(
+            user_input=compute_pool,
+            account_param=params.get("service_compute_pool"),
         ),
         # TODO: Remove --build-eai argument once the builder service no longer
         # requires an external access integration.
@@ -316,19 +324,17 @@ def snowflake_app_setup(
     }
 
     # ── Validate required values ─────────────────────────────────────
-    # TODO: database, warehouse, and schema cannot be passed as arguments
-    # yet — they must come from account parameters or the current session.
     if not resolved["database"][0]:
         raise ClickException(
-            "Missing database. Set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE account parameter or check your connection."
+            "Missing database. Provide --database, set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE account parameter, or check your connection."
         )
     if not resolved["schema"][0]:
         raise ClickException(
-            "Missing schema. Set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA account parameter or check your connection."
+            "Missing schema. Provide --schema, set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA account parameter, or check your connection."
         )
     if not resolved["warehouse"][0]:
         raise ClickException(
-            "Missing warehouse. Set the DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE account parameter or check your connection."
+            "Missing warehouse. Provide --warehouse, set the DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE account parameter, or check your connection."
         )
 
     resolved_values = {k: v[0] for k, v in resolved.items()}
@@ -624,33 +630,12 @@ def snowflake_app_deploy(
     storage_schema_override = storage.schema_override
     encryption_type = storage.encryption_type
 
-    # User-supplied compute pools are always passed through to the server
-    # (forwarded as the 4th argument to
+    # Compute pools resolved from ``snowflake.yml`` or the
+    # ``DEFAULT_SNOWFLAKE_APPS_*_COMPUTE_POOL`` account parameters are passed
+    # through to the server: forwarded as the 4th argument to
     # ``SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO`` and emitted as
-    # ``IN COMPUTE POOL`` in ``CREATE APPLICATION SERVICE``).  However, when
-    # the account has managed compute pools enforced
-    # (``ENABLE_APPLICATION_SERVICE_MANAGED_COMPUTE_POOL`` is true and the
-    # companion ``..._FALLBACK`` parameter is false), the server may
-    # reject or override those values.  In that case we warn the user up
-    # front so they know why the deploy might not behave as configured.
-    if (
-        (build_compute_pool or service_compute_pool)
-        and manager.is_managed_compute_pool_enabled()
-        and not manager.is_managed_compute_pool_fallback_enabled()
-    ):
-        if build_compute_pool:
-            cli_console.warning(
-                f"build_compute_pool '{build_compute_pool}' is configured "
-                "but managed compute pools are enforced for this account; "
-                "the server may not honor this value."
-            )
-        if service_compute_pool:
-            cli_console.warning(
-                f"service_compute_pool '{service_compute_pool}' is configured "
-                "but managed compute pools are enforced for this account; "
-                "the server may not honor this value."
-            )
-
+    # ``IN COMPUTE POOL`` in ``CREATE APPLICATION SERVICE``. When neither
+    # source provides a value the server allocates the pools itself.
     ar_name = defaults["artifact_repository"]
     ar_database = defaults["artifact_repo_database"]
     ar_schema = defaults["artifact_repo_schema"]
@@ -684,12 +669,26 @@ def snowflake_app_deploy(
             with metrics.span("snowflake_app.upload"):
                 if use_workspace:
                     with metrics.span("snowflake_app.upload.prepare_workspace"):
-                        cli_console.step(f"Creating workspace {storage_fqn}")
-                        manager.create_workspace(storage_fqn)
-                        cli_console.step(
-                            f"Clearing existing workspace files in {workspace_source_uri}/"
-                        )
-                        manager.clear_workspace_subdirectory(storage_fqn, app_name)
+                        action = "create workspace"
+                        required_privilege = "CREATE WORKSPACE on the schema"
+                        try:
+                            cli_console.step(f"Creating workspace {storage_fqn}")
+                            manager.create_workspace(storage_fqn)
+                            action = "clear workspace files"
+                            required_privilege = "WRITE on the workspace"
+                            cli_console.step(
+                                f"Clearing existing workspace files in {workspace_source_uri}/"
+                            )
+                            manager.clear_workspace_subdirectory(storage_fqn, app_name)
+                        except ProgrammingError as e:
+                            role = manager.current_role()
+                            role_clause = f"role '{role}'" if role else "your role"
+                            raise CliError(
+                                f"Failed to {action} '{storage_fqn.identifier}': {e}. "
+                                f"Verify that {role_clause} has the required "
+                                f"privileges (USAGE on the database and schema, "
+                                f"and {required_privilege})."
+                            ) from e
                     with metrics.span("snowflake_app.upload.push_workspace_files"):
                         cli_console.step(
                             f"Uploading bundled files to {workspace_source_uri}"
@@ -714,12 +713,35 @@ def snowflake_app_deploy(
                         manager.ensure_workspace_live_version(storage_fqn)
                 else:
                     with metrics.span("snowflake_app.upload.prepare_stage"):
-                        if manager.stage_exists(storage_fqn):
-                            cli_console.step(f"Clearing existing stage @{storage_fqn}")
-                            manager.clear_stage(storage_fqn)
-                        else:
-                            cli_console.step(f"Creating stage @{storage_fqn}")
-                            manager.create_stage(storage_fqn, encryption_type)
+                        stage_already_exists = manager.stage_exists(storage_fqn)
+                        try:
+                            if stage_already_exists:
+                                cli_console.step(
+                                    f"Clearing existing stage @{storage_fqn}"
+                                )
+                                manager.clear_stage(storage_fqn)
+                            else:
+                                cli_console.step(f"Creating stage @{storage_fqn}")
+                                manager.create_stage(storage_fqn, encryption_type)
+                        except ProgrammingError as e:
+                            action = (
+                                "clear existing stage"
+                                if stage_already_exists
+                                else "create stage"
+                            )
+                            required_privilege = (
+                                "WRITE on the stage"
+                                if stage_already_exists
+                                else "CREATE STAGE on the schema"
+                            )
+                            role = manager.current_role()
+                            role_clause = f"role '{role}'" if role else "your role"
+                            raise CliError(
+                                f"Failed to {action} '{storage_fqn.identifier}': {e}. "
+                                f"Verify that {role_clause} has the required "
+                                f"privileges (USAGE on the database and schema, "
+                                f"and {required_privilege})."
+                            ) from e
 
                     with metrics.span("snowflake_app.upload.push_stage_files"):
                         cli_console.step(f"Uploading bundled files to @{storage_fqn}")

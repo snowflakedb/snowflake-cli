@@ -15,6 +15,7 @@
 from typing import Literal, Optional, Union
 
 from pydantic import Field, field_validator, model_validator
+from pydantic.json_schema import SkipJsonSchema
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBaseWithArtifacts,
     MetaField,
@@ -41,18 +42,14 @@ class ComputePoolReference(UpdatableModel):
 
 
 class ExternalAccessReference(UpdatableModel):
-    """Reference to an external access integration."""
+    """Reference to an external access integration.
+
+    External access integrations are account-level objects, so only a name is
+    accepted (no database/schema qualification).
+    """
 
     name: Optional[str] = IdentifierField(
         title="Name of the external access integration", default=None
-    )
-    schema_: Optional[str] = IdentifierField(
-        title="Schema of the external access integration",
-        alias="schema",
-        default=None,
-    )
-    database: Optional[str] = IdentifierField(
-        title="Database of the external access integration", default=None
     )
 
 
@@ -125,11 +122,16 @@ class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
         title="Warehouse to use for queries", default=None
     )
 
-    build_compute_pool: Union[ComputePoolReference, None] = Field(
+    # ``build_compute_pool`` and ``service_compute_pool`` remain fully
+    # functional (still parsed from ``snowflake.yml`` and forwarded to the
+    # server when present), but are intentionally hidden/undocumented:
+    # ``SkipJsonSchema`` excludes them from the generated project-definition
+    # JSON schema so editor completion and docs do not advertise them.
+    build_compute_pool: SkipJsonSchema[Union[ComputePoolReference, None]] = Field(
         title="Compute pool for building the app", default=None
     )
 
-    service_compute_pool: Union[ComputePoolReference, None] = Field(
+    service_compute_pool: SkipJsonSchema[Union[ComputePoolReference, None]] = Field(
         title="Compute pool for running the app service", default=None
     )
 
@@ -148,9 +150,15 @@ class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
     @field_validator("build_eai", mode="before")
     @classmethod
     def _validate_eai(cls, value):
-        """Allow null/None values for the EAI field."""
+        """Accept a bare name string, a mapping with ``name``, or null/None.
+
+        External access integrations are account-level objects, so a plain
+        string is treated as the integration name (e.g. ``build_eai: MY_EAI``).
+        """
         if value is None or value == "null":
             return None
+        if isinstance(value, str):
+            return {"name": value}
         return value
 
     artifact_repository: Optional[ArtifactRepositoryReference] = Field(

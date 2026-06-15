@@ -91,6 +91,33 @@ from snowflake.connector.errors import ProgrammingError
 
 log = logging.getLogger(__name__)
 
+# Characters allowed in a ``file://`` URI without wrapping it in a quoted
+# string literal. Mirrors the stage manager's equivalent so workspace PUT
+# statements escape local paths identically.
+_UNQUOTED_FILE_URI_REGEX = r"[\w/*?\-.=&{}$#[\]\"\\!@%^+:]+"
+
+
+def _local_path_to_file_uri(local_path: str) -> str:
+    """Return a ``file://`` URI for *local_path*, ready to embed in a PUT.
+
+    *local_path* must use the platform's native separators (e.g. backslashes
+    on Windows); do not pass a ``Path.as_posix()`` string, as Snowflake's
+    file-URI parser expects native Windows paths and a forward-slash drive
+    path such as ``file://C:/...`` is rejected on Windows (connector error
+    253006, ER_FILE_NOT_EXISTS).
+
+    The returned value is either a bare URI (when it contains only characters
+    allowed unquoted) or a single-quoted string literal. When quoting is
+    required, backslashes are doubled because Snowflake's file-URI parser
+    treats ``\\`` as an escape prefix even inside a string literal.
+    """
+    from snowflake.cli.api.project.util import to_string_literal
+
+    uri = f"file://{local_path}"
+    if re.fullmatch(_UNQUOTED_FILE_URI_REGEX, uri):
+        return uri
+    return to_string_literal(uri.replace("\\", "\\\\"))
+
 
 def app_fqn(
     *,
@@ -139,23 +166,6 @@ _SNOW_APPS_PARAM_MAP = {
     "DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE": "database",
     "DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA": "schema",
 }
-
-# Backend parameter that opts an account into Snowflake-managed build compute
-# pools.  When enabled, the CLI omits ``build_compute_pool`` from generated
-# project files and forwards an empty string to
-# ``SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO`` so the server allocates a
-# managed pool on the user's behalf.
-MANAGED_COMPUTE_POOL_PARAM = "ENABLE_APPLICATION_SERVICE_MANAGED_COMPUTE_POOL"
-
-# Companion to :data:`MANAGED_COMPUTE_POOL_PARAM`. When the managed-pool
-# parameter is on, this parameter controls whether the server falls back to
-# user-specified compute pools (``true``) or strictly enforces the managed
-# pool (``false``). The CLI uses it to decide whether to honor or strip
-# ``build_compute_pool`` / ``service_compute_pool`` values supplied via
-# ``snowflake.yml`` during ``snow app deploy``.
-MANAGED_COMPUTE_POOL_FALLBACK_PARAM = (
-    "ENABLE_APPLICATION_SERVICE_MANAGED_COMPUTE_POOL_FALLBACK"
-)
 
 # Artifact-repo build jobs run as SPCS job services. The container/instance to
 # read logs from is resolved at runtime via ``SHOW SERVICE CONTAINERS IN
@@ -972,9 +982,14 @@ class SnowflakeAppManager(SqlExecutionMixin):
                 if rel_dir != Path(".")
                 else f"{base_uri}/"
             )
-            file_uri = f"file://{path.resolve().as_posix()}"
+            # Build the local file URI from the *native* path (not as_posix):
+            # Snowflake's file-URI parser rejects forward-slash Windows drive
+            # paths like ``file://C:/...`` (raising connector error 253006,
+            # ER_FILE_NOT_EXISTS). ``local_path_to_file_uri`` returns a value
+            # ready to embed directly, so it must not be re-quoted.
+            local_uri = _local_path_to_file_uri(str(path.resolve()))
             self.execute_query(
-                f"PUT {to_string_literal(file_uri)} {to_string_literal(dest_dir)} "
+                f"PUT {local_uri} {to_string_literal(dest_dir)} "
                 f"auto_compress=false overwrite={overwrite_str}"
             )
             yield {"source": str(rel), "target": f"{dest_dir}{path.name}"}
@@ -1034,46 +1049,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
         desc = self.describe_app_service(service_fqn)
         return self.resolve_application_service_url_from_describe(desc)
 
-    def _is_boolean_param_true(self, param_name: str) -> bool:
-        """Return True when the named boolean backend parameter is set to
-        ``"true"`` for the current session.
-
-        The check is intentionally tolerant: any error (e.g. the parameter
-        is not exposed to the current role) and any unset/non-true value
-        return ``False`` so callers fall back to the conservative default.
-        """
-        try:
-            cursor = self.execute_query(
-                f"SHOW PARAMETERS LIKE '{param_name}'",
-                cursor_class=DictCursor,
-            )
-            for row in cursor:
-                value = (row.get("value") or row.get("VALUE") or "").strip().lower()
-                return value == "true"
-            return False
-        except ProgrammingError:
-            return False
-
-    def is_managed_compute_pool_enabled(self) -> bool:
-        """Return True when the backend parameter
-        :data:`MANAGED_COMPUTE_POOL_PARAM` is set to ``"true"`` for the
-        current session.
-        """
-        return self._is_boolean_param_true(MANAGED_COMPUTE_POOL_PARAM)
-
-    def is_managed_compute_pool_fallback_enabled(self) -> bool:
-        """Return True when the backend parameter
-        :data:`MANAGED_COMPUTE_POOL_FALLBACK_PARAM` is set to ``"true"`` for
-        the current session.
-
-        When this is true (and managed pools are enabled), the server honors
-        user-specified compute pools as a fallback to the managed pool, so
-        the CLI passes ``snowflake.yml`` values through unchanged. When
-        false (the default), the server enforces the managed pool and the
-        CLI strips any user-specified pools with a warning.
-        """
-        return self._is_boolean_param_true(MANAGED_COMPUTE_POOL_FALLBACK_PARAM)
-
     def fetch_snow_apps_parameters(self) -> Dict[str, str]:
         """Fetch Snowflake App Runtime default parameters for the current user.
 
@@ -1093,8 +1068,15 @@ class SnowflakeAppManager(SqlExecutionMixin):
             for row in cursor:
                 param_name = (row.get("key") or row.get("KEY") or "").upper()
                 param_value = row.get("value") or row.get("VALUE") or ""
+                # Skip parameters at the system-default level. Snowflake
+                # returns an empty string for ``level`` when a parameter has
+                # never been explicitly set at the account or user level;
+                # a non-empty ``value`` in that case is merely the built-in
+                # default (e.g. ``SYSTEM_COMPUTE_POOL_CPU``) and should not
+                # be treated as an admin-configured value.
+                param_level = row.get("level") or row.get("LEVEL") or ""
                 mapped_key = _SNOW_APPS_PARAM_MAP.get(param_name)
-                if mapped_key and param_value:
+                if mapped_key and param_value and param_level:
                     result[mapped_key] = param_value
             return result
         except ProgrammingError:
