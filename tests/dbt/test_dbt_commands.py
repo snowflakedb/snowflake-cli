@@ -26,6 +26,8 @@ from snowflake.cli._plugins.dbt.constants import (
 from snowflake.cli.api.exceptions import CliArgumentError
 from snowflake.cli.api.secure_path import SecurePath
 
+from tests_common import IS_WINDOWS
+
 
 class TestDBTList:
     def test_list_command_alias(self, mock_connect, runner):
@@ -1052,6 +1054,16 @@ class TestDBTExecute:
                 "must not contain control characters",
                 id="value-control-char",
             ),
+            pytest.param(
+                '{"DBT_foo": "1"}',
+                "must be uppercase",
+                id="key-not-uppercase-suffix",
+            ),
+            pytest.param(
+                '{"DBT_Foo": "1"}',
+                "must be uppercase",
+                id="key-not-uppercase-mixed",
+            ),
         ],
     )
     def test_dbt_execute_env_vars_invalid_input(
@@ -1222,7 +1234,10 @@ class TestDBTExecute:
             == "EXECUTE DBT PROJECT pipeline_name args='run'"
         )
         assert "dropped 1 DBT_ENV_SECRET_* environment variable(s)" in result.output
-        assert "no DBT_* environment variables found in shell" in result.output
+        # The dropped-secret message explains the empty result; the generic
+        # "no DBT_* found / how to export" hint must NOT fire (the user clearly
+        # knows how to export — they exported a secret).
+        assert "no DBT_* environment variables found" not in result.output
         assert "forwarded" not in result.output
 
     def test_use_shell_env_vars_empty_shell(
@@ -1249,12 +1264,48 @@ class TestDBTExecute:
             mock_connect.mocked_ctx.get_query()
             == "EXECUTE DBT PROJECT pipeline_name args='run'"
         )
-        assert "no DBT_* environment variables found in shell" in result.output
-        assert "bash/zsh:" in result.output
-        assert "fish:" in result.output
-        assert "PowerShell:" in result.output
-        assert "cmd.exe:" in result.output
-        assert "sudo -E" in result.output
+        assert "no DBT_* environment variables found in the shell" in result.output
+        assert "exported" in result.output
+        # Per-shell export table was intentionally dropped (maintainability).
+        assert "bash/zsh:" not in result.output
+        assert "PowerShell:" not in result.output
+
+    @pytest.mark.skipif(
+        IS_WINDOWS,
+        reason="os.environ is case-insensitive on Windows and normalizes names "
+        "to uppercase, so a non-uppercase DBT_ env var cannot exist there and "
+        "the skip path is unreachable.",
+    )
+    def test_use_shell_env_vars_skips_non_uppercase(
+        self, mock_connect, mock_cursor, runner, clean_dbt_env
+    ):
+        cursor = mock_cursor(
+            rows=[(True, "very detailed logs")],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+        clean_dbt_env.setenv("DBT_FOO", "1")
+        clean_dbt_env.setenv("DBT_Bar", "mixed")
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "execute",
+                "--use-shell-env-vars",
+                "pipeline_name",
+                "run",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        # Only the uppercase key is forwarded; the mixed-case one is skipped.
+        assert (
+            mock_connect.mocked_ctx.get_query() == "EXECUTE DBT PROJECT pipeline_name "
+            "ENV_VARS=('DBT_FOO'='1') args='run'"
+        )
+        assert "skipped 1 DBT_* shell environment variable(s)" in result.output
+        # Forwarding still happened, so the empty-state hint must not fire.
+        assert "no DBT_* environment variables found" not in result.output
 
     def test_use_shell_env_vars_explicit_overrides_shell(
         self, mock_connect, mock_cursor, runner, clean_dbt_env
