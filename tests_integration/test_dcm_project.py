@@ -1020,7 +1020,7 @@ def dcm_project_directory(project_directory, snowflake_session):
 
 @pytest.mark.qa_only
 @pytest.mark.integration
-def test_dcm_account_identifier_validation(runner, project_directory):
+def test_dcm_account_identifier_validation(runner, test_database, project_directory):
     with project_directory("dcm_project") as project_root:
         manifest = {
             "manifest_version": 2,
@@ -1043,7 +1043,9 @@ def test_dcm_account_identifier_validation(runner, project_directory):
 
 @pytest.mark.qa_only
 @pytest.mark.integration
-def test_dcm_project_owner_validation(runner, project_directory, snowflake_session):
+def test_dcm_project_owner_validation(
+    runner, test_database, project_directory, snowflake_session
+):
     with project_directory("dcm_project") as project_root:
         account_id, _ = _get_snowflake_identifiers(snowflake_session)
 
