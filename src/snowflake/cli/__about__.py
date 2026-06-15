@@ -26,15 +26,15 @@ def get_display_version() -> str:
     """Return VERSION with short commit SHA appended for dev builds."""
     if re.search(r"\.dev\d*$", VERSION):
         try:
-            sha = (
-                subprocess.check_output(
-                    ["git", "rev-parse", "--short", "HEAD"],
-                    stderr=subprocess.DEVNULL,
-                    cwd=os.path.dirname(__file__),
-                )
-                .decode()
-                .strip()
-            )
+            sha = subprocess.check_output(
+                ["git", "rev-parse", "--short", "HEAD"],
+                stderr=subprocess.DEVNULL,
+                cwd=os.path.dirname(__file__),
+                # Git SHA is pure ASCII; hardcode utf-8 rather than
+                # routing through get_subprocess_encoding() to keep
+                # __about__ free of config-layer imports.
+                encoding="utf-8",
+            ).strip()
             return f"{VERSION} ({sha})"
         except Exception:
             return VERSION

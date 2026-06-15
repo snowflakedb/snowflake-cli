@@ -3613,6 +3613,38 @@ class TestSetupCommand:
         assert parsed["build_compute_pool"] == "PARAM_POOL"
         assert parsed["service_compute_pool"] == "PARAM_SVC_POOL"
 
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
+        return_value="definition_version: '2'\nentities:\n  my_app:\n    query_warehouse: ENTREPÔT_WH\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_init_preserves_non_ascii_content_in_snowflake_yml(
+        self, mock_mgr_cls, mock_gen, runner, tmp_path, monkeypatch
+    ):
+        """Snowflake identifiers can contain non-ASCII characters (e.g. an accented
+        French warehouse name like ENTREPÔT_WH).  snowflake.yml must be written
+        through SecurePath so that get_file_io_encoding() is honoured and the
+        content round-trips without corruption on non-UTF-8 platforms."""
+        monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "utf-8")
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "database": "PARAM_DB",
+            "schema": "PARAM_SCHEMA",
+            "query_warehouse": "ENTREPÔT_WH",
+            "build_compute_pool": "PARAM_POOL",
+            "service_compute_pool": "PARAM_SVC_POOL",
+            "build_eai": "PARAM_EAI",
+        }
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+
+        assert result.exit_code == 0, result.output
+        content = (tmp_path / "snowflake.yml").read_text(encoding="utf-8")
+        assert "ENTREPÔT_WH" in content
+
 
 # ── perform_bundle tests ──────────────────────────────────────────────
 

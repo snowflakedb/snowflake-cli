@@ -487,6 +487,73 @@ notebook_checks:
             == 0
         )
 
+    def test_load_config_with_non_ascii_entrypoint(self, tmp_path, monkeypatch):
+        """Entrypoint paths can use accented characters (e.g. a start script in a
+        French-locale installation: /app/scripts/démarrer.sh).  The config YAML
+        must be read through SecurePath so that get_file_io_encoding() is honoured
+        and the path survives the bytes→str round-trip without corruption."""
+        monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "utf-8")
+        config_content = """\
+version: "1.0"
+checks:
+  entrypoint: "/app/scripts/démarrer.sh"
+"""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_bytes(config_content.encode("utf-8"))
+
+        manager = CustomImageManager(config_path=config_file)
+
+        assert manager.config["checks"]["entrypoint"] == "/app/scripts/démarrer.sh"
+
+    @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
+    def test_unicode_env_var_in_docker_output_matches_config(
+        self, mock_run, tmp_path, monkeypatch
+    ):
+        """Docker containers can export environment variables with non-ASCII values
+        (e.g. a Japanese greeting こんにちは).  When both file and subprocess
+        encodings are configured as utf-8, the value must survive the
+        config YAML → docker inspect comparison round-trip, and every
+        subprocess.run call must carry the configured encoding kwarg."""
+        monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "utf-8")
+        monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", "utf-8")
+
+        config_content = """\
+version: "1.0"
+checks:
+  entrypoint: "/usr/local/bin/entrypoint.sh"
+  environment_variables:
+    - name: GREETING
+      value: "こんにちは"
+"""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_bytes(config_content.encode("utf-8"))
+
+        inspect_response = make_docker_inspect_response(
+            entrypoint=["/usr/local/bin/entrypoint.sh"],
+            env_vars=["GREETING=こんにちは"],
+        )
+        mock_run.side_effect = create_mock_side_effect(
+            inspect_response=inspect_response,
+            pip_list_response=make_pip_list_response([]),
+        )
+
+        manager = CustomImageManager(config_path=config_file)
+        report, _ = manager.validate("test-image:latest")
+
+        greeting_result = next(
+            (r for r in report.results if r.check_name == "env_GREETING"), None
+        )
+        assert greeting_result is not None, "no result for env_GREETING check"
+        assert (
+            greeting_result.passed
+        ), f"Unicode env var comparison failed: {greeting_result.message}"
+        # Every subprocess.run call must carry the configured encoding so that
+        # in production Docker/Grype output bytes are decoded correctly.
+        for call in mock_run.call_args_list:
+            assert (
+                call.kwargs.get("encoding") == "utf-8"
+            ), f"subprocess.run missing encoding kwarg: {call}"
+
 
 @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
 def test_vulnerability_scan_failure_shows_table(mock_run, tmp_path):
