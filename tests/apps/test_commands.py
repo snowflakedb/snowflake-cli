@@ -1374,6 +1374,13 @@ class TestSnowflakeAppManager:
                 "/proj/app/[...slug]/route.ts",
                 "file:///proj/app/[[]...slug]/route.ts",
             ),
+            # Windows path with glob metacharacters: native backslashes are
+            # preserved and the ``[`` is escaped. Exercises the Windows +
+            # metacharacter interaction deterministically on every platform.
+            ("C:\\app\\[id]\\page.tsx", "file://C:\\app\\[[]id]\\page.tsx"),
+            # ...and the same when a space forces a quoted literal (backslashes
+            # doubled, escaped bracket retained).
+            ("C:\\My App\\[id]\\p.tsx", "'file://C:\\\\My App\\\\[[]id]\\\\p.tsx'"),
         ],
     )
     def test_local_path_to_file_uri(self, native_path, expected_uri):
