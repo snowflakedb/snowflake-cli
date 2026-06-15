@@ -82,17 +82,22 @@ def test_deploy_upload_only_uploads_code_to_workspace(
 ):
     """``snow app deploy --upload-only`` uploads bundled files to a workspace.
 
-    Verifies the workspace ``PUT file://...`` upload (including a nested file)
-    succeeds against a real account, guarding the local-file-URI construction
-    used by ``upload_to_workspace`` from regressions.
+    Verifies the workspace ``PUT file://...`` upload (including a nested file
+    and a glob-metacharacter ``[id]`` directory) succeeds against a real
+    account, guarding the local-file-URI construction used by
+    ``upload_to_workspace`` from regressions.
     """
     ws_name = unique_workspace
     app_name = f"WS_UPLOAD_APP_{uuid.uuid4().hex[:8]}"
 
     project_dir = Path(temporary_working_directory)
     (project_dir / "app" / "nested").mkdir(parents=True)
+    # A Next.js-style dynamic-route directory: its name contains glob
+    # metacharacters, which previously broke the connector's PUT glob (253006).
+    (project_dir / "app" / "[id]").mkdir(parents=True)
     (project_dir / "app" / "main.py").write_text("print('hello from snowflake app')\n")
     (project_dir / "app" / "nested" / "util.py").write_text("X = 1\n")
+    (project_dir / "app" / "[id]" / "page.tsx").write_text("export default 1\n")
 
     (project_dir / "snowflake.yml").write_text(
         textwrap.dedent(
@@ -127,6 +132,7 @@ def test_deploy_upload_only_uploads_code_to_workspace(
     assert ws_name in result.output
     assert "main.py" in result.output
     assert os.path.join("nested", "util.py") in result.output
+    assert os.path.join("[id]", "page.tsx") in result.output
 
 
 @pytest.mark.integration
@@ -137,19 +143,22 @@ def test_deploy_upload_only_uploads_code_to_stage(
 ):
     """``snow app deploy --upload-only`` uploads bundled files to a stage.
 
-    Verifies the stage ``PUT file://...`` upload (including a nested file)
-    succeeds against a real account. A bundle with subdirectories is the case
-    that previously failed with connector error 253006 (``Not a file but a
-    directory``) when the stage upload globbed ``PUT <dir>/*``; this guards the
-    file-by-file ``upload_to_stage`` path from that regression.
+    Verifies the stage ``PUT file://...`` upload (including a nested file and a
+    glob-metacharacter ``[id]`` directory) succeeds against a real account. A
+    bundle with subdirectories is the case that previously failed with
+    connector error 253006 (``Not a file but a directory``) when the stage
+    upload globbed ``PUT <dir>/*``; this guards the file-by-file
+    ``upload_to_stage`` path from that regression.
     """
     stage_name = unique_stage
     app_name = f"STAGE_UPLOAD_APP_{uuid.uuid4().hex[:8]}"
 
     project_dir = Path(temporary_working_directory)
     (project_dir / "app" / "nested").mkdir(parents=True)
+    (project_dir / "app" / "[id]").mkdir(parents=True)
     (project_dir / "app" / "main.py").write_text("print('hello from snowflake app')\n")
     (project_dir / "app" / "nested" / "util.py").write_text("X = 1\n")
+    (project_dir / "app" / "[id]" / "page.tsx").write_text("export default 1\n")
 
     (project_dir / "snowflake.yml").write_text(
         textwrap.dedent(
@@ -184,3 +193,4 @@ def test_deploy_upload_only_uploads_code_to_stage(
     assert stage_name in result.output
     assert "main.py" in result.output
     assert os.path.join("nested", "util.py") in result.output
+    assert os.path.join("[id]", "page.tsx") in result.output

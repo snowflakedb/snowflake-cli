@@ -1307,6 +1307,51 @@ class TestSnowflakeAppManager:
         assert (tmp_path / "pkg" / "mod.py").is_file()
         assert (tmp_path / "top.py").is_file()
 
+    @pytest.mark.parametrize("upload", ["stage", "workspace"])
+    @patch(EXECUTE_QUERY)
+    def test_upload_escapes_glob_metacharacter_paths(
+        self, mock_execute, upload, tmp_path
+    ):
+        """Files under glob-metacharacter directories (e.g. a Next.js ``[id]``
+        dynamic route) must be PUT with an escaped path.
+
+        The connector expands every PUT source through ``glob.glob``; an
+        unescaped ``[id]`` is read as a character class that matches nothing
+        (connector error 253006, ``File doesn't exist``) instead of the literal
+        file. This guards both upload paths against that regression."""
+        import glob as globmod
+
+        nested = tmp_path / "app" / "[id]"
+        nested.mkdir(parents=True)
+        (nested / "page.tsx").write_text("x")
+        fqn = FQN(database="DB", schema="SCHEMA", name="THING")
+
+        if upload == "stage":
+            list(
+                SnowflakeAppManager().upload_to_stage(
+                    local_root=tmp_path, stage_fqn=fqn
+                )
+            )
+        else:
+            list(
+                SnowflakeAppManager().upload_to_workspace(
+                    local_root=tmp_path,
+                    workspace_fqn=fqn,
+                    target_subdirectory="MY_APP",
+                )
+            )
+
+        put_query = mock_execute.call_args_list[0][0][0]
+        assert put_query.startswith("PUT ")
+        # The literal bracket must be escaped in the emitted PUT...
+        assert "[[]id]" in put_query
+        # ...and the connector's glob expansion of the source must resolve to
+        # exactly the real file (not empty, and not a directory).
+        source = put_query[len("PUT ") :].split(" ", 1)[0]
+        assert source.startswith("file://")
+        local = source[len("file://") :]
+        assert globmod.glob(local) == [str((nested / "page.tsx").resolve())]
+
     @pytest.mark.parametrize(
         "native_path,expected_uri",
         [
@@ -1321,6 +1366,14 @@ class TestSnowflakeAppManager:
             ),
             # POSIX absolute path yields the valid three-slash form.
             ("/home/dev/bundle/app.py", "file:///home/dev/bundle/app.py"),
+            # Glob metacharacters (e.g. Next.js dynamic-route directories) are
+            # escaped so the connector's glob.glob expansion matches the literal
+            # path instead of treating ``[id]`` as a character class.
+            ("/proj/app/[id]/page.tsx", "file:///proj/app/[[]id]/page.tsx"),
+            (
+                "/proj/app/[...slug]/route.ts",
+                "file:///proj/app/[[]...slug]/route.ts",
+            ),
         ],
     )
     def test_local_path_to_file_uri(self, native_path, expected_uri):

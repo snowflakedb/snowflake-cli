@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import glob
 import json
 import logging
 import re
@@ -111,10 +112,19 @@ def _local_path_to_file_uri(local_path: str) -> str:
     allowed unquoted) or a single-quoted string literal. When quoting is
     required, backslashes are doubled because Snowflake's file-URI parser
     treats ``\\`` as an escape prefix even inside a string literal.
+
+    Glob metacharacters in *local_path* are escaped with :func:`glob.escape`.
+    The connector expands every PUT source through ``glob.glob`` before
+    uploading, so an unescaped literal path containing ``*``, ``?`` or ``[``
+    (e.g. a Next.js dynamic-route directory such as ``[id]`` or ``[...slug]``)
+    is interpreted as a pattern: it silently matches nothing — raising
+    connector error 253006 (``File doesn't exist``) — or, when a same-named
+    sibling happens to match, resolves to a directory (``Not a file but a
+    directory``). Escaping makes the connector match the file literally.
     """
     from snowflake.cli.api.project.util import to_string_literal
 
-    uri = f"file://{local_path}"
+    uri = f"file://{glob.escape(local_path)}"
     if re.fullmatch(_UNQUOTED_FILE_URI_REGEX, uri):
         return uri
     return to_string_literal(uri.replace("\\", "\\\\"))
