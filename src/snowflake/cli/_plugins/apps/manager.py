@@ -84,6 +84,7 @@ from snowflake.cli.api.project.util import identifier_to_str, to_identifier
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.cli.api.stage_path import StagePath
 from snowflake.cli.api.utils.path_utils import resolve_without_follow
 from snowflake.cli.api.utils.tty import is_tty_interactive
 from snowflake.connector.cursor import DictCursor
@@ -993,6 +994,51 @@ class SnowflakeAppManager(SqlExecutionMixin):
                 f"auto_compress=false overwrite={overwrite_str}"
             )
             yield {"source": str(rel), "target": f"{dest_dir}{path.name}"}
+
+    def upload_to_stage(
+        self,
+        local_root: Path,
+        stage_fqn: FQN,
+        overwrite: bool = True,
+    ) -> Iterator[Dict[str, str]]:
+        """Recursively upload *local_root*'s contents into a stage.
+
+        Each file under *local_root* is uploaded with its own ``PUT``
+        statement, preserving the relative directory structure under
+        ``@<stage>``.  Files are uploaded one-at-a-time (rather than via
+        ``PUT <dir>/*``) because the glob form also matches subdirectories,
+        and the Snowflake PUT endpoint rejects directories with ``253006:
+        Not a file but a directory``.  This mirrors :meth:`upload_to_workspace`
+        and, unlike a recursive ``PUT`` of the bundle root, does not mutate
+        the local bundle while uploading.
+
+        Each uploaded file is yielded as a dict with ``source`` and
+        ``target`` keys so callers can display progress.
+        """
+        local_root = local_root.resolve()
+        base_path = StagePath.from_stage_str(f"@{stage_fqn.identifier}")
+        overwrite_str = str(overwrite).lower()
+        for path in sorted(local_root.rglob("*")):
+            if not path.is_file():
+                continue
+            rel = path.relative_to(local_root)
+            rel_dir = rel.parent
+            dest_path = (
+                base_path / rel_dir.as_posix() if rel_dir != Path(".") else base_path
+            )
+            # Build the local file URI from the *native* path (not as_posix):
+            # Snowflake's file-URI parser rejects forward-slash Windows drive
+            # paths like ``file://C:/...``. ``_local_path_to_file_uri`` returns
+            # a value ready to embed directly, so it must not be re-quoted.
+            local_uri = _local_path_to_file_uri(str(path.resolve()))
+            self.execute_query(
+                f"PUT {local_uri} {dest_path.path_for_sql()} "
+                f"auto_compress=false overwrite={overwrite_str}"
+            )
+            yield {
+                "source": str(rel),
+                "target": f"{dest_path.absolute_path()}/{path.name}",
+            }
 
     def get_service_status(self, service_fqn: FQN) -> str:
         """

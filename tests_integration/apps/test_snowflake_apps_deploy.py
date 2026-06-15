@@ -57,6 +57,23 @@ def unique_workspace(snowflake_session):
         pass  # best-effort cleanup
 
 
+@pytest.fixture()
+def unique_stage(snowflake_session):
+    """Yield a unique stage name and drop it on teardown.
+
+    The stage upload path creates the stage if it does not exist, so the test
+    only needs to guarantee a non-colliding name and clean it up afterwards.
+    """
+    stage_name = f"SNOW_APP_STAGE_TEST_{uuid.uuid4().hex[:8]}"
+    yield stage_name
+    try:
+        snowflake_session.execute_string(
+            f"DROP STAGE IF EXISTS {DATABASE}.{SCHEMA}.{stage_name}"
+        )
+    except Exception:
+        pass  # best-effort cleanup
+
+
 @pytest.mark.integration
 def test_deploy_upload_only_uploads_code_to_workspace(
     runner,
@@ -108,5 +125,62 @@ def test_deploy_upload_only_uploads_code_to_workspace(
     # the top-level file and the nested file must appear.
     assert "Artifacts uploaded to" in result.output
     assert ws_name in result.output
+    assert "main.py" in result.output
+    assert os.path.join("nested", "util.py") in result.output
+
+
+@pytest.mark.integration
+def test_deploy_upload_only_uploads_code_to_stage(
+    runner,
+    temporary_working_directory,
+    unique_stage,
+):
+    """``snow app deploy --upload-only`` uploads bundled files to a stage.
+
+    Verifies the stage ``PUT file://...`` upload (including a nested file)
+    succeeds against a real account. A bundle with subdirectories is the case
+    that previously failed with connector error 253006 (``Not a file but a
+    directory``) when the stage upload globbed ``PUT <dir>/*``; this guards the
+    file-by-file ``upload_to_stage`` path from that regression.
+    """
+    stage_name = unique_stage
+    app_name = f"STAGE_UPLOAD_APP_{uuid.uuid4().hex[:8]}"
+
+    project_dir = Path(temporary_working_directory)
+    (project_dir / "app" / "nested").mkdir(parents=True)
+    (project_dir / "app" / "main.py").write_text("print('hello from snowflake app')\n")
+    (project_dir / "app" / "nested" / "util.py").write_text("X = 1\n")
+
+    (project_dir / "snowflake.yml").write_text(
+        textwrap.dedent(
+            f"""\
+            definition_version: "2"
+            entities:
+              stage_app:
+                type: snowflake-app
+                identifier:
+                  name: {app_name}
+                  database: {DATABASE}
+                  schema: {SCHEMA}
+                artifacts:
+                  - src: app/*
+                    dest: ./
+                query_warehouse: {WAREHOUSE}
+                code_stage:
+                  name: {stage_name}
+            """
+        )
+    )
+
+    result = runner.invoke_with_connection(
+        ["app", "deploy", "--entity-id", "stage_app", "--upload-only"]
+    )
+    assert result.exit_code == 0, f"Upload failed:\n{result.output}"
+
+    # The upload-only path reports the stage destination on success, and prints
+    # one "Uploaded ..." line per file as each PUT completes — so both the
+    # top-level file and the nested file must appear.
+    assert "Artifacts uploaded to" in result.output
+    assert stage_name in result.output
     assert "main.py" in result.output
     assert os.path.join("nested", "util.py") in result.output
