@@ -22,6 +22,7 @@ import yaml
 from click import ClickException
 from snowflake.cli._plugins.custom_images.metrics import CustomImageCounterField
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.config import get_file_io_encoding, get_subprocess_encoding
 
 _FAIL_SEVERITIES = {"high", "critical"}
 
@@ -135,7 +136,7 @@ class CustomImageManager:
         }
 
     def _load_config(self, config_path: Path) -> dict:
-        with open(config_path) as f:
+        with open(config_path, encoding=get_file_io_encoding()) as f:
             return yaml.safe_load(f)
 
     def _run_docker_command(
@@ -144,7 +145,11 @@ class CustomImageManager:
         """Run a docker command and return (returncode, stdout, stderr)."""
         try:
             result = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=timeout
+                cmd,
+                capture_output=True,
+                text=True,
+                encoding=get_subprocess_encoding(),
+                timeout=timeout,
             )
             return result.returncode, result.stdout.strip(), result.stderr.strip()
         except FileNotFoundError:
@@ -157,7 +162,13 @@ class CustomImageManager:
         cmd = ["grype", image_name, "-o", "json", "--fail-on", "high"]
 
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                encoding=get_subprocess_encoding(),
+                timeout=600,
+            )
             return result.returncode, result.stdout.strip(), result.stderr.strip()
         except FileNotFoundError:
             raise ClickException(

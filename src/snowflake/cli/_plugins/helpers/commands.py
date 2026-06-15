@@ -31,6 +31,8 @@ from snowflake.cli.api.config import (
     ConnectionConfig,
     add_connection_to_proper_file,
     get_all_connections,
+    get_encoding_diagnostics,
+    get_file_io_encoding,
     set_config_value,
 )
 from snowflake.cli.api.config_provider import ALTERNATIVE_CONFIG_ENV_VAR
@@ -106,7 +108,7 @@ def v1_to_v2(
     SecurePath("snowflake.yml").rename("snowflake_V1.yml")
     if has_local_yml:
         SecurePath("snowflake.local.yml").rename("snowflake_V1.local.yml")
-    with open("snowflake.yml", "w") as file:
+    with open("snowflake.yml", "w", encoding=get_file_io_encoding()) as file:
         yaml.dump(
             pd_v2.model_dump(
                 exclude_unset=True, exclude_none=True, mode="json", by_alias=True
@@ -468,3 +470,16 @@ def generate_project_schema(
         return ObjectResult(schema)
 
     return MessageResult(json.dumps(schema, indent=2, sort_keys=True))
+
+
+@app.command(name="detect-encoding", requires_connection=False)
+def detect_encoding(**options) -> CommandResult:
+    """
+    Show the encoding configuration for the current environment.
+
+    Displays the platform encoding settings and flags any discrepancies that
+    could cause file corruption when sharing projects across platforms.
+    Run this command after seeing an encoding warning to get the full details
+    and recommended remediation steps.
+    """
+    return MessageResult(get_encoding_diagnostics())

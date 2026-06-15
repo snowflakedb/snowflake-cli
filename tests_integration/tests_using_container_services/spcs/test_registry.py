@@ -55,3 +55,16 @@ def test_registry_login(runner):
     assert_that_result_is_successful_and_output_json_equals(
         result, {"message": "Login Succeeded"}
     )
+
+
+@pytest.mark.integration
+def test_registry_login_with_subprocess_encoding(runner):
+    """Passing SNOWFLAKE_CLI_ENCODING_SUBPROCESS must not break the docker login
+    subprocess call — the 'Login Succeeded' output must still be decoded correctly."""
+    result = runner.invoke_with_connection_json(
+        ["spcs", "image-registry", "login"],
+        env={"SNOWFLAKE_CLI_ENCODING_SUBPROCESS": "utf-8"},
+    )
+    assert_that_result_is_successful_and_output_json_equals(
+        result, {"message": "Login Succeeded"}
+    )
