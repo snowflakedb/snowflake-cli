@@ -22,7 +22,7 @@ ABOUT_DIR = os.path.dirname(about_module.__file__)
 
 
 class TestGetDisplayVersion:
-    @patch("snowflake.cli.__about__.subprocess.check_output", return_value=b"abc1234\n")
+    @patch("snowflake.cli.__about__.subprocess.check_output", return_value="abc1234\n")
     @patch("snowflake.cli.__about__.VERSION", "1.0.0.dev0")
     def test_dev_version_appends_git_sha(self, mock_git):
         assert get_display_version() == "1.0.0.dev0 (abc1234)"
@@ -46,7 +46,7 @@ class TestGetDisplayVersion:
     def test_release_version_with_no_dev_suffix(self):
         assert get_display_version() == "2.5.3"
 
-    @patch("snowflake.cli.__about__.subprocess.check_output", return_value=b"abc1234\n")
+    @patch("snowflake.cli.__about__.subprocess.check_output", return_value="abc1234\n")
     @patch("snowflake.cli.__about__.VERSION", "3.0.0.dev5")
     def test_dev_version_with_numeric_suffix(self, mock_git):
         assert get_display_version() == "3.0.0.dev5 (abc1234)"
