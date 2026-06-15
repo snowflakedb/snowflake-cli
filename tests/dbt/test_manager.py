@@ -1156,20 +1156,85 @@ dev
 
         assert f"{ENV_FILENAME} does not exist in directory" in exc_info.value.message
 
-    def test_prepare_env_file_replaces_existing_file(self, tmp_path_factory, env_yml):
+    @pytest.mark.parametrize(
+        "bad_env_yml, expected_message",
+        [
+            pytest.param(
+                "env_config:\n  environments:\n  - name: dev\n    env:\n"
+                "      DBT_FOO: 'a'\n      DBT_FOO: 'b'\n",
+                "duplicate key",
+                id="duplicate-key",
+            ),
+            pytest.param(
+                "env_config:\n  environments\n    - bad: : indentation\n",
+                "is not valid YAML",
+                id="malformed-yaml",
+            ),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "from_env_file_dir",
+        [pytest.param(False, id="source-dir"), pytest.param(True, id="env-file-dir")],
+    )
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_validates_env_file_before_stage_creation(
+        self,
+        mock_put_recursive,
+        mock_create,
+        from_env_file_dir,
+        bad_env_yml,
+        expected_message,
+        dbt_project_path,
+        tmp_path_factory,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        # A bad env.yml from either source (explicit --env-file-dir or the
+        # source directory) must be validated before any temporary stage is
+        # created.
+        if from_env_file_dir:
+            env_dir = tmp_path_factory.mktemp("envs")
+            (env_dir / ENV_FILENAME).write_text(bad_env_yml)
+            env_file_path = SecurePath(env_dir)
+        else:
+            (dbt_project_path / ENV_FILENAME).write_text(bad_env_yml)
+            env_file_path = None
+
+        with pytest.raises(CliError) as exc_info:
+            DBTManager().deploy(
+                fqn=FQN.from_string("test_project"),
+                path=SecurePath(dbt_project_path),
+                profiles_path=SecurePath(dbt_project_path),
+                env_file_path=env_file_path,
+                force=False,
+                attrs=DBTDeployAttributes(),
+            )
+
+        assert expected_message in exc_info.value.message
+        mock_create.assert_not_called()
+        mock_put_recursive.assert_not_called()
+
+    def test_write_env_file_replaces_existing_file(self, tmp_path_factory, env_yml):
         env_path = tmp_path_factory.mktemp("envs")
         (env_path / ENV_FILENAME).write_text(yaml.dump(env_yml))
 
         tmp_dbt_path = tmp_path_factory.mktemp("dbt")
         (tmp_dbt_path / ENV_FILENAME).write_text("stale content from --source\n")
 
-        DBTManager._prepare_env_file(env_path, tmp_dbt_path)  # noqa: SLF001
+        content = DBTManager._validate_and_parse_env_file(  # noqa: SLF001
+            SecurePath(env_path / ENV_FILENAME)
+        )
+        DBTManager._write_env_file(content, tmp_dbt_path)  # noqa: SLF001
 
         with open(tmp_dbt_path / ENV_FILENAME) as fp:
             actual = yaml.safe_load(fp)
         assert actual == env_yml
 
-    def test_prepare_env_file_removes_comments(self, tmp_path_factory, env_yml):
+    def test_load_and_write_env_file_removes_comments(self, tmp_path_factory, env_yml):
         env_path = tmp_path_factory.mktemp("envs")
         env_file = env_path / ENV_FILENAME
         env_file.write_text(yaml.dump(env_yml))
@@ -1179,14 +1244,17 @@ dev
 
         tmp_dbt_path = tmp_path_factory.mktemp("dbt")
 
-        DBTManager._prepare_env_file(env_path, tmp_dbt_path)  # noqa: SLF001
+        content = DBTManager._validate_and_parse_env_file(  # noqa: SLF001
+            SecurePath(env_file)
+        )
+        DBTManager._write_env_file(content, tmp_dbt_path)  # noqa: SLF001
 
         with open(tmp_dbt_path / ENV_FILENAME) as fp:
             for line in fp:
                 assert "# " not in line
                 assert "secret hint" not in line
 
-    def test_prepare_env_file_rejects_duplicate_keys(self, tmp_path_factory):
+    def test_validate_and_parse_env_file_rejects_duplicate_keys(self, tmp_path_factory):
         env_path = tmp_path_factory.mktemp("envs")
         (env_path / ENV_FILENAME).write_text(
             "env_config:\n"
@@ -1196,23 +1264,25 @@ dev
             "      DBT_FOO: 'first'\n"
             "      DBT_FOO: 'second'\n"
         )
-        tmp_dbt_path = tmp_path_factory.mktemp("dbt")
 
         with pytest.raises(CliError) as exc_info:
-            DBTManager._prepare_env_file(env_path, tmp_dbt_path)  # noqa: SLF001
+            DBTManager._validate_and_parse_env_file(  # noqa: SLF001
+                SecurePath(env_path / ENV_FILENAME)
+            )
 
         assert "duplicate key" in exc_info.value.message
         assert "DBT_FOO" in exc_info.value.message
 
-    def test_prepare_env_file_rejects_malformed_yaml(self, tmp_path_factory):
+    def test_validate_and_parse_env_file_rejects_malformed_yaml(self, tmp_path_factory):
         env_path = tmp_path_factory.mktemp("envs")
         (env_path / ENV_FILENAME).write_text(
             "env_config:\n" "  environments\n" "    - bad: : indentation\n"
         )
-        tmp_dbt_path = tmp_path_factory.mktemp("dbt")
 
         with pytest.raises(CliError) as exc_info:
-            DBTManager._prepare_env_file(env_path, tmp_dbt_path)  # noqa: SLF001
+            DBTManager._validate_and_parse_env_file(  # noqa: SLF001
+                SecurePath(env_path / ENV_FILENAME)
+            )
 
         assert "is not valid YAML" in exc_info.value.message
 

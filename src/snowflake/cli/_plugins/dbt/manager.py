@@ -222,12 +222,20 @@ class DBTManager(SqlExecutionMixin):
         if attrs.dbt_version:
             self._validate_dbt_version(attrs.dbt_version)
 
-        if env_file_path is not None:
-            env_file = env_file_path / ENV_FILENAME
-            if not env_file.exists():
-                raise CliError(
-                    f"{ENV_FILENAME} does not exist in directory {env_file_path.path.absolute()}."
-                )
+        # env.yml comes from --env-file-dir if given, else the source dir
+        # (env.yml is optional, so it may be absent in either case).
+        env_source_path = env_file_path if env_file_path is not None else path
+        env_file = env_source_path / ENV_FILENAME
+        if env_file_path is not None and not env_file.exists():
+            raise CliError(
+                f"{ENV_FILENAME} does not exist in directory {env_file_path.path.absolute()}."
+            )
+        # Parse/validate before any network call so duplicate keys / invalid
+        # YAML fail fast, whether env.yml came from --env-file-dir or the
+        # source directory.
+        env_yml_content = (
+            self._validate_and_parse_env_file(env_file) if env_file.exists() else None
+        )
 
         with cli_console.phase("Creating temporary stage"):
             stage_manager = StageManager()
@@ -240,8 +248,8 @@ class DBTManager(SqlExecutionMixin):
                 tmp_path = Path(tmp)
                 stage_manager.copy_to_tmp_dir(path.path, tmp_path)
                 self._prepare_profiles_file(profiles_path.path, tmp_path)
-                if env_file_path is not None:
-                    self._prepare_env_file(env_file_path.path, tmp_path)
+                if env_yml_content is not None:
+                    self._write_env_file(env_yml_content, tmp_path)
                 result_count = len(
                     list(
                         stage_manager.put_recursive(
@@ -495,21 +503,24 @@ class DBTManager(SqlExecutionMixin):
             yaml.safe_dump(yaml.safe_load(sfd), tfd)
 
     @staticmethod
-    def _prepare_env_file(env_path: Path, tmp_path: Path):
-        source_env_file = SecurePath(env_path / ENV_FILENAME)
-        target_env_file = SecurePath(tmp_path / ENV_FILENAME)
-        if target_env_file.exists():
-            target_env_file.unlink()
-        with source_env_file.open(
-            read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
-        ) as sfd, target_env_file.open(mode="w") as tfd:
+    def _validate_and_parse_env_file(env_file: SecurePath) -> Optional[dict]:
+        """Parse and validate env.yml, rejecting duplicate keys and invalid YAML."""
+        with env_file.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as sfd:
             try:
-                parsed = yaml.load(sfd, Loader=_NoDuplicatesSafeLoader)
+                return yaml.load(sfd, Loader=_NoDuplicatesSafeLoader)
             except yaml.constructor.ConstructorError as e:
                 raise CliError(f"{ENV_FILENAME} has {e.problem}")
             except yaml.YAMLError as e:
                 raise CliError(f"{ENV_FILENAME} is not valid YAML: {e}")
-            yaml.safe_dump(parsed, tfd)
+
+    @staticmethod
+    def _write_env_file(content: dict, tmp_path: Path):
+        """Write the parsed env.yml into the staging dir (comments already dropped)."""
+        target_env_file = SecurePath(tmp_path / ENV_FILENAME)
+        if target_env_file.exists():
+            target_env_file.unlink()
+        with target_env_file.open(mode="w") as tfd:
+            yaml.safe_dump(content, tfd)
 
     def execute(
         self,
