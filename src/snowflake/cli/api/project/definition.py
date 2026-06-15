@@ -54,12 +54,14 @@ def _get_merged_definitions(paths: List[Path]) -> Optional[Definition]:
     )
     loader.add_constructor("!override", _override_tag)
 
-    with spaths[0].open("r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as base_yml:
+    with spaths[0].open(
+        "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB, encoding="utf-8"
+    ) as base_yml:
         definition = yaml.load(base_yml.read(), Loader=loader) or {}
 
     for override_path in spaths[1:]:
         with override_path.open(
-            "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
+            "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB, encoding="utf-8"
         ) as override_yml:
             overrides = (
                 yaml.load(override_yml.read(), Loader=yaml.loader.BaseLoader) or {}

@@ -32,6 +32,7 @@
 * `snow app setup` now honors the `--warehouse`, `--database`, and `--schema` connection options as explicit overrides for the generated `snowflake.yml`, taking precedence over account parameters and the connection defaults. This lets users target a warehouse, database, or schema other than the account defaults. When `--database` is specified, `--schema` must also be specified.
 * `snow dcm` commands now use the system temporary folder to bundle project files before uploading, rather than creating the `output` project directory and dropping it afterward
 * `snow dbt` no longer rejects valid `--dbt-version` values (e.g. `2.0.0-preview.175`) that don't match a hard-coded client-side regex. Versions are now validated against the server's supported list, with unsupported versions failing fast and listing the actual supported set.
+* Fixed `snow app deploy` and `snow app validate` failing on Windows with a `UnicodeDecodeError` when `snowflake.yml` contained non-ASCII characters (e.g. a non-Latin app title or description). The project definition file is now always read as UTF-8 instead of falling back to the platform default code page (cp1252 on Windows), regardless of the `cli.encoding.file_io` setting.
 
 
 # v3.20.0
