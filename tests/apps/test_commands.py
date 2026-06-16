@@ -4834,7 +4834,7 @@ class TestDeployCommand:
         "snowflake.cli._plugins.apps.commands._resolve_entity_id",
         return_value="my_app",
     )
-    def test_deploy_only_skips_upload_and_build_phase(
+    def test_promote_only_skips_upload_and_build_phase(
         self,
         mock_resolve,
         mock_get_entity,
@@ -4865,7 +4865,7 @@ class TestDeployCommand:
 
         with change_directory(tmp_path):
             _write_snowflake_app_yml(tmp_path)
-            result = runner.invoke(["app", "deploy", "--deploy-only"])
+            result = runner.invoke(["app", "deploy", "--promote-only"])
             assert result.exit_code == 0, result.output
             mock_mgr.build_app_artifact_repo.assert_not_called()
             mock_mgr.artifact_repo_exists.assert_not_called()
@@ -4934,7 +4934,7 @@ class TestDeployCommand:
         ):
             _write_snowflake_app_yml(tmp_path)
             _reset_command_metrics()
-            result = runner.invoke(["app", "deploy", "--deploy-only"])
+            result = runner.invoke(["app", "deploy", "--promote-only"])
             assert result.exit_code == 1
             assert (
                 "Deployment failed while creating application service" in result.output
@@ -5015,7 +5015,7 @@ class TestDeployCommand:
         ):
             _write_snowflake_app_yml(tmp_path)
             _reset_command_metrics()
-            result = runner.invoke(["app", "deploy", "--deploy-only"])
+            result = runner.invoke(["app", "deploy", "--promote-only"])
             assert result.exit_code == 1
             assert (
                 "Deployment failed while upgrading application service" in result.output
@@ -5086,7 +5086,7 @@ class TestDeployCommand:
 
         with change_directory(tmp_path):
             _write_snowflake_app_yml(tmp_path)
-            result = runner.invoke(["app", "deploy", "--deploy-only"])
+            result = runner.invoke(["app", "deploy", "--promote-only"])
             assert result.exit_code == 0, result.output
 
         _, kwargs = mock_poll.call_args
@@ -5157,7 +5157,7 @@ class TestDeployCommand:
             patch("snowflake.cli._plugins.apps.commands.log") as mock_log,
         ):
             _write_snowflake_app_yml(tmp_path)
-            result = runner.invoke(["app", "deploy", "--deploy-only"])
+            result = runner.invoke(["app", "deploy", "--promote-only"])
 
         assert result.exit_code == 1
         assert "Application service deployment failed." in result.output
@@ -5236,7 +5236,7 @@ class TestDeployCommand:
         with change_directory(tmp_path):
             _write_snowflake_app_yml(tmp_path)
             _reset_command_metrics()
-            result = runner.invoke(["app", "deploy", "--deploy-only"])
+            result = runner.invoke(["app", "deploy", "--promote-only"])
             assert result.exit_code == 0, result.output
             create_span = _get_completed_span("snowflake_app.deploy_service.create")
             upgrade_span = _get_completed_span("snowflake_app.deploy_service.upgrade")
@@ -6203,11 +6203,11 @@ class TestDeployCommand:
             assert result.exit_code == 1
             assert "Only one of" in result.output
 
-            result = runner.invoke(["app", "deploy", "--upload-only", "--deploy-only"])
+            result = runner.invoke(["app", "deploy", "--upload-only", "--promote-only"])
             assert result.exit_code == 1
             assert "Only one of" in result.output
 
-            result = runner.invoke(["app", "deploy", "--build-only", "--deploy-only"])
+            result = runner.invoke(["app", "deploy", "--build-only", "--promote-only"])
             assert result.exit_code == 1
             assert "Only one of" in result.output
 
@@ -6459,7 +6459,7 @@ class TestDeployCommand:
         "snowflake.cli._plugins.apps.commands._resolve_entity_id",
         return_value="my_app",
     )
-    def test_deploy_only_runs_deploy_and_stops(
+    def test_promote_only_runs_deploy_and_stops(
         self,
         mock_resolve,
         mock_get_entity,
@@ -6469,6 +6469,70 @@ class TestDeployCommand:
         runner,
         tmp_path,
     ):
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.code_workspace = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.artifact_repository = None
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_poll.return_value = {
+            "url": "my-app.snowflakecomputing.app",
+            "is_upgrading": "false",
+        }
+
+        from tests_common import change_directory
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "deploy", "--promote-only"])
+            assert result.exit_code == 0, result.output
+            assert "App ready at" in result.output
+
+        mock_mgr.create_app_service.assert_called_once()
+        mock_mgr.build_app_artifact_repo.assert_not_called()
+        mock_mgr.stage_exists.assert_not_called()
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": None,
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": None,
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_only_alias_still_runs_promote_phase(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        # ``--deploy-only`` is a hidden, backward-compatible alias for
+        # ``--promote-only`` and must behave identically.
         entity = Mock()
         fqn = Mock()
         fqn.name = "MY_APP"
