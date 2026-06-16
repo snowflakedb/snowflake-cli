@@ -498,11 +498,17 @@ def app_deploy(
         help="(Snowflake App Runtime only) Run only the build phase (assumes artifacts have already been uploaded). "
         "Skips the upload and deploy phases.",
     ),
+    promote_only: bool = typer.Option(
+        False,
+        "--promote-only",
+        help="(Snowflake App Runtime only) Run only the deploy phase (assumes a previous build phase has already completed). "
+        "Skips the upload and build phases.",
+    ),
     deploy_only: bool = typer.Option(
         False,
         "--deploy-only",
-        help="(Snowflake App Runtime only) Run only the deploy phase (assumes a previous build phase has already completed). "
-        "Skips the upload and build phases.",
+        hidden=True,
+        help="Deprecated alias for --promote-only.",
     ),
     **options,
 ) -> CommandResult:
@@ -519,7 +525,7 @@ def app_deploy(
       Uploads bundled source artifacts, runs the server-side artifact repository
       build, then deploys the application service. The pipeline has three phases
       (upload, build, deploy). By default all three run in sequence; use
-      ``--upload-only`` / ``--build-only`` / ``--deploy-only`` to run a single
+      ``--upload-only`` / ``--build-only`` / ``--promote-only`` to run a single
       phase.
     """
     app_flow: AppFlow = options["app_flow"]
@@ -536,7 +542,7 @@ def app_deploy(
             options.get("entity_id") or None,
             upload_only,
             build_only,
-            deploy_only,
+            promote_only or deploy_only,
             interactive=interactive,
         )
 
@@ -545,7 +551,7 @@ def app_deploy(
         **{
             "--upload-only": True if upload_only else None,
             "--build-only": True if build_only else None,
-            "--deploy-only": True if deploy_only else None,
+            "--promote-only": True if (promote_only or deploy_only) else None,
         },
     )
 

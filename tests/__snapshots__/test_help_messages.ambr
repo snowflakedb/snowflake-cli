@@ -125,7 +125,7 @@
    source artifacts, runs the server-side artifact repository build, then deploys 
    the application service. The pipeline has three phases (upload, build,         
    deploy). By default all three run in sequence; use --upload-only /             
-   --build-only / --deploy-only to run a single phase.                            
+   --build-only / --promote-only to run a single phase.                           
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   paths      [PATHS]...  (Native App only) Paths, relative to the project    |
@@ -193,7 +193,7 @@
   |                                                    have already been         |
   |                                                    uploaded). Skips the      |
   |                                                    upload and deploy phases. |
-  | --deploy-only                                      (Snowflake App Runtime    |
+  | --promote-only                                     (Snowflake App Runtime    |
   |                                                    only) Run only the deploy |
   |                                                    phase (assumes a previous |
   |                                                    build phase has already   |
