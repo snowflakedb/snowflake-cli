@@ -111,27 +111,6 @@ def test_new_connection_can_be_added_with_server_session_keep_alive(runner):
     assert "server_session_keep_alive = true" in content
 
 
-def test_new_connection_can_be_added_with_no_server_session_keep_alive(runner):
-    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
-        result = runner.invoke_with_config_file(
-            tmp_file.name,
-            [
-                "connection",
-                "add",
-                "--connection-name",
-                "conn-no-keepalive",
-                "--username",
-                "user1",
-                "--account",
-                "account1",
-                "--no-server-session-keep-alive",
-            ],
-        )
-        content = tmp_file.read()
-    assert result.exit_code == 0, result.output
-    assert "server_session_keep_alive = false" in content
-
-
 def test_new_connection_can_be_added_as_default(runner, os_agnostic_snapshot):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
         result = runner.invoke_with_config_file(

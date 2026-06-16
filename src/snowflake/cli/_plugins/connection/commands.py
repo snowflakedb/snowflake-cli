@@ -274,7 +274,8 @@ def add(
     ),
     server_session_keep_alive: Optional[bool] = typer.Option(
         None,
-        "--server-session-keep-alive/--no-server-session-keep-alive",
+        "--server-session-keep-alive",
+        is_flag=True,
         help=(
             "Enable server-side session keep-alive to prevent the session from "
             "timing out during long operations."
