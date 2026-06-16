@@ -300,11 +300,15 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             if not current or _id(cur.get("runtime_name")) != _id(
                 self.model.runtime_name
             ):
-                clauses.append(f"RUNTIME_NAME = {to_string_literal(self.model.runtime_name)}")
+                clauses.append(
+                    f"RUNTIME_NAME = {to_string_literal(self.model.runtime_name)}"
+                )
             if not current or _id(cur.get("compute_pool")) != _id(
                 self.model.compute_pool
             ):
-                clauses.append(f"COMPUTE_POOL = {to_string_literal(self.model.compute_pool)}")
+                clauses.append(
+                    f"COMPUTE_POOL = {to_string_literal(self.model.compute_pool)}"
+                )
 
         if not clauses:
             return None
