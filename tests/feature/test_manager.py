@@ -2093,6 +2093,36 @@ class TestApplyCommand:
         call_kwargs = mock_decl.execute_plan.call_args.kwargs
         assert call_kwargs.get("warehouse") == "TEST_WH"
 
+    def test_apply_with_allow_recreate_sets_overwrite_in_options(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """Bug G: when ``--allow-recreate`` is passed, ``PlanOptions.overwrite``
+        must also be ``True`` so that ``CREATE_FV`` ops forward
+        ``overwrite=True`` to ``register_feature_view`` and do not fail
+        with a version-conflict error when the FV already exists."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        plans = _make_plans_dir(tmp_path)
+        (plans / "feature_plan_20260507T120000.json").write_text(_make_plan_json())
+        self._wire_plan_file(mock_decl)
+
+        FeatureManager().apply(
+            from_dir=tmp_path,
+            target_name=None,
+            plan_file=None,
+            dev_mode=False,
+            allow_recreate=True,
+        )
+
+        options = mock_decl.execute_plan.call_args.kwargs.get("options")
+        assert options is not None, "execute_plan must receive an options= kwarg"
+        assert options.allow_recreate is True
+        assert options.overwrite is True, (
+            "PlanOptions.overwrite must be True when allow_recreate=True so "
+            "CREATE_FV ops can succeed against existing FV versions (Bug G)"
+        )
+
 
 # ===========================================================================
 # list_specs / describe / export_specs — every Snowflake-bound command
