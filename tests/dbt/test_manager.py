@@ -909,7 +909,7 @@ dev
             path=SecurePath(dbt_project_path),
             profiles_path=SecurePath(dbt_project_path),
             force=False,
-            attrs=DBTDeployAttributes(default_environment="dev"),
+            attrs=DBTDeployAttributes(default_env="dev"),
         )
 
         expected_query = f"CREATE DBT PROJECT test_project\nFROM {mock_from_resource()} DEFAULT_ENVIRONMENT='dev'"
@@ -933,7 +933,7 @@ dev
             path=SecurePath(dbt_project_path),
             profiles_path=SecurePath(dbt_project_path),
             force=False,
-            attrs=DBTDeployAttributes(default_target="prod", default_environment="dev"),
+            attrs=DBTDeployAttributes(default_target="prod", default_env="dev"),
         )
 
         expected_query = (
@@ -960,7 +960,7 @@ dev
             path=SecurePath(dbt_project_path),
             profiles_path=SecurePath(dbt_project_path),
             force=True,
-            attrs=DBTDeployAttributes(default_environment="prod"),
+            attrs=DBTDeployAttributes(default_env="prod"),
         )
 
         expected_query = f"CREATE OR REPLACE DBT PROJECT test_project\nFROM {mock_from_resource()} DEFAULT_ENVIRONMENT='prod'"
@@ -981,7 +981,7 @@ dev
     ):
         mock_get_dbt_object_attributes.return_value = {
             "default_target": None,
-            "default_environment": None,
+            "default_env": None,
             "external_access_integrations": None,
         }
 
@@ -990,7 +990,7 @@ dev
             path=SecurePath(dbt_project_path),
             profiles_path=SecurePath(dbt_project_path),
             force=False,
-            attrs=DBTDeployAttributes(default_environment="dev"),
+            attrs=DBTDeployAttributes(default_env="dev"),
         )
 
         calls = [call.args[0] for call in mock_execute_query.call_args_list]
@@ -1017,7 +1017,7 @@ dev
     ):
         mock_get_dbt_object_attributes.return_value = {
             "default_target": None,
-            "default_environment": "dev",
+            "default_env": "dev",
             "external_access_integrations": None,
         }
 
@@ -1026,7 +1026,7 @@ dev
             path=SecurePath(dbt_project_path),
             profiles_path=SecurePath(dbt_project_path),
             force=False,
-            attrs=DBTDeployAttributes(default_environment="dev"),
+            attrs=DBTDeployAttributes(default_env="dev"),
         )
 
         calls = [call.args[0] for call in mock_execute_query.call_args_list]
@@ -1053,7 +1053,7 @@ dev
     ):
         mock_get_dbt_object_attributes.return_value = {
             "default_target": None,
-            "default_environment": "dev",
+            "default_env": "dev",
             "external_access_integrations": None,
         }
 
@@ -1062,7 +1062,7 @@ dev
             path=SecurePath(dbt_project_path),
             profiles_path=SecurePath(dbt_project_path),
             force=False,
-            attrs=DBTDeployAttributes(unset_default_environment=True),
+            attrs=DBTDeployAttributes(unset_default_env=True),
         )
 
         calls = [call.args[0] for call in mock_execute_query.call_args_list]
@@ -1087,7 +1087,7 @@ dev
     ):
         mock_get_dbt_object_attributes.return_value = {
             "default_target": None,
-            "default_environment": None,
+            "default_env": None,
             "external_access_integrations": None,
         }
 
@@ -1096,7 +1096,7 @@ dev
             path=SecurePath(dbt_project_path),
             profiles_path=SecurePath(dbt_project_path),
             force=False,
-            attrs=DBTDeployAttributes(unset_default_environment=True),
+            attrs=DBTDeployAttributes(unset_default_env=True),
         )
 
         # We always emit UNSET when requested; the server treats it as a no-op
@@ -1477,7 +1477,7 @@ class TestGetDBTObjectAttributes:
         result = DBTManager.get_dbt_object_attributes(fqn)
 
         assert result is not None
-        assert result["default_environment"] == "dev"
+        assert result["default_env"] == "dev"
 
 
 class TestValidateRole:

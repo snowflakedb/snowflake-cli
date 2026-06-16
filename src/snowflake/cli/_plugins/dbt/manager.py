@@ -87,7 +87,7 @@ _NoDuplicatesSafeLoader.add_constructor(
 
 class DBTObjectEditableAttributes(TypedDict):
     default_target: Optional[str]
-    default_environment: Optional[str]
+    default_env: Optional[str]
     external_access_integrations: Optional[List[str]]
     dbt_version: Optional[str]
 
@@ -98,8 +98,8 @@ class DBTDeployAttributes:
 
     default_target: Optional[str] = None
     unset_default_target: bool = False
-    default_environment: Optional[str] = None
-    unset_default_environment: bool = False
+    default_env: Optional[str] = None
+    unset_default_env: bool = False
     external_access_integrations: Optional[List[str]] = None
     install_local_deps: bool = False
     dbt_version: Optional[str] = None
@@ -156,7 +156,7 @@ class DBTManager(SqlExecutionMixin):
 
         return DBTObjectEditableAttributes(
             default_target=row_dict.get("default_target"),
-            default_environment=row_dict.get("default_environment"),
+            default_env=row_dict.get("default_environment"),
             external_access_integrations=external_access_integrations,
             dbt_version=row_dict.get("dbt_version"),
         )
@@ -292,11 +292,11 @@ class DBTManager(SqlExecutionMixin):
 
         # Always issue SET/UNSET when the user asks; the server treats
         # UNSET-on-null as a no-op.
-        if attrs.unset_default_environment:
+        if attrs.unset_default_env:
             unset_properties.append("DEFAULT_ENVIRONMENT")
-        elif attrs.default_environment:
+        elif attrs.default_env:
             set_properties.append(
-                f"DEFAULT_ENVIRONMENT={to_string_literal(attrs.default_environment)}"
+                f"DEFAULT_ENVIRONMENT={to_string_literal(attrs.default_env)}"
             )
 
         # Comparing dbt_version to existing project's dbt_version might be ambiguous
@@ -367,10 +367,8 @@ class DBTManager(SqlExecutionMixin):
         query += f"\nFROM {stage_name}"
         if attrs.default_target:
             query += f" DEFAULT_TARGET='{attrs.default_target}'"
-        if attrs.default_environment:
-            query += (
-                f" DEFAULT_ENVIRONMENT={to_string_literal(attrs.default_environment)}"
-            )
+        if attrs.default_env:
+            query += f" DEFAULT_ENVIRONMENT={to_string_literal(attrs.default_env)}"
         if attrs.dbt_version:
             query += f" DBT_VERSION={to_string_literal(attrs.dbt_version)}"
         query = self._handle_external_access_integrations_query(
@@ -402,10 +400,8 @@ class DBTManager(SqlExecutionMixin):
         query += f"\nFROM {stage_name}"
         if attrs.default_target:
             query += f" DEFAULT_TARGET='{attrs.default_target}'"
-        if attrs.default_environment:
-            query += (
-                f" DEFAULT_ENVIRONMENT={to_string_literal(attrs.default_environment)}"
-            )
+        if attrs.default_env:
+            query += f" DEFAULT_ENVIRONMENT={to_string_literal(attrs.default_env)}"
         if attrs.dbt_version:
             query += f" DBT_VERSION={to_string_literal(attrs.dbt_version)}"
         query = self._handle_external_access_integrations_query(

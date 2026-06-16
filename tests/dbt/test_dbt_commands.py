@@ -238,15 +238,15 @@ class TestDBTDeploy:
                 "deploy",
                 "TEST_PIPELINE",
                 f"--source={dbt_project_path}",
-                "--default-environment=dev",
+                "--default-env=dev",
             ]
         )
 
         assert result.exit_code == 0, result.output
         mock_deploy.assert_called_once()
         call_kwargs = mock_deploy.call_args[1]
-        assert call_kwargs["attrs"].default_environment == "dev"
-        assert call_kwargs["attrs"].unset_default_environment is False
+        assert call_kwargs["attrs"].default_env == "dev"
+        assert call_kwargs["attrs"].unset_default_env is False
 
     def test_deploy_with_unset_default_environment_passes_to_manager(
         self, runner, dbt_project_path, mock_deploy
@@ -257,15 +257,15 @@ class TestDBTDeploy:
                 "deploy",
                 "TEST_PIPELINE",
                 f"--source={dbt_project_path}",
-                "--unset-default-environment",
+                "--unset-default-env",
             ]
         )
 
         assert result.exit_code == 0, result.output
         mock_deploy.assert_called_once()
         call_kwargs = mock_deploy.call_args[1]
-        assert call_kwargs["attrs"].default_environment is None
-        assert call_kwargs["attrs"].unset_default_environment is True
+        assert call_kwargs["attrs"].default_env is None
+        assert call_kwargs["attrs"].unset_default_env is True
 
     def test_deploy_with_both_default_environment_and_unset_default_environment_fails(
         self,
@@ -279,15 +279,15 @@ class TestDBTDeploy:
                 "deploy",
                 "TEST_PIPELINE",
                 f"--source={dbt_project_path}",
-                "--default-environment=dev",
-                "--unset-default-environment",
+                "--default-env=dev",
+                "--unset-default-env",
             ]
         )
 
         assert result.exit_code == 2, result.output
         # Box-rendered error wraps across lines; check the key parts.
-        assert "'--unset-default-environment'" in result.output
-        assert "'--default-environment'" in result.output
+        assert "'--unset-default-env'" in result.output
+        assert "'--default-env'" in result.output
         assert "incompatible" in result.output
 
     def test_deploy_with_default_target_passes_to_manager(

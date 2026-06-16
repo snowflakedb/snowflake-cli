@@ -392,7 +392,7 @@ def test_deploy_with_default_environment(
     test_database,
     project_directory,
 ):
-    """Exercise --default-environment / --unset-default-environment lifecycle."""
+    """Exercise --default-env / --unset-default-env lifecycle."""
     with project_directory("dbt_project") as root_dir:
         ts = int(datetime.datetime.now().timestamp())
         name = f"dbt_project_default_env_{ts}"
@@ -412,23 +412,23 @@ def test_deploy_with_default_environment(
         }
         (root_dir / ENV_FILENAME).write_text(yaml.dump(env_yml))
 
-        # 1. CREATE path: deploy with --default-environment=dev
+        # 1. CREATE path: deploy with --default-env=dev
         result = runner.invoke_with_connection_json(
-            ["dbt", "deploy", name, "--default-environment", "dev"]
+            ["dbt", "deploy", name, "--default-env", "dev"]
         )
         assert result.exit_code == 0, result.output
         _assert_default_environment(name, runner, "dev")
 
         # 2. ALTER SET path: change the default environment on existing object
         result = runner.invoke_with_connection_json(
-            ["dbt", "deploy", name, "--default-environment", "prod"]
+            ["dbt", "deploy", name, "--default-env", "prod"]
         )
         assert result.exit_code == 0, result.output
         _assert_default_environment(name, runner, "prod")
 
         # 3. ALTER UNSET path: clear the default environment
         result = runner.invoke_with_connection_json(
-            ["dbt", "deploy", name, "--unset-default-environment"]
+            ["dbt", "deploy", name, "--unset-default-env"]
         )
         assert result.exit_code == 0, result.output
         _assert_default_environment(name, runner, None)
@@ -469,7 +469,7 @@ def test_deploy_with_env_file_dir(
                 name,
                 "--env-file-dir",
                 str(env_dir.resolve()),
-                "--default-environment",
+                "--default-env",
                 "dev",
             ]
         )

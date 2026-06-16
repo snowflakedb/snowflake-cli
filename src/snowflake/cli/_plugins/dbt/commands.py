@@ -75,13 +75,13 @@ UnsetDefaultTargetOption = OverrideableOption(
 )
 DefaultEnvironmentOption = OverrideableOption(
     None,
-    "--default-environment",
-    mutually_exclusive=["unset_default_environment"],
+    "--default-env",
+    mutually_exclusive=["unset_default_env"],
 )
 UnsetDefaultEnvironmentOption = OverrideableOption(
     False,
-    "--unset-default-environment",
-    mutually_exclusive=["default_environment"],
+    "--unset-default-env",
+    mutually_exclusive=["default_env"],
 )
 
 add_object_command_aliases(
@@ -100,8 +100,8 @@ def _env_callback(value: Optional[str]) -> Optional[str]:
     return _reject_control_chars(value, "--env")
 
 
-def _default_environment_callback(value: Optional[str]) -> Optional[str]:
-    return _reject_control_chars(value, "--default-environment")
+def _default_env_callback(value: Optional[str]) -> Optional[str]:
+    return _reject_control_chars(value, "--default-env")
 
 
 @app.command(
@@ -140,18 +140,18 @@ def deploy_dbt(
     unset_default_target: Optional[bool] = UnsetDefaultTargetOption(
         help="Unset the default target for the dbt project. Mutually exclusive with --default-target.",
     ),
-    default_environment: Optional[str] = DefaultEnvironmentOption(
+    default_env: Optional[str] = DefaultEnvironmentOption(
         help=(
             f"Default environment for the dbt project. "
             f"Selects the environment block from {ENV_FILENAME} that the project "
             f"compiles and executes with by default. "
-            f"Mutually exclusive with --unset-default-environment."
+            f"Mutually exclusive with --unset-default-env."
         ),
-        callback=_default_environment_callback,
+        callback=_default_env_callback,
         hidden=not FeatureFlag.ENABLE_DBT_PROJECT_ENV_VARS.is_enabled(),
     ),
-    unset_default_environment: Optional[bool] = UnsetDefaultEnvironmentOption(
-        help="Unset the default environment for the dbt project. Mutually exclusive with --default-environment.",
+    unset_default_env: Optional[bool] = UnsetDefaultEnvironmentOption(
+        help="Unset the default environment for the dbt project. Mutually exclusive with --default-env.",
         hidden=not FeatureFlag.ENABLE_DBT_PROJECT_ENV_VARS.is_enabled(),
     ),
     external_access_integrations: Optional[list[str]] = typer.Option(
@@ -187,8 +187,8 @@ def deploy_dbt(
     attrs = DBTDeployAttributes(
         default_target=default_target,
         unset_default_target=unset_default_target,
-        default_environment=default_environment,
-        unset_default_environment=unset_default_environment,
+        default_env=default_env,
+        unset_default_env=unset_default_env,
         external_access_integrations=external_access_integrations,
         install_local_deps=install_local_deps,
         dbt_version=dbt_version,
