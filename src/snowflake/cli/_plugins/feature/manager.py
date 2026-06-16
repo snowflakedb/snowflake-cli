@@ -569,7 +569,9 @@ class FeatureManager(SqlExecutionMixin):
         # spec and the exporter's strict-cutover check raises.  See
         # docs/CHANGES.md "Init export unified with applied-state
         # path" for the cascade analysis.
-        _export_fn = decl_api.export_specs_as_python if python else decl_api.export_specs
+        _export_fn = (
+            decl_api.export_specs_as_python if python else decl_api.export_specs
+        )
         return _export_fn(
             show_rows,
             {},
