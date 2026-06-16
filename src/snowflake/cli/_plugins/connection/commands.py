@@ -311,8 +311,13 @@ def add(
         "server_session_keep_alive": server_session_keep_alive,
     }
 
+    # Boolean options that should not be prompted interactively
+    _non_interactive_options = {"server_session_keep_alive"}
+
     if not no_interactive:
         for option in connection_options:
+            if option in _non_interactive_options:
+                continue
             if connection_options[option] is None:
                 connection_options[option] = typer.prompt(
                     f"Enter {option.replace('_', ' ')}",
