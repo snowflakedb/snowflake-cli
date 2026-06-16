@@ -309,7 +309,34 @@ aborts.
 
 The plumbing is intentionally lean: a single private helper on `FeatureManager`, invoked at the two `decl_api.fetch_applied_state(...)` call sites and nowhere else.
 
-### `FeatureManager._fetch_stream_source_rows(target)`
+### `init --python`: Python-form export
+
+When `snow feature init --python` is passed, `init()` routes to
+`decl_api.export_specs_as_python()` instead of `decl_api.export_specs()`.
+The exported `.py` files contain module-level Pydantic constructor calls for
+every deployed object, loadable by `loader.load_python_file()` and planning
+as `NO_CHANGE` on round-trip.  No YAML files are written when `--python` is set.
+
+The dispatch lives in `_export_into_sources()`:
+
+```python
+_export_fn = decl_api.export_specs_as_python if python else decl_api.export_specs
+return _export_fn(
+    show_rows, {}, str(project_root), database, schema,
+    specification_map=specification_map,
+    entity_rows=entity_rows,
+    feature_group_rows=feature_group_rows,
+    applied_state=applied_state,
+    layout="sources",
+)
+```
+
+The `layout="sources"` argument is unchanged — files are still written under
+`sources/{entities,datasources,feature_views}/` just with `.py` extension.
+
+---
+
+
 
 ```python
 def _fetch_stream_source_rows(self, target: FSTarget) -> list[dict[str, Any]]:
