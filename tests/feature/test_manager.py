@@ -948,6 +948,90 @@ class TestFeatureManagerInit:
 
 
 # ===========================================================================
+# init --python flag
+# ===========================================================================
+
+
+class TestInitPythonFlag:
+    """``FeatureManager.init(python=True)`` routes to export_specs_as_python."""
+
+    def _patch_feature_store(self):
+        return (
+            mock.patch("snowflake.ml.feature_store.feature_store.FeatureStore"),
+            mock.patch("snowflake.ml.feature_store.feature_store.CreationMode"),
+        )
+
+    def test_python_true_calls_export_specs_as_python(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """When python=True, export_specs_as_python must be called."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path, python=True)
+
+        mock_decl.export_specs_as_python.assert_called_once()
+
+    def test_python_true_does_not_call_export_specs(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """When python=True, the YAML export_specs must NOT be called."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path, python=True)
+
+        mock_decl.export_specs.assert_not_called()
+
+    def test_python_false_calls_export_specs_not_python_variant(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """Default (python=False) must call export_specs, not export_specs_as_python."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path, python=False)
+
+        mock_decl.export_specs.assert_called_once()
+        mock_decl.export_specs_as_python.assert_not_called()
+
+    def test_python_true_uses_sources_layout(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """Python export must use layout='sources' like the YAML path."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path, python=True)
+
+        call = mock_decl.export_specs_as_python.call_args
+        assert call.kwargs.get("layout") == "sources"
+
+    def test_python_true_result_includes_export_envelope(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """Result dict must include the export envelope even in python mode."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            result = FeatureManager().init(project_root=tmp_path, python=True)
+
+        assert result["status"] == "initialized"
+        assert "export" in result
+        assert result["export"]["status"] == "exported"
+
+
+# ===========================================================================
 # plan — read-only validate + plan against the manifest target
 # ===========================================================================
 
