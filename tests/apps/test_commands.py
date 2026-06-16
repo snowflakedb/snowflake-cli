@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -1245,6 +1246,112 @@ class TestSnowflakeAppManager:
         # string literal (which would yield an invalid ``PUT ''file://...''``).
         assert "''file://" not in put_query
 
+    @patch(EXECUTE_QUERY)
+    def test_upload_to_stage_builds_per_file_puts(self, mock_execute, tmp_path):
+        """``upload_to_stage`` PUTs each file individually, preserving the
+        relative directory structure, and never via a ``PUT <dir>/*`` glob.
+
+        The glob form also matches subdirectories, which the connector rejects
+        with error 253006 (``Not a file but a directory``); uploading
+        file-by-file avoids that entire failure mode."""
+        from snowflake.cli._plugins.apps.manager import _local_path_to_file_uri
+
+        (tmp_path / "main.py").write_text("print('hi')")
+        (tmp_path / "nested").mkdir()
+        (tmp_path / "nested" / "util.py").write_text("X = 1")
+        fqn = FQN(database="DB", schema="SCHEMA", name="MY_STAGE")
+
+        results = list(
+            SnowflakeAppManager().upload_to_stage(
+                local_root=tmp_path,
+                stage_fqn=fqn,
+                overwrite=True,
+            )
+        )
+
+        assert sorted(r["source"] for r in results) == [
+            "main.py",
+            os.path.join("nested", "util.py"),
+        ]
+
+        put_queries = [call[0][0] for call in mock_execute.call_args_list]
+        # One PUT per file, never a directory glob (the 253006 trigger).
+        assert len(put_queries) == 2
+        for query in put_queries:
+            assert query.startswith("PUT ")
+            assert "/*" not in query
+
+        main_uri = _local_path_to_file_uri(str((tmp_path / "main.py").resolve()))
+        nested_uri = _local_path_to_file_uri(
+            str((tmp_path / "nested" / "util.py").resolve())
+        )
+        assert (
+            f"PUT {main_uri} @DB.SCHEMA.MY_STAGE " f"auto_compress=false overwrite=true"
+        ) in put_queries
+        assert (
+            f"PUT {nested_uri} @DB.SCHEMA.MY_STAGE/nested "
+            f"auto_compress=false overwrite=true"
+        ) in put_queries
+
+    @patch(EXECUTE_QUERY)
+    def test_upload_to_stage_does_not_mutate_local_bundle(self, mock_execute, tmp_path):
+        """Uploading must not delete the local bundle (the recursive ``PUT``
+        helper removed directories in place as it walked the tree)."""
+        (tmp_path / "pkg").mkdir()
+        (tmp_path / "pkg" / "mod.py").write_text("Y = 2")
+        (tmp_path / "top.py").write_text("Z = 3")
+        fqn = FQN(database="DB", schema="SCHEMA", name="MY_STAGE")
+
+        list(SnowflakeAppManager().upload_to_stage(local_root=tmp_path, stage_fqn=fqn))
+
+        assert (tmp_path / "pkg" / "mod.py").is_file()
+        assert (tmp_path / "top.py").is_file()
+
+    @pytest.mark.parametrize("upload", ["stage", "workspace"])
+    @patch(EXECUTE_QUERY)
+    def test_upload_escapes_glob_metacharacter_paths(
+        self, mock_execute, upload, tmp_path
+    ):
+        """Files under glob-metacharacter directories (e.g. a Next.js ``[id]``
+        dynamic route) must be PUT with an escaped path.
+
+        The connector expands every PUT source through ``glob.glob``; an
+        unescaped ``[id]`` is read as a character class that matches nothing
+        (connector error 253006, ``File doesn't exist``) instead of the literal
+        file. This guards both upload paths against that regression."""
+        import glob as globmod
+
+        nested = tmp_path / "app" / "[id]"
+        nested.mkdir(parents=True)
+        (nested / "page.tsx").write_text("x")
+        fqn = FQN(database="DB", schema="SCHEMA", name="THING")
+
+        if upload == "stage":
+            list(
+                SnowflakeAppManager().upload_to_stage(
+                    local_root=tmp_path, stage_fqn=fqn
+                )
+            )
+        else:
+            list(
+                SnowflakeAppManager().upload_to_workspace(
+                    local_root=tmp_path,
+                    workspace_fqn=fqn,
+                    target_subdirectory="MY_APP",
+                )
+            )
+
+        put_query = mock_execute.call_args_list[0][0][0]
+        assert put_query.startswith("PUT ")
+        # The literal bracket must be escaped in the emitted PUT...
+        assert "[[]id]" in put_query
+        # ...and the connector's glob expansion of the source must resolve to
+        # exactly the real file (not empty, and not a directory).
+        source = put_query[len("PUT ") :].split(" ", 1)[0]
+        assert source.startswith("file://")
+        local = source[len("file://") :]
+        assert globmod.glob(local) == [str((nested / "page.tsx").resolve())]
+
     @pytest.mark.parametrize(
         "native_path,expected_uri",
         [
@@ -1259,6 +1366,21 @@ class TestSnowflakeAppManager:
             ),
             # POSIX absolute path yields the valid three-slash form.
             ("/home/dev/bundle/app.py", "file:///home/dev/bundle/app.py"),
+            # Glob metacharacters (e.g. Next.js dynamic-route directories) are
+            # escaped so the connector's glob.glob expansion matches the literal
+            # path instead of treating ``[id]`` as a character class.
+            ("/proj/app/[id]/page.tsx", "file:///proj/app/[[]id]/page.tsx"),
+            (
+                "/proj/app/[...slug]/route.ts",
+                "file:///proj/app/[[]...slug]/route.ts",
+            ),
+            # Windows path with glob metacharacters: native backslashes are
+            # preserved and the ``[`` is escaped. Exercises the Windows +
+            # metacharacter interaction deterministically on every platform.
+            ("C:\\app\\[id]\\page.tsx", "file://C:\\app\\[[]id]\\page.tsx"),
+            # ...and the same when a space forces a quoted literal (backslashes
+            # doubled, escaped bracket retained).
+            ("C:\\My App\\[id]\\p.tsx", "'file://C:\\\\My App\\\\[[]id]\\\\p.tsx'"),
         ],
     )
     def test_local_path_to_file_uri(self, native_path, expected_uri):
@@ -5254,7 +5376,6 @@ class TestDeployCommand:
         mock_mgr.get_service_logs.assert_not_called()
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
-    @patch("snowflake.cli._plugins.apps.commands.StageManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch(
@@ -5283,7 +5404,6 @@ class TestDeployCommand:
         mock_defaults,
         mock_manager_cls,
         mock_perform_bundle,
-        mock_stage_manager_cls,
         mock_poll,
         runner,
         tmp_path,
@@ -5386,7 +5506,6 @@ class TestDeployCommand:
         assert mock_poll.call_count == 2
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
-    @patch("snowflake.cli._plugins.apps.commands.StageManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch(
@@ -5415,7 +5534,6 @@ class TestDeployCommand:
         mock_defaults,
         mock_manager_cls,
         mock_perform_bundle,
-        mock_stage_manager_cls,
         mock_poll,
         runner,
         tmp_path,
@@ -5491,7 +5609,6 @@ class TestDeployCommand:
         assert create_kwargs["artifact_repo_fqn"] == expected_repo_fqn
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
-    @patch("snowflake.cli._plugins.apps.commands.StageManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch(
@@ -5520,7 +5637,6 @@ class TestDeployCommand:
         mock_defaults,
         mock_manager_cls,
         mock_perform_bundle,
-        mock_stage_manager_cls,
         mock_poll,
         runner,
         tmp_path,
@@ -5582,7 +5698,6 @@ class TestDeployCommand:
         )
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
-    @patch("snowflake.cli._plugins.apps.commands.StageManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch(
@@ -5611,7 +5726,6 @@ class TestDeployCommand:
         mock_defaults,
         mock_manager_cls,
         mock_perform_bundle,
-        mock_stage_manager_cls,
         mock_poll,
         runner,
         tmp_path,
@@ -5679,7 +5793,6 @@ class TestDeployCommand:
             project_type="",
         )
 
-    @patch("snowflake.cli._plugins.apps.commands.StageManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch(
@@ -5708,7 +5821,6 @@ class TestDeployCommand:
         mock_defaults,
         mock_manager_cls,
         mock_perform_bundle,
-        mock_stage_manager_cls,
         runner,
         tmp_path,
     ):
@@ -5761,7 +5873,6 @@ class TestDeployCommand:
 
         mock_mgr.build_app_artifact_repo.assert_not_called()
 
-    @patch("snowflake.cli._plugins.apps.commands.StageManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch(
@@ -5790,7 +5901,6 @@ class TestDeployCommand:
         mock_defaults,
         mock_manager_cls,
         mock_perform_bundle,
-        mock_stage_manager_cls,
         runner,
         tmp_path,
     ):
@@ -5841,7 +5951,6 @@ class TestDeployCommand:
         mock_mgr.create_stage.assert_not_called()
         mock_mgr.build_app_artifact_repo.assert_not_called()
 
-    @patch("snowflake.cli._plugins.apps.commands.StageManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch(
@@ -5870,7 +5979,6 @@ class TestDeployCommand:
         mock_defaults,
         mock_manager_cls,
         mock_perform_bundle,
-        mock_stage_manager_cls,
         runner,
         tmp_path,
     ):
@@ -5923,7 +6031,6 @@ class TestDeployCommand:
         mock_mgr.clear_workspace_subdirectory.assert_not_called()
         mock_mgr.build_app_artifact_repo.assert_not_called()
 
-    @patch("snowflake.cli._plugins.apps.commands.StageManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch(
@@ -5952,7 +6059,6 @@ class TestDeployCommand:
         mock_defaults,
         mock_manager_cls,
         mock_perform_bundle,
-        mock_stage_manager_cls,
         runner,
         tmp_path,
     ):
@@ -6004,7 +6110,6 @@ class TestDeployCommand:
         mock_mgr.build_app_artifact_repo.assert_not_called()
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
-    @patch("snowflake.cli._plugins.apps.commands.StageManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch(
@@ -6033,7 +6138,6 @@ class TestDeployCommand:
         mock_defaults,
         mock_manager_cls,
         mock_perform_bundle,
-        mock_stage_manager_cls,
         mock_poll,
         runner,
         tmp_path,
@@ -6107,7 +6211,6 @@ class TestDeployCommand:
         )
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
-    @patch("snowflake.cli._plugins.apps.commands.StageManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch(
@@ -6136,7 +6239,6 @@ class TestDeployCommand:
         mock_defaults,
         mock_manager_cls,
         mock_perform_bundle,
-        mock_stage_manager_cls,
         mock_poll,
         runner,
         tmp_path,
@@ -6212,7 +6314,6 @@ class TestDeployCommand:
             assert "Only one of" in result.output
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
-    @patch("snowflake.cli._plugins.apps.commands.StageManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch(
@@ -6241,7 +6342,6 @@ class TestDeployCommand:
         mock_defaults,
         mock_manager_cls,
         mock_perform_bundle,
-        mock_stage_manager_cls,
         mock_poll,
         runner,
         tmp_path,
@@ -6301,7 +6401,6 @@ class TestDeployCommand:
         mock_mgr.build_app_artifact_repo.assert_called_once()
         mock_mgr.create_app_service.assert_called_once()
 
-    @patch("snowflake.cli._plugins.apps.commands.StageManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch(
@@ -6330,7 +6429,6 @@ class TestDeployCommand:
         mock_defaults,
         mock_manager_cls,
         mock_perform_bundle,
-        mock_stage_manager_cls,
         runner,
         tmp_path,
     ):
@@ -6564,7 +6662,6 @@ class TestDeployCommand:
         mock_mgr.build_app_artifact_repo.assert_not_called()
         mock_mgr.stage_exists.assert_not_called()
 
-    @patch("snowflake.cli._plugins.apps.commands.StageManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch(
@@ -6593,7 +6690,6 @@ class TestDeployCommand:
         mock_defaults,
         mock_manager_cls,
         mock_perform_bundle,
-        mock_stage_manager_cls,
         runner,
         tmp_path,
     ):
@@ -6665,7 +6761,6 @@ class TestDeployCommand:
             assert "query_warehouse is required" not in result.output
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
-    @patch("snowflake.cli._plugins.apps.commands.StageManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch(
@@ -6694,7 +6789,6 @@ class TestDeployCommand:
         mock_defaults,
         mock_manager_cls,
         mock_perform_bundle,
-        mock_stage_manager_cls,
         mock_poll,
         runner,
         tmp_path,
@@ -6764,7 +6858,6 @@ class TestDeployCommand:
         assert create_kwargs["compute_pool"] == "SVC_POOL"
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
-    @patch("snowflake.cli._plugins.apps.commands.StageManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch(
@@ -6793,7 +6886,6 @@ class TestDeployCommand:
         mock_defaults,
         mock_manager_cls,
         mock_perform_bundle,
-        mock_stage_manager_cls,
         mock_poll,
         runner,
         tmp_path,
