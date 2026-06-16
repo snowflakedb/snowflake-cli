@@ -338,6 +338,11 @@ def init(
         ),
         show_default=False,
     ),
+    python_form: bool = typer.Option(
+        False,
+        "--python",
+        help="Export deployed objects as .py files (Pydantic constructors) instead of YAML.",
+    ),
     **options,
 ) -> CommandResult:
     """Bootstrap a feature-store project and pull deployed artifacts.
@@ -349,7 +354,8 @@ def init(
     scaffolds ``sources/{entities,datasources,feature_views}/`` plus
     ``out/plan/.gitkeep``, runs the Snowflake-side ``FeatureStore``
     bootstrap (CREATE_IF_NOT_EXIST), and pulls every deployed object
-    into ``sources/`` as YAML.
+    into ``sources/`` as YAML (or ``.py`` files when ``--python`` is
+    passed).
 
     Re-running ``init`` is fully idempotent: the existing manifest is
     preserved, the FS bootstrap re-runs, and the export refreshes the
@@ -359,13 +365,6 @@ def init(
     error (the manifest is the source of truth — edit it directly to
     move a target).
     """
-    # ``--database`` / ``--schema`` arrive in ``**options`` via the
-    # global ``requires_connection`` decorator.  Forward both values
-    # to the manager so a fresh init can bake them into the new
-    # manifest, and a re-init can detect a mismatch against the
-    # resolved manifest target.  Without this forwarding the override
-    # was silently dropped (the original bug — the manifest ended up
-    # carrying the connection profile's default schema).
     db_override: Optional[str] = options.get("database")
     sch_override: Optional[str] = options.get("schema")
     del options
@@ -374,6 +373,7 @@ def init(
         target_name=target,
         database=db_override,
         schema=sch_override,
+        python=python_form,
     )
     return _to_object(result)
 

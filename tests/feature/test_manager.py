@@ -162,13 +162,11 @@ def mock_decl():
         exec_result.errors = []
         m.execute_plan.return_value = exec_result
 
-        # decl_api.export_specs is a regular function in the real module;
-        # in the mock we hand back a sensible result dict by default.
-        m.export_specs.return_value = {
-            "status": "exported",
-            "directory": "",
-            "files": [],
-        }
+        # decl_api.export_specs / export_specs_as_python are regular functions in the
+        # real module; hand back sensible result dicts by default.
+        _export_result = {"status": "exported", "directory": "", "files": []}
+        m.export_specs.return_value = _export_result
+        m.export_specs_as_python.return_value = _export_result
 
         # ``assert_feature_store_initialized`` is the init-first guard
         # (docs/DEVELOPMENT_STANDARDS.md rule #11).  ``MagicMock``

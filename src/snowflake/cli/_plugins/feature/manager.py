@@ -276,6 +276,7 @@ class FeatureManager(SqlExecutionMixin):
         target_name: Optional[str] = None,
         database: Optional[str] = None,
         schema: Optional[str] = None,
+        python: bool = False,
     ) -> dict[str, Any]:
         """Idempotent project bootstrap that pulls deployed artifacts.
 
@@ -320,6 +321,9 @@ class FeatureManager(SqlExecutionMixin):
             schema: Optional schema override.  Symmetric to *database*
                 — baked into a fresh manifest, mismatch-rejected on a
                 re-init.
+            python: When ``True``, export deployed objects as ``.py``
+                files (Pydantic constructor calls) instead of YAML.
+                Default ``False`` (YAML mode).
 
         Returns:
             ``{status, project_root, manifest_path, target,
@@ -443,6 +447,7 @@ class FeatureManager(SqlExecutionMixin):
             project_root=project_root,
             database=target_db,
             schema=target_sch,
+            python=python,
         )
 
         return {
@@ -460,6 +465,7 @@ class FeatureManager(SqlExecutionMixin):
         project_root: Path,
         database: str,
         schema: str,
+        python: bool = False,
     ) -> dict[str, Any]:
         """Run the deployed-state export pipeline into ``<project_root>/sources/``.
 
@@ -506,9 +512,13 @@ class FeatureManager(SqlExecutionMixin):
                 feature_views,feature_groups}/``.
             database: Snowflake database to export from.
             schema: Snowflake schema to export from.
+            python: When ``True``, delegate to
+                :func:`decl_api.export_specs_as_python` and emit
+                ``.py`` files instead of YAML.  Default ``False``.
 
         Returns:
-            The envelope returned by :func:`decl_api.export_specs`.
+            The envelope returned by :func:`decl_api.export_specs` or
+            :func:`decl_api.export_specs_as_python`.
         """
         # Re-use the manifest target's db/schema to fetch entity tags
         # and the imperative-side FV / FG rows; the imperative facades
@@ -545,9 +555,9 @@ class FeatureManager(SqlExecutionMixin):
             datasources_by_table=datasources_by_table,
         )
 
-        # Always delegate to ``decl_api.export_specs`` — it owns the
-        # "empty input → noop envelope" semantics so the manager
-        # doesn't second-guess the library boundary.
+        # Delegate to the appropriate export path based on the caller's
+        # ``python`` flag.  Both functions own "empty input → noop envelope"
+        # semantics so the manager doesn't second-guess the library boundary.
         #
         # ``specification_map`` is the per-OFT raw DESCRIBE payload
         # (same map ``fetch_applied_state`` consumed).  It is the
@@ -559,7 +569,8 @@ class FeatureManager(SqlExecutionMixin):
         # spec and the exporter's strict-cutover check raises.  See
         # docs/CHANGES.md "Init export unified with applied-state
         # path" for the cascade analysis.
-        return decl_api.export_specs(
+        _export_fn = decl_api.export_specs_as_python if python else decl_api.export_specs
+        return _export_fn(
             show_rows,
             {},
             str(project_root),
