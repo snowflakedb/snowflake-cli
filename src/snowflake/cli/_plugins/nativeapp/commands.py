@@ -55,7 +55,10 @@ from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
 )
 from snowflake.cli._plugins.nativeapp.version.commands import app as versions_app
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
-from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.cli_global_context import (
+    get_cli_context,
+    get_cli_context_manager,
+)
 from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
@@ -102,8 +105,15 @@ def _app_group_callback() -> None:
     We no longer set a default here. The ``app_flow`` field will be absent on
     ``executing_command`` events (matching the documented contract in
     telemetry.py) and present with the correct value on result/error events.
+
+    We do, however, pin the project-definition encoding to UTF-8 for the whole
+    ``snow app`` command group. ``snowflake.yml`` is a CLI-owned manifest and
+    is always written as UTF-8, so reading it as UTF-8 keeps app commands
+    working with non-ASCII content (e.g. a non-Latin app title) regardless of
+    the host's default code page (cp1252/cp932 on Windows). Other command
+    groups are unaffected and keep honoring ``cli.encoding.file_io``.
     """
-    pass
+    get_cli_context_manager().project_definition_encoding = "utf-8"
 
 
 log = logging.getLogger(__name__)
