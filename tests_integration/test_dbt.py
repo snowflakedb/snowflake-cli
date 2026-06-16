@@ -866,7 +866,7 @@ def test_execute_with_env_and_env_vars(
 
         # 3. --env-vars overrides one key from the prod block
         row = _run_and_fetch(
-            ["--env=prod", "--env-vars", '{"DBT_FOO": "override_foo"}']
+            ["--env=prod", "--env-vars", "('DBT_FOO'='override_foo')"]
         )
         assert row["FOO"] == "override_foo", row
         assert row["BAR"] == "prod_bar", row
@@ -878,7 +878,7 @@ def test_execute_with_env_and_env_vars(
 
         # 5. --env-vars without --env still applies (and env.yml's
         # default_environment 'dev' provides the un-overridden var)
-        row = _run_and_fetch(["--env-vars", '{"DBT_FOO": "only_foo"}'])
+        row = _run_and_fetch(["--env-vars", "('DBT_FOO'='only_foo')"])
         assert row["FOO"] == "only_foo", row
         assert row["BAR"] == "dev_bar", row
 
@@ -944,7 +944,7 @@ def test_execute_with_use_shell_env_vars(
             [
                 "--use-shell-env-vars",
                 "--env-vars",
-                '{"DBT_FOO": "explicit_foo"}',
+                "('DBT_FOO'='explicit_foo')",
                 "--env=prod",
             ]
         )

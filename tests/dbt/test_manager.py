@@ -1532,49 +1532,55 @@ class TestExecute:
                 id="environment-no-env-sentinel",
             ),
             pytest.param(
-                {"env_vars": '{"DBT_FOO": "1"}'},
+                {"env_vars": "('DBT_FOO'='1')"},
                 (),
                 "EXECUTE DBT PROJECT pipeline ENV_VARS=('DBT_FOO'='1') args='run'",
-                id="env-vars-json-single",
+                id="env-vars-sql-single",
             ),
             pytest.param(
-                {"env_vars": '{"DBT_FOO": "1", "DBT_BAR": "2"}'},
+                {"env_vars": "('DBT_FOO'='1', 'DBT_BAR'='2')"},
                 (),
                 "EXECUTE DBT PROJECT pipeline "
                 "ENV_VARS=('DBT_FOO'='1', 'DBT_BAR'='2') args='run'",
-                id="env-vars-json-multi",
+                id="env-vars-sql-multi",
             ),
             pytest.param(
-                {"env_vars": "{DBT_FOO: '1', DBT_BAR: '2'}"},
+                {"env_vars": "  ( 'DBT_FOO' = '1' ,  'DBT_BAR'='2' )  "},
                 (),
                 "EXECUTE DBT PROJECT pipeline "
                 "ENV_VARS=('DBT_FOO'='1', 'DBT_BAR'='2') args='run'",
-                id="env-vars-yaml-quoted-strings",
+                id="env-vars-sql-whitespace-tolerant",
             ),
             pytest.param(
-                {"env_vars": '{"DBT_URL": "https://example.com/?a=b"}'},
+                {"env_vars": "('DBT_URL'='https://example.com/?a=b')"},
                 (),
                 "EXECUTE DBT PROJECT pipeline "
                 "ENV_VARS=('DBT_URL'='https://example.com/?a=b') args='run'",
-                id="env-vars-value-with-equals",
+                id="env-vars-sql-value-with-equals",
             ),
             pytest.param(
-                {"env_vars": 'DBT_MSG: "it\'s"'},
+                {"env_vars": "('DBT_MSG'='it''s')"},
                 (),
                 "EXECUTE DBT PROJECT pipeline "
                 "ENV_VARS=('DBT_MSG'='it''s') args='run'",
-                id="env-vars-value-with-single-quote-escaped",
+                id="env-vars-sql-escaped-quote",
+            ),
+            pytest.param(
+                {"env_vars": "()"},
+                (),
+                "EXECUTE DBT PROJECT pipeline args='run'",
+                id="env-vars-sql-empty",
             ),
             pytest.param(
                 {
                     "dbt_version": "1.9.0",
                     "environment": "prod",
-                    "env_vars": '{"DBT_FOO": "1"}',
+                    "env_vars": "('DBT_FOO'='1')",
                 },
                 (),
                 "EXECUTE DBT PROJECT pipeline dbt_version='1.9.0' "
                 "ENVIRONMENT='prod' ENV_VARS=('DBT_FOO'='1') args='run'",
-                id="all-options-ordering",
+                id="env-vars-sql-all-options-ordering",
             ),
         ],
     )
@@ -1604,79 +1610,69 @@ class TestExecute:
         "raw_value,expected_error",
         [
             pytest.param(
-                '"just_a_string"',
-                "must be a YAML/JSON object",
-                id="non-mapping-string",
-            ),
-            pytest.param(
-                "[1, 2, 3]",
-                "must be a YAML/JSON object",
-                id="non-mapping-list",
-            ),
-            pytest.param(
-                '{"DBT_X": null}',
-                "must not be null",
-                id="null-value",
-            ),
-            pytest.param(
-                '{"DBT_X": 1}',
-                "must be a string",
-                id="int-value",
-            ),
-            pytest.param(
-                '{"DBT_X": 1.5}',
-                "must be a string",
-                id="float-value",
-            ),
-            pytest.param(
-                '{"DBT_X": true}',
-                "must be a string",
-                id="bool-value",
-            ),
-            pytest.param(
-                '{"DBT_X": {"nested": "1"}}',
-                "must be a string",
-                id="nested-object",
-            ),
-            pytest.param(
-                '{"DBT_X": ["1", "2"]}',
-                "must be a string",
-                id="nested-array",
-            ),
-            pytest.param(
-                "{not: valid: yaml: at: all",
-                "must be valid YAML/JSON",
-                id="malformed-yaml",
-            ),
-            pytest.param(
-                '{"DBT_FOO": "1", "DBT_FOO": "2"}',
-                "duplicate key",
-                id="duplicate-key",
-            ),
-            pytest.param(
-                '{"": "v"}',
+                "(''='v')",
                 "must not be empty",
                 id="empty-key",
             ),
             pytest.param(
-                '{"FOO": "1"}',
-                "must start with",
-                id="key-missing-dbt-prefix",
-            ),
-            pytest.param(
-                '{"DBT-FOO": "1"}',
+                "('DBT-FOO'='1')",
                 "ASCII letters",
                 id="key-invalid-chars-hyphen",
             ),
             pytest.param(
-                '{"DBT FOO": "1"}',
+                "('DBT FOO'='1')",
                 "ASCII letters",
                 id="key-invalid-chars-space",
             ),
             pytest.param(
-                '{"DBT_FOO": "value\\nwith\\nnewlines"}',
+                "('DBT_FOO'='a\nb')",
                 "must not contain control characters",
                 id="value-control-char",
+            ),
+            pytest.param(
+                '("DBT_FOO"="1")',
+                "single quotes",
+                id="sql-double-quotes-rejected",
+            ),
+            pytest.param(
+                "('DBT_FOO'='1'",
+                "wrapped in parentheses",
+                id="sql-missing-closing-paren",
+            ),
+            pytest.param(
+                "('DBT_FOO')",
+                "expected '='",
+                id="sql-missing-equals",
+            ),
+            pytest.param(
+                "('DBT_FOO'='1' 'DBT_BAR'='2')",
+                "expected ','",
+                id="sql-missing-comma",
+            ),
+            pytest.param(
+                "(DBT_FOO=1)",
+                "single-quoted string literal",
+                id="sql-unquoted",
+            ),
+            pytest.param(
+                "('DBT_FOO'='unterminated)",
+                "unterminated string literal",
+                id="sql-unterminated-literal",
+            ),
+            pytest.param(
+                "('DBT_FOO'='1', 'DBT_FOO'='2')",
+                "duplicate key",
+                id="sql-duplicate-key",
+            ),
+            pytest.param(
+                "('FOO'='1')",
+                "must start with",
+                id="sql-key-missing-dbt-prefix",
+            ),
+            pytest.param(
+                "('DBT_Foo'='1')",
+                "must be uppercase",
+                id="sql-key-not-uppercase",
             ),
         ],
     )
@@ -1703,7 +1699,7 @@ class TestExecute:
             False,
             None,
             None,
-            '{"DBT_ENV_SECRET_TOKEN": "xyz"}',
+            "('DBT_ENV_SECRET_TOKEN'='xyz')",
         )
 
         captured = capsys.readouterr()
@@ -1722,7 +1718,7 @@ class TestExecute:
             True,
             None,
             "dev",
-            '{"DBT_FOO": "1"}',
+            "('DBT_FOO'='1')",
         )
 
         mock_execute_query.assert_called_once_with(

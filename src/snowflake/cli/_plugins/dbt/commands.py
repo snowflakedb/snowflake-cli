@@ -241,15 +241,13 @@ def before_callback(
         "--env-vars",
         show_default=False,
         hidden=not FeatureFlag.ENABLE_DBT_PROJECT_ENV_VARS.is_enabled(),
-        help="Environment variable overrides as a YAML/JSON object, e.g. "
-        '\'{"DBT_FOO": "1", "DBT_BAR": "2"}\'. '
-        "Values must be strings; numbers, booleans, null, nested objects, "
-        "and arrays are rejected (quote scalars, e.g. 'DBT_FOO: \"1\"'). "
-        "Keys must be uppercase, start with 'DBT_', and contain only "
-        "letters, digits, and underscores. Variables with the "
-        "DBT_ENV_SECRET_ prefix are accepted but appear in the SQL text "
-        "and query history; to avoid that, use the secrets: block in "
-        "env.yml.",
+        help="Environment variable overrides as a parenthesized list of "
+        "single-quoted key=value pairs (Snowflake string-literal syntax; use "
+        "'' to escape a quote), e.g. \"('DBT_FOO'='1', 'DBT_BAR'='2')\". "
+        "Keys must be uppercase, start with 'DBT_', and contain only letters, "
+        "digits, and underscores. Variables with the DBT_ENV_SECRET_ prefix "
+        "are accepted but appear in the SQL text and query history; to avoid "
+        "that, use the secrets: block in env.yml.",
     ),
     use_shell_env_vars: bool = typer.Option(
         False,

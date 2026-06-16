@@ -45,6 +45,9 @@ DBT_ENV_SECRET_PREFIX = "DBT_ENV_SECRET_"
 _ENV_VAR_KEY_PREFIX = "DBT_"
 _ENV_VAR_KEY_RE = re.compile(r"^[A-Za-z0-9_]+$")
 _CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
+# A single-quoted SQL string literal (with '' escaping a quote), optionally
+# surrounded by horizontal whitespace. Group 1 is the still-escaped contents.
+_ENV_VAR_SQL_LITERAL_RE = re.compile(r"[ \t]*'((?:[^']|'')*)'[ \t]*")
 
 
 def _reject_control_chars(value: Optional[str], flag_name: str) -> Optional[str]:
@@ -632,50 +635,89 @@ class DBTManager(SqlExecutionMixin):
 
     @staticmethod
     def _parse_env_vars(raw: str) -> Dict[str, str]:
-        try:
-            parsed = yaml.load(raw, Loader=_NoDuplicatesSafeLoader)
-        except yaml.constructor.ConstructorError as e:
-            raise CliError(f"Failed to parse --env-vars: {e.problem}")
-        except yaml.YAMLError as e:
-            raise CliError(f"--env-vars must be valid YAML/JSON: {e}")
-        if not isinstance(parsed, dict):
+        """Parse --env-vars in the SQL string-literal form.
+
+        Example: "('DBT_FOO'='1', 'DBT_BAR'='2')". Keys and values are
+        single-quoted string literals, with a doubled single quote ('')
+        escaping a literal quote, mirroring Snowflake string-literal syntax.
+        This is the same form the CLI emits into the ENV_VARS=(...) clause, so
+        a clause copied from a query can be passed straight back in. Keys must
+        be uppercase, start with 'DBT_', and contain only ASCII letters,
+        digits, and underscores.
+        """
+        s = raw.strip()
+        if not (s.startswith("(") and s.endswith(")")):
             raise CliError(
-                "--env-vars must be a YAML/JSON object, " f"got {type(parsed).__name__}"
+                "--env-vars must be wrapped in parentheses, "
+                "e.g. \"('DBT_FOO'='1', 'DBT_BAR'='2')\""
             )
+        inner = s[1:-1]
+        n = len(inner)
+
+        def read_literal(pos: int):
+            """Match a single-quoted literal at pos; return (unescaped, next_pos)."""
+            m = _ENV_VAR_SQL_LITERAL_RE.match(inner, pos)
+            if m:
+                return m.group(1).replace("''", "'"), m.end()
+            rest = inner[pos:].lstrip(" \t")
+            if rest.startswith("'"):
+                raise CliError(f"--env-vars: unterminated string literal in {raw!r}")
+            hint = (
+                " (use single quotes for SQL string literals)"
+                if rest.startswith('"')
+                else ""
+            )
+            raise CliError(
+                f"--env-vars: expected a single-quoted string literal "
+                f"in {raw!r}{hint}"
+            )
+
         result: Dict[str, str] = {}
-        for k, v in parsed.items():
-            if not isinstance(k, str):
-                raise CliError(f"--env-vars key must be a string, got {k!r}")
-            if not k:
-                raise CliError("--env-vars key must not be empty")
-            if not _ENV_VAR_KEY_RE.match(k):
+        if not inner.strip(" \t"):  # "()" — no pairs
+            return result
+        pos = 0
+        while True:
+            key, pos = read_literal(pos)
+            if pos >= n or inner[pos] != "=":
                 raise CliError(
-                    f"--env-vars key {k!r} must contain only ASCII letters, "
-                    f"digits, and underscores"
+                    f"--env-vars: expected '=' after key {key!r} in {raw!r}"
                 )
-            if not k.startswith(_ENV_VAR_KEY_PREFIX):
+            value, pos = read_literal(pos + 1)
+            DBTManager._validate_env_var(key, value)
+            if key in result:
+                raise CliError(f"--env-vars: duplicate key {key!r}")
+            result[key] = value
+            if pos >= n:
+                break
+            if inner[pos] != ",":
                 raise CliError(
-                    f"--env-vars key {k!r} must start with " f"{_ENV_VAR_KEY_PREFIX!r}"
+                    f"--env-vars: expected ',' between pairs in {raw!r}"
                 )
-            if k != k.upper():
-                raise CliError(
-                    f"--env-vars key {k!r} must be uppercase (e.g. {k.upper()!r})"
-                )
-            if v is None:
-                raise CliError(f"--env-vars value for {k!r} must not be null")
-            if not isinstance(v, str):
-                raise CliError(
-                    f"--env-vars value for {k!r} must be a string, "
-                    f"got {type(v).__name__}; quote scalars in YAML/JSON "
-                    f"(e.g. '{k}: \"1\"' instead of '{k}: 1')"
-                )
-            if _CONTROL_CHAR_RE.search(v):
-                raise CliError(
-                    f"--env-vars value for {k!r} must not contain control "
-                    f"characters (newlines, tabs, etc.)"
-                )
-            result[k] = v
+            pos += 1
         return result
+
+    @staticmethod
+    def _validate_env_var(key: str, value: str) -> None:
+        if not key:
+            raise CliError("--env-vars key must not be empty")
+        if not _ENV_VAR_KEY_RE.match(key):
+            raise CliError(
+                f"--env-vars key {key!r} must contain only ASCII letters, "
+                f"digits, and underscores"
+            )
+        if not key.startswith(_ENV_VAR_KEY_PREFIX):
+            raise CliError(
+                f"--env-vars key {key!r} must start with {_ENV_VAR_KEY_PREFIX!r}"
+            )
+        if key != key.upper():
+            raise CliError(
+                f"--env-vars key {key!r} must be uppercase (e.g. {key.upper()!r})"
+            )
+        if _CONTROL_CHAR_RE.search(value):
+            raise CliError(
+                f"--env-vars value for {key!r} must not contain control "
+                f"characters (newlines, tabs, etc.)"
+            )
 
     @staticmethod
     def _process_dbt_args(dbt_cli_args: tuple) -> str:
