@@ -114,16 +114,21 @@ class ObjectManager(SqlExecutionMixin):
 
 
 def _handle_create_error_codes(err: Exception) -> None:
+    from snowflake.cli.api.connector_errors import http_status_code
     from snowflake.connector.errors import BadRequest
-    from snowflake.connector.vendored.requests.exceptions import HTTPError
 
     # according to https://docs.snowflake.com/developer-guide/snowflake-rest-api/reference/
     if isinstance(err, BadRequest):
         raise ClickException(
             "400 bad request: Incorrect object definition (arguments misspelled or malformatted)."
         )
-    if isinstance(err, HTTPError):
-        match err_code := err.response.status_code:
+    code = http_status_code(err)
+    if code is not None:
+        match err_code := code:
+            case 400:
+                raise ClickException(
+                    "400 bad request: Incorrect object definition (arguments misspelled or malformatted)."
+                )
             case 401:
                 raise ClickException(
                     "401 unauthorized: role you are using does not have permissions to create this object."
