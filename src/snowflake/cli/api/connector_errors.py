@@ -61,3 +61,17 @@ def get_http_status_code(err: BaseException) -> Optional[int]:
         response = getattr(err, "response", None)
         status = getattr(response, "status_code", None)
     return int(status) if status is not None else None
+
+
+def get_user_agent(rest) -> Optional[str]:
+    """Return the User-Agent to advertise on REST requests, or None.
+
+    On the Universal Driver v5 the value is built by the core and read via
+    ``SnowflakeRestful.get_user_agent()``; on connector v4.x it is the
+    ``PYTHON_CONNECTOR_USER_AGENT`` constant from ``snowflake.connector.network``.
+    """
+    if IS_V5_DRIVER:
+        return rest.get_user_agent()
+    from snowflake.connector.network import PYTHON_CONNECTOR_USER_AGENT
+
+    return PYTHON_CONNECTOR_USER_AGENT

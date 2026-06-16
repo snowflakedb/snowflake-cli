@@ -85,9 +85,7 @@ def mock_rest_connection():
         def assert_rest_fetch_calls_matches(
             self, call_matches: List[_RestApiCallMatch]
         ):
-            fetch_calls = [
-                call for call in self.rest.mock_calls if call.fetch is not None
-            ]
+            fetch_calls = [call for call in self.rest.mock_calls if call[0] == "fetch"]
             assert len(call_matches) == len(fetch_calls)
             for call_match, fetch_call in zip(call_matches, fetch_calls):
                 call_match.assert_matches_kwargs(fetch_call.kwargs)

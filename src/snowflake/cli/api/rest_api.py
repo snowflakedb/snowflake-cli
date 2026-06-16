@@ -97,12 +97,12 @@ class RestApi:
         """
         # SnowflakeRestful.request assumes that API response is always a dict,
         # which is not true in case of this API, so we need to do this workaround:
+        from snowflake.cli.api.connector_errors import get_user_agent
         from snowflake.connector.network import (
             CONTENT_TYPE_APPLICATION_JSON,
             HTTP_HEADER_ACCEPT,
             HTTP_HEADER_CONTENT_TYPE,
             HTTP_HEADER_USER_AGENT,
-            PYTHON_CONNECTOR_USER_AGENT,
         )
 
         log.debug("Sending %s request to %s", method, url)
@@ -110,8 +110,9 @@ class RestApi:
         headers = {
             HTTP_HEADER_CONTENT_TYPE: CONTENT_TYPE_APPLICATION_JSON,
             HTTP_HEADER_ACCEPT: CONTENT_TYPE_APPLICATION_JSON,
-            HTTP_HEADER_USER_AGENT: PYTHON_CONNECTOR_USER_AGENT,
         }
+        if user_agent := get_user_agent(self.rest):
+            headers[HTTP_HEADER_USER_AGENT] = user_agent
         return self.rest.fetch(
             method=method,
             full_url=full_url,
