@@ -4687,6 +4687,10 @@
   |                                                 NONE; pass NONE to run the   |
   |                                                 session only with the        |
   |                                                 primary role.                |
+  | --server-session-keep-alive                     Enable server-side session   |
+  |                                                 keep-alive to prevent the    |
+  |                                                 session from timing out      |
+  |                                                 during long operations.      |
   | --default                                       If provided the connection   |
   |                                                 will be configured as        |
   |                                                 default connection.          |
