@@ -7,6 +7,7 @@ from unittest import mock
 import pytest
 import yaml
 from snowflake.cli._plugins.dbt.constants import (
+    ENV_FILENAME,
     PROFILES_FILENAME,
     SUPPORTED_DBT_VERSIONS_QUERY,
 )
@@ -890,6 +891,401 @@ dev
 
         mock_validate_dbt_version.assert_not_called()
 
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_create_with_default_environment(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        DBTManager().deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            attrs=DBTDeployAttributes(default_env="dev"),
+        )
+
+        expected_query = f"CREATE DBT PROJECT test_project\nFROM {mock_from_resource()} DEFAULT_ENVIRONMENT='dev'"
+        mock_execute_query.assert_called_once_with(expected_query)
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_create_with_default_target_and_environment(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        DBTManager().deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            attrs=DBTDeployAttributes(default_target="prod", default_env="dev"),
+        )
+
+        expected_query = (
+            f"CREATE DBT PROJECT test_project\nFROM {mock_from_resource()}"
+            f" DEFAULT_TARGET='prod' DEFAULT_ENVIRONMENT='dev'"
+        )
+        mock_execute_query.assert_called_once_with(expected_query)
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_create_or_replace_with_default_environment(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        DBTManager().deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=True,
+            attrs=DBTDeployAttributes(default_env="prod"),
+        )
+
+        expected_query = f"CREATE OR REPLACE DBT PROJECT test_project\nFROM {mock_from_resource()} DEFAULT_ENVIRONMENT='prod'"
+        mock_execute_query.assert_called_once_with(expected_query)
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_existing_project_sets_default_environment(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        mock_get_dbt_object_attributes.return_value = {
+            "default_target": None,
+            "default_env": None,
+            "external_access_integrations": None,
+        }
+
+        DBTManager().deploy(
+            fqn=FQN.from_string("TEST_PIPELINE"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            attrs=DBTDeployAttributes(default_env="dev"),
+        )
+
+        calls = [call.args[0] for call in mock_execute_query.call_args_list]
+        assert (
+            "ALTER DBT PROJECT TEST_PIPELINE SET DEFAULT_ENVIRONMENT='dev'" in calls[0]
+        )
+        assert (
+            f"ALTER DBT PROJECT TEST_PIPELINE ADD VERSION\nFROM {mock_from_resource()}"
+            in calls[1]
+        )
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_existing_project_with_same_default_environment(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        mock_get_dbt_object_attributes.return_value = {
+            "default_target": None,
+            "default_env": "dev",
+            "external_access_integrations": None,
+        }
+
+        DBTManager().deploy(
+            fqn=FQN.from_string("TEST_PIPELINE"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            attrs=DBTDeployAttributes(default_env="dev"),
+        )
+
+        calls = [call.args[0] for call in mock_execute_query.call_args_list]
+        assert (
+            "ALTER DBT PROJECT TEST_PIPELINE SET DEFAULT_ENVIRONMENT='dev'" in calls[0]
+        )
+        assert (
+            f"ALTER DBT PROJECT TEST_PIPELINE ADD VERSION\nFROM {mock_from_resource()}"
+            in calls[1]
+        )
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_unset_default_environment_when_project_exists_with_environment(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        mock_get_dbt_object_attributes.return_value = {
+            "default_target": None,
+            "default_env": "dev",
+            "external_access_integrations": None,
+        }
+
+        DBTManager().deploy(
+            fqn=FQN.from_string("TEST_PIPELINE"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            attrs=DBTDeployAttributes(unset_default_env=True),
+        )
+
+        calls = [call.args[0] for call in mock_execute_query.call_args_list]
+        assert "ALTER DBT PROJECT TEST_PIPELINE UNSET DEFAULT_ENVIRONMENT" in calls[0]
+        assert (
+            f"ALTER DBT PROJECT TEST_PIPELINE ADD VERSION\nFROM {mock_from_resource()}"
+            in calls[1]
+        )
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_unset_default_environment_when_project_exists_without_environment(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        mock_get_dbt_object_attributes.return_value = {
+            "default_target": None,
+            "default_env": None,
+            "external_access_integrations": None,
+        }
+
+        DBTManager().deploy(
+            fqn=FQN.from_string("TEST_PIPELINE"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            attrs=DBTDeployAttributes(unset_default_env=True),
+        )
+
+        # We always emit UNSET when requested; the server treats it as a no-op
+        # if the property is already null.
+        calls = [call.args[0] for call in mock_execute_query.call_args_list]
+        assert "ALTER DBT PROJECT TEST_PIPELINE UNSET DEFAULT_ENVIRONMENT" in calls[0]
+        assert (
+            f"ALTER DBT PROJECT TEST_PIPELINE ADD VERSION\nFROM {mock_from_resource()}"
+            in calls[1]
+        )
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_with_env_file_dir_overwrites_existing_env_yml(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        env_yml_dir,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        # An env.yml inside the source dir should be overwritten by the one
+        # injected from --env-file-dir.
+        (dbt_project_path / ENV_FILENAME).write_text(
+            yaml.dump({"env_config": {"environments": [{"name": "from_source"}]}})
+        )
+
+        DBTManager().deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            env_file_path=SecurePath(env_yml_dir),
+            force=False,
+            attrs=DBTDeployAttributes(),
+        )
+
+        mock_execute_query.assert_called_once()
+
+    def test_deploy_raises_when_env_file_dir_missing_env_yml(
+        self, dbt_project_path, tmp_path_factory, mock_validate_role
+    ):
+        empty_dir = tmp_path_factory.mktemp("empty_envs")
+
+        with pytest.raises(CliError) as exc_info:
+            DBTManager().deploy(
+                fqn=FQN.from_string("TEST_PIPELINE"),
+                path=SecurePath(dbt_project_path),
+                profiles_path=SecurePath(dbt_project_path),
+                env_file_path=SecurePath(empty_dir),
+                force=False,
+                attrs=DBTDeployAttributes(),
+            )
+
+        assert f"{ENV_FILENAME} does not exist in directory" in exc_info.value.message
+
+    @pytest.mark.parametrize(
+        "bad_env_yml, expected_message",
+        [
+            pytest.param(
+                "env_config:\n  environments:\n  - name: dev\n    env:\n"
+                "      DBT_FOO: 'a'\n      DBT_FOO: 'b'\n",
+                "duplicate key",
+                id="duplicate-key",
+            ),
+            pytest.param(
+                "env_config:\n  environments\n    - bad: : indentation\n",
+                "is not valid YAML",
+                id="malformed-yaml",
+            ),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "from_env_file_dir",
+        [pytest.param(False, id="source-dir"), pytest.param(True, id="env-file-dir")],
+    )
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_validates_env_file_before_stage_creation(
+        self,
+        mock_put_recursive,
+        mock_create,
+        from_env_file_dir,
+        bad_env_yml,
+        expected_message,
+        dbt_project_path,
+        tmp_path_factory,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        # A bad env.yml from either source (explicit --env-file-dir or the
+        # source directory) must be validated before any temporary stage is
+        # created.
+        if from_env_file_dir:
+            env_dir = tmp_path_factory.mktemp("envs")
+            (env_dir / ENV_FILENAME).write_text(bad_env_yml)
+            env_file_path = SecurePath(env_dir)
+        else:
+            (dbt_project_path / ENV_FILENAME).write_text(bad_env_yml)
+            env_file_path = None
+
+        with pytest.raises(CliError) as exc_info:
+            DBTManager().deploy(
+                fqn=FQN.from_string("test_project"),
+                path=SecurePath(dbt_project_path),
+                profiles_path=SecurePath(dbt_project_path),
+                env_file_path=env_file_path,
+                force=False,
+                attrs=DBTDeployAttributes(),
+            )
+
+        assert expected_message in exc_info.value.message
+        mock_create.assert_not_called()
+        mock_put_recursive.assert_not_called()
+
+    def test_write_env_file_replaces_existing_file(self, tmp_path_factory, env_yml):
+        env_path = tmp_path_factory.mktemp("envs")
+        (env_path / ENV_FILENAME).write_text(yaml.dump(env_yml))
+
+        tmp_dbt_path = tmp_path_factory.mktemp("dbt")
+        (tmp_dbt_path / ENV_FILENAME).write_text("stale content from --source\n")
+
+        content = DBTManager._validate_and_parse_env_file(  # noqa: SLF001
+            SecurePath(env_path / ENV_FILENAME)
+        )
+        DBTManager._write_env_file(content, tmp_dbt_path)  # noqa: SLF001
+
+        with open(tmp_dbt_path / ENV_FILENAME) as fp:
+            actual = yaml.safe_load(fp)
+        assert actual == env_yml
+
+    def test_load_and_write_env_file_removes_comments(self, tmp_path_factory, env_yml):
+        env_path = tmp_path_factory.mktemp("envs")
+        env_file = env_path / ENV_FILENAME
+        env_file.write_text(yaml.dump(env_yml))
+        with open(env_file, "a") as fp:
+            fp.write("# secret hint left by developer\n")
+            fp.write("extra_key: with # trailing comment\n")
+
+        tmp_dbt_path = tmp_path_factory.mktemp("dbt")
+
+        content = DBTManager._validate_and_parse_env_file(  # noqa: SLF001
+            SecurePath(env_file)
+        )
+        DBTManager._write_env_file(content, tmp_dbt_path)  # noqa: SLF001
+
+        with open(tmp_dbt_path / ENV_FILENAME) as fp:
+            for line in fp:
+                assert "# " not in line
+                assert "secret hint" not in line
+
+    def test_validate_and_parse_env_file_rejects_duplicate_keys(self, tmp_path_factory):
+        env_path = tmp_path_factory.mktemp("envs")
+        (env_path / ENV_FILENAME).write_text(
+            "env_config:\n"
+            "  environments:\n"
+            "  - name: dev\n"
+            "    env:\n"
+            "      DBT_FOO: 'first'\n"
+            "      DBT_FOO: 'second'\n"
+        )
+
+        with pytest.raises(CliError) as exc_info:
+            DBTManager._validate_and_parse_env_file(  # noqa: SLF001
+                SecurePath(env_path / ENV_FILENAME)
+            )
+
+        assert "duplicate key" in exc_info.value.message
+        assert "DBT_FOO" in exc_info.value.message
+
+    def test_validate_and_parse_env_file_rejects_malformed_yaml(self, tmp_path_factory):
+        env_path = tmp_path_factory.mktemp("envs")
+        (env_path / ENV_FILENAME).write_text(
+            "env_config:\n" "  environments\n" "    - bad: : indentation\n"
+        )
+
+        with pytest.raises(CliError) as exc_info:
+            DBTManager._validate_and_parse_env_file(  # noqa: SLF001
+                SecurePath(env_path / ENV_FILENAME)
+            )
+
+        assert "is not valid YAML" in exc_info.value.message
+
 
 class TestValidateDbtVersion:
     def test_get_supported_dbt_versions_parses_response(
@@ -1069,6 +1465,19 @@ class TestGetDBTObjectAttributes:
 
         assert result is not None
         assert result["dbt_version"] == "1.9.0"
+
+    def test_get_dbt_object_attributes_with_default_environment(self, mock_describe):
+        fqn = FQN.from_string("test_project")
+        mock_describe.return_value.description = [("default_environment",)]
+        mock_row = ("dev",)
+        mock_describe.return_value.__iter__ = mock.MagicMock(
+            return_value=iter([mock_row])
+        )
+
+        result = DBTManager.get_dbt_object_attributes(fqn)
+
+        assert result is not None
+        assert result["default_env"] == "dev"
 
 
 class TestValidateRole:
