@@ -435,9 +435,10 @@ ClientStoreTemporaryCredentialOption = typer.Option(
 
 ServerSessionKeepAliveOption = typer.Option(
     None,
-    "--server-session-keep-alive/--no-server-session-keep-alive",
+    "--server-session-keep-alive",
     help="Keep the session active indefinitely, even if there is no activity from the user.",
     callback=_connection_callback("server_session_keep_alive"),
+    is_flag=True,
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
