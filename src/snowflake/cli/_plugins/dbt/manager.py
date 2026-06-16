@@ -505,7 +505,7 @@ class DBTManager(SqlExecutionMixin):
             try:
                 return yaml.load(sfd, Loader=_NoDuplicatesSafeLoader)
             except yaml.constructor.ConstructorError as e:
-                raise CliError(f"{ENV_FILENAME} has {e.problem}")
+                raise CliError(f"Failed to parse {ENV_FILENAME}: {e.problem}")
             except yaml.YAMLError as e:
                 raise CliError(f"{ENV_FILENAME} is not valid YAML: {e}")
 
@@ -567,7 +567,7 @@ class DBTManager(SqlExecutionMixin):
         try:
             parsed = yaml.load(raw, Loader=_NoDuplicatesSafeLoader)
         except yaml.constructor.ConstructorError as e:
-            raise CliError(f"--env-vars has {e.problem}")
+            raise CliError(f"Failed to parse --env-vars: {e.problem}")
         except yaml.YAMLError as e:
             raise CliError(f"--env-vars must be valid YAML/JSON: {e}")
         if not isinstance(parsed, dict):
