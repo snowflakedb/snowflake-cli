@@ -20,7 +20,7 @@ from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import bundle_root
 from snowflake.cli.api.project.schemas.entities.common import Identifier, PathMapping
-from snowflake.cli.api.project.util import to_string_literal
+from snowflake.cli.api.project.util import to_identifier, to_string_literal
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
@@ -248,12 +248,12 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         clauses = []
 
         if from_stage_name:
-            clauses.append(f"ROOT_LOCATION = '{from_stage_name}'")
+            clauses.append(f"ROOT_LOCATION = {to_string_literal(from_stage_name)}")
 
         if legacy:
             desired = _str(self._entity_model.main_file)
             if not current or _str(cur.get("main_file")) != desired:
-                clauses.append(f"MAIN_FILE = '{desired}'")
+                clauses.append(f"MAIN_FILE = {to_string_literal(desired)}")
 
         if _list(self.model.imports) != _list(cur.get("import_urls")) or not current:
             if self.model.imports:
@@ -266,17 +266,17 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             )
             desired_wh = "streamlit"
         if not current or _id(cur.get("query_warehouse")) != _id(desired_wh):
-            clauses.append(f"QUERY_WAREHOUSE = {desired_wh}")
+            clauses.append(f"QUERY_WAREHOUSE = {to_identifier(desired_wh)}")
 
         desired_title = _str(self.model.title)
         if desired_title and (not current or _str(cur.get("title")) != desired_title):
-            clauses.append(f"TITLE = '{desired_title}'")
+            clauses.append(f"TITLE = {to_string_literal(desired_title)}")
 
         desired_comment = _str(self.model.comment)
         if desired_comment and (
             not current or _str(cur.get("comment")) != desired_comment
         ):
-            clauses.append(f"COMMENT = '{desired_comment}'")
+            clauses.append(f"COMMENT = {to_string_literal(desired_comment)}")
 
         desired_eais = _list(self.model.external_access_integrations)
         if desired_eais and (
@@ -300,11 +300,11 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             if not current or _id(cur.get("runtime_name")) != _id(
                 self.model.runtime_name
             ):
-                clauses.append(f"RUNTIME_NAME = '{self.model.runtime_name}'")
+                clauses.append(f"RUNTIME_NAME = {to_string_literal(self.model.runtime_name)}")
             if not current or _id(cur.get("compute_pool")) != _id(
                 self.model.compute_pool
             ):
-                clauses.append(f"COMPUTE_POOL = '{self.model.compute_pool}'")
+                clauses.append(f"COMPUTE_POOL = {to_string_literal(self.model.compute_pool)}")
 
         if not clauses:
             return None
@@ -337,9 +337,9 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         query += f" {self._get_sql_identifier(schema, database)}"
 
         if from_stage_name:
-            query += f"\nROOT_LOCATION = '{from_stage_name}'"
+            query += f"\nROOT_LOCATION = {to_string_literal(from_stage_name)}"
         elif artifacts_dir:
-            query += f"\nFROM '{artifacts_dir}'"
+            query += f"\nFROM {to_string_literal(str(artifacts_dir))}"
 
         query += f"\nMAIN_FILE = {to_string_literal(self._entity_model.main_file)}"
 
@@ -347,12 +347,12 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             query += "\n" + self.model.get_imports_sql()
 
         if self.model.query_warehouse:
-            query += f"\nQUERY_WAREHOUSE = {self.model.query_warehouse}"
+            query += f"\nQUERY_WAREHOUSE = {to_identifier(self.model.query_warehouse)}"
         else:
             self._workspace_ctx.console.warning(
                 "[Deprecation] In next major version we will remove default query_warehouse='streamlit'."
             )
-            query += f"\nQUERY_WAREHOUSE = 'streamlit'"
+            query += f"\nQUERY_WAREHOUSE = {to_identifier('streamlit')}"
 
         if self.model.title:
             query += f"\nTITLE = {to_string_literal(self.model.title)}"

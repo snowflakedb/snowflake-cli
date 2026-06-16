@@ -568,7 +568,7 @@ class TestStreamlitCommands(StreamlitTestClass):
                 CREATE OR REPLACE STREAMLIT IDENTIFIER('{entity_id}')
                 ROOT_LOCATION = '@streamlit/{entity_id}'
                 MAIN_FILE = 'streamlit_app.py'
-                QUERY_WAREHOUSE = 'streamlit';"""
+                QUERY_WAREHOUSE = streamlit;"""
         ).strip()
 
         assert result.exit_code == 0, result.output
