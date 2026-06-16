@@ -51,6 +51,7 @@ from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.config import (
     get_connection_dict,
     get_default_connection_name,
+    get_file_io_encoding,
 )
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliError
@@ -212,10 +213,11 @@ def snowflake_app_setup(
             "Only letters, digits, and underscores are allowed."
         )
     # snowflake.yml is a CLI-owned manifest that the ``snow app`` commands read
-    # back as UTF-8 (see _app_group_callback). Write it as UTF-8 too so the
-    # round-trip is consistent regardless of the host code page, even when the
-    # generated content (e.g. a non-Latin app title) contains non-ASCII text.
-    encoding = "utf-8"
+    # back with the same encoding policy (see _app_group_callback): an explicit
+    # cli.encoding.file_io setting wins, otherwise UTF-8. Writing it the same
+    # way keeps the round-trip consistent regardless of the host code page, even
+    # when the generated content (e.g. a non-Latin app title) is non-ASCII.
+    encoding = get_file_io_encoding() or "utf-8"
     project_file = Path.cwd() / DEFINITION_FILENAME
     if not dry_run and project_file.exists():
         return MessageResult(
