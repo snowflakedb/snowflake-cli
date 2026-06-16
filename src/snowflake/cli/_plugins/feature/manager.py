@@ -834,6 +834,7 @@ class FeatureManager(SqlExecutionMixin):
         options = PlanOptions(
             dev_mode=dev_mode,
             allow_recreate=allow_recreate,
+            overwrite=allow_recreate,
         )
 
         session = self._build_session()
