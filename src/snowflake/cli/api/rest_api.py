@@ -16,17 +16,22 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import Any, Dict, Optional
 from urllib.parse import parse_qsl, urlencode, urlparse
 
 from click import ClickException
 from snowflake.cli.api.constants import SF_REST_API_URL_PREFIX
 from snowflake.connector.connection import SnowflakeConnection
 
-if TYPE_CHECKING:
-    from snowflake.connector.network import SnowflakeRestful
-
 log = logging.getLogger(__name__)
+
+# HTTP header names and content type used for Snowflake REST API requests.
+# Defined natively so the CLI does not depend on connector internals
+# (``snowflake.connector.network``), which differ between connector versions.
+CONTENT_TYPE_APPLICATION_JSON = "application/json"
+HTTP_HEADER_CONTENT_TYPE = "Content-Type"
+HTTP_HEADER_ACCEPT = "accept"
+HTTP_HEADER_USER_AGENT = "User-Agent"
 
 
 def _pluralize_object_type(object_type: str) -> str:
@@ -42,7 +47,7 @@ def _pluralize_object_type(object_type: str) -> str:
 class RestApi:
     def __init__(self, connection: SnowflakeConnection):
         self.conn = connection
-        self.rest: "SnowflakeRestful" = connection.rest
+        self.rest = connection.rest
 
     def get_endpoint_exists(self, url: str) -> bool:
         """
@@ -98,12 +103,6 @@ class RestApi:
         # SnowflakeRestful.request assumes that API response is always a dict,
         # which is not true in case of this API, so we need to do this workaround:
         from snowflake.cli.api.connector_errors import get_user_agent
-        from snowflake.connector.network import (
-            CONTENT_TYPE_APPLICATION_JSON,
-            HTTP_HEADER_ACCEPT,
-            HTTP_HEADER_CONTENT_TYPE,
-            HTTP_HEADER_USER_AGENT,
-        )
 
         log.debug("Sending %s request to %s", method, url)
         full_url = f"{self.rest.server_url}{url}"
