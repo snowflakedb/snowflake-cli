@@ -565,19 +565,19 @@ def snowflake_app_deploy(
     entity_id: Optional[str],
     upload_only: bool,
     build_only: bool,
-    deploy_only: bool,
+    promote_only: bool,
     interactive: Optional[bool] = None,
 ) -> CommandResult:
     """Build and deploy a Snowflake App Runtime through upload, build, and deploy phases."""
-    phase_flags = sum((upload_only, build_only, deploy_only))
+    phase_flags = sum((upload_only, build_only, promote_only))
     if phase_flags > 1:
         raise ClickException(
-            "Only one of --upload-only, --build-only, or --deploy-only "
+            "Only one of --upload-only, --build-only, or --promote-only "
             "may be specified."
         )
 
-    run_upload = not build_only and not deploy_only
-    run_build = not upload_only and not deploy_only
+    run_upload = not build_only and not promote_only
+    run_build = not upload_only and not promote_only
     run_deploy = not upload_only and not build_only
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
