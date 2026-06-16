@@ -50,7 +50,7 @@ class RestApi:
         """
         from snowflake.cli.api.connector_errors import (
             HTTP_FAILURE_ERRORS,
-            http_status_code,
+            get_http_status_code,
         )
         from snowflake.connector.errors import BadRequest
 
@@ -60,7 +60,7 @@ class RestApi:
         except BadRequest:
             return True
         except HTTP_FAILURE_ERRORS as err:
-            code = http_status_code(err)
+            code = get_http_status_code(err)
             if code == 404:
                 return False
             # 400 means the endpoint exists but the probe query was rejected
@@ -73,7 +73,7 @@ class RestApi:
     def _fetch_endpoint_exists(self, url: str) -> bool:
         from snowflake.cli.api.connector_errors import (
             HTTP_FAILURE_ERRORS,
-            http_status_code,
+            get_http_status_code,
         )
         from snowflake.connector.errors import BadRequest
 
@@ -85,7 +85,7 @@ class RestApi:
         except HTTP_FAILURE_ERRORS as err:
             # 404 (not found) and 400 (bad request, see get_endpoint_exists)
             # both map to the connector-v4 behaviour of returning False.
-            if http_status_code(err) in (404, 400):
+            if get_http_status_code(err) in (404, 400):
                 return False
             raise
 

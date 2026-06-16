@@ -19,8 +19,8 @@ from unittest import mock
 
 import pytest
 from snowflake.cli.api.connector_errors import (
-    CONNECTOR_MAJOR,
     HTTP_FAILURE_ERRORS,
+    IS_V5_DRIVER,
 )
 from snowflake.cli.api.rest_api import CannotDetermineCreateURLException, RestApi
 from snowflake.connector.errors import BadRequest
@@ -35,7 +35,7 @@ def _make_http_failure(status_code: int):
     ``.response.status_code``; the Universal Driver v5 raises
     ``OperationalError`` carrying ``http_status``.
     """
-    if CONNECTOR_MAJOR >= 5:
+    if IS_V5_DRIVER:
         from snowflake.connector.errors import OperationalError
 
         err = OperationalError(msg=f"HTTP {status_code}: b''")

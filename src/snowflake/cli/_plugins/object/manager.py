@@ -114,7 +114,7 @@ class ObjectManager(SqlExecutionMixin):
 
 
 def _handle_create_error_codes(err: Exception) -> None:
-    from snowflake.cli.api.connector_errors import http_status_code
+    from snowflake.cli.api.connector_errors import get_http_status_code
     from snowflake.connector.errors import BadRequest
 
     # according to https://docs.snowflake.com/developer-guide/snowflake-rest-api/reference/
@@ -122,7 +122,7 @@ def _handle_create_error_codes(err: Exception) -> None:
         raise ClickException(
             "400 bad request: Incorrect object definition (arguments misspelled or malformatted)."
         )
-    code = http_status_code(err)
+    code = get_http_status_code(err)
     if code is not None:
         match err_code := code:
             case 400:

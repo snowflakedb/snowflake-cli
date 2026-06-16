@@ -23,6 +23,7 @@
 * Added `--no-prompt-exit-repl` option and configuration setting to skip the exit confirmation prompt in the SQL REPL.
 
 ## Fixes and improvements
+* Fixed REST API object operations (e.g. `snow object create`) crashing with `ModuleNotFoundError: No module named 'snowflake.connector.vendored'` when running against the Snowflake Universal Driver (connector-python v5). HTTP error handling now works on both connector v4.x and the Universal Driver v5.
 * The `snow app setup` `--compute-pool` option and the `build_compute_pool` / `service_compute_pool` fields of a `snowflake-app` entity are now hidden and undocumented (omitted from `--help` and the generated project-definition JSON schema). They remain fully functional: `snow app setup` and `snow app deploy` still honor the `DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL` / `DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL` account parameters and any compute pools configured in `snowflake.yml`. The `ENABLE_APPLICATION_SERVICE_MANAGED_COMPUTE_POOL` and `ENABLE_APPLICATION_SERVICE_MANAGED_COMPUTE_POOL_FALLBACK` parameter checks (and the related deploy-time warning) have been removed.
 * Fixed `snow app setup` incorrectly treating system-default parameter values as admin-configured values. After running `ALTER ACCOUNT UNSET` on `DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL` or `DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL`, those fields no longer appear in the generated `snowflake.yml` or `--dry-run` output.
 * Upgraded `pip` from 26.1.1 to 26.1.2.

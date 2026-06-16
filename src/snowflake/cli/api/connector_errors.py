@@ -25,32 +25,25 @@ reports HTTP failures differently between the two:
   status on a dedicated ``http_status`` attribute.
 
 This module hides that difference behind :data:`HTTP_FAILURE_ERRORS` (the
-exception classes to catch) and :func:`http_status_code` (extract the status).
+exception classes to catch) and :func:`get_http_status_code` (extract the status).
 """
 
 from __future__ import annotations
 
 from typing import Optional, Tuple, Type
 
-import snowflake.connector
+from snowflake.connector.version import VERSION
 
-
-def _connector_major() -> int:
-    try:
-        return int(snowflake.connector.__version__.split(".", 1)[0])
-    except (ValueError, AttributeError):
-        return 5  # assume the new driver if the version is unparseable
-
-
-CONNECTOR_MAJOR = _connector_major()
+#: True when running against the Universal Driver (connector major >= 5).
+IS_V5_DRIVER = VERSION[0] >= 5
 
 HTTP_FAILURE_ERRORS: Tuple[Type[BaseException], ...]
 
-if CONNECTOR_MAJOR >= 5:
+if IS_V5_DRIVER:
     from snowflake.connector.errors import OperationalError
 
     # OperationalError is broad; only instances carrying an ``http_status`` are
-    # raw HTTP failures (see http_status_code). Others are re-raised by callers.
+    # raw HTTP failures (see get_http_status_code). Others are re-raised by callers.
     HTTP_FAILURE_ERRORS = (OperationalError,)
 else:
     from snowflake.connector.vendored.requests.exceptions import HTTPError
@@ -58,17 +51,13 @@ else:
     HTTP_FAILURE_ERRORS = (HTTPError,)
 
 
-def http_status_code(err: BaseException) -> Optional[int]:
-    """Return the HTTP status of a raw HTTP failure, or None if it is not one.
-
-    Works across connector v4 (vendored ``HTTPError`` with ``.response``) and
-    Universal Driver v5 (``OperationalError`` with ``.http_status``).
-    """
-    # Universal Driver v5: structured attribute set by SnowflakeRestful.
-    status = getattr(err, "http_status", None)
-    if status is not None:
-        return int(status)
-    # connector v4: vendored HTTPError exposes .response.status_code.
-    response = getattr(err, "response", None)
-    status = getattr(response, "status_code", None)
+def get_http_status_code(err: BaseException) -> Optional[int]:
+    """Return the HTTP status of a raw HTTP failure, or None if it is not one."""
+    if IS_V5_DRIVER:
+        # Universal Driver v5: OperationalError carries the status on http_status.
+        status = getattr(err, "http_status", None)
+    else:
+        # connector v4: vendored HTTPError exposes .response.status_code.
+        response = getattr(err, "response", None)
+        status = getattr(response, "status_code", None)
     return int(status) if status is not None else None
