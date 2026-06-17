@@ -357,7 +357,7 @@ def test_create_error_conflict(runner, test_database, caplog):
 
 
 @pytest.mark.integration
-def test_create_error_misspelled_argument(runner, test_database, caplog):
+def test_create_error_misspelled_argument(runner, test_database):
     # 400 bad request - misspelled argument
     schema_name = "another_schema_name"
     result = runner.invoke_with_connection(
@@ -370,8 +370,10 @@ def test_create_error_misspelled_argument(runner, test_database, caplog):
         in result.output
     )
     assert "malformatted)" in result.output
-    assert "HTTP 400: Bad Request" in caplog.text
-    caplog.clear()
+    # The HTTP 400 status is surfaced in the user-facing message on both the
+    # legacy connector and the Universal Driver (the latter logs differently
+    # internally, so assert on the output rather than caplog).
+    assert "400" in result.output
 
 
 @pytest.mark.integration
