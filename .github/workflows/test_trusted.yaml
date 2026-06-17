@@ -25,7 +25,7 @@ on:
         default: "true"
 
 permissions:
-  contents: none
+  contents: read
   issues: write
 
 jobs:

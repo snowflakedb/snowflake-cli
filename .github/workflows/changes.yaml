@@ -16,7 +16,7 @@ on:
         value: ${{ jobs.detect.outputs.code }}
 
 permissions:
-  contents: none
+  contents: read
 
 jobs:
   detect:
