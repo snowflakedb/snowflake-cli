@@ -698,3 +698,101 @@ def test_externalbrowser_authenticator_is_case_insensitive(
 
     # For externalbrowser, stdout should mirror to stderr
     assert stdout_stream._mirror is not None  # noqa: SLF001
+
+
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+@mock.patch("snowflake.cli._app.snow_connector.get_connection_dict")
+@mock.patch("snowflake.connector.connect")
+@mock.patch.dict(os.environ, {}, clear=True)
+def test_server_session_keep_alive_passed_to_connector(
+    mock_connect, mock_get_connection_dict, mock_command_info
+):
+    """Test that server_session_keep_alive from config is passed to connector."""
+    from snowflake.cli._app.snow_connector import connect_to_snowflake
+
+    mock_command_info.return_value = "SNOWCLI.TEST"
+    mock_get_connection_dict.return_value = {
+        "account": "test_account",
+        "user": "test_user",
+        "password": "test_password",
+        "server_session_keep_alive": True,
+    }
+
+    connect_to_snowflake(connection_name="test_connection")
+
+    mock_connect.assert_called_once()
+    call_kwargs = mock_connect.call_args[1]
+    assert call_kwargs["server_session_keep_alive"] is True
+
+
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+@mock.patch("snowflake.cli._app.snow_connector.get_connection_dict")
+@mock.patch("snowflake.connector.connect")
+@mock.patch.dict(os.environ, {}, clear=True)
+def test_server_session_keep_alive_false_passed_to_connector(
+    mock_connect, mock_get_connection_dict, mock_command_info
+):
+    """Test that server_session_keep_alive=False from config is passed to connector."""
+    from snowflake.cli._app.snow_connector import connect_to_snowflake
+
+    mock_command_info.return_value = "SNOWCLI.TEST"
+    mock_get_connection_dict.return_value = {
+        "account": "test_account",
+        "user": "test_user",
+        "password": "test_password",
+        "server_session_keep_alive": False,
+    }
+
+    connect_to_snowflake(connection_name="test_connection")
+
+    mock_connect.assert_called_once()
+    call_kwargs = mock_connect.call_args[1]
+    assert call_kwargs["server_session_keep_alive"] is False
+
+
+@mock.patch("snowflake.cli._app.snow_connector.log")
+def test_warning_logged_when_overriding_server_session_keep_alive(mock_log):
+    """Test that a warning is logged when server_session_keep_alive=False is overridden."""
+    from snowflake.cli._app.snow_connector import (
+        _avoid_closing_the_connection_if_it_was_shared,
+    )
+
+    connection_parameters = {"server_session_keep_alive": False}
+
+    _avoid_closing_the_connection_if_it_was_shared(
+        using_session_token=True,
+        using_master_token=True,
+        connection_parameters=connection_parameters,
+    )
+
+    mock_log.warning.assert_called_once()
+    warning_message = mock_log.warning.call_args[0][0]
+    assert "Overriding server_session_keep_alive=False to True" in warning_message
+    assert connection_parameters["server_session_keep_alive"] is True
+
+
+@mock.patch("snowflake.cli._app.snow_connector.log")
+def test_no_warning_when_server_session_keep_alive_not_explicitly_false(mock_log):
+    """Test that no warning is logged when server_session_keep_alive is not explicitly False."""
+    from snowflake.cli._app.snow_connector import (
+        _avoid_closing_the_connection_if_it_was_shared,
+    )
+
+    # Case 1: server_session_keep_alive not in parameters
+    connection_parameters = {}
+    _avoid_closing_the_connection_if_it_was_shared(
+        using_session_token=True,
+        using_master_token=True,
+        connection_parameters=connection_parameters,
+    )
+    mock_log.warning.assert_not_called()
+
+    # Case 2: server_session_keep_alive already True
+    mock_log.reset_mock()
+    connection_parameters = {"server_session_keep_alive": True}
+    _avoid_closing_the_connection_if_it_was_shared(
+        using_session_token=True,
+        using_master_token=True,
+        connection_parameters=connection_parameters,
+    )
+    mock_log.warning.assert_not_called()
