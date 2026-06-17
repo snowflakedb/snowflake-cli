@@ -154,6 +154,48 @@ def test_if_there_are_no_option_duplicates(runner, get_click_context):
     assert duplicates == {}, "\n".join(duplicates)
 
 
+def test_apply_stdout_encoding_from_env_valid(monkeypatch):
+    """_apply_stdout_encoding_from_env applies a valid codec without warnings."""
+    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_STDOUT", "utf-8")
+    mock_stdout = mock.MagicMock()
+    monkeypatch.setattr("sys.stdout", mock_stdout)
+
+    from snowflake.cli._app.__main__ import _apply_stdout_encoding_from_env
+
+    _apply_stdout_encoding_from_env()
+
+    mock_stdout.reconfigure.assert_called_once_with(encoding="utf-8")
+
+
+def test_apply_stdout_encoding_from_env_invalid_warns_and_skips(monkeypatch, capsys):
+    """_apply_stdout_encoding_from_env prints a warning and does NOT reconfigure for invalid codecs."""
+    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_STDOUT", "not-a-real-encoding")
+    mock_stdout = mock.MagicMock()
+    monkeypatch.setattr("sys.stdout", mock_stdout)
+
+    from snowflake.cli._app.__main__ import _apply_stdout_encoding_from_env
+
+    _apply_stdout_encoding_from_env()
+
+    mock_stdout.reconfigure.assert_not_called()
+    captured = capsys.readouterr()
+    assert "not-a-real-encoding" in captured.err
+    assert "SNOWFLAKE_CLI_ENCODING_STDOUT" in captured.err
+
+
+def test_apply_stdout_encoding_from_env_unset_is_noop(monkeypatch):
+    """_apply_stdout_encoding_from_env does nothing when the env var is absent."""
+    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_STDOUT", raising=False)
+    mock_stdout = mock.MagicMock()
+    monkeypatch.setattr("sys.stdout", mock_stdout)
+
+    from snowflake.cli._app.__main__ import _apply_stdout_encoding_from_env
+
+    _apply_stdout_encoding_from_env()
+
+    mock_stdout.reconfigure.assert_not_called()
+
+
 @pytest.mark.skip("Causes fails in specific tests order - SNOW-1057111")
 def test_fail_command_when_default_config_has_too_wide_permissions(
     snowflake_home: Path,

@@ -1044,6 +1044,125 @@ show_warnings = false
             config_init(cfg)
 
 
+def test_get_file_io_encoding_env_only_returns_none_when_unset(monkeypatch):
+    """_get_file_io_encoding_env_only returns None when env var not set."""
+    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
+    from snowflake.cli.api.config import _get_file_io_encoding_env_only
+
+    assert _get_file_io_encoding_env_only() is None
+
+
+def test_get_file_io_encoding_env_only_returns_env_value(monkeypatch):
+    """_get_file_io_encoding_env_only returns the env var value without reading config."""
+    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "cp1252")
+    from snowflake.cli.api.config import _get_file_io_encoding_env_only
+
+    assert _get_file_io_encoding_env_only() == "cp1252"
+
+
+def test_get_file_io_encoding_env_only_rejects_invalid_encoding(monkeypatch):
+    """_get_file_io_encoding_env_only raises ClickException for an invalid codec."""
+    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "not-a-real-encoding")
+    from snowflake.cli.api.config import _get_file_io_encoding_env_only
+
+    with pytest.raises(ClickException, match="Invalid encoding 'not-a-real-encoding'"):
+        _get_file_io_encoding_env_only()
+
+
+def test_read_config_file_toml_uses_env_only_encoding(monkeypatch, config_file):
+    """_read_config_file_toml uses env-var encoding, not the config-file encoding setting."""
+    config_content = '[cli.encoding]\nfile_io = "latin-1"\n'
+    with config_file(config_content) as cfg:
+        config_init(cfg)
+        from snowflake.cli.api.config import _read_config_file_toml
+
+        monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "utf-8")
+        mock_path = mock.MagicMock()
+        mock_path.read_text.return_value = ""
+        with mock.patch("snowflake.cli.api.config.get_config_manager") as mock_mgr:
+            mock_mgr.return_value.file_path = mock_path
+            _read_config_file_toml()
+            mock_path.read_text.assert_called_once_with(encoding="utf-8")
+
+
+def test_read_connections_toml_uses_file_io_encoding(monkeypatch, config_file):
+    """_read_connections_toml passes the configured file_io encoding to read_text."""
+    config_content = '[cli.encoding]\nfile_io = "cp1252"\n'
+    with config_file(config_content) as cfg:
+        config_init(cfg)
+        from snowflake.cli.api.config import _read_connections_toml
+
+        with mock.patch(
+            "snowflake.cli.api.config.get_connections_file"
+        ) as mock_conn_file:
+            mock_path = mock.MagicMock()
+            mock_path.read_text.return_value = ""
+            mock_conn_file.return_value = mock_path
+            _read_connections_toml()
+            mock_path.read_text.assert_called_once_with(encoding="cp1252")
+
+
+def test_read_connections_toml_uses_none_when_encoding_not_configured(
+    monkeypatch, config_file
+):
+    """_read_connections_toml passes None (platform default) when no encoding is configured."""
+    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
+    with config_file("") as cfg:
+        config_init(cfg)
+        from snowflake.cli.api.config import _read_connections_toml
+
+        with mock.patch(
+            "snowflake.cli.api.config.get_connections_file"
+        ) as mock_conn_file:
+            mock_path = mock.MagicMock()
+            mock_path.read_text.return_value = ""
+            mock_conn_file.return_value = mock_path
+            _read_connections_toml()
+            mock_path.read_text.assert_called_once_with(encoding=None)
+
+
+def test_update_connections_toml_uses_file_io_encoding(monkeypatch, config_file):
+    """_update_connections_toml passes the configured file_io encoding to open()."""
+    config_content = '[cli.encoding]\nfile_io = "cp1252"\n'
+    with config_file(config_content) as cfg:
+        config_init(cfg)
+        from snowflake.cli.api.config import _update_connections_toml
+
+        with mock.patch(
+            "snowflake.cli.api.config.get_connections_file"
+        ) as mock_conn_file, mock.patch("builtins.open") as mock_open:
+            mock_conn_file.return_value = mock.MagicMock()
+            mock_open.return_value.__enter__ = lambda s: s
+            mock_open.return_value.__exit__ = mock.Mock(return_value=False)
+            mock_open.return_value.write = mock.Mock()
+            _update_connections_toml({})
+            mock_open.assert_called_once_with(
+                mock_conn_file.return_value, "w", encoding="cp1252"
+            )
+
+
+def test_update_connections_toml_uses_none_when_encoding_not_configured(
+    monkeypatch, config_file
+):
+    """_update_connections_toml passes None (platform default) when no encoding is configured."""
+    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
+    with config_file("") as cfg:
+        config_init(cfg)
+        from snowflake.cli.api.config import _update_connections_toml
+
+        with mock.patch(
+            "snowflake.cli.api.config.get_connections_file"
+        ) as mock_conn_file, mock.patch("builtins.open") as mock_open:
+            mock_conn_file.return_value = mock.MagicMock()
+            mock_open.return_value.__enter__ = lambda s: s
+            mock_open.return_value.__exit__ = mock.Mock(return_value=False)
+            mock_open.return_value.write = mock.Mock()
+            _update_connections_toml({})
+            mock_open.assert_called_once_with(
+                mock_conn_file.return_value, "w", encoding=None
+            )
+
+
 @pytest.mark.parametrize("bad_value", ["just-a-string", 42, True, ["a", "b"]])
 def test_connection_config_from_dict_rejects_non_mapping(bad_value):
     with pytest.raises(InvalidConnectionConfigurationError) as exc_info:

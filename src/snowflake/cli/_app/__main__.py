@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import codecs
 import os
 import sys
 
@@ -29,6 +30,10 @@ def _apply_stdout_encoding_from_env() -> None:
     """
     enc = os.environ.get("SNOWFLAKE_CLI_ENCODING_STDOUT")
     if not enc:
+        return
+    try:
+        codecs.lookup(enc)
+    except LookupError:
         return
     try:
         sys.stdout.reconfigure(encoding=enc)  # type: ignore[attr-defined,union-attr]

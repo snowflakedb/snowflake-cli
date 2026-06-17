@@ -783,19 +783,32 @@ def get_feature_flags_section() -> Dict[str, bool | Literal["UNKNOWN"]]:
     return {k: _bool_or_unknown(v) for k, v in flags.items()}
 
 
+def _get_file_io_encoding_env_only() -> Optional[str]:
+    """Read file I/O encoding from the env var only, without accessing the config file.
+
+    Used when opening the config file itself to avoid a chicken-and-egg problem
+    (can't read the encoding setting from the file we haven't opened yet).
+    Returns None when the env var is not set, which preserves the platform-default
+    behavior that existed before encoding support was added.
+    """
+    value = get_env_value(*ENCODING_SECTION_PATH, key="file_io")
+    return _validate_encoding(value, "cli.encoding.file_io")
+
+
 def _read_config_file_toml() -> dict:
-    # TOML files are always UTF-8 by spec; don't apply user's file_io encoding
     return tomlkit.loads(
-        get_config_manager().file_path.read_text(encoding="utf-8")
+        get_config_manager().file_path.read_text(
+            encoding=_get_file_io_encoding_env_only()
+        )
     ).unwrap()
 
 
 def _read_connections_toml() -> dict:
-    # TOML files are always UTF-8 by spec; don't apply user's file_io encoding
-    return tomlkit.loads(get_connections_file().read_text(encoding="utf-8")).unwrap()
+    return tomlkit.loads(
+        get_connections_file().read_text(encoding=get_file_io_encoding())
+    ).unwrap()
 
 
 def _update_connections_toml(connections: dict):
-    # TOML files are always UTF-8 by spec; don't apply user's file_io encoding
-    with open(get_connections_file(), "w", encoding="utf-8") as f:
+    with open(get_connections_file(), "w", encoding=get_file_io_encoding()) as f:
         f.write(tomlkit.dumps(connections))
