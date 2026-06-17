@@ -24,6 +24,7 @@ from typing import Dict, List, Optional, TypedDict
 
 import yaml
 from snowflake.cli._plugins.dbt.constants import (
+    ENV_FILENAME,
     PROFILES_FILENAME,
     SUPPORTED_DBT_VERSIONS_QUERY,
 )
@@ -86,6 +87,7 @@ _NoDuplicatesSafeLoader.add_constructor(
 
 class DBTObjectEditableAttributes(TypedDict):
     default_target: Optional[str]
+    default_env: Optional[str]
     external_access_integrations: Optional[List[str]]
     dbt_version: Optional[str]
 
@@ -96,6 +98,8 @@ class DBTDeployAttributes:
 
     default_target: Optional[str] = None
     unset_default_target: bool = False
+    default_env: Optional[str] = None
+    unset_default_env: bool = False
     external_access_integrations: Optional[List[str]] = None
     install_local_deps: bool = False
     dbt_version: Optional[str] = None
@@ -152,6 +156,7 @@ class DBTManager(SqlExecutionMixin):
 
         return DBTObjectEditableAttributes(
             default_target=row_dict.get("default_target"),
+            default_env=row_dict.get("default_environment"),
             external_access_integrations=external_access_integrations,
             dbt_version=row_dict.get("dbt_version"),
         )
@@ -197,6 +202,7 @@ class DBTManager(SqlExecutionMixin):
         profiles_path: SecurePath,
         force: bool,
         attrs: DBTDeployAttributes,
+        env_file_path: Optional[SecurePath] = None,
     ) -> SnowflakeCursor:
         dbt_project_path = path / "dbt_project.yml"
         if not dbt_project_path.exists():
@@ -216,6 +222,21 @@ class DBTManager(SqlExecutionMixin):
         if attrs.dbt_version:
             self._validate_dbt_version(attrs.dbt_version)
 
+        # env.yml comes from --env-file-dir if given, else the source dir
+        # (env.yml is optional, so it may be absent in either case).
+        env_source_path = env_file_path if env_file_path is not None else path
+        env_file = env_source_path / ENV_FILENAME
+        if env_file_path is not None and not env_file.exists():
+            raise CliError(
+                f"{ENV_FILENAME} does not exist in directory {env_file_path.path.absolute()}."
+            )
+        # Parse/validate before any network call so duplicate keys / invalid
+        # YAML fail fast, whether env.yml came from --env-file-dir or the
+        # source directory.
+        env_yml_content = (
+            self._validate_and_parse_env_file(env_file) if env_file.exists() else None
+        )
+
         with cli_console.phase("Creating temporary stage"):
             stage_manager = StageManager()
             stage_fqn = FQN.from_resource(ObjectType.DBT_PROJECT, fqn, "STAGE")
@@ -227,6 +248,8 @@ class DBTManager(SqlExecutionMixin):
                 tmp_path = Path(tmp)
                 stage_manager.copy_to_tmp_dir(path.path, tmp_path)
                 self._prepare_profiles_file(profiles_path.path, tmp_path)
+                if env_yml_content is not None:
+                    self._write_env_file(env_yml_content, tmp_path)
                 result_count = len(
                     list(
                         stage_manager.put_recursive(
@@ -266,6 +289,15 @@ class DBTManager(SqlExecutionMixin):
             or current_default_target.lower() != attrs.default_target.lower()
         ):
             set_properties.append(f"DEFAULT_TARGET='{attrs.default_target}'")
+
+        # Always issue SET/UNSET when the user asks; the server treats
+        # UNSET-on-null as a no-op.
+        if attrs.unset_default_env:
+            unset_properties.append("DEFAULT_ENVIRONMENT")
+        elif attrs.default_env:
+            set_properties.append(
+                f"DEFAULT_ENVIRONMENT={to_string_literal(attrs.default_env)}"
+            )
 
         # Comparing dbt_version to existing project's dbt_version might be ambiguous
         # if previously project was locked to just minor version and now user wants to
@@ -335,6 +367,8 @@ class DBTManager(SqlExecutionMixin):
         query += f"\nFROM {stage_name}"
         if attrs.default_target:
             query += f" DEFAULT_TARGET='{attrs.default_target}'"
+        if attrs.default_env:
+            query += f" DEFAULT_ENVIRONMENT={to_string_literal(attrs.default_env)}"
         if attrs.dbt_version:
             query += f" DBT_VERSION={to_string_literal(attrs.dbt_version)}"
         query = self._handle_external_access_integrations_query(
@@ -366,6 +400,8 @@ class DBTManager(SqlExecutionMixin):
         query += f"\nFROM {stage_name}"
         if attrs.default_target:
             query += f" DEFAULT_TARGET='{attrs.default_target}'"
+        if attrs.default_env:
+            query += f" DEFAULT_ENVIRONMENT={to_string_literal(attrs.default_env)}"
         if attrs.dbt_version:
             query += f" DBT_VERSION={to_string_literal(attrs.dbt_version)}"
         query = self._handle_external_access_integrations_query(
@@ -462,6 +498,26 @@ class DBTManager(SqlExecutionMixin):
         ) as sfd, target_profiles_file.open(mode="w") as tfd:
             yaml.safe_dump(yaml.safe_load(sfd), tfd)
 
+    @staticmethod
+    def _validate_and_parse_env_file(env_file: SecurePath) -> Optional[dict]:
+        """Parse and validate env.yml, rejecting duplicate keys and invalid YAML."""
+        with env_file.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as sfd:
+            try:
+                return yaml.load(sfd, Loader=_NoDuplicatesSafeLoader)
+            except yaml.constructor.ConstructorError as e:
+                raise CliError(f"Failed to parse {ENV_FILENAME}: {e.problem}")
+            except yaml.YAMLError as e:
+                raise CliError(f"{ENV_FILENAME} is not valid YAML: {e}")
+
+    @staticmethod
+    def _write_env_file(content: dict, tmp_path: Path):
+        """Write the parsed env.yml into the staging dir (comments already dropped)."""
+        target_env_file = SecurePath(tmp_path / ENV_FILENAME)
+        if target_env_file.exists():
+            target_env_file.unlink()
+        with target_env_file.open(mode="w") as tfd:
+            yaml.safe_dump(content, tfd)
+
     def execute(
         self,
         dbt_command: str,
@@ -511,7 +567,7 @@ class DBTManager(SqlExecutionMixin):
         try:
             parsed = yaml.load(raw, Loader=_NoDuplicatesSafeLoader)
         except yaml.constructor.ConstructorError as e:
-            raise CliError(f"--env-vars contains a duplicate key: {e.problem}")
+            raise CliError(f"Failed to parse --env-vars: {e.problem}")
         except yaml.YAMLError as e:
             raise CliError(f"--env-vars must be valid YAML/JSON: {e}")
         if not isinstance(parsed, dict):

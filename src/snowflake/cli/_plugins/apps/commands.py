@@ -47,7 +47,6 @@ from snowflake.cli._plugins.apps.manager import (
     perform_bundle,
 )
 from snowflake.cli._plugins.connection.util import make_snowsight_url
-from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.config import (
     get_connection_dict,
@@ -565,19 +564,19 @@ def snowflake_app_deploy(
     entity_id: Optional[str],
     upload_only: bool,
     build_only: bool,
-    deploy_only: bool,
+    promote_only: bool,
     interactive: Optional[bool] = None,
 ) -> CommandResult:
     """Build and deploy a Snowflake App Runtime through upload, build, and deploy phases."""
-    phase_flags = sum((upload_only, build_only, deploy_only))
+    phase_flags = sum((upload_only, build_only, promote_only))
     if phase_flags > 1:
         raise ClickException(
-            "Only one of --upload-only, --build-only, or --deploy-only "
+            "Only one of --upload-only, --build-only, or --promote-only "
             "may be specified."
         )
 
-    run_upload = not build_only and not deploy_only
-    run_build = not upload_only and not deploy_only
+    run_upload = not build_only and not promote_only
+    run_build = not upload_only and not promote_only
     run_deploy = not upload_only and not build_only
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
@@ -657,7 +656,6 @@ def snowflake_app_deploy(
     service_fqn = app_fqn(database=database, schema=schema, name=app_name)
     workspace_source_uri = manager.workspace_subdirectory_uri(storage_fqn, app_name)
 
-    stage_manager = StageManager()
     metrics = get_cli_context().metrics
 
     # ── Upload phase ──────────────────────────────────────────────────
@@ -745,12 +743,10 @@ def snowflake_app_deploy(
 
                     with metrics.span("snowflake_app.upload.push_stage_files"):
                         cli_console.step(f"Uploading bundled files to @{storage_fqn}")
-                        for result in stage_manager.put_recursive(
-                            local_path=project_paths.bundle_root,
-                            stage_path=f"@{storage_fqn}",
+                        for result in manager.upload_to_stage(
+                            local_root=project_paths.bundle_root,
+                            stage_fqn=storage_fqn,
                             overwrite=True,
-                            auto_compress=False,
-                            temp_directory=project_paths.bundle_root,
                         ):
                             cli_console.step(
                                 f"  Uploaded {result['source']} -> {result['target']}"
