@@ -64,6 +64,34 @@ def change_directory(directory: Path):
         os.chdir(cwd)
 
 
+@contextmanager
+def simulated_ansi_locale(simulated_encoding: str = "cp1252"):
+    """Force text-mode file opens that omit an explicit ``encoding=`` to use a
+    non-UTF-8 code page, mimicking the Windows ANSI default in-process on any
+    host OS.
+
+    We patch ``pathlib.Path.open`` (rather than ``io.open``) because it is the
+    version-independent seam every read funnels through: in some Python versions
+    ``pathlib`` captures ``io.open`` at import time, so patching ``io.open``
+    would not intercept ``Path`` reads. ``Path.open`` / ``Path.read_text``
+    forward the ``"locale"`` sentinel (or ``None``) when the caller does not
+    pass ``encoding=``; both are substituted so the regression reproduces
+    deterministically. Reads that pass an explicit ``encoding`` (e.g. UTF-8
+    reads) are left untouched.
+    """
+    real_open = Path.open
+
+    def fake_open(
+        self, mode="r", buffering=-1, encoding=None, errors=None, newline=None
+    ):
+        if "b" not in mode and encoding in (None, "locale"):
+            encoding = simulated_encoding
+        return real_open(self, mode, buffering, encoding, errors, newline)
+
+    with mock.patch.object(Path, "open", fake_open):
+        yield
+
+
 @pytest.fixture()
 def workspace_context():
     return WorkspaceContext(

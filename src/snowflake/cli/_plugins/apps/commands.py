@@ -212,7 +212,12 @@ def snowflake_app_setup(
             f"Invalid app name '{resolved_app_name}'. "
             "Only letters, digits, and underscores are allowed."
         )
-    encoding = get_file_io_encoding()
+    # snowflake.yml is a CLI-owned manifest that the ``snow app`` commands read
+    # back with the same encoding policy (see _app_group_callback): an explicit
+    # cli.encoding.file_io setting wins, otherwise UTF-8. Writing it the same
+    # way keeps the round-trip consistent regardless of the host code page, even
+    # when the generated content (e.g. a non-Latin app title) is non-ASCII.
+    encoding = get_file_io_encoding() or "utf-8"
     project_file = Path.cwd() / DEFINITION_FILENAME
     if not dry_run and project_file.exists():
         return MessageResult(

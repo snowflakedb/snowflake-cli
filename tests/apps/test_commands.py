@@ -13,8 +13,6 @@
 # limitations under the License.
 
 import os
-from contextlib import contextmanager
-from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -48,7 +46,7 @@ from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.connector.cursor import DictCursor
 from snowflake.connector.errors import ProgrammingError
 
-from tests_common import change_directory
+from tests_common import change_directory, simulated_ansi_locale
 
 EXECUTE_QUERY = "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.execute_query"
 OBJECT_EXISTS = "snowflake.cli._plugins.apps.manager._object_exists"
@@ -2957,6 +2955,59 @@ class TestSetupCommand:
 
     @patch(
         "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
+        # "é" is U+00E9: 0xE9 in cp1252, 0xC3 0xA9 in UTF-8.
+        return_value="definition_version: '2'\ntitle: é\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_init_writes_definition_as_utf8_by_default(
+        self, mock_mgr_cls, mock_gen, runner, tmp_path
+    ):
+        """Without cli.encoding.file_io configured, ``snow app setup`` writes
+        snowflake.yml as UTF-8 (not the platform code page)."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "database": "PARAM_DB",
+            "schema": "PARAM_SCHEMA",
+            "query_warehouse": "PARAM_WH",
+        }
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+            assert result.exit_code == 0, result.output
+
+        data = (tmp_path / "snowflake.yml").read_bytes()
+        assert b"\xc3\xa9" in data  # UTF-8 encoding of "é"
+        assert b"\xe9" not in data  # not the cp1252 single-byte form
+
+    @patch("snowflake.cli._plugins.apps.commands.get_file_io_encoding")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
+        return_value="definition_version: '2'\ntitle: é\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_init_write_honors_file_io_encoding_setting(
+        self, mock_mgr_cls, mock_gen, mock_encoding, runner, tmp_path
+    ):
+        """An explicit cli.encoding.file_io setting takes precedence over the
+        UTF-8 default when ``snow app setup`` writes snowflake.yml."""
+        mock_encoding.return_value = "cp1252"
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "database": "PARAM_DB",
+            "schema": "PARAM_SCHEMA",
+            "query_warehouse": "PARAM_WH",
+        }
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+            assert result.exit_code == 0, result.output
+
+        data = (tmp_path / "snowflake.yml").read_bytes()
+        assert b"\xe9" in data  # cp1252 single-byte encoding of "é"
+        assert b"\xc3\xa9" not in data  # not the UTF-8 form
+
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
         return_value="definition_version: '2'\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
@@ -3999,39 +4050,6 @@ class TestBundleNonAsciiDefinitionEncoding:
         "        dest: ./\n"
     )
 
-    @staticmethod
-    @contextmanager
-    def _simulated_ansi_locale(simulated_encoding="cp1252"):
-        """Force text-mode file opens that omit an explicit ``encoding=`` to use
-        a non-UTF-8 code page, mimicking the Windows ANSI default in-process on
-        any host OS.
-
-        We patch ``pathlib.Path.open`` (rather than ``io.open``) because it is
-        the version-independent seam every read funnels through: in some Python
-        versions ``pathlib`` captures ``io.open`` at import time, so patching
-        ``io.open`` would not intercept ``Path`` reads. ``Path.open`` /
-        ``Path.read_text`` forward the ``"locale"`` sentinel (or ``None``) when
-        the caller does not pass ``encoding=``; both are substituted so the
-        regression reproduces deterministically. Reads that pass an explicit
-        ``encoding`` (e.g. the post-fix UTF-8 reads) are left untouched.
-        """
-        real_open = Path.open
-
-        def fake_open(
-            self,
-            mode="r",
-            buffering=-1,
-            encoding=None,
-            errors=None,
-            newline=None,
-        ):
-            if "b" not in mode and encoding in (None, "locale"):
-                encoding = simulated_encoding
-            return real_open(self, mode, buffering, encoding, errors, newline)
-
-        with patch.object(Path, "open", fake_open):
-            yield
-
     def _write_project(self, tmp_path):
         app_dir = tmp_path / "app"
         app_dir.mkdir()
@@ -4044,7 +4062,7 @@ class TestBundleNonAsciiDefinitionEncoding:
         """Sanity check: the ANSI-locale simulation does raise for an unguarded
         (no ``encoding=``) read, so the regression tests below are meaningful."""
         self._write_project(tmp_path)
-        with self._simulated_ansi_locale():
+        with simulated_ansi_locale():
             with pytest.raises(UnicodeDecodeError):
                 (tmp_path / "snowflake.yml").read_text()
             # An explicit UTF-8 read still succeeds under the same simulation.
@@ -4053,7 +4071,7 @@ class TestBundleNonAsciiDefinitionEncoding:
     def test_bundle_succeeds_with_non_ascii_definition(self, runner, tmp_path):
         self._write_project(tmp_path)
         with change_directory(tmp_path):
-            with self._simulated_ansi_locale():
+            with simulated_ansi_locale():
                 result = runner.invoke(["app", "bundle"])
         assert result.exit_code == 0, result.output
         assert "Bundle generated at" in result.output
@@ -4061,7 +4079,7 @@ class TestBundleNonAsciiDefinitionEncoding:
     def test_validate_succeeds_with_non_ascii_definition(self, runner, tmp_path):
         self._write_project(tmp_path)
         with change_directory(tmp_path):
-            with self._simulated_ansi_locale():
+            with simulated_ansi_locale():
                 result = runner.invoke(["app", "validate"])
         assert result.exit_code == 0, result.output
         assert "Valid Snowflake App Runtime project" in result.output
