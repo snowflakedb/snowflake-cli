@@ -47,6 +47,7 @@ class DefinitionManager:
         self,
         project_arg: Optional[str] = None,
         context_overrides: Optional[Context] = None,
+        encoding: Optional[str] = None,
     ) -> None:
         project_root = Path(
             os.path.abspath(project_arg) if project_arg else os.getcwd()
@@ -55,6 +56,9 @@ class DefinitionManager:
         self.project_root = project_root
         self.project_config_paths = self._find_definition_files(self.project_root)
         self._context_overrides = context_overrides
+        # Text encoding used to read snowflake.yml. ``None`` falls back to the
+        # cli.encoding.file_io setting / platform default.
+        self._encoding = encoding
 
     @functools.cached_property
     def has_definition_file(self):
@@ -126,11 +130,17 @@ class DefinitionManager:
 
     @functools.cached_property
     def _project_properties(self) -> ProjectProperties:
-        return load_project(self.project_config_paths, self._context_overrides)
+        return load_project(
+            self.project_config_paths,
+            self._context_overrides,
+            encoding=self._encoding,
+        )
 
     @functools.cached_property
     def _raw_project_data(self) -> ProjectProperties:
-        return load_project(self.project_config_paths, {}, False)
+        return load_project(
+            self.project_config_paths, {}, False, encoding=self._encoding
+        )
 
     @functools.cached_property
     def project_definition(self) -> ProjectDefinitionV1:

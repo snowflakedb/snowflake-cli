@@ -22,6 +22,7 @@ from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.utils.models import ProjectEnvironment
 
 from tests.test_data.test_data import definition_v2_duplicated_entity_names
+from tests_common import simulated_ansi_locale
 
 
 def mock_is_file_for(*known_files):
@@ -159,3 +160,44 @@ def test_loading_yaml_with_duplicated_keys_raises_an_error():
         "While loading the project definition file, duplicate key was found: hello_world"
         in err.value.message
     )
+
+
+# U+0401 encodes to UTF-8 bytes 0xD0 0x81; 0x81 is undefined in cp1252.
+_DEFINITION_WITH_NON_ASCII = (
+    "definition_version: '2'\n"
+    "entities:\n"
+    "  my_app:\n"
+    "    type: streamlit\n"
+    "    identifier: my_app\n"
+    "    title: 'Demo \u0401 app'\n"
+    "    main_file: app.py\n"
+    "    artifacts:\n"
+    "      - app.py\n"
+)
+
+
+def test_definition_manager_default_encoding_is_not_forced_utf8():
+    """Without an explicit encoding, snowflake.yml is read using the platform /
+    cli.encoding.file_io default. Under a simulated Windows ANSI locale, a
+    non-ASCII (UTF-8 on disk) definition therefore fails to decode -- proving
+    the global UTF-8 assumption has been removed."""
+    with TemporaryDirectory() as tmpdir:
+        (Path(tmpdir) / "snowflake.yml").write_text(
+            _DEFINITION_WITH_NON_ASCII, encoding="utf-8"
+        )
+        with simulated_ansi_locale():
+            with pytest.raises(UnicodeDecodeError):
+                _ = DefinitionManager(tmpdir).project_definition
+
+
+def test_definition_manager_explicit_utf8_encoding_reads_non_ascii():
+    """When ``encoding='utf-8'`` is passed (as the ``snow app`` group does), a
+    non-ASCII definition loads successfully even under a simulated Windows ANSI
+    locale."""
+    with TemporaryDirectory() as tmpdir:
+        (Path(tmpdir) / "snowflake.yml").write_text(
+            _DEFINITION_WITH_NON_ASCII, encoding="utf-8"
+        )
+        with simulated_ansi_locale():
+            definition = DefinitionManager(tmpdir, encoding="utf-8").project_definition
+        assert definition.entities["my_app"].title == "Demo \u0401 app"
