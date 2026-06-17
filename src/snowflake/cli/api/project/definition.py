@@ -43,7 +43,9 @@ from yaml import MappingNode, SequenceNode
 DEFAULT_USERNAME = "unknown_user"
 
 
-def _get_merged_definitions(paths: List[Path]) -> Optional[Definition]:
+def _get_merged_definitions(
+    paths: List[Path], encoding: Optional[str] = None
+) -> Optional[Definition]:
     spaths: List[SecurePath] = [SecurePath(p) for p in paths]
     if len(spaths) == 0:
         return None
@@ -55,13 +57,13 @@ def _get_merged_definitions(paths: List[Path]) -> Optional[Definition]:
     loader.add_constructor("!override", _override_tag)
 
     with spaths[0].open(
-        "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB, encoding="utf-8"
+        "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB, encoding=encoding
     ) as base_yml:
         definition = yaml.load(base_yml.read(), Loader=loader) or {}
 
     for override_path in spaths[1:]:
         with override_path.open(
-            "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB, encoding="utf-8"
+            "r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB, encoding=encoding
         ) as override_yml:
             overrides = (
                 yaml.load(override_yml.read(), Loader=yaml.loader.BaseLoader) or {}
@@ -75,13 +77,18 @@ def load_project(
     paths: List[Path],
     context_overrides: Optional[Context] = None,
     render_templates: bool = True,
+    encoding: Optional[str] = None,
 ) -> ProjectProperties:
     """
     Loads project definition, optionally overriding values. Definition values
     are merged in left-to-right order (increasing precedence).
     Templating is also applied after the merging process.
+
+    ``encoding`` selects the text encoding used to read the definition files.
+    When ``None`` the encoding falls back to the ``cli.encoding.file_io``
+    setting / platform default (see ``SecurePath.open``).
     """
-    merged_definitions = _get_merged_definitions(paths)
+    merged_definitions = _get_merged_definitions(paths, encoding=encoding)
     if render_templates:
         return render_definition_template(merged_definitions, context_overrides or {})
     else:
