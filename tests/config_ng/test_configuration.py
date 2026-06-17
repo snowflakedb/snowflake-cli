@@ -171,6 +171,47 @@ def test_general_env_boolean_values_cast(config_ng_setup):
         assert conn["client_store_temporary_credential"] is True
 
 
+def test_server_session_keep_alive_env_var_true(config_ng_setup):
+    """SNOWFLAKE_SERVER_SESSION_KEEP_ALIVE=true should be coerced to bool."""
+    env_vars = {
+        "SNOWFLAKE_ACCOUNT": "env-account",
+        "SNOWFLAKE_SERVER_SESSION_KEEP_ALIVE": "true",
+    }
+
+    with config_ng_setup(env_vars=env_vars):
+        from snowflake.cli.api.config import get_connection_dict
+
+        conn = get_connection_dict("default")
+        assert conn["server_session_keep_alive"] is True
+
+
+def test_server_session_keep_alive_env_var_false(config_ng_setup):
+    """SNOWFLAKE_SERVER_SESSION_KEEP_ALIVE=false should be coerced to bool."""
+    env_vars = {
+        "SNOWFLAKE_ACCOUNT": "env-account",
+        "SNOWFLAKE_SERVER_SESSION_KEEP_ALIVE": "false",
+    }
+
+    with config_ng_setup(env_vars=env_vars):
+        from snowflake.cli.api.config import get_connection_dict
+
+        conn = get_connection_dict("default")
+        assert conn["server_session_keep_alive"] is False
+
+
+def test_connection_specific_server_session_keep_alive_env_var(config_ng_setup):
+    """Connection-specific SNOWFLAKE_CONNECTIONS_<NAME>_SERVER_SESSION_KEEP_ALIVE should work."""
+    env_vars = {
+        "SNOWFLAKE_CONNECTIONS_TEST_SERVER_SESSION_KEEP_ALIVE": "1",
+    }
+
+    with config_ng_setup(env_vars=env_vars):
+        from snowflake.cli.api.config import get_connection_dict
+
+        conn = get_connection_dict("test")
+        assert conn["server_session_keep_alive"] is True
+
+
 def test_complete_7_level_chain(config_ng_setup):
     """All 7 levels with different keys showing complete precedence"""
     snowsql_config = """

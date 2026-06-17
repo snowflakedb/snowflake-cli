@@ -52,6 +52,7 @@ from snowflake.cli.api.commands.flags import (
     RoleOption,
     SchemaOption,
     SecondaryRolesOption,
+    ServerSessionKeepAliveOption,
     SessionTokenOption,
     SilentOption,
     TemporaryConnectionOption,
@@ -427,6 +428,12 @@ GLOBAL_CONNECTION_OPTIONS = [
         inspect.Parameter.KEYWORD_ONLY,
         annotation=Optional[str],
         default=SecondaryRolesOption,
+    ),
+    inspect.Parameter(
+        "server_session_keep_alive",
+        inspect.Parameter.KEYWORD_ONLY,
+        annotation=Optional[bool],
+        default=ServerSessionKeepAliveOption,
     ),
 ]
 
