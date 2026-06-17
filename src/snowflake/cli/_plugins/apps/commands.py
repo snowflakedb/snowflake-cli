@@ -716,34 +716,22 @@ def snowflake_app_deploy(
                         manager.ensure_workspace_live_version(storage_fqn)
                 else:
                     with metrics.span("snowflake_app.upload.prepare_stage"):
-                        stage_already_exists = manager.stage_exists(storage_fqn)
+                        # Recreate the stage from scratch so the upload always
+                        # starts from an empty stage. Clearing an existing stage
+                        # with REMOVE can leave stale chunks behind that would
+                        # otherwise be mixed into the build and may conflict.
                         try:
-                            if stage_already_exists:
-                                cli_console.step(
-                                    f"Clearing existing stage @{storage_fqn}"
-                                )
-                                manager.clear_stage(storage_fqn)
-                            else:
-                                cli_console.step(f"Creating stage @{storage_fqn}")
-                                manager.create_stage(storage_fqn, encryption_type)
+                            cli_console.step(f"Recreating stage @{storage_fqn}")
+                            manager.drop_stage_if_exists(storage_fqn)
+                            manager.create_stage(storage_fqn, encryption_type)
                         except ProgrammingError as e:
-                            action = (
-                                "clear existing stage"
-                                if stage_already_exists
-                                else "create stage"
-                            )
-                            required_privilege = (
-                                "WRITE on the stage"
-                                if stage_already_exists
-                                else "CREATE STAGE on the schema"
-                            )
                             role = manager.current_role()
                             role_clause = f"role '{role}'" if role else "your role"
                             raise CliError(
-                                f"Failed to {action} '{storage_fqn.identifier}': {e}. "
+                                f"Failed to recreate stage '{storage_fqn.identifier}': {e}. "
                                 f"Verify that {role_clause} has the required "
                                 f"privileges (USAGE on the database and schema, "
-                                f"and {required_privilege})."
+                                f"OWNERSHIP on the stage, and CREATE STAGE on the schema)."
                             ) from e
 
                     with metrics.span("snowflake_app.upload.push_stage_files"):

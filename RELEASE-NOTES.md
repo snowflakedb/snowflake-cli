@@ -37,6 +37,7 @@
 * `snow dbt` no longer rejects valid `--dbt-version` values (e.g. `2.0.0-preview.175`) that don't match a hard-coded client-side regex. Versions are now validated against the server's supported list, with unsupported versions failing fast and listing the actual supported set.
 * Fixed `snow app` commands (e.g. `snow app deploy`, `snow app validate`) failing on Windows with a `UnicodeDecodeError` when `snowflake.yml` contained non-ASCII characters (e.g. a non-Latin app title or description). The `snow app` command group now defaults to reading and writing `snowflake.yml` as UTF-8 instead of falling back to the platform default code page (cp1252/cp932 on Windows). An explicit `cli.encoding.file_io` setting still takes precedence when configured; UTF-8 is only the default for `snow app` commands. Other commands continue to honor the `cli.encoding.file_io` setting / platform default when reading project files.
 * The `--deploy-only` flag of `snow app deploy` has been renamed to `--promote-only`. The previous `--deploy-only` name continues to work as a hidden alias for now, but this backward compatibility is temporary and will be removed soon.
+* `snow app deploy` now drops and recreates the code stage before uploading (instead of clearing it with `REMOVE`) so each deploy always starts from an empty stage. This prevents stale files from a previous deploy from being mixed into the build, which could produce incorrect or conflicting build artifacts.
 
 
 # v3.20.0
