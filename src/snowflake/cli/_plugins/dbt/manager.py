@@ -580,8 +580,9 @@ class DBTManager(SqlExecutionMixin):
                     f"--use-shell-env-vars: dropped {dropped_secret_count} "
                     f"{DBT_ENV_SECRET_PREFIX}* environment variable(s) from "
                     "shell. To forward secrets, use the secrets: block in "
-                    "env.yml referencing a Snowflake SECRET object, or pass "
-                    "them explicitly via --env-vars."
+                    "env.yml referencing a Snowflake SECRET object, or if "
+                    "those are not sensitive, pass them explicitly via "
+                    "--env-vars."
                 )
             if skipped_count:
                 cli_console.message(
