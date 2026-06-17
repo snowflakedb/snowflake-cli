@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from contextlib import contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase, mock
@@ -23,6 +22,7 @@ from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.utils.models import ProjectEnvironment
 
 from tests.test_data.test_data import definition_v2_duplicated_entity_names
+from tests_common import simulated_ansi_locale
 
 
 def mock_is_file_for(*known_files):
@@ -176,23 +176,6 @@ _DEFINITION_WITH_NON_ASCII = (
 )
 
 
-@contextmanager
-def _simulated_ansi_locale(simulated_encoding="cp1252"):
-    """Force text-mode opens without an explicit ``encoding=`` to use a non-UTF-8
-    code page, mimicking the Windows ANSI default in-process on any host OS."""
-    real_open = Path.open
-
-    def fake_open(
-        self, mode="r", buffering=-1, encoding=None, errors=None, newline=None
-    ):
-        if "b" not in mode and encoding in (None, "locale"):
-            encoding = simulated_encoding
-        return real_open(self, mode, buffering, encoding, errors, newline)
-
-    with mock.patch.object(Path, "open", fake_open):
-        yield
-
-
 def test_definition_manager_default_encoding_is_not_forced_utf8():
     """Without an explicit encoding, snowflake.yml is read using the platform /
     cli.encoding.file_io default. Under a simulated Windows ANSI locale, a
@@ -202,7 +185,7 @@ def test_definition_manager_default_encoding_is_not_forced_utf8():
         (Path(tmpdir) / "snowflake.yml").write_text(
             _DEFINITION_WITH_NON_ASCII, encoding="utf-8"
         )
-        with _simulated_ansi_locale():
+        with simulated_ansi_locale():
             with pytest.raises(UnicodeDecodeError):
                 _ = DefinitionManager(tmpdir).project_definition
 
@@ -215,6 +198,6 @@ def test_definition_manager_explicit_utf8_encoding_reads_non_ascii():
         (Path(tmpdir) / "snowflake.yml").write_text(
             _DEFINITION_WITH_NON_ASCII, encoding="utf-8"
         )
-        with _simulated_ansi_locale():
+        with simulated_ansi_locale():
             definition = DefinitionManager(tmpdir, encoding="utf-8").project_definition
         assert definition.entities["my_app"].title == "Demo \u0401 app"
