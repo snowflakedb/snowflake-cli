@@ -39,6 +39,7 @@ class LogFormatterConfig:
 class LoggerConfig:
     level: int = logging.NOTSET
     handlers: List[str] = field(default_factory=list)
+    propagate: bool = True
 
 
 @dataclass
