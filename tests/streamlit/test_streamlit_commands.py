@@ -478,11 +478,11 @@ class TestStreamlitCommands(StreamlitTestClass):
         # version is already set up; calling it raises "There is already a
         # live version. Please commit it first."
         add_live_calls = [
-            c
-            for c in self.mock_execute.call_args_list
-            if "ADD LIVE VERSION" in str(c)
+            c for c in self.mock_execute.call_args_list if "ADD LIVE VERSION" in str(c)
         ]
-        assert add_live_calls == [], "ADD LIVE VERSION should not be called for existing apps"
+        assert (
+            add_live_calls == []
+        ), "ADD LIVE VERSION should not be called for existing apps"
         self._assert_that_exactly_those_files_were_put_to_stage(
             ["streamlit_app.py", "environment.yml", "pages/my_page.py"],
         )
