@@ -474,7 +474,7 @@ class TestStreamlitCommands(StreamlitTestClass):
         ).strip()
         assert result.exit_code == 0, result.output
         self.mock_execute.assert_any_call(expected_query)
-        # ADD LIVE VERSION must NOT be called for an existing app — the live
+        # ADD LIVE VERSION must NOT be called for an existing app - the live
         # version is already set up; calling it raises "There is already a
         # live version. Please commit it first."
         add_live_calls = [
