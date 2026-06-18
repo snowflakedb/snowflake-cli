@@ -200,6 +200,15 @@ def create_loggers(verbose: bool, debug: bool):
 
 
 def _configurate_logging(config: DefaultLoggingConfig | InitialLoggingConfig) -> None:
+    # dictConfig always calls _clearExistingHandlers() which zeroes root.handlers;
+    # preserve and restore any handlers not owned by a prior dictConfig call (e.g. pytest caplog).
+    root = logging.getLogger()
+    external_root_handlers = [
+        h for h in root.handlers if h not in logging._handlers.values()
+    ]
     dict_config = asdict(config)
     _remove_underscore_prefixes_from_keys(dict_config)
     logging.config.dictConfig(dict_config)
+    for handler in external_root_handlers:
+        if handler not in root.handlers:
+            root.addHandler(handler)
