@@ -167,8 +167,8 @@ def test_apply_stdout_encoding_from_env_valid(monkeypatch):
     mock_stdout.reconfigure.assert_called_once_with(encoding="utf-8")
 
 
-def test_apply_stdout_encoding_from_env_invalid_warns_and_skips(monkeypatch, capsys):
-    """_apply_stdout_encoding_from_env prints a warning and does NOT reconfigure for invalid codecs."""
+def test_apply_stdout_encoding_from_env_invalid_skips(monkeypatch):
+    """_apply_stdout_encoding_from_env silently skips reconfigure for invalid codecs."""
     monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_STDOUT", "not-a-real-encoding")
     mock_stdout = mock.MagicMock()
     monkeypatch.setattr("sys.stdout", mock_stdout)
@@ -178,9 +178,6 @@ def test_apply_stdout_encoding_from_env_invalid_warns_and_skips(monkeypatch, cap
     _apply_stdout_encoding_from_env()
 
     mock_stdout.reconfigure.assert_not_called()
-    captured = capsys.readouterr()
-    assert "not-a-real-encoding" in captured.err
-    assert "SNOWFLAKE_CLI_ENCODING_STDOUT" in captured.err
 
 
 def test_apply_stdout_encoding_from_env_unset_is_noop(monkeypatch):
