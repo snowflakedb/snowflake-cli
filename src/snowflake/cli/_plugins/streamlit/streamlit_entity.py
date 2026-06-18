@@ -474,6 +474,9 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             alter_sql = self.get_alter_sql(current=current)
             if alter_sql:
                 self._execute_query(alter_sql)
+            # Live version already exists — upload new files directly to the
+            # existing stage without issuing ADD LIVE VERSION FROM LAST.
+            stage_root = current["live_version_location_uri"]
         else:
             self._execute_query(
                 self.get_deploy_sql(
@@ -482,19 +485,14 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                     legacy=False,
                 )
             )
-        try:
-            self._execute_query(self.get_add_live_version_sql())
-        except ProgrammingError as e:
-            if "There is already a live version" in str(e):
-                log.info("Live version already exists, continuing")
-            else:
-                raise
-
-        stage_root = (
-            current["live_version_location_uri"]
-            if object_exists
-            else self.describe().fetchone()["live_version_location_uri"]
-        )
+            try:
+                self._execute_query(self.get_add_live_version_sql())
+            except ProgrammingError as e:
+                if "There is already a live version" in str(e):
+                    log.info("Live version already exists, continuing")
+                else:
+                    raise
+            stage_root = self.describe().fetchone()["live_version_location_uri"]
         stage_path_parts = StageManager().stage_path_parts_from_str(stage_root)
 
         sync_deploy_root_with_stage(
