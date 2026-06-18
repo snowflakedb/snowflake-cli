@@ -130,6 +130,15 @@ PortOption = typer.Option(
     rich_help_panel=_CONNECTION_SECTION,
 )
 
+ProtocolOption = typer.Option(
+    None,
+    "--protocol",
+    help="Protocol to use for the connection, for example `https`. Overrides the value specified for the connection.",
+    callback=_connection_callback("protocol"),
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
 AccountOption = typer.Option(
     None,
     "--account",
@@ -419,6 +428,16 @@ ClientStoreTemporaryCredentialOption = typer.Option(
     "--client-store-temporary-credential",
     help="Store the temporary credential.",
     callback=_connection_callback("client_store_temporary_credential"),
+    is_flag=True,
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
+ServerSessionKeepAliveOption = typer.Option(
+    None,
+    "--server-session-keep-alive",
+    help="Keep the session active indefinitely, even if there is no activity from the user.",
+    callback=_connection_callback("server_session_keep_alive"),
     is_flag=True,
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,

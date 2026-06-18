@@ -14,8 +14,12 @@
 
 from __future__ import annotations
 
+import codecs
+import io
+import locale
 import logging
 import os
+import sys
 import warnings
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
@@ -86,10 +90,12 @@ CONNECTIONS_SECTION = "connections"
 CLI_SECTION = "cli"
 LOGS_SECTION = "logs"
 PLUGINS_SECTION = "plugins"
+ENCODING_SECTION = "encoding"
 IGNORE_NEW_VERSION_WARNING_KEY = "ignore_new_version_warning"
 
 LOGS_SECTION_PATH = [CLI_SECTION, LOGS_SECTION]
 PLUGINS_SECTION_PATH = [CLI_SECTION, PLUGINS_SECTION]
+ENCODING_SECTION_PATH = [CLI_SECTION, ENCODING_SECTION]
 PLUGIN_ENABLED_KEY = "enabled"
 FEATURE_FLAGS_SECTION_PATH = [CLI_SECTION, "features"]
 
@@ -111,6 +117,7 @@ class ConnectionConfig:
     host: Optional[str] = None
     region: Optional[str] = None
     port: Optional[int] = None
+    protocol: Optional[str] = None
     database: Optional[str] = None
     schema: Optional[str] = None
     warehouse: Optional[str] = None
@@ -135,6 +142,7 @@ class ConnectionConfig:
     oauth_enable_single_use_refresh_tokens: Optional[bool] = None
     client_store_temporary_credential: Optional[bool] = None
     secondary_roles: Optional[str] = None
+    server_session_keep_alive: Optional[bool] = None
 
     _other_settings: dict = field(default_factory=lambda: {})
 
@@ -197,6 +205,99 @@ def config_init(config_file: Optional[Path]):
         _initialise_config(config_manager.file_path)
     _read_config_file()
     create_initial_loggers()
+    apply_stdout_encoding(get_stdout_encoding())
+    if should_show_encoding_warnings():
+        detect_encoding_environment()
+
+
+def _canonical_encoding(enc: str) -> str:
+    """Return the canonical codec name for enc.
+
+    Routes through codecs.lookup so that aliases such as 'utf8', 'UTF_8', or
+    'u8' all resolve to 'utf-8', keeping mismatch detection consistent with
+    how _validate_encoding works.  Falls back to simple lower/replace for
+    unrecognised strings so detection never crashes on exotic platform values.
+    """
+    try:
+        return codecs.lookup(enc).name
+    except LookupError:
+        return enc.lower().replace("_", "-")
+
+
+def get_encoding_diagnostics() -> str:
+    """Return a detailed encoding diagnostics report for the current environment.
+
+    Used by ``snow helpers detect-encoding`` to give the user actionable detail
+    about the encoding setup.  Mirrors the conditions that trigger
+    :func:`detect_encoding_environment` warnings so the command always shows
+    the same information the warning referenced.
+    """
+    fs_encoding = _canonical_encoding(sys.getfilesystemencoding())
+    default_encoding = _canonical_encoding(sys.getdefaultencoding())
+    locale_encoding = _canonical_encoding(locale.getpreferredencoding())
+
+    encodings = {fs_encoding, default_encoding, locale_encoding}
+
+    actionable_section = (
+        "This may cause file corruption when sharing projects across platforms.\n"
+        "Recommended actions:\n"
+        "1. Set environment variable: PYTHONUTF8=1\n"
+        "2. Configure encoding in config.toml:\n"
+        "   [cli.encoding]\n"
+        '   file_io = "utf-8"\n'
+        '   subprocess = "utf-8"\n'
+        '   stdout = "utf-8"\n'
+        "3. Set environment variables: SNOWFLAKE_CLI_ENCODING_FILE_IO='utf-8', "
+        "SNOWFLAKE_CLI_ENCODING_SUBPROCESS='utf-8', "
+        "and SNOWFLAKE_CLI_ENCODING_STDOUT='utf-8'"
+    )
+
+    if (
+        get_file_io_encoding() is not None
+        and get_subprocess_encoding() is not None
+        and get_stdout_encoding() is not None
+    ):
+        return "No encoding issues - your system is properly configured."
+
+    if len(encodings) > 1:
+        return (
+            f"Encoding mismatch detected:\n"
+            f"  Filesystem: {fs_encoding}\n"
+            f"  Default:    {default_encoding}\n"
+            f"  Locale:     {locale_encoding}\n"
+            f"\n{actionable_section}"
+        )
+
+    if locale_encoding != "utf-8":
+        return (
+            f"Platform encoding is {locale_encoding}, not utf-8.\n"
+            f"\n{actionable_section}"
+        )
+
+    return "No encoding issues - your system is properly configured."
+
+
+def detect_encoding_environment():
+    """Detect encoding configuration and warn about mismatches"""
+    fs_encoding = _canonical_encoding(sys.getfilesystemencoding())
+    default_encoding = _canonical_encoding(sys.getdefaultencoding())
+    locale_encoding = _canonical_encoding(locale.getpreferredencoding())
+
+    # Warn on mismatches
+    encodings = {fs_encoding, default_encoding, locale_encoding}
+
+    # if all encoding options are configured we assume the user knows what they are doing
+    if (
+        get_file_io_encoding() is not None
+        and get_subprocess_encoding() is not None
+        and get_stdout_encoding() is not None
+    ):
+        return
+    if len(encodings) > 1 or locale_encoding != "utf-8":
+        warnings.warn(
+            "Encoding mismatch detected. "
+            "Run 'snow helpers detect-encoding' for more details."
+        )
 
 
 def add_connection_to_proper_file(name: str, connection_config: ConnectionConfig):
@@ -405,6 +506,68 @@ def get_plugins_config() -> dict:
         return get_config_section(*PLUGINS_SECTION_PATH)
     else:
         return {}
+
+
+def _validate_encoding(encoding: Optional[str], setting_name: str) -> Optional[str]:
+    if encoding is None:
+        return None
+    try:
+        codecs.lookup(encoding)
+    except LookupError:
+        raise ClickException(
+            f"Invalid encoding '{encoding}' configured for {setting_name}. "
+            f"Please use a valid Python codec name (e.g. 'utf-8', 'cp1252')."
+        )
+    return encoding
+
+
+def get_file_io_encoding() -> Optional[str]:
+    """
+    Get configured file I/O encoding, or None for platform default.
+
+    Returns None when not configured - this ensures Unix users with proper
+    locales experience NO behavior change (platform default is used).
+    """
+    value = get_config_value(*ENCODING_SECTION_PATH, key="file_io", default=None)
+    return _validate_encoding(value, "cli.encoding.file_io")
+
+
+def get_subprocess_encoding() -> Optional[str]:
+    """Get configured subprocess encoding, or None for platform default"""
+    value = get_config_value(*ENCODING_SECTION_PATH, key="subprocess", default=None)
+    return _validate_encoding(value, "cli.encoding.subprocess")
+
+
+def get_stdout_encoding() -> Optional[str]:
+    """Get configured stdout encoding, or None for platform default.
+
+    When set, sys.stdout is reconfigured so that redirected output
+    (e.g. ``snow sql ... > file.txt``) uses the specified encoding instead of
+    the default.  Set via config ``cli.encoding.stdout`` or the
+    ``SNOWFLAKE_CLI_ENCODING_STDOUT`` environment variable.
+    """
+    value = get_config_value(*ENCODING_SECTION_PATH, key="stdout", default=None)
+    return _validate_encoding(value, "cli.encoding.stdout")
+
+
+def apply_stdout_encoding(encoding: Optional[str]) -> None:
+    """Reconfigure sys.stdout with *encoding* when provided.
+
+    Safe to call unconditionally — a None encoding is a no-op.
+    """
+    if encoding is None:
+        return
+    try:
+        sys.stdout.reconfigure(encoding=encoding)  # type: ignore[attr-defined,union-attr]
+    except (AttributeError, io.UnsupportedOperation):
+        pass
+
+
+def should_show_encoding_warnings() -> bool:
+    """Whether to show encoding warnings"""
+    return get_config_bool_value(  # type: ignore
+        *ENCODING_SECTION_PATH, key="show_warnings", default=True
+    )
 
 
 def connection_exists(connection_name: str) -> bool:
@@ -622,13 +785,18 @@ def get_feature_flags_section() -> Dict[str, bool | Literal["UNKNOWN"]]:
 
 
 def _read_config_file_toml() -> dict:
-    return tomlkit.loads(get_config_manager().file_path.read_text()).unwrap()
+    # TOML files are always UTF-8 by spec; don't apply user's file_io encoding
+    return tomlkit.loads(
+        get_config_manager().file_path.read_text(encoding="utf-8")
+    ).unwrap()
 
 
 def _read_connections_toml() -> dict:
-    return tomlkit.loads(get_connections_file().read_text()).unwrap()
+    # TOML files are always UTF-8 by spec; don't apply user's file_io encoding
+    return tomlkit.loads(get_connections_file().read_text(encoding="utf-8")).unwrap()
 
 
 def _update_connections_toml(connections: dict):
-    with open(get_connections_file(), "w") as f:
+    # TOML files are always UTF-8 by spec; don't apply user's file_io encoding
+    with open(get_connections_file(), "w", encoding="utf-8") as f:
         f.write(tomlkit.dumps(connections))

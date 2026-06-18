@@ -4,11 +4,6 @@ on:
   pull_request:
     branches:
       - "**"
-    paths-ignore:
-      - "*.md"
-      - "docs/**"
-      - "LICENSE"
-      - ".github/CODEOWNERS"
   push:
     tags:
       - "v*" # Push events to matching v*, i.e. v1.0, v20.15.10
@@ -25,15 +20,22 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: none
+  contents: read
   issues: write
 
 jobs:
   define-matrix:
     uses: ./.github/workflows/matrix.yaml
+  changes:
+    uses: ./.github/workflows/changes.yaml
 
+  # Required check `e2e-trusted (<os>, <py>) / tests-trusted` must report on
+  # every same-repo PR. The job-level `if:` only filters out fork events (the
+  # secret-handling trust gate); the docs-only short-circuit is pushed down
+  # via `should-run` so the matrix still expands when changes.code == 'false'
+  # and each per-cell required check is posted.
   e2e-trusted:
-    needs: define-matrix
+    needs: [define-matrix, changes]
     strategy:
       fail-fast: true
       matrix:
@@ -48,6 +50,7 @@ jobs:
       python-version: ${{ matrix.python-version }}
       python-env: e2e
       hatch-run: e2e:test
+      should-run: ${{ needs.changes.outputs.code == 'true' || github.event_name != 'pull_request' }}
     secrets: inherit
 
   # Repo owner has commented /ok-to-test on a (fork-based) pull request
@@ -59,7 +62,8 @@ jobs:
         os: ${{ fromJSON(needs.define-matrix.outputs.os) }}
         python-version: ${{ fromJSON(needs.define-matrix.outputs.python) }}
     permissions:
-      pull-requests: write
+      contents: read
+      pull-requests: read
       checks: write
     if: |
       github.event_name == 'repository_dispatch' &&

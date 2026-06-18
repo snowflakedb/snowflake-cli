@@ -43,6 +43,7 @@ from snowflake.cli.api.commands.flags import (
     PasswordOption,
     PortOption,
     PrivateKeyPathOption,
+    ProtocolOption,
     RoleOption,
     SchemaOption,
     SecondaryRolesOption,
@@ -226,6 +227,11 @@ def add(
         *PortOption.param_decls,
         help="Port to communicate with on the host.",
     ),
+    protocol: Optional[str] = typer.Option(
+        None,
+        *ProtocolOption.param_decls,
+        help="Protocol to use for the connection, for example `https`.",
+    ),
     region: Optional[str] = typer.Option(
         None,
         "--region",
@@ -266,6 +272,15 @@ def add(
             "session only with the primary role."
         ),
     ),
+    server_session_keep_alive: Optional[bool] = typer.Option(
+        None,
+        "--server-session-keep-alive",
+        is_flag=True,
+        help=(
+            "Enable server-side session keep-alive to prevent the session from "
+            "timing out during long operations."
+        ),
+    ),
     set_as_default: bool = typer.Option(
         False,
         "--default",
@@ -287,16 +302,23 @@ def add(
         "schema": schema,
         "host": host,
         "port": port,
+        "protocol": protocol,
         "region": region,
         "authenticator": authenticator,
         "workload_identity_provider": workload_identity_provider,
         "private_key_file": private_key_file,
         "token_file_path": token_file_path,
         "secondary_roles": secondary_roles,
+        "server_session_keep_alive": server_session_keep_alive,
     }
+
+    # Boolean options that should not be prompted interactively
+    _non_interactive_options = {"server_session_keep_alive"}
 
     if not no_interactive:
         for option in connection_options:
+            if option in _non_interactive_options:
+                continue
             if connection_options[option] is None:
                 connection_options[option] = typer.prompt(
                     f"Enter {option.replace('_', ' ')}",

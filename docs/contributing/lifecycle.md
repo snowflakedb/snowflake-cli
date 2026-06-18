@@ -154,9 +154,12 @@ def my_command(
 
 ### PuPr → GA
 
-1. Remove the flag entry from `src/snowflake/cli/api/feature_flags.py`
+1. Remove the flag entry from `src/snowflake/cli/api/feature_flags.py` and all
+   remaining references to it in the codebase.
 2. Remove `is_hidden=` / `hidden=` from the feature
-3. Add a release note entry under `## New additions`:
+3. Regenerate snapshots — removing `hidden=` changes snapshot output even though
+   the command was already callable. See [testing.md](testing.md#snapshot-tests).
+4. Add a release note entry under `## New additions`:
    `* <name> is now generally available.`
 
 ## Testing feature-flagged features
@@ -260,3 +263,11 @@ All unreleased changes go under `# Unreleased version` at the top of the file.
 
 Entries should describe user-facing impact, not implementation details. Focus on
 what changed for the user, not how it was implemented.
+
+## CI enforcement
+
+A GitHub Actions workflow (`changelog.yaml`) checks that `RELEASE-NOTES.md` is
+modified on every PR targeting `main`. The check fails if the file is untouched.
+
+To skip the check for PRs that genuinely need no entry (e.g. pure test or
+documentation changes), apply the **`skip-release-notes`** label to the PR.

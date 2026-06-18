@@ -14,6 +14,7 @@
     --connection <connection>
     --host <host>
     --port <port>
+    --protocol <protocol>
     --account <account>
     --user <user>
     --password <password>
@@ -42,6 +43,7 @@
     --oauth-enable-single-use-refresh-tokens
     --client-store-temporary-credential
     --secondary-roles <secondary_roles>
+    --server-session-keep-alive
     --format <format>
     --verbose
     --debug
@@ -101,6 +103,12 @@
   <dd>
   
   Port for the connection. Overrides the value specified for the connection.
+  
+  </dd>
+  <dt><code className="samp">--protocol <em>TEXT</em></code></dt>
+  <dd>
+  
+  Protocol to use for the connection, for example `https`. Overrides the value specified for the connection.
   
   </dd>
   <dt><code className="samp">--account, --accountname <em>TEXT</em></code></dt>
@@ -269,6 +277,12 @@
   <dd>
   
   Secondary roles mode applied when the session starts. Supported values are `ALL` and `NONE`; pass `NONE` to run the session only with the primary role.
+  
+  </dd>
+  <dt>`--server-session-keep-alive`</dt>
+  <dd>
+  
+  Keep the session active indefinitely, even if there is no activity from the user.
   
   </dd>
   <dt>`--format [TABLE|JSON|JSON_EXT|CSV]`</dt>

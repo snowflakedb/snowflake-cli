@@ -29,6 +29,7 @@ from snowflake.cli.api.commands.flags import (
 )
 from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.config import get_config_bool_value
 from snowflake.cli.api.exceptions import CliArgumentError
 from snowflake.cli.api.output.types import (
     CommandResult,
@@ -122,6 +123,25 @@ def execute_sql(
         help="Syntax used to resolve variables before passing queries to Snowflake.",
         case_sensitive=False,
     ),
+    local_only: bool = typer.Option(
+        False,
+        "--local-only",
+        help=(
+            "Restrict !source and !load to local files. When set, "
+            "!source/!load directives that reference http:// or https:// URLs "
+            "are rejected instead of being fetched. Use this flag in "
+            "environments where SQL inputs should not trigger outbound "
+            "network requests, or when running SQL files whose content "
+            "should be reviewed locally before execution."
+        ),
+        is_flag=True,
+    ),
+    no_prompt_exit_repl: Optional[bool] = typer.Option(
+        None,
+        "--no-prompt-exit-repl",
+        help="Do not prompt before exiting the REPL.",
+        show_default=False,
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -144,6 +164,12 @@ def execute_sql(
     retain_comments = bool(retain_comments)
     single_transaction = bool(single_transaction)
     std_in = bool(std_in)
+    local_only = bool(local_only)
+
+    if no_prompt_exit_repl is None:
+        no_prompt_exit_repl = get_config_bool_value(
+            "cli", key="no_prompt_exit_repl", default=False
+        )
 
     no_source_provided = not any([query, files, std_in])
     if no_source_provided and not sys.stdin.isatty():
@@ -162,6 +188,8 @@ def execute_sql(
             data=data,
             retain_comments=retain_comments,
             template_syntax_config=template_syntax_config,
+            local_only=local_only,
+            no_prompt_exit_repl=no_prompt_exit_repl,
         ).run()
         sys.exit(0)
 
@@ -175,6 +203,7 @@ def execute_sql(
         retain_comments=retain_comments,
         single_transaction=single_transaction,
         template_syntax_config=template_syntax_config,
+        local_only=local_only,
     )
     if expected_results_cnt == 0:
         # case expected if input only scheduled async queries

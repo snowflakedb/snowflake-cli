@@ -14,6 +14,8 @@
 
 from __future__ import annotations
 
+import json
+import re
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,21 +23,71 @@ from tempfile import TemporaryDirectory
 from typing import Dict, List, Optional, TypedDict
 
 import yaml
-from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
+from snowflake.cli._plugins.dbt.constants import (
+    ENV_FILENAME,
+    PROFILES_FILENAME,
+    SUPPORTED_DBT_VERSIONS_QUERY,
+)
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
-from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.exceptions import CliArgumentError, CliError
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 
+DBT_ENV_SECRET_PREFIX = "DBT_ENV_SECRET_"
+_ENV_VAR_KEY_PREFIX = "DBT_"
+_ENV_VAR_KEY_RE = re.compile(r"^[A-Za-z0-9_]+$")
+_CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
+
+
+def _reject_control_chars(value: Optional[str], flag_name: str) -> Optional[str]:
+    if value is not None and _CONTROL_CHAR_RE.search(value):
+        raise CliError(
+            f"{flag_name} must not contain control characters "
+            f"(newlines, tabs, etc.)"
+        )
+    return value
+
+
+class _NoDuplicatesSafeLoader(yaml.SafeLoader):
+    """yaml.SafeLoader that rejects duplicate mapping keys.
+
+    PyYAML's default behavior is silent last-wins, but the server-side SQL
+    parser rejects duplicates outright. Match that here so the user gets a
+    clear local error instead of a server round-trip.
+    """
+
+
+def _no_duplicates_constructor(loader, node, deep=False):
+    mapping = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if key in mapping:
+            raise yaml.constructor.ConstructorError(
+                None,
+                None,
+                f"duplicate key {key!r}",
+                key_node.start_mark,
+            )
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
+
+
+_NoDuplicatesSafeLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+    _no_duplicates_constructor,
+)
+
 
 class DBTObjectEditableAttributes(TypedDict):
     default_target: Optional[str]
+    default_env: Optional[str]
     external_access_integrations: Optional[List[str]]
     dbt_version: Optional[str]
 
@@ -46,6 +98,8 @@ class DBTDeployAttributes:
 
     default_target: Optional[str] = None
     unset_default_target: bool = False
+    default_env: Optional[str] = None
+    unset_default_env: bool = False
     external_access_integrations: Optional[List[str]] = None
     install_local_deps: bool = False
     dbt_version: Optional[str] = None
@@ -102,9 +156,44 @@ class DBTManager(SqlExecutionMixin):
 
         return DBTObjectEditableAttributes(
             default_target=row_dict.get("default_target"),
+            default_env=row_dict.get("default_environment"),
             external_access_integrations=external_access_integrations,
             dbt_version=row_dict.get("dbt_version"),
         )
+
+    def _get_supported_dbt_versions(self) -> List[str]:
+        try:
+            row = self.execute_query(SUPPORTED_DBT_VERSIONS_QUERY).fetchone()
+        except ProgrammingError as exc:
+            raise CliError(
+                "Could not fetch supported dbt versions from server. "
+                "Ensure your Snowflake account supports SYSTEM$SUPPORTED_DBT_VERSIONS()."
+            ) from exc
+        if row is None or row[0] is None:
+            raise CliError("Could not fetch supported dbt versions from server.")
+        try:
+            entries = json.loads(row[0])
+        except (json.JSONDecodeError, TypeError) as exc:
+            raise CliError(
+                "Could not parse supported dbt versions from server."
+            ) from exc
+        try:
+            versions = [e["dbt_version"] for e in entries]
+        except (KeyError, TypeError) as exc:
+            raise CliError(
+                "Could not parse supported dbt versions from server."
+            ) from exc
+        if not versions:
+            raise CliError("Server returned no supported dbt versions.")
+        return versions
+
+    def _validate_dbt_version(self, dbt_version: str) -> None:
+        supported = self._get_supported_dbt_versions()
+        if dbt_version not in supported:
+            raise CliArgumentError(
+                f"Invalid value '{dbt_version}' for --dbt-version. "
+                f"Supported versions: {', '.join(supported)}."
+            )
 
     def deploy(
         self,
@@ -113,6 +202,7 @@ class DBTManager(SqlExecutionMixin):
         profiles_path: SecurePath,
         force: bool,
         attrs: DBTDeployAttributes,
+        env_file_path: Optional[SecurePath] = None,
     ) -> SnowflakeCursor:
         dbt_project_path = path / "dbt_project.yml"
         if not dbt_project_path.exists():
@@ -129,6 +219,24 @@ class DBTManager(SqlExecutionMixin):
 
         self._validate_profiles(profiles_path, profile, attrs.default_target)
 
+        if attrs.dbt_version:
+            self._validate_dbt_version(attrs.dbt_version)
+
+        # env.yml comes from --env-file-dir if given, else the source dir
+        # (env.yml is optional, so it may be absent in either case).
+        env_source_path = env_file_path if env_file_path is not None else path
+        env_file = env_source_path / ENV_FILENAME
+        if env_file_path is not None and not env_file.exists():
+            raise CliError(
+                f"{ENV_FILENAME} does not exist in directory {env_file_path.path.absolute()}."
+            )
+        # Parse/validate before any network call so duplicate keys / invalid
+        # YAML fail fast, whether env.yml came from --env-file-dir or the
+        # source directory.
+        env_yml_content = (
+            self._validate_and_parse_env_file(env_file) if env_file.exists() else None
+        )
+
         with cli_console.phase("Creating temporary stage"):
             stage_manager = StageManager()
             stage_fqn = FQN.from_resource(ObjectType.DBT_PROJECT, fqn, "STAGE")
@@ -140,6 +248,8 @@ class DBTManager(SqlExecutionMixin):
                 tmp_path = Path(tmp)
                 stage_manager.copy_to_tmp_dir(path.path, tmp_path)
                 self._prepare_profiles_file(profiles_path.path, tmp_path)
+                if env_yml_content is not None:
+                    self._write_env_file(env_yml_content, tmp_path)
                 result_count = len(
                     list(
                         stage_manager.put_recursive(
@@ -180,12 +290,21 @@ class DBTManager(SqlExecutionMixin):
         ):
             set_properties.append(f"DEFAULT_TARGET='{attrs.default_target}'")
 
+        # Always issue SET/UNSET when the user asks; the server treats
+        # UNSET-on-null as a no-op.
+        if attrs.unset_default_env:
+            unset_properties.append("DEFAULT_ENVIRONMENT")
+        elif attrs.default_env:
+            set_properties.append(
+                f"DEFAULT_ENVIRONMENT={to_string_literal(attrs.default_env)}"
+            )
+
         # Comparing dbt_version to existing project's dbt_version might be ambiguous
         # if previously project was locked to just minor version and now user wants to
         # lock it to a patch as well. If target version is provided, it's better to just
         # apply it.
         if attrs.dbt_version:
-            set_properties.append(f"DBT_VERSION='{attrs.dbt_version}'")
+            set_properties.append(f"DBT_VERSION={to_string_literal(attrs.dbt_version)}")
 
         current_external_access_integrations = dbt_object_attributes.get(
             "external_access_integrations"
@@ -248,8 +367,10 @@ class DBTManager(SqlExecutionMixin):
         query += f"\nFROM {stage_name}"
         if attrs.default_target:
             query += f" DEFAULT_TARGET='{attrs.default_target}'"
+        if attrs.default_env:
+            query += f" DEFAULT_ENVIRONMENT={to_string_literal(attrs.default_env)}"
         if attrs.dbt_version:
-            query += f" DBT_VERSION='{attrs.dbt_version}'"
+            query += f" DBT_VERSION={to_string_literal(attrs.dbt_version)}"
         query = self._handle_external_access_integrations_query(
             query, attrs.external_access_integrations, attrs.install_local_deps
         )
@@ -279,8 +400,10 @@ class DBTManager(SqlExecutionMixin):
         query += f"\nFROM {stage_name}"
         if attrs.default_target:
             query += f" DEFAULT_TARGET='{attrs.default_target}'"
+        if attrs.default_env:
+            query += f" DEFAULT_ENVIRONMENT={to_string_literal(attrs.default_env)}"
         if attrs.dbt_version:
-            query += f" DBT_VERSION='{attrs.dbt_version}'"
+            query += f" DBT_VERSION={to_string_literal(attrs.dbt_version)}"
         query = self._handle_external_access_integrations_query(
             query, attrs.external_access_integrations, attrs.install_local_deps
         )
@@ -375,23 +498,112 @@ class DBTManager(SqlExecutionMixin):
         ) as sfd, target_profiles_file.open(mode="w") as tfd:
             yaml.safe_dump(yaml.safe_load(sfd), tfd)
 
+    @staticmethod
+    def _validate_and_parse_env_file(env_file: SecurePath) -> Optional[dict]:
+        """Parse and validate env.yml, rejecting duplicate keys and invalid YAML."""
+        with env_file.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as sfd:
+            try:
+                return yaml.load(sfd, Loader=_NoDuplicatesSafeLoader)
+            except yaml.constructor.ConstructorError as e:
+                raise CliError(f"Failed to parse {ENV_FILENAME}: {e.problem}")
+            except yaml.YAMLError as e:
+                raise CliError(f"{ENV_FILENAME} is not valid YAML: {e}")
+
+    @staticmethod
+    def _write_env_file(content: dict, tmp_path: Path):
+        """Write the parsed env.yml into the staging dir (comments already dropped)."""
+        target_env_file = SecurePath(tmp_path / ENV_FILENAME)
+        if target_env_file.exists():
+            target_env_file.unlink()
+        with target_env_file.open(mode="w") as tfd:
+            yaml.safe_dump(content, tfd)
+
     def execute(
         self,
         dbt_command: str,
         name: FQN,
         run_async: bool,
         dbt_version: Optional[str] = None,
+        environment: Optional[str] = None,
+        env_vars: Optional[str] = None,
         *dbt_cli_args,
     ) -> SnowflakeCursor:
         if dbt_cli_args:
             processed_args = self._process_dbt_args(dbt_cli_args)
             dbt_command = f"{dbt_command} {processed_args}".strip()
-        dbt_command_escaped = dbt_command.replace("'", "\\'")
         query = f"EXECUTE DBT PROJECT {name}"
         if dbt_version:
-            query += f" dbt_version='{dbt_version}'"
-        query += f" args='{dbt_command_escaped}'"
+            query += f" dbt_version={to_string_literal(dbt_version)}"
+        if environment:
+            query += f" ENVIRONMENT={to_string_literal(environment)}"
+        env_vars_clause = self._format_env_vars_clause(env_vars)
+        if env_vars_clause:
+            query += env_vars_clause
+        query += f" args={to_string_literal(dbt_command)}"
         return self.execute_query(query, _exec_async=run_async)
+
+    @staticmethod
+    def _format_env_vars_clause(env_vars: Optional[str]) -> str:
+        if not env_vars:
+            return ""
+        pairs = DBTManager._parse_env_vars(env_vars)
+        if not pairs:
+            return ""
+        secret_keys = [k for k in pairs if k.startswith(DBT_ENV_SECRET_PREFIX)]
+        if secret_keys:
+            cli_console.warning(
+                f"--env-vars contains key(s) with the {DBT_ENV_SECRET_PREFIX} prefix "
+                f"({', '.join(secret_keys)}); these values will appear in the SQL "
+                f"text and query history. To avoid that, use the secrets: block "
+                f"in env.yml referencing a Snowflake SECRET object."
+            )
+        items = ", ".join(
+            f"{to_string_literal(k)}={to_string_literal(v)}" for k, v in pairs.items()
+        )
+        return f" ENV_VARS=({items})"
+
+    @staticmethod
+    def _parse_env_vars(raw: str) -> Dict[str, str]:
+        try:
+            parsed = yaml.load(raw, Loader=_NoDuplicatesSafeLoader)
+        except yaml.constructor.ConstructorError as e:
+            raise CliError(f"Failed to parse --env-vars: {e.problem}")
+        except yaml.YAMLError as e:
+            raise CliError(f"--env-vars must be valid YAML/JSON: {e}")
+        if not isinstance(parsed, dict):
+            raise CliError(
+                "--env-vars must be a YAML/JSON object, " f"got {type(parsed).__name__}"
+            )
+        result: Dict[str, str] = {}
+        for k, v in parsed.items():
+            if not isinstance(k, str):
+                raise CliError(f"--env-vars key must be a string, got {k!r}")
+            if not k:
+                raise CliError("--env-vars key must not be empty")
+            if not _ENV_VAR_KEY_RE.match(k):
+                raise CliError(
+                    f"--env-vars key {k!r} must contain only ASCII letters, "
+                    f"digits, and underscores"
+                )
+            if not k.startswith(_ENV_VAR_KEY_PREFIX):
+                raise CliError(
+                    f"--env-vars key {k!r} must start with " f"{_ENV_VAR_KEY_PREFIX!r}"
+                )
+            if v is None:
+                raise CliError(f"--env-vars value for {k!r} must not be null")
+            if not isinstance(v, str):
+                raise CliError(
+                    f"--env-vars value for {k!r} must be a string, "
+                    f"got {type(v).__name__}; quote scalars in YAML/JSON "
+                    f"(e.g. '{k}: \"1\"' instead of '{k}: 1')"
+                )
+            if _CONTROL_CHAR_RE.search(v):
+                raise CliError(
+                    f"--env-vars value for {k!r} must not contain control "
+                    f"characters (newlines, tabs, etc.)"
+                )
+            result[k] = v
+        return result
 
     @staticmethod
     def _process_dbt_args(dbt_cli_args: tuple) -> str:

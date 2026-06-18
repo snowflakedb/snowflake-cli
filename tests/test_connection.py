@@ -62,6 +62,55 @@ def test_new_connection_can_be_added(
     assert content == os_agnostic_snapshot
 
 
+def test_new_connection_can_be_added_with_protocol(runner, os_agnostic_snapshot):
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        result = runner.invoke_with_config_file(
+            tmp_file.name,
+            [
+                "connection",
+                "add",
+                "--connection-name",
+                "conn-http",
+                "--username",
+                "user1",
+                "--password",
+                "password1",
+                "--account",
+                "account1",
+                "--host",
+                "localhost",
+                "--port",
+                "8080",
+                "--protocol",
+                "http",
+            ],
+        )
+        content = tmp_file.read()
+    assert result.exit_code == 0, result.output
+    assert content == os_agnostic_snapshot
+
+
+def test_new_connection_can_be_added_with_server_session_keep_alive(runner):
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        result = runner.invoke_with_config_file(
+            tmp_file.name,
+            [
+                "connection",
+                "add",
+                "--connection-name",
+                "conn-keepalive",
+                "--username",
+                "user1",
+                "--account",
+                "account1",
+                "--server-session-keep-alive",
+            ],
+        )
+        content = tmp_file.read()
+    assert result.exit_code == 0, result.output
+    assert "server_session_keep_alive = true" in content
+
+
 def test_new_connection_can_be_added_as_default(runner, os_agnostic_snapshot):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
         result = runner.invoke_with_config_file(
@@ -126,7 +175,7 @@ def test_if_whitespaces_are_stripped_from_connection_name(runner, os_agnostic_sn
                 "--account",
                 "             accName",
             ],
-            input="123\n some role    \n some warehouse\n foo \n bar     \n baz \n    12345 \n Kaszuby \n foo   \n \n",
+            input="123\n some role    \n some warehouse\n foo \n bar     \n baz \n    12345 \n \n Kaszuby \n foo   \n \n",
         )
         content = tmp_file.read()
 
@@ -190,7 +239,7 @@ def test_port_has_cannot_be_float(runner):
 
 @pytest.mark.parametrize(
     "selected_option",
-    [10, 11],  # 10 - private_key_file prompt, 11 - token_file_path prompt
+    [11, 12],  # 11 - private_key_file prompt, 12 - token_file_path prompt
 )
 def test_file_paths_have_to_exist_when_given_in_prompt(selected_option, runner):
     result = _run_connection_add_with_path_provided_as_prompt(
@@ -202,8 +251,8 @@ def test_file_paths_have_to_exist_when_given_in_prompt(selected_option, runner):
 
 
 @pytest.mark.parametrize(
-    "selected_option", [9, 10]
-)  # 9 - private_key_file prompt, 10 - token_file_path prompt
+    "selected_option", [10, 11]
+)  # 10 - private_key_file prompt, 11 - token_file_path prompt
 def test_connection_can_be_added_with_existing_paths_in_prompt(selected_option, runner):
     with NamedTemporaryFile("w+") as tmp_path:
         result = _run_connection_add_with_path_provided_as_prompt(
@@ -312,6 +361,7 @@ def test_lists_connection_information(mock_get_default_conn_name, runner):
                 "database": "dev_database",
                 "host": "dev_host",
                 "port": 8000,
+                "protocol": "dev_protocol",
                 "role": "dev_role",
                 "schema": "dev_schema",
                 "user": "dev_user",
@@ -497,6 +547,7 @@ def test_connection_list_does_not_print_too_many_env_variables(
                 "database": "dev_database",
                 "host": "dev_host",
                 "port": 8000,
+                "protocol": "dev_protocol",
                 "role": "dev_role",
                 "schema": "dev_schema",
                 "user": "dev_user",
@@ -892,6 +943,73 @@ def test_host_and_port_are_read_from_env_for_temporary_connection(
     kwargs = mock_connector.call_args.kwargs
     assert kwargs["host"] == "env-host.snowflakecomputing.com"
     assert kwargs["port"] == "4242"
+
+
+@mock.patch("snowflake.connector.connect")
+def test_protocol_flag_is_forwarded_for_temporary_connection(
+    mock_connector, mock_ctx, runner
+):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(
+        [
+            "object",
+            "list",
+            "warehouse",
+            "--temporary-connection",
+            "--account",
+            "test_account",
+            "--user",
+            "snowcli_test",
+            "--password",
+            "top_secret",
+            "--host",
+            "localhost",
+            "--port",
+            "8080",
+            "--protocol",
+            "http",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    kwargs = mock_connector.call_args.kwargs
+    assert kwargs["protocol"] == "http"
+    assert kwargs["host"] == "localhost"
+    assert kwargs["port"] == 8080
+
+
+@mock.patch.dict(
+    os.environ,
+    {"SNOWFLAKE_PROTOCOL": "http"},
+    clear=True,
+)
+@mock.patch("snowflake.connector.connect")
+def test_protocol_is_read_from_env_for_temporary_connection(
+    mock_connector, mock_ctx, runner
+):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(
+        [
+            "object",
+            "list",
+            "warehouse",
+            "--temporary-connection",
+            "--account",
+            "test_account",
+            "--user",
+            "snowcli_test",
+            "--password",
+            "top_secret",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    kwargs = mock_connector.call_args.kwargs
+    assert kwargs["protocol"] == "http"
 
 
 @mock.patch("snowflake.connector.connect")
@@ -2128,6 +2246,7 @@ def test_connection_add_no_key_pair_setup_if_private_key_provided(
         "\n"  # schema:
         "\n"  # host:
         "\n"  # port:
+        "\n"  # protocol:
         "\n"  # region:
         "\n"  # authenticator:
         "\n"  # workload identity provider:
@@ -2148,6 +2267,7 @@ def test_connection_add_no_key_pair_setup_if_private_key_provided(
         Enter schema: 
         Enter host: 
         Enter port: 
+        Enter protocol: 
         Enter region: 
         Enter authenticator: 
         Enter workload identity provider: 

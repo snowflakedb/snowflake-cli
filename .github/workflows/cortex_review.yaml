@@ -1,0 +1,112 @@
+name: Cortex AI PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+    branches:
+      - "**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # Authorization gate. Runs before the privileged review job (which holds the
+  # Snowflake secrets) and blocks it unless every condition holds. Because the
+  # review job `needs:` this one, the secret-bearing job never starts for an
+  # unauthorized trigger.
+  authorize:
+    # Cheap declarative pre-filters: same-repo (forks can't reach secrets),
+    # not a draft, the opt-in label is present, and — on a
+    # `labeled` event — it's our label that was just added.
+    if: |
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.draft == false &&
+      contains(github.event.pull_request.labels.*.name, 'enable-ai-e2e-review') &&
+      (github.event.action != 'labeled' || github.event.label.name == 'enable-ai-e2e-review')
+    runs-on: ubuntu-latest
+    steps:
+      # author_association returns CONTRIBUTOR for org members with private membership
+      # visibility, making it unreliable for access control. Checking repo permission
+      # directly avoids that and is consistent with the triggering-actor check below.
+      - name: Check PR author is a maintainer
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          perm="$(gh api "repos/${REPO}/collaborators/${AUTHOR}/permission" --jq '.permission')"
+          echo "PR author '${AUTHOR}' has '${perm}' permission on ${REPO}."
+          case "${perm}" in
+            admin)
+              echo "Authorized: '${AUTHOR}' is an admin." ;;
+            *)
+              echo "::error::PR author '${AUTHOR}' has '${perm}' access. Only admins can have their PRs reviewed."
+              exit 1 ;;
+          esac
+      # author_association above only vouches for the PR author, not for whoever
+      # triggered this run. A triage-access contributor can apply the opt-in
+      # label to a trusted member's PR, so verify the triggering actor (the
+      # label applier, on `labeled` events) has write access themselves. The
+      # collaborator-permission endpoint reports triage as `read`, so requiring
+      # write/admin excludes it. set -e makes any API error fail closed.
+      - name: Require the triggering actor to be an admin
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          perm="$(gh api "repos/${REPO}/collaborators/${ACTOR}/permission" --jq '.permission')"
+          echo "Triggering actor '${ACTOR}' has '${perm}' permission on ${REPO}."
+          case "${perm}" in
+            admin)
+              echo "Authorized: '${ACTOR}' is an admin." ;;
+            *)
+              echo "::error::Actor '${ACTOR}' has '${perm}' access. Only admins can trigger the Cortex review."
+              exit 1 ;;
+          esac
+
+  cortex-review:
+    needs: authorize
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Build CLI from PR branch
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+
+      - name: Install Cortex Code CLI
+        run: curl -LsS https://ai.snowflake.com/static/cc-scripts/install.sh | sh
+
+      - name: Run Cortex E2E review
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          SNOWFLAKE_CONNECTIONS_E2EREVIEWER_AUTHENTICATOR: SNOWFLAKE_JWT
+          SNOWFLAKE_CONNECTIONS_E2EREVIEWER_HOST: ${{ secrets.SNOWFLAKE_HOST }}
+          SNOWFLAKE_CONNECTIONS_E2EREVIEWER_USER: ${{ secrets.E2E_PR_REVIEWER_USER }}
+          SNOWFLAKE_CONNECTIONS_E2EREVIEWER_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_CONNECTIONS_E2EREVIEWER_PRIVATE_KEY_RAW: ${{ secrets.E2E_PR_REVIEWER_PRIVATE_KEY_RAW }}
+          SNOWFLAKE_CONNECTIONS_E2EREVIEWER_WAREHOUSE: ${{ secrets.E2E_PR_REVIEWER_WAREHOUSE }}
+          SNOWFLAKE_CONNECTIONS_E2EREVIEWER_ROLE: ${{ secrets.E2E_PR_REVIEWER_ROLE }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_REPO: ${{ github.repository }}
+          CORTEX_MODEL: claude-opus-4-6
+        run: python .github/scripts/cortex_e2e_review.py

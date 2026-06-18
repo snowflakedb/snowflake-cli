@@ -19,6 +19,50 @@
 ## Deprecations
 
 ## New additions
+* Added `cli.encoding` config section (and matching `SNOWFLAKE_CLI_ENCODING_*` env vars) to control text encoding in three areas: `file_io` for reading and writing project files (e.g. SQL files, `snowflake.yml`), `subprocess` for decoding output of external processes (e.g. Docker, pip), and `stdout` for encoding CLI output written to stdout. Setting all three to `utf-8` ensures correct Unicode handling on Windows systems where the platform default encoding is not UTF-8.
+* Added `--no-prompt-exit-repl` option and configuration setting to skip the exit confirmation prompt in the SQL REPL.
+* Added `--server-session-keep-alive` global connection flag (plus matching `SNOWFLAKE_SERVER_SESSION_KEEP_ALIVE` env var and `server_session_keep_alive` config key) that prevents Snowflake from closing idle sessions. Useful for long-running operations or connections held open between multiple operations.
+
+## Fixes and improvements
+* Fixed REST API object operations (e.g. `snow object create`) crashing with `ModuleNotFoundError: No module named 'snowflake.connector.vendored'` when running against the Snowflake Universal Driver (connector-python v5). HTTP error handling now works on both connector v4.x and the Universal Driver v5.
+* The `snow app setup` `--compute-pool` option and the `build_compute_pool` / `service_compute_pool` fields of a `snowflake-app` entity are now hidden and undocumented (omitted from `--help` and the generated project-definition JSON schema). They remain fully functional: `snow app setup` and `snow app deploy` still honor the `DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL` / `DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL` account parameters and any compute pools configured in `snowflake.yml`. The `ENABLE_APPLICATION_SERVICE_MANAGED_COMPUTE_POOL` and `ENABLE_APPLICATION_SERVICE_MANAGED_COMPUTE_POOL_FALLBACK` parameter checks (and the related deploy-time warning) have been removed.
+* Fixed `snow app setup` incorrectly treating system-default parameter values as admin-configured values. After running `ALTER ACCOUNT UNSET` on `DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL` or `DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL`, those fields no longer appear in the generated `snowflake.yml` or `--dry-run` output.
+* Upgraded `pip` from 26.1.1 to 26.1.2.
+* `snow app setup` and `snow app deploy` now default to a workspace (instead of a stage) for app code whenever the resolved destination is a personal database (`USER$<user>`), which do not support stages. An explicitly configured `code_stage` is still honored, with a warning when the destination is a personal database.
+* Fixed `snow app deploy` failing on Windows when uploading app code to a workspace (connector error `253006`, `ER_FILE_NOT_EXISTS`) due to a malformed local file URI.
+* Fixed `snow app deploy` failing with connector error `253006` when an app's files live under directories whose names contain glob metacharacters — for example Next.js dynamic-route directories such as `[id]` or `[...slug]`. The connector expands `PUT` sources as glob patterns, so the unescaped local path matched nothing (`File doesn't exist`) or a same-named sibling directory (`Not a file but a directory`). Local file paths are now escaped before being passed to `PUT`. This affected the workspace upload path used for personal-database destinations.
+* `snow app deploy` now uploads app code to a stage one file at a time (preserving the directory structure) instead of via a recursive `PUT <dir>/*`, and no longer deletes the local bundle during upload. The per-file form also avoids the directory-matching glob behind connector error `253006`.
+* The `build_eai` field of a `snowflake-app` entity can now be specified as a bare string (e.g. `build_eai: MY_EAI`) in addition to the existing `build_eai:\n  name: MY_EAI` object form.
+* `snow app setup` now honors the `--warehouse`, `--database`, and `--schema` connection options as explicit overrides for the generated `snowflake.yml`, taking precedence over account parameters and the connection defaults. This lets users target a warehouse, database, or schema other than the account defaults. When `--database` is specified, `--schema` must also be specified.
+* `snow dcm` commands now use the system temporary folder to bundle project files before uploading, rather than creating the `output` project directory and dropping it afterward
+* `snow dbt` no longer rejects valid `--dbt-version` values (e.g. `2.0.0-preview.175`) that don't match a hard-coded client-side regex. Versions are now validated against the server's supported list, with unsupported versions failing fast and listing the actual supported set.
+* Fixed `snow app` commands (e.g. `snow app deploy`, `snow app validate`) failing on Windows with a `UnicodeDecodeError` when `snowflake.yml` contained non-ASCII characters (e.g. a non-Latin app title or description). The `snow app` command group now defaults to reading and writing `snowflake.yml` as UTF-8 instead of falling back to the platform default code page (cp1252/cp932 on Windows). An explicit `cli.encoding.file_io` setting still takes precedence when configured; UTF-8 is only the default for `snow app` commands. Other commands continue to honor the `cli.encoding.file_io` setting / platform default when reading project files.
+* The `--deploy-only` flag of `snow app deploy` has been renamed to `--promote-only`. The previous `--deploy-only` name continues to work as a hidden alias for now, but this backward compatibility is temporary and will be removed soon.
+
+
+# v3.20.0
+
+## Deprecations
+
+## New additions
+* Added a `--protocol` option (plus matching `SNOWFLAKE_PROTOCOL` env var and `protocol` config key) to `snow connection add` and the global connection overrides. This allows selecting `http` or `https` as the connection protocol without editing `config.toml`, which is primarily useful for local development against `http` deployments.
+* Added `snow helpers generate-project-schema` command to emit a JSON Schema for the `snowflake.yml` project definition file. The output follows [JSON Schema Draft 2020-12](https://json-schema.org/draft/2020-12/schema) and can be plugged into supported editors (e.g. VS Code via the YAML extension) or CI pipelines to get completion and to catch structural mistakes (unknown keys, wrong types, missing required fields) before a deploy. The schema is generated from the CLI's own models, so some cross-field and semantic checks are still only applied at load/deploy time. Use `--definition-version` to select the project definition version (`1`, `1.1`, or `2`; defaults to `2`) and `--output-file`/`-o` to write the schema to a file.
+
+## Fixes and improvements
+* Fixed `TooManyFilesError` during `snow streamlit deploy` when `main_file` is a descendant of a directory listed in `artifacts`.
+* Upgraded `snowflake-connector-python` from 4.5.0 to 4.6.0.
+* `snow dcm list-deployments` and `snow dcm drop-deployment` now wrap the project name in `IDENTIFIER(...)`, matching every other DCM subcommand. Fully-qualified and quoted project names are now handled consistently.
+* Fixed `snow sql` table output rendering as a series of `|` characters when selecting many columns into a non-terminal destination (e.g. piped or redirected output).
+* `get_account_identifier()` and `snow spcs service build-image` now raise a clear, user-visible error when `CURRENT_ORGANIZATION_NAME()` / `CURRENT_ACCOUNT_NAME()` return no row or a NULL value, instead of a cryptic `TypeError: 'NoneType' object is not subscriptable` / `AttributeError: 'NoneType' object has no attribute 'lower'`.
+* `snow app setup` and `snow app deploy` now verify the current role can deploy to the account-configured destination (the `DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE` / `DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA` account defaults) before using it. When the role is missing the required privileges, the commands fall back to your personal database — as if no account default were set — and print a warning listing the missing grants and pointing you to your account administrator.
+
+
+# v3.19.0
+
+## Deprecations
+
+## New additions
+* Added `--local-only` flag to `snow sql`. When set, `!source` and `!load` directives that reference `http://` or `https://` URLs are rejected instead of fetched, restricting the command to local SQL files. Useful for running SQL in environments where outbound network access from the CLI is undesirable, or when SQL inputs should be reviewed locally before execution. Local file `!source`/`!load` are unaffected. The flag also applies to the interactive REPL and to files reached transitively via nested `!source`.
 
 ## Fixes and improvements
 

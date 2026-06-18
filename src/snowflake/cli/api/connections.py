@@ -53,6 +53,7 @@ class ConnectionContext:
     connection_name: Optional[str] = None
     host: Optional[str] = None
     port: Optional[int] = None
+    protocol: Optional[str] = None
     account: Optional[str] = None
     database: Optional[str] = None
     role: Optional[str] = None
@@ -85,6 +86,7 @@ class ConnectionContext:
     oauth_enable_single_use_refresh_tokens: Optional[bool] = None
     client_store_temporary_credential: Optional[bool] = None
     secondary_roles: Optional[str] = None
+    server_session_keep_alive: Optional[bool] = None
 
     # Internal flag to track if config has been loaded
     _config_loaded: bool = field(default=False, repr=False, init=False)

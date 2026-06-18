@@ -18,10 +18,32 @@ from typing import Any, Dict, List
 from unittest import mock
 
 import pytest
+from snowflake.cli.api.connector_errors import (
+    HTTP_FAILURE_ERRORS,
+    IS_V5_DRIVER,
+)
 from snowflake.cli.api.rest_api import CannotDetermineCreateURLException, RestApi
 from snowflake.connector.errors import BadRequest
 
 _DUMMY_SERVER_URL = "https://DUMMY_SERVER_URL"
+
+
+def _make_http_failure(status_code: int):
+    """Build the raw HTTP failure the active driver would raise for a status.
+
+    connector v4 raises a vendored ``requests`` ``HTTPError`` carrying
+    ``.response.status_code``; the Universal Driver v5 raises
+    ``OperationalError`` carrying ``http_status``.
+    """
+    if IS_V5_DRIVER:
+        from snowflake.connector.errors import OperationalError
+
+        err = OperationalError(msg=f"HTTP {status_code}: b''")
+        err.http_status = status_code
+        return err
+    from snowflake.connector.vendored.requests.exceptions import HTTPError
+
+    return HTTPError(response=mock.MagicMock(status_code=status_code))
 
 
 @dataclass
@@ -63,9 +85,7 @@ def mock_rest_connection():
         def assert_rest_fetch_calls_matches(
             self, call_matches: List[_RestApiCallMatch]
         ):
-            fetch_calls = [
-                call for call in self.rest.mock_calls if call.fetch is not None
-            ]
+            fetch_calls = [call for call in self.rest.mock_calls if call[0] == "fetch"]
             assert len(call_matches) == len(fetch_calls)
             for call_match, fetch_call in zip(call_matches, fetch_calls):
                 call_match.assert_matches_kwargs(fetch_call.kwargs)
@@ -89,9 +109,7 @@ def test_endpoint_exists(mock_rest_connection, return_value):
 def test_endpoint_exists_handles_404(
     mock_rest_connection,
 ):
-    from snowflake.connector.vendored.requests.exceptions import HTTPError
-
-    _mock_error_404 = HTTPError(response=mock.MagicMock(status_code=404))
+    _mock_error_404 = _make_http_failure(404)
     mock_rest_connection.setup(fetch_side_effects=[_mock_error_404])
     rest_api = RestApi(mock_rest_connection)
     assert not rest_api.get_endpoint_exists("/dummy_url")
@@ -116,12 +134,10 @@ def test_endpoint_exists_handles_bad_request(
 def test_endpoint_exists_reraises_non_404_http_error(
     mock_rest_connection,
 ):
-    from snowflake.connector.vendored.requests.exceptions import HTTPError
-
-    error_500 = HTTPError(response=mock.MagicMock(status_code=500))
+    error_500 = _make_http_failure(500)
     mock_rest_connection.setup(fetch_side_effects=[error_500])
     rest_api = RestApi(mock_rest_connection)
-    with pytest.raises(HTTPError):
+    with pytest.raises(HTTP_FAILURE_ERRORS):
         rest_api.get_endpoint_exists("/dummy_url")
 
 
@@ -147,9 +163,7 @@ def test_send_rest_request_passes_json_data_for_post(
 
 @pytest.mark.parametrize("number_of_fails", range(4))
 def test_determine_create_url(mock_rest_connection, number_of_fails):
-    from snowflake.connector.vendored.requests.exceptions import HTTPError
-
-    _mock_error_404 = HTTPError(response=mock.MagicMock(status_code=404))
+    _mock_error_404 = _make_http_failure(404)
     fetch_side_effects = [_mock_error_404] * number_of_fails + [[]]
     mock_rest_connection.setup(fetch_side_effects=fetch_side_effects)
     mock_rest_connection.connection.database = "DB"

@@ -12,13 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 from textwrap import dedent
 from typing import Dict, Optional
 
 from snowflake.cli._plugins.apps.manager import DEFAULT_PERSONAL_WORKSPACE_NAME
-
-log = logging.getLogger(__name__)
 
 
 def _generate_snowflake_yml(
@@ -33,11 +30,9 @@ def _generate_snowflake_yml(
 
     Optional keys: ``build_compute_pool``, ``service_compute_pool``,
     ``build_eai``.  When omitted or ``None`` the corresponding block is left
-    out of the generated YAML.  ``build_compute_pool`` and
-    ``service_compute_pool`` should both be omitted when the backend opts
-    the account into managed compute pools (see
-    :data:`MANAGED_COMPUTE_POOL_PARAM`).  ``build_eai`` is omitted when no
-    external access integration is required by the builder service.
+    out of the generated YAML, letting the server allocate compute pools at
+    deploy time.  ``build_eai`` is omitted when no external access
+    integration is required by the builder service.
 
     The artifact repository is omitted from the generated YAML; the CLI
     will default to ``<app-id>_REPO`` at deploy time.
@@ -52,13 +47,6 @@ def _generate_snowflake_yml(
     Otherwise the generator emits ``code_stage`` as a bare stage name
     resolved against the app's database and schema at deploy time.
     """
-
-    if resolved.get("image_repository"):
-        log.warning(
-            "image_repository is configured but is no longer included in "
-            "generated snowflake.yml. The CLI defaults to <app-id>_REPO at "
-            "deploy time. You can remove the image_repository setting."
-        )
 
     database = resolved["database"]
     schema = resolved["schema"]
@@ -108,8 +96,6 @@ def _generate_snowflake_yml(
               name: {app_id.upper()}
               database: {database}
               schema: {schema}
-            meta:
-              title: {app_id}
             artifacts:
               - src: ./*
                 dest: ./

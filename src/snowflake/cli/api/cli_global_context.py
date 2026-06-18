@@ -64,6 +64,13 @@ class _CliGlobalContextManager:
     project_is_optional: bool = True
     project_env_overrides_args: dict[str, str] = field(default_factory=dict)
 
+    # Text encoding used to read the project definition (snowflake.yml). When
+    # None, the encoding falls back to the cli.encoding.file_io setting /
+    # platform default. Set to "utf-8" by the ``snow app`` command group so
+    # that Snowflake App project definitions are read as UTF-8 regardless of
+    # the host code page (e.g. Windows cp1252/cp932).
+    project_definition_encoding: str | None = None
+
     # FIXME: this property only exists to help implement
     # nativeapp_definition_v2_to_v1 and single_app_and_package.
     # Consider changing the way this calculation is provided to commands
@@ -89,6 +96,7 @@ class _CliGlobalContextManager:
         "project_path_arg",
         "project_is_optional",
         "project_env_overrides_args",
+        "project_definition_encoding",
     ]
 
     CONFIG_MANAGER_DEPENDENCIES = ["config_file_override", "connections_file_override"]
@@ -151,6 +159,7 @@ class _CliGlobalContextManager:
             dm = DefinitionManager(
                 self.project_path_arg,
                 {CONTEXT_KEY: {"env": self.project_env_overrides_args}},
+                encoding=self.project_definition_encoding,
             )
             if not dm.has_definition_file and not self.project_is_optional:
                 raise MissingConfigurationError(

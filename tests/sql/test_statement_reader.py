@@ -153,6 +153,84 @@ def test_source_missing_url(httpserver: HTTPServer):
     assert not compiled
 
 
+@pytest.mark.parametrize("scheme", ["http", "https"])
+@pytest.mark.parametrize("command", ["source", "load"])
+def test_url_sources_disabled_blocks_fetch(scheme, command):
+    """When URL sources are disabled, http/https !source/!load must error
+    without making any network call."""
+    url = f"{scheme}://example.invalid/payload.sql"
+    query = f"!{command} {url};"
+
+    source = query_reader(query, WORKING_OPERATOR_FUNCS, disable_url_sources=True)
+    errors, cnt, compiled = compile_statements(source)
+
+    assert errors
+    assert errors[0].startswith("Loading SQL from URLs is disabled")
+    assert url in errors[0]
+    assert cnt == 0
+    assert not compiled
+
+
+def test_url_sources_disabled_local_file_still_works(
+    tmp_path_factory: pytest.TempPathFactory,
+):
+    """Disabling URL sources must not affect local !source of files."""
+    f1 = tmp_path_factory.mktemp("a") / "f1.sql"
+    f1.write_text("select 1;")
+
+    query = f"!source {f1.as_posix()};"
+    source = query_reader(query, WORKING_OPERATOR_FUNCS, disable_url_sources=True)
+    errors, cnt, compiled = compile_statements(source)
+
+    assert not errors, errors
+    assert cnt == 1
+    assert compiled == [CompiledStatement(statement="select 1;")]
+
+
+def test_url_sources_disabled_blocks_nested_url(
+    tmp_path_factory: pytest.TempPathFactory,
+):
+    """A local file that internally !sources a URL must also be blocked
+    when URL sources are disabled."""
+    f1 = tmp_path_factory.mktemp("a") / "f1.sql"
+    f1.write_text("select 1; !source https://example.invalid/inner.sql; select 2;")
+
+    source = files_reader(
+        (SecurePath(f1),),
+        WORKING_OPERATOR_FUNCS,
+        disable_url_sources=True,
+    )
+    errors, cnt, compiled = compile_statements(source)
+
+    assert any(e.startswith("Loading SQL from URLs is disabled") for e in errors)
+    # statements before/after the blocked URL still parse
+    assert CompiledStatement(statement="select 1;") in compiled
+    assert CompiledStatement(statement="select 2;") in compiled
+
+
+def test_url_sources_disabled_no_network_call(monkeypatch):
+    """Belt-and-suspenders: urlopen must not be invoked when blocked."""
+    import snowflake.cli._plugins.sql.statement_reader as sr
+
+    sentinel = {"called": False}
+
+    def fail_urlopen(*args, **kwargs):  # noqa: ARG001
+        sentinel["called"] = True
+        raise AssertionError("urlopen must not be called when URL sources are disabled")
+
+    monkeypatch.setattr(sr, "urlopen", fail_urlopen)
+
+    source = query_reader(
+        "!source http://example.invalid/x.sql;",
+        WORKING_OPERATOR_FUNCS,
+        disable_url_sources=True,
+    )
+    errors, _, _ = compile_statements(source)
+    assert errors
+    assert errors[0].startswith("Loading SQL from URLs is disabled")
+    assert sentinel["called"] is False
+
+
 def test_read_query():
     query = "select 1;"
     errors, cnt, compiled = compile_statements(
@@ -541,3 +619,62 @@ def test_protect_comments_roundtrip_through_jinja():
     )
     restored = saved.restore(rendered)
     assert restored == "-- {{ not_a_var }}\nSELECT /* {{ also_not }} */ 1 WHERE x = 42;"
+
+
+def test_files_reader_utf8_content(tmp_path_factory, monkeypatch):
+    """SQL files with non-ASCII UTF-8 content should be readable."""
+    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "utf-8")
+    f1 = tmp_path_factory.mktemp("enc") / "japanese.sql"
+    f1.write_text(
+        "-- テスト用SQLファイル\nSELECT 1;\n-- データベース確認\nSELECT 2;\n",
+        encoding="utf-8",
+    )
+    source = files_reader((SecurePath(f1),), WORKING_OPERATOR_FUNCS)
+    errors, cnt, compiled = compile_statements(source)
+    assert not errors
+    assert cnt == 2
+    assert compiled == [
+        CompiledStatement(statement="-- テスト用SQLファイル\nSELECT 1;"),
+        CompiledStatement(statement="-- データベース確認\nSELECT 2;"),
+    ]
+
+
+def test_from_file_utf8_content(tmp_path_factory, monkeypatch):
+    """ParsedStatement.from_file with non-ASCII UTF-8 file requires proper encoding configuration.
+
+    This test simulates a Windows cp1252 environment and demonstrates that UTF-8
+    encoding must be explicitly configured to correctly read files with non-ASCII characters.
+    """
+    # Simulate Windows cp1252 environment where platform default would fail for UTF-8
+    monkeypatch.setattr("locale.getpreferredencoding", lambda: "cp1252")
+    monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
+    monkeypatch.setattr("sys.getdefaultencoding", lambda: "cp1252")
+
+    # Write UTF-8 file with Japanese characters that CANNOT be represented in cp1252
+    f1 = tmp_path_factory.mktemp("enc") / "japanese.sql"
+    expected_content = "-- 日本語コメント\nSELECT 1;\n"
+    f1.write_text(expected_content, encoding="utf-8")
+
+    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "utf-8")
+
+    # Now reading should work because UTF-8 encoding is properly configured
+    result = ParsedStatement.from_file(str(f1), f"!source {f1};")
+
+    # Verify no error occurred
+    assert result.error is None, f"Expected no error but got: {result.error}"
+    assert result.statement_type == StatementType.FILE
+
+    # Verify the Japanese characters were actually read correctly
+    # This assertion proves that UTF-8 encoding configuration is working
+    actual_content = result.statement.read()
+    result.statement.seek(0)  # Reset for potential reuse
+
+    assert "日本語コメント" in actual_content, (
+        f"Japanese characters not found in content. "
+        f"This indicates the file was not read with UTF-8 encoding. "
+        f"Expected to find '日本語コメント' but got: {actual_content!r}"
+    )
+    assert actual_content == expected_content, (
+        f"Content mismatch. Expected:\n{expected_content!r}\n"
+        f"But got:\n{actual_content!r}"
+    )
