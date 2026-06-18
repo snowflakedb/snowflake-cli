@@ -2960,3 +2960,94 @@ class TestFetchStreamSourceRowsThreading:
         mock_decl.fetch_applied_state.assert_called_once()
         call = mock_decl.fetch_applied_state.call_args
         assert call.kwargs.get("stream_source_rows") == rows
+
+
+# ===========================================================================
+# sync — L7 name_filter validation
+# ===========================================================================
+
+
+class TestFeatureManagerSync:
+    """``FeatureManager.sync`` contract: ``--name`` with no match → ``CliError``."""
+
+    def test_sync_name_filter_no_match_raises_cli_error(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """When ``name_filter`` is given and the exporter returns no files,
+        ``sync`` must raise ``CliError`` with the missing name in the message
+        (L7 from SYNC_BUG_BASH.md).
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        _write_manifest(tmp_path)
+        mock_decl.export_specs.return_value = {
+            "status": "exported",
+            "directory": str(tmp_path / "sources"),
+            "files": [],
+        }
+        mock_decl.export_specs_as_python.return_value = {
+            "status": "exported",
+            "directory": str(tmp_path / "sources"),
+            "files": [],
+        }
+
+        with pytest.raises(CliError, match="DOES_NOT_EXIST"):
+            FeatureManager().sync(
+                from_dir=tmp_path,
+                target_name=None,
+                name_filter="DOES_NOT_EXIST",
+                python=False,
+            )
+
+    def test_sync_name_filter_with_match_does_not_raise(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """When ``name_filter`` matches at least one file, ``sync`` returns
+        normally (no ``CliError``).
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        sources_dir = tmp_path / "sources" / "feature_views"
+        sources_dir.mkdir(parents=True)
+        written = sources_dir / "my_fv.yaml"
+        written.write_text("name: my_fv\n")
+        mock_decl.export_specs.return_value = {
+            "status": "exported",
+            "directory": str(tmp_path / "sources"),
+            "files": [str(written)],
+        }
+
+        result = FeatureManager().sync(
+            from_dir=tmp_path,
+            target_name=None,
+            name_filter="MY_FV",
+            python=False,
+        )
+        assert result["status"] == "synced"
+        assert len(result["files"]) == 1
+
+    def test_sync_no_name_filter_empty_result_does_not_raise(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """Without ``name_filter``, an empty export (schema has no objects)
+        is a valid outcome — no ``CliError`` should be raised.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        mock_decl.export_specs.return_value = {
+            "status": "exported",
+            "directory": str(tmp_path / "sources"),
+            "files": [],
+        }
+
+        result = FeatureManager().sync(
+            from_dir=tmp_path,
+            target_name=None,
+            name_filter=None,
+            python=False,
+        )
+        assert result["status"] == "synced"
+        assert result["files"] == []

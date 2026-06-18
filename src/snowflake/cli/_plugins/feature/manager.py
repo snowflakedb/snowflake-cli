@@ -644,6 +644,12 @@ class FeatureManager(SqlExecutionMixin):
             python=python,
             name_filter=name_filter,
         )
+        if name_filter and not export_envelope.get("files"):
+            raise CliError(
+                f"No deployed object named '{name_filter}' found in"
+                f" {target_db}.{target_sch}."
+                " Run `snow feature list` to see available objects."
+            )
         return {
             "status": "synced",
             "files": export_envelope.get("files", []),
