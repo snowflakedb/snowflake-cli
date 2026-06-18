@@ -475,6 +475,7 @@ def _resolve_deploy_defaults(
     entity: "SnowflakeAppEntityModel",
     manager: "SnowflakeAppManager",
     app_name: Optional[str] = None,
+    check_account_default_privileges: bool = True,
 ) -> Dict[str, Optional[str]]:
     """Resolve deploy defaults using a four-tier precedence:
 
@@ -488,6 +489,14 @@ def _resolve_deploy_defaults(
     ``artifact_repo_database``, ``artifact_repo_schema``, ``database``,
     and ``schema``.  Any of them may still be ``None`` if no source
     provides a value.
+
+    When *check_account_default_privileges* is true (the default) the
+    account-configured destination database/schema is probed with
+    ``EXPLAIN_PRIVILEGES`` and dropped — falling back to the personal database —
+    when the current role cannot deploy there. ``snow app deploy`` passes
+    ``False`` because ``snow app validate`` already performs a comprehensive
+    privilege check up front (see :meth:`SnowflakeAppManager.missing_deploy_privileges`),
+    making the deploy-time probe redundant.
     """
 
     # ── 1. snowflake.yml values ───────────────────────────────────────
@@ -527,8 +536,10 @@ def _resolve_deploy_defaults(
         )
         # Drop the account-configured destination database/schema when the
         # current role cannot access them so resolution falls back to the
-        # personal database below.
-        raw_params = _filter_accessible_remote_defaults(manager, raw_params)
+        # personal database below. Skipped for callers (``snow app deploy``)
+        # that rely on ``snow app validate`` to have already checked privileges.
+        if check_account_default_privileges:
+            raw_params = _filter_accessible_remote_defaults(manager, raw_params)
         param_vals = dict(raw_params)
 
     # ── 3. Built-in defaults ────────────────────────────────────────────
@@ -831,6 +842,53 @@ class SnowflakeAppManager(SqlExecutionMixin):
             log.debug("Could not parse EXPLAIN_PRIVILEGES output: %r", row[0])
             return []
         return _flatten_missing_privileges(payload)
+
+    def missing_deploy_privileges(
+        self,
+        database: str,
+        schema: str,
+        role: Optional[str] = None,
+    ) -> list[str]:
+        """Return descriptions of the privileges *role* is missing to deploy to
+        *database*.*schema*, or an empty list when the role can deploy there.
+
+        Each representative DDL statement ``snow app deploy`` runs against the
+        destination (see :func:`_deploy_privilege_check_statements`) is analyzed
+        with ``EXPLAIN_PRIVILEGES`` via :meth:`get_missing_privileges`. A
+        statement that cannot be analyzed at all — e.g. the role cannot resolve
+        the destination, which ``EXPLAIN_PRIVILEGES`` rejects with "requires
+        access on all objects" — is itself treated as a failure rather than
+        skipped, mirroring deploy's own access requirements.
+
+        Results are returned as de-duplicated, terminal-safe strings ready to
+        embed in an error message. When the destination could not be analyzed
+        and no specific privileges were reported, a generic "access to database"
+        description is returned so the caller still surfaces an actionable
+        failure. ``snow app validate`` calls this to give the user a quick
+        signal of whether a subsequent ``snow app deploy`` would succeed.
+        """
+        statements = _deploy_privilege_check_statements(database, schema)
+        missing: list[Dict[str, str]] = []
+        check_failed = False
+        for statement in statements:
+            try:
+                statement_missing = self.get_missing_privileges(statement, role)
+            except Exception:
+                check_failed = True
+                log.debug(
+                    "Could not analyze deploy privilege statement: %s",
+                    statement,
+                    exc_info=True,
+                )
+                continue
+            if statement_missing:
+                check_failed = True
+                missing.extend(statement_missing)
+        if not check_failed:
+            return []
+        return _format_missing_privileges(missing) or [
+            f"access to database '{sanitize_for_terminal(database)}'"
+        ]
 
     def stage_exists(self, stage_fqn: FQN) -> bool:
         """Check if a stage exists."""

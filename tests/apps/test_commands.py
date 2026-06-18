@@ -979,6 +979,65 @@ class TestGetMissingPrivileges:
         )
 
 
+class TestMissingDeployPrivileges:
+    """Unit tests for the aggregate deploy privilege probe that backs
+    ``snow app validate``."""
+
+    @patch(GET_MISSING_PRIVILEGES, return_value=[])
+    def test_no_missing_privileges_returns_empty(self, mock_missing):
+        result = SnowflakeAppManager().missing_deploy_privileges(
+            "APPS", "PUBLIC", "ENGINEER"
+        )
+        assert result == []
+        # Every representative deploy statement is probed for the given role.
+        assert mock_missing.call_count == 2
+        for call in mock_missing.call_args_list:
+            assert call.args[1] == "ENGINEER"
+
+    @patch(GET_MISSING_PRIVILEGES)
+    def test_aggregates_and_formats_missing_privileges(self, mock_missing):
+        mock_missing.side_effect = [
+            [
+                {
+                    "privilege": "CREATE STAGE",
+                    "objectType": "SCHEMA",
+                    "objectName": "A.B",
+                }
+            ],
+            [
+                {
+                    "privilege": "CREATE ARTIFACT REPOSITORY",
+                    "objectType": "SCHEMA",
+                    "objectName": "A.B",
+                }
+            ],
+        ]
+        result = SnowflakeAppManager().missing_deploy_privileges("A", "B", "ENGINEER")
+        assert result == [
+            "CREATE STAGE on SCHEMA A.B",
+            "CREATE ARTIFACT REPOSITORY on SCHEMA A.B",
+        ]
+
+    @patch(GET_MISSING_PRIVILEGES)
+    def test_analysis_error_reports_generic_access(self, mock_missing):
+        # Every probe statement fails to analyze, which means the role cannot
+        # resolve the destination at all -> generic, actionable description.
+        mock_missing.side_effect = ProgrammingError("requires access on all objects")
+        result = SnowflakeAppManager().missing_deploy_privileges("A", "B", "ENGINEER")
+        assert result == ["access to database 'A'"]
+
+    @patch(GET_MISSING_PRIVILEGES)
+    def test_partial_error_still_fails(self, mock_missing):
+        # One statement cannot be analyzed while the other is clean: the role
+        # cannot fully deploy, so the check still fails.
+        mock_missing.side_effect = [
+            ProgrammingError("requires access on all objects"),
+            [],
+        ]
+        result = SnowflakeAppManager().missing_deploy_privileges("A", "B", "ENGINEER")
+        assert result == ["access to database 'A'"]
+
+
 class TestAppFqn:
     """``app_fqn`` is the apps-plugin FQN factory: it routes each component
     through :func:`to_identifier` so the resulting FQN's ``identifier`` /
@@ -2675,6 +2734,38 @@ class TestResolveDeployDefaults:
         mock_console.warning.assert_called_once()
         assert "PARAM_DB" in mock_console.warning.call_args[0][0]
 
+    @patch(MANAGER_CLI_CONSOLE)
+    @patch(
+        FETCH_SNOW_APPS_PARAMS,
+        return_value={"database": "PARAM_DB", "schema": "PARAM_SCHEMA"},
+    )
+    @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
+    @patch(GET_MISSING_PRIVILEGES)
+    @patch(CURRENT_ROLE, return_value="ENGINEER")
+    def test_check_account_default_privileges_false_skips_probe(
+        self,
+        mock_role,
+        mock_missing,
+        mock_ctx,
+        mock_params,
+        mock_console,
+    ):
+        """With the privilege probe disabled (as ``snow app deploy`` calls it,
+        trusting ``snow app validate``) the account-configured destination is
+        used as-is and ``EXPLAIN_PRIVILEGES`` is never invoked."""
+        from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
+
+        entity = self._make_entity(database=None, schema=None)
+        result = _resolve_deploy_defaults(
+            entity,
+            SnowflakeAppManager(),
+            check_account_default_privileges=False,
+        )
+        assert result["database"] == "PARAM_DB"
+        assert result["schema"] == "PARAM_SCHEMA"
+        mock_missing.assert_not_called()
+        mock_console.warning.assert_not_called()
+
 
 class TestFlattenMissingPrivileges:
     def test_authorized_returns_empty(self):
@@ -4100,6 +4191,8 @@ class TestValidateCommand:
         mock_mgr = mock_manager_cls.return_value
         mock_mgr.database_exists.return_value = True
         mock_mgr.schema_exists.return_value = True
+        mock_mgr.current_role.return_value = "ENGINEER"
+        mock_mgr.missing_deploy_privileges.return_value = []
         return mock_mgr
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
@@ -4182,6 +4275,111 @@ class TestValidateCommand:
             result = runner.invoke(["app", "validate"])
             assert result.exit_code == 1
             assert "Schema 'TEST_DB.TEST_SCHEMA' does not exist" in result.output
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_validate_checks_deploy_privileges(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_perform_bundle,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        """A valid project probes deploy privileges on the resolved destination."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        mock_get_entity.return_value = self._make_validate_entity()
+        mock_mgr = self._configure_manager_mock(mock_manager_cls)
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "validate"])
+            assert result.exit_code == 0, result.output
+            assert "Checking deploy privileges on TEST_DB.TEST_SCHEMA" in result.output
+            mock_mgr.missing_deploy_privileges.assert_called_once_with(
+                "TEST_DB", "TEST_SCHEMA", "ENGINEER"
+            )
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_validate_fails_when_deploy_privileges_missing(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_perform_bundle,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        """Missing deploy privileges fail validation with an actionable message
+        and skip bundling (no point bundling a project that cannot deploy)."""
+        mock_get_entity.return_value = self._make_validate_entity()
+        mock_mgr = self._configure_manager_mock(mock_manager_cls)
+        mock_mgr.missing_deploy_privileges.return_value = [
+            "CREATE STAGE on SCHEMA TEST_DB.TEST_SCHEMA",
+            "CREATE ARTIFACT REPOSITORY on SCHEMA TEST_DB.TEST_SCHEMA",
+        ]
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "validate"])
+            assert result.exit_code == 1
+            assert "is missing privileges required to deploy" in result.output
+            assert "'ENGINEER'" in result.output
+            assert "CREATE STAGE on SCHEMA TEST_DB.TEST_SCHEMA" in result.output
+            assert "snowflake.yml" in result.output
+            mock_perform_bundle.assert_not_called()
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_validate_skips_privilege_check_without_schema(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_perform_bundle,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        """Without a resolved schema the privilege probe (which needs a fully
+        qualified destination) is skipped rather than guessed."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        entity.fqn = Mock(database="TEST_DB", schema=None, name="MY_APP")
+        mock_get_entity.return_value = entity
+        mock_mgr = self._configure_manager_mock(mock_manager_cls)
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "validate"])
+            assert result.exit_code == 0, result.output
+            mock_mgr.missing_deploy_privileges.assert_not_called()
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
@@ -5010,6 +5208,67 @@ class TestDeployCommand:
             mock_mgr.build_app_artifact_repo.assert_not_called()
             mock_mgr.artifact_repo_exists.assert_not_called()
             mock_mgr.create_app_service.assert_called_once()
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": None,
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": None,
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_skips_redundant_account_default_privilege_probe(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """Deploy resolves defaults with the account-default privilege probe
+        disabled — ``snow app validate`` owns that check now."""
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.code_workspace = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.artifact_repository = None
+        mock_get_entity.return_value = entity
+
+        mock_poll.return_value = {
+            "url": "my-app.snowflakecomputing.app",
+            "is_upgrading": "false",
+        }
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "deploy", "--promote-only"])
+            assert result.exit_code == 0, result.output
+            mock_defaults.assert_called_once()
+            assert (
+                mock_defaults.call_args.kwargs["check_account_default_privileges"]
+                is False
+            )
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")

@@ -55,6 +55,7 @@
 * Fixed `snow sql` table output rendering as a series of `|` characters when selecting many columns into a non-terminal destination (e.g. piped or redirected output).
 * `get_account_identifier()` and `snow spcs service build-image` now raise a clear, user-visible error when `CURRENT_ORGANIZATION_NAME()` / `CURRENT_ACCOUNT_NAME()` return no row or a NULL value, instead of a cryptic `TypeError: 'NoneType' object is not subscriptable` / `AttributeError: 'NoneType' object has no attribute 'lower'`.
 * `snow app setup` and `snow app deploy` now verify the current role can deploy to the account-configured destination (the `DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE` / `DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA` account defaults) before using it. When the role is missing the required privileges, the commands fall back to your personal database — as if no account default were set — and print a warning listing the missing grants and pointing you to your account administrator.
+* `snow app validate` now checks whether the current role has the privileges required to deploy to the destination configured in `snowflake.yml` (the privileges to create a stage and an artifact repository in the target database/schema), giving a quick signal of whether a subsequent `snow app deploy` would succeed. Validation fails with the list of missing privileges when the role cannot deploy. Because `snow app validate` performs this check up front, `snow app deploy` no longer repeats the (now redundant) account-default privilege probe.
 
 
 # v3.19.0

@@ -419,6 +419,30 @@ def snowflake_app_validate(entity_id: Optional[str]) -> CommandResult:
                         f"or is not accessible."
                     )
 
+            # ── Validate deploy privileges ────────────────────────────
+            # Probe the representative DDL ``snow app deploy`` runs against the
+            # destination so the user gets a quick, up-front signal of whether a
+            # deploy would succeed instead of failing late mid-deploy. ``snow app
+            # deploy`` trusts this check and skips its own privilege probe.
+            cli_console.step(
+                f"Checking deploy privileges on "
+                f"{sanitize_for_terminal(database)}.{sanitize_for_terminal(schema)}..."
+            )
+            with metrics.span("snowflake_app.validate.check_privileges"):
+                role = manager.current_role()
+                missing_privileges = manager.missing_deploy_privileges(
+                    database, schema, role
+                )
+            if missing_privileges:
+                role_label = f" '{sanitize_for_terminal(role)}'" if role else ""
+                raise CliError(
+                    f"Your current role{role_label} is missing privileges "
+                    f"required to deploy to "
+                    f"'{sanitize_for_terminal(database)}.{sanitize_for_terminal(schema)}': "
+                    f"{', '.join(missing_privileges)}. Grant the missing "
+                    f"privileges or update the destination in {DEFINITION_FILENAME}."
+                )
+
     # ── Validate project can bundle artifacts ─────────────────────────
     project_paths = None
     try:
@@ -609,8 +633,13 @@ def snowflake_app_deploy(
     app_icon = entity.meta.icon if entity.meta else None
 
     # ── Resolve defaults (snowflake.yml > account parameters > built-in) ──
+    # ``check_account_default_privileges=False``: ``snow app validate`` already
+    # probes deploy privileges up front, so re-running the account-default
+    # privilege check here would be redundant.
     manager = SnowflakeAppManager(interactive=interactive)
-    defaults = _resolve_deploy_defaults(entity, manager, app_name=app_name)
+    defaults = _resolve_deploy_defaults(
+        entity, manager, app_name=app_name, check_account_default_privileges=False
+    )
 
     database = defaults["database"]
     schema = defaults["schema"]
