@@ -1475,3 +1475,85 @@ def test_export_typer_command_function_no_longer_present():
     assert not hasattr(
         commands, "export"
     ), "commands.export must be deleted; init now subsumes the export pipeline"
+
+
+# ---------------------------------------------------------------------------
+# sync
+# ---------------------------------------------------------------------------
+
+_SYNC_RESULT_STUB = {
+    "status": "synced",
+    "directory": "/tmp/proj/sources",
+    "files": [],
+    "target_database": "DB",
+    "target_schema": "SCH",
+}
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_sync_default_flags(mock_manager, runner):
+    """``snow feature sync`` with no extra flags calls ``FeatureManager().sync()``
+    with ``from_dir=Path.cwd()``, ``target_name=None``, ``name_filter=None``,
+    and ``python=False``.
+    """
+    mock_manager.return_value.sync.return_value = _SYNC_RESULT_STUB
+    result = runner.invoke(["feature", "sync"])
+    assert result.exit_code == 0, result.output
+    mock_manager.return_value.sync.assert_called_once()
+    kwargs = mock_manager.return_value.sync.call_args.kwargs
+    assert isinstance(kwargs["from_dir"], Path)
+    assert kwargs["target_name"] is None
+    assert kwargs["name_filter"] is None
+    assert kwargs["python"] is False
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_sync_name_flag(mock_manager, runner):
+    """``--name MY_FV`` threads ``name_filter="MY_FV"`` to the manager."""
+    mock_manager.return_value.sync.return_value = _SYNC_RESULT_STUB
+    result = runner.invoke(["feature", "sync", "--name", "MY_FV"])
+    assert result.exit_code == 0, result.output
+    kwargs = mock_manager.return_value.sync.call_args.kwargs
+    assert kwargs["name_filter"] == "MY_FV"
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_sync_python_flag(mock_manager, runner):
+    """``--python`` threads ``python=True`` to the manager."""
+    mock_manager.return_value.sync.return_value = _SYNC_RESULT_STUB
+    result = runner.invoke(["feature", "sync", "--python"])
+    assert result.exit_code == 0, result.output
+    kwargs = mock_manager.return_value.sync.call_args.kwargs
+    assert kwargs["python"] is True
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_sync_from_flag(mock_manager, runner, tmp_path):
+    """``--from /some/path`` threads ``from_dir=Path("/some/path")`` to the manager."""
+    mock_manager.return_value.sync.return_value = _SYNC_RESULT_STUB
+    result = runner.invoke(["feature", "sync", "--from", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    kwargs = mock_manager.return_value.sync.call_args.kwargs
+    assert kwargs["from_dir"] == tmp_path
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_sync_target_flag(mock_manager, runner):
+    """``--target PROD`` threads ``target_name="PROD"`` to the manager."""
+    mock_manager.return_value.sync.return_value = _SYNC_RESULT_STUB
+    result = runner.invoke(["feature", "sync", "--target", "PROD"])
+    assert result.exit_code == 0, result.output
+    kwargs = mock_manager.return_value.sync.call_args.kwargs
+    assert kwargs["target_name"] == "PROD"
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_sync_help_text(mock_manager, runner):
+    """``--name``, ``--python``, ``--target``, and ``--from`` all appear in help."""
+    result = runner.invoke(["feature", "sync", "--help"])
+    assert result.exit_code == 0, result.output
+    text = result.output
+    assert "--name" in text
+    assert "--python" in text
+    assert "--target" in text
+    assert "--from" in text
