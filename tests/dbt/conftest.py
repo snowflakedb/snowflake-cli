@@ -1,8 +1,24 @@
+import os
 from unittest import mock
 
 import pytest
 import yaml
 from snowflake.cli._plugins.dbt.constants import ENV_FILENAME, PROFILES_FILENAME
+
+
+@pytest.fixture
+def clean_dbt_env(monkeypatch):
+    """Strip every DBT_* env var from os.environ for the duration of the test.
+
+    monkeypatch.setenv only adds; it does NOT clear pre-existing ones. CI
+    runners and dev shells often have stray DBT_* vars (DBT_LOG_PATH,
+    DBT_TARGET_PATH, etc.) that would leak into --use-shell-env-vars
+    behavior under test.
+    """
+    for key in list(os.environ):
+        if key.startswith("DBT_"):
+            monkeypatch.delenv(key, raising=False)
+    yield monkeypatch
 
 
 @pytest.fixture

@@ -17,6 +17,8 @@ from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector import ProgrammingError
 
+from tests_common import IS_WINDOWS
+
 
 def _supported_versions_payload(*versions: str) -> str:
     return json.dumps([{"dbt_version": v} for v in versions])
@@ -1728,3 +1730,157 @@ class TestExecute:
             "ENV_VARS=('DBT_FOO'='1') args='compile'",
             _exec_async=True,
         )
+
+    def test_execute_forwards_shell_env_vars_with_cli_args(
+        self, mock_execute_query, clean_dbt_env
+    ):
+        # use_shell_env_vars is keyword-only, so positional dbt CLI args
+        # ("--select", "my_model") still map to *dbt_cli_args rather than
+        # being misbound to the flag.
+        clean_dbt_env.setenv("DBT_FOO", "1")
+
+        DBTManager().execute(
+            "run",
+            FQN.from_string("pipeline"),
+            False,
+            None,
+            None,
+            None,
+            "--select",
+            "my_model",
+            use_shell_env_vars=True,
+        )
+
+        mock_execute_query.assert_called_once_with(
+            "EXECUTE DBT PROJECT pipeline "
+            "ENV_VARS=('DBT_FOO'='1') args='run --select my_model'",
+            _exec_async=False,
+        )
+
+
+class TestCollectShellEnvVars:
+    """Direct manager-level coverage of _collect_shell_env_vars."""
+
+    def test_returns_sorted_dict_and_zero_dropped(self, clean_dbt_env):
+        from snowflake.cli._plugins.dbt.manager import _collect_shell_env_vars
+
+        clean_dbt_env.setenv("DBT_ZULU", "z")
+        clean_dbt_env.setenv("DBT_ALPHA", "a")
+        clean_dbt_env.setenv("DBT_MIKE", "m")
+
+        forwarded, dropped, skipped = _collect_shell_env_vars()
+
+        assert list(forwarded.items()) == [
+            ("DBT_ALPHA", "a"),
+            ("DBT_MIKE", "m"),
+            ("DBT_ZULU", "z"),
+        ]
+        assert dropped == 0
+        assert skipped == 0
+
+    def test_excludes_non_dbt_keys(self, clean_dbt_env):
+        from snowflake.cli._plugins.dbt.manager import _collect_shell_env_vars
+
+        clean_dbt_env.setenv("DBT_FOO", "1")
+        clean_dbt_env.setenv("PATH", "/bin")
+        clean_dbt_env.setenv("AWS_ACCESS_KEY", "key")
+        clean_dbt_env.setenv("DBTFOO", "no-underscore")  # missing underscore
+        clean_dbt_env.setenv("XDBT_FOO", "wrong-prefix")
+
+        forwarded, dropped, skipped = _collect_shell_env_vars()
+
+        assert forwarded == {"DBT_FOO": "1"}
+        assert dropped == 0
+        # DBTFOO and XDBT_FOO do not start with the DBT_ prefix → not DBT-ish,
+        # ignored silently (not counted as skipped).
+        assert skipped == 0
+
+    def test_drops_secret_prefixed_keys(self, clean_dbt_env):
+        from snowflake.cli._plugins.dbt.manager import _collect_shell_env_vars
+
+        clean_dbt_env.setenv("DBT_FOO", "1")
+        clean_dbt_env.setenv("DBT_ENV_SECRET_TOKEN", "shhh")
+        clean_dbt_env.setenv("DBT_ENV_SECRET_API_KEY", "shhh2")
+
+        forwarded, dropped, skipped = _collect_shell_env_vars()
+
+        assert forwarded == {"DBT_FOO": "1"}
+        assert dropped == 2
+        assert skipped == 0
+
+    def test_drops_mixed_case_secret_prefixed_keys(self, clean_dbt_env):
+        from snowflake.cli._plugins.dbt.manager import _collect_shell_env_vars
+
+        # Mixed-case secret prefix is detected case-insensitively and counted
+        # as a dropped secret (not a generic skip), so the user gets the
+        # secrets-block guidance and the value never reaches query history.
+        clean_dbt_env.setenv("DBT_Env_Secret_TOKEN", "shhh")
+
+        forwarded, dropped, skipped = _collect_shell_env_vars()
+
+        assert forwarded == {}
+        assert dropped == 1
+        assert skipped == 0
+
+    @pytest.mark.skipif(
+        IS_WINDOWS,
+        reason="os.environ is case-insensitive on Windows and normalizes names "
+        "to uppercase, so a non-uppercase DBT_ env var cannot exist there and "
+        "the skip path is unreachable.",
+    )
+    def test_skips_non_uppercase_keys(self, clean_dbt_env):
+        from snowflake.cli._plugins.dbt.manager import _collect_shell_env_vars
+
+        clean_dbt_env.setenv("DBT_FOO", "ok")
+        clean_dbt_env.setenv("DBT_Foo", "mixed")  # not uppercase → skipped
+        clean_dbt_env.setenv("dbt_bar", "lower")  # DBT-ish but lowercase → skipped
+
+        forwarded, dropped, skipped = _collect_shell_env_vars()
+
+        assert forwarded == {"DBT_FOO": "ok"}
+        assert dropped == 0
+        assert skipped == 2
+
+    def test_skips_invalid_char_keys(self, clean_dbt_env):
+        from snowflake.cli._plugins.dbt.manager import _collect_shell_env_vars
+
+        clean_dbt_env.setenv("DBT_FOO", "ok")
+        clean_dbt_env.setenv("DBT_FOO-BAR", "dash")  # invalid char → skipped
+
+        forwarded, dropped, skipped = _collect_shell_env_vars()
+
+        assert forwarded == {"DBT_FOO": "ok"}
+        assert dropped == 0
+        assert skipped == 1
+
+    def test_skips_control_char_values(self, clean_dbt_env):
+        from snowflake.cli._plugins.dbt.manager import _collect_shell_env_vars
+
+        clean_dbt_env.setenv("DBT_FOO", "ok")
+        clean_dbt_env.setenv("DBT_BAR", "bad\nvalue")  # control char → skipped
+
+        forwarded, dropped, skipped = _collect_shell_env_vars()
+
+        assert forwarded == {"DBT_FOO": "ok"}
+        assert dropped == 0
+        assert skipped == 1
+
+    def test_empty_environment_returns_empty(self, clean_dbt_env):
+        from snowflake.cli._plugins.dbt.manager import _collect_shell_env_vars
+
+        forwarded, dropped, skipped = _collect_shell_env_vars()
+
+        assert forwarded == {}
+        assert dropped == 0
+        assert skipped == 0
+
+    def test_only_secrets_returns_empty_dict_with_count(self, clean_dbt_env):
+        from snowflake.cli._plugins.dbt.manager import _collect_shell_env_vars
+
+        clean_dbt_env.setenv("DBT_ENV_SECRET_TOKEN", "shhh")
+
+        forwarded, dropped, skipped = _collect_shell_env_vars()
+
+        assert forwarded == {}
+        assert dropped == 1
+        assert skipped == 0

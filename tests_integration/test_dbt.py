@@ -20,8 +20,8 @@ from unittest import mock
 import pytest
 import yaml
 
-from snowflake.cli.api.identifiers import FQN
 from snowflake.cli._plugins.dbt.constants import ENV_FILENAME, PROFILES_FILENAME
+from snowflake.cli.api.identifiers import FQN
 
 
 def _setup_dbt_profile(root_dir: Path, snowflake_session):
@@ -881,3 +881,95 @@ def test_execute_with_env_and_env_vars(
         row = _run_and_fetch(["--env-vars", '{"DBT_FOO": "only_foo"}'])
         assert row["FOO"] == "only_foo", row
         assert row["BAR"] == "dev_bar", row
+
+
+@pytest.mark.integration
+@pytest.mark.qa_only
+def test_execute_with_use_shell_env_vars(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+    monkeypatch,
+):
+    """Exercise --use-shell-env-vars against a real Snowflake DBT PROJECT.
+
+    Reuses the sibling's `dbt_project_with_env_vars` fixture project. The
+    integration runner uses an in-process CliRunner, so monkeypatch.setenv
+    is visible to os.environ inside the CLI code.
+
+    Verifies:
+      * shell DBT_FOO/DBT_BAR forwarded → overrides env.yml's prod block
+      * shell + --env-vars → explicit --env-vars wins on collision
+      * shell + --env=NO_ENV → shell vars apply, env.yml skipped
+      * DBT_ENV_SECRET_* in shell → silently dropped client-side
+      * empty shell + --use-shell-env-vars → env.yml provides values
+    """
+    # Strip any stray DBT_* leakage from the runner's env first.
+    for k in list(os.environ):
+        if k.startswith("DBT_"):
+            monkeypatch.delenv(k, raising=False)
+
+    with project_directory("dbt_project_with_env_vars") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_project_shell_env_{ts}"
+
+        _setup_dbt_profile(root_dir, snowflake_session)
+        result = runner.invoke_with_connection_json(["dbt", "deploy", name])
+        assert result.exit_code == 0, result.output
+
+        def _run_and_fetch(extra_args: list[str]) -> dict:
+            run_result = runner.invoke_passthrough_with_connection(
+                args=["dbt", "execute", *extra_args],
+                passthrough_args=[name, "run"],
+            )
+            assert run_result.exit_code == 0, run_result.output
+
+            query_result = runner.invoke_with_connection_json(
+                ["sql", "-q", "select foo, bar from my_first_dbt_model;"]
+            )
+            assert query_result.exit_code == 0, query_result.output
+            assert len(query_result.json) == 1, query_result.json
+            return query_result.json[0]
+
+        # 1. shell vars forwarded; override env.yml's prod block.
+        monkeypatch.setenv("DBT_FOO", "shell_foo")
+        monkeypatch.setenv("DBT_BAR", "shell_bar")
+        row = _run_and_fetch(["--use-shell-env-vars", "--env=prod"])
+        assert row["FOO"] == "shell_foo", row
+        assert row["BAR"] == "shell_bar", row
+
+        # 2. --env-vars beats shell on collision; shell still provides BAR.
+        row = _run_and_fetch(
+            [
+                "--use-shell-env-vars",
+                "--env-vars",
+                '{"DBT_FOO": "explicit_foo"}',
+                "--env=prod",
+            ]
+        )
+        assert row["FOO"] == "explicit_foo", row
+        assert row["BAR"] == "shell_bar", row
+
+        # 3. --env=NO_ENV skips env.yml; shell still forwards.
+        monkeypatch.delenv("DBT_BAR", raising=False)
+        row = _run_and_fetch(["--use-shell-env-vars", "--env=NO_ENV"])
+        assert row["FOO"] == "shell_foo", row
+        assert row["BAR"] == "unset", row
+
+        # 4. DBT_ENV_SECRET_* dropped client-side; doesn't reach the server.
+        monkeypatch.setenv("DBT_ENV_SECRET_TOKEN", "should_not_appear")
+        run_result = runner.invoke_passthrough_with_connection(
+            args=["dbt", "execute", "--use-shell-env-vars", "--env=NO_ENV"],
+            passthrough_args=[name, "run"],
+        )
+        assert run_result.exit_code == 0, run_result.output
+        assert "should_not_appear" not in run_result.output
+        monkeypatch.delenv("DBT_ENV_SECRET_TOKEN", raising=False)
+
+        # 5. Empty shell + --use-shell-env-vars → env.yml provides values,
+        # pipeline succeeds with the empty-state info message.
+        monkeypatch.delenv("DBT_FOO", raising=False)
+        row = _run_and_fetch(["--use-shell-env-vars", "--env=prod"])
+        assert row["FOO"] == "prod_foo", row
+        assert row["BAR"] == "prod_bar", row
