@@ -245,10 +245,25 @@ def before_callback(
         '\'{"DBT_FOO": "1", "DBT_BAR": "2"}\'. '
         "Values must be strings; numbers, booleans, null, nested objects, "
         "and arrays are rejected (quote scalars, e.g. 'DBT_FOO: \"1\"'). "
-        "Keys must start with 'DBT_' and contain only letters, digits, and "
-        "underscores. Variables with the DBT_ENV_SECRET_ prefix are accepted "
-        "but appear in the SQL text and query history; to avoid that, use "
-        "the secrets: block in env.yml.",
+        "Keys must be uppercase, start with 'DBT_', and contain only "
+        "letters, digits, and underscores. Variables with the "
+        "DBT_ENV_SECRET_ prefix are accepted but appear in the SQL text "
+        "and query history; to avoid that, use the secrets: block in "
+        "env.yml.",
+    ),
+    use_shell_env_vars: bool = typer.Option(
+        False,
+        "--use-shell-env-vars",
+        show_default=False,
+        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_ENV_VARS.is_enabled(),
+        help="Forward exported shell environment variables with uppercase "
+        "names starting with DBT_ (excluding the DBT_ENV_SECRET_ prefix) as "
+        "ENV_VARS=(); non-uppercase or otherwise invalid names are skipped. "
+        "Overridden by --env-vars on collisions. WARNING: forwarded values "
+        "are embedded as literals in the query and appear in Snowflake query "
+        "history. Never put credentials, tokens, passwords, or other "
+        "confidential data in shell environment variables with the DBT_ "
+        "prefix.",
     ),
     **options,
 ):
@@ -276,6 +291,7 @@ for cmd in DBT_COMMANDS:
         dbt_version = ctx.parent.params.get("dbt_version")
         environment = ctx.parent.params.get("environment")
         env_vars = ctx.parent.params.get("env_vars")
+        use_shell_env_vars = ctx.parent.params.get("use_shell_env_vars", False)
         execute_args = (
             dbt_command,
             name,
@@ -288,14 +304,18 @@ for cmd in DBT_COMMANDS:
         dbt_manager = DBTManager()
 
         if run_async is True:
-            result = dbt_manager.execute(*execute_args)
+            result = dbt_manager.execute(
+                *execute_args, use_shell_env_vars=use_shell_env_vars
+            )
             return MessageResult(
                 f"Command submitted. You can check the result with `snow sql -q \"select execution_status from table(information_schema.query_history_by_user()) where query_id in ('{result.sfqid}');\"`"
             )
 
         with cli_console.spinner() as spinner:
             spinner.add_task(description=f"Executing 'dbt {dbt_command}'", total=None)
-            result = dbt_manager.execute(*execute_args)
+            result = dbt_manager.execute(
+                *execute_args, use_shell_env_vars=use_shell_env_vars
+            )
 
             try:
                 columns = [column.name for column in result.description]
