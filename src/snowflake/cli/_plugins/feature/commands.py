@@ -379,6 +379,55 @@ def init(
 
 
 # ---------------------------------------------------------------------------
+# sync
+# ---------------------------------------------------------------------------
+
+
+@app.command(requires_connection=True)
+@_surface_init_required_as_click_exception
+def sync(
+    from_location: Path = from_option,
+    target: Optional[str] = target_option,
+    name: Optional[str] = typer.Option(
+        None,
+        "--name",
+        help=(
+            "Exact name of a single object to sync (case-insensitive). "
+            "Matches across all object kinds (Entity, BatchSource, "
+            "StreamingSource, BatchFeatureView, StreamingFeatureView, "
+            "FeatureGroup).  Omit to sync all deployed objects."
+        ),
+        show_default=False,
+    ),
+    python_form: bool = typer.Option(
+        False,
+        "--python",
+        help="Export deployed objects as .py files (Pydantic constructors) instead of YAML.",
+    ),
+    **options,
+) -> CommandResult:
+    """Pull deployed feature-store objects into the local sources tree.
+
+    Requires an existing ``manifest.yml`` (run ``snow feature init``
+    to create one) and an already-initialised feature store.  Does
+    not re-bootstrap the Snowflake runtime.
+
+    Use ``--name`` to sync a single named object; omit it to sync
+    everything.  Use ``--python`` to emit ``.py`` Pydantic
+    constructors instead of YAML.  Use ``snow feature plan`` after
+    syncing to verify the round-trip produces all NO_CHANGE ops.
+    """
+    del options
+    result = FeatureManager().sync(
+        from_dir=from_location,
+        target_name=target,
+        name_filter=name,
+        python=python_form,
+    )
+    return _to_object(result)
+
+
+# ---------------------------------------------------------------------------
 # apply
 # ---------------------------------------------------------------------------
 

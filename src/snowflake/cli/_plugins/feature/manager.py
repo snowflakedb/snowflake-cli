@@ -466,6 +466,7 @@ class FeatureManager(SqlExecutionMixin):
         database: str,
         schema: str,
         python: bool = False,
+        name_filter: Optional[str] = None,
     ) -> dict[str, Any]:
         """Run the deployed-state export pipeline into ``<project_root>/sources/``.
 
@@ -583,7 +584,73 @@ class FeatureManager(SqlExecutionMixin):
             feature_group_rows=feature_group_rows,
             applied_state=applied_state,
             layout="sources",
+            name_filter=name_filter,
         )
+
+    # ------------------------------------------------------------------
+    # sync — pull deployed objects into sources/ (no bootstrap)
+    # ------------------------------------------------------------------
+
+    def sync(
+        self,
+        from_dir: Path,
+        target_name: Optional[str],
+        name_filter: Optional[str],
+        python: bool,
+    ) -> dict[str, Any]:
+        """Pull deployed feature-store objects into the local sources tree.
+
+        ``sync`` is ``init``'s export phase without the Snowflake-side
+        bootstrap.  It requires an existing ``manifest.yml`` (use
+        ``snow feature init`` to create one) and an already-initialised
+        feature store.
+
+        Args:
+            from_dir: Project root containing ``manifest.yml``.
+            target_name: Manifest target to sync from.  ``None`` uses
+                the manifest's ``default_target``.
+            name_filter: Optional exact-match, case-insensitive filter.
+                When set, only the object whose name equals
+                *name_filter* (across all kinds) is written.
+            python: When ``True``, emit ``.py`` Pydantic constructors
+                instead of YAML.
+
+        Returns:
+            Dict with ``status='synced'``, ``files``, ``directory``,
+            ``target_database``, and ``target_schema``.
+
+        Raises:
+            CliError: When ``manifest.yml`` is not found, the target is
+                unknown, or the active account does not match the
+                manifest target.
+            FeatureStoreNotInitializedError: When the feature store has
+                not been bootstrapped in the resolved schema.
+        """
+        paths, _, target = self._resolve_project(from_dir, target_name)
+        target_db = target.database
+        target_sch = target.schema
+        ctx = get_cli_context()
+        session = self._build_session()
+        decl_api.assert_feature_store_initialized(
+            session,
+            target_db,
+            target_sch,
+            ctx.connection.warehouse or "",
+        )
+        export_envelope = self._export_into_sources(
+            project_root=paths.project_root,
+            database=target_db,
+            schema=target_sch,
+            python=python,
+            name_filter=name_filter,
+        )
+        return {
+            "status": "synced",
+            "files": export_envelope.get("files", []),
+            "directory": export_envelope.get("directory", ""),
+            "target_database": target_db,
+            "target_schema": target_sch,
+        }
 
     # ------------------------------------------------------------------
     # apply — L1–L7 plan-file lifecycle, relocated to out/plan/

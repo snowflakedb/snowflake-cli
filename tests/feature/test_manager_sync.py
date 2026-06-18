@@ -26,7 +26,6 @@ from unittest import mock
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Manifest helpers (duplicated from test_manager.py; cross-repo imports
 # are prohibited — tests in each repo reference only paths inside that repo)
@@ -47,7 +46,9 @@ _DEFAULT_MANIFEST_YAML = textwrap.dedent(
 )
 
 
-def _write_manifest(project_root: Path, *, yaml_text: str = _DEFAULT_MANIFEST_YAML) -> Path:
+def _write_manifest(
+    project_root: Path, *, yaml_text: str = _DEFAULT_MANIFEST_YAML
+) -> Path:
     project_root.mkdir(parents=True, exist_ok=True)
     manifest = project_root / "manifest.yml"
     manifest.write_text(yaml_text)
@@ -71,7 +72,11 @@ def mock_execute_query():
 @pytest.fixture
 def mock_decl():
     with mock.patch("snowflake.cli._plugins.feature.manager.decl_api") as m:
-        _export_result = {"status": "exported", "directory": "/tmp/sources", "files": ["a.yaml"]}
+        _export_result = {
+            "status": "exported",
+            "directory": "/tmp/sources",
+            "files": ["a.yaml"],
+        }
         m.export_specs.return_value = _export_result
         m.export_specs_as_python.return_value = _export_result
         m.assert_feature_store_initialized = mock.MagicMock(
@@ -120,10 +125,11 @@ def mock_build_session():
 
 
 class TestFeatureManagerSync:
-    def test_sync_requires_manifest(self, tmp_path: Path, mock_decl, mock_execute_query):
+    def test_sync_requires_manifest(
+        self, tmp_path: Path, mock_decl, mock_execute_query
+    ):
         """No manifest.yml → ClickException directing user to run init first."""
         from click.exceptions import ClickException
-
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         # tmp_path has no manifest.yml
@@ -135,7 +141,9 @@ class TestFeatureManagerSync:
                 python=False,
             )
 
-    def test_sync_calls_assert_initialized(self, tmp_path: Path, mock_decl, mock_execute_query):
+    def test_sync_calls_assert_initialized(
+        self, tmp_path: Path, mock_decl, mock_execute_query
+    ):
         """sync calls decl_api.assert_feature_store_initialized after resolving the project."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
@@ -148,7 +156,9 @@ class TestFeatureManagerSync:
         )
         mock_decl.assert_feature_store_initialized.assert_called_once()
 
-    def test_sync_calls_export_specs(self, tmp_path: Path, mock_decl, mock_execute_query):
+    def test_sync_calls_export_specs(
+        self, tmp_path: Path, mock_decl, mock_execute_query
+    ):
         """sync calls decl_api.export_specs with correct db, schema, and layout."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
@@ -160,11 +170,14 @@ class TestFeatureManagerSync:
             python=False,
         )
         mock_decl.export_specs.assert_called_once()
-        call_kwargs = mock_decl.export_specs.call_args.kwargs
-        assert call_kwargs.get("database") == "TEST_DB"
-        assert call_kwargs.get("schema") == "TEST_SCHEMA"
+        # database and schema are passed positionally: (show_rows, {}, output_dir, db, schema, ...)
+        call_args = mock_decl.export_specs.call_args
+        assert call_args.args[3] == "TEST_DB"
+        assert call_args.args[4] == "TEST_SCHEMA"
 
-    def test_sync_threads_name_filter(self, tmp_path: Path, mock_decl, mock_execute_query):
+    def test_sync_threads_name_filter(
+        self, tmp_path: Path, mock_decl, mock_execute_query
+    ):
         """name_filter='MY_FV' reaches decl_api.export_specs(name_filter='MY_FV')."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
@@ -179,7 +192,9 @@ class TestFeatureManagerSync:
         call_kwargs = mock_decl.export_specs.call_args.kwargs
         assert call_kwargs.get("name_filter") == "MY_FV"
 
-    def test_sync_python_calls_export_as_python(self, tmp_path: Path, mock_decl, mock_execute_query):
+    def test_sync_python_calls_export_as_python(
+        self, tmp_path: Path, mock_decl, mock_execute_query
+    ):
         """python=True routes to decl_api.export_specs_as_python, not export_specs."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
@@ -213,13 +228,16 @@ class TestFeatureManagerSync:
     def test_sync_does_not_call_init_feature_store(
         self, tmp_path: Path, mock_decl, mock_execute_query
     ):
-        """sync must NOT construct FeatureStore with CREATE_IF_NOT_EXIST mode."""
+        """sync must NOT construct FeatureStore with CREATE_IF_NOT_EXIST mode.
+
+        FeatureStore is lazy-imported inside init(); patching at source module level.
+        """
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         _write_manifest(tmp_path)
 
         with mock.patch(
-            "snowflake.cli._plugins.feature.manager.FeatureStore",
+            "snowflake.ml.feature_store.feature_store.FeatureStore",
             autospec=True,
         ) as mock_fs_class:
             FeatureManager().sync(
