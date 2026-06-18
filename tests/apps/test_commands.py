@@ -1116,25 +1116,6 @@ class TestSnowflakeAppManager:
         assert is_personal_database(database) is expected
 
     @patch(EXECUTE_QUERY)
-    def test_stage_exists_returns_true(self, mock_execute):
-        fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
-        assert SnowflakeAppManager().stage_exists(fqn) is True
-        mock_execute.assert_called_once_with(
-            "DESCRIBE STAGE IDENTIFIER('DB.SCHEMA.STAGE')"
-        )
-
-    @patch(EXECUTE_QUERY, side_effect=Exception("not found"))
-    def test_stage_exists_returns_false(self, mock_execute):
-        fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
-        assert SnowflakeAppManager().stage_exists(fqn) is False
-
-    @patch(EXECUTE_QUERY)
-    def test_clear_stage(self, mock_execute):
-        fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
-        SnowflakeAppManager().clear_stage(fqn)
-        mock_execute.assert_called_once_with("REMOVE @DB.SCHEMA.STAGE")
-
-    @patch(EXECUTE_QUERY)
     def test_create_stage(self, mock_execute):
         fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
         SnowflakeAppManager().create_stage(fqn)
@@ -1148,6 +1129,14 @@ class TestSnowflakeAppManager:
         SnowflakeAppManager().create_stage(fqn, "SNOWFLAKE_FULL")
         mock_execute.assert_called_once_with(
             "CREATE STAGE IF NOT EXISTS IDENTIFIER('DB.SCHEMA.STAGE') ENCRYPTION = (TYPE = 'SNOWFLAKE_FULL')"
+        )
+
+    @patch(EXECUTE_QUERY)
+    def test_drop_stage_if_exists(self, mock_execute):
+        fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
+        SnowflakeAppManager().drop_stage_if_exists(fqn)
+        mock_execute.assert_called_once_with(
+            "DROP STAGE IF EXISTS IDENTIFIER('DB.SCHEMA.STAGE')"
         )
 
     @patch(EXECUTE_QUERY)
@@ -5779,7 +5768,6 @@ class TestDeployCommand:
         mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
 
         mock_mgr = mock_manager_cls.return_value
-        mock_mgr.stage_exists.return_value = False
         mock_mgr.artifact_repo_exists.return_value = False
         mock_mgr.build_app_artifact_repo.return_value = (
             "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
@@ -5797,6 +5785,9 @@ class TestDeployCommand:
             result = runner.invoke(["app", "deploy"])
             assert result.exit_code == 0, result.output
 
+        # The stage is dropped and recreated so the upload always starts from
+        # an empty stage, never reusing files left over from a prior deploy.
+        mock_mgr.drop_stage_if_exists.assert_called_once()
         mock_mgr.create_stage.assert_called_once()
         mock_mgr.create_workspace.assert_not_called()
         mock_mgr.build_app_artifact_repo.assert_called_once_with(
@@ -5872,7 +5863,6 @@ class TestDeployCommand:
         create_error.errno = 3001
 
         mock_mgr = mock_manager_cls.return_value
-        mock_mgr.stage_exists.return_value = False
         mock_mgr.create_stage.side_effect = create_error
         mock_mgr.current_role.return_value = "APP_DEPLOYER"
 
@@ -5882,10 +5872,11 @@ class TestDeployCommand:
             result = runner.invoke(["app", "deploy"])
             assert result.exit_code == 1, result.output
             assert (
-                "Failed to create stage 'TEST_DB.TEST_SCHEMA.MY_STAGE'" in result.output
+                "Failed to recreate stage 'TEST_DB.TEST_SCHEMA.MY_STAGE'"
+                in result.output
             )
             assert "role 'APP_DEPLOYER'" in result.output
-            assert "CREATE STAGE on the schema" in result.output
+            assert "OWNERSHIP on the stage" in result.output
             prepare_span = _get_completed_span("snowflake_app.upload.prepare_stage")
             assert prepare_span[CLIMetricsSpan.ERROR_KEY] == CliError.__name__
 
@@ -5912,7 +5903,7 @@ class TestDeployCommand:
         "snowflake.cli._plugins.apps.commands._resolve_entity_id",
         return_value="my_app",
     )
-    def test_deploy_clear_stage_privilege_error_includes_role_guidance(
+    def test_deploy_drop_stage_privilege_error_includes_role_guidance(
         self,
         mock_resolve,
         mock_get_entity,
@@ -5922,9 +5913,9 @@ class TestDeployCommand:
         runner,
         tmp_path,
     ):
-        """A privilege error while clearing an existing stage reports the clear
-        action and the WRITE privilege hint, and falls back to a generic role
-        phrase when the role cannot be resolved."""
+        """A privilege error while dropping the existing stage reports the
+        recreate action and the OWNERSHIP privilege hint, and falls back to a
+        generic role phrase when the role cannot be resolved."""
         from snowflake.cli.api.project.project_paths import ProjectPaths
 
         entity = Mock()
@@ -5950,8 +5941,9 @@ class TestDeployCommand:
         mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
 
         mock_mgr = mock_manager_cls.return_value
-        mock_mgr.stage_exists.return_value = True
-        mock_mgr.clear_stage.side_effect = ProgrammingError("Insufficient privileges")
+        mock_mgr.drop_stage_if_exists.side_effect = ProgrammingError(
+            "Insufficient privileges"
+        )
         mock_mgr.current_role.return_value = None
 
         with change_directory(tmp_path):
@@ -5960,11 +5952,11 @@ class TestDeployCommand:
             result = runner.invoke(["app", "deploy"])
             assert result.exit_code == 1, result.output
             assert (
-                "Failed to clear existing stage 'TEST_DB.TEST_SCHEMA.MY_STAGE'"
+                "Failed to recreate stage 'TEST_DB.TEST_SCHEMA.MY_STAGE'"
                 in result.output
             )
             assert "your role" in result.output
-            assert "WRITE on the stage" in result.output
+            assert "OWNERSHIP on the stage" in result.output
 
         mock_mgr.create_stage.assert_not_called()
         mock_mgr.build_app_artifact_repo.assert_not_called()
@@ -6193,7 +6185,6 @@ class TestDeployCommand:
         mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
 
         mock_mgr = mock_manager_cls.return_value
-        mock_mgr.stage_exists.return_value = False
         mock_mgr.artifact_repo_exists.return_value = False
         mock_mgr.build_app_artifact_repo.return_value = (
             "Build job submitted: USER$SNOTEBAERT.PUBLIC.BUILD_JOB_123"
@@ -6391,7 +6382,6 @@ class TestDeployCommand:
         mock_mgr.workspace_last_subdirectory_uri.return_value = (
             _WORKSPACE_BUILD_SOURCE_URI
         )
-        mock_mgr.stage_exists.return_value = False
         mock_mgr.artifact_repo_exists.return_value = False
         mock_mgr.build_app_artifact_repo.return_value = (
             "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
@@ -6468,7 +6458,6 @@ class TestDeployCommand:
         mock_perform_bundle.return_value = project_paths
 
         mock_mgr = mock_manager_cls.return_value
-        mock_mgr.stage_exists.return_value = False
 
         from tests_common import change_directory
 
@@ -6552,7 +6541,7 @@ class TestDeployCommand:
         mock_mgr.create_artifact_repo.assert_called_once()
         mock_mgr.build_app_artifact_repo.assert_called_once()
         mock_mgr.create_app_service.assert_not_called()
-        mock_mgr.stage_exists.assert_not_called()
+        mock_mgr.create_stage.assert_not_called()
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
@@ -6614,7 +6603,7 @@ class TestDeployCommand:
 
         mock_mgr.create_app_service.assert_called_once()
         mock_mgr.build_app_artifact_repo.assert_not_called()
-        mock_mgr.stage_exists.assert_not_called()
+        mock_mgr.create_stage.assert_not_called()
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
@@ -6678,7 +6667,7 @@ class TestDeployCommand:
 
         mock_mgr.create_app_service.assert_called_once()
         mock_mgr.build_app_artifact_repo.assert_not_called()
-        mock_mgr.stage_exists.assert_not_called()
+        mock_mgr.create_stage.assert_not_called()
 
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
@@ -6726,7 +6715,6 @@ class TestDeployCommand:
         bundle_dir = tmp_path / "output" / "bundle"
         bundle_dir.mkdir(parents=True)
         mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
-        mock_manager_cls.return_value.stage_exists.return_value = False
 
         from tests_common import change_directory
 

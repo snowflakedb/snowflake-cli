@@ -832,18 +832,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
             return []
         return _flatten_missing_privileges(payload)
 
-    def stage_exists(self, stage_fqn: FQN) -> bool:
-        """Check if a stage exists."""
-        try:
-            self.execute_query(f"DESCRIBE STAGE {stage_fqn.sql_identifier}")
-            return True
-        except Exception:
-            return False
-
-    def clear_stage(self, stage_fqn: FQN) -> None:
-        """Clear all files from a stage."""
-        self.execute_query(f"REMOVE @{stage_fqn.identifier}")
-
     def create_stage(
         self, stage_fqn: FQN, encryption_type: str = "SNOWFLAKE_SSE"
     ) -> None:
