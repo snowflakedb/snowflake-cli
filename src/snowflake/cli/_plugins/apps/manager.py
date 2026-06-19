@@ -19,9 +19,22 @@ import json
 import logging
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
+from contextvars import copy_context
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, Optional, Set, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    TypeVar,
+)
 
 DEFAULT_PERSONAL_SCHEMA = "PUBLIC"
 # Shared workspace name used when ``snow app setup`` resolves the destination
@@ -166,6 +179,13 @@ def app_fqn(
 
 DEFINITION_FILENAME = "snowflake.yml"
 SNOWFLAKE_APP_ENTITY_TYPE = "snowflake-app"
+
+# Maximum number of files uploaded concurrently during the code-upload phase.
+# Each file is sent with its own ``PUT``; the Snowflake connector permits a
+# single connection to be shared across threads (DB API 2.0 threadsafety
+# level 2), so several PUTs can run at once to hide per-statement round-trip
+# latency. Capped to avoid overwhelming the connection or the local machine.
+MAX_PARALLEL_UPLOADS = 5
 
 
 # Mapping from SHOW PARAMETERS result names to internal resolution keys.
@@ -717,6 +737,10 @@ class SnowflakeAppManager(SqlExecutionMixin):
         # callers (e.g. ``snow app deploy``) pass the resolved
         # ``--interactive`` / ``--no-interactive`` flag.
         self._interactive = interactive
+        # Set while uploads run concurrently. The per-query spinner uses a Rich
+        # live display, of which only one may be active at a time, so concurrent
+        # PUTs must not each open their own spinner.
+        self._suppress_query_spinner = False
 
     @property
     def _is_interactive(self) -> bool:
@@ -733,8 +757,12 @@ class SnowflakeAppManager(SqlExecutionMixin):
         skipped for non-interactive runs (``--no-interactive``, piped/redirected
         output, CI, etc.) where its control characters would pollute captured
         output.
+
+        The spinner is also skipped while ``_suppress_query_spinner`` is set
+        (during concurrent uploads) because Rich permits only one live display
+        at a time.
         """
-        if not self._is_interactive:
+        if self._suppress_query_spinner or not self._is_interactive:
             return super().execute_query(query, **kwargs)
         with cli_console.spinner() as spinner:
             spinner.add_task(description="", total=None)
@@ -944,6 +972,52 @@ class SnowflakeAppManager(SqlExecutionMixin):
             f"REMOVE {self.workspace_subdirectory_uri(workspace_fqn, directory_name)}/"
         )
 
+    def _run_uploads(
+        self, uploads: List[Tuple[str, Dict[str, str]]]
+    ) -> Iterator[Dict[str, str]]:
+        """Run a batch of ``PUT`` statements, up to :data:`MAX_PARALLEL_UPLOADS`
+        at a time, yielding each file's result dict as its upload completes.
+
+        *uploads* is a list of ``(put_sql, result)`` pairs.  Each ``PUT`` is
+        executed on its own cursor; the Snowflake connector allows a single
+        connection to be shared across threads (DB API 2.0 threadsafety level
+        2), so running several at once hides per-statement round-trip latency.
+        The per-query spinner is suppressed for the duration because Rich
+        permits only one live display at a time and concurrent spinners would
+        corrupt the terminal; callers still stream progress from the yielded
+        results.
+
+        The CLI context (used to resolve the shared connection, among other
+        things) lives in a :class:`~contextvars.ContextVar`, which is *not*
+        inherited by ``ThreadPoolExecutor`` worker threads.  Each ``PUT`` is
+        therefore run inside a per-task :func:`~contextvars.copy_context`
+        snapshot of the current context, so workers resolve the same connection
+        the main thread would.  A fresh copy per task is required: a single
+        ``Context`` cannot be entered by two threads at once.
+
+        Results are yielded in completion order.  The first worker error is
+        re-raised after the pool shuts down so a failed upload surfaces to the
+        caller.
+        """
+        if not uploads:
+            return
+        previous_suppress = self._suppress_query_spinner
+        self._suppress_query_spinner = True
+        try:
+            with ThreadPoolExecutor(max_workers=MAX_PARALLEL_UPLOADS) as executor:
+                future_to_result = {}
+                for put_sql, result in uploads:
+                    ctx = copy_context()
+                    future = executor.submit(ctx.run, self.execute_query, put_sql)
+                    future_to_result[future] = result
+                for future in as_completed(future_to_result):
+                    # Propagate the first failure; remaining futures are
+                    # cancelled/awaited by the context manager on exit.
+                    future.result()
+                    yield future_to_result[future]
+        finally:
+            self._suppress_query_spinner = previous_suppress
+
     def upload_to_workspace(
         self,
         local_root: Path,
@@ -959,8 +1033,9 @@ class SnowflakeAppManager(SqlExecutionMixin):
         one-at-a-time (rather than via ``PUT <dir>/*``) because the glob
         form also matches subdirectories, and the Snowflake PUT endpoint
         rejects directories with ``253006: Not a file but a directory``.
+        Up to :data:`MAX_PARALLEL_UPLOADS` files are uploaded concurrently.
         Each uploaded file is yielded as a dict with ``source`` and
-        ``target`` keys so callers can display progress.
+        ``target`` keys (in completion order) so callers can display progress.
         """
         base_uri = self.workspace_uri(workspace_fqn)
         if target_subdirectory:
@@ -971,6 +1046,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         overwrite_str = str(overwrite).lower()
         from snowflake.cli.api.project.util import to_string_literal
 
+        uploads: List[Tuple[str, Dict[str, str]]] = []
         for path in sorted(local_root.rglob("*")):
             if not path.is_file():
                 continue
@@ -987,11 +1063,15 @@ class SnowflakeAppManager(SqlExecutionMixin):
             # ER_FILE_NOT_EXISTS). ``local_path_to_file_uri`` returns a value
             # ready to embed directly, so it must not be re-quoted.
             local_uri = _local_path_to_file_uri(str(path.resolve()))
-            self.execute_query(
+            put_sql = (
                 f"PUT {local_uri} {to_string_literal(dest_dir)} "
                 f"auto_compress=false overwrite={overwrite_str}"
             )
-            yield {"source": str(rel), "target": f"{dest_dir}{path.name}"}
+            uploads.append(
+                (put_sql, {"source": str(rel), "target": f"{dest_dir}{path.name}"})
+            )
+
+        yield from self._run_uploads(uploads)
 
     def upload_to_stage(
         self,
@@ -1010,12 +1090,14 @@ class SnowflakeAppManager(SqlExecutionMixin):
         and, unlike a recursive ``PUT`` of the bundle root, does not mutate
         the local bundle while uploading.
 
+        Up to :data:`MAX_PARALLEL_UPLOADS` files are uploaded concurrently.
         Each uploaded file is yielded as a dict with ``source`` and
-        ``target`` keys so callers can display progress.
+        ``target`` keys (in completion order) so callers can display progress.
         """
         local_root = local_root.resolve()
         base_path = StagePath.from_stage_str(f"@{stage_fqn.identifier}")
         overwrite_str = str(overwrite).lower()
+        uploads: List[Tuple[str, Dict[str, str]]] = []
         for path in sorted(local_root.rglob("*")):
             if not path.is_file():
                 continue
@@ -1029,14 +1111,21 @@ class SnowflakeAppManager(SqlExecutionMixin):
             # paths like ``file://C:/...``. ``_local_path_to_file_uri`` returns
             # a value ready to embed directly, so it must not be re-quoted.
             local_uri = _local_path_to_file_uri(str(path.resolve()))
-            self.execute_query(
+            put_sql = (
                 f"PUT {local_uri} {dest_path.path_for_sql()} "
                 f"auto_compress=false overwrite={overwrite_str}"
             )
-            yield {
-                "source": str(rel),
-                "target": f"{dest_path.absolute_path()}/{path.name}",
-            }
+            uploads.append(
+                (
+                    put_sql,
+                    {
+                        "source": str(rel),
+                        "target": f"{dest_path.absolute_path()}/{path.name}",
+                    },
+                )
+            )
+
+        yield from self._run_uploads(uploads)
 
     def get_service_status(self, service_fqn: FQN) -> str:
         """
