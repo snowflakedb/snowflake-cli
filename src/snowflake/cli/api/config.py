@@ -712,7 +712,9 @@ def _dump_config(config_and_connections: Dict):
         else:
             config_toml_dict.pop("connections", None)
 
-    with SecurePath(get_config_manager().file_path).open("w+") as fh:
+    with SecurePath(get_config_manager().file_path).open(
+        "w+", use_file_io_encoding=False
+    ) as fh:
         dump(config_toml_dict, fh)
 
 
@@ -785,18 +787,24 @@ def get_feature_flags_section() -> Dict[str, bool | Literal["UNKNOWN"]]:
 
 
 def _read_config_file_toml() -> dict:
-    # TOML files are always UTF-8 by spec; don't apply user's file_io encoding
-    return tomlkit.loads(
-        get_config_manager().file_path.read_text(encoding="utf-8")
-    ).unwrap()
+    # config.toml is read by the connector (via read_config()) with platform
+    # default encoding, and _dump_config writes it with PLATFORM_DEFAULT_ENCODING
+    # for the same reason — keeping CLI read/write consistent with the connector.
+    return tomlkit.loads(get_config_manager().file_path.read_text()).unwrap()
 
 
 def _read_connections_toml() -> dict:
-    # TOML files are always UTF-8 by spec; don't apply user's file_io encoding
-    return tomlkit.loads(get_connections_file().read_text(encoding="utf-8")).unwrap()
+    # connections.toml is a shared file: the snowflake-connector reads it via
+    # its own read_config() using read_text() with no explicit encoding
+    # (platform default). Applying a custom file_io encoding here would make
+    # the CLI and connector read the same file with different codecs, corrupting
+    # non-ASCII content for one of them. Use platform default to stay consistent
+    # with the connector.
+    return tomlkit.loads(get_connections_file().read_text()).unwrap()
 
 
 def _update_connections_toml(connections: dict):
-    # TOML files are always UTF-8 by spec; don't apply user's file_io encoding
-    with open(get_connections_file(), "w", encoding="utf-8") as f:
+    # Same rationale as _read_connections_toml: platform default keeps CLI
+    # writes consistent with the connector's reads.
+    with open(get_connections_file(), "w") as f:
         f.write(tomlkit.dumps(connections))
