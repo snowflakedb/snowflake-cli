@@ -18,7 +18,7 @@ import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from heapq import nsmallest
-from typing import Any, ClassVar, Dict, Iterator, List, Optional, Set
+from typing import ClassVar, Dict, Iterator, List, Optional, Set
 
 
 class CLIMetricsInvalidUsageError(RuntimeError):
@@ -120,8 +120,6 @@ class CLIMetricsSpan:
     SPAN_DEPTH_KEY: ClassVar[str] = "span_depth"
     # denotes whether direct children were trimmed from telemetry payload
     TRIMMED_KEY: ClassVar[str] = "trimmed"
-    # arbitrary key/value metadata attached to the span by the caller
-    ATTRIBUTES_KEY: ClassVar[str] = "attributes"
 
     # constructor vars
     name: str
@@ -134,8 +132,6 @@ class CLIMetricsSpan:
     error: Optional[BaseException] = field(init=False, default=None)
     span_depth: int = field(init=False, default=1)
     span_count_in_subtree: int = field(init=False, default=1)
-    # arbitrary metadata set by the caller (e.g. a count of processed items)
-    attributes: Dict[str, Any] = field(init=False, default_factory=dict)
 
     # vars for postprocessing
     # spans started directly under this one
@@ -165,12 +161,6 @@ class CLIMetricsSpan:
     def add_child(self, child: CLIMetricsSpan) -> None:
         self.children.add(child)
         self.increment_subtree_node_count()
-
-    def set_attribute(self, key: str, value: Any) -> None:
-        """
-        Attaches an arbitrary key/value pair to the span for telemetry reporting
-        """
-        self.attributes[key] = value
 
     def finish(self, error: Optional[BaseException] = None) -> None:
         """
@@ -203,7 +193,6 @@ class CLIMetricsSpan:
             self.ERROR_KEY: type(self.error).__name__ if self.error else None,
             self.SPAN_COUNT_IN_SUBTREE_KEY: self.span_count_in_subtree,
             self.SPAN_DEPTH_KEY: self.span_depth,
-            self.ATTRIBUTES_KEY: dict(self.attributes),
         }
 
 

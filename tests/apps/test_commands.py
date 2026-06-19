@@ -17,7 +17,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 from snowflake.cli._plugins.apps.commands import (
-    FILES_UPLOADED_SPAN_ATTR,
+    FILES_UPLOADED_COUNTER,
     _CodeStorage,
     _log_service_logs,
     _make_build_log_streamer,
@@ -7137,7 +7137,7 @@ class TestDeployCommand:
         "snowflake.cli._plugins.apps.commands._resolve_entity_id",
         return_value="my_app",
     )
-    def test_deploy_records_uploaded_file_count_on_workspace_span(
+    def test_deploy_records_uploaded_file_count_for_workspace(
         self,
         mock_resolve,
         mock_get_entity,
@@ -7148,7 +7148,7 @@ class TestDeployCommand:
         runner,
         tmp_path,
     ):
-        """The workspace upload span records how many files were uploaded."""
+        """The workspace upload records how many files were uploaded."""
         from snowflake.cli.api.project.project_paths import ProjectPaths
 
         entity = Mock()
@@ -7204,8 +7204,8 @@ class TestDeployCommand:
             _reset_command_metrics()
             result = runner.invoke(["app", "deploy"])
             assert result.exit_code == 0, result.output
-            span = _get_completed_span("snowflake_app.upload.push_workspace_files")
-            assert span[CLIMetricsSpan.ATTRIBUTES_KEY][FILES_UPLOADED_SPAN_ATTR] == 3
+            metrics = get_cli_context_manager().metrics
+            assert metrics.get_counter(FILES_UPLOADED_COUNTER) == 3
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
@@ -7229,7 +7229,7 @@ class TestDeployCommand:
         "snowflake.cli._plugins.apps.commands._resolve_entity_id",
         return_value="my_app",
     )
-    def test_deploy_records_uploaded_file_count_on_stage_span(
+    def test_deploy_records_uploaded_file_count_for_stage(
         self,
         mock_resolve,
         mock_get_entity,
@@ -7240,7 +7240,7 @@ class TestDeployCommand:
         runner,
         tmp_path,
     ):
-        """The legacy stage upload span records how many files were uploaded."""
+        """The legacy stage upload records how many files were uploaded."""
         from snowflake.cli.api.project.project_paths import ProjectPaths
 
         entity = Mock()
@@ -7292,8 +7292,8 @@ class TestDeployCommand:
             _reset_command_metrics()
             result = runner.invoke(["app", "deploy"])
             assert result.exit_code == 0, result.output
-            span = _get_completed_span("snowflake_app.upload.push_stage_files")
-            assert span[CLIMetricsSpan.ATTRIBUTES_KEY][FILES_UPLOADED_SPAN_ATTR] == 2
+            metrics = get_cli_context_manager().metrics
+            assert metrics.get_counter(FILES_UPLOADED_COUNTER) == 2
 
 
 class TestTeardownCommand:
