@@ -79,6 +79,10 @@ log = logging.getLogger(__name__)
 # a value (Native App uses ``-1``, Snowflake App Runtime uses this constant).
 DEFAULT_SNOWFLAKE_APP_EVENTS_LAST = 500
 
+# Telemetry span attribute key recording how many files were uploaded
+# during the upload phase of a deploy.
+FILES_UPLOADED_SPAN_ATTR = "files_uploaded"
+
 # ── Source provenance labels ──────────────────────────────────────────
 SOURCE_USER_INPUT = "user input"
 SOURCE_ACCOUNT_PARAM = "account parameter"
@@ -692,19 +696,26 @@ def snowflake_app_deploy(
                                 f"privileges (USAGE on the database and schema, "
                                 f"and {required_privilege})."
                             ) from e
-                    with metrics.span("snowflake_app.upload.push_workspace_files"):
+                    with metrics.span(
+                        "snowflake_app.upload.push_workspace_files"
+                    ) as upload_span:
                         cli_console.step(
                             f"Uploading bundled files to {workspace_source_uri}"
                         )
+                        files_uploaded = 0
                         for result in manager.upload_to_workspace(
                             local_root=project_paths.bundle_root,
                             workspace_fqn=storage_fqn,
                             target_subdirectory=app_name,
                             overwrite=True,
                         ):
+                            files_uploaded += 1
                             cli_console.step(
                                 f"  Uploaded {result['source']} -> {result['target']}"
                             )
+                        upload_span.set_attribute(
+                            FILES_UPLOADED_SPAN_ATTR, files_uploaded
+                        )
                     with metrics.span("snowflake_app.upload.commit_workspace"):
                         cli_console.step(
                             f"Committing workspace live version for {storage_fqn}"
@@ -734,16 +745,23 @@ def snowflake_app_deploy(
                                 f"OWNERSHIP on the stage, and CREATE STAGE on the schema)."
                             ) from e
 
-                    with metrics.span("snowflake_app.upload.push_stage_files"):
+                    with metrics.span(
+                        "snowflake_app.upload.push_stage_files"
+                    ) as upload_span:
                         cli_console.step(f"Uploading bundled files to @{storage_fqn}")
+                        files_uploaded = 0
                         for result in manager.upload_to_stage(
                             local_root=project_paths.bundle_root,
                             stage_fqn=storage_fqn,
                             overwrite=True,
                         ):
+                            files_uploaded += 1
                             cli_console.step(
                                 f"  Uploaded {result['source']} -> {result['target']}"
                             )
+                        upload_span.set_attribute(
+                            FILES_UPLOADED_SPAN_ATTR, files_uploaded
+                        )
         finally:
             project_paths.clean_up_output()
 

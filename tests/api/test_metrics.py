@@ -165,6 +165,36 @@ def test_metrics_spans_single_span_no_error_or_parent():
     assert span1_dict[CLIMetricsSpan.TRIMMED_KEY] == False
 
 
+def test_metrics_spans_no_attributes_by_default():
+    # given
+    metrics = CLIMetrics()
+
+    # when
+    with metrics.span("span1"):
+        pass
+
+    # then
+    span1_dict = metrics.completed_spans[0]
+    assert span1_dict[CLIMetricsSpan.ATTRIBUTES_KEY] == {}
+
+
+def test_metrics_spans_set_attribute_is_reported():
+    # given
+    metrics = CLIMetrics()
+
+    # when
+    with metrics.span("span1") as span1:
+        span1.set_attribute("files_uploaded", 3)
+        span1.set_attribute("label", "stage")
+
+    # then
+    span1_dict = metrics.completed_spans[0]
+    assert span1_dict[CLIMetricsSpan.ATTRIBUTES_KEY] == {
+        "files_uploaded": 3,
+        "label": "stage",
+    }
+
+
 def test_metrics_spans_finish_early_is_idempotent():
     # given
     metrics = CLIMetrics()
