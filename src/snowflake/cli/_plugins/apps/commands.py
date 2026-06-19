@@ -79,6 +79,10 @@ log = logging.getLogger(__name__)
 # a value (Native App uses ``-1``, Snowflake App Runtime uses this constant).
 DEFAULT_SNOWFLAKE_APP_EVENTS_LAST = 500
 
+# Telemetry counter recording how many files were uploaded during the
+# upload phase of a deploy.
+FILES_UPLOADED_COUNTER = "snowflake_app.upload.files_uploaded"
+
 # ── Source provenance labels ──────────────────────────────────────────
 SOURCE_USER_INPUT = "user input"
 SOURCE_ACCOUNT_PARAM = "account parameter"
@@ -696,15 +700,18 @@ def snowflake_app_deploy(
                         cli_console.step(
                             f"Uploading bundled files to {workspace_source_uri}"
                         )
+                        files_uploaded = 0
                         for result in manager.upload_to_workspace(
                             local_root=project_paths.bundle_root,
                             workspace_fqn=storage_fqn,
                             target_subdirectory=app_name,
                             overwrite=True,
                         ):
+                            files_uploaded += 1
                             cli_console.step(
                                 f"  Uploaded {result['source']} -> {result['target']}"
                             )
+                        metrics.set_counter(FILES_UPLOADED_COUNTER, files_uploaded)
                     with metrics.span("snowflake_app.upload.commit_workspace"):
                         cli_console.step(
                             f"Committing workspace live version for {storage_fqn}"
@@ -736,14 +743,17 @@ def snowflake_app_deploy(
 
                     with metrics.span("snowflake_app.upload.push_stage_files"):
                         cli_console.step(f"Uploading bundled files to @{storage_fqn}")
+                        files_uploaded = 0
                         for result in manager.upload_to_stage(
                             local_root=project_paths.bundle_root,
                             stage_fqn=storage_fqn,
                             overwrite=True,
                         ):
+                            files_uploaded += 1
                             cli_console.step(
                                 f"  Uploaded {result['source']} -> {result['target']}"
                             )
+                        metrics.set_counter(FILES_UPLOADED_COUNTER, files_uploaded)
         finally:
             project_paths.clean_up_output()
 
