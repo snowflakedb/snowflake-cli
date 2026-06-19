@@ -168,7 +168,12 @@ class SecurePath:
         self._path.mkdir(mode=permissions_mask, exist_ok=exist_ok)
 
     def read_text(
-        self, file_size_limit_mb: int, encoding: Optional[str] = None, *args, **kwargs
+        self,
+        file_size_limit_mb: int,
+        encoding: Optional[str] = None,
+        use_file_io_encoding: bool = True,
+        *args,
+        **kwargs,
     ) -> str:
         """
         Return the decoded contents of the file as a string.
@@ -180,7 +185,7 @@ class SecurePath:
         self._assert_exists_and_is_file()
         self._assert_file_size_limit(file_size_limit_mb)
 
-        if encoding is None:
+        if encoding is None and use_file_io_encoding:
             from snowflake.cli.api.config import get_file_io_encoding
 
             encoding = get_file_io_encoding()
@@ -192,7 +197,14 @@ class SecurePath:
         )
         return self._path.read_text(encoding, *args, **kwargs)
 
-    def write_text(self, data: str, encoding: Optional[str] = None, *args, **kwargs):
+    def write_text(
+        self,
+        data: str,
+        encoding: Optional[str] = None,
+        use_file_io_encoding: bool = True,
+        *args,
+        **kwargs,
+    ):
         """
         Open the file pointed to in text mode, write data to it, and close the file.
 
@@ -202,7 +214,7 @@ class SecurePath:
         if not self.exists():
             self.touch()
 
-        if encoding is None:
+        if encoding is None and use_file_io_encoding:
             from snowflake.cli.api.config import get_file_io_encoding
 
             encoding = get_file_io_encoding()
@@ -220,6 +232,7 @@ class SecurePath:
         mode="r",
         read_file_limit_mb: Optional[int] = None,
         encoding: Optional[str] = None,
+        use_file_io_encoding: bool = True,
         **open_kwargs,
     ) -> Generator[IO[Any], None, None]:
         """
@@ -241,7 +254,7 @@ class SecurePath:
         else:
             self.touch()  # makes sure permissions of freshly-created file are strict
 
-        if "b" not in mode and encoding is None:
+        if "b" not in mode and encoding is None and use_file_io_encoding:
             from snowflake.cli.api.config import get_file_io_encoding
 
             encoding = get_file_io_encoding()

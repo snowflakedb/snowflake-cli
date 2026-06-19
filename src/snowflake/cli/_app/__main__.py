@@ -14,6 +14,8 @@
 
 from __future__ import annotations
 
+import codecs
+import io
 import os
 import sys
 
@@ -31,8 +33,15 @@ def _apply_stdout_encoding_from_env() -> None:
     if not enc:
         return
     try:
+        codecs.lookup(enc)
+    except LookupError:
+        # Silently skip — the invalid value will be caught again by
+        # get_stdout_encoding() → _validate_encoding() during config_init,
+        # which raises a proper ClickException with context.
+        return
+    try:
         sys.stdout.reconfigure(encoding=enc)  # type: ignore[attr-defined,union-attr]
-    except (AttributeError, Exception):
+    except (AttributeError, io.UnsupportedOperation):
         pass
 
 

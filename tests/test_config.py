@@ -1044,6 +1044,78 @@ show_warnings = false
             config_init(cfg)
 
 
+def test_read_config_file_toml_uses_platform_default_encoding():
+    """_read_config_file_toml always uses platform default encoding regardless of file_io config."""
+    from snowflake.cli.api.config import _read_config_file_toml
+
+    mock_path = mock.MagicMock()
+    mock_path.read_text.return_value = ""
+    with mock.patch("snowflake.cli.api.config.get_config_manager") as mock_mgr:
+        mock_mgr.return_value.file_path = mock_path
+        _read_config_file_toml()
+        mock_path.read_text.assert_called_once_with()
+
+
+def test_read_connections_toml_uses_platform_default_encoding(monkeypatch, config_file):
+    """_read_connections_toml always uses platform default encoding regardless of file_io config."""
+    config_content = '[cli.encoding]\nfile_io = "cp1252"\n'
+    with config_file(config_content) as cfg:
+        config_init(cfg)
+        from snowflake.cli.api.config import _read_connections_toml
+
+        with mock.patch(
+            "snowflake.cli.api.config.get_connections_file"
+        ) as mock_conn_file:
+            mock_path = mock.MagicMock()
+            mock_path.read_text.return_value = ""
+            mock_conn_file.return_value = mock_path
+            _read_connections_toml()
+            mock_path.read_text.assert_called_once_with()
+
+
+def test_update_connections_toml_uses_platform_default_encoding(
+    monkeypatch, config_file
+):
+    """_update_connections_toml always uses platform default encoding regardless of file_io config."""
+    config_content = '[cli.encoding]\nfile_io = "cp1252"\n'
+    with config_file(config_content) as cfg:
+        config_init(cfg)
+        from snowflake.cli.api.config import _update_connections_toml
+
+        with mock.patch(
+            "snowflake.cli.api.config.get_connections_file"
+        ) as mock_conn_file, mock.patch("builtins.open") as mock_open:
+            mock_conn_file.return_value = mock.MagicMock()
+            mock_open.return_value.__enter__ = lambda s: s
+            mock_open.return_value.__exit__ = mock.Mock(return_value=False)
+            mock_open.return_value.write = mock.Mock()
+            _update_connections_toml({})
+            mock_open.assert_called_once_with(mock_conn_file.return_value, "w")
+
+
+def test_connections_toml_round_trip(monkeypatch, tmp_path, config_file):
+    """Write and read connections.toml; non-ASCII content survives the round trip."""
+    from snowflake.cli.api.config import (
+        _read_connections_toml,
+        _update_connections_toml,
+    )
+
+    connections_toml = tmp_path / "connections.toml"
+    connections_toml.write_text("")
+
+    with config_file("") as cfg:
+        config_init(cfg)
+        monkeypatch.setattr(
+            "snowflake.cli.api.config.get_connections_file", lambda: connections_toml
+        )
+
+        original = {"myconn": {"password": "pässwörð"}}
+        _update_connections_toml(original)
+        result = _read_connections_toml()
+
+    assert result == original
+
+
 @pytest.mark.parametrize("bad_value", ["just-a-string", 42, True, ["a", "b"]])
 def test_connection_config_from_dict_rejects_non_mapping(bad_value):
     with pytest.raises(InvalidConnectionConfigurationError) as exc_info:
