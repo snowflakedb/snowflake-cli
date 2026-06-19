@@ -711,7 +711,9 @@ def _dump_config(config_and_connections: Dict):
         else:
             config_toml_dict.pop("connections", None)
 
-    with SecurePath(get_config_manager().file_path).open("w+") as fh:
+    with SecurePath(get_config_manager().file_path).open(
+        "w+", use_file_io_encoding=False
+    ) as fh:
         dump(config_toml_dict, fh)
 
 
@@ -783,32 +785,25 @@ def get_feature_flags_section() -> Dict[str, bool | Literal["UNKNOWN"]]:
     return {k: _bool_or_unknown(v) for k, v in flags.items()}
 
 
-def _get_file_io_encoding_env_only() -> Optional[str]:
-    """Read file I/O encoding from the env var only, without accessing the config file.
-
-    Used when opening the config file itself to avoid a chicken-and-egg problem
-    (can't read the encoding setting from the file we haven't opened yet).
-    Returns None when the env var is not set, which preserves the platform-default
-    behavior that existed before encoding support was added.
-    """
-    value = get_env_value(*ENCODING_SECTION_PATH, key="file_io")
-    return _validate_encoding(value, "cli.encoding.file_io")
-
-
 def _read_config_file_toml() -> dict:
-    return tomlkit.loads(
-        get_config_manager().file_path.read_text(
-            encoding=_get_file_io_encoding_env_only()
-        )
-    ).unwrap()
+    # config.toml is read by the connector (via read_config()) with platform
+    # default encoding, and _dump_config writes it with PLATFORM_DEFAULT_ENCODING
+    # for the same reason — keeping CLI read/write consistent with the connector.
+    return tomlkit.loads(get_config_manager().file_path.read_text()).unwrap()
 
 
 def _read_connections_toml() -> dict:
-    return tomlkit.loads(
-        get_connections_file().read_text(encoding=get_file_io_encoding())
-    ).unwrap()
+    # connections.toml is a shared file: the snowflake-connector reads it via
+    # its own read_config() using read_text() with no explicit encoding
+    # (platform default). Applying a custom file_io encoding here would make
+    # the CLI and connector read the same file with different codecs, corrupting
+    # non-ASCII content for one of them. Use platform default to stay consistent
+    # with the connector.
+    return tomlkit.loads(get_connections_file().read_text()).unwrap()
 
 
 def _update_connections_toml(connections: dict):
-    with open(get_connections_file(), "w", encoding=get_file_io_encoding()) as f:
+    # Same rationale as _read_connections_toml: platform default keeps CLI
+    # writes consistent with the connector's reads.
+    with open(get_connections_file(), "w") as f:
         f.write(tomlkit.dumps(connections))

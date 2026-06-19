@@ -563,12 +563,13 @@ def test_file_size_limit_calculation(temporary_directory):
 
 
 @pytest.mark.parametrize(
-    "env_encoding,explicit_encoding,content,expected_log_encoding",
+    "env_encoding,explicit_encoding,use_file_io_encoding,content,expected_log_encoding",
     [
-        (None, "utf-8", "Hello 世界", "utf-8"),
-        (None, None, "Hello", "platform default"),
-        ("utf-8", None, "Hello 世界", "utf-8"),
-        ("cp1252", "utf-8", "Hello 世界", "utf-8"),  # explicit overrides env
+        (None, "utf-8", True, "Hello 世界", "utf-8"),
+        (None, None, True, "Hello", "platform default"),
+        ("utf-8", None, True, "Hello 世界", "utf-8"),
+        ("cp1252", "utf-8", True, "Hello 世界", "utf-8"),  # explicit overrides env
+        ("cp1252", None, False, "Hello", "platform default"),  # flag bypasses file_io
     ],
 )
 def test_read_text_encoding(
@@ -577,6 +578,7 @@ def test_read_text_encoding(
     monkeypatch,
     env_encoding,
     explicit_encoding,
+    use_file_io_encoding,
     content,
     expected_log_encoding,
 ):
@@ -589,7 +591,7 @@ def test_read_text_encoding(
     path.write_text(content, encoding="utf-8")
 
     spath = SecurePath(path)
-    kwargs = {"file_size_limit_mb": 1}
+    kwargs = {"file_size_limit_mb": 1, "use_file_io_encoding": use_file_io_encoding}
     if explicit_encoding:
         kwargs["encoding"] = explicit_encoding
     result = spath.read_text(**kwargs)
@@ -605,12 +607,13 @@ def test_read_text_encoding(
 
 
 @pytest.mark.parametrize(
-    "env_encoding,explicit_encoding,content,expected_log_encoding",
+    "env_encoding,explicit_encoding,use_file_io_encoding,content,expected_log_encoding",
     [
-        (None, "utf-8", "Hello 世界", "utf-8"),
-        (None, None, "Hello", "platform default"),
-        ("utf-8", None, "Hello 世界", "utf-8"),
-        ("cp1252", "utf-8", "Hello 世界", "utf-8"),  # explicit overrides env
+        (None, "utf-8", True, "Hello 世界", "utf-8"),
+        (None, None, True, "Hello", "platform default"),
+        ("utf-8", None, True, "Hello 世界", "utf-8"),
+        ("cp1252", "utf-8", True, "Hello 世界", "utf-8"),  # explicit overrides env
+        ("cp1252", None, False, "Hello", "platform default"),  # flag bypasses file_io
     ],
 )
 def test_write_text_encoding(
@@ -619,6 +622,7 @@ def test_write_text_encoding(
     monkeypatch,
     env_encoding,
     explicit_encoding,
+    use_file_io_encoding,
     content,
     expected_log_encoding,
 ):
@@ -632,7 +636,7 @@ def test_write_text_encoding(
     if explicit_encoding:
         spath.write_text(content, encoding=explicit_encoding)
     else:
-        spath.write_text(content)
+        spath.write_text(content, use_file_io_encoding=use_file_io_encoding)
 
     assert path.read_text(encoding="utf-8") == content
     _assert_count_matching_logs(
@@ -645,12 +649,13 @@ def test_write_text_encoding(
 
 
 @pytest.mark.parametrize(
-    "env_encoding,explicit_encoding,content,expected_log_encoding",
+    "env_encoding,explicit_encoding,use_file_io_encoding,content,expected_log_encoding",
     [
-        (None, "utf-8", "Hello 世界", "utf-8"),
-        (None, None, "Hello", "platform default"),
-        ("utf-8", None, "Hello 世界", "utf-8"),
-        ("cp1252", "utf-8", "Hello 世界", "utf-8"),  # explicit overrides env
+        (None, "utf-8", True, "Hello 世界", "utf-8"),
+        (None, None, True, "Hello", "platform default"),
+        ("utf-8", None, True, "Hello 世界", "utf-8"),
+        ("cp1252", "utf-8", True, "Hello 世界", "utf-8"),  # explicit overrides env
+        ("cp1252", None, False, "Hello", "platform default"),  # flag bypasses file_io
     ],
 )
 def test_open_encoding(
@@ -659,6 +664,7 @@ def test_open_encoding(
     monkeypatch,
     env_encoding,
     explicit_encoding,
+    use_file_io_encoding,
     content,
     expected_log_encoding,
 ):
@@ -670,7 +676,7 @@ def test_open_encoding(
     path = Path(temporary_directory) / "file.txt"
     spath = SecurePath(path)
 
-    open_kwargs = {}
+    open_kwargs = {"use_file_io_encoding": use_file_io_encoding}
     if explicit_encoding:
         open_kwargs["encoding"] = explicit_encoding
 
