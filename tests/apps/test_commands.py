@@ -1339,6 +1339,164 @@ class TestSnowflakeAppManager:
         local = source[len("file://") :]
         assert globmod.glob(local) == [str((nested / "page.tsx").resolve())]
 
+    @pytest.mark.parametrize("upload", ["stage", "workspace"])
+    @patch(EXECUTE_QUERY)
+    def test_uploads_run_up_to_max_parallel(self, mock_execute, upload, tmp_path):
+        """Files are PUT concurrently, up to ``MAX_PARALLEL_UPLOADS`` at once.
+
+        Each worker records the live concurrency; the peak must reach the
+        configured limit (proving real parallelism) and never exceed it
+        (proving the cap holds) even with more files than the limit."""
+        import threading
+
+        from snowflake.cli._plugins.apps.manager import MAX_PARALLEL_UPLOADS
+
+        # More files than the parallel limit, so the cap is actually exercised.
+        num_files = MAX_PARALLEL_UPLOADS + 3
+        for i in range(num_files):
+            (tmp_path / f"f{i}.py").write_text(str(i))
+        fqn = FQN(database="DB", schema="SCHEMA", name="THING")
+
+        lock = threading.Lock()
+        state = {"current": 0, "peak": 0}
+        # Released once the parallel limit is reached, so the peak reflects true
+        # concurrency rather than scheduling luck. A sequential implementation
+        # would never set the event and trip the (failure-only) wait timeout.
+        limit_reached = threading.Event()
+
+        def fake_execute(query, **kwargs):
+            with lock:
+                state["current"] += 1
+                state["peak"] = max(state["peak"], state["current"])
+                if state["current"] >= MAX_PARALLEL_UPLOADS:
+                    limit_reached.set()
+            limit_reached.wait(timeout=5)
+            with lock:
+                state["current"] -= 1
+            return Mock()
+
+        mock_execute.side_effect = fake_execute
+
+        if upload == "stage":
+            results = list(
+                SnowflakeAppManager().upload_to_stage(
+                    local_root=tmp_path, stage_fqn=fqn
+                )
+            )
+        else:
+            results = list(
+                SnowflakeAppManager().upload_to_workspace(
+                    local_root=tmp_path, workspace_fqn=fqn, target_subdirectory="MY_APP"
+                )
+            )
+
+        assert len(results) == num_files
+        assert mock_execute.call_count == num_files
+        assert state["peak"] == MAX_PARALLEL_UPLOADS
+
+    @patch("snowflake.cli.api.sql_execution.BaseSqlExecutor.execute_query")
+    @patch(MANAGER_CLI_CONSOLE)
+    def test_parallel_uploads_suppress_per_query_spinner(
+        self, mock_console, mock_base_execute, tmp_path
+    ):
+        """Concurrent PUTs must not each open a per-query spinner (Rich allows
+        only one live display at a time), and the spinner is restored for
+        queries issued after the upload batch completes."""
+        for i in range(3):
+            (tmp_path / f"f{i}.py").write_text(str(i))
+        fqn = FQN(database="DB", schema="SCHEMA", name="MY_STAGE")
+
+        manager = SnowflakeAppManager(interactive=True)
+        list(manager.upload_to_stage(local_root=tmp_path, stage_fqn=fqn))
+
+        # No spinner was opened for any of the concurrent PUTs.
+        mock_console.spinner.assert_not_called()
+
+        # Suppression is scoped to the batch: a later query opens the spinner.
+        manager.execute_query("SELECT 1")
+        mock_console.spinner.assert_called_once_with()
+
+    @patch(EXECUTE_QUERY)
+    def test_uploads_propagate_cli_context_to_workers(self, mock_execute, tmp_path):
+        """Each PUT must run inside the caller's context so the CLI context —
+        which resolves the shared connection — is reachable from the worker
+        thread. A bare ``ThreadPoolExecutor`` thread starts with an empty
+        context and would fail with 'There is no active click context'; the
+        context is propagated via ``copy_context`` instead."""
+        import contextvars
+
+        # A ContextVar set on the main thread stands in for the CLI context;
+        # workers must observe the main-thread value, not the empty default.
+        sentinel = contextvars.ContextVar("apps_upload_test_sentinel", default=None)
+        token = sentinel.set("main-thread-value")
+        seen = []
+
+        def fake_execute(query, **kwargs):
+            seen.append(sentinel.get())
+            return Mock()
+
+        mock_execute.side_effect = fake_execute
+        try:
+            (tmp_path / "a.py").write_text("1")
+            (tmp_path / "b.py").write_text("2")
+            fqn = FQN(database="DB", schema="SCHEMA", name="MY_STAGE")
+            list(
+                SnowflakeAppManager().upload_to_stage(
+                    local_root=tmp_path, stage_fqn=fqn
+                )
+            )
+        finally:
+            sentinel.reset(token)
+
+        assert seen == ["main-thread-value", "main-thread-value"]
+
+    @pytest.mark.parametrize("upload", ["stage", "workspace"])
+    @patch(EXECUTE_QUERY)
+    def test_upload_propagates_worker_error(self, mock_execute, upload, tmp_path):
+        """A failed PUT in any worker surfaces to the caller."""
+        for i in range(4):
+            (tmp_path / f"f{i}.py").write_text(str(i))
+        fqn = FQN(database="DB", schema="SCHEMA", name="THING")
+        mock_execute.side_effect = ProgrammingError("upload failed")
+
+        with pytest.raises(ProgrammingError):
+            if upload == "stage":
+                list(
+                    SnowflakeAppManager().upload_to_stage(
+                        local_root=tmp_path, stage_fqn=fqn
+                    )
+                )
+            else:
+                list(
+                    SnowflakeAppManager().upload_to_workspace(
+                        local_root=tmp_path,
+                        workspace_fqn=fqn,
+                        target_subdirectory="MY_APP",
+                    )
+                )
+
+    @pytest.mark.parametrize("upload", ["stage", "workspace"])
+    @patch(EXECUTE_QUERY)
+    def test_upload_empty_bundle_yields_nothing(self, mock_execute, upload, tmp_path):
+        """An empty bundle issues no PUTs and yields no results."""
+        fqn = FQN(database="DB", schema="SCHEMA", name="THING")
+
+        if upload == "stage":
+            results = list(
+                SnowflakeAppManager().upload_to_stage(
+                    local_root=tmp_path, stage_fqn=fqn
+                )
+            )
+        else:
+            results = list(
+                SnowflakeAppManager().upload_to_workspace(
+                    local_root=tmp_path, workspace_fqn=fqn, target_subdirectory="MY_APP"
+                )
+            )
+
+        assert results == []
+        mock_execute.assert_not_called()
+
     @pytest.mark.parametrize(
         "native_path,expected_uri",
         [
