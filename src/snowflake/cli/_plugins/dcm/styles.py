@@ -35,14 +35,20 @@ WARNING_STYLE = Style(color="yellow")
 INFO_STYLE = Style(color=BLUE)
 
 # Plan
+# Terminal-default (no color). Used for the "set" sub-change keyword, which
+# assigns a property value and shouldn't read as a creation (green).
+NEUTRAL_STYLE = Style()
 CREATE_STYLE = Style(color="green")
 ALTER_STYLE = Style(color="yellow")
 DROP_STYLE = Style(color="red")
 UNKNOWN_STYLE = Style(color=BLUE)
-# Property names in ALTER detail rows (e.g. WAREHOUSE_SIZE, COMMENT). Named
+# Property values that are set / changed in ALTER detail rows render blue so
+# they stand out from the (neutral) property name and the operation keyword.
+VALUE_STYLE = Style(color=BLUE)
+# Top-level operation object names (the FQN on a CREATE/ALTER/DROP row). Named
 # "magenta" (the ANSI purple) rather than a fixed hex so it follows the user's
 # terminal theme, consistent with BLUE above.
-PROPERTY_STYLE = Style(color="magenta")
+OBJECT_NAME_STYLE = Style(color="magenta")
 
 # Deploy progress phases
 PHASE_DONE_STYLE = Style(color="green", bold=True)

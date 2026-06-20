@@ -633,7 +633,7 @@ class TestPlanReporterTerse:
         "kind, expected_style",
         [
             ("added", styles.CREATE_STYLE),
-            ("set", styles.CREATE_STYLE),
+            ("set", styles.NEUTRAL_STYLE),
             ("removed", styles.DROP_STYLE),
             ("unset", styles.DROP_STYLE),
             ("modified", styles.ALTER_STYLE),

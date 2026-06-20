@@ -55,7 +55,9 @@ class _KindInfo:
 # preserve the server-supplied order.
 _KIND_INFO: Dict[str, _KindInfo] = {
     "added": _KindInfo((0, 0), styles.CREATE_STYLE),
-    "set": _KindInfo((0, 1), styles.CREATE_STYLE),
+    # "set" keeps the creation sort bucket (groups with "added") but renders
+    # neutral — assigning a property value shouldn't read as a creation.
+    "set": _KindInfo((0, 1), styles.NEUTRAL_STYLE),
     "modified": _KindInfo((1, 0), styles.ALTER_STYLE),
     "changed": _KindInfo((1, 1), styles.ALTER_STYLE),
     "renamed": _KindInfo((1, 2), styles.ALTER_STYLE),
@@ -174,6 +176,11 @@ class PlanDetail:
 # the output, so they're collapsed to one line and cut to this width.
 _MAX_VALUE_LEN = 50
 
+# Separator between a modified property's previous and new value. The arrow
+# glyph is rendered in the ALTER color so it visually splits old from new.
+_VALUE_ARROW = "→"
+_VALUE_TRANSITION = f" {_VALUE_ARROW} "
+
 
 def _truncate_inline(text: str) -> str:
     """Collapse all whitespace (incl. newlines) to single spaces and truncate.
@@ -248,7 +255,7 @@ def _format_change_desc(
         # A modified property reports both the old and the new value; show the
         # transition so the change is self-explanatory.
         if prev_str is not None and new_str is not None:
-            return attr, f"{attr}: {prev_str} → {new_str}"
+            return attr, f"{attr}: {prev_str}{_VALUE_TRANSITION}{new_str}"
         if new_str is not None:
             return attr, f"{attr} = {new_str}"
         return attr, attr
@@ -542,7 +549,9 @@ class PlanReporter(Reporter[PlanRow]):
                 style=style,
             )
             cli_console.styled_message(entry.domain.ljust(_DOMAIN_WIDTH) + " ")
-            cli_console.styled_message(entry.display_fqn(), style=styles.DOMAIN_STYLE)
+            cli_console.styled_message(
+                entry.display_fqn(), style=styles.OBJECT_NAME_STYLE
+            )
             cli_console.styled_message("\n")
             for detail in entry.details:
                 self._print_detail(detail)
@@ -566,18 +575,42 @@ class PlanReporter(Reporter[PlanRow]):
                 style=self._style_for_change_kind(detail.kind),
             )
         if detail.desc:
-            # When the row describes a property change, color just the property
-            # name (the leading ``attr`` portion of ``desc``) so it stands out
-            # from its value(s); everything else renders default.
+            # When the row describes a property change, the property name (the
+            # leading ``attr`` portion of ``desc``) renders neutral; only its
+            # value(s) are colored (see ``_print_detail_value``).
             if detail.attr and detail.desc.startswith(detail.attr):
                 cli_console.styled_message(" ")
-                cli_console.styled_message(detail.attr, style=styles.PROPERTY_STYLE)
+                cli_console.styled_message(detail.attr, style=styles.NEUTRAL_STYLE)
                 rest = detail.desc[len(detail.attr) :]
                 if rest:
-                    cli_console.styled_message(rest)
+                    self._print_detail_value(rest)
             else:
                 cli_console.styled_message(" " + detail.desc)
         cli_console.styled_message("\n")
+
+    @staticmethod
+    def _print_detail_value(rest: str) -> None:
+        """Render the value portion that follows a property name.
+
+        ``rest`` is one of ``": <prev> → <new>"`` (a modified property) or
+        ``" = <value>"`` (a set property). The value(s) render blue so they
+        stand out; the separators (``:``/``=``) stay neutral; and for a
+        modification the ``→`` is colored with the ALTER style to visually
+        split the previous and new value.
+        """
+        if rest.startswith(": ") and _VALUE_TRANSITION in rest:
+            prev_str, new_str = rest[2:].split(_VALUE_TRANSITION, 1)
+            cli_console.styled_message(": ")
+            cli_console.styled_message(prev_str, style=styles.VALUE_STYLE)
+            cli_console.styled_message(" ")
+            cli_console.styled_message(_VALUE_ARROW, style=styles.ALTER_STYLE)
+            cli_console.styled_message(" ")
+            cli_console.styled_message(new_str, style=styles.VALUE_STYLE)
+        elif rest.startswith(" = "):
+            cli_console.styled_message(" = ")
+            cli_console.styled_message(rest[3:], style=styles.VALUE_STYLE)
+        else:
+            cli_console.styled_message(rest)
 
     def _generate_summary_renderables(self) -> List[Text]:
         total = self._summary.total
