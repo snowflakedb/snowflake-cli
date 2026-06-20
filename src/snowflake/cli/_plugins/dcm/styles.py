@@ -39,6 +39,10 @@ CREATE_STYLE = Style(color="green")
 ALTER_STYLE = Style(color="yellow")
 DROP_STYLE = Style(color="red")
 UNKNOWN_STYLE = Style(color=BLUE)
+# Property names in ALTER detail rows (e.g. WAREHOUSE_SIZE, COMMENT). Named
+# "magenta" (the ANSI purple) rather than a fixed hex so it follows the user's
+# terminal theme, consistent with BLUE above.
+PROPERTY_STYLE = Style(color="magenta")
 
 # Deploy progress phases
 PHASE_DONE_STYLE = Style(color="green", bold=True)

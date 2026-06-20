@@ -16,9 +16,11 @@ from unittest import mock
 import pytest
 from snowflake.cli._plugins.dcm import styles
 from snowflake.cli._plugins.dcm.reporters.plan import (
+    _MAX_VALUE_LEN,
     PlanDetail,
     PlanReporter,
     PlanRow,
+    _truncate_inline,
 )
 from snowflake.cli.api.identifiers import FQN
 
@@ -34,6 +36,23 @@ def plan_entity_change_factory(operation: str, domain: str, name: str):
         "type": operation,
         "object_id": {"domain": domain, "name": f'"{name}"', "fqn": f'"{name}"'},
     }
+
+
+class TestTruncateInline:
+    def test_short_value_is_unchanged(self):
+        assert _truncate_inline("SMALL") == "SMALL"
+
+    def test_collapses_internal_whitespace_and_newlines(self):
+        assert _truncate_inline("a\n  b\t c") == "a b c"
+
+    def test_value_at_limit_is_not_truncated(self):
+        value = "x" * _MAX_VALUE_LEN
+        assert _truncate_inline(value) == value
+
+    def test_long_value_is_truncated_with_ellipsis(self):
+        result = _truncate_inline("y" * (_MAX_VALUE_LEN + 10))
+        assert result == "y" * _MAX_VALUE_LEN + "…"
+        assert len(result) == _MAX_VALUE_LEN + 1
 
 
 class TestPlanReporterTerse:
@@ -836,10 +855,23 @@ class TestPlanRow:
         # Three siblings at depth 1: only the last is_last=True.
         assert row.details == [
             PlanDetail(
-                kind="set", desc="warehouse_size = LARGE", is_last_chain=(False,)
+                kind="set",
+                desc="WAREHOUSE_SIZE = LARGE",
+                is_last_chain=(False,),
+                attr="WAREHOUSE_SIZE",
             ),
-            PlanDetail(kind="set", desc="auto_suspend = 60", is_last_chain=(False,)),
-            PlanDetail(kind="set", desc="auto_resume = true", is_last_chain=(True,)),
+            PlanDetail(
+                kind="set",
+                desc="AUTO_SUSPEND = 60",
+                is_last_chain=(False,),
+                attr="AUTO_SUSPEND",
+            ),
+            PlanDetail(
+                kind="set",
+                desc="AUTO_RESUME = true",
+                is_last_chain=(True,),
+                attr="AUTO_RESUME",
+            ),
         ]
 
     def test_from_dict_set_with_complex_value_drops_rhs(self):
@@ -859,7 +891,9 @@ class TestPlanRow:
         row = PlanRow.from_dict(entry)
 
         assert row.details == [
-            PlanDetail(kind="set", desc="columns", is_last_chain=(True,))
+            PlanDetail(
+                kind="set", desc="COLUMNS", is_last_chain=(True,), attr="COLUMNS"
+            )
         ]
 
     def test_from_dict_handles_unset(self):
@@ -878,8 +912,77 @@ class TestPlanRow:
         row = PlanRow.from_dict(entry)
 
         assert row.details == [
-            PlanDetail(kind="unset", desc="comment", is_last_chain=(True,))
+            PlanDetail(
+                kind="unset", desc="COMMENT", is_last_chain=(True,), attr="COMMENT"
+            )
         ]
+
+    def test_from_dict_modified_property_shows_prev_and_new(self):
+        """A changed property reports both values; render ``prev → new``."""
+        entry = {
+            "type": "ALTER",
+            "object_id": {"domain": "WAREHOUSE", "fqn": '"WH"'},
+            "changes": [
+                {
+                    "kind": "set",
+                    "attribute_name": "warehouse_size",
+                    "prev_value": "SMALL",
+                    "value": "LARGE",
+                },
+                {
+                    "kind": "modified",
+                    "attribute_name": "auto_suspend",
+                    "prev_value": 60,
+                    "value": 120,
+                },
+            ],
+        }
+
+        row = PlanRow.from_dict(entry)
+
+        assert row.details == [
+            PlanDetail(
+                kind="set",
+                desc="WAREHOUSE_SIZE: SMALL → LARGE",
+                is_last_chain=(False,),
+                attr="WAREHOUSE_SIZE",
+            ),
+            PlanDetail(
+                kind="modified",
+                desc="AUTO_SUSPEND: 60 → 120",
+                is_last_chain=(True,),
+                attr="AUTO_SUSPEND",
+            ),
+        ]
+
+    def test_from_dict_modified_property_truncates_long_multiline_values(self):
+        """Multi-line / long SQL bodies are collapsed to one line and cut."""
+        prev_body = "SELECT 1"
+        new_body = "SELECT\n  a,\n  b,\n  c\nFROM " + ("x" * 80)
+        entry = {
+            "type": "ALTER",
+            "object_id": {"domain": "VIEW", "fqn": '"V"'},
+            "changes": [
+                {
+                    "kind": "modified",
+                    "attribute_name": "text",
+                    "prev_value": prev_body,
+                    "value": new_body,
+                }
+            ],
+        }
+
+        row = PlanRow.from_dict(entry)
+
+        assert len(row.details) == 1
+        desc = row.details[0].desc
+        prev_rendered, new_rendered = desc.removeprefix("TEXT: ").split(" → ")
+        # Short previous value is shown verbatim; long new value is collapsed
+        # to a single line (no newlines) and truncated with an ellipsis.
+        assert prev_rendered == "SELECT 1"
+        assert "\n" not in new_rendered
+        assert new_rendered.endswith("…")
+        assert len(new_rendered) == _MAX_VALUE_LEN + 1
 
     def test_from_dict_create_skips_details(self):
         """Only ALTER rows render sub-changes; CREATE stays terse."""

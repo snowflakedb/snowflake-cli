@@ -159,16 +159,40 @@ class PlanDetail:
     kind: str
     desc: str
     is_last_chain: Tuple[bool, ...] = ()
+    # The property-name prefix of ``desc`` (uppercased) when this row describes
+    # a property change, else ``None``. The renderer colors just this portion.
+    attr: Optional[str] = None
 
     @property
     def depth(self) -> int:
         return len(self.is_last_chain)
 
 
+# Maximum rendered length of a single attribute value (previous or new).
+# Property values such as view / function SQL bodies can be multi-line and
+# very long; rendering them verbatim would break the tree layout and flood
+# the output, so they're collapsed to one line and cut to this width.
+_MAX_VALUE_LEN = 50
+
+
+def _truncate_inline(text: str) -> str:
+    """Collapse all whitespace (incl. newlines) to single spaces and truncate.
+
+    ``sanitize_for_terminal`` only strips ANSI escapes, so a multi-line value
+    would still contain newlines that break the single-line tree layout. We
+    squash runs of whitespace to one space and cap the result at
+    :data:`_MAX_VALUE_LEN`, appending an ellipsis when truncated.
+    """
+    collapsed = " ".join(text.split())
+    if len(collapsed) <= _MAX_VALUE_LEN:
+        return collapsed
+    return collapsed[:_MAX_VALUE_LEN].rstrip() + "…"
+
+
 def _format_scalar_value(value: Any) -> Optional[str]:
     """Render a JSON-decoded value compactly, or ``None`` for complex types.
 
-    Used to render the right-hand side of ``set <attr> = <value>`` lines.
+    Used to render attribute values on ``set`` / modified-property lines.
     Dicts and lists are skipped (they'd blow up the output).
     """
     if value is None:
@@ -188,29 +212,47 @@ def _format_change_desc(
     item_id: Any,
     attribute_name: Optional[str],
     value: Any,
-) -> str:
+    prev_value: Any = None,
+) -> Tuple[Optional[str], str]:
     """Build the human-readable description for a single change entry.
 
+    Returns ``(attr, desc)`` where ``desc`` is the full one-line description and
+    ``attr`` is the property name prefix (already uppercased) when the entry
+    describes a property change, else ``None``. The renderer uses ``attr`` to
+    color just the property name; ``desc`` always *starts with* ``attr`` when it
+    is set, so the two stay in sync.
+
     Handles every observed shape:
-    - ``item_id`` is a dict with ``desc`` → use ``desc``.
-    - ``item_id`` is a bare string → use it directly.
+    - ``item_id`` is a dict with ``desc`` → use ``desc`` (no property name).
+    - ``item_id`` is a bare string → use it directly (no property name).
+    - a modified property carrying both a previous and a new value →
+      ``<attribute_name>: <prev> → <new>`` (each value collapsed to one line
+      and truncated).
     - ``set`` → ``<attribute_name> = <value>`` (scalar values only).
-    - ``unset`` → ``<attribute_name>``.
+    - ``unset`` (only a previous value) → ``<attribute_name>``.
     """
     if isinstance(item_id, dict):
         desc_val = item_id.get("desc")
         if isinstance(desc_val, str):
-            return sanitize_for_terminal(desc_val)
+            return None, sanitize_for_terminal(desc_val)
     if isinstance(item_id, str):
-        return sanitize_for_terminal(item_id)
+        return None, sanitize_for_terminal(item_id)
     if isinstance(attribute_name, str) and attribute_name:
-        attr = sanitize_for_terminal(attribute_name)
-        if kind == "set":
-            scalar = _format_scalar_value(value)
-            if scalar is not None:
-                return f"{attr} = {scalar}"
-        return attr
-    return ""
+        # Uppercase the property name so it stands out (e.g. WAREHOUSE_SIZE,
+        # COMMENT); the value(s) keep their original casing.
+        attr = sanitize_for_terminal(attribute_name).upper()
+        new_scalar = _format_scalar_value(value)
+        prev_scalar = _format_scalar_value(prev_value)
+        new_str = _truncate_inline(new_scalar) if new_scalar is not None else None
+        prev_str = _truncate_inline(prev_scalar) if prev_scalar is not None else None
+        # A modified property reports both the old and the new value; show the
+        # transition so the change is self-explanatory.
+        if prev_str is not None and new_str is not None:
+            return attr, f"{attr}: {prev_str} → {new_str}"
+        if new_str is not None:
+            return attr, f"{attr} = {new_str}"
+        return attr, attr
+    return None, ""
 
 
 @dataclass(frozen=True)
@@ -227,6 +269,7 @@ class _ChangeReader:
     get_item_id: Callable[[Any], Any]
     get_attribute_name: Callable[[Any], Any]
     get_value: Callable[[Any], Any]
+    get_prev_value: Callable[[Any], Any]
     get_children: Callable[[Any], List[Any]]
 
 
@@ -240,6 +283,7 @@ _MODEL_READER = _ChangeReader(
     get_item_id=lambda c: c.item_id,
     get_attribute_name=lambda c: c.attribute_name,
     get_value=lambda c: c.value,
+    get_prev_value=lambda c: c.prev_value,
     get_children=lambda c: c.changes,
 )
 
@@ -248,6 +292,7 @@ _RAW_READER = _ChangeReader(
     get_item_id=lambda c: c.get("item_id"),
     get_attribute_name=lambda c: c.get("attribute_name"),
     get_value=lambda c: c.get("value"),
+    get_prev_value=lambda c: c.get("prev_value"),
     get_children=_raw_children,
 )
 
@@ -286,30 +331,33 @@ def _flatten_via(
     expanded = _expand_collections(items, reader)
     # Pre-render to filter out leaves that would produce empty rows, so the
     # ``is_last`` computation reflects only what's actually displayed.
-    renderable: List[Tuple[Any, str, str]] = []
+    renderable: List[Tuple[Any, str, Optional[str], str]] = []
     for item in expanded:
         kind = reader.get_kind(item).lower()
-        desc = _format_change_desc(
+        attr, desc = _format_change_desc(
             kind,
             reader.get_item_id(item),
             reader.get_attribute_name(item),
             reader.get_value(item),
+            reader.get_prev_value(item),
         )
         sanitized_kind = sanitize_for_terminal(kind)
         if not sanitized_kind and not desc:
             continue
-        renderable.append((item, sanitized_kind, desc))
+        renderable.append((item, sanitized_kind, attr, desc))
 
     # Stable sort: group siblings by kind category so users see all
     # creations, then modifications, then deletions in a predictable order.
-    renderable.sort(key=lambda triple: _kind_info(triple[1]).sort_key)
+    renderable.sort(key=lambda entry: _kind_info(entry[1]).sort_key)
 
     out: List[PlanDetail] = []
     total = len(renderable)
-    for index, (item, sanitized_kind, desc) in enumerate(renderable):
+    for index, (item, sanitized_kind, attr, desc) in enumerate(renderable):
         is_last = index == total - 1
         chain = ancestor_is_last + (is_last,)
-        out.append(PlanDetail(kind=sanitized_kind, desc=desc, is_last_chain=chain))
+        out.append(
+            PlanDetail(kind=sanitized_kind, desc=desc, is_last_chain=chain, attr=attr)
+        )
         children = reader.get_children(item)
         if children:
             out.extend(_flatten_via(children, reader, ancestor_is_last=chain))
@@ -518,7 +566,17 @@ class PlanReporter(Reporter[PlanRow]):
                 style=self._style_for_change_kind(detail.kind),
             )
         if detail.desc:
-            cli_console.styled_message(" " + detail.desc)
+            # When the row describes a property change, color just the property
+            # name (the leading ``attr`` portion of ``desc``) so it stands out
+            # from its value(s); everything else renders default.
+            if detail.attr and detail.desc.startswith(detail.attr):
+                cli_console.styled_message(" ")
+                cli_console.styled_message(detail.attr, style=styles.PROPERTY_STYLE)
+                rest = detail.desc[len(detail.attr) :]
+                if rest:
+                    cli_console.styled_message(rest)
+            else:
+                cli_console.styled_message(" " + detail.desc)
         cli_console.styled_message("\n")
 
     def _generate_summary_renderables(self) -> List[Text]:
