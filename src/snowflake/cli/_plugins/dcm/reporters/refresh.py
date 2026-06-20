@@ -204,7 +204,7 @@ class RefreshReporter(Reporter[RefreshRow]):
                 row.formatted_deleted.rjust(self.STATS_WIDTH) + " ",
                 style=styles.REMOVED_STYLE,
             )
-            cli_console.styled_message(row.table_name, style=styles.DOMAIN_STYLE)
+            cli_console.styled_message(row.table_name, style=styles.OBJECT_NAME_STYLE)
             cli_console.styled_message("\n")
 
     def _generate_summary_renderables(self) -> List[Text]:

@@ -19,8 +19,13 @@ from rich.style import Style
 # analyze INFO findings / file headers, refresh status, and unknown rows.
 BLUE = "blue"
 
-DOMAIN_STYLE = Style(color="cyan")
 BOLD_STYLE = Style(bold=True)
+
+# Object names (FQNs / table names) across all DCM commands — the top-level
+# CREATE/ALTER/DROP row in plan/deploy and the table column in refresh/test.
+# Named "magenta" (the ANSI purple) rather than a fixed hex so it follows the
+# user's terminal theme, consistent with BLUE above.
+OBJECT_NAME_STYLE = Style(color="magenta")
 
 # Refresh
 STATUS_STYLE = Style(color=BLUE)
@@ -45,10 +50,6 @@ UNKNOWN_STYLE = Style(color=BLUE)
 # Property values that are set / changed in ALTER detail rows render blue so
 # they stand out from the (neutral) property name and the operation keyword.
 VALUE_STYLE = Style(color=BLUE)
-# Top-level operation object names (the FQN on a CREATE/ALTER/DROP row). Named
-# "magenta" (the ANSI purple) rather than a fixed hex so it follows the user's
-# terminal theme, consistent with BLUE above.
-OBJECT_NAME_STYLE = Style(color="magenta")
 
 # Deploy progress phases
 PHASE_DONE_STYLE = Style(color="green", bold=True)

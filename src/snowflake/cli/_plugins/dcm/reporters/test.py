@@ -136,7 +136,7 @@ class TestReporter(Reporter[TestRow]):
                 status_text.ljust(self.STATUS_WIDTH) + " ",
                 style=style,
             )
-            cli_console.styled_message(row.table_name, style=styles.DOMAIN_STYLE)
+            cli_console.styled_message(row.table_name, style=styles.OBJECT_NAME_STYLE)
             cli_console.styled_message(f" ({row.expectation_name})")
             cli_console.styled_message("\n")
 
