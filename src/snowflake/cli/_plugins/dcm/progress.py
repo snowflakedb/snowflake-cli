@@ -45,17 +45,20 @@ PLAN_OPERATION_PHASES = ["RENDER", "COMPILE", "PLAN"]
 # after COMPILE (there are no server-side progress phases to poll, so RENDER is
 # fast-forwarded and COMPILE shows the live spinner while the server works).
 COMPILE_OPERATION_PHASES = ["RENDER", "COMPILE"]
-OperationMode = Literal["deploy", "plan", "compile", "purge"]
+OperationMode = Literal["deploy", "plan", "compile", "purge", "test", "refresh"]
 
 # Server-side phase list per operation mode. UPLOAD is first for operations
-# that sync local files; purge runs entirely on the server (no local upload),
-# so it has no UPLOAD phase. Every operation uses the same
-# RENDER → COMPILE → PLAN → DEPLOY/PURGE vocabulary.
+# that sync local files; purge/test/refresh run entirely on the server against
+# already-deployed objects (no local upload), so they have no UPLOAD phase.
+# Deploy-family operations share the RENDER → COMPILE → PLAN → DEPLOY/PURGE
+# vocabulary; test/refresh are single-phase since they neither render nor plan.
 _PHASES_BY_OPERATION: dict[OperationMode, list[str]] = {
     "deploy": [UPLOAD_PHASE, *BACKEND_PHASES],
     "plan": [UPLOAD_PHASE, *PLAN_OPERATION_PHASES],
     "compile": [UPLOAD_PHASE, *COMPILE_OPERATION_PHASES],
     "purge": [*BACKEND_PHASES],
+    "test": ["TEST"],
+    "refresh": ["REFRESH"],
 }
 
 # Only PLAN and DEPLOY emit a meaningful 0-100 progress value.
@@ -273,6 +276,11 @@ class DeployProgressTracker:
             self._refresh_display()
 
     def complete_upload(self) -> None:
+        # Operations that don't sync local files (purge/test/refresh) have no
+        # UPLOAD phase; nothing to complete. ``run_loader_phase`` calls this
+        # unconditionally, so the guard keeps single-phase modes working.
+        if not self._has_upload_phase():
+            return
         if self._upload_file_total > 0:
             self._get_phase(UPLOAD_PHASE).observe_running(100, datetime.now())
         self._get_phase(UPLOAD_PHASE).observe_done(datetime.now())

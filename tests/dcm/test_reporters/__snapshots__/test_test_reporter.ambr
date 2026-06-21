@@ -3,7 +3,8 @@
   '''
   ✓ PASS      DB.SCHEMA.RED_TABLE (green_check)
   
-  1 passed, 0 failed out of 1 total.
+  Ran 1 data quality test: 1 passed, 0 failed expectations.
+  ================================================================================
   
   '''
 # ---
@@ -17,7 +18,8 @@
   '''
   ? UNKNOWN   DB.SCHEMA.UNKNOWN_STATUS (some_check)
   
-  0 passed, 0 failed, 1 unknown out of 1 total.
+  Ran 1 data quality test: 0 passed, 0 failed, 1 unknown expectation.
+  ================================================================================
   
   '''
 # ---
@@ -25,6 +27,7 @@
   '''
   
   No expectations found in the project.
+  ================================================================================
   
   '''
 # ---
@@ -35,7 +38,8 @@
     └─ Expected: = 0, Got: 42 (Metric: null_count)
   ✓ PASS      DB.SCHEMA.TABLE_C (range_check)
   
-  2 passed, 1 failed out of 3 total.
+  Ran 3 data quality tests: 2 passed, 1 failed expectation.
+  ================================================================================
   
   '''
 # ---
@@ -43,6 +47,7 @@
   '''
   
   No expectations found in the project.
+  ================================================================================
   
   '''
 # ---
@@ -50,7 +55,8 @@
   '''
   ✓ PASS      DB.SCHEMA.VALID (valid_check)
   
-  1 passed, 0 failed out of 1 total.
+  Ran 1 data quality test: 1 passed, 0 failed expectations.
+  ================================================================================
   
   '''
 # ---
@@ -59,7 +65,8 @@
   ✗ FAIL      DB.SCHEMA.ORDERS (null_check)
     └─ Expected: = 0, Got: 15 (Metric: null_count)
   
-  0 passed, 1 failed out of 1 total.
+  Ran 1 data quality test: 0 passed, 1 failed expectation.
+  ================================================================================
   
   '''
 # ---
@@ -67,7 +74,8 @@
   '''
   ✓ PASS      DB.SCHEMA.CUSTOMERS (row_count_check)
   
-  1 passed, 0 failed out of 1 total.
+  Ran 1 data quality test: 1 passed, 0 failed expectations.
+  ================================================================================
   
   '''
 # ---

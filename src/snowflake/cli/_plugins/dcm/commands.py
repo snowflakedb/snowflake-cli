@@ -34,7 +34,6 @@ from snowflake.cli._plugins.dcm.reporters import (
 )
 from snowflake.cli._plugins.dcm.utils import (
     RENDERED_DEFINITIONS_FOLDER,
-    announce_compile_separator,
     announce_rendered_definitions,
     clear_command_artifacts,
     mock_dcm_response,
@@ -577,10 +576,9 @@ def compile_project(
     reporter = AnalyzeErrorsReporter(save_output=save_output)
     if save_output:
         announce_rendered_definitions()
-    try:
-        return reporter.process(result)
-    finally:
-        announce_compile_separator()
+    # The reporter prints the trailing "=" divider itself (Reporter.print_separator),
+    # on both the success and error paths, so no separate separator is needed here.
+    return reporter.process(result)
 
 
 @app.command(
@@ -849,9 +847,13 @@ def refresh(
     context = _resolve_context_with_optional_manifest(from_location, identifier, target)
     project_id = context.project_identifier
 
-    with cli_console.spinner() as spinner:
-        spinner.add_task(description=f"Refreshing dcm project {project_id}", total=None)
-        result = DCMProjectManager().refresh(project_identifier=project_id)
+    manager = DCMProjectManager()
+    tracker = DeployProgressTracker(conn=manager.connection, operation="refresh")
+    with tracker.session():
+        result = tracker.run_loader_phase(
+            lambda: manager.refresh(project_identifier=project_id),
+            phase_name="REFRESH",
+        )
 
     reporter = RefreshReporter(save_output=save_output)
     return reporter.process(result)
@@ -874,9 +876,13 @@ def test(
     context = _resolve_context_with_optional_manifest(from_location, identifier, target)
     project_id = context.project_identifier
 
-    with cli_console.spinner() as spinner:
-        spinner.add_task(description=f"Testing dcm project {project_id}", total=None)
-        result = DCMProjectManager().test(project_identifier=project_id)
+    manager = DCMProjectManager()
+    tracker = DeployProgressTracker(conn=manager.connection, operation="test")
+    with tracker.session():
+        result = tracker.run_loader_phase(
+            lambda: manager.test(project_identifier=project_id),
+            phase_name="TEST",
+        )
 
     reporter = TestReporter(save_output=save_output)
     return reporter.process(result)
