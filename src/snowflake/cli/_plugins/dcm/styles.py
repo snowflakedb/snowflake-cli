@@ -47,9 +47,10 @@ CREATE_STYLE = Style(color="green")
 ALTER_STYLE = Style(color="yellow")
 DROP_STYLE = Style(color="red")
 UNKNOWN_STYLE = Style(color=BLUE)
-# Property values that are set / changed in ALTER detail rows render blue so
-# they stand out from the (neutral) property name and the operation keyword.
-VALUE_STYLE = Style(color=BLUE)
+# Property values that are set / changed in ALTER detail rows. Uses the cyan
+# hue that object names previously used (now magenta) so values stand out from
+# the (neutral) property name and the operation keyword.
+VALUE_STYLE = Style(color="cyan")
 
 # Deploy progress phases
 PHASE_DONE_STYLE = Style(color="green", bold=True)
