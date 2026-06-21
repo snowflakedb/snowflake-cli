@@ -551,6 +551,53 @@ class TestPlanReporterTerse:
         assert "set EXPRESSION = value = 0" in output
         assert output == snapshot
 
+    def test_blank_line_separates_consecutive_trees(self):
+        """A rendered ALTER tree is followed by a blank line before the next
+        entity, but not before the trailing summary (which adds its own)."""
+        data = {
+            "version": 2,
+            "metadata": {},
+            "changeset": [
+                {
+                    "type": "ALTER",
+                    "object_id": {
+                        "domain": "WAREHOUSE",
+                        "name": '"WH1"',
+                        "fqn": '"WH1"',
+                    },
+                    "changes": [
+                        {
+                            "kind": "set",
+                            "attribute_name": "warehouse_size",
+                            "value": "SMALL",
+                        }
+                    ],
+                },
+                {
+                    "type": "ALTER",
+                    "object_id": {
+                        "domain": "WAREHOUSE",
+                        "name": '"WH2"',
+                        "fqn": '"WH2"',
+                    },
+                    "changes": [
+                        {
+                            "kind": "set",
+                            "attribute_name": "warehouse_size",
+                            "value": "LARGE",
+                        }
+                    ],
+                },
+            ],
+        }
+        output = capture_reporter_output(PlanReporter(), FakeCursor(data))
+
+        # First tree is separated from the next entity by a blank line.
+        assert "set WAREHOUSE_SIZE = SMALL\n\nALTER" in output
+        # The last tree is not double-spaced: only the summary's own blank line
+        # sits between it and the summary text.
+        assert "set WAREHOUSE_SIZE = LARGE\n\nPlanned" in output
+
     def test_create_with_changes_does_not_render_details(self):
         """CREATE rows must stay terse even when the payload includes ``changes``.
 

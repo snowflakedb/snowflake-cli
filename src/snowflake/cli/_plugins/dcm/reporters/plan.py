@@ -541,8 +541,13 @@ class PlanReporter(Reporter[PlanRow]):
         return iter(rows)
 
     def print_renderables(self, data: Iterator[PlanRow]) -> None:
-        for entry in data:
-            style = self._style_for_operation(entry.operation)
+        entries = list(data)
+        last_index = len(entries) - 1
+        for index, entry in enumerate(entries):
+            # The operation keyword (CREATE/ALTER/DROP) is bold so it anchors
+            # the row; the shared CREATE/ALTER/DROP styles stay non-bold for the
+            # sub-change keywords inside the tree.
+            style = self._style_for_operation(entry.operation) + styles.BOLD_STYLE
 
             cli_console.styled_message(
                 entry.operation.ljust(_OPERATION_WIDTH) + " ",
@@ -555,6 +560,11 @@ class PlanReporter(Reporter[PlanRow]):
             cli_console.styled_message("\n")
             for detail in entry.details:
                 self._print_detail(detail)
+            # Separate a rendered tree from whatever follows. The summary already
+            # emits its own leading blank line, so skip the separator after the
+            # final entity to avoid a doubled blank before the summary.
+            if entry.details and index != last_index:
+                cli_console.styled_message("\n")
 
     def _print_detail(self, detail: PlanDetail) -> None:
         # Tree prefix renders dim so it recedes visually — the colored kind
