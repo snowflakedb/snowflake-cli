@@ -4,7 +4,7 @@
   ALTER    TABLE                DCM_DEMO_1_DEV3.ANALYTICS.ENRICHED_ORDER_DETAILS
   └─ added SNOWFLAKE.CORE.NULL_COUNT$V1(CUSTOMER_CITY)
      └─ added NO_MISSING_CITIES
-        └─ set expression = value = 0
+        └─ set EXPRESSION = value = 0
   
   Planned 1 entity (0 to create, 1 to alter, 0 to drop).
   ================================================================================

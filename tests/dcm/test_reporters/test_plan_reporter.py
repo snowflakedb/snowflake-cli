@@ -548,7 +548,7 @@ class TestPlanReporterTerse:
 
         assert "added SNOWFLAKE.CORE.NULL_COUNT$V1(CUSTOMER_CITY)" in output
         assert "added NO_MISSING_CITIES" in output
-        assert "set expression = value = 0" in output
+        assert "set EXPRESSION = value = 0" in output
         assert output == snapshot
 
     def test_create_with_changes_does_not_render_details(self):
