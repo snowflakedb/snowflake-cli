@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import pytest
 from snowflake.cli.api.output.types import CommandResult, MessageResult
-from snowflake.cli.api.plugins.command.bridge import InterfaceValidationError
 from snowflake.cli.api.plugins.command.interface import (
     CommandDef,
     CommandGroupSpec,
@@ -111,6 +110,68 @@ class TestAssertInterfaceWellFormed:
         with pytest.raises(AssertionError, match="Duplicate"):
             assert_interface_well_formed(spec)
 
+    def test_duplicate_command_name_in_group_fails(self):
+        spec = CommandGroupSpec(
+            name="bad",
+            help="Bad.",
+            commands=(
+                CommandDef(name="run", help="Run.", handler_method="run_one"),
+                CommandDef(name="run", help="Run again.", handler_method="run_two"),
+            ),
+        )
+        with pytest.raises(AssertionError, match="Duplicate command name 'run'"):
+            assert_interface_well_formed(spec)
+
+    def test_same_command_name_across_subgroups_ok(self):
+        # The same CLI command name may be reused in different subgroups; the
+        # uniqueness check is per-group, not global.
+        spec = CommandGroupSpec(
+            name="root",
+            help="Root.",
+            subgroups=(
+                CommandGroupSpec(
+                    name="a",
+                    help="Group A.",
+                    commands=(
+                        CommandDef(name="list", help="List.", handler_method="a_list"),
+                    ),
+                ),
+                CommandGroupSpec(
+                    name="b",
+                    help="Group B.",
+                    commands=(
+                        CommandDef(name="list", help="List.", handler_method="b_list"),
+                    ),
+                ),
+            ),
+        )
+        assert_interface_well_formed(spec)  # must not raise
+
+    def test_required_boolean_flag_fails(self):
+        spec = CommandGroupSpec(
+            name="bad",
+            help="Bad.",
+            commands=(
+                CommandDef(
+                    name="run",
+                    help="Run.",
+                    handler_method="run",
+                    params=(
+                        ParamDef(
+                            name="force",
+                            type=bool,
+                            kind=ParamKind.OPTION,
+                            is_flag=True,
+                            # default omitted => REQUIRED
+                            help="Force it",
+                        ),
+                    ),
+                ),
+            ),
+        )
+        with pytest.raises(AssertionError, match="boolean flag"):
+            assert_interface_well_formed(spec)
+
     def test_invalid_param_name_fails(self):
         spec = CommandGroupSpec(
             name="bad",
@@ -143,10 +204,21 @@ class TestAssertHandlerSatisfies:
         class Empty(CommandHandler):
             pass
 
-        with pytest.raises(InterfaceValidationError):
+        # assert_handler_satisfies wraps the underlying InterfaceValidationError
+        # as AssertionError so all three assert_* helpers share one failure type.
+        with pytest.raises(AssertionError, match="hello"):
             assert_handler_satisfies(_valid_spec(), Empty())
 
 
 class TestAssertBuildsValidSpec:
     def test_valid_pair_passes(self):
         assert_builds_valid_spec(_valid_spec(), _ValidHandler())
+
+    def test_invalid_pair_fails(self):
+        # A handler missing a declared method must fail the full build path,
+        # exercising the validate=True branch inside assert_builds_valid_spec.
+        class Empty(CommandHandler):
+            pass
+
+        with pytest.raises(AssertionError, match="hello"):
+            assert_builds_valid_spec(_valid_spec(), Empty())

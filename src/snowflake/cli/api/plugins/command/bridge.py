@@ -80,9 +80,13 @@ def build_command_spec(
     Args:
         spec: Declarative command surface.
         handler: Concrete handler implementing the business logic.
-        validate: If ``True`` (default), verify the handler satisfies the spec
-            before building.  Disable in production for faster startup if the
-            interface tests already cover this.
+        validate: If ``True`` (default), check that the handler implements
+            every declared ``handler_method`` before building — see
+            ``validate_interface_handler``. Set ``False`` to skip *only* that
+            handler-method presence check for faster startup when the interface
+            tests already cover it. This flag does **not** disable all error
+            checking: unknown-decorator resolution (and any other spec-shape
+            error) still raises at build time regardless of its value.
     """
     if validate:
         validate_interface_handler(spec, handler)
@@ -222,7 +226,9 @@ def _register_command(
     command_fn.__name__ = cmd_def.handler_method
     command_fn.__qualname__ = cmd_def.handler_method
 
-    # Apply registered decorators in reverse order (outermost first)
+    # Apply registered decorators. The spec lists them outermost-first, so we
+    # iterate in reverse to wrap the innermost one first:
+    #   decorators=("A", "B")  ->  A(B(command_fn))
     for dec_name in reversed(cmd_def.decorators):
         dec_factory = _DECORATOR_REGISTRY.get(dec_name)
         if dec_factory is None:
@@ -245,6 +251,16 @@ def _make_typer_default(p: ParamDef):
     """Create the appropriate ``typer.Argument`` or ``typer.Option`` default."""
     is_required = p.default is REQUIRED
 
+    if p.is_flag and is_required:
+        # A required boolean flag is semantically nonsensical (a flag is either
+        # present or absent), so this is almost certainly a spec authoring
+        # error. Surface it loudly rather than silently coercing to ``False``.
+        raise ValueError(
+            f"Parameter '{p.name}' is a boolean flag (is_flag=True) with no "
+            f"default. A required flag is meaningless; give it an explicit "
+            f"default (e.g. default=False)."
+        )
+
     # Extra kwargs for custom Click type parsing (e.g. IdentifierType for FQN)
     extra: dict = {}
     if p.click_type is not None:
@@ -266,8 +282,9 @@ def _make_typer_default(p: ParamDef):
         # Typer derives flag behaviour from the ``bool`` annotation; passing
         # Click's ``is_flag`` directly is deprecated. A single declaration
         # (e.g. ``--dry-run``) yields a flag with no ``--no-*`` counterpart.
+        # ``is_required`` is guaranteed ``False`` here (guarded above).
         return typer.Option(
-            p.default if not is_required else False,
+            p.default,
             *cli_names,
             help=p.help,
             show_default=p.show_default,

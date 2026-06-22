@@ -37,11 +37,13 @@ mismatches early::
 from __future__ import annotations
 
 from snowflake.cli.api.plugins.command.bridge import (
-    _collect_commands,
+    InterfaceValidationError,
     build_command_spec,
     validate_interface_handler,
 )
 from snowflake.cli.api.plugins.command.interface import (
+    REQUIRED,
+    CommandDef,
     CommandGroupSpec,
     CommandHandler,
     SingleCommandSpec,
@@ -55,15 +57,21 @@ def assert_interface_well_formed(
 
     Checks:
     - Every command has a non-empty name, help text, and handler_method.
-    - No duplicate handler_method values across the entire tree.
-    - handler_method values are valid Python identifiers.
+    - handler_method values are valid Python identifiers and unique across the
+      entire tree (each maps to one method on a single handler instance).
+    - Command (CLI) names are unique *within their group* — sibling commands
+      may not collide, but two different subgroups may reuse a name.
+    - Param names are valid Python identifiers.
+    - No boolean flag (``is_flag=True``) is left required (``default=REQUIRED``);
+      a required flag is meaningless. Mirrors the build-time guard in the bridge.
 
     Raises ``AssertionError`` on the first violation found.
     """
-    commands = _collect_commands(spec)
+    # handler_method must be unique across the whole tree: every method resolves
+    # against one handler instance, so any collision is a genuine conflict.
     seen_methods: set[str] = set()
 
-    for cmd in commands:
+    def check_command(cmd: CommandDef) -> None:
         assert cmd.name, "Command has empty name"
         assert cmd.help, f"Command '{cmd.name}' has empty help text"
         assert cmd.handler_method, f"Command '{cmd.name}' has empty handler_method"
@@ -83,6 +91,29 @@ def assert_interface_well_formed(
                 f"Command '{cmd.name}': param name '{param.name}' "
                 f"is not a valid Python identifier"
             )
+            assert not (param.is_flag and param.default is REQUIRED), (
+                f"Command '{cmd.name}': param '{param.name}' is a boolean flag "
+                f"(is_flag=True) with no default; give it an explicit default "
+                f"(e.g. default=False)"
+            )
+
+    def check_group(group: CommandGroupSpec) -> None:
+        # Command names need only be unique among siblings — two different
+        # subgroups may legitimately expose the same command name.
+        seen_names: set[str] = set()
+        for cmd in group.commands:
+            check_command(cmd)
+            assert (
+                cmd.name not in seen_names
+            ), f"Duplicate command name '{cmd.name}' in group '{group.name}'"
+            seen_names.add(cmd.name)
+        for sub in group.subgroups:
+            check_group(sub)
+
+    if isinstance(spec, SingleCommandSpec):
+        check_command(spec.command)
+    else:
+        check_group(spec)
 
 
 def assert_handler_satisfies(
@@ -91,10 +122,15 @@ def assert_handler_satisfies(
 ) -> None:
     """Validate that *handler* implements all methods required by *spec*.
 
-    Delegates to ``validate_interface_handler`` which raises
-    ``InterfaceValidationError`` with all violations listed.
+    Delegates to ``validate_interface_handler`` and re-raises its
+    ``InterfaceValidationError`` as an ``AssertionError`` so all three
+    ``assert_*`` helpers fail with the same exception type — plugin authors
+    can write ``pytest.raises(AssertionError)`` uniformly across them.
     """
-    validate_interface_handler(spec, handler)
+    try:
+        validate_interface_handler(spec, handler)
+    except InterfaceValidationError as e:
+        raise AssertionError(str(e)) from e
 
 
 def assert_builds_valid_spec(
@@ -104,9 +140,16 @@ def assert_builds_valid_spec(
     """Full integration check: spec + handler produce a valid ``CommandSpec``.
 
     Builds the ``CommandSpec`` (with validation) and verifies that the
-    resulting Click command tree was created successfully.
+    resulting Click command tree was created successfully. Any build or
+    validation failure (``InterfaceValidationError`` for a missing handler
+    method, ``ValueError`` for a malformed spec) is re-raised as an
+    ``AssertionError`` so this helper fails with the same exception type as
+    its siblings.
     """
-    result = build_command_spec(spec, handler, validate=True)
+    try:
+        result = build_command_spec(spec, handler, validate=True)
+    except (InterfaceValidationError, ValueError) as e:
+        raise AssertionError(str(e)) from e
     assert (
         result.command is not None
     ), "build_command_spec produced a None Click command"

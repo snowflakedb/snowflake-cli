@@ -26,6 +26,7 @@ from snowflake.cli.api.plugins.command.bridge import (
     InterfaceValidationError,
     _collect_commands,
     build_command_spec,
+    register_decorator,
     validate_interface_handler,
 )
 from snowflake.cli.api.plugins.command.interface import (
@@ -242,6 +243,39 @@ class TestBuildCommandSpec:
         result = build_command_spec(spec, Handler())
         assert result.command is not None
 
+    def test_required_flag_raises(self):
+        # A boolean flag with no default (default=REQUIRED) is nonsensical and
+        # must raise rather than being silently coerced to False.
+        spec = CommandGroupSpec(
+            name="flags",
+            help="Flags test.",
+            commands=(
+                CommandDef(
+                    name="run",
+                    help="Run.",
+                    handler_method="run",
+                    params=(
+                        ParamDef(
+                            name="force",
+                            type=bool,
+                            kind=ParamKind.OPTION,
+                            cli_names=("--force",),
+                            is_flag=True,
+                            # default omitted => REQUIRED
+                            help="Force it",
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        class Handler(CommandHandler):
+            def run(self, force: bool = False) -> CommandResult:
+                return MessageResult(f"force={force}")
+
+        with pytest.raises(ValueError, match="required flag is meaningless"):
+            build_command_spec(spec, Handler())
+
     def test_unknown_decorator_raises(self):
         spec = CommandGroupSpec(
             name="bad",
@@ -262,3 +296,57 @@ class TestBuildCommandSpec:
 
         with pytest.raises(ValueError, match="Unknown decorator"):
             build_command_spec(spec, Handler())
+
+
+# ---------------------------------------------------------------------------
+# Decorator application order
+# ---------------------------------------------------------------------------
+
+
+class TestDecoratorOrder:
+    def test_decorators_applied_outermost_first(self):
+        """``decorators=("outer", "inner")`` must produce ``outer(inner(fn))``."""
+        from snowflake.cli.api.plugins.command.bridge import _DECORATOR_REGISTRY
+
+        applied: list[str] = []
+
+        def make_recorder(tag: str):
+            def factory():
+                def decorator(fn):
+                    # Records when this decorator is *applied* to the function.
+                    applied.append(tag)
+                    return fn
+
+                return decorator
+
+            return factory
+
+        register_decorator("rec_outer", make_recorder("outer"))
+        register_decorator("rec_inner", make_recorder("inner"))
+        try:
+            spec = CommandGroupSpec(
+                name="deco",
+                help="Deco.",
+                commands=(
+                    CommandDef(
+                        name="run",
+                        help="Run.",
+                        handler_method="run",
+                        decorators=("rec_outer", "rec_inner"),
+                    ),
+                ),
+            )
+
+            class Handler(CommandHandler):
+                def run(self) -> CommandResult:
+                    return MessageResult("ok")
+
+            build_command_spec(spec, Handler())
+        finally:
+            _DECORATOR_REGISTRY.pop("rec_outer", None)
+            _DECORATOR_REGISTRY.pop("rec_inner", None)
+
+        # _register_command iterates reversed(decorators), so the innermost one
+        # ("rec_inner") wraps the raw function first and "rec_outer" wraps that:
+        # the resulting structure is outer(inner(fn)).
+        assert applied == ["inner", "outer"]

@@ -42,8 +42,8 @@ Typical usage in a plugin's ``interface.py``::
     )
 
     class MyHandler(CommandHandler):
-        @abstractmethod
-        def run(self, name: str) -> CommandResult: ...
+        def run(self, name: str) -> CommandResult:
+            return MessageResult(f"Hello, {name}!")
 """
 
 from __future__ import annotations
@@ -185,13 +185,22 @@ class SingleCommandSpec:
 
 
 class CommandHandler(ABC):
-    """Base class for plugin command handlers.
+    """Marker base class for plugin command handlers.
 
-    Subclass this and declare abstract methods whose names match the
-    ``handler_method`` values in your ``CommandGroupSpec`` / ``SingleCommandSpec``.
+    Subclass this and implement one method per ``handler_method`` named in your
+    ``CommandGroupSpec`` / ``SingleCommandSpec``.
 
-    The bridge validates at load time that every command in the spec has
-    a corresponding callable method on the handler.
+    .. note::
+        This is intentionally a *marker* base: it declares **no**
+        ``@abstractmethod`` members, so Python's ABC machinery enforces
+        nothing and any subclass can be instantiated freely. The real
+        contract — that every declared ``handler_method`` exists and is
+        callable — is enforced by :func:`validate_interface_handler` at
+        bridge build time (and surfaced early via ``assert_handler_satisfies``).
+        Enforcement is deferred to the bridge so the spec (plain data) stays
+        the single source of truth for which methods are required, rather than
+        duplicating that list as abstract declarations here.
     """
 
+    # No abstract methods by design — see the note in the docstring above.
     pass

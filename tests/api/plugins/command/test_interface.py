@@ -137,9 +137,21 @@ class TestSingleCommandSpec:
 
 
 class TestCommandHandler:
-    def test_is_abstract(self):
-        # Cannot instantiate directly if subclass has abstract methods
-        assert issubclass(CommandHandler, CommandHandler)
+    def test_is_marker_base_with_no_abstract_methods(self):
+        # CommandHandler is a *marker* base: it declares no @abstractmethod
+        # members, so Python's ABC machinery enforces nothing. The real
+        # contract (every declared handler_method exists and is callable) is
+        # enforced by the bridge's validate_interface_handler, not by ABC.
+        assert CommandHandler.__abstractmethods__ == frozenset()
+
+    def test_subclass_is_instantiable(self):
+        # Because there are no abstract methods, even an empty subclass can be
+        # instantiated freely — ABC does not block it. This documents that
+        # enforcement is deferred to the bridge rather than the type system.
+        class Empty(CommandHandler):
+            pass
+
+        assert isinstance(Empty(), CommandHandler)
 
 
 class TestRequiredSentinel:
