@@ -1175,7 +1175,11 @@ class TestDBTExecute:
             mock_connect.mocked_ctx.get_query() == "EXECUTE DBT PROJECT pipeline_name "
             "ENV_VARS=('DBT_BAR'='2', 'DBT_FOO'='1') args='run'"
         )
-        assert "forwarded 2 shell environment variable(s)" in result.output
+        assert (
+            "forwarded 2 shell environment variables starting with DBT_*"
+            in result.output
+        )
+        assert "the DBT_ prefix" in result.output
 
     def test_use_shell_env_vars_drops_secret_prefix(
         self, mock_connect, mock_cursor, runner, clean_dbt_env
@@ -1205,7 +1209,7 @@ class TestDBTExecute:
         )
         assert "should-not-appear" not in query
         assert "should-not-appear" not in result.output
-        assert "dropped 1 DBT_ENV_SECRET_* environment variable(s)" in result.output
+        assert "dropped 1 DBT_ENV_SECRET_* environment variable from" in result.output
 
     def test_use_shell_env_vars_only_secrets_present(
         self, mock_connect, mock_cursor, runner, clean_dbt_env
@@ -1233,7 +1237,7 @@ class TestDBTExecute:
             mock_connect.mocked_ctx.get_query()
             == "EXECUTE DBT PROJECT pipeline_name args='run'"
         )
-        assert "dropped 1 DBT_ENV_SECRET_* environment variable(s)" in result.output
+        assert "dropped 1 DBT_ENV_SECRET_* environment variable from" in result.output
         # The dropped-secret message explains the empty result; the generic
         # "no DBT_* found / how to export" hint must NOT fire (the user clearly
         # knows how to export — they exported a secret).
@@ -1303,7 +1307,7 @@ class TestDBTExecute:
             mock_connect.mocked_ctx.get_query() == "EXECUTE DBT PROJECT pipeline_name "
             "ENV_VARS=('DBT_FOO'='1') args='run'"
         )
-        assert "skipped 1 DBT_* shell environment variable(s)" in result.output
+        assert "skipped 1 DBT_* shell environment variable that" in result.output
         # Forwarding still happened, so the empty-state hint must not fire.
         assert "no DBT_* environment variables found" not in result.output
 

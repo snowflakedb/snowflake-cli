@@ -707,6 +707,29 @@ dev
         assert "does not exist or is not accessible" in exc_info.value.message
         assert "test_role" in exc_info.value.message
 
+    @pytest.mark.parametrize(
+        "role_expr",
+        [
+            "{{ env_var('DBT_ROLE') }}",
+            '{{ env_var("DBT_ROLE") }}',
+            "{{ env_var('DBT_ROLE', 'default_role') }}",
+            "{{env_var('DBT_ROLE')}}",
+            "{{ select CURRENT_ROLE() }}",
+            "{{ some_unknown_expr }}",
+        ],
+    )
+    def test_validate_profiles_skips_role_validation_for_jinja_expression(
+        self, mock_validate_role, project_path, profile, role_expr
+    ):
+        profile["dev"]["outputs"]["local"]["role"] = role_expr
+        self._generate_profile(project_path, profile)
+
+        DBTManager()._validate_profiles(  # noqa: SLF001
+            SecurePath(project_path), "dev", None
+        )
+
+        mock_validate_role.assert_not_called()
+
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
     def test_deploy_create_with_dbt_version(
