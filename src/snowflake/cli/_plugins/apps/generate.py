@@ -28,11 +28,14 @@ def _generate_snowflake_yml(
 
     Required keys: ``database``, ``schema``, ``warehouse``.
 
-    Optional keys: ``build_compute_pool``, ``service_compute_pool``,
-    ``build_eai``.  When omitted or ``None`` the corresponding block is left
-    out of the generated YAML, letting the server allocate compute pools at
-    deploy time.  ``build_eai`` is omitted when no external access
-    integration is required by the builder service.
+    Optional keys: ``build_eai``.  When omitted or ``None`` the corresponding
+    block is left out of the generated YAML.  ``build_eai`` is omitted when no
+    external access integration is required by the builder service.
+
+    Compute pools are never written: app services always run on
+    server-managed compute pools, so ``snow app setup`` does not configure
+    ``build_compute_pool`` / ``service_compute_pool``. Existing projects that
+    set those fields by hand continue to work at deploy time.
 
     The artifact repository is omitted from the generated YAML; the CLI
     will default to ``<app-id>_REPO`` at deploy time.
@@ -51,8 +54,6 @@ def _generate_snowflake_yml(
     database = resolved["database"]
     schema = resolved["schema"]
     warehouse = resolved["warehouse"]
-    build_compute_pool = resolved.get("build_compute_pool")
-    service_compute_pool = resolved.get("service_compute_pool")
     build_eai = resolved.get("build_eai")
 
     if use_workspace:
@@ -66,18 +67,6 @@ def _generate_snowflake_yml(
         )
     else:
         code_storage_block = f"\n            code_stage: {app_id.upper()}_CODE\n"
-
-    build_compute_pool_block = (
-        f"\n            build_compute_pool:\n              name: {build_compute_pool}"
-        if build_compute_pool
-        else ""
-    )
-
-    service_compute_pool_block = (
-        f"\n            service_compute_pool:\n              name: {service_compute_pool}"
-        if service_compute_pool
-        else ""
-    )
 
     build_eai_block = (
         f"\n            build_eai:\n              name: {build_eai}"
@@ -109,8 +98,6 @@ def _generate_snowflake_yml(
                   - snowflake.log
 
             query_warehouse: {warehouse}"""
-        + build_compute_pool_block
-        + service_compute_pool_block
         + build_eai_block
         + code_storage_block
     )

@@ -598,8 +598,6 @@ class TestGenerateSnowflakeYml:
         "database": "TEST_DB",
         "schema": "SNOW_APPS",
         "warehouse": "TEST_WH",
-        "build_compute_pool": "MY_POOL",
-        "service_compute_pool": "MY_POOL",
         "build_eai": "MY_EAI",
     }
 
@@ -612,7 +610,6 @@ class TestGenerateSnowflakeYml:
         assert "database: TEST_DB" in result
         assert "schema: SNOW_APPS" in result
         assert "query_warehouse: TEST_WH" in result
-        assert "name: MY_POOL" in result
         assert "name: MY_EAI" in result
         # code_workspace is a shared workspace, fully-qualified.
         assert "code_workspace: TEST_DB.SNOW_APPS.SNOWFLAKE_APPS" in result
@@ -647,42 +644,14 @@ class TestGenerateSnowflakeYml:
         result = _generate_snowflake_yml("my_app", resolved, use_workspace=False)
         assert "build_eai" not in result
 
-    def test_build_compute_pool_omitted_when_none(self):
-        """When ``build_compute_pool`` is None (e.g. account opted into a
-        managed build compute pool), the generated YAML omits the
-        ``build_compute_pool`` block but still emits
-        ``service_compute_pool``."""
-        resolved = {**self._BASE_RESOLVED, "build_compute_pool": None}
-        result = _generate_snowflake_yml("my_app", resolved, use_workspace=False)
-        assert "build_compute_pool" not in result
-        assert "service_compute_pool" in result
-        assert "None" not in result
-
-    def test_build_compute_pool_omitted_when_missing_key(self):
-        """``build_compute_pool`` may be omitted from the resolved dict
-        entirely; the generated YAML still produces a valid project."""
-        resolved = {
-            k: v for k, v in self._BASE_RESOLVED.items() if k != "build_compute_pool"
-        }
-        result = _generate_snowflake_yml("my_app", resolved, use_workspace=False)
-        assert "build_compute_pool" not in result
-        assert "service_compute_pool" in result
-
-    def test_service_compute_pool_omitted_when_none(self):
-        """When ``service_compute_pool`` is None the generated YAML omits
-        the ``service_compute_pool`` block."""
-        resolved = {**self._BASE_RESOLVED, "service_compute_pool": None}
-        result = _generate_snowflake_yml("my_app", resolved, use_workspace=False)
-        assert "service_compute_pool" not in result
-        assert "None" not in result
-
-    def test_both_compute_pools_omitted_when_none(self):
-        """The managed-compute-pool flow omits both pool blocks while still
-        producing a valid YAML body."""
+    def test_compute_pools_never_emitted(self):
+        """App services run on server-managed compute pools, so the generated
+        YAML never contains compute-pool blocks — even if the resolved values
+        somehow carry them."""
         resolved = {
             **self._BASE_RESOLVED,
-            "build_compute_pool": None,
-            "service_compute_pool": None,
+            "build_compute_pool": "MY_POOL",
+            "service_compute_pool": "SVC_POOL",
         }
         result = _generate_snowflake_yml("my_app", resolved, use_workspace=False)
         assert "build_compute_pool" not in result
@@ -691,20 +660,17 @@ class TestGenerateSnowflakeYml:
         assert "query_warehouse: TEST_WH" in result
         assert "build_eai" in result
 
-    def test_yml_without_compute_pools_is_valid_project_definition(self):
-        """A generated YAML without either compute-pool block still parses
-        cleanly into a project definition."""
+    def test_generated_yml_has_unset_compute_pools_when_parsed(self):
+        """The generated YAML (without compute-pool blocks) parses cleanly
+        into a project definition with unset compute pools."""
         import yaml
         from snowflake.cli.api.utils.definition_rendering import (
             render_definition_template,
         )
 
-        resolved = {
-            **self._BASE_RESOLVED,
-            "build_compute_pool": None,
-            "service_compute_pool": None,
-        }
-        raw_yml = _generate_snowflake_yml("my_app", resolved, use_workspace=False)
+        raw_yml = _generate_snowflake_yml(
+            "my_app", self._BASE_RESOLVED, use_workspace=False
+        )
         definition_input = yaml.safe_load(raw_yml)
         result = render_definition_template(definition_input, {})
         entity = result.project_definition.entities["my_app"]
@@ -2403,16 +2369,6 @@ class TestFetchSnowAppsParameters:
                         "level": "ACCOUNT",
                     },
                     {
-                        "key": "DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL",
-                        "value": "MY_POOL",
-                        "level": "ACCOUNT",
-                    },
-                    {
-                        "key": "DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL",
-                        "value": "SVC_POOL",
-                        "level": "ACCOUNT",
-                    },
-                    {
                         "key": "DEFAULT_SNOWFLAKE_APPS_BUILD_EXTERNAL_ACCESS_INTEGRATION",
                         "value": "MY_EAI",
                         "level": "ACCOUNT",
@@ -2434,14 +2390,44 @@ class TestFetchSnowAppsParameters:
         result = SnowflakeAppManager().fetch_snow_apps_parameters()
         assert result == {
             "query_warehouse": "MY_WH",
-            "build_compute_pool": "MY_POOL",
-            "service_compute_pool": "SVC_POOL",
             "build_eai": "MY_EAI",
             "database": "MY_DB",
             "schema": "MY_SCHEMA",
         }
         query = mock_execute.call_args[0][0]
         assert "SHOW PARAMETERS LIKE 'DEFAULT_SNOWFLAKE_APPS_%' IN USER" in query
+
+    @patch(EXECUTE_QUERY)
+    def test_ignores_compute_pool_parameters(self, mock_execute):
+        """Compute pool account parameters are no longer fetched — app
+        services run on server-managed compute pools."""
+        cursor = Mock()
+        cursor.__iter__ = Mock(
+            return_value=iter(
+                [
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE",
+                        "value": "MY_WH",
+                        "level": "ACCOUNT",
+                    },
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL",
+                        "value": "MY_POOL",
+                        "level": "ACCOUNT",
+                    },
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL",
+                        "value": "SVC_POOL",
+                        "level": "ACCOUNT",
+                    },
+                ]
+            )
+        )
+        mock_execute.return_value = cursor
+        result = SnowflakeAppManager().fetch_snow_apps_parameters()
+        assert result == {"query_warehouse": "MY_WH"}
+        assert "build_compute_pool" not in result
+        assert "service_compute_pool" not in result
 
     @patch(EXECUTE_QUERY)
     def test_ignores_empty_string_values(self, mock_execute):
@@ -2455,7 +2441,7 @@ class TestFetchSnowAppsParameters:
                         "level": "ACCOUNT",
                     },
                     {
-                        "key": "DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL",
+                        "key": "DEFAULT_SNOWFLAKE_APPS_BUILD_EXTERNAL_ACCESS_INTEGRATION",
                         "value": "",
                         "level": "ACCOUNT",
                     },
@@ -2465,7 +2451,7 @@ class TestFetchSnowAppsParameters:
         mock_execute.return_value = cursor
         result = SnowflakeAppManager().fetch_snow_apps_parameters()
         assert result == {"query_warehouse": "MY_WH"}
-        assert "build_compute_pool" not in result
+        assert "build_eai" not in result
 
     @patch(EXECUTE_QUERY)
     def test_ignores_unknown_parameters(self, mock_execute):
@@ -2535,13 +2521,13 @@ class TestFetchSnowAppsParameters:
                     # level="" means Snowflake is reporting the built-in default
                     # (e.g. after ALTER ACCOUNT UNSET). Should be skipped.
                     {
-                        "key": "DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL",
-                        "value": "SYSTEM_COMPUTE_POOL_CPU",
+                        "key": "DEFAULT_SNOWFLAKE_APPS_BUILD_EXTERNAL_ACCESS_INTEGRATION",
+                        "value": "SYSTEM_DEFAULT_EAI",
                         "level": "",
                     },
                     {
-                        "key": "DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL",
-                        "value": "SYSTEM_COMPUTE_POOL_CPU",
+                        "key": "DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE",
+                        "value": "SYSTEM_DEFAULT_DB",
                         "level": "",
                     },
                     # Explicitly set at account level — should be included.
@@ -2556,8 +2542,8 @@ class TestFetchSnowAppsParameters:
         mock_execute.return_value = cursor
         result = SnowflakeAppManager().fetch_snow_apps_parameters()
         assert result == {"query_warehouse": "MY_WH"}
-        assert "build_compute_pool" not in result
-        assert "service_compute_pool" not in result
+        assert "build_eai" not in result
+        assert "database" not in result
 
 
 # ── _resolve_deploy_defaults tests ────────────────────────────────────
@@ -2631,8 +2617,6 @@ class TestResolveDeployDefaults:
         FETCH_SNOW_APPS_PARAMS,
         return_value={
             "query_warehouse": "PARAM_WH",
-            "build_compute_pool": "PARAM_POOL",
-            "service_compute_pool": "PARAM_SVC_POOL",
             "build_eai": "PARAM_EAI",
             "database": "PARAM_DB",
             "schema": "PARAM_SCHEMA",
@@ -2647,11 +2631,13 @@ class TestResolveDeployDefaults:
         entity = self._make_entity(database=None, schema=None)
         result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
         assert result["query_warehouse"] == "PARAM_WH"
-        assert result["build_compute_pool"] == "PARAM_POOL"
-        assert result["service_compute_pool"] == "PARAM_SVC_POOL"
         assert result["build_eai"] == "PARAM_EAI"
         assert result["database"] == "PARAM_DB"
         assert result["schema"] == "PARAM_SCHEMA"
+        # Compute pools are never supplied by account parameters; with no
+        # snowflake.yml values they stay unset (server-managed).
+        assert result["build_compute_pool"] is None
+        assert result["service_compute_pool"] is None
 
     @patch(
         FETCH_SNOW_APPS_PARAMS,
@@ -3083,8 +3069,6 @@ class TestSetupCommand:
             "database": "PARAM_DB",
             "schema": "PARAM_SCHEMA",
             "query_warehouse": "PARAM_WH",
-            "build_compute_pool": "PARAM_POOL",
-            "service_compute_pool": "PARAM_SVC_POOL",
             "build_eai": "PARAM_EAI",
         }
 
@@ -3097,8 +3081,9 @@ class TestSetupCommand:
         resolved = mock_gen.call_args[0][1]
         assert resolved["database"] == "PARAM_DB"
         assert resolved["warehouse"] == "PARAM_WH"
-        assert resolved["build_compute_pool"] == "PARAM_POOL"
         assert resolved["build_eai"] == "PARAM_EAI"
+        assert "build_compute_pool" not in resolved
+        assert "service_compute_pool" not in resolved
         assert mock_gen.call_args.kwargs["use_workspace"] is False
 
     @patch(
@@ -3231,8 +3216,6 @@ class TestSetupCommand:
             "database": "PARAM_DB",
             "schema": "PARAM_SCHEMA",
             "query_warehouse": "PARAM_WH",
-            "build_compute_pool": "PARAM_POOL",
-            "service_compute_pool": "PARAM_SVC_POOL",
             "build_eai": "PARAM_EAI",
         }
 
@@ -3311,8 +3294,6 @@ class TestSetupCommand:
             "database": "PARAM_DB",
             "schema": "PARAM_SCHEMA",
             "query_warehouse": "PARAM_WH",
-            "build_compute_pool": "PARAM_POOL",
-            "service_compute_pool": "PARAM_SVC_POOL",
             "build_eai": "PARAM_EAI",
         }
 
@@ -3337,8 +3318,6 @@ class TestSetupCommand:
             "database": "PARAM_DB",
             "schema": "PARAM_SCHEMA",
             "query_warehouse": "PARAM_WH",
-            "build_compute_pool": "PARAM_POOL",
-            "service_compute_pool": "PARAM_SVC_POOL",
             # no build_eai
         }
 
@@ -3361,8 +3340,6 @@ class TestSetupCommand:
             "database": "PARAM_DB",
             "schema": "PARAM_SCHEMA",
             "query_warehouse": "PARAM_WH",
-            "build_compute_pool": "PARAM_POOL",
-            "service_compute_pool": "PARAM_SVC_POOL",
             "build_eai": "PARAM_EAI",
         }
 
@@ -3385,8 +3362,9 @@ class TestSetupCommand:
             assert parsed["success"] is False
             assert parsed["database"] == "PARAM_DB"
             assert parsed["warehouse"] == "PARAM_WH"
-            assert parsed["build_compute_pool"] == "PARAM_POOL"
             assert parsed["build_eai"] == "PARAM_EAI"
+            assert "build_compute_pool" not in parsed
+            assert "service_compute_pool" not in parsed
 
     @patch(
         "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
@@ -3403,8 +3381,6 @@ class TestSetupCommand:
             "database": "PARAM_DB",
             "schema": "PARAM_SCHEMA",
             "query_warehouse": "PARAM_WH",
-            "build_compute_pool": "PARAM_POOL",
-            "service_compute_pool": "PARAM_SVC_POOL",
             "build_eai": "PARAM_EAI",
         }
 
@@ -3440,8 +3416,6 @@ class TestSetupCommand:
             "database": "PARAM_DB",
             "schema": "PARAM_SCHEMA",
             "query_warehouse": "PARAM_WH",
-            "build_compute_pool": "PARAM_POOL",
-            "service_compute_pool": "PARAM_SVC_POOL",
             "build_eai": "PARAM_EAI",
         }
 
@@ -3452,7 +3426,8 @@ class TestSetupCommand:
             assert result.exit_code == 0, result.output
             assert "database: PARAM_DB" in result.output
             assert "warehouse: PARAM_WH" in result.output
-            assert "build_compute_pool: PARAM_POOL" in result.output
+            assert "build_compute_pool" not in result.output
+            assert "service_compute_pool" not in result.output
 
     @patch(
         "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
@@ -3463,8 +3438,6 @@ class TestSetupCommand:
         """CLI flags should override Snowflake App Runtime parameters."""
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.fetch_snow_apps_parameters.return_value = {
-            "build_compute_pool": "PARAM_POOL",
-            "service_compute_pool": "PARAM_SVC_POOL",
             "build_eai": "PARAM_EAI",
             "database": "PARAM_DB",
             "schema": "PARAM_SCHEMA",
@@ -3480,8 +3453,6 @@ class TestSetupCommand:
                     "setup",
                     "--app-name",
                     "my_app",
-                    "--compute-pool",
-                    "FLAG_POOL",
                     "--build-eai",
                     "FLAG_EAI",
                 ]
@@ -3489,7 +3460,6 @@ class TestSetupCommand:
             assert result.exit_code == 0, result.output
 
         resolved = mock_gen.call_args[0][1]
-        assert resolved["build_compute_pool"] == "FLAG_POOL"
         assert resolved["build_eai"] == "FLAG_EAI"
         # These come from params since no flag overrides them
         assert resolved["database"] == "PARAM_DB"
@@ -3783,8 +3753,6 @@ class TestSetupCommand:
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.fetch_snow_apps_parameters.return_value = {
             "query_warehouse": "PARAM_WH",
-            "build_compute_pool": "PARAM_POOL",
-            "service_compute_pool": "PARAM_SVC_POOL",
             "build_eai": "PARAM_EAI",
             "database": "PARAM_DB",
             "schema": "PARAM_SCHEMA",
@@ -3809,8 +3777,6 @@ class TestSetupCommand:
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.fetch_snow_apps_parameters.return_value = {
             "query_warehouse": "PARAM_WH",
-            "build_compute_pool": "PARAM_POOL",
-            "service_compute_pool": "PARAM_SVC_POOL",
             "build_eai": "PARAM_EAI",
         }
         mock_mgr.get_personal_database.return_value = "USER$MYUSER"
@@ -3839,8 +3805,6 @@ class TestSetupCommand:
         mock_mgr.fetch_snow_apps_parameters.return_value = {
             "schema": "PARAM_SCHEMA",
             "query_warehouse": "PARAM_WH",
-            "build_compute_pool": "PARAM_POOL",
-            "service_compute_pool": "PARAM_SVC_POOL",
             "build_eai": "PARAM_EAI",
         }
         mock_mgr.get_personal_database.return_value = None
@@ -3885,13 +3849,12 @@ class TestSetupCommand:
         return_value="definition_version: '2'\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
-    def test_compute_pools_resolved_from_account_params(
+    def test_compute_pools_not_resolved_from_account_params(
         self, mock_mgr_cls, mock_gen, runner, tmp_path
     ):
-        """``build_compute_pool`` and ``service_compute_pool`` are resolved
-        from the ``DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL`` /
-        ``DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL`` account parameters and
-        forwarded to the generated snowflake.yml."""
+        """App services run on server-managed compute pools, so ``snow app
+        setup`` never writes compute pools — even if a (legacy) account
+        parameter still surfaces them."""
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.fetch_snow_apps_parameters.return_value = {
             "database": "PARAM_DB",
@@ -3906,26 +3869,22 @@ class TestSetupCommand:
             assert result.exit_code == 0, result.output
 
         resolved = mock_gen.call_args[0][1]
-        assert resolved["build_compute_pool"] == "PARAM_POOL"
-        assert resolved["service_compute_pool"] == "PARAM_SVC_POOL"
+        assert "build_compute_pool" not in resolved
+        assert "service_compute_pool" not in resolved
 
     @patch(
         "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
         return_value="definition_version: '2'\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
-    def test_compute_pool_flag_overrides_account_params(
-        self, mock_mgr_cls, mock_gen, runner, tmp_path
-    ):
-        """The (hidden) ``--compute-pool`` flag takes precedence over the
-        account-parameter compute pools for both build and service pools."""
+    def test_compute_pool_flag_is_noop(self, mock_mgr_cls, mock_gen, runner, tmp_path):
+        """The (hidden) ``--compute-pool`` flag is accepted for backward
+        compatibility but no longer configures any compute pool."""
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.fetch_snow_apps_parameters.return_value = {
             "database": "PARAM_DB",
             "schema": "PARAM_SCHEMA",
             "query_warehouse": "PARAM_WH",
-            "build_compute_pool": "PARAM_POOL",
-            "service_compute_pool": "PARAM_SVC_POOL",
         }
 
         with change_directory(tmp_path):
@@ -3942,16 +3901,15 @@ class TestSetupCommand:
             assert result.exit_code == 0, result.output
 
         resolved = mock_gen.call_args[0][1]
-        assert resolved["build_compute_pool"] == "FLAG_POOL"
-        assert resolved["service_compute_pool"] == "FLAG_POOL"
+        assert "build_compute_pool" not in resolved
+        assert "service_compute_pool" not in resolved
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_compute_pools_omitted_when_no_source_provides_them(
         self, mock_mgr_cls, runner, tmp_path
     ):
-        """When neither the flag nor account parameters provide compute pools,
-        both fields are omitted from setup output so the server allocates the
-        pools at deploy time."""
+        """Compute pools are always omitted from setup output so the server
+        allocates the pools at deploy time."""
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.fetch_snow_apps_parameters.return_value = {
             "database": "PARAM_DB",
@@ -3968,9 +3926,11 @@ class TestSetupCommand:
             assert "service_compute_pool" not in result.output
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
-    def test_compute_pools_dry_run_json_output(self, mock_mgr_cls, runner, tmp_path):
-        """In JSON output mode, the account-parameter compute pools are
-        reported under their resolution keys."""
+    def test_compute_pools_absent_from_dry_run_json_output(
+        self, mock_mgr_cls, runner, tmp_path
+    ):
+        """JSON output never reports compute pools, even when a legacy account
+        parameter still surfaces them."""
         import json as json_mod
 
         mock_mgr = mock_mgr_cls.return_value
@@ -3997,8 +3957,8 @@ class TestSetupCommand:
             assert result.exit_code == 0, result.output
 
         parsed = json_mod.loads(result.output)
-        assert parsed["build_compute_pool"] == "PARAM_POOL"
-        assert parsed["service_compute_pool"] == "PARAM_SVC_POOL"
+        assert "build_compute_pool" not in parsed
+        assert "service_compute_pool" not in parsed
 
     @patch(
         "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
@@ -4014,14 +3974,10 @@ class TestSetupCommand:
         content round-trips without corruption on non-UTF-8 platforms."""
         monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "utf-8")
         mock_mgr = mock_mgr_cls.return_value
-        mock_mgr.is_managed_compute_pool_enabled.return_value = False
-        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
         mock_mgr.fetch_snow_apps_parameters.return_value = {
             "database": "PARAM_DB",
             "schema": "PARAM_SCHEMA",
             "query_warehouse": "ENTREPÔT_WH",
-            "build_compute_pool": "PARAM_POOL",
-            "service_compute_pool": "PARAM_SVC_POOL",
             "build_eai": "PARAM_EAI",
         }
 

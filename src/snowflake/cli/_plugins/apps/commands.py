@@ -314,19 +314,11 @@ def snowflake_app_setup(
                 account_param=params.get("query_warehouse"),
                 current_session=session_wh,
             ),
-            # Compute pools are resolved from the (hidden) ``--compute-pool`` flag
-            # and the ``DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL`` /
-            # ``DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL`` account parameters.
-            # Both stay omitted from the generated ``snowflake.yml`` when neither
-            # source provides a value, letting the server pick pools at deploy time.
-            "build_compute_pool": _resolve(
-                user_input=compute_pool,
-                account_param=params.get("build_compute_pool"),
-            ),
-            "service_compute_pool": _resolve(
-                user_input=compute_pool,
-                account_param=params.get("service_compute_pool"),
-            ),
+            # Compute pools are intentionally not resolved or written: app
+            # services always run on server-managed compute pools, so
+            # ``snow app setup`` never configures ``build_compute_pool`` /
+            # ``service_compute_pool``. The (hidden) ``--compute-pool`` flag is
+            # accepted for backward compatibility but no longer has any effect.
             # TODO: Remove --build-eai argument once the builder service no longer
             # requires an external access integration.
             "build_eai": _resolve(

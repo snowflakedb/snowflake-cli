@@ -189,10 +189,13 @@ MAX_PARALLEL_UPLOADS = 5
 
 
 # Mapping from SHOW PARAMETERS result names to internal resolution keys.
+#
+# Compute pools are intentionally absent: app services always run on
+# server-managed compute pools, so the ``DEFAULT_SNOWFLAKE_APPS_*_COMPUTE_POOL``
+# account parameters are no longer fetched. Compute pools are only honored when
+# set explicitly in an existing ``snowflake.yml``.
 _SNOW_APPS_PARAM_MAP = {
     "DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE": "query_warehouse",
-    "DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL": "build_compute_pool",
-    "DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL": "service_compute_pool",
     "DEFAULT_SNOWFLAKE_APPS_BUILD_EXTERNAL_ACCESS_INTEGRATION": "build_eai",
     "DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE": "database",
     "DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA": "schema",
@@ -508,6 +511,11 @@ def _resolve_deploy_defaults(
     ``artifact_repo_database``, ``artifact_repo_schema``, ``database``,
     and ``schema``.  Any of them may still be ``None`` if no source
     provides a value.
+
+    ``build_compute_pool`` and ``service_compute_pool`` are resolved only
+    from ``snowflake.yml`` (tier 1): app services otherwise run on
+    server-managed compute pools, so the account parameters and built-in
+    defaults never supply them.
     """
 
     # ── 1. snowflake.yml values ───────────────────────────────────────
@@ -1187,7 +1195,9 @@ class SnowflakeAppManager(SqlExecutionMixin):
 
         Runs ``SHOW PARAMETERS LIKE 'DEFAULT_SNOWFLAKE_APPS_%' IN USER``
         and returns a dict whose keys match the internal resolution names
-        (``query_warehouse``, ``build_compute_pool``, etc.).
+        (``query_warehouse``, ``build_eai``, etc.). Compute pool parameters
+        are intentionally ignored — app services run on server-managed
+        compute pools.
 
         Empty-string parameter values are treated as "not set" and omitted.
         Returns an empty dict on any error (e.g. insufficient privileges).
