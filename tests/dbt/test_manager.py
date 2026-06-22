@@ -646,6 +646,37 @@ dev
                 assert "password" not in line
                 assert "# " not in line
 
+    def test_prepare_profiles_file_preserves_key_order(self, tmp_path_factory):
+        # Write keys in a deliberately non-alphabetical order.
+        # Alphabetical would be: account < database < password < role < schema < threads < type < user < warehouse
+        # We write:              type < threads < account < user < password < role < warehouse < database < schema
+        raw_yaml = (
+            "dbt_project:\n"
+            "  target: dev\n"
+            "  outputs:\n"
+            "    dev:\n"
+            "      type: snowflake\n"
+            "      threads: 2\n"
+            "      account: acct\n"
+            "      user: usr\n"
+            "      password: pw\n"
+            "      role: ACCOUNTADMIN\n"
+            "      warehouse: XSMALL\n"
+            "      database: MYDB\n"
+            "      schema: PUBLIC\n"
+        )
+        profiles_path = tmp_path_factory.mktemp("profiles")
+        (profiles_path / PROFILES_FILENAME).write_text(raw_yaml)
+        tmp_dbt_path = tmp_path_factory.mktemp("dbt")
+
+        DBTManager._prepare_profiles_file(profiles_path, tmp_dbt_path)  # noqa: SLF001
+
+        staged = (tmp_dbt_path / PROFILES_FILENAME).read_text()
+        # type before account (non-alphabetical), threads before database
+        assert staged.index("type:") < staged.index("account:")
+        assert staged.index("threads:") < staged.index("database:")
+        assert staged.index("warehouse:") < staged.index("database:")
+
     def test_validate_profiles_with_valid_default_target(
         self, mock_validate_role, project_path, profile
     ):
@@ -1278,6 +1309,35 @@ dev
             for line in fp:
                 assert "# " not in line
                 assert "secret hint" not in line
+
+    def test_write_env_file_preserves_key_order(self, tmp_path_factory):
+        # Write DBT_* keys in reverse-alphabetical order.
+        # Alphabetical would be: ALPHA < BETA < GAMMA < ZETA
+        # We write:              ZETA < GAMMA < ALPHA < BETA
+        raw_yaml = (
+            "env_config:\n"
+            "  environments:\n"
+            "  - name: dev\n"
+            "    env:\n"
+            "      DBT_ZETA: z\n"
+            "      DBT_GAMMA: g\n"
+            "      DBT_ALPHA: a\n"
+            "      DBT_BETA: b\n"
+        )
+        env_path = tmp_path_factory.mktemp("envs")
+        (env_path / ENV_FILENAME).write_text(raw_yaml)
+        tmp_dbt_path = tmp_path_factory.mktemp("dbt")
+
+        content = DBTManager._validate_and_parse_env_file(  # noqa: SLF001
+            SecurePath(env_path / ENV_FILENAME)
+        )
+        DBTManager._write_env_file(content, tmp_dbt_path)  # noqa: SLF001
+
+        staged = (tmp_dbt_path / ENV_FILENAME).read_text()
+        # ZETA before GAMMA before ALPHA before BETA (reverse-alphabetical preserved)
+        assert staged.index("DBT_ZETA") < staged.index("DBT_GAMMA")
+        assert staged.index("DBT_GAMMA") < staged.index("DBT_ALPHA")
+        assert staged.index("DBT_ALPHA") < staged.index("DBT_BETA")
 
     def test_validate_and_parse_env_file_rejects_duplicate_keys(self, tmp_path_factory):
         env_path = tmp_path_factory.mktemp("envs")
