@@ -50,6 +50,10 @@ _CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
 _JINJA_EXPR = re.compile(r"\{\{.*?\}\}", re.DOTALL)
 
 
+def _plural(count: int, word: str) -> str:
+    return word if count == 1 else f"{word}s"
+
+
 def _reject_control_chars(value: Optional[str], flag_name: str) -> Optional[str]:
     if value is not None and _CONTROL_CHAR_RE.search(value):
         raise CliError(
@@ -523,37 +527,42 @@ class DBTManager(SqlExecutionMixin):
 
     @staticmethod
     def _prepare_profiles_file(profiles_path: Path, tmp_path: Path):
-        # We need to copy profiles.yml file (not symlink) in order to redact
-        # any comments without changing original file. This can be achieved
-        # with pyyaml, which looses comments while reading a yaml file
         source_profiles_file = SecurePath(profiles_path / PROFILES_FILENAME)
         target_profiles_file = SecurePath(tmp_path / PROFILES_FILENAME)
         if target_profiles_file.exists():
             target_profiles_file.unlink()
-        with source_profiles_file.open(
-            read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
-        ) as sfd, target_profiles_file.open(mode="w") as tfd:
-            yaml.safe_dump(yaml.safe_load(sfd), tfd)
+        with source_profiles_file.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as sfd:
+            raw = sfd.read()
+        try:
+            yaml.load(raw, Loader=_NoDuplicatesSafeLoader)
+        except yaml.constructor.ConstructorError as e:
+            raise CliError(f"Failed to parse {PROFILES_FILENAME}: {e.problem}")
+        except yaml.YAMLError as e:
+            raise CliError(f"{PROFILES_FILENAME} is not valid YAML: {e}")
+        with target_profiles_file.open(mode="w") as tfd:
+            tfd.write(raw)
 
     @staticmethod
-    def _validate_and_parse_env_file(env_file: SecurePath) -> Optional[dict]:
-        """Parse and validate env.yml, rejecting duplicate keys and invalid YAML."""
+    def _validate_and_parse_env_file(env_file: SecurePath) -> str:
+        """Validate env.yml and return its raw contents for verbatim staging."""
         with env_file.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as sfd:
-            try:
-                return yaml.load(sfd, Loader=_NoDuplicatesSafeLoader)
-            except yaml.constructor.ConstructorError as e:
-                raise CliError(f"Failed to parse {ENV_FILENAME}: {e.problem}")
-            except yaml.YAMLError as e:
-                raise CliError(f"{ENV_FILENAME} is not valid YAML: {e}")
+            raw = sfd.read()
+        try:
+            yaml.load(raw, Loader=_NoDuplicatesSafeLoader)
+        except yaml.constructor.ConstructorError as e:
+            raise CliError(f"Failed to parse {ENV_FILENAME}: {e.problem}")
+        except yaml.YAMLError as e:
+            raise CliError(f"{ENV_FILENAME} is not valid YAML: {e}")
+        return raw
 
     @staticmethod
-    def _write_env_file(content: dict, tmp_path: Path):
-        """Write the parsed env.yml into the staging dir (comments already dropped)."""
+    def _write_env_file(content: str, tmp_path: Path):
+        """Write the validated env.yml into the staging dir verbatim."""
         target_env_file = SecurePath(tmp_path / ENV_FILENAME)
         if target_env_file.exists():
             target_env_file.unlink()
         with target_env_file.open(mode="w") as tfd:
-            yaml.safe_dump(content, tfd)
+            tfd.write(content)
 
     def execute(
         self,
@@ -579,28 +588,25 @@ class DBTManager(SqlExecutionMixin):
         if use_shell_env_vars:
             shell_vars, dropped_secret_count, skipped_count = _collect_shell_env_vars()
             if dropped_secret_count:
-                _var = "variable" if dropped_secret_count == 1 else "variables"
                 cli_console.message(
                     f"--use-shell-env-vars: dropped {dropped_secret_count} "
-                    f"{DBT_ENV_SECRET_PREFIX}* environment {_var} from "
+                    f"{DBT_ENV_SECRET_PREFIX}* environment {_plural(dropped_secret_count, 'variable')} from "
                     "shell. To forward secrets, use the secrets: block in "
                     "env.yml referencing a Snowflake SECRET object, or if "
                     "those are not sensitive, pass them explicitly via "
                     "--env-vars."
                 )
             if skipped_count:
-                _var = "variable" if skipped_count == 1 else "variables"
                 cli_console.message(
                     f"--use-shell-env-vars: skipped {skipped_count} DBT_* shell "
-                    f"environment {_var} that can't be forwarded; keys "
+                    f"environment {_plural(skipped_count, 'variable')} that can't be forwarded; keys "
                     "must be uppercase and contain only letters, digits, and "
                     "underscores (e.g. export DBT_FOO, not DBT_Foo)."
                 )
             if shell_vars:
-                _var = "variable" if len(shell_vars) == 1 else "variables"
                 cli_console.warning(
                     f"--use-shell-env-vars: forwarded {len(shell_vars)} shell "
-                    f"environment {_var} starting with DBT_* into query text. "
+                    f"environment {_plural(len(shell_vars), 'variable')} starting with DBT_* into query text. "
                     "Never put credentials, tokens, passwords, or other "
                     "confidential data in shell environment variables with "
                     "the DBT_ prefix."
