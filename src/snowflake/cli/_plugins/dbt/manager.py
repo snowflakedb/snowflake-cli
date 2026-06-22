@@ -533,7 +533,7 @@ class DBTManager(SqlExecutionMixin):
         with source_profiles_file.open(
             read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
         ) as sfd, target_profiles_file.open(mode="w") as tfd:
-            yaml.safe_dump(yaml.safe_load(sfd), tfd)
+            yaml.safe_dump(yaml.safe_load(sfd), tfd, sort_keys=False)
 
     @staticmethod
     def _validate_and_parse_env_file(env_file: SecurePath) -> Optional[dict]:
@@ -553,7 +553,7 @@ class DBTManager(SqlExecutionMixin):
         if target_env_file.exists():
             target_env_file.unlink()
         with target_env_file.open(mode="w") as tfd:
-            yaml.safe_dump(content, tfd)
+            yaml.safe_dump(content, tfd, sort_keys=False)
 
     def execute(
         self,
