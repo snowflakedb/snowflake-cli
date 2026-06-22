@@ -59,8 +59,10 @@ def assert_interface_well_formed(
     - Every command has a non-empty name, help text, and handler_method.
     - handler_method values are valid Python identifiers and unique across the
       entire tree (each maps to one method on a single handler instance).
-    - Command (CLI) names are unique *within their group* — sibling commands
-      may not collide, but two different subgroups may reuse a name.
+    - CLI names are unique *within their group*: a leaf command and a subgroup
+      share one Click namespace, so no two siblings — command/command,
+      subgroup/subgroup, or command/subgroup — may reuse a name. Different
+      groups may still reuse the same name.
     - Param names are valid Python identifiers.
     - No boolean flag (``is_flag=True``) is left required (``default=REQUIRED``);
       a required flag is meaningless. Mirrors the build-time guard in the bridge.
@@ -98,8 +100,12 @@ def assert_interface_well_formed(
             )
 
     def check_group(group: CommandGroupSpec) -> None:
-        # Command names need only be unique among siblings — two different
-        # subgroups may legitimately expose the same command name.
+        # A leaf command and a subgroup occupy one shared CLI namespace: Typer
+        # registers both onto the same Click group, whose ``commands`` dict is
+        # keyed by name, so any reused name — command/command, subgroup/subgroup,
+        # or command/subgroup — silently shadows the earlier entry. Enforce
+        # uniqueness across the union. Names are scoped to this group only, so a
+        # different group may legitimately reuse them.
         seen_names: set[str] = set()
         for cmd in group.commands:
             check_command(cmd)
@@ -108,6 +114,10 @@ def assert_interface_well_formed(
             ), f"Duplicate command name '{cmd.name}' in group '{group.name}'"
             seen_names.add(cmd.name)
         for sub in group.subgroups:
+            assert (
+                sub.name not in seen_names
+            ), f"Duplicate name '{sub.name}' in group '{group.name}'"
+            seen_names.add(sub.name)
             check_group(sub)
 
     if isinstance(spec, SingleCommandSpec):

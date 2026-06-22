@@ -147,6 +147,52 @@ class TestAssertInterfaceWellFormed:
         )
         assert_interface_well_formed(spec)  # must not raise
 
+    def test_duplicate_subgroup_name_in_group_fails(self):
+        # Sibling subgroups share the parent's CLI namespace, so two subgroups
+        # with the same name would silently shadow one another in Typer/Click —
+        # the same class of bug as duplicate command names.
+        spec = CommandGroupSpec(
+            name="root",
+            help="Root.",
+            subgroups=(
+                CommandGroupSpec(
+                    name="dup",
+                    help="First.",
+                    commands=(CommandDef(name="a", help="A.", handler_method="a"),),
+                ),
+                CommandGroupSpec(
+                    name="dup",
+                    help="Second.",
+                    commands=(CommandDef(name="b", help="B.", handler_method="b"),),
+                ),
+            ),
+        )
+        with pytest.raises(AssertionError, match="Duplicate name 'dup'"):
+            assert_interface_well_formed(spec)
+
+    def test_command_and_subgroup_name_collision_fails(self):
+        # A leaf command and a subgroup occupy one namespace within their parent
+        # group, so reusing a name across the two collides just like two
+        # same-named commands would.
+        spec = CommandGroupSpec(
+            name="root",
+            help="Root.",
+            commands=(
+                CommandDef(name="overlap", help="Cmd.", handler_method="overlap"),
+            ),
+            subgroups=(
+                CommandGroupSpec(
+                    name="overlap",
+                    help="Group.",
+                    commands=(
+                        CommandDef(name="inner", help="Inner.", handler_method="inner"),
+                    ),
+                ),
+            ),
+        )
+        with pytest.raises(AssertionError, match="Duplicate name 'overlap'"):
+            assert_interface_well_formed(spec)
+
     def test_required_boolean_flag_fails(self):
         spec = CommandGroupSpec(
             name="bad",
