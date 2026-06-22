@@ -45,6 +45,9 @@ DBT_ENV_SECRET_PREFIX = "DBT_ENV_SECRET_"
 _ENV_VAR_KEY_PREFIX = "DBT_"
 _ENV_VAR_KEY_RE = re.compile(r"^[A-Za-z0-9_]+$")
 _CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
+# Matches any Jinja expression ({{ ... }}). Used to skip local role validation for
+# templated values that GS resolves at CREATE/execute time.
+_JINJA_EXPR = re.compile(r"\{\{.*?\}\}", re.DOTALL)
 
 
 def _reject_control_chars(value: Optional[str], flag_name: str) -> Optional[str]:
@@ -506,7 +509,7 @@ class DBTManager(SqlExecutionMixin):
                 f"Missing required fields: {', '.join(sorted(missing_keys))} in target {target_name}"
             )
         if role := target_details.get("role"):
-            if not self._validate_role(role_name=role):
+            if not _JINJA_EXPR.search(role) and not self._validate_role(role_name=role):
                 errors.append(f"Role '{role}' does not exist or is not accessible.")
         return errors
 
@@ -576,27 +579,31 @@ class DBTManager(SqlExecutionMixin):
         if use_shell_env_vars:
             shell_vars, dropped_secret_count, skipped_count = _collect_shell_env_vars()
             if dropped_secret_count:
+                _var = "variable" if dropped_secret_count == 1 else "variables"
                 cli_console.message(
                     f"--use-shell-env-vars: dropped {dropped_secret_count} "
-                    f"{DBT_ENV_SECRET_PREFIX}* environment variable(s) from "
+                    f"{DBT_ENV_SECRET_PREFIX}* environment {_var} from "
                     "shell. To forward secrets, use the secrets: block in "
                     "env.yml referencing a Snowflake SECRET object, or if "
                     "those are not sensitive, pass them explicitly via "
                     "--env-vars."
                 )
             if skipped_count:
+                _var = "variable" if skipped_count == 1 else "variables"
                 cli_console.message(
                     f"--use-shell-env-vars: skipped {skipped_count} DBT_* shell "
-                    "environment variable(s) that can't be forwarded; keys "
+                    f"environment {_var} that can't be forwarded; keys "
                     "must be uppercase and contain only letters, digits, and "
                     "underscores (e.g. export DBT_FOO, not DBT_Foo)."
                 )
             if shell_vars:
+                _var = "variable" if len(shell_vars) == 1 else "variables"
                 cli_console.warning(
                     f"--use-shell-env-vars: forwarded {len(shell_vars)} shell "
-                    "environment variable(s) into query text. Never put "
-                    "credentials, tokens, passwords, or other confidential "
-                    "data in shell environment variables with the DBT_ prefix."
+                    f"environment {_var} starting with DBT_* into query text. "
+                    "Never put credentials, tokens, passwords, or other "
+                    "confidential data in shell environment variables with "
+                    "the DBT_ prefix."
                 )
             elif not dropped_secret_count and not skipped_count:
                 cli_console.message(
