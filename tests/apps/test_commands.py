@@ -3103,6 +3103,70 @@ class TestSetupCommand:
 
     @patch(
         "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
+        return_value="definition_version: '2'\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_setup_records_spans(self, mock_mgr_cls, mock_gen, runner, tmp_path):
+        """``snow app setup`` wraps its work in a top-level
+        ``snowflake_app.setup`` span and records child spans for each
+        instrumented phase, including the personal-database lookup and the
+        manifest write."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "database": "PARAM_DB",
+            "schema": "PARAM_SCHEMA",
+            "query_warehouse": "PARAM_WH",
+        }
+
+        with change_directory(tmp_path):
+            _reset_command_metrics()
+            result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+            assert result.exit_code == 0, result.output
+
+            setup_span = _get_completed_span("snowflake_app.setup")
+            resolve_span = _get_completed_span("snowflake_app.setup.resolve_defaults")
+            personal_db_span = _get_completed_span(
+                "snowflake_app.setup.get_personal_database"
+            )
+            write_span = _get_completed_span("snowflake_app.setup.write_manifest")
+
+            # Child spans live underneath the top-level setup span.
+            setup_span_id = setup_span[CLIMetricsSpan.ID_KEY]
+            assert resolve_span[CLIMetricsSpan.PARENT_ID_KEY] == setup_span_id
+            assert personal_db_span[CLIMetricsSpan.PARENT_ID_KEY] == setup_span_id
+            assert write_span[CLIMetricsSpan.PARENT_ID_KEY] == setup_span_id
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_dry_run_skips_write_manifest_span(self, mock_mgr_cls, runner, tmp_path):
+        """A dry run resolves defaults but writes nothing, so the
+        ``snowflake_app.setup.write_manifest`` span must not be recorded while
+        the surrounding spans still are."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "database": "PARAM_DB",
+            "schema": "PARAM_SCHEMA",
+            "query_warehouse": "PARAM_WH",
+        }
+
+        with change_directory(tmp_path):
+            _reset_command_metrics()
+            result = runner.invoke(
+                ["app", "setup", "--app-name", "my_app", "--dry-run"]
+            )
+            assert result.exit_code == 0, result.output
+
+            _get_completed_span("snowflake_app.setup")
+            _get_completed_span("snowflake_app.setup.resolve_defaults")
+            _get_completed_span("snowflake_app.setup.get_personal_database")
+
+            recorded = {
+                span[CLIMetricsSpan.NAME_KEY]
+                for span in get_cli_context_manager().metrics.completed_spans
+            }
+            assert "snowflake_app.setup.write_manifest" not in recorded
+
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
         # "é" is U+00E9: 0xE9 in cp1252, 0xC3 0xA9 in UTF-8.
         return_value="definition_version: '2'\ntitle: é\n",
     )

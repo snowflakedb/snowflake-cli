@@ -195,196 +195,201 @@ def snowflake_app_setup(
     See the ``snow app setup`` command in
     :mod:`snowflake.cli._plugins.nativeapp.commands` for the CLI surface.
     """
-    resolved_app_name = app_name
-    if resolved_app_name is None:
-        derived_app_name = Path.cwd().name
-        # For implicit names, normalize directory strings into a valid
-        # identifier by mapping common separators to "_" and stripping
-        # all other disallowed characters.
-        resolved_app_name = re.sub(
-            r"[^a-zA-Z0-9_]", "", derived_app_name.replace(" ", "_").replace("-", "_")
-        )
-
-    if not resolved_app_name:
-        raise ClickException(
-            "Could not derive app name from the current directory. "
-            "Please provide --app-name."
-        )
-
-    if not re.fullmatch(r"[a-zA-Z0-9_]+", resolved_app_name):
-        raise ClickException(
-            f"Invalid app name '{resolved_app_name}'. "
-            "Only letters, digits, and underscores are allowed."
-        )
-    # snowflake.yml is a CLI-owned manifest that the ``snow app`` commands read
-    # back with the same encoding policy (see _app_group_callback): an explicit
-    # cli.encoding.file_io setting wins, otherwise UTF-8. Writing it the same
-    # way keeps the round-trip consistent regardless of the host code page, even
-    # when the generated content (e.g. a non-Latin app title) is non-ASCII.
-    encoding = get_file_io_encoding() or "utf-8"
-    project_file = Path.cwd() / DEFINITION_FILENAME
-    if not dry_run and project_file.exists():
-        return MessageResult(
-            f"{DEFINITION_FILENAME} already exists. Skipping initialization."
-        )
-
     ctx = get_cli_context()
-    connection_name = (
-        ctx.connection_context.connection_name or get_default_connection_name()
-    )
-    conn_config = get_connection_dict(connection_name)
-
-    manager = SnowflakeAppManager()
     metrics = ctx.metrics
-    with metrics.span("snowflake_app.setup.resolve_defaults"):
-        params = manager.fetch_snow_apps_parameters()
-        # Drop the account-configured destination database/schema the current
-        # role cannot access so resolution falls back to the personal database.
-        params = _filter_accessible_remote_defaults(manager, params)
+    with metrics.span("snowflake_app.setup"):
+        resolved_app_name = app_name
+        if resolved_app_name is None:
+            derived_app_name = Path.cwd().name
+            # For implicit names, normalize directory strings into a valid
+            # identifier by mapping common separators to "_" and stripping
+            # all other disallowed characters.
+            resolved_app_name = re.sub(
+                r"[^a-zA-Z0-9_]",
+                "",
+                derived_app_name.replace(" ", "_").replace("-", "_"),
+            )
 
-    def _resolve(
-        user_input=None,
-        account_param=None,
-        default_value=None,
-        current_session=None,
-    ):
-        """Return (value, source) using a fixed resolution order.
+        if not resolved_app_name:
+            raise ClickException(
+                "Could not derive app name from the current directory. "
+                "Please provide --app-name."
+            )
 
-        Resolution: user_input > account_param > default_value > current_session.
-        """
-        if user_input is not None:
-            return user_input, SOURCE_USER_INPUT
-        if account_param is not None:
-            return account_param, SOURCE_ACCOUNT_PARAM
-        if default_value is not None:
-            return default_value, SOURCE_DEFAULT
-        if current_session is not None:
-            return current_session, SOURCE_CURRENT_SESSION
-        return None, SOURCE_MISSING
+        if not re.fullmatch(r"[a-zA-Z0-9_]+", resolved_app_name):
+            raise ClickException(
+                f"Invalid app name '{resolved_app_name}'. "
+                "Only letters, digits, and underscores are allowed."
+            )
+        # snowflake.yml is a CLI-owned manifest that the ``snow app`` commands read
+        # back with the same encoding policy (see _app_group_callback): an explicit
+        # cli.encoding.file_io setting wins, otherwise UTF-8. Writing it the same
+        # way keeps the round-trip consistent regardless of the host code page, even
+        # when the generated content (e.g. a non-Latin app title) is non-ASCII.
+        encoding = get_file_io_encoding() or "utf-8"
+        project_file = Path.cwd() / DEFINITION_FILENAME
+        if not dry_run and project_file.exists():
+            return MessageResult(
+                f"{DEFINITION_FILENAME} already exists. Skipping initialization."
+            )
 
-    # ── Pre-compute current session values ─────────────────────────────
-    conn = ctx.connection_context
-    # ``conn.warehouse/database/schema`` are only non-None when the user
-    # explicitly passed the corresponding connection-override flag on the
-    # command line (e.g. ``--warehouse MY_WH``).  Values from the
-    # connection config file come through ``conn_config`` instead.
-    cli_wh = getattr(conn, "warehouse", None) or None
-    cli_db = getattr(conn, "database", None) or None
-    cli_schema = getattr(conn, "schema", None) or None
-
-    # A user-supplied database must be paired with an explicit schema: schema
-    # resolution would otherwise fall back to an account parameter or the
-    # personal-database default, silently placing the app in a schema that does
-    # not belong to the requested database.
-    if cli_db and not cli_schema:
-        raise CliError(
-            "--schema is required when --database is specified. "
-            "Provide --schema to select the schema within the requested database."
+        connection_name = (
+            ctx.connection_context.connection_name or get_default_connection_name()
         )
+        conn_config = get_connection_dict(connection_name)
 
-    session_wh = conn_config.get("warehouse") or None
-    session_db = conn_config.get("database") or None
-    session_schema = conn_config.get("schema") or None
+        manager = SnowflakeAppManager()
+        with metrics.span("snowflake_app.setup.resolve_defaults"):
+            params = manager.fetch_snow_apps_parameters()
+            # Drop the account-configured destination database/schema the current
+            # role cannot access so resolution falls back to the personal database.
+            params = _filter_accessible_remote_defaults(manager, params)
 
-    personal_db = manager.get_personal_database()
-    personal_schema = DEFAULT_PERSONAL_SCHEMA if personal_db else None
+        def _resolve(
+            user_input=None,
+            account_param=None,
+            default_value=None,
+            current_session=None,
+        ):
+            """Return (value, source) using a fixed resolution order.
 
-    # ── Resolve each field ────────────────────────────────────────────
-    resolved = {
-        "database": _resolve(
-            user_input=cli_db,
-            account_param=params.get("database"),
-            default_value=personal_db,
-            current_session=session_db,
-        ),
-        # TODO: Support per-app schema (e.g. APPS.APP_<app_id>) instead of
-        # a single shared schema for all apps.
-        "schema": _resolve(
-            user_input=cli_schema,
-            account_param=params.get("schema"),
-            default_value=personal_schema,
-            current_session=session_schema,
-        ),
-        "warehouse": _resolve(
-            user_input=cli_wh,
-            account_param=params.get("query_warehouse"),
-            current_session=session_wh,
-        ),
-        # Compute pools are resolved from the (hidden) ``--compute-pool`` flag
-        # and the ``DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL`` /
-        # ``DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL`` account parameters.
-        # Both stay omitted from the generated ``snowflake.yml`` when neither
-        # source provides a value, letting the server pick pools at deploy time.
-        "build_compute_pool": _resolve(
-            user_input=compute_pool,
-            account_param=params.get("build_compute_pool"),
-        ),
-        "service_compute_pool": _resolve(
-            user_input=compute_pool,
-            account_param=params.get("service_compute_pool"),
-        ),
-        # TODO: Remove --build-eai argument once the builder service no longer
-        # requires an external access integration.
-        "build_eai": _resolve(
-            user_input=build_eai,
-            account_param=params.get("build_eai"),
-        ),
-    }
+            Resolution: user_input > account_param > default_value > current_session.
+            """
+            if user_input is not None:
+                return user_input, SOURCE_USER_INPUT
+            if account_param is not None:
+                return account_param, SOURCE_ACCOUNT_PARAM
+            if default_value is not None:
+                return default_value, SOURCE_DEFAULT
+            if current_session is not None:
+                return current_session, SOURCE_CURRENT_SESSION
+            return None, SOURCE_MISSING
 
-    # ── Validate required values ─────────────────────────────────────
-    if not resolved["database"][0]:
-        raise ClickException(
-            "Missing database. Provide --database, set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE account parameter, or check your connection."
-        )
-    if not resolved["schema"][0]:
-        raise ClickException(
-            "Missing schema. Provide --schema, set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA account parameter, or check your connection."
-        )
-    if not resolved["warehouse"][0]:
-        raise ClickException(
-            "Missing warehouse. Provide --warehouse, set the DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE account parameter, or check your connection."
-        )
+        # ── Pre-compute current session values ─────────────────────────────
+        conn = ctx.connection_context
+        # ``conn.warehouse/database/schema`` are only non-None when the user
+        # explicitly passed the corresponding connection-override flag on the
+        # command line (e.g. ``--warehouse MY_WH``).  Values from the
+        # connection config file come through ``conn_config`` instead.
+        cli_wh = getattr(conn, "warehouse", None) or None
+        cli_db = getattr(conn, "database", None) or None
+        cli_schema = getattr(conn, "schema", None) or None
 
-    resolved_values = {k: v[0] for k, v in resolved.items()}
+        # A user-supplied database must be paired with an explicit schema: schema
+        # resolution would otherwise fall back to an account parameter or the
+        # personal-database default, silently placing the app in a schema that does
+        # not belong to the requested database.
+        if cli_db and not cli_schema:
+            raise CliError(
+                "--schema is required when --database is specified. "
+                "Provide --schema to select the schema within the requested database."
+            )
 
-    if not dry_run:
-        # Use a workspace whenever the destination is a personal database:
-        # either it was resolved from the built-in personal-DB default tier,
-        # or it arrived via an account parameter / the current session but is
-        # still a ``USER$<user>`` personal database. Personal databases do not
-        # support stages, so emitting ``code_stage`` for one would produce a
-        # ``snowflake.yml`` that always fails at deploy time.
-        use_workspace = resolved["database"][
-            1
-        ] == SOURCE_DEFAULT or is_personal_database(resolved_values["database"])
-        project_file.write_text(
-            _generate_snowflake_yml(
-                resolved_app_name,
-                resolved_values,
-                use_workspace=use_workspace,
+        session_wh = conn_config.get("warehouse") or None
+        session_db = conn_config.get("database") or None
+        session_schema = conn_config.get("schema") or None
+
+        with metrics.span("snowflake_app.setup.get_personal_database"):
+            personal_db = manager.get_personal_database()
+        personal_schema = DEFAULT_PERSONAL_SCHEMA if personal_db else None
+
+        # ── Resolve each field ────────────────────────────────────────────
+        resolved = {
+            "database": _resolve(
+                user_input=cli_db,
+                account_param=params.get("database"),
+                default_value=personal_db,
+                current_session=session_db,
             ),
-            encoding=encoding,
-        )
+            # TODO: Support per-app schema (e.g. APPS.APP_<app_id>) instead of
+            # a single shared schema for all apps.
+            "schema": _resolve(
+                user_input=cli_schema,
+                account_param=params.get("schema"),
+                default_value=personal_schema,
+                current_session=session_schema,
+            ),
+            "warehouse": _resolve(
+                user_input=cli_wh,
+                account_param=params.get("query_warehouse"),
+                current_session=session_wh,
+            ),
+            # Compute pools are resolved from the (hidden) ``--compute-pool`` flag
+            # and the ``DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL`` /
+            # ``DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL`` account parameters.
+            # Both stay omitted from the generated ``snowflake.yml`` when neither
+            # source provides a value, letting the server pick pools at deploy time.
+            "build_compute_pool": _resolve(
+                user_input=compute_pool,
+                account_param=params.get("build_compute_pool"),
+            ),
+            "service_compute_pool": _resolve(
+                user_input=compute_pool,
+                account_param=params.get("service_compute_pool"),
+            ),
+            # TODO: Remove --build-eai argument once the builder service no longer
+            # requires an external access integration.
+            "build_eai": _resolve(
+                user_input=build_eai,
+                account_param=params.get("build_eai"),
+            ),
+        }
 
-    is_json = get_cli_context().output_format.is_json
-    if is_json:
-        return ObjectResult({"success": not dry_run, **resolved_values})
+        # ── Validate required values ─────────────────────────────────────
+        if not resolved["database"][0]:
+            raise ClickException(
+                "Missing database. Provide --database, set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE account parameter, or check your connection."
+            )
+        if not resolved["schema"][0]:
+            raise ClickException(
+                "Missing schema. Provide --schema, set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA account parameter, or check your connection."
+            )
+        if not resolved["warehouse"][0]:
+            raise ClickException(
+                "Missing warehouse. Provide --warehouse, set the DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE account parameter, or check your connection."
+            )
 
-    if dry_run:
-        cli_console.step("Dry run — resolved configuration:")
-    else:
-        cli_console.step(
-            f"Initialized Snowflake App Runtime project in {DEFINITION_FILENAME}."
-        )
-    for key, (value, source) in resolved.items():
-        # Skip optional fields that could not be resolved (e.g. ``build_eai``
-        # when no value was provided and no account parameter is set).
-        # Emitting ``build_eai: None  (missing)`` is noisy and implies the
-        # field is required when it is not.
-        if value is None and source == SOURCE_MISSING:
-            continue
-        cli_console.step(f"  {key}: {value}  ({source})")
-    return EmptyResult()
+        resolved_values = {k: v[0] for k, v in resolved.items()}
+
+        if not dry_run:
+            # Use a workspace whenever the destination is a personal database:
+            # either it was resolved from the built-in personal-DB default tier,
+            # or it arrived via an account parameter / the current session but is
+            # still a ``USER$<user>`` personal database. Personal databases do not
+            # support stages, so emitting ``code_stage`` for one would produce a
+            # ``snowflake.yml`` that always fails at deploy time.
+            use_workspace = resolved["database"][
+                1
+            ] == SOURCE_DEFAULT or is_personal_database(resolved_values["database"])
+            with metrics.span("snowflake_app.setup.write_manifest"):
+                project_file.write_text(
+                    _generate_snowflake_yml(
+                        resolved_app_name,
+                        resolved_values,
+                        use_workspace=use_workspace,
+                    ),
+                    encoding=encoding,
+                )
+
+        is_json = get_cli_context().output_format.is_json
+        if is_json:
+            return ObjectResult({"success": not dry_run, **resolved_values})
+
+        if dry_run:
+            cli_console.step("Dry run — resolved configuration:")
+        else:
+            cli_console.step(
+                f"Initialized Snowflake App Runtime project in {DEFINITION_FILENAME}."
+            )
+        for key, (value, source) in resolved.items():
+            # Skip optional fields that could not be resolved (e.g. ``build_eai``
+            # when no value was provided and no account parameter is set).
+            # Emitting ``build_eai: None  (missing)`` is noisy and implies the
+            # field is required when it is not.
+            if value is None and source == SOURCE_MISSING:
+                continue
+            cli_console.step(f"  {key}: {value}  ({source})")
+        return EmptyResult()
 
 
 def snowflake_app_bundle(entity_id: Optional[str]) -> CommandResult:
