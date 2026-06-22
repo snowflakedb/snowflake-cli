@@ -42,7 +42,6 @@ from pathlib import Path
 import pytest
 import yaml
 
-COMPUTE_POOL = "snowcli_compute_pool"
 DATABASE = os.environ.get("SNOWFLAKE_CONNECTIONS_INTEGRATION_DATABASE", "SNOWCLI_DB")
 SCHEMA = os.environ.get("SNOWFLAKE_CONNECTIONS_INTEGRATION_SCHEMA", "public")
 WAREHOUSE = os.environ.get("SNOWFLAKE_CONNECTIONS_INTEGRATION_WAREHOUSE", "xsmall")
@@ -50,8 +49,6 @@ BUILD_EAI = "cli_test_integration"
 
 _ACCOUNT_PARAMS = {
     "DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE": WAREHOUSE,
-    "DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL": COMPUTE_POOL,
-    "DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL": COMPUTE_POOL,
     "DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE": DATABASE,
     "DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA": SCHEMA,
     "DEFAULT_SNOWFLAKE_APPS_BUILD_EXTERNAL_ACCESS_INTEGRATION": "",
@@ -85,10 +82,14 @@ def test_setup_resolves_from_account_parameters(
 ):
     """All ``DEFAULT_SNOWFLAKE_APPS_*`` account parameters drive ``snow app setup``.
 
-    No CLI flags for compute/db/warehouse are passed, so values must come from
+    No CLI flags for db/warehouse are passed, so values must come from
     the USER ("account") parameters set by the autouse session fixture.
     Asserts every resolved field is reflected in the generated YAML and that
     the source label printed by the resolver is ``(account parameter)``.
+
+    Compute pools are intentionally not resolved or written: app services run
+    on server-managed compute pools, so ``snow app setup`` never emits
+    ``build_compute_pool`` / ``service_compute_pool``.
     """
     result = runner.invoke_with_connection(
         ["app", "setup", "--app-name", "param_app", "--build-eai", BUILD_EAI]
@@ -99,11 +100,12 @@ def test_setup_resolves_from_account_parameters(
         f"database: {DATABASE}  (account parameter)",
         f"schema: {SCHEMA}  (account parameter)",
         f"warehouse: {WAREHOUSE}  (account parameter)",
-        f"build_compute_pool: {COMPUTE_POOL}  (account parameter)",
-        f"service_compute_pool: {COMPUTE_POOL}  (account parameter)",
     ]
     for expected in expected_source_lines:
         assert expected in result.output, result.output
+
+    assert "build_compute_pool" not in result.output, result.output
+    assert "service_compute_pool" not in result.output, result.output
 
     yml_path = Path(temporary_working_directory) / "snowflake.yml"
     assert yml_path.exists(), "snowflake.yml was not created"
@@ -115,5 +117,5 @@ def test_setup_resolves_from_account_parameters(
     assert entity["identifier"]["database"] == DATABASE
     assert entity["identifier"]["schema"] == SCHEMA
     assert entity["query_warehouse"] == WAREHOUSE
-    assert entity["build_compute_pool"]["name"] == COMPUTE_POOL
-    assert entity["service_compute_pool"]["name"] == COMPUTE_POOL
+    assert "build_compute_pool" not in entity
+    assert "service_compute_pool" not in entity
