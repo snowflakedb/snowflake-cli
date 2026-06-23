@@ -16,11 +16,11 @@ from snowflake.cli.api.plugins.command import plugin_hook_impl
 from snowflake.cli.api.plugins.command.bridge import build_command_spec
 
 from {{ cookiecutter.package_namespace }}.{{ cookiecutter.plugin_module }}.handler import (
-    {{ cookiecutter.plugin_module | replace('_', ' ') | title | replace(' ', '') }}HandlerImpl,
+    {{ cookiecutter.plugin_class_name }}HandlerImpl,
 )
 from {{ cookiecutter.package_namespace }}.{{ cookiecutter.plugin_module }}.interface import PLUGIN_SPEC
 
 
 @plugin_hook_impl
 def command_spec():
-    return build_command_spec(PLUGIN_SPEC, {{ cookiecutter.plugin_module | replace('_', ' ') | title | replace(' ', '') }}HandlerImpl())
+    return build_command_spec(PLUGIN_SPEC, {{ cookiecutter.plugin_class_name }}HandlerImpl())

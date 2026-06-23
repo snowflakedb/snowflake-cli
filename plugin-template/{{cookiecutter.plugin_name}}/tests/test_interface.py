@@ -23,11 +23,11 @@ from snowflake.cli.api.plugins.command.testing import (
 )
 
 from {{ cookiecutter.package_namespace }}.{{ cookiecutter.plugin_module }}.handler import (
-    {{ cookiecutter.plugin_module | replace('_', ' ') | title | replace(' ', '') }}HandlerImpl,
+    {{ cookiecutter.plugin_class_name }}HandlerImpl,
 )
 from {{ cookiecutter.package_namespace }}.{{ cookiecutter.plugin_module }}.interface import (
     PLUGIN_SPEC,
-    {{ cookiecutter.plugin_module | replace('_', ' ') | title | replace(' ', '') }}Handler,
+    {{ cookiecutter.plugin_class_name }}Handler,
 )
 
 
@@ -36,15 +36,15 @@ def test_interface_is_well_formed():
 
 
 def test_handler_satisfies_interface():
-    assert_handler_satisfies(PLUGIN_SPEC, {{ cookiecutter.plugin_module | replace('_', ' ') | title | replace(' ', '') }}HandlerImpl())
+    assert_handler_satisfies(PLUGIN_SPEC, {{ cookiecutter.plugin_class_name }}HandlerImpl())
 
 
 def test_handler_is_subclass_of_abc():
     assert issubclass(
-        {{ cookiecutter.plugin_module | replace('_', ' ') | title | replace(' ', '') }}HandlerImpl,
-        {{ cookiecutter.plugin_module | replace('_', ' ') | title | replace(' ', '') }}Handler,
+        {{ cookiecutter.plugin_class_name }}HandlerImpl,
+        {{ cookiecutter.plugin_class_name }}Handler,
     )
 
 
 def test_builds_valid_command_spec():
-    assert_builds_valid_spec(PLUGIN_SPEC, {{ cookiecutter.plugin_module | replace('_', ' ') | title | replace(' ', '') }}HandlerImpl())
+    assert_builds_valid_spec(PLUGIN_SPEC, {{ cookiecutter.plugin_class_name }}HandlerImpl())

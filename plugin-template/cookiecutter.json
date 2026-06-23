@@ -1,6 +1,7 @@
 {
     "plugin_name": "my-snow-plugin",
     "plugin_module": "{{ cookiecutter.plugin_name | replace('-', '_') }}",
+    "plugin_class_name": "{{ cookiecutter.plugin_module | replace('_', ' ') | title | replace(' ', '') }}",
     "package_namespace": "snowflakecli_plugins",
     "cli_command_name": "{{ cookiecutter.plugin_name }}",
     "cli_parent_path": "",

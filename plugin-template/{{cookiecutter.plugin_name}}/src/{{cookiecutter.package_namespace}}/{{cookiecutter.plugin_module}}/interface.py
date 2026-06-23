@@ -106,7 +106,7 @@ PLUGIN_SPEC = SingleCommandSpec(
 # ---------------------------------------------------------------------------
 
 
-class {{ cookiecutter.plugin_module | replace('_', ' ') | title | replace(' ', '') }}Handler(CommandHandler):
+class {{ cookiecutter.plugin_class_name }}Handler(CommandHandler):
     """Handler contract for {{ cookiecutter.cli_command_name }} commands.
 
     Each abstract method corresponds to a ``CommandDef`` above via
