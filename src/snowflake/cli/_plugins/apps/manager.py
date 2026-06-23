@@ -507,7 +507,8 @@ def _resolve_deploy_defaults(
     4. Current session values (lowest priority)
 
     Returns a dict with keys ``query_warehouse``, ``build_compute_pool``,
-    ``service_compute_pool``, ``build_eai``, ``artifact_repository``,
+    ``service_compute_pool``, ``build_eai``, ``service_eai``,
+    ``artifact_repository``,
     ``artifact_repo_database``, ``artifact_repo_schema``, ``database``,
     and ``schema``.  Any of them may still be ``None`` if no source
     provides a value.
@@ -531,6 +532,7 @@ def _resolve_deploy_defaults(
             entity.service_compute_pool.name if entity.service_compute_pool else None
         ),
         "build_eai": entity.build_eai.name if entity.build_eai else None,
+        "service_eai": entity.service_eai.name if entity.service_eai else None,
         "artifact_repository": (
             entity.artifact_repository.name if entity.artifact_repository else None
         ),

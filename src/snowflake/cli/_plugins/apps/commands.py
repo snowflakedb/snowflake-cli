@@ -609,13 +609,6 @@ def snowflake_app_deploy(
     database = fqn.database or conn.database
     schema = fqn.schema or conn.schema
 
-    build_compute_pool = (
-        entity.build_compute_pool.name if entity.build_compute_pool else None
-    )
-    build_eai = entity.build_eai.name if entity.build_eai else None
-    service_compute_pool = (
-        entity.service_compute_pool.name if entity.service_compute_pool else None
-    )
     query_warehouse = entity.query_warehouse
 
     app_title = entity.meta.title if entity.meta else None
@@ -632,6 +625,9 @@ def snowflake_app_deploy(
     service_compute_pool = defaults["service_compute_pool"]
     query_warehouse = defaults["query_warehouse"]
     build_eai = defaults["build_eai"]
+    # ``service_eai`` is optional; when omitted, continue using ``build_eai``
+    # for the deployed application service to preserve existing projects.
+    service_eai = defaults.get("service_eai") or build_eai
 
     # ── Resolve code storage backend ──────────────────────────────────
     # ``code_stage`` and ``code_workspace`` are mutually exclusive (enforced
@@ -854,7 +850,7 @@ def snowflake_app_deploy(
         comment_data["appIcon"] = app_icon
     app_comment = json.dumps(comment_data)
 
-    eai_list = [build_eai] if build_eai else None
+    eai_list = [service_eai] if service_eai else None
 
     did_upgrade = False
     with metrics.span("snowflake_app.deploy_service"):
