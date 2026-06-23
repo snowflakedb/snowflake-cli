@@ -1681,9 +1681,13 @@ class FeatureManager(SqlExecutionMixin):
             if not name:
                 continue
             spec_sql = spec_template.format(name=name)
-            spec_rows = _rows_to_dicts(
-                self.execute_query(spec_sql, cursor_class=DictCursor)
-            )
+            try:
+                spec_rows = _rows_to_dicts(
+                    self.execute_query(spec_sql, cursor_class=DictCursor)
+                )
+            except Exception as exc:  # noqa: BLE001
+                log.debug("spec-query failed for %s (skipping): %s", name, exc)
+                continue
             parsed = decl_api.parse_specification_rows(spec_rows)
             if parsed is not None:
                 specification_map[name] = parsed
