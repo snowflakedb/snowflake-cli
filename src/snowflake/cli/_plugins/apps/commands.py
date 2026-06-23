@@ -197,7 +197,8 @@ def snowflake_app_setup(
     """
     ctx = get_cli_context()
     metrics = ctx.metrics
-    try:
+
+    def _run() -> CommandResult:
         with metrics.span("snowflake_app.setup"):
             resolved_app_name = app_name
             if resolved_app_name is None:
@@ -383,11 +384,17 @@ def snowflake_app_setup(
                     continue
                 cli_console.step(f"  {key}: {value}  ({source})")
             return EmptyResult()
+
+    try:
+        return _run()
     except ClickException as exc:
-        if not dry_run:
-            raise
-        typer.rich_utils.rich_format_error(exc)
-        return EmptyResult()
+        # A dry run is a non-committal preview, so a failed setup should not
+        # break callers that gate on the exit code (e.g. CI). Neutralize the
+        # exit code but re-raise so the error is rendered by the exact same
+        # path as a normal failure.
+        if dry_run:
+            exc.exit_code = 0
+        raise
 
 
 def snowflake_app_bundle(entity_id: Optional[str]) -> CommandResult:
