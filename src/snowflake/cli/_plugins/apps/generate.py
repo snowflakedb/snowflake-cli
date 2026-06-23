@@ -28,9 +28,11 @@ def _generate_snowflake_yml(
 
     Required keys: ``database``, ``schema``, ``warehouse``.
 
-    Optional keys: ``build_eai``.  When omitted or ``None`` the corresponding
-    block is left out of the generated YAML.  ``build_eai`` is omitted when no
-    external access integration is required by the builder service.
+    Optional keys: ``build_eai``. When omitted or ``None`` the corresponding
+    block is left out of the generated YAML. ``build_eai`` is omitted when no
+    external access integration is required by the builder service. The setup
+    flow does not emit ``service_eai``; deploy continues to use ``build_eai``
+    for the application service unless a project adds ``service_eai`` manually.
 
     Compute pools are never written: app services always run on
     server-managed compute pools, so ``snow app setup`` does not configure
