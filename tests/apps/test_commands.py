@@ -3308,6 +3308,45 @@ class TestSetupCommand:
             assert "PARAM_DB" in result.output
             assert "PARAM_WH" in result.output
 
+    @patch("snowflake.cli._plugins.apps.commands.get_connection_dict", return_value={})
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_dry_run_keeps_error_output_but_exits_zero(
+        self, mock_mgr_cls, _mock_get_connection_dict, runner, tmp_path
+    ):
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "database": "PARAM_DB",
+            "schema": "PARAM_SCHEMA",
+        }
+        mock_mgr.get_personal_database.return_value = None
+
+        with change_directory(tmp_path):
+            result = runner.invoke(
+                ["app", "setup", "--app-name", "my_app", "--dry-run"]
+            )
+
+        assert result.exit_code == 0, result.output
+        assert "Missing warehouse. Provide --warehouse" in result.output
+        assert not (tmp_path / "snowflake.yml").exists()
+
+    @patch("snowflake.cli._plugins.apps.commands.get_connection_dict", return_value={})
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_setup_still_exits_nonzero_on_missing_required_values(
+        self, mock_mgr_cls, _mock_get_connection_dict, runner, tmp_path
+    ):
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "database": "PARAM_DB",
+            "schema": "PARAM_SCHEMA",
+        }
+        mock_mgr.get_personal_database.return_value = None
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+
+        assert result.exit_code == 1
+        assert "Missing warehouse. Provide --warehouse" in result.output
+
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_dry_run_omits_missing_build_eai(self, mock_mgr_cls, runner, tmp_path):
         """``--build-eai`` is optional: when no value is resolved the dry-run
