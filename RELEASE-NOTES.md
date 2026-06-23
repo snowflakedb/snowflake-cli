@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Added global `--color` flag to control colored console output. Use `--color off` to disable colors.
 
 ## Fixes and improvements
 * `snow app setup` no longer writes `build_compute_pool` / `service_compute_pool` to the generated `snowflake.yml`, and no longer reads the `DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL` / `DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL` account parameters. Snowflake App Runtime services now always run on server-managed compute pools. Existing projects that set these fields in `snowflake.yml` continue to be honored by `snow app deploy`.
