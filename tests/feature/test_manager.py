@@ -1514,6 +1514,69 @@ class TestFeatureManagerPlan:
             f"fetch_applied_state; got {forwarded!r}"
         )
 
+    def test_plan_skips_non_spec_oft_on_describe_failure(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``_fetch_oft_state`` MUST skip OFTs whose DESCRIBE SPECIFICATION
+        raises (e.g. HYBRID_TABLE OFTs) and continue building the map for
+        remaining OFTs.  Pre-fix, the exception propagated and crashed the
+        entire ``plan`` command with a SQL compilation error."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        mock_decl.state_queries.return_value = {
+            "show_ofts": "SHOW ONLINE FEATURE TABLES IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_tables": "SHOW TABLES LIKE '%' IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_dynamic_tables": (
+                "SHOW DYNAMIC TABLES IN SCHEMA TEST_DB.TEST_SCHEMA"
+            ),
+            "describe_specification_template": (
+                'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}" '
+                "TYPE = SPECIFICATION"
+            ),
+        }
+
+        spec_row = {"spec": '{"kind": "BatchFeatureView"}'}
+        sentinel_spec = {"kind": "BatchFeatureView"}
+
+        def fake_execute_query(sql, *args, **kwargs):
+            if "SHOW" in str(sql):
+                # Return two OFT rows: one non-spec (HYBRID_TABLE), one spec-backed.
+                if "ONLINE FEATURE TABLES" in str(sql):
+                    return iter([{"name": "HYBRID_OFT"}, {"name": "SPEC_OFT"}])
+                return iter([])
+            if "HYBRID_OFT" in str(sql):
+                raise Exception(
+                    "Invalid operation DESCRIBE SPECIFICATION is only supported "
+                    "for Online Feature Tables created with FROM SPECIFICATION."
+                )
+            # SPEC_OFT succeeds
+            return iter([spec_row])
+
+        mock_execute_query.side_effect = fake_execute_query
+        mock_decl.parse_specification_rows.return_value = sentinel_spec
+
+        # Pre-fix: plan raises; post-fix: plan completes.
+        FeatureManager().plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            dev_mode=False,
+            allow_recreate=False,
+        )
+
+        mock_decl.fetch_applied_state.assert_called_once()
+        call = mock_decl.fetch_applied_state.call_args
+        spec_map = call.kwargs.get("specification_map")
+        assert spec_map is not None, "fetch_applied_state must receive a specification_map"
+        assert "HYBRID_OFT" not in spec_map, (
+            "HYBRID_TABLE OFT must be excluded from specification_map after DESCRIBE failure"
+        )
+        assert spec_map.get("SPEC_OFT") is sentinel_spec, (
+            "Spec-backed OFT must still be included in specification_map; "
+            f"got {spec_map!r}"
+        )
+
 
 # ===========================================================================
 # init export — applied-state unification (Bug A wide-scope fix).
