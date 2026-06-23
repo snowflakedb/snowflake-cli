@@ -147,7 +147,11 @@ class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
         title="External access integration for build", default=None
     )
 
-    @field_validator("build_eai", mode="before")
+    service_eai: Union[ExternalAccessReference, None] = Field(
+        title="External access integration for the application service", default=None
+    )
+
+    @field_validator("build_eai", "service_eai", mode="before")
     @classmethod
     def _validate_eai(cls, value):
         """Accept a bare name string, a mapping with ``name``, or null/None.

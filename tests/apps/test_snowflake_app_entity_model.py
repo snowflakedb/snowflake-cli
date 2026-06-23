@@ -37,6 +37,7 @@ class TestSnowflakeAppEntityModel:
         assert model.build_compute_pool is None
         assert model.service_compute_pool is None
         assert model.build_eai is None
+        assert model.service_eai is None
         assert model.artifact_repository is None
         assert model.code_stage is None
         assert model.meta is None
@@ -60,6 +61,7 @@ class TestSnowflakeAppEntityModel:
                 "database": "MY_DB",
             },
             build_eai={"name": "BUILD_EAI"},
+            service_eai={"name": "SERVICE_EAI"},
             artifact_repository={
                 "name": "ARTIFACT_REPO",
                 "schema": "MY_SCHEMA",
@@ -76,6 +78,7 @@ class TestSnowflakeAppEntityModel:
         assert model.service_compute_pool.schema_ == "MY_SCHEMA"
         assert model.service_compute_pool.database == "MY_DB"
         assert model.build_eai.name == "BUILD_EAI"
+        assert model.service_eai.name == "SERVICE_EAI"
         assert model.artifact_repository.name == "ARTIFACT_REPO"
         assert model.artifact_repository.schema_ == "MY_SCHEMA"
         assert model.artifact_repository.database == "MY_DB"
@@ -125,8 +128,10 @@ class TestSnowflakeAppEntityModel:
             identifier="my_app",
             artifacts=["app/*"],
             build_eai=value,
+            service_eai=value,
         )
         assert model.build_eai is None
+        assert model.service_eai is None
 
     def test_eai_validator_dict_value(self):
         """EAI validator passes through dict values."""
@@ -135,8 +140,10 @@ class TestSnowflakeAppEntityModel:
             identifier="my_app",
             artifacts=["app/*"],
             build_eai={"name": "MY_EAI"},
+            service_eai={"name": "MY_SERVICE_EAI"},
         )
         assert model.build_eai.name == "MY_EAI"
+        assert model.service_eai.name == "MY_SERVICE_EAI"
 
     def test_eai_validator_bare_string(self):
         """``build_eai: MY_EAI`` (bare string) is treated as the integration
@@ -147,8 +154,10 @@ class TestSnowflakeAppEntityModel:
             identifier="my_app",
             artifacts=["app/*"],
             build_eai="MY_EAI",
+            service_eai="MY_SERVICE_EAI",
         )
         assert model.build_eai.name == "MY_EAI"
+        assert model.service_eai.name == "MY_SERVICE_EAI"
 
     def test_code_stage_defaults(self):
         """Code stage encryption_type defaults to SNOWFLAKE_SSE."""
@@ -341,6 +350,7 @@ class TestSnowflakeAppInProjectDefinition:
                         "database": "SVC_DB",
                     },
                     "build_eai": {"name": "BUILD_EAI"},
+                    "service_eai": {"name": "SERVICE_EAI"},
                     "artifact_repository": {
                         "name": "ARTIFACT_REPO",
                         "schema": "REPO_SCHEMA",
@@ -359,6 +369,7 @@ class TestSnowflakeAppInProjectDefinition:
         assert entity.service_compute_pool.schema_ == "SVC_SCHEMA"
         assert entity.service_compute_pool.database == "SVC_DB"
         assert entity.build_eai.name == "BUILD_EAI"
+        assert entity.service_eai.name == "SERVICE_EAI"
         assert entity.artifact_repository.name == "ARTIFACT_REPO"
         assert entity.artifact_repository.schema_ == "REPO_SCHEMA"
         assert entity.artifact_repository.database == "REPO_DB"
