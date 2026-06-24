@@ -151,7 +151,7 @@ def test_children_bundle_with_custom_dir(mock_id, project_directory):
                     CREATE OR REPLACE STREAMLIT IDENTIFIER('v_schema.my_streamlit')
                     FROM '{custom_dir_path}'
                     MAIN_FILE = 'streamlit_app.py'
-                    QUERY_WAREHOUSE = 'streamlit';
+                    QUERY_WAREHOUSE = streamlit;
                     CREATE APPLICATION ROLE IF NOT EXISTS my_app_role;
                     GRANT USAGE ON SCHEMA v_schema TO APPLICATION ROLE my_app_role;
                     GRANT USAGE ON STREAMLIT v_schema.my_streamlit TO APPLICATION ROLE my_app_role;
