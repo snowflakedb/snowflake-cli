@@ -13,17 +13,26 @@
 # limitations under the License.
 
 [build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
-name = "snowflakecli-internal-release-plugin"
-requires-python = ">=3.8"
-dependencies = [
-    "snowflake-cli>=1.1.0",
-    "PyGithub"
+name = "{{ cookiecutter.plugin_name }}"
+version = "0.1.0"
+description = "{{ cookiecutter.plugin_description }}"
+requires-python = "{{ cookiecutter.python_requires }}"
+authors = [
+    { name = "{{ cookiecutter.author_name }}", email = "{{ cookiecutter.author_email }}" },
 ]
-version = "0.0.1"
+dependencies = [
+    "snowflake-cli",
+]
 
 [project.entry-points."snowflake.cli.plugin.command"]
-release-plugin = "snowflakecli_internal_release_plugin.plugin_spec"
+{{ cookiecutter.plugin_module }} = "{{ cookiecutter.package_namespace }}.{{ cookiecutter.plugin_module }}.plugin_spec"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/{{ cookiecutter.package_namespace }}"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -12,20 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from subprocess import run
-
-from click import ClickException
-
-
-def subprocess_run(command, *args, capture_output=True, text=True, **kwargs) -> str:
-    result = run(command, *args, capture_output=capture_output, text=text, **kwargs)
-    if result.returncode != 0:
-        raise ClickException(
-            f"""Command '{command}' finished with non-zero exit code: {result.returncode}
-            ----- stdout -----
-            {result.stdout}
-            ===== stderr =====
-            {result.stderr}
-            """
-        )
-    return result.stdout
+# This cookiecutter template is not part of the snowflake-cli test suite. Its
+# files contain Jinja placeholders (`{{ cookiecutter.* }}`) and are not valid
+# Python, so the repo-wide pytest runs that collect from the project root
+# (e.g. `pytest -m performance`, `pytest -m e2e`) would fail trying to import
+# them. Ignore everything under this directory during collection; the generated
+# project ships its own valid tests.
+collect_ignore_glob = ["*"]
