@@ -42,7 +42,6 @@ from snowflake.cli.api.plugins.command.interface import (
     CommandHandler,
     ParamDef,
     ParamKind,
-    REQUIRED,
 )
 
 # ---------------------------------------------------------------------------
@@ -53,7 +52,7 @@ from snowflake.cli.api.plugins.command.interface import (
 PLUGIN_SPEC = CommandGroupSpec(
     name="{{ cookiecutter.cli_command_name }}",
     help="{{ cookiecutter.plugin_description }}",
-    parent_path=({{ cookiecutter.cli_parent_path | default("", true) }}),
+    parent_path=({% for p in cookiecutter.cli_parent_path.split() %}"{{ p }}",{% if not loop.last %} {% endif %}{% endfor %}),
     commands=(
         CommandDef(
             name="hello",
@@ -81,7 +80,7 @@ PLUGIN_SPEC = CommandGroupSpec(
 )
 {%- else -%}
 PLUGIN_SPEC = SingleCommandSpec(
-    parent_path=({{ cookiecutter.cli_parent_path | default("", true) }}),
+    parent_path=({% for p in cookiecutter.cli_parent_path.split() %}"{{ p }}",{% if not loop.last %} {% endif %}{% endfor %}),
     command=CommandDef(
         name="{{ cookiecutter.cli_command_name }}",
         help="{{ cookiecutter.plugin_description }}",
