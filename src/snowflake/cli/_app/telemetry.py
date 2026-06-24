@@ -61,6 +61,7 @@ class CLITelemetryField(Enum):
     COMMAND_EXECUTION_TIME = "command_execution_time"
     COMMAND_CI_ENVIRONMENT = "command_ci_environment"
     COMMAND_CI_INTEGRATION_VERSION = "command_ci_integration_version"
+    COMMAND_CI_AUTH_TYPE = "command_ci_auth_type"
     COMMAND_AGENT_ENVIRONMENT = "command_agent_environment"
     # Configuration
     CONFIG_FEATURE_FLAGS = "config_feature_flags"
@@ -282,6 +283,26 @@ def _get_ci_integration_version() -> str:
     return os.environ.get("SF_CICD_INTEGRATION_VERSION", "")
 
 
+# Canonical auth-type tokens emitted by the official Snowflake CI/CD integrations
+# via SF_CICD_AUTH_TYPE: "oidc", "key_pair", "password", "externalbrowser",
+# "oauth", "programmatic_access_token". The set is intentionally open -- unknown
+# values are still recorded rather than dropped -- but integrations should reuse
+# these so the field stays consistent across GitHub Actions, Azure DevOps and the
+# GitLab component.
+def _get_ci_auth_type() -> str:
+    """Get the auth type the official Snowflake CI/CD integration configured, if any.
+
+    Integrations set ``SF_CICD_AUTH_TYPE`` on their OIDC/workload-identity path
+    (mirroring how they already set ``SNOWFLAKE_AUTHENTICATOR``); credential
+    fallbacks the integration never configures leave it unset.
+
+    This helper is the single resolution point for the value: a future change can
+    fall back to inferring the actual authenticator from the resolved connection
+    when the env var is absent, without touching the integrations or the field.
+    """
+    return os.environ.get("SF_CICD_AUTH_TYPE", "").strip().lower()
+
+
 def _detect_agent_environment() -> str:
     """Detect AI coding agent based on environment variables."""
     if "CORTEX_SESSION_ID" in os.environ:
@@ -372,6 +393,7 @@ class CLITelemetryClient:
             CLITelemetryField.VERSION_PYTHON: python_version(),
             CLITelemetryField.COMMAND_CI_ENVIRONMENT: _get_ci_environment_type(),
             CLITelemetryField.COMMAND_CI_INTEGRATION_VERSION: _get_ci_integration_version(),
+            CLITelemetryField.COMMAND_CI_AUTH_TYPE: _get_ci_auth_type(),
             CLITelemetryField.COMMAND_AGENT_ENVIRONMENT: _detect_agent_environment(),
             CLITelemetryField.CONFIG_FEATURE_FLAGS: {
                 k: str(v) for k, v in get_feature_flags_section().items()
