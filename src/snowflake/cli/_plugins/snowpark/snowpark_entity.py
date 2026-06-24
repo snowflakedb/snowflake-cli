@@ -192,6 +192,12 @@ class SnowparkEntity(EntityBase[Generic[T]]):
         if self.model.resource_constraint:
             query.append(self._get_resource_constraints_sql())
 
+        if self.model.strict:
+            query.append("RETURNS NULL ON NULL INPUT")
+
+        if self.model.immutable:
+            query.append("IMMUTABLE")
+
         if self.model.type == "procedure" and self.model.execute_as_caller:
             query.append("EXECUTE AS CALLER")
 
