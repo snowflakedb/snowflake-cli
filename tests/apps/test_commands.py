@@ -25,6 +25,7 @@ from snowflake.cli._plugins.apps.commands import (
 )
 from snowflake.cli._plugins.apps.generate import (
     _generate_snowflake_yml,
+    _yaml_str,
 )
 from snowflake.cli._plugins.apps.manager import (
     SNOWFLAKE_APP_ENTITY_TYPE,
@@ -730,6 +731,85 @@ class TestGenerateSnowflakeYml:
         assert entity.code_stage.database is None
         assert entity.code_stage.schema_ is None
         assert entity.code_workspace is None
+
+    # ── _yaml_str unit tests ──────────────────────────────────────────
+
+    def test_yaml_str_plain_value_unchanged(self):
+        assert _yaml_str("MY_DB") == "MY_DB"
+
+    def test_yaml_str_wraps_quoted_identifier(self):
+        assert _yaml_str('"lower_db"') == "'\"lower_db\"'"
+
+    # ── Quoted (case-sensitive) identifier round-trip tests ──────────
+
+    def test_quoted_identifier_database_round_trips(self):
+        """A lower-case database name wrapped in double quotes must survive
+        YAML serialisation — the double quotes must not be stripped."""
+        import yaml
+
+        resolved = {**self._BASE_RESOLVED, "database": '"lower_db"'}
+        raw_yml = _generate_snowflake_yml("my_app", resolved, use_workspace=False)
+        parsed = yaml.safe_load(raw_yml)
+        db_val = parsed["entities"]["my_app"]["identifier"]["database"]
+        assert db_val == '"lower_db"', (
+            f"double quotes were stripped; got {db_val!r}"
+        )
+
+    def test_quoted_identifier_schema_round_trips(self):
+        """A lower-case schema name wrapped in double quotes must survive
+        YAML serialisation."""
+        import yaml
+
+        resolved = {**self._BASE_RESOLVED, "schema": '"lower_schema"'}
+        raw_yml = _generate_snowflake_yml("my_app", resolved, use_workspace=False)
+        parsed = yaml.safe_load(raw_yml)
+        schema_val = parsed["entities"]["my_app"]["identifier"]["schema"]
+        assert schema_val == '"lower_schema"', (
+            f"double quotes were stripped; got {schema_val!r}"
+        )
+
+    def test_quoted_identifier_warehouse_round_trips(self):
+        """A lower-case warehouse name wrapped in double quotes must survive
+        YAML serialisation."""
+        import yaml
+
+        resolved = {**self._BASE_RESOLVED, "warehouse": '"lower_wh"'}
+        raw_yml = _generate_snowflake_yml("my_app", resolved, use_workspace=False)
+        parsed = yaml.safe_load(raw_yml)
+        wh_val = parsed["entities"]["my_app"]["query_warehouse"]
+        assert wh_val == '"lower_wh"', (
+            f"double quotes were stripped; got {wh_val!r}"
+        )
+
+    def test_quoted_identifier_build_eai_round_trips(self):
+        """A lower-case EAI name wrapped in double quotes must survive
+        YAML serialisation."""
+        import yaml
+
+        resolved = {**self._BASE_RESOLVED, "build_eai": '"lower_eai"'}
+        raw_yml = _generate_snowflake_yml("my_app", resolved, use_workspace=False)
+        parsed = yaml.safe_load(raw_yml)
+        eai_val = parsed["entities"]["my_app"]["build_eai"]["name"]
+        assert eai_val == '"lower_eai"', (
+            f"double quotes were stripped; got {eai_val!r}"
+        )
+
+    def test_quoted_identifier_code_workspace_round_trips(self):
+        """When database or schema components are quoted identifiers, the
+        code_workspace fully-qualified name must preserve the double quotes."""
+        import yaml
+
+        resolved = {
+            **self._BASE_RESOLVED,
+            "database": '"lower_db"',
+            "schema": '"lower_schema"',
+        }
+        raw_yml = _generate_snowflake_yml("my_app", resolved, use_workspace=True)
+        parsed = yaml.safe_load(raw_yml)
+        ws_val = parsed["entities"]["my_app"]["code_workspace"]
+        assert ws_val == '"lower_db"."lower_schema".SNOWFLAKE_APPS', (
+            f"double quotes were stripped from code_workspace; got {ws_val!r}"
+        )
 
 
 # ── SnowflakeAppManager tests ─────────────────────────────────────────

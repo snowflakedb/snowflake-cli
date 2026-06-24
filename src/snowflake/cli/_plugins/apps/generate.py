@@ -18,6 +18,14 @@ from typing import Dict, Optional
 from snowflake.cli._plugins.apps.manager import DEFAULT_PERSONAL_WORKSPACE_NAME
 
 
+def _yaml_str(v: str) -> str:
+    # YAML treats bare double quotes as string delimiters and strips them on
+    # round-trip, turning '"lower_db"' into 'lower_db' (then uppercased by
+    # Snowflake).  Wrapping in single quotes preserves embedded double quotes
+    # as literal data.
+    return f"'{v}'" if '"' in v else v
+
+
 def _generate_snowflake_yml(
     app_id: str,
     resolved: Dict[str, Optional[str]],
@@ -65,13 +73,13 @@ def _generate_snowflake_yml(
         # database/schema.
         code_storage_block = (
             f"\n            code_workspace: "
-            f"{database}.{schema}.{DEFAULT_PERSONAL_WORKSPACE_NAME}\n"
+            f"{_yaml_str(f'{database}.{schema}.{DEFAULT_PERSONAL_WORKSPACE_NAME}')}\n"
         )
     else:
         code_storage_block = f"\n            code_stage: {app_id.upper()}_CODE\n"
 
     build_eai_block = (
-        f"\n            build_eai:\n              name: {build_eai}"
+        f"\n            build_eai:\n              name: {_yaml_str(build_eai)}"
         if build_eai
         else ""
     )
@@ -85,8 +93,8 @@ def _generate_snowflake_yml(
             type: snowflake-app
             identifier:
               name: {app_id.upper()}
-              database: {database}
-              schema: {schema}
+              database: {_yaml_str(database)}
+              schema: {_yaml_str(schema)}
             artifacts:
               - src: ./*
                 dest: ./
@@ -99,7 +107,7 @@ def _generate_snowflake_yml(
                   - .git
                   - snowflake.log
 
-            query_warehouse: {warehouse}"""
+            query_warehouse: {_yaml_str(warehouse)}"""
         + build_eai_block
         + code_storage_block
     )
