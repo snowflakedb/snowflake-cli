@@ -1,3 +1,9 @@
+# The cookiecutter scaffold under plugin-template/ contains Jinja placeholders
+# (e.g. {{ cookiecutter.* }} in file paths, .py, and .toml) that are not valid
+# Python/TOML, so black/ruff/check-ast and the other hooks cannot process them.
+# Exclude the whole directory from every hook.
+exclude: '^plugin-template/'
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
