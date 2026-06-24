@@ -1,6 +1,7 @@
+import json
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from click import ClickException
 from snowflake.cli._plugins.connection.util import make_snowsight_url
@@ -19,7 +20,7 @@ from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import bundle_root
 from snowflake.cli.api.project.schemas.entities.common import Identifier, PathMapping
-from snowflake.cli.api.project.util import to_string_literal
+from snowflake.cli.api.project.util import to_identifier, to_string_literal
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
@@ -189,9 +190,19 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 )
 
         if legacy:
-            self._deploy_legacy(bundle_map=bundle_map, replace=replace, prune=prune)
+            self._deploy_legacy(
+                bundle_map=bundle_map,
+                replace=replace,
+                prune=prune,
+                object_exists=object_exists,
+            )
         else:
-            self._deploy_versioned(bundle_map=bundle_map, replace=replace, prune=prune)
+            self._deploy_versioned(
+                bundle_map=bundle_map,
+                replace=replace,
+                prune=prune,
+                object_exists=object_exists,
+            )
 
         return self.perform(EntityActions.GET_URL, action_context, *args, **kwargs)
 
@@ -207,7 +218,106 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         self, schema: Optional[str] = None, database: Optional[str] = None
     ):
         # this query unlike most others doesn't accept fqn wrapped in `IDENTIFIER('')`
-        return f"ALTER STREAMLIT {self._get_identifier(schema,database)} ADD LIVE VERSION FROM LAST;"
+        return f"ALTER STREAMLIT {self._get_identifier(schema, database)} ADD LIVE VERSION FROM LAST;"
+
+    def get_alter_sql(
+        self,
+        from_stage_name: Optional[str] = None,
+        schema: Optional[str] = None,
+        database: Optional[str] = None,
+        legacy: bool = False,
+        current: Optional[Dict[str, Any]] = None,
+    ) -> Optional[str]:
+        def _str(v: Any) -> str:
+            return (v or "").strip()
+
+        def _id(v: Any) -> str:
+            return (v or "").strip().upper()
+
+        def _list(v: Any) -> list:
+            if not v:
+                return []
+            if isinstance(v, str):
+                try:
+                    v = json.loads(v)
+                except (ValueError, TypeError):
+                    return []
+            return sorted(s.upper() for s in v)
+
+        cur = current or {}
+        clauses = []
+
+        if from_stage_name:
+            clauses.append(f"ROOT_LOCATION = {to_string_literal(from_stage_name)}")
+
+        if legacy:
+            desired = _str(self._entity_model.main_file)
+            if not current or _str(cur.get("main_file")) != desired:
+                clauses.append(f"MAIN_FILE = {to_string_literal(desired)}")
+
+        if _list(self.model.imports) != _list(cur.get("import_urls")) or not current:
+            if self.model.imports:
+                clauses.append(self.model.get_imports_sql())
+
+        desired_wh = self.model.query_warehouse
+        if not desired_wh:
+            self._workspace_ctx.console.warning(
+                "[Deprecation] In next major version we will remove default query_warehouse='streamlit'."
+            )
+            desired_wh = "streamlit"
+        if not current or _id(cur.get("query_warehouse")) != _id(desired_wh):
+            clauses.append(f"QUERY_WAREHOUSE = {to_identifier(desired_wh)}")
+
+        desired_title = _str(self.model.title)
+        if desired_title and (not current or _str(cur.get("title")) != desired_title):
+            clauses.append(f"TITLE = {to_string_literal(desired_title)}")
+
+        desired_comment = _str(self.model.comment)
+        if desired_comment and (
+            not current or _str(cur.get("comment")) != desired_comment
+        ):
+            clauses.append(f"COMMENT = {to_string_literal(desired_comment)}")
+
+        desired_eais = _list(self.model.external_access_integrations)
+        if desired_eais and (
+            not current
+            or _list(cur.get("external_access_integrations")) != desired_eais
+        ):
+            clauses.append(self.model.get_external_access_integrations_sql())
+
+        if not legacy:
+            desired_secrets = self.model.secrets or {}
+            cur_secrets = cur.get("external_access_secrets") or {}
+            if isinstance(cur_secrets, str):
+                try:
+                    cur_secrets = json.loads(cur_secrets)
+                except (ValueError, TypeError):
+                    cur_secrets = {}
+            if desired_secrets and (not current or cur_secrets != desired_secrets):
+                clauses.append(self.model.get_secrets_sql())
+
+        if not from_stage_name and not legacy and self._is_spcs_runtime_v2_mode():
+            if not current or _id(cur.get("runtime_name")) != _id(
+                self.model.runtime_name
+            ):
+                clauses.append(
+                    f"RUNTIME_NAME = {to_string_literal(self.model.runtime_name)}"
+                )
+            if not current or _id(cur.get("compute_pool")) != _id(
+                self.model.compute_pool
+            ):
+                clauses.append(
+                    f"COMPUTE_POOL = {to_string_literal(self.model.compute_pool)}"
+                )
+
+        if not clauses:
+            return None
+
+        return (
+            f"ALTER STREAMLIT {self._get_sql_identifier(schema, database)} SET\n"
+            + "\n".join(clauses)
+            + ";"
+        )
 
     def get_deploy_sql(
         self,
@@ -221,7 +331,6 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         *args,
         **kwargs,
     ) -> str:
-
         if replace:
             query = "CREATE OR REPLACE STREAMLIT"
         elif if_not_exists:
@@ -232,9 +341,9 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         query += f" {self._get_sql_identifier(schema, database)}"
 
         if from_stage_name:
-            query += f"\nROOT_LOCATION = '{from_stage_name}'"
+            query += f"\nROOT_LOCATION = {to_string_literal(from_stage_name)}"
         elif artifacts_dir:
-            query += f"\nFROM '{artifacts_dir}'"
+            query += f"\nFROM {to_string_literal(str(artifacts_dir))}"
 
         query += f"\nMAIN_FILE = {to_string_literal(self._entity_model.main_file)}"
 
@@ -242,12 +351,12 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             query += "\n" + self.model.get_imports_sql()
 
         if self.model.query_warehouse:
-            query += f"\nQUERY_WAREHOUSE = {self.model.query_warehouse}"
+            query += f"\nQUERY_WAREHOUSE = {to_identifier(self.model.query_warehouse)}"
         else:
             self._workspace_ctx.console.warning(
                 "[Deprecation] In next major version we will remove default query_warehouse='streamlit'."
             )
-            query += f"\nQUERY_WAREHOUSE = 'streamlit'"
+            query += f"\nQUERY_WAREHOUSE = {to_identifier('streamlit')}"
 
         if self.model.title:
             query += f"\nTITLE = {to_string_literal(self.model.title)}"
@@ -305,7 +414,11 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             return False
 
     def _deploy_legacy(
-        self, bundle_map: BundleMap, replace: bool = False, prune: bool = False
+        self,
+        bundle_map: BundleMap,
+        replace: bool = False,
+        prune: bool = False,
+        object_exists: bool = False,
     ):
         console = self._workspace_ctx.console
         console.step(f"Uploading artifacts to stage {self.model.stage}")
@@ -331,35 +444,55 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
 
         console.step(f"Creating Streamlit object {self.model.fqn.sql_identifier}")
 
-        self._execute_query(
-            self.get_deploy_sql(
-                replace=replace,
-                from_stage_name=stage_root,
-                legacy=True,
+        if object_exists:
+            current = self.describe().fetchone()
+            alter_sql = self.get_alter_sql(
+                from_stage_name=stage_root, legacy=True, current=current
             )
-        )
+            if alter_sql:
+                self._execute_query(alter_sql)
+        else:
+            self._execute_query(
+                self.get_deploy_sql(
+                    replace=replace,
+                    from_stage_name=stage_root,
+                    legacy=True,
+                )
+            )
 
         StreamlitManager(connection=self._conn).grant_privileges(self.model)
 
     def _deploy_versioned(
-        self, bundle_map: BundleMap, replace: bool = False, prune: bool = False
+        self,
+        bundle_map: BundleMap,
+        replace: bool = False,
+        prune: bool = False,
+        object_exists: bool = False,
     ):
-        self._execute_query(
-            self.get_deploy_sql(
-                if_not_exists=True,
-                replace=replace,
-                legacy=False,
+        if object_exists:
+            current = self.describe().fetchone()
+            alter_sql = self.get_alter_sql(current=current)
+            if alter_sql:
+                self._execute_query(alter_sql)
+            # Live version already exists — upload new files directly to the
+            # existing stage without issuing ADD LIVE VERSION FROM LAST.
+            stage_root = current["live_version_location_uri"]
+        else:
+            self._execute_query(
+                self.get_deploy_sql(
+                    if_not_exists=True,
+                    replace=replace,
+                    legacy=False,
+                )
             )
-        )
-        try:
-            self._execute_query(self.get_add_live_version_sql())
-        except ProgrammingError as e:
-            if "There is already a live version" in str(e):
-                log.info("Live version already exists, continuing")
-            else:
-                raise
-
-        stage_root = self.describe().fetchone()["live_version_location_uri"]
+            try:
+                self._execute_query(self.get_add_live_version_sql())
+            except ProgrammingError as e:
+                if "There is already a live version" in str(e):
+                    log.info("Live version already exists, continuing")
+                else:
+                    raise
+            stage_root = self.describe().fetchone()["live_version_location_uri"]
         stage_path_parts = StageManager().stage_path_parts_from_str(stage_root)
 
         sync_deploy_root_with_stage(
