@@ -20,7 +20,6 @@ import logging
 import os
 import re
 import shutil
-import sys
 import time
 from collections import deque
 from contextlib import nullcontext
@@ -39,7 +38,6 @@ from snowflake.cli.api.commands.common import (
     Variable,
 )
 from snowflake.cli.api.console import cli_console
-from snowflake.cli.api.constants import PYTHON_3_12
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import VALID_IDENTIFIER_REGEX, to_string_literal
@@ -50,9 +48,12 @@ from snowflake.cli.api.utils.path_utils import path_resolver, resolve_without_fo
 from snowflake.connector import DictCursor, ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
 
-if sys.version_info < PYTHON_3_12:
-    # Because Snowpark works only below 3.12 and to use @sproc Session must be imported here.
+try:
+    # Session must be in module globals so @sproc can resolve the type annotation
+    # via typing.get_type_hints() when building the stored procedure signature.
     from snowflake.snowpark import Session
+except ImportError:
+    pass
 
 log = logging.getLogger(__name__)
 
@@ -845,12 +846,13 @@ class StageManager(SqlExecutionMixin):
 
     def _bootstrap_snowpark_execution_environment(self, stage_path: StagePath):
         """Prepares Snowpark session for executing Python code remotely."""
-        if sys.version_info >= PYTHON_3_12:
+        try:
+            from snowflake.snowpark.functions import sproc
+        except ImportError:
             raise CliError(
-                f"Executing Python files is not supported in Python >= 3.12. Current version: {sys.version}"
+                "Executing Python files requires the snowflake-snowpark-python package. "
+                "Please install it and try again."
             )
-
-        from snowflake.snowpark.functions import sproc
 
         self.snowpark_session.add_packages("snowflake-snowpark-python")
         self.snowpark_session.add_packages("snowflake.core")
