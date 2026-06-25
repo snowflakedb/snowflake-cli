@@ -19183,6 +19183,11 @@
   |                                            the uploaded build context files  |
   |                                            will be removed after the build   |
   |                                            completes.                        |
+  |    --stage-encryption         TEXT       SNOWFLAKE_SSE or SNOWFLAKE_FULL for an |
+  |                                            auto-created temporary stage;      |
+  |                                            ignored when --stage is set. Omit for|
+  |                                            legacy CREATE STAGE (no ENCRYPTION |
+  |                                            clause).                           |
   |    --job-name                   TEXT       Name for the build job service.   |
   |                                            If not provided, a name will be   |
   |                                            auto-generated.                   |
