@@ -25,6 +25,7 @@ from snowflake.cli._plugins.apps.commands import (
 )
 from snowflake.cli._plugins.apps.generate import (
     _generate_snowflake_yml,
+    _yaml_str,
 )
 from snowflake.cli._plugins.apps.manager import (
     SNOWFLAKE_APP_ENTITY_TYPE,
@@ -730,6 +731,99 @@ class TestGenerateSnowflakeYml:
         assert entity.code_stage.database is None
         assert entity.code_stage.schema_ is None
         assert entity.code_workspace is None
+
+    # ── Quoted (case-sensitive) identifier round-trip tests ──────────
+
+    def test_quoted_identifier_code_workspace_parses_into_components(self):
+        """The generated code_workspace FQN must survive the full project
+        definition parse — FQN.from_string must split it back into the correct
+        database, schema, and name components with double quotes intact."""
+        import yaml
+        from snowflake.cli.api.utils.definition_rendering import (
+            render_definition_template,
+        )
+
+        resolved = {
+            **self._BASE_RESOLVED,
+            "database": '"lower_db"',
+            "schema": '"lower_schema"',
+        }
+        raw_yml = _generate_snowflake_yml("my_app", resolved, use_workspace=True)
+        definition_input = yaml.safe_load(raw_yml)
+        result = render_definition_template(definition_input, {})
+        ws = result.project_definition.entities["my_app"].code_workspace
+
+        assert ws.database == '"lower_db"'
+        assert ws.schema_ == '"lower_schema"'
+        assert ws.name == "SNOWFLAKE_APPS"
+
+    def test_quoted_identifiers_produce_valid_project_definition(self):
+        """All quoted-identifier fields survive the full project-definition
+        parse: identifier.database, identifier.schema, query_warehouse, and
+        build_eai.name must all retain their embedded double quotes."""
+        import yaml
+        from snowflake.cli.api.utils.definition_rendering import (
+            render_definition_template,
+        )
+
+        resolved = {
+            "database": '"lower_db"',
+            "schema": '"lower_schema"',
+            "warehouse": '"lower_wh"',
+            "build_eai": '"lower_eai"',
+        }
+        raw_yml = _generate_snowflake_yml("my_app", resolved, use_workspace=False)
+        result = render_definition_template(yaml.safe_load(raw_yml), {})
+        entity = result.project_definition.entities["my_app"]
+
+        assert entity.identifier.database == '"lower_db"'
+        assert entity.identifier.schema_ == '"lower_schema"'
+        assert entity.query_warehouse == '"lower_wh"'
+        assert entity.build_eai.name == '"lower_eai"'
+
+    def test_quoted_identifier_code_workspace_mixed_components(self):
+        """code_workspace is correctly single-quoted when only one component is
+        a quoted identifier — e.g. database quoted, schema plain."""
+        import yaml
+        from snowflake.cli.api.utils.definition_rendering import (
+            render_definition_template,
+        )
+
+        resolved = {
+            **self._BASE_RESOLVED,
+            "database": '"lower_db"',
+            "schema": "PUBLIC",
+        }
+        raw_yml = _generate_snowflake_yml("my_app", resolved, use_workspace=True)
+        result = render_definition_template(yaml.safe_load(raw_yml), {})
+        ws = result.project_definition.entities["my_app"].code_workspace
+
+        assert ws.database == '"lower_db"'
+        assert ws.schema_ == "PUBLIC"
+        assert ws.name == "SNOWFLAKE_APPS"
+
+
+# ── _yaml_str unit tests ──────────────────────────────────────────────
+
+
+class TestYamlStr:
+    def test_plain_value_unchanged(self):
+        assert _yaml_str("MY_DB") == "MY_DB"
+
+    def test_wraps_quoted_identifier_in_single_quotes(self):
+        assert _yaml_str('"lower_db"') == "'\"lower_db\"'"
+
+    def test_escapes_embedded_single_quote(self):
+        # Snowflake double-quoted identifiers can contain single quotes.
+        # YAML single-quoted strings escape ' by doubling it.
+        assert _yaml_str('"lower\'s_db"') == "'\"lower''s_db\"'"
+
+    def test_escaped_value_round_trips_through_yaml(self):
+        import yaml
+
+        v = '"lower\'s_db"'
+        fragment = "key: " + _yaml_str(v)
+        assert yaml.safe_load(fragment) == {"key": v}
 
 
 # ── SnowflakeAppManager tests ─────────────────────────────────────────
