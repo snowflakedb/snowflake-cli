@@ -21,9 +21,12 @@ from snowflake.cli._plugins.apps.manager import DEFAULT_PERSONAL_WORKSPACE_NAME
 def _yaml_str(v: str) -> str:
     # YAML treats bare double quotes as string delimiters and strips them on
     # round-trip, turning '"lower_db"' into 'lower_db' (then uppercased by
-    # Snowflake).  Wrapping in single quotes preserves embedded double quotes
-    # as literal data.
-    return f"'{v}'" if '"' in v else v
+    # Snowflake).  Wrapping in YAML single quotes preserves embedded double
+    # quotes as literal data.  Single quotes inside the value are escaped by
+    # doubling them, per the YAML 1.1 single-quoted scalar spec.
+    if '"' in v:
+        return "'" + v.replace("'", "''") + "'"
+    return v
 
 
 def _generate_snowflake_yml(

@@ -732,14 +732,6 @@ class TestGenerateSnowflakeYml:
         assert entity.code_stage.schema_ is None
         assert entity.code_workspace is None
 
-    # ── _yaml_str unit tests ──────────────────────────────────────────
-
-    def test_yaml_str_plain_value_unchanged(self):
-        assert _yaml_str("MY_DB") == "MY_DB"
-
-    def test_yaml_str_wraps_quoted_identifier(self):
-        assert _yaml_str('"lower_db"') == "'\"lower_db\"'"
-
     # ── Quoted (case-sensitive) identifier round-trip tests ──────────
 
     def test_quoted_identifier_database_round_trips(self):
@@ -810,6 +802,29 @@ class TestGenerateSnowflakeYml:
         assert ws_val == '"lower_db"."lower_schema".SNOWFLAKE_APPS', (
             f"double quotes were stripped from code_workspace; got {ws_val!r}"
         )
+
+
+# ── _yaml_str unit tests ──────────────────────────────────────────────
+
+
+class TestYamlStr:
+    def test_plain_value_unchanged(self):
+        assert _yaml_str("MY_DB") == "MY_DB"
+
+    def test_wraps_quoted_identifier_in_single_quotes(self):
+        assert _yaml_str('"lower_db"') == "'\"lower_db\"'"
+
+    def test_escapes_embedded_single_quote(self):
+        # Snowflake double-quoted identifiers can contain single quotes.
+        # YAML single-quoted strings escape ' by doubling it.
+        assert _yaml_str("\"lower's_db\"") == "'\"lower''s_db\"'"
+
+    def test_escaped_value_round_trips_through_yaml(self):
+        import yaml
+
+        v = "\"lower's_db\""
+        fragment = "key: " + _yaml_str(v)
+        assert yaml.safe_load(fragment) == {"key": v}
 
 
 # ── SnowflakeAppManager tests ─────────────────────────────────────────
