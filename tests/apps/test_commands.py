@@ -826,6 +826,51 @@ class TestGenerateSnowflakeYml:
         assert ws.schema_ == '"lower_schema"'
         assert ws.name == "SNOWFLAKE_APPS"
 
+    def test_quoted_identifiers_produce_valid_project_definition(self):
+        """All quoted-identifier fields survive the full project-definition
+        parse: identifier.database, identifier.schema, query_warehouse, and
+        build_eai.name must all retain their embedded double quotes."""
+        import yaml
+        from snowflake.cli.api.utils.definition_rendering import (
+            render_definition_template,
+        )
+
+        resolved = {
+            "database": '"lower_db"',
+            "schema": '"lower_schema"',
+            "warehouse": '"lower_wh"',
+            "build_eai": '"lower_eai"',
+        }
+        raw_yml = _generate_snowflake_yml("my_app", resolved, use_workspace=False)
+        result = render_definition_template(yaml.safe_load(raw_yml), {})
+        entity = result.project_definition.entities["my_app"]
+
+        assert entity.identifier.database == '"lower_db"'
+        assert entity.identifier.schema_ == '"lower_schema"'
+        assert entity.query_warehouse == '"lower_wh"'
+        assert entity.build_eai.name == '"lower_eai"'
+
+    def test_quoted_identifier_code_workspace_mixed_components(self):
+        """code_workspace is correctly single-quoted when only one component is
+        a quoted identifier — e.g. database quoted, schema plain."""
+        import yaml
+        from snowflake.cli.api.utils.definition_rendering import (
+            render_definition_template,
+        )
+
+        resolved = {
+            **self._BASE_RESOLVED,
+            "database": '"lower_db"',
+            "schema": "PUBLIC",
+        }
+        raw_yml = _generate_snowflake_yml("my_app", resolved, use_workspace=True)
+        result = render_definition_template(yaml.safe_load(raw_yml), {})
+        ws = result.project_definition.entities["my_app"].code_workspace
+
+        assert ws.database == '"lower_db"'
+        assert ws.schema_ == "PUBLIC"
+        assert ws.name == "SNOWFLAKE_APPS"
+
 
 # ── _yaml_str unit tests ──────────────────────────────────────────────
 
