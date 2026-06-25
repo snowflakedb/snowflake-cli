@@ -24072,23 +24072,29 @@
   |   entity_id      [ENTITY_ID]  ID of streamlit entity.                        |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --replace                          Replaces the Streamlit app if it already  |
-  |                                    exists. It only uploads new and           |
-  |                                    overwrites existing files, but does not   |
-  |                                    remove any files already on the stage.    |
-  | --prune        --no-prune          Delete files that exist in the stage, but |
-  |                                    not in the local filesystem.              |
-  |                                    [default: no-prune]                       |
-  | --open                             Whether to open the Streamlit app in a    |
-  |                                    browser.                                  |
-  | --legacy                           Use legacy ROOT_LOCATION SQL syntax.      |
-  | --project  -p                TEXT  Path where the Snowflake project is       |
-  |                                    stored. Defaults to the current working   |
-  |                                    directory.                                |
-  | --env                        TEXT  String in the format key=value. Overrides |
-  |                                    variables from the env section used for   |
-  |                                    templates.                                |
-  | --help     -h                      Show this message and exit.               |
+  | --replace                                  Replaces the Streamlit app if it  |
+  |                                            already exists. It only uploads   |
+  |                                            new and overwrites existing       |
+  |                                            files, but does not remove any    |
+  |                                            files already on the stage.       |
+  | --prune                --no-prune          Delete files that exist in the    |
+  |                                            stage, but not in the local       |
+  |                                            filesystem.                       |
+  |                                            [default: no-prune]               |
+  | --open                                     Whether to open the Streamlit app |
+  |                                            in a browser.                     |
+  | --legacy                                   Use legacy ROOT_LOCATION SQL      |
+  |                                            syntax.                           |
+  | --follow-symlinks                          Follow symlinks that point        |
+  |                                            outside the project root. Only    |
+  |                                            use this with projects you trust. |
+  | --project          -p                TEXT  Path where the Snowflake project  |
+  |                                            is stored. Defaults to the        |
+  |                                            current working directory.        |
+  | --env                                TEXT  String in the format key=value.   |
+  |                                            Overrides variables from the env  |
+  |                                            section used for templates.       |
+  | --help             -h                      Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |

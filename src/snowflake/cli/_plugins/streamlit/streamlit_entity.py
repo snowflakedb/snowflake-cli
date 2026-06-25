@@ -121,7 +121,9 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             self.model.runtime_name == SPCS_RUNTIME_V2_NAME and self.model.compute_pool
         )
 
-    def bundle(self, output_dir: Optional[Path] = None) -> BundleMap:
+    def bundle(
+        self, output_dir: Optional[Path] = None, follow_symlinks: bool = False
+    ) -> BundleMap:
         artifacts = list(self._entity_model.artifacts or [])
 
         # Ensure main_file is included in artifacts
@@ -138,6 +140,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 )
                 for artifact in artifacts
             ],
+            follow_symlinks=follow_symlinks,
         )
 
     def deploy(
@@ -148,13 +151,14 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         prune: bool = False,
         bundle_map: Optional[BundleMap] = None,
         legacy: bool = False,
+        follow_symlinks: bool = False,
         *args,
         **kwargs,
     ):
         if (
             bundle_map is None
         ):  # TODO: maybe we could hold bundle map as a cached property?
-            bundle_map = self.bundle()
+            bundle_map = self.bundle(follow_symlinks=follow_symlinks)
 
         console = self._workspace_ctx.console
         console.step(f"Checking if object exists")

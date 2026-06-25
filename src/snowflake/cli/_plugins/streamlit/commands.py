@@ -140,6 +140,16 @@ LegacyOption = typer.Option(
     is_flag=True,
 )
 
+FollowSymlinksOption = typer.Option(
+    False,
+    "--follow-symlinks",
+    help=(
+        "Follow symlinks that point outside the project root. "
+        "Only use this with projects you trust."
+    ),
+    is_flag=True,
+)
+
 
 @app.command("deploy", requires_connection=True)
 @with_project_definition()
@@ -153,6 +163,7 @@ def streamlit_deploy(
     entity_id: str = entity_argument("streamlit"),
     open_: bool = OpenOption,
     legacy: bool = LegacyOption,
+    follow_symlinks: bool = FollowSymlinksOption,
     **options,
 ) -> CommandResult:
     """
@@ -171,6 +182,12 @@ def streamlit_deploy(
             "[Deprecation] The --experimental flag is deprecated. "
             "Versioned deployment is now the default behavior. "
             "This flag will be removed in a future version."
+        )
+
+    if follow_symlinks:
+        workspace_ctx.console.warning(
+            "--follow-symlinks is set; symlinks pointing outside the project root "
+            "will be followed. Only use this with projects you trust."
         )
 
     pd = cli_context.project_definition
@@ -200,6 +217,7 @@ def streamlit_deploy(
         replace=replace,
         legacy=legacy,
         prune=prune,
+        follow_symlinks=follow_symlinks,
     )
 
     if open_:

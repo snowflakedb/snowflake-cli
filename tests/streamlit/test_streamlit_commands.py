@@ -1,3 +1,4 @@
+import os
 import shutil
 from textwrap import dedent
 from unittest import mock
@@ -9,6 +10,7 @@ from tests.streamlit.streamlit_test_class import (
     TYPER,
     StreamlitTestClass,
 )
+from tests_common import IS_WINDOWS
 
 
 @pytest.fixture
@@ -556,3 +558,87 @@ class TestStreamlitCommands(StreamlitTestClass):
         assert mock_streamlit_ctx.get_queries() == [
             "EXECUTE STREAMLIT IDENTIFIER('test_streamlit')()"
         ]
+
+
+@pytest.mark.skipif(
+    IS_WINDOWS, reason="Symlinks on Windows are restricted to Developer mode or admins"
+)
+class TestFollowSymlinksFlag(StreamlitTestClass):
+    """Integration tests for the --follow-symlinks flag on snow streamlit deploy."""
+
+    def test_escaping_symlink_without_flag_raises_error(
+        self, tmp_path, project_directory, runner
+    ):
+        """
+        When a Streamlit project contains a symlink that points outside the
+        project root and --follow-symlinks is NOT passed, deploy must fail with
+        an ArtifactError that mentions --follow-symlinks in the message.
+        """
+        with project_directory("example_streamlit_v2") as tmp_dir:
+            # Create an outside directory with a file
+            outside = tmp_path / "outside_data"
+            outside.mkdir(parents=True, exist_ok=True)
+            (outside / "external.py").write_text("# external")
+
+            # Create an escaping symlink inside the project
+            os.symlink(outside, tmp_dir / "external_link", target_is_directory=True)
+
+            # Inject the symlinked dir into the artifacts list in snowflake.yml
+            snowflake_yml = tmp_dir / "snowflake.yml"
+            content = snowflake_yml.read_text()
+            content = content.replace(
+                "    artifacts:",
+                "    artifacts:\n      - external_link/",
+            )
+            snowflake_yml.write_text(content)
+
+            result = runner.invoke(["streamlit", "deploy", "--replace"])
+
+        # Deploy must fail and the error must hint about --follow-symlinks
+        assert result.exit_code != 0, result.output
+        assert "--follow-symlinks" in result.output
+
+    def test_escaping_symlink_with_flag_succeeds_and_warns(
+        self, tmp_path, project_directory, runner
+    ):
+        """
+        When --follow-symlinks is passed and a Streamlit project contains a
+        symlink pointing outside the project root, deploy must succeed and a
+        warning about the flag must be emitted to the console.
+        """
+        with project_directory("example_streamlit_v2") as tmp_dir:
+            # Create an outside directory with a file
+            outside = tmp_path / "outside_data2"
+            outside.mkdir(parents=True, exist_ok=True)
+            (outside / "external.py").write_text("# external")
+
+            # Create an escaping symlink inside the project
+            os.symlink(outside, tmp_dir / "external_link", target_is_directory=True)
+
+            # Inject the symlinked dir into the artifacts list in snowflake.yml
+            snowflake_yml = tmp_dir / "snowflake.yml"
+            content = snowflake_yml.read_text()
+            content = content.replace(
+                "    artifacts:",
+                "    artifacts:\n      - external_link/",
+            )
+            snowflake_yml.write_text(content)
+
+            result = runner.invoke(
+                ["streamlit", "deploy", "--replace", "--follow-symlinks"]
+            )
+
+            assert result.exit_code == 0, result.output
+            # A warning about trusting the project must be printed
+            assert "--follow-symlinks" in result.output
+
+            bundle_file = (
+                tmp_dir
+                / "output"
+                / "bundle"
+                / "streamlit"
+                / "test_streamlit"
+                / "external_link"
+                / "external.py"
+            )
+            assert bundle_file.exists(), "external.py must be present in the bundle"
