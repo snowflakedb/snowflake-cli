@@ -227,7 +227,7 @@ class FQN:
         """Update the instance with database and schema from connection in current cli context."""
         from snowflake.cli.api.cli_global_context import get_cli_context
 
-        return self.using_connection(get_cli_context().connection)
+        return self.using_connection(get_cli_context().connection_context)
 
     def to_dict(self) -> dict:
         return {"name": self.name, "schema": self.schema, "database": self.database}

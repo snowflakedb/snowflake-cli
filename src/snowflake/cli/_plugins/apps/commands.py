@@ -413,6 +413,7 @@ def snowflake_app_validate(entity_id: Optional[str]) -> CommandResult:
 
     # ── Validate database and schema ──────────────────────────────────
     fqn = entity.fqn
+    fqn.using_context()
     database = fqn.database
     schema = fqn.schema
 
@@ -454,6 +455,7 @@ def snowflake_app_open(
     entity = _get_entity(resolved_entity_id)
 
     fqn = entity.fqn
+    fqn.using_context()
     ctx = get_cli_context()
     metrics = ctx.metrics
 
@@ -516,6 +518,7 @@ def snowflake_app_events(
     entity = _get_entity(resolved_entity_id)
 
     fqn = entity.fqn
+    fqn.using_context()
     # Rebuild to a 3-part name; entity FQN may carry extra fields (e.g. prefix)
     service_fqn = app_fqn(database=fqn.database, schema=fqn.schema, name=fqn.name)
 
@@ -602,6 +605,7 @@ def snowflake_app_deploy(
 
     # ── Extract entity configuration ──────────────────────────────────
     fqn = entity.fqn
+    fqn.using_context()
     app_name = fqn.name
 
     ctx = get_cli_context()
@@ -977,6 +981,7 @@ def snowflake_app_teardown(
     entity = _get_entity(resolved_entity_id)
 
     fqn = entity.fqn
+    fqn.using_context()
     manager = SnowflakeAppManager()
     metrics = get_cli_context().metrics
     with metrics.span("snowflake_app.teardown.resolve_defaults"):

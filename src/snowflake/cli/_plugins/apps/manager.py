@@ -494,6 +494,22 @@ def _filter_accessible_remote_defaults(
     return filtered
 
 
+def _expand_personal_database(
+    database: Optional[str], manager: "SnowflakeAppManager"
+) -> Optional[str]:
+    """Expand bare ``USER$`` to the full PDB name via a server-side query.
+
+    ``FQN.using_context()`` already handles this when the username is present
+    in the connection config (e.g. username/password auth).  This fallback
+    covers auth methods (SSO, browser, keypair without user field) where
+    ``connection_context.user`` is ``None``, by running
+    ``SELECT 'USER$' || CURRENT_USER()``.
+    """
+    if database and identifier_to_str(database.strip()).upper() == PERSONAL_DATABASE_PREFIX:
+        return manager.get_personal_database() or database
+    return database
+
+
 def _resolve_deploy_defaults(
     entity: "SnowflakeAppEntityModel",
     manager: "SnowflakeAppManager",
@@ -521,6 +537,7 @@ def _resolve_deploy_defaults(
 
     # ── 1. snowflake.yml values ───────────────────────────────────────
     fqn = entity.fqn
+    fqn.using_context()
     if app_name is None:
         app_name = fqn.name
     yml_vals: Dict[str, Optional[str]] = {
@@ -542,7 +559,7 @@ def _resolve_deploy_defaults(
         "artifact_repo_schema": (
             entity.artifact_repository.schema_ if entity.artifact_repository else None
         ),
-        "database": fqn.database,
+        "database": _expand_personal_database(fqn.database, manager),
         "schema": fqn.schema,
     }
 
