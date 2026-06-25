@@ -420,6 +420,7 @@ def snowflake_app_validate(entity_id: Optional[str]) -> CommandResult:
     metrics = get_cli_context().metrics
 
     if database:
+        database = manager.resolve_database(database)
         with metrics.span("snowflake_app.validate.check_database"):
             if not manager.database_exists(database):
                 raise CliError(

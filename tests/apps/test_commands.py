@@ -854,6 +854,66 @@ class TestSchemaExists:
 
         assert SnowflakeAppManager().schema_exists("MY_DB", "NO_SUCH") is False
 
+    @patch(GET_PERSONAL_DATABASE, return_value="USER$TESTUSER")
+    @patch(EXECUTE_QUERY)
+    def test_bare_user_dollar_resolves_before_query(self, mock_execute, _mock_pdb):
+        cursor = Mock()
+        cursor.fetchone.return_value = {"name": "MY_SCHEMA"}
+        mock_execute.return_value = cursor
+
+        assert SnowflakeAppManager().schema_exists("USER$", "MY_SCHEMA") is True
+        query = mock_execute.call_args[0][0]
+        assert "USER$TESTUSER" in query
+        assert "USER$'" not in query  # bare USER$ must not reach Snowflake
+
+
+class TestResolveDatabase:
+    @patch(GET_PERSONAL_DATABASE, return_value="USER$TESTUSER")
+    def test_bare_user_dollar_expands(self, _mock_pdb):
+        assert SnowflakeAppManager().resolve_database("USER$") == "USER$TESTUSER"
+
+    @patch(GET_PERSONAL_DATABASE, return_value="USER$TESTUSER")
+    def test_bare_user_dollar_case_insensitive(self, _mock_pdb):
+        assert SnowflakeAppManager().resolve_database("user$") == "USER$TESTUSER"
+
+    @patch(GET_PERSONAL_DATABASE, return_value='USER$first.last@domain.com')
+    def test_quoted_bare_user_dollar_expands(self, _mock_pdb):
+        assert (
+            SnowflakeAppManager().resolve_database('"USER$"')
+            == "USER$first.last@domain.com"
+        )
+
+    @patch(GET_PERSONAL_DATABASE)
+    def test_full_pdb_name_passes_through(self, mock_pdb):
+        result = SnowflakeAppManager().resolve_database("USER$TESTUSER")
+        assert result == "USER$TESTUSER"
+        mock_pdb.assert_not_called()
+
+    @patch(GET_PERSONAL_DATABASE)
+    def test_regular_database_passes_through(self, mock_pdb):
+        result = SnowflakeAppManager().resolve_database("MY_DB")
+        assert result == "MY_DB"
+        mock_pdb.assert_not_called()
+
+    @patch(GET_PERSONAL_DATABASE, return_value=None)
+    def test_falls_back_to_input_when_resolution_fails(self, _mock_pdb):
+        # get_personal_database() can return None (unauthenticated contexts etc.)
+        assert SnowflakeAppManager().resolve_database("USER$") == "USER$"
+
+
+class TestDatabaseExistsWithUserDollar:
+    @patch(GET_PERSONAL_DATABASE, return_value="USER$TESTUSER")
+    @patch(EXECUTE_QUERY)
+    def test_bare_user_dollar_resolves_before_query(self, mock_execute, _mock_pdb):
+        cursor = Mock()
+        cursor.fetchone.return_value = {"name": "USER$TESTUSER"}
+        mock_execute.return_value = cursor
+
+        assert SnowflakeAppManager().database_exists("USER$") is True
+        query = mock_execute.call_args[0][0]
+        assert "USER$TESTUSER" in query
+        assert "USER$'" not in query  # bare USER$ must not reach Snowflake
+
 
 class TestCurrentRole:
     @patch(EXECUTE_QUERY)
@@ -4314,6 +4374,7 @@ class TestValidateCommand:
     @staticmethod
     def _configure_manager_mock(mock_manager_cls):
         mock_mgr = mock_manager_cls.return_value
+        mock_mgr.resolve_database.side_effect = lambda db: db
         mock_mgr.database_exists.return_value = True
         mock_mgr.schema_exists.return_value = True
         return mock_mgr
@@ -4398,6 +4459,46 @@ class TestValidateCommand:
             result = runner.invoke(["app", "validate"])
             assert result.exit_code == 1
             assert "Schema 'TEST_DB.TEST_SCHEMA' does not exist" in result.output
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_validate_bare_user_dollar_resolves_and_succeeds(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_perform_bundle,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        """USER$ in snowflake.yml is expanded to the full PDB name before validation."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        entity.fqn = Mock(database="USER$", schema="PUBLIC", name="MY_APP")
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.resolve_database.return_value = "USER$TESTUSER"
+        mock_mgr.database_exists.return_value = True
+        mock_mgr.schema_exists.return_value = True
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "validate"])
+            assert result.exit_code == 0, result.output
+            mock_mgr.resolve_database.assert_called_once_with("USER$")
+            # database_exists/schema_exists receive the resolved name
+            mock_mgr.database_exists.assert_called_once_with("USER$TESTUSER")
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")

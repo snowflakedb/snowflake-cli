@@ -805,10 +805,23 @@ class SnowflakeAppManager(SqlExecutionMixin):
             log.warning("Could not resolve personal database.", exc_info=True)
         return None
 
+    def resolve_database(self, database: str) -> str:
+        """Expand bare ``USER$`` to the current user's full PDB name.
+
+        When a user specifies ``USER$`` as a database shorthand (e.g. in
+        ``snowflake.yml`` or on the command line), this resolves it to the
+        actual name (e.g. ``USER$MBORINS``) via a server round-trip.  All
+        other database names are returned unchanged.
+        """
+        if identifier_to_str(database.strip()).upper() == PERSONAL_DATABASE_PREFIX:
+            return self.get_personal_database() or database
+        return database
+
     def database_exists(self, database: str) -> bool:
         """Return True if *database* exists and is visible to the current role."""
         from snowflake.cli.api.project.util import to_string_literal
 
+        database = self.resolve_database(database)
         cursor = self.execute_query(
             f"SHOW DATABASES LIKE {to_string_literal(database)}",
             cursor_class=DictCursor,
@@ -819,6 +832,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         """Return True if *schema* exists in *database*."""
         from snowflake.cli.api.project.util import to_string_literal
 
+        database = self.resolve_database(database)
         cursor = self.execute_query(
             f"SHOW SCHEMAS LIKE {to_string_literal(schema)}"
             f" IN DATABASE IDENTIFIER({to_string_literal(database)})",
