@@ -327,6 +327,31 @@ def _read_snowflake_requirements_file(file_path: SecurePath):
     return file_path.read_text(file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB).splitlines()
 
 
+def _select_requirements_source(project_paths: SnowparkProjectPaths):
+    """Picks the dependency source to use for a snowpark build.
+
+    Prefers ``requirements.txt`` when present — it remains the canonical
+    format and keeps existing projects behaving identically. Falls back to
+    PEP 621 ``[project].dependencies`` in ``pyproject.toml`` when no
+    ``requirements.txt`` is found. Returns ``None`` when no dependency
+    source is available, in which case only code artifacts are bundled.
+    """
+    if project_paths.requirements.exists():
+        return (
+            "requirements.txt",
+            package_utils.parse_requirements(
+                requirements_file=project_paths.requirements,
+            ),
+        )
+    if project_paths.pyproject.exists():
+        requirements = package_utils.parse_pyproject_dependencies(
+            pyproject_file=project_paths.pyproject,
+        )
+        if requirements:
+            return ("pyproject.toml", requirements)
+    return None
+
+
 @app.command("build", requires_connection=True)
 @with_project_definition()
 def build(
@@ -353,15 +378,17 @@ def build(
     # Clean up bundle root
     project_paths.remove_up_bundle_root()
 
-    # Resolve dependencies
-    if project_paths.requirements.exists():
+    # Resolve dependencies. requirements.txt takes precedence for backwards
+    # compatibility; fall back to PEP 621 [project].dependencies in
+    # pyproject.toml so projects that only track deps there still get their
+    # packages bundled.
+    requirements_source = _select_requirements_source(project_paths)
+    if requirements_source is not None:
+        source_label, requirements = requirements_source
         with (
-            cli_console.phase("Resolving dependencies from requirements.txt"),
+            cli_console.phase(f"Resolving dependencies from {source_label}"),
             SecurePath.temporary_directory() as temp_deps_dir,
         ):
-            requirements = package_utils.parse_requirements(
-                requirements_file=project_paths.requirements,
-            )
             anaconda_packages = (
                 AnacondaPackages.empty()
                 if ignore_anaconda
