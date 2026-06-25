@@ -21,6 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
+* `snow app setup` now correctly preserves case-sensitive (double-quoted) identifiers in the generated `snowflake.yml`. Previously, values such as `"lower_db"` were silently stripped of their surrounding quotes by YAML, causing Snowflake to uppercase the identifier and fail to locate the object.
 * `snow app setup` no longer writes `build_compute_pool` / `service_compute_pool` to the generated `snowflake.yml`, and no longer reads the `DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL` / `DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL` account parameters. Snowflake App Runtime services now always run on server-managed compute pools. Existing projects that set these fields in `snowflake.yml` continue to be honored by `snow app deploy`.
 * `snow app setup --dry-run` now exits with code 0 while still printing the same setup validation errors that a non-dry-run invocation surfaces.
 * `snow app deploy` now supports a separate `service_eai` field on `snowflake-app` entities for newly created application services. When `service_eai` is not set, deploy continues to fall back to `build_eai` for backward compatibility.
