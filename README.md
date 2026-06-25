@@ -57,7 +57,7 @@ Requires [Homebrew](https://brew.sh/).
 
 ```bash
 brew tap snowflakedb/snowflake-cli
-brew install snowflake-cli
+brew install --cask snowflake-cli
 snow --help
 ```
 
