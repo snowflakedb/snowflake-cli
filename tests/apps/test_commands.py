@@ -803,6 +803,29 @@ class TestGenerateSnowflakeYml:
             f"double quotes were stripped from code_workspace; got {ws_val!r}"
         )
 
+    def test_quoted_identifier_code_workspace_parses_into_components(self):
+        """The generated code_workspace FQN must survive the full project
+        definition parse — FQN.from_string must split it back into the correct
+        database, schema, and name components with double quotes intact."""
+        import yaml
+        from snowflake.cli.api.utils.definition_rendering import (
+            render_definition_template,
+        )
+
+        resolved = {
+            **self._BASE_RESOLVED,
+            "database": '"lower_db"',
+            "schema": '"lower_schema"',
+        }
+        raw_yml = _generate_snowflake_yml("my_app", resolved, use_workspace=True)
+        definition_input = yaml.safe_load(raw_yml)
+        result = render_definition_template(definition_input, {})
+        ws = result.project_definition.entities["my_app"].code_workspace
+
+        assert ws.database == '"lower_db"'
+        assert ws.schema_ == '"lower_schema"'
+        assert ws.name == "SNOWFLAKE_APPS"
+
 
 # ── _yaml_str unit tests ──────────────────────────────────────────────
 
