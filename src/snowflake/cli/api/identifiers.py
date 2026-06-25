@@ -212,6 +212,15 @@ class FQN:
             self.set_database(conn.database)
         if conn.schema and not self.schema:
             self.set_schema(conn.schema)
+        # Expand bare USER$ → USER$<username> using the connection's known user.
+        # The server already supports this shorthand, but the CLI needs the full
+        # name for validation queries (SHOW DATABASES LIKE ...) and error messages.
+        if (
+            self._database
+            and unquote_identifier(self._database).upper() == "USER$"
+            and getattr(conn, "user", None)
+        ):
+            self._database = f"USER${conn.user}"
         return self
 
     def using_context(self) -> "FQN":

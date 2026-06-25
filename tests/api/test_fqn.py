@@ -315,6 +315,30 @@ def test_using_connection():
     assert fqn.identifier == "database_test.test_schema.name"
 
 
+def test_using_connection_expands_bare_user_dollar():
+    conn = MagicMock(database=None, schema=None, user="TESTUSER")
+    fqn = FQN(database="USER$", schema="PUBLIC", name="my_ws").using_connection(conn)
+    assert fqn.database == "USER$TESTUSER"
+
+
+def test_using_connection_expands_quoted_bare_user_dollar():
+    conn = MagicMock(database=None, schema=None, user="TESTUSER")
+    fqn = FQN(database='"USER$"', schema="PUBLIC", name="my_ws").using_connection(conn)
+    assert fqn.database == "USER$TESTUSER"
+
+
+def test_using_connection_does_not_expand_full_pdb():
+    conn = MagicMock(database=None, schema=None, user="TESTUSER")
+    fqn = FQN(database="USER$TESTUSER", schema="PUBLIC", name="my_ws").using_connection(conn)
+    assert fqn.database == "USER$TESTUSER"
+
+
+def test_using_connection_skips_expansion_when_no_user():
+    conn = MagicMock(database=None, schema=None, user=None)
+    fqn = FQN(database="USER$", schema="PUBLIC", name="my_ws").using_connection(conn)
+    assert fqn.database == "USER$"
+
+
 @mock.patch("snowflake.cli.api.cli_global_context.get_cli_context")
 def test_using_context(mock_ctx):
     mock_ctx().connection = MagicMock(database="database_test", schema="test_schema")
