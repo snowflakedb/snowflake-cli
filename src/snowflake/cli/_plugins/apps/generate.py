@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from textwrap import dedent
-from typing import Dict, Optional
+from typing import Dict, Optional, cast
 
 from snowflake.cli._plugins.apps.manager import DEFAULT_PERSONAL_WORKSPACE_NAME
 
@@ -64,9 +64,9 @@ def _generate_snowflake_yml(
     resolved against the app's database and schema at deploy time.
     """
 
-    database = resolved["database"]
-    schema = resolved["schema"]
-    warehouse = resolved["warehouse"]
+    database = cast(str, resolved["database"])
+    schema = cast(str, resolved["schema"])
+    warehouse = cast(str, resolved["warehouse"])
     build_eai = resolved.get("build_eai")
 
     if use_workspace:

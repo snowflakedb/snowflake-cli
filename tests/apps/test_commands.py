@@ -816,12 +816,12 @@ class TestYamlStr:
     def test_escapes_embedded_single_quote(self):
         # Snowflake double-quoted identifiers can contain single quotes.
         # YAML single-quoted strings escape ' by doubling it.
-        assert _yaml_str("\"lower's_db\"") == "'\"lower''s_db\"'"
+        assert _yaml_str('"lower\'s_db"') == "'\"lower''s_db\"'"
 
     def test_escaped_value_round_trips_through_yaml(self):
         import yaml
 
-        v = "\"lower's_db\""
+        v = '"lower\'s_db"'
         fragment = "key: " + _yaml_str(v)
         assert yaml.safe_load(fragment) == {"key": v}
 
