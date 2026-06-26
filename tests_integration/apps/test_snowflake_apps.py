@@ -42,11 +42,13 @@ from pathlib import Path
 
 import pytest
 import yaml
+from snowflake.connector.errors import ProgrammingError
 
 DATABASE = os.environ.get("SNOWFLAKE_CONNECTIONS_INTEGRATION_DATABASE", "SNOWCLI_DB")
 SCHEMA = os.environ.get("SNOWFLAKE_CONNECTIONS_INTEGRATION_SCHEMA", "public")
 WAREHOUSE = os.environ.get("SNOWFLAKE_CONNECTIONS_INTEGRATION_WAREHOUSE", "xsmall")
 BUILD_EAI = "cli_test_integration"
+APP_SERVICE_DEFAULTS_FUNCTION = "SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS"
 
 _ACCOUNT_PARAMS = {
     "DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE": WAREHOUSE,
@@ -73,6 +75,34 @@ def _ensure_snowflake_apps_account_params(snowflake_session):
     user = rows[-1].fetchone()[0]
     set_clauses = " ".join(f"{k}='{v}'" for k, v in _ACCOUNT_PARAMS.items())
     snowflake_session.execute_string(f"ALTER USER {user} SET {set_clauses}")
+    yield
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _require_app_service_defaults_function(snowflake_session):
+    """Skip this module when ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()`` is not
+    yet available on the test deployment.
+
+    ``snow app setup`` resolves its defaults through this system function (see
+    ``SnowflakeAppManager.fetch_app_service_defaults``). The server change that
+    adds it rolls out to deployments some time after it merges, so on a
+    deployment that has not picked it up yet the call fails with
+    ``Unknown function`` and the CLI has nothing to resolve from. Skip rather
+    than fail during that rollout window; the test runs normally once the
+    function is live.
+    """
+    try:
+        rows = snowflake_session.execute_string(
+            f"SELECT {APP_SERVICE_DEFAULTS_FUNCTION}()"
+        )
+        rows[-1].fetchone()
+    except ProgrammingError as exc:
+        if "Unknown function" in str(exc) and APP_SERVICE_DEFAULTS_FUNCTION in str(exc):
+            pytest.skip(
+                f"{APP_SERVICE_DEFAULTS_FUNCTION} is not available on this "
+                "deployment yet; skipping until it rolls out."
+            )
+        raise
     yield
 
 
