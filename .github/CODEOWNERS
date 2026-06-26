@@ -1,17 +1,17 @@
-* @snowflakedb/snowcli @snowflakedb/client-side-interfaces
+* @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces
 
 # Apps plugin
-/src/snowflake/cli/_plugins/apps/ @snowflakedb/snowcli @snowflakedb/client-side-interfaces @snowflakedb/native-apps
-/tests/apps/ @snowflakedb/snowcli @snowflakedb/client-side-interfaces @snowflakedb/native-apps
-/tests_integration/apps/ @snowflakedb/snowcli @snowflakedb/client-side-interfaces @snowflakedb/native-apps
-/tests_integration/test_data/projects/snowflake_apps/ @snowflakedb/snowcli @snowflakedb/client-side-interfaces @snowflakedb/native-apps
-/tests/__snapshots__/ @snowflakedb/snowcli @snowflakedb/client-side-interfaces @snowflakedb/native-apps
-/tests_integration/__snapshots__/ @snowflakedb/snowcli @snowflakedb/client-side-interfaces @snowflakedb/native-apps
+/src/snowflake/cli/_plugins/apps/ @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/native-apps
+/tests/apps/ @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/native-apps
+/tests_integration/apps/ @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/native-apps
+/tests_integration/test_data/projects/snowflake_apps/ @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/native-apps
+/tests/__snapshots__/ @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/native-apps
+/tests_integration/__snapshots__/ @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/native-apps
 
 # Nativeapp plugin
-/src/snowflake/cli/_plugins/nativeapp/ @snowflakedb/snowcli @snowflakedb/client-side-interfaces @snowflakedb/native-apps
-/tests/nativeapp/ @snowflakedb/snowcli @snowflakedb/client-side-interfaces @snowflakedb/native-apps
-/tests_integration/nativeapp/ @snowflakedb/snowcli @snowflakedb/client-side-interfaces @snowflakedb/native-apps
+/src/snowflake/cli/_plugins/nativeapp/ @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/native-apps
+/tests/nativeapp/ @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/native-apps
+/tests_integration/nativeapp/ @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/native-apps
 
 # Release notes
-/RELEASE-NOTES.md @snowflakedb/snowcli @snowflakedb/client-side-interfaces @snowflakedb/native-apps
+/RELEASE-NOTES.md @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/native-apps
