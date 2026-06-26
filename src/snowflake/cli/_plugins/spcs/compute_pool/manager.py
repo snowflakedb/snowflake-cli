@@ -59,8 +59,7 @@ class ComputePoolManager(SqlExecutionMixin):
             query.append(f"COMMENT = {comment}")
 
         if tags:
-            tag_list = ",".join(f"{t.name}={t.value_string_literal()}" for t in tags)
-            query.append(f"WITH TAG ({tag_list})")
+            query.append(Tag.to_sql_clause(tags))
 
         try:
             return self.execute_query(strip_empty_lines(query))
