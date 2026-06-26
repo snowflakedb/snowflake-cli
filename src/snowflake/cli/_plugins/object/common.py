@@ -38,6 +38,16 @@ class Tag:
     def value_string_literal(self):
         return to_string_literal(self.value)
 
+    @classmethod
+    def to_sql_tag_list(cls, tags: "list[Tag]") -> str:
+        return ",".join(f"{t.name}={t.value_string_literal()}" for t in tags)
+
+    @classmethod
+    def to_sql_clause(cls, tags: "list[Tag]") -> str:
+        if not tags:
+            return ""
+        return f"WITH TAG ({cls.to_sql_tag_list(tags)})"
+
 
 class TagError(ClickException):
     def __init__(self):
