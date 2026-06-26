@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Added `tags` field to Streamlit entity so that tags can be set with `snow streamlit deploy`.
 
 ## Fixes and improvements
 * `snow app setup` now correctly preserves case-sensitive (double-quoted) identifiers in the generated `snowflake.yml`. Previously, values such as `"lower_db"` were silently stripped of their surrounding quotes by YAML, causing Snowflake to uppercase the identifier and fail to locate the object.

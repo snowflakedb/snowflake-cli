@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional
 from click import ClickException
 from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.nativeapp.artifacts import build_bundle
+from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli._plugins.streamlit.manager import StreamlitManager
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
@@ -20,7 +21,10 @@ from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import bundle_root
 from snowflake.cli.api.project.schemas.entities.common import Identifier, PathMapping
-from snowflake.cli.api.project.util import to_identifier, to_string_literal
+from snowflake.cli.api.project.util import (
+    to_identifier,
+    to_string_literal,
+)
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
@@ -319,6 +323,37 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             + ";"
         )
 
+    def get_set_tag_sql(self) -> Optional[str]:
+        if not self.model.tags:
+            return None
+        tag_list = Tag.to_sql_tag_list(self.model.tags)
+        return f"ALTER STREAMLIT {self._get_sql_identifier()} SET TAG {tag_list};"
+
+    def get_unset_tag_sql(self, tag_names: list) -> str:
+        return (
+            f"ALTER STREAMLIT {self._get_sql_identifier()} UNSET TAG "
+            + ",".join(tag_names)
+            + ";"
+        )
+
+    def _get_current_tag_names(self) -> list:
+        fqn = self._get_fqn()
+        rows = self._execute_query(
+            f"SELECT TAG_NAME FROM TABLE(information_schema.tag_references("
+            f"{to_string_literal(fqn.identifier)}, 'STREAMLIT'))"
+        ).fetchall()
+        return [row[0] for row in rows]
+
+    def _sync_tags(self) -> None:
+        current = set(self._get_current_tag_names())
+        desired = {t.name.upper() for t in (self.model.tags or [])}
+        to_unset = list(current - desired)
+        if to_unset:
+            self._execute_query(self.get_unset_tag_sql(to_unset))
+        set_tag_sql = self.get_set_tag_sql()
+        if set_tag_sql:
+            self._execute_query(set_tag_sql)
+
     def get_deploy_sql(
         self,
         if_not_exists: bool = False,
@@ -375,6 +410,9 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         if not from_stage_name and not legacy and self._is_spcs_runtime_v2_mode():
             query += f"\nRUNTIME_NAME = {to_string_literal(self.model.runtime_name)}"
             query += f"\nCOMPUTE_POOL = {to_string_literal(self.model.compute_pool)}"
+
+        if self.model.tags:
+            query += f"\n{Tag.to_sql_clause(self.model.tags)}"
 
         return query + ";"
 
@@ -451,6 +489,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             )
             if alter_sql:
                 self._execute_query(alter_sql)
+            self._sync_tags()
         else:
             self._execute_query(
                 self.get_deploy_sql(
@@ -474,6 +513,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             alter_sql = self.get_alter_sql(current=current)
             if alter_sql:
                 self._execute_query(alter_sql)
+            self._sync_tags()
             # Live version already exists — upload new files directly to the
             # existing stage without issuing ADD LIVE VERSION FROM LAST.
             stage_root = current["live_version_location_uri"]

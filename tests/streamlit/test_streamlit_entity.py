@@ -2,6 +2,7 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
+from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     SPCS_RUNTIME_V2_NAME,
@@ -785,3 +786,165 @@ class TestStreamlitEntity(StreamlitTestClass):
         assert f"= '{payload}'" not in sql
         # Confirm quote-doubling is present (each ' in payload becomes '')
         assert "''" in sql
+
+    def test_get_deploy_sql_with_tags(self, workspace_context):
+        """Test that get_deploy_sql includes WITH TAG (...) when tags are set."""
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+            tags=[Tag("cost_center", "engineering"), Tag("owner", "team_a")],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=False)
+
+        assert "WITH TAG (cost_center='engineering',owner='team_a')" in sql
+
+    def test_get_deploy_sql_tags_escape_single_quotes(self, workspace_context):
+        """Tag values containing single quotes must be properly escaped."""
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+            tags=[Tag("env", "it's prod")],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=False)
+
+        assert "WITH TAG (env='it''s prod')" in sql
+        assert "WITH TAG (env='it's prod')" not in sql
+
+    def test_get_set_tag_sql_with_tags(self, workspace_context):
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+            tags=[Tag("cost_center", "engineering"), Tag("owner", "team_a")],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        sql = entity.get_set_tag_sql()
+
+        assert (
+            sql
+            == "ALTER STREAMLIT IDENTIFIER('test_streamlit') SET TAG cost_center='engineering',owner='team_a';"
+        )
+
+    def test_get_set_tag_sql_no_tags(self, workspace_context):
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        assert entity.get_set_tag_sql() is None
+
+    def test_get_set_tag_sql_escapes_single_quotes(self, workspace_context):
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+            tags=[Tag("env", "it's prod")],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        sql = entity.get_set_tag_sql()
+
+        assert "SET TAG env='it''s prod'" in sql
+        assert "SET TAG env='it's prod'" not in sql
+
+    def test_get_unset_tag_sql(self, workspace_context):
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        sql = entity.get_unset_tag_sql(["cost_center", "owner"])
+
+        assert (
+            sql
+            == "ALTER STREAMLIT IDENTIFIER('test_streamlit') UNSET TAG cost_center,owner;"
+        )
+
+    def test_sync_tags_unsets_removed_and_sets_desired(self, workspace_context):
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+            tags=[Tag("new_tag", "v")],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        with (
+            mock.patch.object(
+                entity,
+                "_get_current_tag_names",
+                return_value=["old_tag"],  # already parsed strings
+            ),
+            mock.patch.object(entity, "_execute_query") as mock_exec,
+        ):
+            entity._sync_tags()  # noqa: SLF001
+
+        calls = [str(c.args[0]) for c in mock_exec.call_args_list]
+        assert any("UNSET TAG old_tag" in c for c in calls)
+        assert any("SET TAG new_tag='v'" in c for c in calls)
+
+    def test_sync_tags_unsets_all_when_no_desired_tags(self, workspace_context):
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        with (
+            mock.patch.object(
+                entity, "_get_current_tag_names", return_value=["tag_a", "tag_b"]
+            ),
+            mock.patch.object(entity, "_execute_query") as mock_exec,
+        ):
+            entity._sync_tags()  # noqa: SLF001
+
+        assert mock_exec.call_count == 1
+        unset_sql = mock_exec.call_args.args[0]
+        assert "UNSET TAG" in unset_sql
+        assert " SET TAG " not in unset_sql
+
+    def test_sync_tags_no_current_no_desired_is_noop(self, workspace_context):
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        with (
+            mock.patch.object(entity, "_get_current_tag_names", return_value=[]),
+            mock.patch.object(entity, "_execute_query") as mock_exec,
+        ):
+            entity._sync_tags()  # noqa: SLF001
+
+        mock_exec.assert_not_called()

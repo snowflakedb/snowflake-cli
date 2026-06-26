@@ -13,9 +13,10 @@
 # limitations under the License.
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 
 from pydantic import Field, model_validator
+from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli.api.project.schemas.entities.common import (
     Artifacts,
     EntityModelBaseWithArtifacts,
@@ -62,6 +63,7 @@ class StreamlitEntityModel(
         title="The compute pool name of the snowservices running the streamlit app",
         default=None,
     )
+    tags: Optional[List[Tag]] = Field(title="Tags for the Streamlit app", default=None)
 
     @model_validator(mode="after")
     def validate_spcs_runtime_fields(self):
