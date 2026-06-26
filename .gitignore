@@ -18,9 +18,12 @@ gen_docs/
 .env
 .vscode
 tmp/
+uv.lock
 
 ^app.zip
 ^snowflake.yml
 
 plans/
 .claude/settings.local.json
+.cursor/mcp.json
+.mcp.json
