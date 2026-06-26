@@ -2673,6 +2673,17 @@ class TestResolveDeployDefaults:
         assert result["schema"] == "MY_SCHEMA"
 
     @patch(FETCH_SNOW_APPS_PARAMS, return_value={})
+    @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
+    @patch(GET_PERSONAL_DATABASE, return_value="USER$TESTUSER")
+    def test_bare_user_dollar_in_yml_is_expanded(self, mock_pdb, mock_ctx, mock_params):
+        """USER$ in snowflake.yml expands via SQL for any auth method."""
+        from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
+
+        entity = self._make_entity(database="USER$", schema="PUBLIC")
+        result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
+        assert result["database"] == "USER$TESTUSER"
+
+    @patch(FETCH_SNOW_APPS_PARAMS, return_value={})
     @patch(
         GET_CLI_CONTEXT,
         return_value=_mock_connection_context(

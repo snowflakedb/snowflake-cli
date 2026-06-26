@@ -341,7 +341,7 @@ def test_using_connection_skips_expansion_when_no_user():
 
 @mock.patch("snowflake.cli.api.cli_global_context.get_cli_context")
 def test_using_context(mock_ctx):
-    mock_ctx().connection = MagicMock(database="database_test", schema="test_schema")
+    mock_ctx().connection_context = MagicMock(database="database_test", schema="test_schema")
     fqn = FQN.from_string("name").using_context()
     assert fqn.identifier == "database_test.test_schema.name"
 
@@ -364,7 +364,7 @@ class TestFromResource:
         with mock.patch(
             "snowflake.cli.api.cli_global_context.get_cli_context"
         ) as _fixture:
-            _fixture().connection = MagicMock(database="test_db", schema="test_schema")
+            _fixture().connection_context = MagicMock(database="test_db", schema="test_schema")
             yield _fixture
 
     def test_basic_functionality(self, mock_ctx, mock_time):
@@ -422,7 +422,7 @@ class TestFromResource:
         expected_db,
         expected_schema,
     ):
-        mock_ctx().connection = MagicMock(database=context_db, schema=context_schema)
+        mock_ctx().connection_context = MagicMock(database=context_db, schema=context_schema)
         resource_fqn = FQN(
             name="resource", database=resource_db, schema=resource_schema
         )
