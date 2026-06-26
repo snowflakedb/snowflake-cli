@@ -16,8 +16,9 @@
 
 Scope: this module verifies the end-to-end account-parameter resolution path
 that *only* a real Snowflake account can exercise. The CLI calls
-``SHOW PARAMETERS LIKE 'DEFAULT_SNOWFLAKE_APPS_%' IN USER`` (see
-``SnowflakeAppManager.fetch_snow_apps_parameters``) and the source label
+``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()`` (see
+``SnowflakeAppManager.fetch_app_service_defaults``), which resolves the
+``DEFAULT_SNOWFLAKE_APPS_*`` parameters server-side, and the source label
 emitted by the resolver is ``(account parameter)`` (``SOURCE_ACCOUNT_PARAM``
 in ``apps/commands.py``); fixtures and tests use the same naming.
 
