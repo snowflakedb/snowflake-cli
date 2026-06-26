@@ -192,6 +192,39 @@ class StreamlitTestSteps:
             len(streamlits_with_role) == 1
         ), f"Role {test_role} should have USAGE access to the streamlit"
 
+    def verify_tags_applied(
+        self,
+        entity_id: str,
+        tag_name: str,
+        expected_value: str,
+        session: SnowflakeConnection,
+    ):
+        db = session.database
+        schema = session.schema
+        result = self.setup.sql_test_helper.execute_single_sql(
+            f"SELECT SYSTEM$GET_TAG('{db}.{schema}.{tag_name}', "
+            f"'{db}.{schema}.{entity_id}', 'STREAMLIT') AS tag_value"
+        )
+        assert (
+            result[0]["TAG_VALUE"] == expected_value
+        ), f"Expected tag '{tag_name}' to have value '{expected_value}' on streamlit '{entity_id}'"
+
+    def verify_tag_not_set(
+        self,
+        entity_id: str,
+        tag_name: str,
+        session: SnowflakeConnection,
+    ):
+        db = session.database
+        schema = session.schema
+        result = self.setup.sql_test_helper.execute_single_sql(
+            f"SELECT SYSTEM$GET_TAG('{db}.{schema}.{tag_name}', "
+            f"'{db}.{schema}.{entity_id}', 'STREAMLIT') AS tag_value"
+        )
+        assert (
+            result[0]["TAG_VALUE"] is None
+        ), f"Expected tag '{tag_name}' to not be set on streamlit '{entity_id}'"
+
 
 def create_expected_url_suffix(entity_id: str, session: SnowflakeConnection):
     return f".snowflake.com/SFENGINEERING/{get_account(session)}/#/streamlit-apps/{session.database.upper()}.{session.schema.upper()}.{entity_id.upper()}"
