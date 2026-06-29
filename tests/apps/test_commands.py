@@ -2034,42 +2034,32 @@ class TestSnowflakeAppManager:
     @patch(EXECUTE_QUERY)
     def test_get_build_status_done(self, mock_execute):
         cursor = Mock()
-        cursor.__iter__ = Mock(
-            return_value=iter([{"name": "BUILD_JOB", "status": "DONE"}])
-        )
+        cursor.fetchone.return_value = {"name": "BUILD_JOB", "status": "DONE"}
         mock_execute.return_value = cursor
 
         fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
         status = SnowflakeAppManager().get_build_status(fqn)
         assert status == "DONE"
         mock_execute.assert_called_once()
+        query = mock_execute.call_args[0][0]
+        assert query.startswith("DESCRIBE SERVICE")
+        assert fqn.identifier in query
 
     @patch(EXECUTE_QUERY)
-    def test_get_build_status_idle(self, mock_execute):
+    def test_get_build_status_idle_when_no_row(self, mock_execute):
         cursor = Mock()
-        cursor.__iter__ = Mock(return_value=iter([]))
+        cursor.fetchone.return_value = None
         mock_execute.return_value = cursor
 
         fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
         status = SnowflakeAppManager().get_build_status(fqn)
         assert status == "IDLE"
 
-    @patch(EXECUTE_QUERY)
-    def test_get_build_status_filters_by_name(self, mock_execute):
-        cursor = Mock()
-        cursor.__iter__ = Mock(
-            return_value=iter(
-                [
-                    {"name": "OTHER_SERVICE", "status": "RUNNING"},
-                    {"name": "BUILD_JOB", "status": "DONE"},
-                ]
-            )
-        )
-        mock_execute.return_value = cursor
-
+    @patch(EXECUTE_QUERY, side_effect=ProgrammingError("does not exist"))
+    def test_get_build_status_idle_when_service_missing(self, mock_execute):
         fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
         status = SnowflakeAppManager().get_build_status(fqn)
-        assert status == "DONE"
+        assert status == "IDLE"
 
     @patch(EXECUTE_QUERY)
     def test_artifact_repo_exists_returns_true(self, mock_execute):
