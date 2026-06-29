@@ -244,7 +244,10 @@ def snowflake_app_setup(
                 # ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()`` resolves the
                 # ``DEFAULT_SNOWFLAKE_APPS_*`` parameters and drops any
                 # account-configured destination the current role cannot access
-                # server-side, so the CLI no longer probes deploy privileges here.
+                # server-side. On accounts where that function is not yet
+                # available, ``fetch_app_service_defaults`` transparently falls
+                # back to the legacy ``SHOW PARAMETERS`` + ``EXPLAIN_PRIVILEGES``
+                # flow, so the resolution below is unaffected either way.
                 params = manager.fetch_app_service_defaults()
 
             def _resolve(

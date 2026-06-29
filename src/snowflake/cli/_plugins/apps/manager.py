@@ -68,6 +68,32 @@ def is_personal_database(database: Optional[str]) -> bool:
     return name.upper().startswith(PERSONAL_DATABASE_PREFIX)
 
 
+# Snowsight admin-setup docs, surfaced when the account-configured destination
+# database/schema is not accessible to the current role so the user knows where
+# to ask their administrator for access.
+#
+# Only used by the legacy ``SHOW PARAMETERS`` + ``EXPLAIN_PRIVILEGES`` deploy-defaults
+# flow, kept as a fallback for accounts that do not yet expose
+# ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()``. Remove once that function has
+# rolled out everywhere.
+ACCOUNT_ADMIN_SETUP_URL = (
+    "https://docs.snowflake.com/en/developer-guide/snowflake-app-runtime/"
+    "account-admin-setup#after-setup"
+)
+
+# Placeholder object name used when probing destination privileges with
+# EXPLAIN_PRIVILEGES. The privileges required to create these objects depend on
+# the destination database/schema, not on the (not-yet-created) object name, so
+# a fixed placeholder is sufficient. Legacy fallback only (see above).
+PRIVILEGE_CHECK_OBJECT_NAME = "SNOWFLAKE_CLI_PRIVILEGE_CHECK"
+
+# Name of the system function that resolves Snowflake App Runtime deploy
+# defaults server-side. When an account has not picked up the server change that
+# adds it yet, calling it fails with ``Unknown function`` and the CLI falls back
+# to the legacy ``SHOW PARAMETERS`` flow (see ``fetch_app_service_defaults``).
+APP_SERVICE_DEFAULTS_FUNCTION = "SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS"
+
+
 if TYPE_CHECKING:
     from snowflake.cli._plugins.apps.snowflake_app_entity_model import (
         SnowflakeAppEntityModel,
@@ -174,6 +200,24 @@ SNOWFLAKE_APP_ENTITY_TYPE = "snowflake-app"
 MAX_PARALLEL_UPLOADS = 5
 
 
+# Mapping from SHOW PARAMETERS result names to internal resolution keys.
+#
+# Compute pools are intentionally absent: app services always run on
+# server-managed compute pools, so the ``DEFAULT_SNOWFLAKE_APPS_*_COMPUTE_POOL``
+# account parameters are no longer fetched. Compute pools are only honored when
+# set explicitly in an existing ``snowflake.yml``.
+#
+# Used only by the legacy fallback path (``fetch_snow_apps_parameters``); the
+# server resolves these directly when ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()``
+# is available. Remove once that function has rolled out everywhere.
+_SNOW_APPS_PARAM_MAP = {
+    "DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE": "query_warehouse",
+    "DEFAULT_SNOWFLAKE_APPS_BUILD_EXTERNAL_ACCESS_INTEGRATION": "build_eai",
+    "DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE": "database",
+    "DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA": "schema",
+}
+
+
 # Artifact-repo build jobs run as SPCS job services. The container/instance to
 # read logs from is resolved at runtime via ``SHOW SERVICE CONTAINERS IN
 # SERVICE``; when a service exposes multiple containers the one named ``builder``
@@ -278,6 +322,225 @@ def _object_exists(object_type: str, name: str) -> bool:
         return False
 
 
+def _is_unknown_function_error(exc: ProgrammingError) -> bool:
+    """Return ``True`` when *exc* indicates that
+    ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()`` does not exist on the account.
+
+    The server change that adds the function rolls out to deployments after it
+    merges, so until a deployment picks it up the call fails with an
+    ``Unknown function`` SQL compilation error naming the function. Matching on
+    both signals (mirroring the integration-test guard) avoids treating an
+    unrelated failure — e.g. a permission error — as "function missing" and
+    silently diverting to the legacy flow.
+    """
+    message = str(getattr(exc, "msg", None) or exc)
+    return (
+        "unknown function" in message.lower()
+        and APP_SERVICE_DEFAULTS_FUNCTION in message
+    )
+
+
+def _flatten_missing_privileges(node: Any) -> list[Dict[str, str]]:
+    """Flatten an ``EXPLAIN_PRIVILEGES`` JSON tree into a flat list of the
+    permission (leaf) nodes it reports.
+
+    The tree is composed of permission nodes (``{"privilege", "objectType",
+    "objectName"}``), ``allOf`` / ``oneOf`` group nodes, and the terminal
+    decision node ``{"authorized": true}``. With ``missing_only => true`` an
+    ``authorized`` node means nothing is missing, so it contributes nothing.
+
+    Part of the legacy fallback flow; see ``fetch_app_service_defaults``.
+    """
+    if not isinstance(node, dict):
+        return []
+    if node.get("authorized") is True:
+        return []
+    if any(key in node for key in ("privilege", "objectType", "objectName")):
+        return [node]
+    results: list[Dict[str, str]] = []
+    for group_key in ("allOf", "oneOf"):
+        for child in node.get(group_key, []) or []:
+            results.extend(_flatten_missing_privileges(child))
+    return results
+
+
+def _deploy_privilege_check_statements(database: str, schema: str) -> list[str]:
+    """Build the representative DDL ``snow app deploy`` issues against the
+    destination *database*/*schema*, for privilege probing via
+    ``EXPLAIN_PRIVILEGES``.
+
+    We probe two statements: ``CREATE STAGE`` and ``CREATE ARTIFACT
+    REPOSITORY``. Object names are placeholders — the required privileges depend
+    on the destination database and schema, not the final object name — and are
+    emitted as plain (per-component quoted) dotted identifiers rather than
+    ``IDENTIFIER(...)`` so the analyzer can resolve them. Together these two
+    require ``USAGE`` on the database and ``CREATE`` on the schema, the
+    privileges that distinguish an accessible destination from an inaccessible
+    one.
+
+    Limitation: this is not the full set of statements ``snow app deploy`` runs.
+    The others cannot be probed because they reference objects that do not exist
+    at check time (artifact repository, package, build/app service, stage
+    contents) — ``EXPLAIN_PRIVILEGES`` rejects those with "requires access on all
+    objects" regardless of grants — or they need only ``USAGE`` already implied
+    by the two probes (``SHOW`` / ``USE``), or they belong to the workspace
+    upload flow used only for the personal-database default rather than the
+    account-configured destination checked here.
+
+    Part of the legacy fallback flow; see ``fetch_app_service_defaults``.
+    """
+    placeholder = app_fqn(
+        database=database, schema=schema, name=PRIVILEGE_CHECK_OBJECT_NAME
+    ).identifier
+    return [
+        f"CREATE STAGE {placeholder} ENCRYPTION = (TYPE = 'SNOWFLAKE_SSE')",
+        f"CREATE ARTIFACT REPOSITORY {placeholder} TYPE=APPLICATION",
+    ]
+
+
+def _format_missing_privileges(nodes: list[Dict[str, str]]) -> list[str]:
+    """Render missing-privilege nodes as de-duplicated, terminal-safe strings.
+
+    Part of the legacy fallback flow; see ``fetch_app_service_defaults``.
+    """
+    formatted: list[str] = []
+    for node in nodes:
+        privilege = (node.get("privilege") or "").strip()
+        object_type = (node.get("objectType") or "").strip()
+        object_name = (node.get("objectName") or "").strip()
+        privilege_label = privilege if privilege else "any privilege"
+        target = " ".join(part for part in (object_type, object_name) if part)
+        description = (
+            f"{privilege_label} on {sanitize_for_terminal(target)}"
+            if target
+            else privilege_label
+        )
+        if description not in formatted:
+            formatted.append(description)
+    return formatted
+
+
+def _filter_accessible_remote_defaults(
+    manager: "SnowflakeAppManager",
+    params: Dict[str, str],
+) -> Dict[str, str]:
+    """Drop the account-configured destination database/schema when the current
+    role lacks the privileges to deploy there.
+
+    The destination database and schema can be configured at the account level
+    by an administrator (``DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE`` /
+    ``DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA``), but the role running the CLI
+    may not have been granted the privileges needed to build and deploy there.
+    Deploying against such a destination fails late with an opaque error, so we
+    probe up front: every representative statement ``snow app deploy`` runs is
+    analyzed with ``EXPLAIN_PRIVILEGES(… , missing_only => true, for_role =>
+    <current role>)``.
+
+    When the role is missing privileges (or no statement can be analyzed at all,
+    which means the destination cannot even be resolved), the destination is
+    removed from *params* and a warning lists the missing grants, so resolution
+    falls back to the user's personal database — exactly as if no account
+    defaults were configured. Statements that individually fail to analyze while
+    others succeed are ignored, so an unsupported statement never diverts a user
+    who otherwise has access.
+
+    Returns a copy of *params* with the destination keys removed, or the
+    original dict unchanged when the destination is usable or unset.
+
+    This reproduces the authorization-based fallback that
+    ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()`` now performs server-side, and
+    is only used when that function is unavailable on the account (see
+    ``fetch_app_service_defaults``).
+    """
+    database = params.get("database")
+    if not database:
+        return params
+    schema = params.get("schema") or DEFAULT_PERSONAL_SCHEMA
+
+    role = manager.current_role()
+    cli_console.step(
+        "Checking deploy privileges on the account-configured destination "
+        f"{sanitize_for_terminal(database)}.{sanitize_for_terminal(schema)}..."
+    )
+    statements = _deploy_privilege_check_statements(database, schema)
+    log.info(
+        "Probing deploy privileges as role %r on %r statement(s).",
+        role,
+        len(statements),
+    )
+
+    # The check fails if any probe statement reports missing privileges *or*
+    # raises. With the reduced statement set (which references only the
+    # destination database/schema) a ``ProgrammingError`` means the role cannot
+    # analyze/resolve the destination — e.g. ``EXPLAIN_PRIVILEGES`` rejects it
+    # with "requires access on all objects" — which is itself a failure, not a
+    # condition to skip.
+    missing: list[Dict[str, str]] = []
+    check_failed = False
+    for statement in statements:
+        try:
+            statement_missing = manager.get_missing_privileges(statement, role)
+        except Exception as exc:
+            check_failed = True
+            log.info(
+                "Privilege check: failed to analyze statement: %s (%s)",
+                statement,
+                exc,
+            )
+            log.debug(
+                "EXPLAIN_PRIVILEGES error detail for: %s", statement, exc_info=True
+            )
+            continue
+        if statement_missing:
+            check_failed = True
+            log.info(
+                "Privilege check: missing %s for: %s",
+                _format_missing_privileges(statement_missing),
+                statement,
+            )
+            missing.extend(statement_missing)
+        else:
+            log.info("Privilege check: OK for: %s", statement)
+
+    if not check_failed:
+        log.info(
+            "Privilege check passed: role %r has the privileges to deploy to " "%r.%r.",
+            role,
+            database,
+            schema,
+        )
+        return params
+
+    # Prefer the specific missing privileges when EXPLAIN_PRIVILEGES returned
+    # them; otherwise the failure came from an analysis error, which means the
+    # role cannot resolve the destination at all.
+    missing_descriptions = _format_missing_privileges(missing) or [
+        f"access to database '{sanitize_for_terminal(database)}'"
+    ]
+
+    log.info(
+        "Privilege check failed: role %r is missing %s on %r.%r; "
+        "falling back to the personal database.",
+        role,
+        missing_descriptions,
+        database,
+        schema,
+    )
+
+    role_label = f" '{sanitize_for_terminal(role)}'" if role else ""
+    cli_console.warning(
+        f"Your current role{role_label} is missing privileges required to "
+        "deploy to the account-configured Snowflake App Runtime destination "
+        f"'{sanitize_for_terminal(database)}.{sanitize_for_terminal(schema)}'. "
+        "Falling back to your personal database. Ask your account administrator "
+        f"to grant access: {ACCOUNT_ADMIN_SETUP_URL}"
+    )
+    filtered = dict(params)
+    filtered.pop("database", None)
+    filtered.pop("schema", None)
+    return filtered
+
+
 def _resolve_deploy_defaults(
     entity: "SnowflakeAppEntityModel",
     manager: "SnowflakeAppManager",
@@ -286,7 +549,9 @@ def _resolve_deploy_defaults(
     """Resolve deploy defaults using a four-tier precedence:
 
     1. Values explicitly set in ``snowflake.yml`` (highest priority)
-    2. Snowflake App Runtime defaults (``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()``)
+    2. Snowflake App Runtime defaults (``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()``,
+       or the legacy ``SHOW PARAMETERS`` flow on accounts where that function is
+       not yet available — see :meth:`SnowflakeAppManager.fetch_app_service_defaults`)
     3. Built-in defaults (personal DB for database, ``<app-id>_REPO`` for artifact repository)
     4. Current session values (lowest priority)
 
@@ -621,6 +886,41 @@ class SnowflakeAppManager(SqlExecutionMixin):
         except Exception:
             log.warning("Could not resolve current role.", exc_info=True)
         return None
+
+    def get_missing_privileges(
+        self, statement: str, role: Optional[str] = None
+    ) -> list[Dict[str, str]]:
+        """Return the privileges *role* is missing to run *statement*.
+
+        Calls ``EXPLAIN_PRIVILEGES(statement => …, missing_only => true
+        [, for_role => …])`` and flattens the returned JSON tree into a list
+        of permission dicts (``{"privilege", "objectType", "objectName"}``).
+
+        Returns an empty list when no privileges are missing (the server
+        responds with ``{"authorized": true}``). Propagates ``ProgrammingError``
+        when the statement cannot be analyzed — e.g. the current role cannot
+        resolve a referenced object, which itself signals missing access.
+
+        Part of the legacy fallback flow; see ``fetch_app_service_defaults``.
+        """
+        from snowflake.cli.api.project.util import to_string_literal
+
+        args = [
+            f"statement => {to_string_literal(statement)}",
+            "missing_only => true",
+        ]
+        if role:
+            args.append(f"for_role => {to_string_literal(role)}")
+        cursor = self.execute_query(f"CALL EXPLAIN_PRIVILEGES({', '.join(args)})")
+        row = cursor.fetchone()
+        if not row or not row[0]:
+            return []
+        try:
+            payload = json.loads(row[0])
+        except (TypeError, ValueError):
+            log.debug("Could not parse EXPLAIN_PRIVILEGES output: %r", row[0])
+            return []
+        return _flatten_missing_privileges(payload)
 
     def create_stage(
         self, stage_fqn: FQN, encryption_type: str = "SNOWFLAKE_SSE"
@@ -962,18 +1262,32 @@ class SnowflakeAppManager(SqlExecutionMixin):
         the CLI no longer issues ``SHOW PARAMETERS`` or probes privileges with
         ``EXPLAIN_PRIVILEGES`` itself.
 
+        The system function rolls out to deployments some time after the server
+        change merges. On an account that has not picked it up yet the call
+        fails with ``Unknown function``; in that case the CLI falls back to the
+        legacy ``SHOW PARAMETERS`` + ``EXPLAIN_PRIVILEGES`` flow
+        (:meth:`_fetch_legacy_app_service_defaults`) so resolution keeps working
+        during the rollout window. The fallback (and the legacy helpers it
+        relies on) can be removed a release or two after the function is live
+        everywhere.
+
         Identifier values that require quoting are returned already SQL-quoted
         (e.g. ``"lower_db"``), ready to embed in SQL verbatim. Empty-string
         values mean "not configured" and are omitted from the returned dict.
-        Returns an empty dict on any error (e.g. the function is unavailable on
-        the account), so resolution falls back to the CLI's built-in defaults.
+        Returns an empty dict on any other error, so resolution falls back to
+        the CLI's built-in defaults.
         """
         try:
-            cursor = self.execute_query(
-                "SELECT SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()"
-            )
+            cursor = self.execute_query(f"SELECT {APP_SERVICE_DEFAULTS_FUNCTION}()")
             row = cursor.fetchone()
-        except ProgrammingError:
+        except ProgrammingError as exc:
+            if _is_unknown_function_error(exc):
+                log.info(
+                    "%s is unavailable on this account; falling back to the "
+                    "legacy SHOW PARAMETERS deploy-defaults flow.",
+                    APP_SERVICE_DEFAULTS_FUNCTION,
+                )
+                return self._fetch_legacy_app_service_defaults()
             log.warning(
                 "Could not fetch Snowflake App Runtime defaults – skipping.",
                 exc_info=True,
@@ -995,6 +1309,64 @@ class SnowflakeAppManager(SqlExecutionMixin):
             if value:
                 result[key] = value
         return result
+
+    def _fetch_legacy_app_service_defaults(self) -> Dict[str, str]:
+        """Resolve deploy defaults the pre-``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS``
+        way, for accounts where that function is not yet available.
+
+        Reads the ``DEFAULT_SNOWFLAKE_APPS_*`` USER parameters via
+        :meth:`fetch_snow_apps_parameters` and drops any account-configured
+        destination the current role cannot access by probing
+        ``EXPLAIN_PRIVILEGES`` (:func:`_filter_accessible_remote_defaults`),
+        reproducing client-side the authorization-based fallback the system
+        function now performs server-side.
+
+        Remove together with the legacy helpers once the system function has
+        rolled out everywhere.
+        """
+        params = self.fetch_snow_apps_parameters()
+        return _filter_accessible_remote_defaults(self, params)
+
+    def fetch_snow_apps_parameters(self) -> Dict[str, str]:
+        """Fetch Snowflake App Runtime default parameters for the current user.
+
+        Runs ``SHOW PARAMETERS LIKE 'DEFAULT_SNOWFLAKE_APPS_%' IN USER``
+        and returns a dict whose keys match the internal resolution names
+        (``query_warehouse``, ``build_eai``, etc.). Compute pool parameters
+        are intentionally ignored — app services run on server-managed
+        compute pools.
+
+        Empty-string parameter values are treated as "not set" and omitted.
+        Returns an empty dict on any error (e.g. insufficient privileges).
+
+        Part of the legacy fallback flow; see :meth:`fetch_app_service_defaults`.
+        """
+        try:
+            cursor = self.execute_query(
+                "SHOW PARAMETERS LIKE 'DEFAULT_SNOWFLAKE_APPS_%' IN USER",
+                cursor_class=DictCursor,
+            )
+            result: Dict[str, str] = {}
+            for row in cursor:
+                param_name = (row.get("key") or row.get("KEY") or "").upper()
+                param_value = row.get("value") or row.get("VALUE") or ""
+                # Skip parameters at the system-default level. Snowflake
+                # returns an empty string for ``level`` when a parameter has
+                # never been explicitly set at the account or user level;
+                # a non-empty ``value`` in that case is merely the built-in
+                # default (e.g. ``SYSTEM_COMPUTE_POOL_CPU``) and should not
+                # be treated as an admin-configured value.
+                param_level = row.get("level") or row.get("LEVEL") or ""
+                mapped_key = _SNOW_APPS_PARAM_MAP.get(param_name)
+                if mapped_key and param_value and param_level:
+                    result[mapped_key] = param_value
+            return result
+        except ProgrammingError:
+            log.warning(
+                "Could not fetch Snowflake App Runtime user parameters – skipping.",
+                exc_info=True,
+            )
+            return {}
 
     @contextmanager
     def _use_database_and_schema(self, database: str, schema: str):

@@ -965,6 +965,77 @@ class TestCurrentRole:
         assert SnowflakeAppManager().current_role() is None
 
 
+class TestGetMissingPrivileges:
+    """Legacy fallback flow: ``EXPLAIN_PRIVILEGES`` probing used only when
+    ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()`` is unavailable."""
+
+    @patch(EXECUTE_QUERY)
+    def test_authorized_returns_empty(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ('{"authorized": true}',)
+        mock_execute.return_value = cursor
+
+        result = SnowflakeAppManager().get_missing_privileges(
+            "CREATE STAGE APPS.PUBLIC.x", "ENGINEER"
+        )
+        assert result == []
+        query = mock_execute.call_args[0][0]
+        assert "CALL EXPLAIN_PRIVILEGES(" in query
+        assert "statement => 'CREATE STAGE APPS.PUBLIC.x'" in query
+        assert "missing_only => true" in query
+        assert "for_role => 'ENGINEER'" in query
+
+    @patch(EXECUTE_QUERY)
+    def test_returns_flattened_missing_nodes(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = (
+            '{"allOf": [{"privilege": "USAGE", "objectType": "DATABASE", '
+            '"objectName": "APPS"}]}',
+        )
+        mock_execute.return_value = cursor
+
+        result = SnowflakeAppManager().get_missing_privileges(
+            "CREATE STAGE APPS.PUBLIC.x", "ENGINEER"
+        )
+        assert result == [
+            {"privilege": "USAGE", "objectType": "DATABASE", "objectName": "APPS"}
+        ]
+
+    @patch(EXECUTE_QUERY)
+    def test_omits_for_role_when_role_is_none(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ('{"authorized": true}',)
+        mock_execute.return_value = cursor
+
+        SnowflakeAppManager().get_missing_privileges("CREATE STAGE APPS.PUBLIC.x")
+        query = mock_execute.call_args[0][0]
+        assert "for_role" not in query
+
+    @patch(EXECUTE_QUERY)
+    def test_escapes_statement(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ('{"authorized": true}',)
+        mock_execute.return_value = cursor
+
+        SnowflakeAppManager().get_missing_privileges(
+            'CREATE STAGE "USER$x".PUBLIC.y', "ENGINEER"
+        )
+        query = mock_execute.call_args[0][0]
+        # Quoted personal-database identifiers survive inside the SQL literal.
+        assert '"USER$x".PUBLIC.y' in query
+
+    @patch(EXECUTE_QUERY)
+    def test_empty_response_returns_empty(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = None
+        mock_execute.return_value = cursor
+
+        assert (
+            SnowflakeAppManager().get_missing_privileges("CREATE STAGE A.B.C", "R")
+            == []
+        )
+
+
 class TestAppFqn:
     """``app_fqn`` is the apps-plugin FQN factory: it routes each component
     through :func:`to_identifier` so the resulting FQN's ``identifier`` /
@@ -2443,6 +2514,515 @@ class TestFetchAppServiceDefaults:
         cursor.fetchone.return_value = ("not json",)
         mock_execute.return_value = cursor
         assert SnowflakeAppManager().fetch_app_service_defaults() == {}
+
+    def test_falls_back_to_legacy_when_function_unknown(self):
+        """On accounts that have not picked up the server change yet, the
+        function call fails with ``Unknown function`` and resolution falls back
+        to the legacy ``SHOW PARAMETERS`` flow."""
+        manager = SnowflakeAppManager()
+        unknown = ProgrammingError(
+            "001044 (42601): SQL compilation error: Unknown function "
+            "SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS"
+        )
+        legacy = {"database": "LEGACY_DB", "query_warehouse": "LEGACY_WH"}
+        with patch.object(manager, "execute_query", side_effect=unknown), patch.object(
+            manager, "_fetch_legacy_app_service_defaults", return_value=legacy
+        ) as mock_legacy:
+            assert manager.fetch_app_service_defaults() == legacy
+        mock_legacy.assert_called_once_with()
+
+    @patch(EXECUTE_QUERY, side_effect=ProgrammingError("permission denied"))
+    def test_does_not_fall_back_on_other_programming_error(self, mock_execute):
+        """A non-"unknown function" error (e.g. a permission failure) is not a
+        rollout gap, so resolution does not divert to the legacy flow."""
+        with patch.object(
+            SnowflakeAppManager, "_fetch_legacy_app_service_defaults"
+        ) as mock_legacy:
+            assert SnowflakeAppManager().fetch_app_service_defaults() == {}
+        mock_legacy.assert_not_called()
+
+    @patch(MANAGER_CLI_CONSOLE)
+    def test_legacy_fallback_filters_inaccessible_destination(self, mock_console):
+        """End-to-end legacy fallback through the public entry point: the system
+        function call fails with ``Unknown function``, so the CLI reads
+        ``SHOW PARAMETERS`` and drops the account-configured destination the
+        role cannot access — mirroring the server-side resolution the function
+        performs once available."""
+        manager = SnowflakeAppManager()
+        unknown = ProgrammingError(
+            "Unknown function SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS"
+        )
+        params = {"database": "DB", "schema": "SCH", "query_warehouse": "WH"}
+        with patch.object(manager, "execute_query", side_effect=unknown), patch.object(
+            manager, "fetch_snow_apps_parameters", return_value=params
+        ), patch.object(manager, "current_role", return_value="ENGINEER"), patch.object(
+            manager,
+            "get_missing_privileges",
+            return_value=[
+                {
+                    "privilege": "CREATE STAGE",
+                    "objectType": "SCHEMA",
+                    "objectName": "DB.SCH",
+                }
+            ],
+        ):
+            result = manager.fetch_app_service_defaults()
+        assert result == {"query_warehouse": "WH"}
+
+
+class TestIsUnknownFunctionError:
+    """``_is_unknown_function_error`` decides whether a failed
+    ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()`` call means the function is not
+    yet available (→ legacy fallback) or is an unrelated failure (→ skip)."""
+
+    def test_true_for_unknown_function_naming_the_function(self):
+        from snowflake.cli._plugins.apps.manager import _is_unknown_function_error
+
+        exc = ProgrammingError(
+            "001044 (42601): SQL compilation error: Unknown function "
+            "SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS"
+        )
+        assert _is_unknown_function_error(exc) is True
+
+    def test_false_for_other_errors(self):
+        from snowflake.cli._plugins.apps.manager import _is_unknown_function_error
+
+        assert (
+            _is_unknown_function_error(ProgrammingError("permission denied")) is False
+        )
+
+    def test_false_for_unknown_function_naming_a_different_function(self):
+        from snowflake.cli._plugins.apps.manager import _is_unknown_function_error
+
+        exc = ProgrammingError("Unknown function SYSTEM$SOMETHING_ELSE")
+        assert _is_unknown_function_error(exc) is False
+
+
+# ── Legacy deploy-defaults fallback tests ─────────────────────────────
+# These cover the pre-``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()`` flow, which
+# remains as a fallback for accounts that have not picked up the server change
+# yet. Remove once the system function has rolled out everywhere.
+
+
+class TestFetchSnowAppsParameters:
+    @patch(EXECUTE_QUERY)
+    def test_returns_mapped_parameters(self, mock_execute):
+        cursor = Mock()
+        cursor.__iter__ = Mock(
+            return_value=iter(
+                [
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE",
+                        "value": "MY_WH",
+                        "level": "ACCOUNT",
+                    },
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_BUILD_EXTERNAL_ACCESS_INTEGRATION",
+                        "value": "MY_EAI",
+                        "level": "ACCOUNT",
+                    },
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE",
+                        "value": "MY_DB",
+                        "level": "ACCOUNT",
+                    },
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA",
+                        "value": "MY_SCHEMA",
+                        "level": "ACCOUNT",
+                    },
+                ]
+            )
+        )
+        mock_execute.return_value = cursor
+        result = SnowflakeAppManager().fetch_snow_apps_parameters()
+        assert result == {
+            "query_warehouse": "MY_WH",
+            "build_eai": "MY_EAI",
+            "database": "MY_DB",
+            "schema": "MY_SCHEMA",
+        }
+        query = mock_execute.call_args[0][0]
+        assert "SHOW PARAMETERS LIKE 'DEFAULT_SNOWFLAKE_APPS_%' IN USER" in query
+
+    @patch(EXECUTE_QUERY)
+    def test_ignores_compute_pool_parameters(self, mock_execute):
+        """Compute pool account parameters are no longer fetched — app
+        services run on server-managed compute pools."""
+        cursor = Mock()
+        cursor.__iter__ = Mock(
+            return_value=iter(
+                [
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE",
+                        "value": "MY_WH",
+                        "level": "ACCOUNT",
+                    },
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL",
+                        "value": "MY_POOL",
+                        "level": "ACCOUNT",
+                    },
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL",
+                        "value": "SVC_POOL",
+                        "level": "ACCOUNT",
+                    },
+                ]
+            )
+        )
+        mock_execute.return_value = cursor
+        result = SnowflakeAppManager().fetch_snow_apps_parameters()
+        assert result == {"query_warehouse": "MY_WH"}
+        assert "build_compute_pool" not in result
+        assert "service_compute_pool" not in result
+
+    @patch(EXECUTE_QUERY)
+    def test_ignores_empty_string_values(self, mock_execute):
+        cursor = Mock()
+        cursor.__iter__ = Mock(
+            return_value=iter(
+                [
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE",
+                        "value": "MY_WH",
+                        "level": "ACCOUNT",
+                    },
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_BUILD_EXTERNAL_ACCESS_INTEGRATION",
+                        "value": "",
+                        "level": "ACCOUNT",
+                    },
+                ]
+            )
+        )
+        mock_execute.return_value = cursor
+        result = SnowflakeAppManager().fetch_snow_apps_parameters()
+        assert result == {"query_warehouse": "MY_WH"}
+        assert "build_eai" not in result
+
+    @patch(EXECUTE_QUERY)
+    def test_ignores_unknown_parameters(self, mock_execute):
+        cursor = Mock()
+        cursor.__iter__ = Mock(
+            return_value=iter(
+                [
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_UNKNOWN_PARAM",
+                        "value": "FOO",
+                        "level": "ACCOUNT",
+                    },
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE",
+                        "value": "MY_WH",
+                        "level": "ACCOUNT",
+                    },
+                ]
+            )
+        )
+        mock_execute.return_value = cursor
+        result = SnowflakeAppManager().fetch_snow_apps_parameters()
+        assert result == {"query_warehouse": "MY_WH"}
+
+    @patch(
+        EXECUTE_QUERY,
+        side_effect=ProgrammingError("permission denied"),
+    )
+    def test_returns_empty_dict_on_error(self, mock_execute):
+        result = SnowflakeAppManager().fetch_snow_apps_parameters()
+        assert result == {}
+
+    @patch(EXECUTE_QUERY)
+    def test_returns_empty_dict_when_no_params_set(self, mock_execute):
+        cursor = Mock()
+        cursor.__iter__ = Mock(return_value=iter([]))
+        mock_execute.return_value = cursor
+        result = SnowflakeAppManager().fetch_snow_apps_parameters()
+        assert result == {}
+
+    @patch(EXECUTE_QUERY)
+    def test_handles_uppercase_column_names(self, mock_execute):
+        cursor = Mock()
+        cursor.__iter__ = Mock(
+            return_value=iter(
+                [
+                    {
+                        "KEY": "DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE",
+                        "VALUE": "MY_WH",
+                        "LEVEL": "ACCOUNT",
+                    }
+                ]
+            )
+        )
+        mock_execute.return_value = cursor
+        result = SnowflakeAppManager().fetch_snow_apps_parameters()
+        assert result == {"query_warehouse": "MY_WH"}
+
+    @patch(EXECUTE_QUERY)
+    def test_ignores_system_default_level_parameters(self, mock_execute):
+        """Parameters with an empty level are system defaults, not explicitly
+        configured values, and must be ignored even when value is non-empty."""
+        cursor = Mock()
+        cursor.__iter__ = Mock(
+            return_value=iter(
+                [
+                    # level="" means Snowflake is reporting the built-in default
+                    # (e.g. after ALTER ACCOUNT UNSET). Should be skipped.
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_BUILD_EXTERNAL_ACCESS_INTEGRATION",
+                        "value": "SYSTEM_DEFAULT_EAI",
+                        "level": "",
+                    },
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE",
+                        "value": "SYSTEM_DEFAULT_DB",
+                        "level": "",
+                    },
+                    # Explicitly set at account level — should be included.
+                    {
+                        "key": "DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE",
+                        "value": "MY_WH",
+                        "level": "ACCOUNT",
+                    },
+                ]
+            )
+        )
+        mock_execute.return_value = cursor
+        result = SnowflakeAppManager().fetch_snow_apps_parameters()
+        assert result == {"query_warehouse": "MY_WH"}
+        assert "build_eai" not in result
+        assert "database" not in result
+
+
+class TestFlattenMissingPrivileges:
+    def test_authorized_returns_empty(self):
+        from snowflake.cli._plugins.apps.manager import _flatten_missing_privileges
+
+        assert _flatten_missing_privileges({"authorized": True}) == []
+
+    def test_single_permission_node(self):
+        from snowflake.cli._plugins.apps.manager import _flatten_missing_privileges
+
+        node = {"privilege": "USAGE", "objectType": "DATABASE", "objectName": "DB"}
+        assert _flatten_missing_privileges(node) == [node]
+
+    def test_nested_all_of_and_one_of(self):
+        from snowflake.cli._plugins.apps.manager import _flatten_missing_privileges
+
+        tree = {
+            "allOf": [
+                {"privilege": "USAGE", "objectType": "DATABASE", "objectName": "DB"},
+                {
+                    "oneOf": [
+                        {
+                            "privilege": "CREATE STAGE",
+                            "objectType": "SCHEMA",
+                            "objectName": "DB.SCH",
+                        }
+                    ]
+                },
+            ]
+        }
+        result = _flatten_missing_privileges(tree)
+        assert {n["privilege"] for n in result} == {"USAGE", "CREATE STAGE"}
+
+    def test_non_dict_returns_empty(self):
+        from snowflake.cli._plugins.apps.manager import _flatten_missing_privileges
+
+        assert _flatten_missing_privileges(None) == []
+        assert _flatten_missing_privileges("nope") == []
+
+
+class TestDeployPrivilegeCheckStatements:
+    def test_statements_reference_destination(self):
+        from snowflake.cli._plugins.apps.manager import (
+            PRIVILEGE_CHECK_OBJECT_NAME,
+            _deploy_privilege_check_statements,
+        )
+
+        statements = _deploy_privilege_check_statements("APPS", "PUBLIC")
+        # Exactly two statements are probed: CREATE STAGE and CREATE ARTIFACT
+        # REPOSITORY, both referencing only the destination database/schema.
+        assert len(statements) == 2
+        assert any(s.startswith("CREATE STAGE APPS.PUBLIC.") for s in statements)
+        assert any("CREATE ARTIFACT REPOSITORY APPS.PUBLIC." in s for s in statements)
+        assert all(PRIVILEGE_CHECK_OBJECT_NAME in s for s in statements)
+        # Statements that reference not-yet-existing objects, only need USAGE, or
+        # belong to the workspace flow are intentionally excluded.
+        joined = " ".join(statements)
+        assert "CREATE APPLICATION SERVICE" not in joined
+        assert "CREATE WORKSPACE" not in joined
+        assert "SHOW" not in joined
+
+    def test_personal_database_is_quoted(self):
+        from snowflake.cli._plugins.apps.manager import (
+            _deploy_privilege_check_statements,
+        )
+
+        statements = _deploy_privilege_check_statements(
+            "USER$first.last@snowflake.com", "PUBLIC"
+        )
+        # Personal database names contain characters illegal in unquoted
+        # identifiers and must be quoted so EXPLAIN_PRIVILEGES can parse them.
+        assert all('"USER$first.last@snowflake.com".PUBLIC.' in s for s in statements)
+
+
+class TestFilterAccessibleRemoteDefaults:
+    """Direct tests for the account-default privilege check that protects deploy
+    and setup from targeting a destination the current role cannot use."""
+
+    def _manager(self, *, role="ENGINEER", missing=None, side_effect=None):
+        manager = Mock()
+        manager.current_role.return_value = role
+        if side_effect is not None:
+            manager.get_missing_privileges.side_effect = side_effect
+        else:
+            manager.get_missing_privileges.return_value = missing or []
+        return manager
+
+    def test_no_database_returns_params_unchanged(self):
+        from snowflake.cli._plugins.apps.manager import (
+            _filter_accessible_remote_defaults,
+        )
+
+        params = {"query_warehouse": "WH"}
+        manager = self._manager()
+        assert _filter_accessible_remote_defaults(manager, params) == params
+        manager.get_missing_privileges.assert_not_called()
+
+    @patch(MANAGER_CLI_CONSOLE)
+    def test_no_missing_privileges_returns_params_unchanged(self, mock_console):
+        from snowflake.cli._plugins.apps.manager import (
+            _filter_accessible_remote_defaults,
+        )
+
+        params = {"database": "DB", "schema": "SCH", "query_warehouse": "WH"}
+        manager = self._manager(missing=[])
+        result = _filter_accessible_remote_defaults(manager, params)
+        assert result == params
+        mock_console.warning.assert_not_called()
+        # A step message announces the privilege-check phase to the user.
+        mock_console.step.assert_called_once()
+        assert "Checking deploy privileges" in mock_console.step.call_args[0][0]
+        assert "DB.SCH" in mock_console.step.call_args[0][0]
+        # Every representative deploy statement is probed for the active role.
+        assert manager.get_missing_privileges.call_count == 2
+        for call in manager.get_missing_privileges.call_args_list:
+            assert call.args[1] == "ENGINEER"
+
+    @patch(MANAGER_CLI_CONSOLE)
+    def test_verbose_logs_per_statement_and_summary(self, mock_console, caplog):
+        import logging
+
+        from snowflake.cli._plugins.apps.manager import (
+            _filter_accessible_remote_defaults,
+        )
+
+        manager = self._manager(
+            missing=[
+                {
+                    "privilege": "CREATE STAGE",
+                    "objectType": "SCHEMA",
+                    "objectName": "DB.SCH",
+                }
+            ]
+        )
+        params = {"database": "DB", "schema": "SCH"}
+        with caplog.at_level(
+            logging.INFO, logger="snowflake.cli._plugins.apps.manager"
+        ):
+            _filter_accessible_remote_defaults(manager, params)
+        messages = "\n".join(r.getMessage() for r in caplog.records)
+        # Per-statement results and a final summary are emitted at INFO so they
+        # surface under --verbose.
+        assert "Privilege check: missing" in messages
+        assert "Privilege check failed" in messages
+        assert "CREATE STAGE on SCHEMA DB.SCH" in messages
+
+    @patch(MANAGER_CLI_CONSOLE)
+    def test_missing_privileges_drops_destination(self, mock_console):
+        from snowflake.cli._plugins.apps.manager import (
+            _filter_accessible_remote_defaults,
+        )
+
+        manager = self._manager(
+            missing=[
+                {
+                    "privilege": "CREATE ARTIFACT REPOSITORY",
+                    "objectType": "SCHEMA",
+                    "objectName": "DB.SCH",
+                }
+            ]
+        )
+        params = {"database": "DB", "schema": "SCH", "query_warehouse": "WH"}
+        result = _filter_accessible_remote_defaults(manager, params)
+        assert result == {"query_warehouse": "WH"}
+        mock_console.warning.assert_called_once()
+        warning = mock_console.warning.call_args[0][0]
+        # The warning names the destination and feature, not the specific grants
+        # (those are only in the verbose INFO logs).
+        assert "Snowflake App Runtime" in warning
+        assert "'DB.SCH'" in warning
+        assert "CREATE ARTIFACT REPOSITORY" not in warning
+
+    @patch(MANAGER_CLI_CONSOLE)
+    def test_all_probes_error_drops_destination(self, mock_console):
+        from snowflake.cli._plugins.apps.manager import (
+            _filter_accessible_remote_defaults,
+        )
+
+        manager = self._manager(side_effect=ProgrammingError("cannot resolve"))
+        params = {"database": "DB", "schema": "SCH"}
+        result = _filter_accessible_remote_defaults(manager, params)
+        assert result == {}
+        mock_console.warning.assert_called_once()
+        assert "'DB.SCH'" in mock_console.warning.call_args[0][0]
+
+    @patch(MANAGER_CLI_CONSOLE)
+    def test_any_probe_error_drops_destination(self, mock_console):
+        from snowflake.cli._plugins.apps.manager import (
+            _filter_accessible_remote_defaults,
+        )
+
+        # A probe error means the role cannot analyze/resolve the destination,
+        # so the check fails even if another statement reports no missing grants.
+        manager = Mock()
+        manager.current_role.return_value = "ENGINEER"
+        manager.get_missing_privileges.side_effect = [
+            ProgrammingError("requires access on all objects"),
+            [],
+        ]
+        params = {"database": "DB", "schema": "SCH"}
+        result = _filter_accessible_remote_defaults(manager, params)
+        assert result == {}
+        mock_console.warning.assert_called_once()
+        assert "'DB.SCH'" in mock_console.warning.call_args[0][0]
+
+    @patch(MANAGER_CLI_CONSOLE)
+    def test_missing_schema_defaults_to_public(self, mock_console):
+        from snowflake.cli._plugins.apps.manager import (
+            _deploy_privilege_check_statements,
+            _filter_accessible_remote_defaults,
+        )
+
+        manager = self._manager(missing=[])
+        params = {"database": "DB"}
+        _filter_accessible_remote_defaults(manager, params)
+        probed = manager.get_missing_privileges.call_args_list[0].args[0]
+        assert "DB.PUBLIC." in probed
+        # Sanity check the statement set is the deploy set.
+        assert probed in _deploy_privilege_check_statements("DB", "PUBLIC")
+
+    @patch(MANAGER_CLI_CONSOLE)
+    def test_does_not_mutate_input_params(self, mock_console):
+        from snowflake.cli._plugins.apps.manager import (
+            _filter_accessible_remote_defaults,
+        )
+
+        params = {"database": "DB", "schema": "SCH"}
+        manager = self._manager(side_effect=ProgrammingError("cannot resolve"))
+        _filter_accessible_remote_defaults(manager, params)
+        assert params == {"database": "DB", "schema": "SCH"}
 
 
 # ── _resolve_deploy_defaults tests ────────────────────────────────────
