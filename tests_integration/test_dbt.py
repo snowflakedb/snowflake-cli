@@ -478,6 +478,81 @@ def test_deploy_with_env_file_dir(
 
 
 @pytest.mark.integration
+@pytest.mark.qa_only
+def test_deploy_preserves_yaml_key_order(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+    tmp_path,
+):
+    """profiles.yml key order must be preserved after staging; env.yml must be staged verbatim."""
+    with project_directory("dbt_project") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_yaml_order_{ts}"
+
+        # Write profiles.yml with type/threads first — non-alphabetical
+        # (alphabetical: account < database < password < role < schema < threads < type < user < warehouse)
+        raw_profiles = (
+            f"dbt_integration_project:\n"
+            f"  target: dev\n"
+            f"  outputs:\n"
+            f"    dev:\n"
+            f"      type: snowflake\n"
+            f"      threads: 2\n"
+            f"      account: ''\n"
+            f"      user: ''\n"
+            f"      password: ''\n"
+            f"      role: {snowflake_session.role}\n"
+            f"      warehouse: {snowflake_session.warehouse}\n"
+            f"      database: {snowflake_session.database}\n"
+            f"      schema: {snowflake_session.schema}\n"
+        )
+        (root_dir / PROFILES_FILENAME).write_text(raw_profiles)
+
+        # Write env.yml with DBT_* keys in reverse-alphabetical order
+        # (alphabetical: ALPHA < BETA < GAMMA < ZETA)
+        raw_env = (
+            "env_config:\n"
+            "  default_environment: dev\n"
+            "  environments:\n"
+            "  - name: dev\n"
+            "    env:\n"
+            "      DBT_ZETA: z\n"
+            "      DBT_GAMMA: g\n"
+            "      DBT_ALPHA: a\n"
+            "      DBT_BETA: b\n"
+        )
+        (root_dir / ENV_FILENAME).write_text(raw_env)
+
+        result = runner.invoke_with_connection_json(["dbt", "deploy", name])
+        assert result.exit_code == 0, result.output
+
+        db = snowflake_session.database
+        schema = snowflake_session.schema
+        stage_base = f"snow://dbt/{db}.{schema}.{name}/versions/version$1"
+
+        # Download staged profiles.yml and verify key order
+        result = runner.invoke_with_connection(
+            ["sql", "-q", f"GET {stage_base}/profiles.yml file://{tmp_path}/"]
+        )
+        assert result.exit_code == 0, result.output
+        profiles_text = (tmp_path / "profiles.yml").read_text()
+        assert profiles_text.index("type:") < profiles_text.index("account:")
+        assert profiles_text.index("threads:") < profiles_text.index("database:")
+
+        # Download staged env.yml and verify key order
+        result = runner.invoke_with_connection(
+            ["sql", "-q", f"GET {stage_base}/env.yml file://{tmp_path}/"]
+        )
+        assert result.exit_code == 0, result.output
+        env_text = (tmp_path / "env.yml").read_text()
+        assert env_text.index("DBT_ZETA") < env_text.index("DBT_GAMMA")
+        assert env_text.index("DBT_GAMMA") < env_text.index("DBT_ALPHA")
+        assert env_text.index("DBT_ALPHA") < env_text.index("DBT_BETA")
+
+
+@pytest.mark.integration
 def test_execute_with_target(
     runner,
     snowflake_session,
