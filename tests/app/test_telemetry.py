@@ -77,6 +77,9 @@ def test_executing_command_sends_telemetry_usage_data_legacy_config(
             "command_ci_integration_version"
         ]  # to avoid side effect from CI
         del usage_command_event["message"][
+            "command_ci_auth_type"
+        ]  # to avoid side effect from CI
+        del usage_command_event["message"][
             "command_agent_environment"
         ]  # to avoid side effect from agent environment
         assert usage_command_event == {
@@ -145,6 +148,9 @@ def test_executing_command_sends_telemetry_usage_data_ng_config(
         ]  # to avoid side effect from CI
         del usage_command_event["message"][
             "command_ci_integration_version"
+        ]  # to avoid side effect from CI
+        del usage_command_event["message"][
+            "command_ci_auth_type"
         ]  # to avoid side effect from CI
         del usage_command_event["message"][
             "command_agent_environment"
@@ -610,6 +616,57 @@ def test_ci_integration_version_appears_in_telemetry(_, mock_conn, runner):
         usage_command_event["message"]["command_ci_environment"] == "SF_GITHUB_ACTION"
     )
     assert usage_command_event["message"]["command_ci_integration_version"] == "v2.0.2"
+
+
+def test_get_ci_auth_type_returns_value_when_set():
+    """Test that the auth type is returned when the env var is set."""
+    from snowflake.cli._app.telemetry import _get_ci_auth_type
+
+    with mock.patch.dict(os.environ, {"SF_CICD_AUTH_TYPE": "oidc"}, clear=True):
+        assert _get_ci_auth_type() == "oidc"
+
+
+def test_get_ci_auth_type_returns_empty_when_unset():
+    """Test that empty string is returned when the env var is not set."""
+    from snowflake.cli._app.telemetry import _get_ci_auth_type
+
+    with mock.patch.dict(os.environ, {}, clear=True):
+        assert _get_ci_auth_type() == ""
+
+
+def test_get_ci_auth_type_is_normalized():
+    """Test that the auth type is lower-cased and trimmed so integrations can
+    emit any casing without fragmenting the telemetry value."""
+    from snowflake.cli._app.telemetry import _get_ci_auth_type
+
+    with mock.patch.dict(os.environ, {"SF_CICD_AUTH_TYPE": "  OIDC  "}, clear=True):
+        assert _get_ci_auth_type() == "oidc"
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+def test_ci_auth_type_appears_in_telemetry(_, mock_conn, runner):
+    """Test that the auth type is included in the telemetry payload."""
+    with mock.patch.dict(
+        os.environ,
+        {"SF_GITHUB_ACTION": "true", "SF_CICD_AUTH_TYPE": "oidc"},
+        clear=True,
+    ):
+        result = runner.invoke(["connection", "test"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    usage_command_event = (
+        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
+            0
+        ]
+        .args[0]
+        .to_dict()
+    )
+
+    assert (
+        usage_command_event["message"]["command_ci_environment"] == "SF_GITHUB_ACTION"
+    )
+    assert usage_command_event["message"]["command_ci_auth_type"] == "oidc"
 
 
 def test_sf_gitlab_component_takes_priority_over_gitlab_ci():
