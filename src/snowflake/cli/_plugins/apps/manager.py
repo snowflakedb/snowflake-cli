@@ -884,17 +884,22 @@ class SnowflakeAppManager(SqlExecutionMixin):
 
         Returns:
             - "IDLE" if the job service doesn't exist
-            - The actual status from SHOW SERVICES (e.g., "PENDING", "RUNNING", "DONE", "FAILED")
+            - The actual status from DESCRIBE SERVICE (e.g., "PENDING", "RUNNING", "DONE", "FAILED")
         """
-        cursor = self.execute_query(
-            f"SHOW SERVICES IN SCHEMA {job_fqn.prefix}",
-            cursor_class=DictCursor,
-        )
-        for row in cursor:
-            if row["name"].upper() == job_fqn.name.upper():
-                return row["status"]
+        try:
+            cursor = self.execute_query(
+                f"DESCRIBE SERVICE {job_fqn.identifier}",
+                cursor_class=DictCursor,
+            )
+        except ProgrammingError:
+            log.debug("DESCRIBE SERVICE failed for %s", job_fqn, exc_info=True)
+            return "IDLE"
 
-        return "IDLE"
+        row = cursor.fetchone()
+        if row is None:
+            return "IDLE"
+        normalised = {k.lower(): v for k, v in row.items()}
+        return normalised.get("status", "IDLE")
 
     def drop_service_if_exists(self, service_fqn: FQN) -> None:
         """Drop a service if it exists."""
