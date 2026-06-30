@@ -115,7 +115,8 @@ class CodeBundleManager(SqlExecutionMixin):
             f"ENTRYPOINT={to_string_literal(entrypoint)}"
         )
         if arguments:
-            query += f" ARGUMENTS={to_string_literal(' '.join(arguments))}"
+            formatted_args = ", ".join(to_string_literal(arg) for arg in arguments)
+            query += f" ARGUMENTS=({formatted_args})"
         return self.execute_query(query, _exec_async=run_async)
 
     def get_status(self, query_id: str) -> str:
