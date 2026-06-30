@@ -80,6 +80,9 @@ def test_executing_command_sends_telemetry_usage_data_legacy_config(
             "command_ci_auth_type"
         ]  # to avoid side effect from CI
         del usage_command_event["message"][
+            "command_auth_type"
+        ]  # to avoid side effect from resolved connection authenticator
+        del usage_command_event["message"][
             "command_agent_environment"
         ]  # to avoid side effect from agent environment
         assert usage_command_event == {
@@ -152,6 +155,9 @@ def test_executing_command_sends_telemetry_usage_data_ng_config(
         del usage_command_event["message"][
             "command_ci_auth_type"
         ]  # to avoid side effect from CI
+        del usage_command_event["message"][
+            "command_auth_type"
+        ]  # to avoid side effect from resolved connection authenticator
         del usage_command_event["message"][
             "command_agent_environment"
         ]  # to avoid side effect from agent environment
@@ -667,6 +673,60 @@ def test_ci_auth_type_appears_in_telemetry(_, mock_conn, runner):
         usage_command_event["message"]["command_ci_environment"] == "SF_GITHUB_ACTION"
     )
     assert usage_command_event["message"]["command_ci_auth_type"] == "oidc"
+
+
+@pytest.mark.parametrize(
+    "authenticator, expected",
+    [
+        # Default password auth: the connector reports the DEFAULT_AUTHENTICATOR
+        # token "SNOWFLAKE" even when the user configured nothing.
+        ("SNOWFLAKE", "password"),
+        ("snowflake", "password"),  # be defensive about casing
+        ("SNOWFLAKE_JWT", "key_pair"),
+        ("EXTERNALBROWSER", "externalbrowser"),
+        ("OAUTH", "oauth"),
+        ("OAUTH_AUTHORIZATION_CODE", "oauth"),
+        ("OAUTH_CLIENT_CREDENTIALS", "oauth"),
+        ("USERNAME_PASSWORD_MFA", "username_password_mfa"),
+        ("PROGRAMMATIC_ACCESS_TOKEN", "programmatic_access_token"),
+        ("PAT_WITH_EXTERNAL_SESSION", "programmatic_access_token"),
+        ("WORKLOAD_IDENTITY", "workload_identity"),
+        ("  SNOWFLAKE_JWT  ", "key_pair"),  # surrounding whitespace is trimmed
+        # The Okta authenticator's token is the customer's Okta URL; it must be
+        # collapsed so the endpoint never reaches telemetry.
+        ("https://example.okta.com", "okta"),
+        # Open vocabulary: an unknown token is recorded (lower-cased), not dropped.
+        ("SOME_FUTURE_AUTH", "some_future_auth"),
+        ("", ""),
+        ("   ", ""),
+    ],
+)
+def test_normalize_auth_type(authenticator, expected):
+    """The resolved connector authenticator maps to a stable, URL-free token."""
+    from snowflake.cli._app.telemetry import _normalize_auth_type
+
+    assert _normalize_auth_type(authenticator) == expected
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+def test_auth_type_appears_in_telemetry(_, mock_conn, runner):
+    """The auth type resolved on the live connection is recorded for any command,
+    independent of the CI/CD environment."""
+    mock_conn.return_value._authenticator = "SNOWFLAKE_JWT"  # noqa: SLF001
+    with mock.patch.dict(os.environ, {}, clear=True):
+        result = runner.invoke(["connection", "test"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    usage_command_event = (
+        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
+            0
+        ]
+        .args[0]
+        .to_dict()
+    )
+
+    assert usage_command_event["message"]["command_auth_type"] == "key_pair"
 
 
 def test_sf_gitlab_component_takes_priority_over_gitlab_ci():
