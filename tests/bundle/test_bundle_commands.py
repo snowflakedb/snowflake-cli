@@ -737,7 +737,7 @@ def test_execute_query_with_arguments(mock_connector, mock_ctx, runner):
     assert ctx.get_query() == (
         "EXECUTE CODE BUNDLE IDENTIFIER('MockDatabase.MockSchema.my_bundle') "
         "ENTRYPOINT='src/main.py' "
-        "ARGUMENTS='--custom-arg value --another-flag'"
+        "ARGUMENTS=('--custom-arg', 'value', '--another-flag')"
     )
 
 
@@ -763,7 +763,7 @@ def test_execute_query_escapes_arguments(mock_connector, mock_ctx, runner):
     assert ctx.get_query() == (
         "EXECUTE CODE BUNDLE IDENTIFIER('MockDatabase.MockSchema.my_bundle') "
         "ENTRYPOINT='src/main.py' "
-        "ARGUMENTS='it''s fine'"
+        "ARGUMENTS=('it''s', 'fine')"
     )
 
 
