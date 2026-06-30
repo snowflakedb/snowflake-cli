@@ -141,9 +141,12 @@ repos:
           - --fuzzy-match-generates-todo
       - id: insert-license
         name: Add license for all Markdown files
+        # Skills under .claude/ require YAML frontmatter at the very top of
+        # SKILL.md, which is incompatible with a leading license-header comment.
         exclude: |
           (?x)
           ^\.github/|
+          ^\.claude/|
           tests/test_data/projects/.*|
           tests_integration/test_data/projects/.*
         files: \.md$
