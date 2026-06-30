@@ -62,6 +62,10 @@ class CLITelemetryField(Enum):
     COMMAND_CI_ENVIRONMENT = "command_ci_environment"
     COMMAND_CI_INTEGRATION_VERSION = "command_ci_integration_version"
     COMMAND_CI_AUTH_TYPE = "command_ci_auth_type"
+    # Auth type resolved for the command's connection, recorded for every
+    # command that opens one (not just the CI/CD integrations); see
+    # _get_auth_type.
+    COMMAND_AUTH_TYPE = "command_auth_type"
     COMMAND_AGENT_ENVIRONMENT = "command_agent_environment"
     # Configuration
     CONFIG_FEATURE_FLAGS = "config_feature_flags"
@@ -303,6 +307,77 @@ def _get_ci_auth_type() -> str:
     return os.environ.get("SF_CICD_AUTH_TYPE", "").strip().lower()
 
 
+# Maps the connector's resolved authenticator (SnowflakeConnection._authenticator,
+# a normalized upper-case token) to a stable, low-cardinality telemetry value. The
+# vocabulary is deliberately aligned with the command_ci_auth_type tokens (see
+# _get_ci_auth_type) so the CI-declared and the actually-resolved auth types can be
+# analyzed together. The set is open: an unrecognized non-empty token is passed
+# through lower-cased rather than dropped, mirroring how the CI field treats
+# unknown values.
+_AUTH_TYPE_BY_AUTHENTICATOR = {
+    "SNOWFLAKE": "password",
+    "SNOWFLAKE_JWT": "key_pair",
+    "EXTERNALBROWSER": "externalbrowser",
+    "OAUTH": "oauth",
+    "OAUTH_AUTHORIZATION_CODE": "oauth",
+    "OAUTH_CLIENT_CREDENTIALS": "oauth",
+    "USERNAME_PASSWORD_MFA": "username_password_mfa",
+    "PROGRAMMATIC_ACCESS_TOKEN": "programmatic_access_token",
+    "PAT_WITH_EXTERNAL_SESSION": "programmatic_access_token",
+    "WORKLOAD_IDENTITY": "workload_identity",
+}
+
+
+def _normalize_auth_type(authenticator: str) -> str:
+    """Normalize a connector authenticator token to a telemetry-safe auth type.
+
+    ``authenticator`` is the value the connector resolved
+    (``SnowflakeConnection._authenticator``). Known tokens map to the shared
+    vocabulary; the Okta authenticator -- whose token is the customer's Okta
+    *URL* -- is collapsed to ``"okta"`` so the URL never reaches telemetry.
+    Unrecognized non-empty tokens are passed through lower-cased; a blank value
+    yields ``""``.
+    """
+    token = authenticator.strip()
+    if not token:
+        return ""
+    mapped = _AUTH_TYPE_BY_AUTHENTICATOR.get(token.upper())
+    if mapped:
+        return mapped
+    # The only URL-valued authenticator is Okta (e.g. https://<org>.okta.com);
+    # collapse anything URL-like so a customer endpoint never reaches telemetry.
+    if "://" in token:
+        return "okta"
+    return token.lower()
+
+
+def _get_auth_type() -> str:
+    """Get the authentication type actually used for the current command.
+
+    Reads the authenticator the connector resolved on the live connection --
+    after config, CLI flags and ``SNOWFLAKE_*`` env vars are merged and the
+    default applied -- so it reflects what was really used rather than only what
+    was explicitly configured (``connection_context.authenticator`` is unset for
+    the default password case and for env-var-driven auth). Unlike
+    ``command_ci_auth_type`` this is not limited to the official CI/CD
+    integrations: it is recorded for every command that opens a connection,
+    which is what telemetry needs to segment auth usage (password vs key_pair vs
+    oauth vs externalbrowser vs ...).
+
+    By the time the telemetry payload is built the connection has already been
+    established -- the telemetry channel itself comes from it -- so reading it
+    here is a cache hit and never dials a new connection. Any failure, or a
+    connection that does not expose a string authenticator, yields ``""``.
+    """
+    try:
+        authenticator = getattr(get_cli_context().connection, "_authenticator", None)
+    except Exception:
+        return ""
+    if not isinstance(authenticator, str):
+        return ""
+    return _normalize_auth_type(authenticator)
+
+
 def _detect_agent_environment() -> str:
     """Detect AI coding agent based on environment variables."""
     if "CORTEX_SESSION_ID" in os.environ:
@@ -394,6 +469,7 @@ class CLITelemetryClient:
             CLITelemetryField.COMMAND_CI_ENVIRONMENT: _get_ci_environment_type(),
             CLITelemetryField.COMMAND_CI_INTEGRATION_VERSION: _get_ci_integration_version(),
             CLITelemetryField.COMMAND_CI_AUTH_TYPE: _get_ci_auth_type(),
+            CLITelemetryField.COMMAND_AUTH_TYPE: _get_auth_type(),
             CLITelemetryField.COMMAND_AGENT_ENVIRONMENT: _detect_agent_environment(),
             CLITelemetryField.CONFIG_FEATURE_FLAGS: {
                 k: str(v) for k, v in get_feature_flags_section().items()
