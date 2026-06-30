@@ -132,8 +132,14 @@ def test_setup_resolves_from_account_parameters(
         f"schema: {SCHEMA}  (account parameter)",
         f"warehouse: {WAREHOUSE}  (account parameter)",
     ]
+    # ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()`` returns the server-resolved
+    # identifiers, which Snowflake folds to upper case for unquoted names (e.g. a
+    # ``public`` parameter resolves to ``PUBLIC``). Identifiers are
+    # case-insensitive, so compare case-insensitively rather than expecting the
+    # exact case the parameters were set with.
+    output_lower = result.output.lower()
     for expected in expected_source_lines:
-        assert expected in result.output, result.output
+        assert expected.lower() in output_lower, result.output
 
     assert "build_compute_pool" not in result.output, result.output
     assert "service_compute_pool" not in result.output, result.output
@@ -145,8 +151,8 @@ def test_setup_resolves_from_account_parameters(
         content = yaml.safe_load(fh)
 
     entity = content["entities"]["param_app"]
-    assert entity["identifier"]["database"] == DATABASE
-    assert entity["identifier"]["schema"] == SCHEMA
-    assert entity["query_warehouse"] == WAREHOUSE
+    assert entity["identifier"]["database"].upper() == DATABASE.upper()
+    assert entity["identifier"]["schema"].upper() == SCHEMA.upper()
+    assert entity["query_warehouse"].upper() == WAREHOUSE.upper()
     assert "build_compute_pool" not in entity
     assert "service_compute_pool" not in entity
