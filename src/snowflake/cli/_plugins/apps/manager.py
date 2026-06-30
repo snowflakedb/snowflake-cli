@@ -1276,39 +1276,64 @@ class SnowflakeAppManager(SqlExecutionMixin):
         values mean "not configured" and are omitted from the returned dict.
         Returns an empty dict on any other error, so resolution falls back to
         the CLI's built-in defaults.
+
+        The call is wrapped in a ``snowflake_app.fetch_app_service_defaults``
+        telemetry span. Unexpected outcomes — a non-"unknown function" error, an
+        empty result, or an unparsable payload — are recorded on the span (and
+        logged) so the rate of these otherwise-silent fallbacks is observable.
         """
-        try:
-            cursor = self.execute_query(f"SELECT {APP_SERVICE_DEFAULTS_FUNCTION}()")
-            row = cursor.fetchone()
-        except ProgrammingError as exc:
-            if _is_unknown_function_error(exc):
-                log.info(
-                    "%s is unavailable on this account; falling back to the "
-                    "legacy SHOW PARAMETERS deploy-defaults flow.",
+        with get_cli_context().metrics.span(
+            "snowflake_app.fetch_app_service_defaults"
+        ) as span:
+            try:
+                cursor = self.execute_query(f"SELECT {APP_SERVICE_DEFAULTS_FUNCTION}()")
+                row = cursor.fetchone()
+            except ProgrammingError as exc:
+                if _is_unknown_function_error(exc):
+                    log.info(
+                        "%s is unavailable on this account; falling back to the "
+                        "legacy SHOW PARAMETERS deploy-defaults flow.",
+                        APP_SERVICE_DEFAULTS_FUNCTION,
+                    )
+                    return self._fetch_legacy_app_service_defaults()
+                log.warning(
+                    "Could not fetch Snowflake App Runtime defaults – skipping.",
+                    exc_info=True,
+                )
+                span.finish(error=exc)
+                return {}
+
+            if not row or not row[0]:
+                # The function always returns a JSON payload, so an empty result
+                # is unexpected. Surface it (debug log + span error) before
+                # falling back to the CLI's built-in defaults.
+                log.debug(
+                    "%s returned no value; falling back to the CLI's built-in "
+                    "defaults.",
                     APP_SERVICE_DEFAULTS_FUNCTION,
                 )
-                return self._fetch_legacy_app_service_defaults()
-            log.warning(
-                "Could not fetch Snowflake App Runtime defaults – skipping.",
-                exc_info=True,
-            )
-            return {}
-        if not row or not row[0]:
-            return {}
-        try:
-            payload = json.loads(row[0])
-        except (TypeError, ValueError):
-            log.debug(
-                "Could not parse SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS output: %r",
-                row[0],
-            )
-            return {}
-        result: Dict[str, str] = {}
-        for key in ("database", "schema", "query_warehouse", "build_eai"):
-            value = payload.get(key)
-            if value:
-                result[key] = value
-        return result
+                span.finish(
+                    error=CliError(f"{APP_SERVICE_DEFAULTS_FUNCTION} returned no value")
+                )
+                return {}
+
+            try:
+                payload = json.loads(row[0])
+            except (TypeError, ValueError) as exc:
+                log.debug(
+                    "Could not parse %s output: %r",
+                    APP_SERVICE_DEFAULTS_FUNCTION,
+                    row[0],
+                )
+                span.finish(error=exc)
+                return {}
+
+            result: Dict[str, str] = {}
+            for key in ("database", "schema", "query_warehouse", "build_eai"):
+                value = payload.get(key)
+                if value:
+                    result[key] = value
+            return result
 
     def _fetch_legacy_app_service_defaults(self) -> Dict[str, str]:
         """Resolve deploy defaults the pre-``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS``

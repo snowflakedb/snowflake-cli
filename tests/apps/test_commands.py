@@ -2569,6 +2569,67 @@ class TestFetchAppServiceDefaults:
             result = manager.fetch_app_service_defaults()
         assert result == {"query_warehouse": "WH"}
 
+    _SPAN_NAME = "snowflake_app.fetch_app_service_defaults"
+
+    @patch(EXECUTE_QUERY)
+    def test_records_span_without_error_on_success(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ('{"database": "MY_DB"}',)
+        mock_execute.return_value = cursor
+
+        _reset_command_metrics()
+        SnowflakeAppManager().fetch_app_service_defaults()
+
+        span = _get_completed_span(self._SPAN_NAME)
+        assert span[CLIMetricsSpan.ERROR_KEY] is None
+
+    @patch(EXECUTE_QUERY)
+    def test_records_span_error_and_debug_log_on_empty_result(
+        self, mock_execute, caplog
+    ):
+        """An empty result is unexpected: it is logged at debug and recorded as
+        an error on the span before falling back to built-in defaults."""
+        import logging
+
+        cursor = Mock()
+        cursor.fetchone.return_value = None
+        mock_execute.return_value = cursor
+
+        _reset_command_metrics()
+        with caplog.at_level(
+            logging.DEBUG, logger="snowflake.cli._plugins.apps.manager"
+        ):
+            result = SnowflakeAppManager().fetch_app_service_defaults()
+
+        assert result == {}
+        span = _get_completed_span(self._SPAN_NAME)
+        assert span[CLIMetricsSpan.ERROR_KEY] == "CliError"
+        assert "returned no value" in caplog.text
+
+    @patch(EXECUTE_QUERY)
+    def test_records_span_error_on_unparseable_payload(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ("not json",)
+        mock_execute.return_value = cursor
+
+        _reset_command_metrics()
+        result = SnowflakeAppManager().fetch_app_service_defaults()
+
+        assert result == {}
+        span = _get_completed_span(self._SPAN_NAME)
+        assert span[CLIMetricsSpan.ERROR_KEY] == "JSONDecodeError"
+
+    @patch(EXECUTE_QUERY, side_effect=ProgrammingError("permission denied"))
+    def test_records_span_error_on_programming_error(self, mock_execute):
+        """A non-"unknown function" error is recorded on the span (it is not a
+        rollout gap that warrants the legacy fallback)."""
+        _reset_command_metrics()
+        result = SnowflakeAppManager().fetch_app_service_defaults()
+
+        assert result == {}
+        span = _get_completed_span(self._SPAN_NAME)
+        assert span[CLIMetricsSpan.ERROR_KEY] == "ProgrammingError"
+
 
 class TestIsUnknownFunctionError:
     """``_is_unknown_function_error`` decides whether a failed

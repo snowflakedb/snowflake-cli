@@ -45,15 +45,25 @@ import yaml
 from snowflake.connector.errors import ProgrammingError
 
 DATABASE = os.environ.get("SNOWFLAKE_CONNECTIONS_INTEGRATION_DATABASE", "SNOWCLI_DB")
-SCHEMA = os.environ.get("SNOWFLAKE_CONNECTIONS_INTEGRATION_SCHEMA", "public")
 WAREHOUSE = os.environ.get("SNOWFLAKE_CONNECTIONS_INTEGRATION_WAREHOUSE", "xsmall")
 BUILD_EAI = "cli_test_integration"
 APP_SERVICE_DEFAULTS_FUNCTION = "SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS"
 
+# Destination schema configured as a *quoted*, case-sensitive lower-case
+# identifier. Snowflake folds unquoted identifiers to upper case, so a
+# lower-case schema round-trips through ``snow app setup`` only if the resolver
+# keeps it quoted end-to-end (the system function returns it already
+# SQL-quoted) — which is exactly the behavior this exercises. A dedicated name
+# (not the shared ``PUBLIC`` schema) guarantees the value is genuinely
+# lower-case regardless of the connection's configured schema; it is created in
+# ``DATABASE`` by the session fixture below.
+SCHEMA = "snowcli_app_lower_schema"  # bare, case-sensitive lower-case name
+QUOTED_SCHEMA = f'"{SCHEMA}"'  # how it appears in SQL and in snowflake.yml
+
 _ACCOUNT_PARAMS = {
     "DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE": WAREHOUSE,
     "DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE": DATABASE,
-    "DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA": SCHEMA,
+    "DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA": QUOTED_SCHEMA,
     "DEFAULT_SNOWFLAKE_APPS_BUILD_EXTERNAL_ACCESS_INTEGRATION": "",
 }
 
@@ -70,9 +80,16 @@ def _ensure_snowflake_apps_account_params(snowflake_session):
     empty string so any pre-existing account-level value doesn't leak into
     ``--build-eai`` resolution; the empty-string handling is itself part of
     the contract exercised by ``snow app setup``.
+
+    The quoted lower-case destination schema is created here (idempotent, never
+    dropped — same model as the parameters) so the system function resolves to
+    it instead of applying its inaccessible-destination fallback.
     """
     rows = snowflake_session.execute_string("SELECT CURRENT_USER()")
     user = rows[-1].fetchone()[0]
+    snowflake_session.execute_string(
+        f"CREATE SCHEMA IF NOT EXISTS {DATABASE}.{QUOTED_SCHEMA}"
+    )
     set_clauses = " ".join(f"{k}='{v}'" for k, v in _ACCOUNT_PARAMS.items())
     snowflake_session.execute_string(f"ALTER USER {user} SET {set_clauses}")
     yield
@@ -118,6 +135,12 @@ def test_setup_resolves_from_account_parameters(
     Asserts every resolved field is reflected in the generated YAML and that
     the source label printed by the resolver is ``(account parameter)``.
 
+    The destination schema is configured as a *quoted* lower-case identifier, so
+    this also verifies that the system function returns quoted identifiers
+    already SQL-quoted and the CLI preserves their case verbatim (rather than
+    folding them to upper case). Identifiers are otherwise case-insensitive, so
+    the database/warehouse comparisons ignore case.
+
     Compute pools are intentionally not resolved or written: app services run
     on server-managed compute pools, so ``snow app setup`` never emits
     ``build_compute_pool`` / ``service_compute_pool``.
@@ -127,19 +150,20 @@ def test_setup_resolves_from_account_parameters(
     )
     assert result.exit_code == 0, result.output
 
-    expected_source_lines = [
-        f"database: {DATABASE}  (account parameter)",
-        f"schema: {SCHEMA}  (account parameter)",
-        f"warehouse: {WAREHOUSE}  (account parameter)",
-    ]
-    # ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()`` returns the server-resolved
-    # identifiers, which Snowflake folds to upper case for unquoted names (e.g. a
-    # ``public`` parameter resolves to ``PUBLIC``). Identifiers are
-    # case-insensitive, so compare case-insensitively rather than expecting the
-    # exact case the parameters were set with.
+    # Database and warehouse are unquoted identifiers; Snowflake folds them to
+    # upper case, and they are case-insensitive, so compare ignoring case.
     output_lower = result.output.lower()
-    for expected in expected_source_lines:
+    for expected in (
+        f"database: {DATABASE}  (account parameter)",
+        f"warehouse: {WAREHOUSE}  (account parameter)",
+    ):
         assert expected.lower() in output_lower, result.output
+
+    # The schema is a quoted, case-sensitive lower-case identifier: it must be
+    # preserved verbatim (quotes kept, not upper-cased). Assert exact case.
+    assert (
+        f"schema: {QUOTED_SCHEMA}  (account parameter)" in result.output
+    ), result.output
 
     assert "build_compute_pool" not in result.output, result.output
     assert "service_compute_pool" not in result.output, result.output
@@ -152,7 +176,8 @@ def test_setup_resolves_from_account_parameters(
 
     entity = content["entities"]["param_app"]
     assert entity["identifier"]["database"].upper() == DATABASE.upper()
-    assert entity["identifier"]["schema"].upper() == SCHEMA.upper()
+    # Quoted lower-case schema preserved verbatim (quotes kept, case-sensitive).
+    assert entity["identifier"]["schema"] == QUOTED_SCHEMA
     assert entity["query_warehouse"].upper() == WAREHOUSE.upper()
     assert "build_compute_pool" not in entity
     assert "service_compute_pool" not in entity
