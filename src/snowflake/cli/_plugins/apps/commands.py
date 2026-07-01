@@ -36,7 +36,6 @@ from snowflake.cli._plugins.apps.manager import (
     DEFAULT_PERSONAL_WORKSPACE_NAME,
     DEFINITION_FILENAME,
     SnowflakeAppManager,
-    _filter_accessible_remote_defaults,
     _get_entity,
     _poll_until,
     _resolve_deploy_defaults,
@@ -242,10 +241,14 @@ def snowflake_app_setup(
 
             manager = SnowflakeAppManager()
             with metrics.span("snowflake_app.setup.resolve_defaults"):
-                params = manager.fetch_snow_apps_parameters()
-                # Drop the account-configured destination database/schema the current
-                # role cannot access so resolution falls back to the personal database.
-                params = _filter_accessible_remote_defaults(manager, params)
+                # ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()`` resolves the
+                # ``DEFAULT_SNOWFLAKE_APPS_*`` parameters and drops any
+                # account-configured destination the current role cannot access
+                # server-side. On accounts where that function is not yet
+                # available, ``fetch_app_service_defaults`` transparently falls
+                # back to the legacy ``SHOW PARAMETERS`` + ``EXPLAIN_PRIVILEGES``
+                # flow, so the resolution below is unaffected either way.
+                params = manager.fetch_app_service_defaults()
 
             def _resolve(
                 user_input=None,
