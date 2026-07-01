@@ -509,7 +509,7 @@ class TestAppFlowTelemetryAttribution:
     def test_snowflake_app_setup(self, mock_conn, mock_manager, runner):
         """setup is Snowflake-Apps-only; must stamp snowflake_app directly."""
         mock_mgr = mock_manager.return_value
-        mock_mgr.fetch_snow_apps_parameters.return_value = {}
+        mock_mgr.fetch_app_service_defaults.return_value = {}
         mock_mgr.get_personal_database.return_value = None
 
         runner.invoke(
