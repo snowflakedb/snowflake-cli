@@ -27,6 +27,7 @@
 * `snow app setup --dry-run` now exits with code 0 while still printing the same setup validation errors that a non-dry-run invocation surfaces.
 * `snow app deploy` now supports a separate `service_eai` field on `snowflake-app` entities for newly created application services. When `service_eai` is not set, deploy continues to fall back to `build_eai` for backward compatibility.
 * `snow dbt deploy` now preserves the customer's original key order in `profiles.yml` instead of silently reordering keys alphabetically.
+* `snow app setup` and `snow app deploy` resolve their Snowflake App Runtime defaults via the `SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()` system function, and automatically fall back to the previous `SHOW PARAMETERS` based resolution on accounts where that function is not yet available. The fallback is transitional and will be removed once the function has fully rolled out.
 
 
 # v3.21.0
