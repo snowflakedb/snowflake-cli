@@ -30,6 +30,26 @@ def mock_validate_role():
         yield _fixture
 
 
+@pytest.fixture
+def enable_dbt_projects_profiles_file():
+    """Enable the ENABLE_FIX_3659937_DBT_PROJECTS_PROFILES_FILE feature flag.
+
+    Patches both is_enabled/is_disabled so code paths that branch either way
+    see the flag as on, regardless of any ambient config.
+    """
+    with (
+        mock.patch(
+            "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_FIX_3659937_DBT_PROJECTS_PROFILES_FILE.is_enabled",
+            return_value=True,
+        ),
+        mock.patch(
+            "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_FIX_3659937_DBT_PROJECTS_PROFILES_FILE.is_disabled",
+            return_value=False,
+        ),
+    ):
+        yield
+
+
 @pytest.fixture()
 def profile():
     profiles = {

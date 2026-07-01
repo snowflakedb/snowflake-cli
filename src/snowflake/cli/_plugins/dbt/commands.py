@@ -21,6 +21,7 @@ import typer
 from click import types
 from snowflake.cli._plugins.dbt.constants import (
     DBT_COMMANDS,
+    DBT_PROJECTS_PROFILES_FILENAME,
     ENV_FILENAME,
     OUTPUT_COLUMN_NAME,
     PROFILES_FILENAME,
@@ -116,7 +117,16 @@ def deploy_dbt(
         default=None,
     ),
     profiles_dir: Optional[str] = typer.Option(
-        help=f"Path to directory containing {PROFILES_FILENAME}. Defaults to directory provided in --source or current working directory",
+        help=(
+            f"Path to directory containing {PROFILES_FILENAME}"
+            + (
+                f" (or {DBT_PROJECTS_PROFILES_FILENAME}, which takes precedence over "
+                f"{PROFILES_FILENAME} and is staged under its own name)"
+                if FeatureFlag.ENABLE_FIX_3659937_DBT_PROJECTS_PROFILES_FILE.is_enabled()
+                else ""
+            )
+            + ". Defaults to directory provided in --source or current working directory"
+        ),
         show_default=False,
         default=None,
     ),
