@@ -131,6 +131,112 @@ class TestAnalyzeReporter:
         output = capture_reporter_output(reporter, cursor)
         assert "No data." in output
 
+    def test_process_with_file_issues(self):
+        data = self._make_response(
+            [
+                {
+                    "source_path": "sources/definitions/bad.sql",
+                    "definitions": [{"id": {"name": "T"}, "issues": []}],
+                    "issues": [{"message": "syntax error", "severity": "ERROR"}],
+                }
+            ]
+        )
+        reporter = AnalyzeReporter()
+        cursor = FakeCursor(data)
+
+        with mock.patch(CLI_CONSOLE_PATH):
+            with pytest.raises(CliError) as exc_info:
+                reporter.process(cursor)
+
+        assert "1 error(s)" in exc_info.value.message
+
+    def test_process_with_definition_issues(self):
+        data = self._make_response(
+            [
+                {
+                    "source_path": "sources/definitions/customers.sql",
+                    "definitions": [
+                        {
+                            "id": {"name": "CUSTOMERS"},
+                            "issues": [
+                                {"message": "column not found", "severity": "ERROR"},
+                                {"message": "type mismatch", "severity": "ERROR"},
+                            ],
+                        }
+                    ],
+                    "issues": [],
+                }
+            ]
+        )
+        reporter = AnalyzeReporter()
+        cursor = FakeCursor(data)
+
+        with mock.patch(CLI_CONSOLE_PATH):
+            with pytest.raises(CliError) as exc_info:
+                reporter.process(cursor)
+
+        assert "2 error(s)" in exc_info.value.message
+
+    def test_process_with_top_level_issues(self):
+        data = {"files": [], "issues": [{"message": "rate limit exceeded"}]}
+        reporter = AnalyzeReporter()
+        cursor = FakeCursor(data)
+
+        with mock.patch(CLI_CONSOLE_PATH):
+            with pytest.raises(CliError) as exc_info:
+                reporter.process(cursor)
+
+        assert "1 error(s)" in exc_info.value.message
+
+    def test_process_with_top_level_errors(self):
+        data = {"files": [], "errors": [{"message": "definition files too large"}]}
+        reporter = AnalyzeReporter()
+        cursor = FakeCursor(data)
+
+        with mock.patch(CLI_CONSOLE_PATH):
+            with pytest.raises(CliError) as exc_info:
+                reporter.process(cursor)
+
+        assert "1 error(s)" in exc_info.value.message
+
+    def test_process_with_both_errors_and_issues_at_same_level(self):
+        # Both keys present simultaneously at file level — counts are summed
+        data = self._make_response(
+            [
+                {
+                    "source_path": "sources/definitions/a.sql",
+                    "definitions": [],
+                    "errors": [{"message": "old error"}],
+                    "issues": [{"message": "new issue"}],
+                }
+            ]
+        )
+        reporter = AnalyzeReporter()
+        cursor = FakeCursor(data)
+
+        with mock.patch(CLI_CONSOLE_PATH):
+            with pytest.raises(CliError) as exc_info:
+                reporter.process(cursor)
+
+        assert "2 error(s)" in exc_info.value.message
+
+    def test_process_no_issues_new_format(self):
+        data = {
+            "files": [
+                {
+                    "source_path": "sources/definitions/ok.sql",
+                    "definitions": [{"id": {"name": "T"}, "issues": []}],
+                    "issues": [],
+                }
+            ],
+            "issues": [],
+        }
+        reporter = AnalyzeReporter()
+        cursor = FakeCursor(data)
+
+        with mock.patch(CLI_CONSOLE_PATH):
+            reporter.process(cursor)  # Should not raise
+
     def test_prints_raw_json(self):
         data = self._make_response(
             [
