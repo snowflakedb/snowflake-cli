@@ -676,6 +676,10 @@ def snowflake_app_deploy(
 
     metrics = get_cli_context().metrics
 
+    # Tracks whether this invocation created the code stage, so it can be
+    # dropped once the build has consumed it (see the build phase below).
+    stage_created = False
+
     # ── Upload phase ──────────────────────────────────────────────────
 
     if run_upload:
@@ -740,6 +744,7 @@ def snowflake_app_deploy(
                             cli_console.step(f"Recreating stage @{storage_fqn}")
                             manager.drop_stage_if_exists(storage_fqn)
                             manager.create_stage(storage_fqn, encryption_type)
+                            stage_created = True
                         except ProgrammingError as e:
                             role = manager.current_role()
                             role_clause = f"role '{role}'" if role else "your role"
@@ -838,6 +843,18 @@ def snowflake_app_deploy(
                     ),
                     on_poll=_make_build_log_streamer(manager, artifact_build_job_fqn),
                 )
+
+            # The stage only holds the uploaded source that the artifact-repo
+            # build consumes; once the build succeeds it is no longer needed.
+            # Drop it only when this invocation created it, so a pre-existing
+            # stage relied on by ``--build-only`` (which skips the upload phase)
+            # is left untouched.
+            if stage_created:
+                with metrics.span("snowflake_app.build.drop_stage"):
+                    cli_console.step(
+                        f"Dropping stage @{storage_fqn} now that the build is complete"
+                    )
+                    manager.drop_stage_if_exists(storage_fqn)
 
     if build_only:
         return MessageResult("Build completed successfully.")
