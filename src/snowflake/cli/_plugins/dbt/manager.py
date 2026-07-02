@@ -25,6 +25,7 @@ from typing import Dict, List, Optional, TypedDict
 
 import yaml
 from snowflake.cli._plugins.dbt.constants import (
+    DBT_PROJECTS_PROFILES_FILENAME,
     ENV_FILENAME,
     PROFILES_FILENAME,
     SUPPORTED_DBT_VERSIONS_QUERY,
@@ -34,6 +35,7 @@ from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
 from snowflake.cli.api.exceptions import CliArgumentError, CliError
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
@@ -446,6 +448,29 @@ class DBTManager(SqlExecutionMixin):
         )
         return self.execute_query(query)
 
+    @staticmethod
+    def _candidate_profiles_filenames() -> tuple[str, ...]:
+        """Profiles filenames to look for, in precedence order.
+
+        When ENABLE_FIX_3659937_DBT_PROJECTS_PROFILES_FILE is on, a
+        dbt_projects_profiles.yml in the profiles directory takes precedence
+        over profiles.yml and is staged under its own name (the server applies
+        the precedence at execution time). With the flag off only profiles.yml
+        is recognized, so the command behaves exactly as before.
+        """
+        if FeatureFlag.ENABLE_FIX_3659937_DBT_PROJECTS_PROFILES_FILE.is_enabled():
+            return (DBT_PROJECTS_PROFILES_FILENAME, PROFILES_FILENAME)
+        return (PROFILES_FILENAME,)
+
+    @classmethod
+    def _resolve_profiles_filename(cls, profiles_path: Path) -> Optional[str]:
+        """Return the highest-precedence profiles filename present in
+        profiles_path, or None if none of the candidates exist."""
+        for filename in cls._candidate_profiles_filenames():
+            if (profiles_path / filename).exists():
+                return filename
+        return None
+
     def _validate_profiles(
         self,
         profiles_path: SecurePath,
@@ -454,22 +479,22 @@ class DBTManager(SqlExecutionMixin):
     ) -> None:
         """
         Validates that:
-         * profiles.yml exists
-         * contain profile specified in dbt_project.yml
+         * a profiles file (dbt_projects_profiles.yml or profiles.yml) exists
+         * it contains the profile specified in dbt_project.yml
          * default_target (if specified) exists in the profile's outputs
         """
-        profiles_file = profiles_path / PROFILES_FILENAME
-        if not profiles_file.exists():
+        filename = self._resolve_profiles_filename(profiles_path.path)
+        if filename is None:
+            names = " or ".join(self._candidate_profiles_filenames())
             raise CliError(
-                f"{PROFILES_FILENAME} does not exist in directory {profiles_path.path.absolute()}."
+                f"{names} does not exist in directory {profiles_path.path.absolute()}."
             )
+        profiles_file = profiles_path / filename
         with profiles_file.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
             profiles = yaml.safe_load(fd)
 
         if profile_name not in profiles:
-            raise CliError(
-                f"Profile {profile_name} is not defined in {PROFILES_FILENAME}."
-            )
+            raise CliError(f"Profile {profile_name} is not defined in {filename}.")
 
         errors = defaultdict(list)
         profile = profiles[profile_name]
@@ -488,7 +513,7 @@ class DBTManager(SqlExecutionMixin):
             )
 
         if errors:
-            message = f"Found following errors in {PROFILES_FILENAME}. Please fix them before proceeding:"
+            message = f"Found following errors in {filename}. Please fix them before proceeding:"
             for target, issues in errors.items():
                 message += f"\n{target}"
                 message += "\n * " + "\n * ".join(issues)
@@ -523,11 +548,25 @@ class DBTManager(SqlExecutionMixin):
 
     @staticmethod
     def _prepare_profiles_file(profiles_path: Path, tmp_path: Path):
-        # We need to copy profiles.yml file (not symlink) in order to redact
+        # We need to copy the profiles file (not symlink) in order to redact
         # any comments without changing original file. This can be achieved
-        # with pyyaml, which looses comments while reading a yaml file
-        source_profiles_file = SecurePath(profiles_path / PROFILES_FILENAME)
-        target_profiles_file = SecurePath(tmp_path / PROFILES_FILENAME)
+        # with pyyaml, which looses comments while reading a yaml file.
+        #
+        # The file is staged under its own name: when the fix is enabled and
+        # dbt_projects_profiles.yml is present it wins over profiles.yml and is
+        # staged as dbt_projects_profiles.yml (the server applies the precedence
+        # at execution time). Any profiles.yml already copied into tmp_path from
+        # the source project is left untouched.
+        filename = DBTManager._resolve_profiles_filename(profiles_path)
+        if filename is None:
+            # _validate_profiles runs first and already errors when no profiles
+            # file exists; guard defensively in case this is called directly.
+            names = " or ".join(DBTManager._candidate_profiles_filenames())
+            raise CliError(
+                f"{names} does not exist in directory {profiles_path.absolute()}."
+            )
+        source_profiles_file = SecurePath(profiles_path / filename)
+        target_profiles_file = SecurePath(tmp_path / filename)
         if target_profiles_file.exists():
             target_profiles_file.unlink()
         with source_profiles_file.open(
