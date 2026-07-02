@@ -25,10 +25,12 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import time
 import traceback
+from typing import Literal, NamedTuple
 
 import snowflake.connector
 from snowflake.cli._app.snow_connector import update_connection_details_with_private_key
@@ -38,6 +40,31 @@ from snowflake.cli._app.snow_connector import update_connection_details_with_pri
 # ---------------------------------------------------------------------------
 
 _ENV_PREFIX = "SNOWFLAKE_CONNECTIONS_E2EREVIEWER"
+
+# Wall-clock budget for a single Cortex agent run. Shared by run_agent's default
+# and main()'s timeout message so the two never drift apart.
+AGENT_TIMEOUT_SEC = 3000
+
+# The task framing + how the agent obtains the diff. PR_DIFF_INSTRUCTIONS carries
+# the {pr_number}/{pr_repo} placeholders and is formatted before being injected into
+# AGENT_PROMPT_TEMPLATE. The eval runner swaps in LOCAL_DIFF_INSTRUCTIONS instead
+# (a local working copy has no PR to fetch).
+PR_DIFF_INSTRUCTIONS = (
+    "Review PR #{pr_number} in the {pr_repo} repository.\n"
+    "\n"
+    "Start by fetching the PR details, diff, and changed files using `gh`.\n"
+    "Then determine if CLI behavior changed. If not, report SKIP.\n"
+    "If it did, investigate thoroughly and report your findings."
+)
+
+LOCAL_DIFF_INSTRUCTIONS = (
+    "Review the local changes in your working directory. This is a local working\n"
+    "copy, not a GitHub PR — there is no PR number and no `gh` PR to fetch.\n"
+    "\n"
+    "Run `git diff origin/main` to see what changed.\n"
+    "Then determine if CLI behavior changed. If not, report SKIP.\n"
+    "If it did, investigate thoroughly and report your findings."
+)
 
 AGENT_PROMPT_TEMPLATE = """\
 You are an autonomous end-to-end verification agent for the snowflake-cli project.
@@ -97,11 +124,7 @@ tests_e2e/                    - end-to-end tests
 
 ## Your task
 
-Review PR #{pr_number} in the {pr_repo} repository.
-
-Start by fetching the PR details, diff, and changed files using `gh`.
-Then determine if CLI behavior changed. If not, report SKIP.
-If it did, investigate thoroughly and report your findings.
+{diff_instructions}
 
 IMPORTANT: Your final report MUST begin with the exact marker line
 `<!-- E2E_REPORT -->` on its own line, immediately followed by the report.
@@ -230,6 +253,112 @@ def post_error_comment(repo: str, pr_number: int, message: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Eval helpers (importable by the eval harness)
+# ---------------------------------------------------------------------------
+
+
+def parse_verdict(report: str) -> Literal["PASS", "FAIL", "SKIP"] | None:
+    """Return the verdict word from a parsed E2E review report, or None."""
+    m = re.search(
+        r"###\s+Verdict\b(.+?)(?=\n###|\Z)", report, re.DOTALL | re.IGNORECASE
+    )
+    if m:
+        v = re.search(r"\b(PASS|FAIL|SKIP)\b", m.group(1), re.IGNORECASE)
+        if v:
+            return v.group(1).upper()  # type: ignore[return-value]
+    return None
+
+
+def write_connections_toml(conn_config: dict[str, str], path: str) -> None:
+    """Write an [e2ereviewer] TOML connection block to *path* (mode 0o600)."""
+    toml_lines = ["[e2ereviewer]"]
+    for key, val in conn_config.items():
+        if val:
+            escaped = val.replace("\\", "\\\\").replace('"', '\\"')
+            toml_lines.append(f'{key} = "{escaped}"')
+    with open(path, "w") as f:
+        f.write("\n".join(toml_lines) + "\n")
+    os.chmod(path, 0o600)
+    print(f"  Wrote {path}")
+    _secret_markers = ("private_key", "password", "token", "secret")
+    for line in toml_lines:
+        if not any(marker in line.lower() for marker in _secret_markers):
+            print(f"    {line}")
+
+
+class AgentRun(NamedTuple):
+    """Result of a Cortex Code agent run."""
+
+    report: str
+    exit_code: int
+    duration: float
+    stdout: str
+
+
+def run_agent(
+    prompt: str,
+    model: str,
+    workdir: str,
+    connection: str,
+    config_file: str | None = None,
+    timeout: int = AGENT_TIMEOUT_SEC,
+    env: dict | None = None,
+) -> AgentRun:
+    """Run the Cortex Code CLI agent.
+
+    Returns an :class:`AgentRun` with the parsed report, exit code, duration, and the
+    raw ``stream-json`` stdout (the eval harness parses the executed-command trajectory
+    from ``stdout``). ``env`` overrides the subprocess environment (the runner uses it
+    to put the mutated CLI's venv first on ``PATH``); ``None`` inherits the current env.
+    ``config_file`` is passed via ``--config-file`` when set; when ``None`` the agent
+    uses its default config (the eval runner's local mode relies on this to avoid
+    touching the user's ``~/.snowflake``).
+    Raises subprocess.TimeoutExpired or Exception on failure — callers handle errors.
+    """
+    argv = [
+        "cortex",
+        "-p",
+        prompt,
+        "--model",
+        model,
+        "--connection",
+        connection,
+        "--workdir",
+        workdir,
+        "--plan",
+        "--auto-accept-plans",
+        "--bypass",
+        "--output-format",
+        "stream-json",
+        "--no-auto-update",
+    ]
+    if config_file:
+        argv += ["--config-file", config_file]
+    start = time.monotonic()
+    result = subprocess.run(
+        argv,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        env=env,
+    )
+    duration = time.monotonic() - start
+    report = _parse_stream_json(result.stdout)
+    if not report:
+        report = (
+            "_Could not parse structured output from Cortex agent. "
+            "Raw output below:_\n\n```\n" + result.stdout[:8000] + "\n```"
+        )
+    print(
+        f"  Agent finished (exit={result.returncode},"
+        f" {len(report)} chars, {duration:.0f}s)"
+    )
+    if result.returncode != 0:
+        print(f"  Stderr: {result.stderr[:1000]}")
+    return AgentRun(report, result.returncode, duration, result.stdout)
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -309,75 +438,34 @@ def main():
         if private_key_file:
             conn_config["private_key_file"] = private_key_file
 
-        # Write TOML — use multi-line string for private key path
-        toml_lines = ["[e2ereviewer]"]
-        for key, val in conn_config.items():
-            if val:
-                escaped = val.replace("\\", "\\\\").replace('"', '\\"')
-                toml_lines.append(f'{key} = "{escaped}"')
-        with open(connections_toml, "w") as f:
-            f.write("\n".join(toml_lines) + "\n")
-        os.chmod(connections_toml, 0o600)
-        print(f"  Wrote {connections_toml}")
-        # Debug: show the config (redact sensitive fields)
-        for line in toml_lines:
-            if "private_key" not in line.lower():
-                print(f"    {line}")
+        write_connections_toml(conn_config, connections_toml)
 
         # Step 5: Build the prompt
         prompt = AGENT_PROMPT_TEMPLATE.format(
             playground_db=playground_db,
-            pr_number=pr_number,
-            pr_repo=repo,
+            diff_instructions=PR_DIFF_INSTRUCTIONS.format(
+                pr_number=pr_number, pr_repo=repo
+            ),
         )
 
         # Step 6: Run Cortex Code CLI agent
         print("[Step 6] Running Cortex Code CLI agent...")
-        agent_start = time.monotonic()
         try:
-            agent_result = subprocess.run(
-                [
-                    "cortex",
-                    "-p",
-                    prompt,
-                    "--model",
-                    model,
-                    "--connection",
-                    "e2ereviewer",
-                    "--workdir",
-                    os.getcwd(),
-                    "--plan",
-                    "--auto-accept-plans",
-                    "--bypass",
-                    "--output-format",
-                    "stream-json",
-                    "--no-auto-update",
-                    "--config-file",
-                    connections_toml,
-                ],
-                capture_output=True,
-                text=True,
-                timeout=3000,  # 50 minutes
+            agent_run = run_agent(
+                prompt=prompt,
+                model=model,
+                workdir=os.getcwd(),
+                connection="e2ereviewer",
+                config_file=connections_toml,
             )
-            # Parse stream-json output — take only the last message (the report)
-            agent_output = _parse_stream_json(agent_result.stdout)
-            if not agent_output:
-                # Fallback: post raw output so the user sees something
-                agent_output = (
-                    "_Could not parse structured output from Cortex agent. "
-                    "Raw output below:_\n\n```\n" + agent_result.stdout[:8000] + "\n```"
-                )
-            agent_duration = time.monotonic() - agent_start
-            print(
-                f"  Agent finished (exit={agent_result.returncode},"
-                f" {len(agent_output)} chars, {agent_duration:.0f}s)"
-            )
-            if agent_result.returncode != 0:
-                print(f"  Stderr: {agent_result.stderr[:1000]}")
+            agent_output = agent_run.report
+            agent_duration = agent_run.duration
         except subprocess.TimeoutExpired:
             print("  Agent timed out")
             post_error_comment(
-                repo, pr_number, "Cortex agent timed out after 50 minutes."
+                repo,
+                pr_number,
+                f"Cortex agent timed out after {AGENT_TIMEOUT_SEC // 60} minutes.",
             )
             sys.exit(1)
         except Exception as e:
@@ -423,8 +511,6 @@ def _parse_stream_json(raw: str) -> str:
     2. Look for the ``<!-- E2E_REPORT -->`` delimiter the prompt asks for.
     3. Fallback: find the LAST ``### Summary`` heading across all messages.
     """
-    import re
-
     report_marker = "<!-- E2E_REPORT -->"
 
     result_text = ""
