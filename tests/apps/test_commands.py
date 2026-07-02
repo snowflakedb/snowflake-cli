@@ -6464,8 +6464,11 @@ class TestDeployCommand:
         assert len(drop_indices) == 2
         assert drop_indices[-1] > build_index
 
-        # The cleanup is wrapped in its own telemetry span.
-        assert _get_completed_span("snowflake_app.build.drop_stage") is not None
+        # The cleanup is wrapped in its own telemetry span, recorded as
+        # successful when the drop succeeds.
+        drop_span = _get_completed_span("snowflake_app.build.drop_stage")
+        assert drop_span is not None
+        assert drop_span[CLIMetricsSpan.ERROR_KEY] is None
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
@@ -6632,6 +6635,9 @@ class TestDeployCommand:
         # cleanup failure.
         mock_mgr.create_app_service.assert_called_once()
         assert "Could not drop stage" in result.output
+        # Telemetry must reflect the failure rather than reporting success.
+        drop_span = _get_completed_span("snowflake_app.build.drop_stage")
+        assert drop_span[CLIMetricsSpan.ERROR_KEY] == ProgrammingError.__name__
 
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")

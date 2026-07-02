@@ -852,18 +852,24 @@ def snowflake_app_deploy(
             # already succeeded, so a drop failure only leaves a harmless stage
             # behind and must not fail the deploy — warn and continue.
             if stage_created:
-                with metrics.span("snowflake_app.build.drop_stage"):
+                with metrics.span("snowflake_app.build.drop_stage") as drop_span:
                     cli_console.step(
                         f"Dropping stage @{storage_fqn} now that the build is complete"
                     )
                     try:
                         manager.drop_stage_if_exists(storage_fqn)
                     except Exception as e:
+                        # Record the failure on the span so these otherwise
+                        # silent (warn-and-continue) cleanup errors stay
+                        # observable in telemetry, then swallow it: the build
+                        # already succeeded, so a stray stage must not fail the
+                        # deploy.
                         log.debug(
                             "Failed to drop stage %s after build",
                             storage_fqn.identifier,
                             exc_info=True,
                         )
+                        drop_span.finish(error=e)
                         cli_console.warning(
                             f"Could not drop stage '{sanitize_for_terminal(storage_fqn.identifier)}' "
                             f"after the build completed: {e}. The build succeeded; "
