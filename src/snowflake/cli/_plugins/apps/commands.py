@@ -676,6 +676,10 @@ def snowflake_app_deploy(
 
     metrics = get_cli_context().metrics
 
+    # Tracks whether this invocation created the code stage, so it can be
+    # dropped once the build has consumed it (see the build phase below).
+    stage_created = False
+
     # ── Upload phase ──────────────────────────────────────────────────
 
     if run_upload:
@@ -740,6 +744,7 @@ def snowflake_app_deploy(
                             cli_console.step(f"Recreating stage @{storage_fqn}")
                             manager.drop_stage_if_exists(storage_fqn)
                             manager.create_stage(storage_fqn, encryption_type)
+                            stage_created = True
                         except ProgrammingError as e:
                             role = manager.current_role()
                             role_clause = f"role '{role}'" if role else "your role"
@@ -838,6 +843,38 @@ def snowflake_app_deploy(
                     ),
                     on_poll=_make_build_log_streamer(manager, artifact_build_job_fqn),
                 )
+
+            # The stage only holds the uploaded source that the artifact-repo
+            # build consumes; once the build succeeds it is no longer needed.
+            # Drop it only when this invocation created it, so a pre-existing
+            # stage relied on by ``--build-only`` (which skips the upload phase)
+            # is left untouched. This is best-effort cleanup: the build has
+            # already succeeded, so a drop failure only leaves a harmless stage
+            # behind and must not fail the deploy — warn and continue.
+            if stage_created:
+                with metrics.span("snowflake_app.build.drop_stage") as drop_span:
+                    cli_console.step(
+                        f"Dropping stage @{storage_fqn} now that the build is complete"
+                    )
+                    try:
+                        manager.drop_stage_if_exists(storage_fqn)
+                    except Exception as e:
+                        # Record the failure on the span so these otherwise
+                        # silent (warn-and-continue) cleanup errors stay
+                        # observable in telemetry, then swallow it: the build
+                        # already succeeded, so a stray stage must not fail the
+                        # deploy.
+                        log.debug(
+                            "Failed to drop stage %s after build",
+                            storage_fqn.identifier,
+                            exc_info=True,
+                        )
+                        drop_span.finish(error=e)
+                        cli_console.warning(
+                            f"Could not drop stage '{sanitize_for_terminal(storage_fqn.identifier)}' "
+                            f"after the build completed: {e}. The build succeeded; "
+                            "you can remove the stage manually if desired."
+                        )
 
     if build_only:
         return MessageResult("Build completed successfully.")
