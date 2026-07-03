@@ -1,0 +1,36 @@
+id: snowflake-cli-rules-rules
+friendly_name: "Snowflake CLI - review rules"
+status: enabled
+allowed_folders: []
+excluded_folders: []
+allowed_file_extensions:
+  - ".yaml"
+rules:
+  - id: snowflake-cli-rules-prefix
+    rule: |
+      **OBJECTIVE**: Snowflake CLI rules need to be easy to find in reporting, thus they need consistent prefixing.
+
+      **REQUIREMENT**: Rule files have a top-level `id` field and an `id` field on each entry
+      under `rules:`. Both must start with `snowflake-cli-`.
+
+      ❌ **BAD:**
+      ```yaml
+      id: snowcli-bad-rules
+      friendly_name: "Snowflake CLI - review rules"
+      allowed_file_extensions:
+        - ".yaml"
+      rules:
+        - id: snowflakecli-bad-nested-rule
+          rule: |
+      ```
+
+      ✅ **GOOD:**
+      ```yaml
+      id: snowflake-cli-good-rules
+      friendly_name: "Snowflake CLI - review rules"
+      allowed_file_extensions:
+        - ".yaml"
+      rules:
+        - id: snowflake-cli-good-nested-rule
+          rule: |
+      ```

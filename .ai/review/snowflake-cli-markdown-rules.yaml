@@ -1,0 +1,38 @@
+id: snowflake-cli-markdown-rules
+friendly_name: "Snowflake CLI - Release Notes Review Rules"
+status: enabled
+allowed_folders: []
+excluded_folders: []
+allowed_file_extensions:
+  - ".md"
+rules:
+  - id: snowflake-cli-release-notes-discipline
+    rule: |
+      **OBJECTIVE**: Keep `RELEASE-NOTES.md` correct, user-focused, and free of misplaced or noise entries.
+
+      **REQUIREMENT**: Add a release-notes entry only for user-facing product changes. Place it under
+      `# Unreleased version` as the last item in the correct subsection (`## Backward incompatibility`,
+      `## Deprecations`, `## New additions`, or `## Fixes and improvements`) — never under an already-released
+      `# vX.Y.Z` heading. Describe the user-visible impact concisely (1–2 sentences); do not leak internal
+      implementation details (function names, system functions). Do not add entries for internal/CI-only changes, for
+      features in Private Preview, or for work that is not yet enabled.
+      Remove duplicates of entries that already shipped in a released version.
+
+      ❌ **BAD:**
+      ```markdown
+      # v3.17.1
+      ## Fixes and improvements
+      * Fixed `snow connection list` crashing with `AttributeError: 'String' object
+        has no attribute 'items'` because `ConnectionConfig.from_dict` now raises when
+        called with a non-table value.   <!-- under a released version; leaks internals -->
+      * `snow --docs` now emits MDX fragments for snowflake-prod-docs.  <!-- internal-only -->
+      ```
+
+      ✅ **GOOD:**
+      ```markdown
+      # Unreleased version
+      ## Fixes and improvements
+      * Fixed `snow connection list` crashing with `AttributeError` when `config.toml`
+        contains a scalar value directly under `[connections]`. Such entries are now
+        skipped with a warning so valid connections are still listed.
+      ```

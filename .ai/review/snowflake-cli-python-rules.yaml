@@ -1,0 +1,72 @@
+id: snowflake-cli-python-rules
+friendly_name: "Snowflake CLI - Python Review Rules"
+status: shadow
+allowed_folders: []
+excluded_folders: []
+allowed_file_extensions:
+  - ".py"
+rules:
+  - id: snowflake-cli-sql-injection-prevention
+    status: shadow
+    rule: |
+      **OBJECTIVE**: Prevent SQL injection when building Snowflake SQL from identifiers,
+      config values, or other externally-influenced input.
+
+      **REQUIREMENT**: Never f-string-interpolate raw identifiers or values into SQL. Wrap
+      object identifiers with `FQN.sql_identifier` / `to_identifier` / `to_quoted_identifier`,
+      quote string values with `to_string_literal()`, escape `SHOW ... LIKE` patterns with
+      `identifier_to_show_like_pattern`, and use bind parameters (`%s`) for DML/`CALL`. Never
+      hand-roll escaping such as `value.replace("'", "\\'")`. Apply the safe form consistently
+      to every interpolated component (warehouse, compute pool, role, alias, EAI names), not
+      just one. All helpers live in `snowflake.cli.api.project.util`.
+
+      ❌ **BAD:**
+      ```python
+      query = f'EXECUTE DCM PROJECT {project_id} PURGE AS "{alias}"'
+      cursor.execute(f"CALL SYSTEM$GET_TOKEN('{fqn}', false)")
+      set_properties.append(f"QUERY_WAREHOUSE = {self.model.query_warehouse}")
+      cursor.execute(f"SHOW INTEGRATIONS LIKE '{name}%'")
+      ```
+
+      ✅ **GOOD:**
+      ```python
+      from snowflake.cli.api.project.util import (
+          identifier_to_show_like_pattern,
+          to_identifier,
+          to_string_literal,
+      )
+
+      query = f"EXECUTE DCM PROJECT {project_id.sql_identifier} PURGE"
+      if alias:
+          query += f" AS {to_string_literal(alias)}"
+      cursor.execute("CALL SYSTEM$GET_TOKEN(%s, false)", (fqn,))
+      set_properties.append(f"QUERY_WAREHOUSE = {to_identifier(self.model.query_warehouse)}")
+      cursor.execute(f"SHOW INTEGRATIONS LIKE '{identifier_to_show_like_pattern(name)}%'")
+      ```
+
+  - id: snowflake-cli-use-cli-error-not-click-exception
+    status: shadow
+    rule: |
+      **OBJECTIVE**: Phase out bare `ClickException` in favour of the project's `CliError`
+      hierarchy, which carries structured exit-codes and typed subclasses.
+
+      **REQUIREMENT**: In new or modified code, raise `CliError` (or a subclass) instead of
+      `click.ClickException`. When a change already touches code that raises `ClickException`,
+      migrate those raises in the same change. Use the most specific subclass available for the
+      context; available subclasses are in `src/snowflake/cli/api/exceptions.py`. Do not
+      introduce new bare `ClickException` raises; the remaining ones in the codebase are being
+      migrated opportunistically.
+
+      ❌ **BAD:**
+      ```python
+      raise click.ClickException(f"Image registry URL is malformed: {url}")
+      raise ClickException("No active connection — check your credentials")
+      ```
+
+      ✅ **GOOD:**
+      ```python
+      from snowflake.cli.api.exceptions import CliArgumentError, CliConnectionError
+
+      raise CliArgumentError(f"Image registry URL is malformed: {url}")
+      raise CliConnectionError("No active connection — check your credentials")
+      ```

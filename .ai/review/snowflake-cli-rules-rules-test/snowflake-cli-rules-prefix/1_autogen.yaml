@@ -1,0 +1,8 @@
+id: review-rules
+friendly_name: "Snowflake CLI - review rules"
+allowed_file_extensions:
+  - ".yaml"
+rules:
+  - id: cli-check-naming
+    rule: |
+      Ensure naming conventions are followed.

@@ -1,0 +1,25 @@
+id: snowflake-cli-review-rules
+friendly_name: "Snowflake CLI - code review rules"
+version: 1
+allowed_file_extensions:
+  - ".py"
+  - ".yaml"
+  - ".yml"
+rules:
+  - id: snowflake-cli-no-hardcoded-passwords
+    severity: critical
+    rule: |
+      Flag any hardcoded passwords or secrets in source files
+  - id: snowflake-cli-missing-error-handling
+    severity: high
+    description: bare except clauses or missing error handling detected
+    rule: |
+      Detect bare except clauses and missing error handling patterns
+  - id: snowflake-cli-unused-imports
+    severity: low
+    rule: |
+      Identify unused import statements across all python files
+  - id: snowflake-cli-magic-numbers
+    severity: medium
+    rule: |
+      Flag magic numbers used directly in business logic without named constants
