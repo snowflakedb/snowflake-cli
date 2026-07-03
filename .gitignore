@@ -27,3 +27,4 @@ plans/
 .claude/settings.local.json
 .cursor/mcp.json
 .mcp.json
+.ai/review/**/*.json
