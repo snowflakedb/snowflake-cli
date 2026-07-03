@@ -22,9 +22,11 @@ They are plain Python functions (no Typer decorators) so they can be
 dispatched to from the unified handlers without CLI-framework coupling.
 """
 
+import functools
 import json
 import logging
 import re
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Literal, NamedTuple, Optional
 
@@ -88,6 +90,50 @@ SOURCE_ACCOUNT_PARAM = "account parameter"
 SOURCE_CURRENT_SESSION = "current session"
 SOURCE_DEFAULT = "default"
 SOURCE_MISSING = "missing"
+
+
+def _ensure_utf8_output() -> None:
+    """Force UTF-8 on ``stdout``/``stderr`` so non-ASCII output cannot crash.
+
+    On Windows the default console encoding is a legacy code page (e.g. cp1252),
+    not UTF-8. Snowflake App Runtime commands render dynamic free-text tables —
+    ``events`` prints arbitrary application log text (frequently emoji, box-
+    drawing, or accented characters) and ``setup --dry-run`` prints the plan
+    preview. Writing a character outside the code page makes the table renderer
+    raise an uncaught ``UnicodeEncodeError`` *after* the command already did its
+    real work (logs fetched / plan computed), aborting with a non-zero exit and
+    no useful message.
+
+    Reconfiguring the streams to UTF-8 with ``errors="replace"`` keeps the
+    output printable everywhere. macOS/Linux already default to UTF-8, so this
+    is effectively a no-op there. Streams that cannot be reconfigured (already
+    wrapped or redirected, e.g. a test harness buffer) are left untouched.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            # Non-reconfigurable stream (e.g. already wrapped / redirected).
+            pass
+
+
+def _utf8_output(func: Callable[..., CommandResult]) -> Callable[..., CommandResult]:
+    """Force UTF-8 stdout/stderr before ``func`` produces any output.
+
+    Applied to the Snowflake App Runtime command entry points so their result
+    tables render non-ASCII text without an uncaught ``UnicodeEncodeError`` on
+    Windows. See :func:`_ensure_utf8_output`.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs) -> CommandResult:
+        _ensure_utf8_output()
+        return func(*args, **kwargs)
+
+    return wrapper
 
 
 _CodeStorageType = Literal["workspace", "stage"]
@@ -183,6 +229,7 @@ def _resolve_code_storage(
     )
 
 
+@_utf8_output
 def snowflake_app_setup(
     app_name: Optional[str],
     dry_run: bool,
@@ -400,6 +447,7 @@ def snowflake_app_setup(
         raise
 
 
+@_utf8_output
 def snowflake_app_bundle(entity_id: Optional[str]) -> CommandResult:
     """Bundle a Snowflake App Runtime by resolving artifacts defined in ``snowflake.yml``."""
     resolved_entity_id = _resolve_entity_id(entity_id)
@@ -409,6 +457,7 @@ def snowflake_app_bundle(entity_id: Optional[str]) -> CommandResult:
     return MessageResult(f"Bundle generated at {project_paths.bundle_root}")
 
 
+@_utf8_output
 def snowflake_app_validate(entity_id: Optional[str]) -> CommandResult:
     """Validate a local Snowflake App Runtime project."""
     resolved_entity_id = _resolve_entity_id(entity_id)
@@ -447,6 +496,7 @@ def snowflake_app_validate(entity_id: Optional[str]) -> CommandResult:
     return MessageResult("Valid Snowflake App Runtime project.")
 
 
+@_utf8_output
 def snowflake_app_open(
     entity_id: Optional[str],
     print_only: bool,
@@ -510,6 +560,7 @@ def snowflake_app_open(
     return MessageResult(url)
 
 
+@_utf8_output
 def snowflake_app_events(
     entity_id: Optional[str],
     last: Optional[int],
@@ -582,6 +633,7 @@ def _log_service_logs(manager: SnowflakeAppManager, service_fqn: FQN) -> None:
         log.info(line)
 
 
+@_utf8_output
 def snowflake_app_deploy(
     entity_id: Optional[str],
     upload_only: bool,
@@ -1008,6 +1060,7 @@ def snowflake_app_deploy(
     return MessageResult(f"App ready at {endpoint_url}")
 
 
+@_utf8_output
 def snowflake_app_teardown(
     entity_id: Optional[str],
     force: bool,
