@@ -206,6 +206,8 @@ source = ["snowflake.cli"]
 
 [tool.ruff]
 line-length = 88
+# Cookiecutter template paths contain Jinja placeholders that are not valid TOML/Python.
+extend-exclude = ["*cookiecutter.plugin_name*"]
 
 [tool.ruff.lint]
 select = [
