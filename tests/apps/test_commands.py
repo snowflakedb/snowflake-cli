@@ -13,15 +13,18 @@
 # limitations under the License.
 
 import os
+import sys
 from unittest.mock import Mock, call, patch
 
 import pytest
 from snowflake.cli._plugins.apps.commands import (
     FILES_UPLOADED_COUNTER,
     _CodeStorage,
+    _ensure_utf8_output,
     _log_service_logs,
     _make_build_log_streamer,
     _resolve_code_storage,
+    _utf8_output,
 )
 from snowflake.cli._plugins.apps.generate import (
     _generate_snowflake_yml,
@@ -5294,6 +5297,122 @@ class TestEventsCommand:
             assert "Verify that the app is deployed" in result.output
             span = _get_completed_span("snowflake_app.events.fetch_logs")
             assert span[CLIMetricsSpan.ERROR_KEY] == ProgrammingError.__name__
+
+
+class TestEnsureUtf8Output:
+    """Coverage for the Windows ``UnicodeEncodeError`` guard.
+
+    On Windows the default console encoding is a legacy code page (cp1252),
+    not UTF-8. Rendering a Snowflake App Runtime result table that contains a
+    character outside the code page (emoji / box-drawing / accented text in
+    application logs or the ``setup --dry-run`` plan) raised an uncaught
+    ``UnicodeEncodeError`` after the command already did its real work. The
+    entry points now reconfigure ``stdout``/``stderr`` to UTF-8 first.
+    """
+
+    def test_reconfigures_stdout_and_stderr_to_utf8(self):
+        fake_out = Mock()
+        fake_err = Mock()
+        with patch.object(sys, "stdout", fake_out), patch.object(
+            sys, "stderr", fake_err
+        ):
+            _ensure_utf8_output()
+        fake_out.reconfigure.assert_called_once_with(encoding="utf-8", errors="replace")
+        fake_err.reconfigure.assert_called_once_with(encoding="utf-8", errors="replace")
+
+    def test_swallows_reconfigure_errors(self):
+        """A stream that rejects reconfiguration must not abort the command."""
+        fake_out = Mock()
+        fake_out.reconfigure.side_effect = ValueError("cannot reconfigure")
+        with patch.object(sys, "stdout", fake_out), patch.object(sys, "stderr", Mock()):
+            _ensure_utf8_output()  # must not raise
+
+    def test_skips_streams_without_reconfigure(self):
+        """Streams lacking ``reconfigure`` (e.g. a plain buffer) are left alone."""
+
+        class _NoReconfigure:
+            pass
+
+        with patch.object(sys, "stdout", _NoReconfigure()), patch.object(
+            sys, "stderr", _NoReconfigure()
+        ):
+            _ensure_utf8_output()  # must not raise
+
+    def test_decorator_forces_utf8_before_running_body(self):
+        calls = []
+        sentinel = object()
+        with patch(
+            "snowflake.cli._plugins.apps.commands._ensure_utf8_output",
+            side_effect=lambda: calls.append("reconfigure"),
+        ):
+
+            @_utf8_output
+            def fake_command():
+                calls.append("body")
+                return sentinel
+
+            result = fake_command()
+
+        assert calls == ["reconfigure", "body"]
+        assert result is sentinel
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    @patch("snowflake.cli._plugins.apps.commands._ensure_utf8_output")
+    def test_events_forces_utf8_output(
+        self,
+        mock_ensure_utf8,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        entity.fqn = Mock(database="DB", schema="SCHEMA", name="MY_APP")
+        mock_get_entity.return_value = entity
+        mock_manager_cls.return_value.get_service_logs.return_value = "line1"
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "events"])
+            assert result.exit_code == 0, result.output
+
+        mock_ensure_utf8.assert_called()
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_events_renders_non_ascii_logs(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        """Application logs containing emoji / box-drawing / accented text must
+        render without crashing (the Windows ``UnicodeEncodeError`` regression)."""
+        entity = Mock()
+        entity.fqn = Mock(database="DB", schema="SCHEMA", name="MY_APP")
+        mock_get_entity.return_value = entity
+        non_ascii_logs = (
+            "INFO: started \U0001f680\nINFO: caf\u00e9 \u2615 \u2550\u2550\u2550"
+        )
+        mock_manager_cls.return_value.get_service_logs.return_value = non_ascii_logs
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "events"])
+            assert result.exit_code == 0, result.output
+            assert "\U0001f680" in result.output
 
 
 class TestResolveCodeStorage:
