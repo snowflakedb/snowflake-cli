@@ -46,7 +46,11 @@ from snowflake.cli.api.exceptions import (
 from snowflake.cli.api.sanitizers import sanitize_source_error
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.secure_utils import (
+    file_is_readable_by_others,
+    file_is_writable_by_others,
     file_permissions_are_strict,
+    issue_unix_permissions_warning,
+    should_skip_permission_warning,
     windows_get_not_whitelisted_users_with_access,
 )
 from snowflake.cli.api.utils.dict_utils import remove_key_from_nested_dict_if_exists
@@ -369,20 +373,6 @@ def _config_file():
         raise
 
 
-def _issue_unix_custom_permissions_warnings(config_path: Path) -> None:
-    """Issue a warning for custom config files with wide permissions (Unix only)."""
-    if file_permissions_are_strict(config_path):
-        return
-
-    warnings.warn(
-        f"Bad owner or permissions on {config_path}.\n"
-        f' * To change owner, run `chown $USER "{config_path}"`.\n'
-        f' * To restrict permissions, run `chmod 0600 "{config_path}"`.\n'
-        f" * In future versions of Snowflake CLI strict configuration file permissions will be mandatory. "
-        f"To test if your files have correct permissions set SNOWFLAKE_CLI_FEATURES_ENFORCE_STRICT_CONFIG_PERMISSIONS=1 and try again."
-    )
-
-
 def _read_config_file():
     from snowflake.cli.api.cli_global_context import get_cli_context_manager
 
@@ -422,7 +412,10 @@ def _issue_permission_warnings(
         return
 
     if is_custom_config and not enforce_strict:
-        _issue_unix_custom_permissions_warnings(config_path)
+        if file_is_writable_by_others(config_path) or file_is_readable_by_others(
+            config_path
+        ):
+            issue_unix_permissions_warning(config_path)
 
 
 def _issue_windows_permission_warnings(config_path: Path) -> None:
@@ -719,14 +712,22 @@ def _dump_config(config_and_connections: Dict):
 
 
 def _check_default_config_files_permissions() -> None:
-    if not IS_WINDOWS:
-        connections_file = get_connections_file()
-        if connections_file.exists() and not file_permissions_are_strict(
-            connections_file
-        ):
-            raise ConfigFileTooWidePermissionsError(connections_file)
-        if CONFIG_FILE.exists() and not file_permissions_are_strict(CONFIG_FILE):
-            raise ConfigFileTooWidePermissionsError(CONFIG_FILE)
+    # Default config files in SNOWFLAKE_HOME must be strict (0600). Writable-by-others
+    # always raises. Readable-by-others also raises, unless the user opts into relaxed
+    # enforcement via a connector skip env var (SPCS mounts config group-readable), in
+    # which case it is downgraded to a warning and the CLI proceeds.
+    if IS_WINDOWS:
+        return
+    for config_file in (get_connections_file(), CONFIG_FILE):
+        if not config_file.exists():
+            continue
+        if file_is_writable_by_others(config_file):
+            raise ConfigFileTooWidePermissionsError(config_file)
+        if file_is_readable_by_others(config_file):
+            if should_skip_permission_warning():
+                issue_unix_permissions_warning(config_file)
+            else:
+                raise ConfigFileTooWidePermissionsError(config_file)
 
 
 def _check_custom_config_permissions(config_file: Path) -> None:
@@ -743,12 +744,14 @@ def _check_custom_config_permissions(config_file: Path) -> None:
     if IS_WINDOWS:
         return
 
-    if (
-        _should_enforce_strict_config_permissions()
-        and config_file.exists()
-        and not file_permissions_are_strict(config_file)
-    ):
-        raise ConfigFileTooWidePermissionsError(config_file)
+    if _should_enforce_strict_config_permissions() and config_file.exists():
+        if file_is_writable_by_others(config_file):
+            raise ConfigFileTooWidePermissionsError(config_file)
+        if file_is_readable_by_others(config_file):
+            if should_skip_permission_warning():
+                issue_unix_permissions_warning(config_file)
+            else:
+                raise ConfigFileTooWidePermissionsError(config_file)
 
 
 def _should_enforce_strict_config_permissions() -> bool:

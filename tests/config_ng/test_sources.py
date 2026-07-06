@@ -14,7 +14,7 @@
 
 """Tests for configuration sources with string-based testing."""
 
-from typing import Literal
+from unittest import mock
 
 import pytest
 from snowflake.cli.api.config_ng.core import ValueSource
@@ -25,8 +25,6 @@ from snowflake.cli.api.config_ng.sources import (
 )
 from snowflake.cli.api.exceptions import ConfigFileTooWidePermissionsError
 from snowflake.connector.compat import IS_WINDOWS
-
-INSECURE_FILE_PERMISSIONS: Literal[0o644] = 0o644
 
 
 class TestSnowSQLConfigFileFromString:
@@ -390,7 +388,7 @@ class TestSourceProperties:
 
 @pytest.mark.skipif(IS_WINDOWS, reason="Permission checks disabled on Windows")
 class TestFilePermissionValidation:
-    def test_snowsql_config_skips_insecure_file(self, tmp_path):
+    def test_snowsql_config_readable_by_others_is_skipped(self, tmp_path):
         config_path = tmp_path / "snowsql.cnf"
         config_path.write_text(
             """
@@ -398,7 +396,27 @@ class TestFilePermissionValidation:
 accountname = test_account
 """
         )
-        config_path.chmod(INSECURE_FILE_PERMISSIONS)
+        config_path.chmod(0o644)
+
+        source = SnowSQLConfigFile(config_paths=[config_path])
+
+        with mock.patch.dict("os.environ", {}) as patched_env:
+            patched_env.pop("SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", None)
+            patched_env.pop("SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", None)
+            assert source.discover() == {}
+        diagnostics = source.consume_diagnostics()
+        assert diagnostics
+        assert any("skipped" in diag.message for diag in diagnostics)
+
+    def test_snowsql_config_skips_writable_file(self, tmp_path):
+        config_path = tmp_path / "snowsql.cnf"
+        config_path.write_text(
+            """
+[connections.test]
+accountname = test_account
+"""
+        )
+        config_path.chmod(0o622)
 
         source = SnowSQLConfigFile(config_paths=[config_path])
 
@@ -407,7 +425,7 @@ accountname = test_account
         assert diagnostics
         assert any("skipped" in diag.message for diag in diagnostics)
 
-    def test_cli_config_raises_on_insecure_file(self, tmp_path):
+    def test_cli_config_raises_on_readable_file(self, tmp_path):
         config_path = tmp_path / "config.toml"
         config_path.write_text(
             """
@@ -415,14 +433,32 @@ accountname = test_account
 account = "cli-account"
 """
         )
-        config_path.chmod(INSECURE_FILE_PERMISSIONS)
+        config_path.chmod(0o644)
+
+        source = CliConfigFile(search_paths=[config_path])
+
+        with mock.patch.dict("os.environ", {}) as patched_env:
+            patched_env.pop("SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", None)
+            patched_env.pop("SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", None)
+            with pytest.raises(ConfigFileTooWidePermissionsError):
+                source.discover()
+
+    def test_cli_config_raises_on_writable_file(self, tmp_path):
+        config_path = tmp_path / "config.toml"
+        config_path.write_text(
+            """
+[connections.test]
+account = "cli-account"
+"""
+        )
+        config_path.chmod(0o622)
 
         source = CliConfigFile(search_paths=[config_path])
 
         with pytest.raises(ConfigFileTooWidePermissionsError):
             source.discover()
 
-    def test_connections_config_raises_on_insecure_file(self, tmp_path):
+    def test_connections_config_raises_on_readable_file(self, tmp_path):
         config_path = tmp_path / "connections.toml"
         config_path.write_text(
             """
@@ -430,12 +466,122 @@ account = "cli-account"
 account = "connections-account"
 """
         )
-        config_path.chmod(INSECURE_FILE_PERMISSIONS)
+        config_path.chmod(0o644)
+
+        source = ConnectionsConfigFile(file_path=config_path)
+
+        with mock.patch.dict("os.environ", {}) as patched_env:
+            patched_env.pop("SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", None)
+            patched_env.pop("SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", None)
+            with pytest.raises(ConfigFileTooWidePermissionsError):
+                source.discover()
+
+    def test_connections_config_raises_on_writable_file(self, tmp_path):
+        config_path = tmp_path / "connections.toml"
+        config_path.write_text(
+            """
+[connections.test]
+account = "connections-account"
+"""
+        )
+        config_path.chmod(0o622)
 
         source = ConnectionsConfigFile(file_path=config_path)
 
         with pytest.raises(ConfigFileTooWidePermissionsError):
             source.discover()
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="Permission checks disabled on Windows")
+class TestFilePermissionRelaxation:
+    """
+    Readable-by-others config files raise ConfigFileTooWidePermissionsError by
+    default; a connector skip env var downgrades that to a warning and lets the
+    read proceed. Writable-by-others always raises regardless of the env var.
+    """
+
+    def test_skip_env_var_downgrades_readable_to_warning_for_cli_config(self, tmp_path):
+        config_path = tmp_path / "config.toml"
+        config_path.write_text('[connections.test]\naccount = "x"\n')
+        config_path.chmod(0o644)
+
+        source = CliConfigFile(search_paths=[config_path])
+
+        with mock.patch.dict(
+            "os.environ", {"SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION": "true"}
+        ):
+            with pytest.warns(UserWarning, match="Bad owner or permissions"):
+                source.discover()
+
+    def test_readable_without_skip_env_var_raises_for_cli_config(self, tmp_path):
+        config_path = tmp_path / "config.toml"
+        config_path.write_text('[connections.test]\naccount = "x"\n')
+        config_path.chmod(0o644)
+
+        source = CliConfigFile(search_paths=[config_path])
+
+        with mock.patch.dict("os.environ", {}) as patched_env:
+            patched_env.pop("SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", None)
+            patched_env.pop("SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", None)
+            with pytest.raises(ConfigFileTooWidePermissionsError):
+                source.discover()
+
+    def test_skip_env_var_downgrades_readable_to_warning_for_connections_config(
+        self, tmp_path
+    ):
+        config_path = tmp_path / "connections.toml"
+        config_path.write_text('[connections.test]\naccount = "x"\n')
+        config_path.chmod(0o644)
+
+        source = ConnectionsConfigFile(file_path=config_path)
+
+        with mock.patch.dict(
+            "os.environ", {"SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION": "true"}
+        ):
+            with pytest.warns(UserWarning, match="Bad owner or permissions"):
+                source.discover()
+
+    def test_skip_env_var_downgrades_readable_to_warning_for_snowsql_config(
+        self, tmp_path
+    ):
+        config_path = tmp_path / "snowsql.cnf"
+        config_path.write_text("[connections.test]\naccountname = test_account\n")
+        config_path.chmod(0o644)
+
+        source = SnowSQLConfigFile(config_paths=[config_path])
+
+        with mock.patch.dict(
+            "os.environ", {"SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION": "true"}
+        ):
+            with pytest.warns(UserWarning, match="Bad owner or permissions"):
+                source.discover()
+
+    def test_spcs_injected_env_var_downgrades_readable_to_warning(self, tmp_path):
+        config_path = tmp_path / "config.toml"
+        config_path.write_text('[connections.test]\naccount = "x"\n')
+        config_path.chmod(0o644)
+
+        source = CliConfigFile(search_paths=[config_path])
+
+        with mock.patch.dict(
+            "os.environ", {"SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION": "true"}
+        ):
+            with pytest.warns(UserWarning, match="Bad owner or permissions"):
+                source.discover()
+
+    def test_spcs_injected_env_var_false_raises_readable(self, tmp_path):
+        config_path = tmp_path / "config.toml"
+        config_path.write_text('[connections.test]\naccount = "x"\n')
+        config_path.chmod(0o644)
+
+        source = CliConfigFile(search_paths=[config_path])
+
+        with mock.patch.dict(
+            "os.environ", {"SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION": "false"}
+        ) as patched_env:
+            patched_env.pop("SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", None)
+            with pytest.raises(ConfigFileTooWidePermissionsError):
+                source.discover()
 
 
 class TestFileSourceCaching:

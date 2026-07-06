@@ -41,7 +41,12 @@ from snowflake.cli.api.constants import IS_WINDOWS
 from snowflake.cli.api.exceptions import (
     ConfigFileTooWidePermissionsError,
 )
-from snowflake.cli.api.secure_utils import file_permissions_are_strict
+from snowflake.cli.api.secure_utils import (
+    file_is_readable_by_others,
+    file_is_writable_by_others,
+    issue_unix_permissions_warning,
+    should_skip_permission_warning,
+)
 from snowflake.cli.api.utils.types import try_cast_to_bool
 
 log = logging.getLogger(__name__)
@@ -91,15 +96,25 @@ def _ensure_strict_file_permissions(config_file: Path) -> None:
     """
     Validate that configuration files have strict permissions before reading.
 
+    Writable-by-others always raises. Readable-by-others also raises, unless the
+    user opts into relaxed enforcement via a connector skip env var, in which case
+    it is downgraded to a warning and reading proceeds.
+
     Raises:
-        ConfigFileTooWidePermissionsError: If permissions are too wide on non-Windows.
+        ConfigFileTooWidePermissionsError: If writable by group/others, or readable
+            by group/others without a skip env var set (non-Windows).
     """
 
     if IS_WINDOWS or not config_file.exists():
         return
 
-    if not file_permissions_are_strict(config_file):
+    if file_is_writable_by_others(config_file):
         raise ConfigFileTooWidePermissionsError(config_file)
+    if file_is_readable_by_others(config_file):
+        if should_skip_permission_warning():
+            issue_unix_permissions_warning(config_file)
+        else:
+            raise ConfigFileTooWidePermissionsError(config_file)
 
 
 class SnowSQLSection(Enum):

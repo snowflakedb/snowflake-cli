@@ -20,6 +20,7 @@
 
 ## New additions
 * Added `tags` field to Streamlit entity so that tags can be set with `snow streamlit deploy`.
+* `config.toml` and `connections.toml` files with `0644` permissions (readable by group or others) now emit a warning instead of a hard error when `SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION=true` or `SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION=true` is set, aligning with snowflake-connector-python behaviour. Files writable by group or others remain a hard error regardless of the env var.
 
 ## Fixes and improvements
 * `snow app setup` now correctly preserves case-sensitive (double-quoted) identifiers in the generated `snowflake.yml`. Previously, values such as `"lower_db"` were silently stripped of their surrounding quotes by YAML, causing Snowflake to uppercase the identifier and fail to locate the object.
