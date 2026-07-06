@@ -47,8 +47,8 @@ jobs:
           echo "Changed files:"
           echo "$changed"
           # code=true if any changed file falls outside the ignored set.
-          # Ignored: **/*.md, docs/**, LICENSE, .github/CODEOWNERS
-          if echo "$changed" | grep -Ev '(\.md$|^docs/|^LICENSE$|^\.github/CODEOWNERS$)' > /dev/null; then
+          # Ignored: **/*.md, docs/**, LICENSE, .github/CODEOWNERS, .ai/review/**
+          if echo "$changed" | grep -Ev '(\.md$|^docs/|^LICENSE$|^\.github/CODEOWNERS$|^\.ai/review/)' > /dev/null; then
             echo "code=true" >> "$GITHUB_OUTPUT"
           else
             echo "code=false" >> "$GITHUB_OUTPUT"
