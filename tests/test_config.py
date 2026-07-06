@@ -440,31 +440,30 @@ def test_connections_toml_override_config_toml(
     }
 
 
-parametrize_chmod = pytest.mark.parametrize(
+parametrize_chmod_writable = pytest.mark.parametrize(
     "chmod",
     [
         0o777,
         0o770,
-        0o744,
-        0o740,
-        0o704,
         0o722,
         0o720,
         0o702,
-        0o711,
-        0o710,
-        0o701,
         0o677,
         0o670,
-        0o644,
-        0o640,
-        0o604,
         0o622,
         0o620,
         0o602,
-        0o611,
-        0o610,
-        0o601,
+    ],
+)
+parametrize_chmod_readable = pytest.mark.parametrize(
+    "chmod",
+    [
+        0o744,
+        0o740,
+        0o704,
+        0o644,
+        0o640,
+        0o604,
     ],
 )
 parametrize_icacls = pytest.mark.parametrize("permissions", ["F", "R", "RX", "M", "W"])
@@ -481,9 +480,9 @@ def _windows_grant_permissions(permissions: str, file: Path) -> None:
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-@parametrize_chmod
+@parametrize_chmod_writable
 @pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
-def test_too_wide_permissions_on_default_config_file_causes_error(
+def test_writable_permissions_on_default_config_file_causes_error(
     snowflake_home: Path, chmod
 ):
     config_path = snowflake_home / "config.toml"
@@ -492,6 +491,24 @@ def test_too_wide_permissions_on_default_config_file_causes_error(
 
     with pytest.raises(ConfigFileTooWidePermissionsError) as error:
         config_init(None)
+    assert "config.toml has too wide permissions" in error.value.message
+
+
+@parametrize_chmod_readable
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+def test_readable_permissions_on_default_config_file_causes_error(
+    snowflake_home: Path, chmod
+):
+    """Readable-by-others default config raises when no skip env var is set."""
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    config_path.chmod(chmod)
+
+    with mock.patch.dict("os.environ", {}) as patched_env:
+        patched_env.pop("SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", None)
+        patched_env.pop("SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", None)
+        with pytest.raises(ConfigFileTooWidePermissionsError) as error:
+            config_init(None)
     assert "config.toml has too wide permissions" in error.value.message
 
 
@@ -577,9 +594,9 @@ def test_too_wide_permissions_on_custom_config_file_causes_warning_windows(permi
             clean_logging_handlers()
 
 
-@parametrize_chmod
+@parametrize_chmod_writable
 @pytest.mark.skipif(condition=IS_WINDOWS, reason="Unix-based permission system test")
-def test_too_wide_permissions_on_default_connections_file_causes_error(
+def test_writable_permissions_on_default_connections_file_causes_error(
     snowflake_home: Path, chmod
 ):
     config_path = snowflake_home / "config.toml"
@@ -590,6 +607,26 @@ def test_too_wide_permissions_on_default_connections_file_causes_error(
 
     with pytest.raises(ConfigFileTooWidePermissionsError) as error:
         config_init(None)
+    assert "connections.toml has too wide permissions" in error.value.message
+
+
+@parametrize_chmod_readable
+@pytest.mark.skipif(condition=IS_WINDOWS, reason="Unix-based permission system test")
+def test_readable_permissions_on_default_connections_file_causes_error(
+    snowflake_home: Path, chmod
+):
+    """Readable-by-others connections.toml raises when no skip env var is set."""
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    connections_path = snowflake_home / "connections.toml"
+    connections_path.touch()
+    connections_path.chmod(chmod)
+
+    with mock.patch.dict("os.environ", {}) as patched_env:
+        patched_env.pop("SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", None)
+        patched_env.pop("SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", None)
+        with pytest.raises(ConfigFileTooWidePermissionsError) as error:
+            config_init(None)
     assert "connections.toml has too wide permissions" in error.value.message
 
 
@@ -625,11 +662,25 @@ def test_no_error_when_init_from_non_default_config(
 
 @pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
 @with_feature_flags({FeatureFlag.ENFORCE_STRICT_CONFIG_PERMISSIONS: True})
-def test_strict_permissions_flag_enabled_rejects_wide_permissions(snowflake_home: Path):
-    """When ENFORCE_STRICT_CONFIG_PERMISSIONS is enabled, any group/other access causes error."""
+def test_strict_permissions_flag_readable_causes_error(snowflake_home: Path):
+    """With ENFORCE_STRICT_CONFIG_PERMISSIONS and no skip env var, readable-by-others raises."""
     with NamedTemporaryFile(suffix=".toml") as tmp:
         config_path = Path(tmp.name)
         config_path.chmod(0o644)  # Readable by group/others
+        with mock.patch.dict("os.environ", {}) as patched_env:
+            patched_env.pop("SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", None)
+            patched_env.pop("SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", None)
+            with pytest.raises(ConfigFileTooWidePermissionsError):
+                config_init(config_file=config_path)
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+@with_feature_flags({FeatureFlag.ENFORCE_STRICT_CONFIG_PERMISSIONS: True})
+def test_strict_permissions_flag_writable_causes_error(snowflake_home: Path):
+    """When ENFORCE_STRICT_CONFIG_PERMISSIONS is enabled, writable-by-others causes error."""
+    with NamedTemporaryFile(suffix=".toml") as tmp:
+        config_path = Path(tmp.name)
+        config_path.chmod(0o622)  # Writable by group/others
         with pytest.raises(ConfigFileTooWidePermissionsError) as error:
             config_init(config_file=config_path)
         assert "too wide permissions" in error.value.message
@@ -659,6 +710,228 @@ def test_invalid_strict_permissions_flag_defaults_to_false(
             config_path = Path(tmp.name)
             config_path.chmod(0o644)  # Wide permissions
             with pytest.warns(UserWarning, match="Bad owner or permissions"):
+                config_init(config_file=config_path)
+
+
+# --- Permission relaxation via skip env vars ---
+#
+# By default a readable-by-others default config file raises. A connector skip
+# env var (public SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION or SPCS-injected
+# SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION) downgrades that error to a warning
+# and lets the CLI proceed. Writable-by-others always raises regardless.
+
+
+@parametrize_chmod_readable
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+def test_skip_env_var_downgrades_readable_default_config_to_warning(
+    snowflake_home: Path, chmod
+):
+    """SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION=true downgrades the readable error to a warning."""
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    config_path.chmod(chmod)
+
+    with mock.patch.dict(
+        "os.environ", {"SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION": "true"}
+    ):
+        with pytest.warns(UserWarning, match="Bad owner or permissions"):
+            config_init(None)
+
+
+@parametrize_chmod_readable
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+def test_spcs_env_var_downgrades_readable_default_config_to_warning(
+    snowflake_home: Path, chmod
+):
+    """SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION=true (SPCS-injected) downgrades the readable error to a warning."""
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    config_path.chmod(chmod)
+
+    with mock.patch.dict(
+        "os.environ", {"SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION": "true"}
+    ) as patched_env:
+        patched_env.pop("SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", None)
+        with pytest.warns(UserWarning, match="Bad owner or permissions"):
+            config_init(None)
+
+
+@parametrize_chmod_readable
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+def test_skip_env_var_downgrades_readable_default_connections_to_warning(
+    snowflake_home: Path, chmod
+):
+    """Readable connections.toml is downgraded to a warning when the skip env var is set."""
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    connections_path = snowflake_home / "connections.toml"
+    connections_path.touch()
+    connections_path.chmod(chmod)
+
+    with mock.patch.dict(
+        "os.environ", {"SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION": "true"}
+    ):
+        with pytest.warns(UserWarning, match="Bad owner or permissions"):
+            config_init(None)
+
+
+@parametrize_chmod_readable
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+def test_spcs_env_var_downgrades_readable_default_connections_to_warning(
+    snowflake_home: Path, chmod
+):
+    """Readable connections.toml is downgraded to a warning when the SPCS env var is set."""
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    connections_path = snowflake_home / "connections.toml"
+    connections_path.touch()
+    connections_path.chmod(chmod)
+
+    with mock.patch.dict(
+        "os.environ", {"SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION": "true"}
+    ) as patched_env:
+        patched_env.pop("SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", None)
+        with pytest.warns(UserWarning, match="Bad owner or permissions"):
+            config_init(None)
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+def test_skip_env_var_false_still_raises_on_readable_default_config(
+    snowflake_home: Path,
+):
+    """SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION=false leaves the readable-by-others error in place."""
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    config_path.chmod(0o644)
+
+    with mock.patch.dict(
+        "os.environ", {"SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION": "false"}
+    ) as patched_env:
+        patched_env.pop("SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", None)
+        with pytest.raises(ConfigFileTooWidePermissionsError):
+            config_init(None)
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+def test_spcs_env_var_false_still_raises_on_readable_default_config(
+    snowflake_home: Path,
+):
+    """SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION=false leaves the readable-by-others error in place."""
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    config_path.chmod(0o644)
+
+    with mock.patch.dict(
+        "os.environ", {"SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION": "false"}
+    ) as patched_env:
+        patched_env.pop("SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", None)
+        with pytest.raises(ConfigFileTooWidePermissionsError):
+            config_init(None)
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+def test_primary_skip_env_var_takes_precedence_over_spcs(
+    snowflake_home: Path,
+):
+    """The public env var wins over the SPCS-injected one: primary=false raises even if SPCS=true."""
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    config_path.chmod(0o644)
+
+    with mock.patch.dict(
+        "os.environ",
+        {
+            "SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION": "false",
+            "SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION": "true",
+        },
+    ):
+        with pytest.raises(ConfigFileTooWidePermissionsError):
+            config_init(None)
+
+
+@parametrize_chmod_writable
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+def test_skip_env_var_does_not_bypass_writable_default_config(
+    snowflake_home: Path, chmod
+):
+    """Writable-by-others always raises, even with the skip env var set."""
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    config_path.chmod(chmod)
+
+    with mock.patch.dict(
+        "os.environ", {"SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION": "true"}
+    ):
+        with pytest.raises(ConfigFileTooWidePermissionsError):
+            config_init(None)
+
+
+@parametrize_chmod_writable
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+def test_spcs_env_var_does_not_bypass_writable_default_connections(
+    snowflake_home: Path, chmod
+):
+    """Writable-by-others connections.toml always raises, even with the SPCS env var set."""
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    connections_path = snowflake_home / "connections.toml"
+    connections_path.touch()
+    connections_path.chmod(chmod)
+
+    with mock.patch.dict(
+        "os.environ", {"SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION": "true"}
+    ):
+        with pytest.raises(ConfigFileTooWidePermissionsError):
+            config_init(None)
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+@pytest.mark.parametrize("mode", [0o711, 0o710, 0o701, 0o611, 0o610, 0o601])
+def test_execute_only_by_others_modes_cause_no_error_or_warning(
+    snowflake_home: Path,
+    mode: int,
+):
+    """Execute-only-by-others permissions are not flagged (matching connector behaviour)."""
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    config_path.chmod(mode)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        config_init(None)  # No warning or error should be raised
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+@with_feature_flags({FeatureFlag.ENFORCE_STRICT_CONFIG_PERMISSIONS: True})
+def test_custom_config_skip_env_var_downgrades_readable_to_warning_in_strict_mode(
+    snowflake_home: Path,
+):
+    """With ENFORCE strict + skip env var, a readable custom config is downgraded to a warning."""
+    with NamedTemporaryFile(suffix=".toml") as tmp:
+        config_path = Path(tmp.name)
+        config_path.chmod(0o644)
+
+        with mock.patch.dict(
+            "os.environ", {"SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION": "true"}
+        ):
+            with pytest.warns(UserWarning, match="Bad owner or permissions"):
+                config_init(config_file=config_path)
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+@with_feature_flags({FeatureFlag.ENFORCE_STRICT_CONFIG_PERMISSIONS: True})
+def test_custom_config_env_var_does_not_suppress_writable_error(
+    snowflake_home: Path,
+):
+    """Writable-by-others still raises an error regardless of the skip env var."""
+    with NamedTemporaryFile(suffix=".toml") as tmp:
+        config_path = Path(tmp.name)
+        config_path.chmod(0o622)
+
+        with mock.patch.dict(
+            "os.environ", {"SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION": "true"}
+        ):
+            with pytest.raises(ConfigFileTooWidePermissionsError):
                 config_init(config_file=config_path)
 
 
