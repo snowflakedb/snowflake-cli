@@ -18,7 +18,7 @@ EXCLUDED_PATHS = [
     ".cursor/**",
     ".mcp.json",
     "AGENTS.md",
-    ".ai/**"
+    ".ai/**",
 
     # ── The mirroring machinery itself (internal org, tokens) ──
     "scripts/mirroring/**",
