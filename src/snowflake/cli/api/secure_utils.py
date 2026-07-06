@@ -13,13 +13,28 @@
 # limitations under the License.
 
 import logging
+import os
 import stat
+import warnings
 from pathlib import Path
 from typing import List
 
 from snowflake.cli.api.constants import IS_WINDOWS
+from snowflake.cli.api.utils.types import try_cast_to_bool
 
 log = logging.getLogger(__name__)
+
+# Mirrors the Python connector (config_manager.py) bitmasks
+_READABLE_BY_OTHERS = stat.S_IRGRP | stat.S_IROTH  # 0o044
+_WRITABLE_BY_OTHERS = stat.S_IWGRP | stat.S_IWOTH  # 0o022
+
+# Public env var and the SPCS-injected variant that opt into relaxed permission
+# enforcement (readable-by-others config files are allowed, downgraded to a
+# warning instead of a hard error). Mirrors the connector, minus the deprecated
+# SF_SKIP_WARNING_FOR_READ_PERMISSIONS_ON_CONFIG_FILE which we intentionally do
+# not honour here.
+_SKIP_WARNING_ENV_VAR = "SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION"
+_SPCS_INJECTED_SKIP_ENV_VAR = "SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION"
 
 
 def _get_windows_whitelisted_users():
@@ -86,6 +101,57 @@ def file_permissions_are_strict(file_path: Path) -> bool:
     if IS_WINDOWS:
         return _windows_file_permissions_are_strict(file_path)
     return _unix_file_permissions_are_strict(file_path)
+
+
+def file_is_writable_by_others(file_path: Path) -> bool:
+    if IS_WINDOWS:
+        return False
+    return bool(file_path.stat().st_mode & _WRITABLE_BY_OTHERS)
+
+
+def file_is_readable_by_others(file_path: Path) -> bool:
+    if IS_WINDOWS:
+        return False
+    return bool(file_path.stat().st_mode & _READABLE_BY_OTHERS)
+
+
+def should_skip_permission_warning() -> bool:
+    """
+    Whether the user has opted into relaxed permission enforcement via one of the
+    connector's skip env vars.
+
+    When this returns True, a config file that is *readable* by group/others is
+    allowed (downgraded from a hard ``ConfigFileTooWidePermissionsError`` to a
+    warning). It never relaxes the *writable*-by-others check, which always
+    raises. The public var takes precedence over the SPCS-injected one; an
+    unparsable value is treated as False (does not skip).
+    """
+    for env_var in (_SKIP_WARNING_ENV_VAR, _SPCS_INJECTED_SKIP_ENV_VAR):
+        raw_value = os.environ.get(env_var)
+        if raw_value is None:
+            continue
+        try:
+            return try_cast_to_bool(raw_value)
+        except ValueError:
+            log.debug(
+                "Could not parse %s value %r as boolean, defaulting to False",
+                env_var,
+                raw_value,
+            )
+            return False
+    return False
+
+
+def issue_unix_permissions_warning(config_path: Path) -> None:
+    warnings.warn(
+        f"Bad owner or permissions on {config_path}.\n"
+        f' * To change owner, run `chown $USER "{config_path}"`.\n'
+        f' * To restrict permissions, run `chmod 0600 "{config_path}"`.\n'
+        f" * In future versions of Snowflake CLI strict configuration file permissions "
+        f"will be mandatory. To test if your files have correct permissions set "
+        f"SNOWFLAKE_CLI_FEATURES_ENFORCE_STRICT_CONFIG_PERMISSIONS=1 and try again.",
+        stacklevel=4,
+    )
 
 
 def chmod(path: Path, permissions_mask: int) -> None:
