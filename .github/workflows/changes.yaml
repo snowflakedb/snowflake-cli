@@ -47,8 +47,17 @@ jobs:
           echo "Changed files:"
           echo "$changed"
           # code=true if any changed file falls outside the ignored set.
-          # Ignored: **/*.md, docs/**, LICENSE, .github/CODEOWNERS, .ai/review/**
-          if echo "$changed" | grep -Ev '(\.md$|^docs/|^LICENSE$|^\.github/CODEOWNERS$|^\.ai/review/)' > /dev/null; then
+          ignored=(
+            '\.md$'
+            '^docs/'
+            '^LICENSE$'
+            '^\.github/CODEOWNERS$'
+            '^\.ai/review/'
+            '^scripts/mirroring/'
+            '^\.github/workflows/mirror-'
+          )
+          pattern=$(IFS='|'; echo "${ignored[*]}")
+          if echo "$changed" | grep -Ev "($pattern)" > /dev/null; then
             echo "code=true" >> "$GITHUB_OUTPUT"
           else
             echo "code=false" >> "$GITHUB_OUTPUT"
