@@ -1,0 +1,5 @@
+# Overwritten by scripts/mirroring/prepare_import_paths.py before each inbound import.
+# Committed placeholder so copy.bara.sky loads during review; do not import without
+# regenerating.
+IMPORT_FILE_GLOBS = ["README.md"]
+IMPORT_AS_DRAFT = False

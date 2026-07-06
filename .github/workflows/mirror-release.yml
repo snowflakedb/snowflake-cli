@@ -1,0 +1,66 @@
+name: Mirror release branches and tags to public
+
+on:
+  schedule:
+    - cron: '0 19 * * *'  # 20:00 CET (UTC+1) / 21:00 CEST (UTC+2)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (no actual changes pushed)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: mirror-release
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/create-github-app-token@v1
+        id: mirror-token
+        with:
+          app-id: ${{ secrets.MIRRORING_APP_ID }}
+          private-key: ${{ secrets.MIRRORING_APP_PRIVATE_KEY }}
+          owner: snowflakedb
+          repositories: snowflake-cli
+
+      - name: Load config
+        run: |
+          source scripts/mirroring/lib/config.sh
+          echo "COPYBARA_RELEASE=${COPYBARA_RELEASE}" >> "$GITHUB_ENV"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: scripts/mirroring/copybara
+          push: false
+          load: true
+          tags: copybara:local
+          build-args: |
+            COPYBARA_RELEASE=${{ env.COPYBARA_RELEASE }}
+
+      - name: Sync release branches
+        env:
+          SOURCE_GH_TOKEN: ${{ github.token }}
+          MIRROR_GH_TOKEN: ${{ steps.mirror-token.outputs.token }}
+        run: |
+          args=()
+          [[ "${{ inputs.dry_run }}" == "true" ]] && args+=(--dry-run)
+          bash scripts/mirroring/mirror-release-branches.sh "${args[@]}"
+
+      - name: Sync tags
+        env:
+          SOURCE_GH_TOKEN: ${{ github.token }}
+          MIRROR_GH_TOKEN: ${{ steps.mirror-token.outputs.token }}
+        run: |
+          args=()
+          [[ "${{ inputs.dry_run }}" == "true" ]] && args+=(--dry-run)
+          bash scripts/mirroring/mirror-tags.sh "${args[@]}"

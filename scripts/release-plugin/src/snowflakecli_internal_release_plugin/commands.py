@@ -43,7 +43,7 @@ log = logging.getLogger(__name__)
 
 UPDATE_RELEASE_NOTES_SCRIPT = "scripts/main.py"
 GITHUB_TOKEN_ENV = "SNOWCLI_GITHUB_TOKEN"
-SNOWFLAKE_CLI_REPO = "snowflakedb/snowflake-cli"
+SNOWFLAKE_CLI_REPO = "snowflake-eng/snowflake-cli"
 
 FinalOption = typer.Option(False, "--final", help="Use final release instead of -rc")
 RCOption = typer.Option(False, "--rc", help="Use rc release instead of latest")
@@ -62,7 +62,7 @@ VersionArgument = typer.Argument(
 
 
 def get_pr_url(source_branch: str) -> str:
-    return f"https://github.com/snowflakedb/snowflake-cli/pull/new/{source_branch}"
+    return f"https://github.com/{SNOWFLAKE_CLI_REPO}/pull/new/{source_branch}"
 
 
 def _commit_update_release_notes(repo: RepositoryManager, version: str) -> None:

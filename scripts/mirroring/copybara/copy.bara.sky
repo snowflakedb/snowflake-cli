@@ -1,0 +1,90 @@
+# Copybara config: one workflow.
+#
+# `mirror` — outbound: snowflake-eng/snowflake-cli -> snowflakedb/snowflake-cli.
+#             ITERATIVE, direct push, denylist filter + internal-marker guards.
+#             Triggered on push to main + hourly fallback via .github/workflows/mirror-main.yml.
+#
+SOURCE_REPO = "https://github.com/snowflake-eng/snowflake-cli"
+MIRROR_REPO = "https://github.com/snowflakedb/snowflake-cli"
+
+load("import_paths", "IMPORT_FILE_GLOBS", "IMPORT_AS_DRAFT")
+
+# Default-deny denylist: everything is mirrored EXCEPT these paths.
+# origin_files below applies this, then re-includes EXCLUDED_PATH_OVERRIDES.
+EXCLUDED_PATHS = [
+    # ── AI / agent configuration (the reason we went private-first) ──
+    ".claude/**",
+    "CLAUDE.md",
+    ".cursor/**",
+    ".mcp.json",
+    "AGENTS.md",
+    ".ai/**"
+
+    # ── The mirroring machinery itself (internal org, tokens) ──
+    "scripts/mirroring/**",
+    ".github/workflows/mirror-*.yml",
+    ".github/workflows/migrate-*.yml",
+
+    # ── Internal governance / ownership / IDE / local noise ──
+    ".github/CODEOWNERS",
+    ".github/repo_meta.yaml",
+    ".idea/**",
+    "plans/**",
+    "**/.env",
+
+    # ── E2E PR reviewer agent framework ──
+    ".github/workflows/cortex_review.yaml",
+    ".github/scripts/cortex_e2e_review.py",
+    ".github/scripts/eval/**",
+    "tests/eval/**",
+
+    # ── Internal release tooling ──
+    "scripts/release-plugin/**",
+]
+
+# Re-include seam: paths matched here are mirrored even if excluded above.
+EXCLUDED_PATH_OVERRIDES = []
+
+core.workflow(
+    name = "mirror",
+    # ITERATIVE preserves linear source history — one destination commit
+    # per origin commit, original author and message. Copybara still writes
+    # a `GitOrigin-RevId: <sha>` trailer on each commit for tracking.
+    mode = "ITERATIVE",
+    origin = git.github_origin(
+        url = SOURCE_REPO,
+        ref = "main",
+    ),
+    # Direct push — no PR gate. Safety relies on the denylist + the
+    # verify_match checks below, plus environment approval on dispatch,
+    # plus the `snowflake-cli-mirror-privacy` ArcticOwl reviewer
+    # which flags new files in public paths whose content looks internal.
+    destination = git.github_destination(
+        url = MIRROR_REPO,
+        push = "main",
+    ),
+    authoring = authoring.pass_thru(
+        "Mirror Bot <mirror-bot@snowflake.com>"
+    ),
+    origin_files = glob(["**"], exclude = EXCLUDED_PATHS) + glob(EXCLUDED_PATH_OVERRIDES),
+    transformations = [
+        # Tripwires only — NO content rewriting (by design). We want the sync to
+        # FAIL loudly on an internal reference so it gets fixed at the source,
+        # rather than silently transforming files (which hides leaks and creates
+        # source/mirror drift). Revisit adding a core.replace once we've seen
+        # what actually trips these.
+        #
+        # Fail the sync if any mirrored file names the internal org. The
+        # machinery that legitimately references it (scripts/mirroring/**,
+        # mirror-*.yml, CODEOWNERS) is excluded from origin_files above, so a
+        # match here is an unexpected leak that needs a human.
+        core.verify_match(
+            regex = "snowflake-eng",
+            verify_no_match = True,
+        ),
+        core.verify_match(
+            regex = "\\.snowflakecomputing\\.internal|\\.corp\\.snowflake",
+            verify_no_match = True,
+        ),
+    ],
+)
