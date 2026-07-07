@@ -1,0 +1,32 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+version = "1.0"
+
+[metadata]
+name = "object-list-noop-comment"
+description = "Add a comment above `snow object list` (no behavior change)"
+difficulty = "easy"
+tags = ["e2e-reviewer", "object", "sanity", "comment-only"]
+
+[metadata.e2e_review]
+expected_verdict = "SKIP"
+expected_breaking_changes = false
+needs_live_snowflake = false
+expected_commands = []
+rubric = """
+The only change is an added source comment above the `list_` command. Comments
+do not affect CLI runtime behavior, so this is a non-behavioral change and the
+reviewer should report SKIP (nothing to verify).
+"""

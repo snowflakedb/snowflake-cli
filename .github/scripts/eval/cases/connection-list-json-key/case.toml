@@ -1,0 +1,34 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+version = "1.0"
+
+[metadata]
+name = "connection-list-json-key"
+description = "Rename the `connection_name` key in `snow connection list` JSON output"
+difficulty = "hard"
+tags = ["e2e-reviewer", "connection", "output-format", "must-execute"]
+
+[metadata.e2e_review]
+expected_verdict = "FAIL"
+expected_breaking_changes = true
+needs_live_snowflake = false
+expected_commands = ["snow connection list --format json"]
+rubric = """
+The output key `connection_name` is renamed to `name` in `snow connection list`.
+This breaks any script that parses the JSON output by the `connection_name` key.
+It is invisible in `--help` and easy to overlook by reading the diff alone — the
+reviewer must run `snow connection list --format json` and inspect the keys.
+This command reads local config and needs no Snowflake connection. Expected FAIL.
+"""

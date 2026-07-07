@@ -30,8 +30,11 @@ repos:
     rev: v1.18.2
     hooks:
       - id: mypy
+        # The eval harness under .github/scripts/eval is loaded dynamically
+        # (importlib + sys.path, non-package case dirs), so it is not statically
+        # type-checkable; ruff/black/pytest still cover it.
+        exclude: '^(\.github/scripts/eval/|tests/eval/|\.ai/)'
         additional_dependencies: [types-pkg-resources==0.1.3, types-all==1.0.0]
-        exclude: ^\.ai/
   - repo: https://github.com/codespell-project/codespell
     rev: v2.2.4
     hooks:

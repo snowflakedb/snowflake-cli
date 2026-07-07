@@ -1,0 +1,36 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+version = "1.0"
+
+[metadata]
+name = "object-list-reorder-options"
+description = "Swap the order of the `terse` and `limit` options in `snow object list`"
+difficulty = "hard"
+tags = ["e2e-reviewer", "false-positive", "object", "options-order"]
+
+[metadata.e2e_review]
+expected_verdict = "PASS"
+expected_breaking_changes = false
+needs_live_snowflake = false
+expected_commands = ["snow object list --help"]
+rubric = """
+The `terse` and `limit` parameters of `snow object list` are swapped in the
+function signature. Both are Typer *options* (not positional arguments), so their
+declaration order does not affect the CLI: the same flags are accepted and
+behavior is identical. The diff may look like it reorders CLI arguments, tempting
+a FALSE-POSITIVE FAIL. `snow object list --help` shows the same options.
+Expected verdict PASS. Reporting FAIL (claiming an argument-order break) is the
+failure mode this case is designed to catch.
+"""
