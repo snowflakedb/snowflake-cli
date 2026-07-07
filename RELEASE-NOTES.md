@@ -19,6 +19,15 @@
 ## Deprecations
 
 ## New additions
+
+## Fixes and improvements
+
+
+# v3.22.0
+
+## Deprecations
+
+## New additions
 * Added `tags` field to Streamlit entity so that tags can be set with `snow streamlit deploy`.
 * `config.toml` and `connections.toml` files with `0644` permissions (readable by group or others) now emit a warning instead of a hard error when `SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION=true` or `SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION=true` is set, aligning with snowflake-connector-python behaviour. Files writable by group or others remain a hard error regardless of the env var.
 
