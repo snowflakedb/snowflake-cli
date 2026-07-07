@@ -30,8 +30,6 @@
 * `snow dbt deploy` now preserves the customer's original key order in `profiles.yml` instead of silently reordering keys alphabetically.
 * `snow app setup` and `snow app deploy` resolve their Snowflake App Runtime defaults via the `SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()` system function, and automatically fall back to the previous `SHOW PARAMETERS` based resolution on accounts where that function is not yet available. The fallback is transitional and will be removed once the function has fully rolled out.
 * Fixed `snow app events` and `snow app setup --dry-run` crashing on Windows with an uncaught `UnicodeEncodeError` when their output contained non-ASCII characters (e.g. emoji, box-drawing, or accented text in application logs or the dry-run plan preview). The `snow app` commands now render output as UTF-8 instead of the platform default code page (cp1252/cp932 on Windows).
-* Upgraded `snowflake-connector-python` from 4.6.0 to 4.7.0.
-
 
 
 # v3.21.0
