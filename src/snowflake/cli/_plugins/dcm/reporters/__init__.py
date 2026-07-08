@@ -11,7 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from snowflake.cli._plugins.dcm.reporters.analyze import AnalyzeReporter
+from snowflake.cli._plugins.dcm.reporters.analyze import (
+    AnalyzeErrorsReporter,
+    AnalyzeReporter,
+)
 from snowflake.cli._plugins.dcm.reporters.base import Reporter
 from snowflake.cli._plugins.dcm.reporters.plan import PlanReporter
 from snowflake.cli._plugins.dcm.reporters.refresh import RefreshReporter
@@ -19,6 +22,7 @@ from snowflake.cli._plugins.dcm.reporters.test import TestReporter
 from snowflake.cli._plugins.dcm.reporters.unit_test import UnitTestReporter
 
 __all__ = [
+    "AnalyzeErrorsReporter",
     "AnalyzeReporter",
     "Reporter",
     "PlanReporter",
