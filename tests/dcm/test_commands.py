@@ -1778,6 +1778,149 @@ class TestDCMAnalyze:
         _assert_format_result(payload, json.loads(analyze_response), format_name)
 
 
+def _dependencies_response():
+    """Analyze response with a table feeding a dynamic table (one edge)."""
+    return json.dumps(
+        {
+            "files": [
+                {
+                    "source_path": "sources/definitions/raw.sql",
+                    "definitions": [
+                        {
+                            "id": {
+                                "name": "CUSTOMER",
+                                "schema": "RAW",
+                                "database": "DB",
+                                "domain": "TABLE",
+                            },
+                            "dependencies": [],
+                            "refined_domain": "table",
+                            "issues": [],
+                        }
+                    ],
+                    "issues": [],
+                },
+                {
+                    "source_path": "sources/definitions/analytics.sql",
+                    "definitions": [
+                        {
+                            "id": {
+                                "name": "ENRICHED",
+                                "schema": "ANALYTICS",
+                                "database": "DB",
+                                "domain": "TABLE",
+                            },
+                            "dependencies": [
+                                {
+                                    "source_id": {
+                                        "name": "CUSTOMER",
+                                        "schema": "RAW",
+                                        "database": "DB",
+                                        "domain": "TABLE",
+                                    }
+                                }
+                            ],
+                            "refined_domain": "dynamic_table",
+                            "properties": [{"name": "TARGET_LAG", "value": "1 day"}],
+                            "issues": [],
+                        }
+                    ],
+                    "issues": [],
+                },
+            ]
+        }
+    )
+
+
+class TestDCMDependencies:
+    def test_dependencies_writes_markdown_and_links_to_it(
+        self,
+        mock_dcm_manager,
+        mock_deploy_tracker,
+        mock_manifest_load,
+        runner,
+        mock_cursor,
+        mock_connect,
+        tmp_path,
+    ):
+        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
+            rows=[(_dependencies_response(),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["dcm", "dependencies", "fooBar"])
+
+            assert result.exit_code == 0, result.output
+
+            dependencies_file = tmp_path / "out" / "dependencies.md"
+            assert dependencies_file.exists()
+            content = dependencies_file.read_text()
+
+        assert "# DCM Project dependencies for" in content
+        assert "flowchart LR" in content
+        assert "Table: CUSTOMER\\nDB.RAW" in content
+        assert "Dynamic Table [lag: 1 day]\\nENRICHED\\nDB.ANALYTICS" in content
+        assert "CUSTOMER --> ENRICHED" in content
+
+        # The CLI points the user at the generated file.
+        assert "dependencies.md" in result.output
+
+        mock_dcm_manager().raw_analyze.assert_called_once_with(
+            project_identifier=FQN.from_string("fooBar"),
+            configuration=None,
+            from_stage="TMP_STAGE",
+            variables=None,
+            save_output=False,
+            command_name="dependencies",
+            output_folder_name="rendered_definitions",
+        )
+
+    def test_dependencies_with_variables(
+        self,
+        mock_dcm_manager,
+        mock_deploy_tracker,
+        mock_manifest_load,
+        runner,
+        mock_cursor,
+        mock_connect,
+        tmp_path,
+    ):
+        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
+            rows=[(_dependencies_response(),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["dcm", "dependencies", "fooBar", "-D", "key=value"])
+
+        assert result.exit_code == 0, result.output
+        mock_dcm_manager().raw_analyze.assert_called_once_with(
+            project_identifier=FQN.from_string("fooBar"),
+            configuration=None,
+            from_stage="TMP_STAGE",
+            variables=["key=value"],
+            save_output=False,
+            command_name="dependencies",
+            output_folder_name="rendered_definitions",
+        )
+
+    def test_dependencies_shown_in_help(self, runner):
+        result = runner.invoke(["dcm", "--help"])
+        assert result.exit_code == 0
+        assert "dependencies" in result.output
+
+    def test_dependencies_from_stage_fails(self, mock_dcm_manager, runner, tmp_path):
+        with change_directory(tmp_path):
+            result = runner.invoke(
+                ["dcm", "dependencies", "fooBar", "--from", "@my_stage"]
+            )
+        assert result.exit_code == 1, result.output
+        assert "Stage paths are not supported" in result.output
+
+
 class TestDCMList:
     def test_list_command_alias(self, mock_connect, runner):
         result = runner.invoke(
