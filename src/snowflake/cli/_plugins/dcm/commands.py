@@ -48,12 +48,18 @@ from snowflake.cli._plugins.dcm.progress import (
     ServerPoll,
 )
 from snowflake.cli._plugins.dcm.reporters import (
+    AnalyzeErrorsReporter,
     AnalyzeReporter,
     PlanReporter,
     RefreshReporter,
     TestReporter,
 )
-from snowflake.cli._plugins.dcm.utils import command_artifacts, mock_dcm_response
+from snowflake.cli._plugins.dcm.utils import (
+    RENDERED_FOLDER,
+    announce_rendered_definitions,
+    command_artifacts,
+    mock_dcm_response,
+)
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.object.manager import ObjectManager
@@ -618,6 +624,50 @@ def raw_analyze(
             )
 
         reporter = AnalyzeReporter(save_output=save_output)
+        return reporter.process(result)
+
+
+@app.command(
+    name="compile",
+    requires_connection=True,
+)
+def compile_project(
+    identifier: Optional[FQN] = optional_dcm_identifier,
+    from_location: SecurePath = from_option,
+    variables: Optional[List[str]] = variables_flag,
+    target: Optional[str] = target_option,
+    save_output: bool = save_output_option,
+    **options,
+):
+    """
+    Compiles a DCM Project and prints a formatted list of errors found.
+    """
+    with command_artifacts(save_output):
+        context = _resolve_context_with_required_manifest(
+            from_location, identifier, target
+        )
+        project_id = context.project_identifier
+
+        progress = MultiStepProgress([UPLOAD, COMPILE])
+        with progress_session(progress):
+            manager = DCMProjectManager()
+            effective_stage = _upload_step(
+                progress, manager, project_id, from_location, assets=context.assets
+            )
+            result = progress.run_step(
+                COMPILE.key,
+                lambda step: manager.raw_analyze(
+                    project_identifier=project_id,
+                    configuration=context.configuration,
+                    from_stage=effective_stage,
+                    variables=variables,
+                    save_output=save_output,
+                ),
+            )
+
+        reporter = AnalyzeErrorsReporter(save_output=save_output)
+        if save_output:
+            announce_rendered_definitions()
         return reporter.process(result)
 
 

@@ -19,6 +19,7 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, Dict, Generator
 
+from rich.style import Style
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
@@ -31,11 +32,11 @@ from snowflake.cli.api.stage_path import StagePath
 log = logging.getLogger(__name__)
 
 OUTPUT_FOLDER = "out"
+RENDERED_FOLDER = "rendered"
 
 # raw-analyze's artifacts are named after the backend's own compile output, so
 # AnalyzeReporter must write and look for that name rather than the command's.
 RAW_ANALYZE_COMMAND_NAME = "compile"
-
 
 def result_file_name(command_name: str) -> str:
     return f"{command_name}_result.json"
@@ -84,6 +85,25 @@ def save_command_response(
         log.debug("Response file already exists. Will not recreate it.")
         return
 
+def announce_rendered_definitions() -> None:
+    """Print a label and a gray, clickable line to the rendered definitions folder.
+
+    No-op when the folder doesn't exist (e.g. the backend produced no rendered
+    output). Used by the ``compile`` and ``dependencies`` commands after a
+    ``--save-output`` run to point the user at the downloaded definitions.
+    """
+    folder = SecurePath(OUTPUT_FOLDER) / RENDERED_FOLDER
+    if not folder.exists():
+        return
+    abs_path = folder.path.resolve()
+    cli_console.styled_message("\n")
+    cli_console.styled_message("Rendered definitions saved to: ")
+    cli_console.styled_message("\n")
+    cli_console.styled_message(
+        f"{abs_path}",
+        style=Style(color="grey50", link=f"file://{abs_path}"),
+    )
+    cli_console.styled_message("\n")
     output_dir = SecurePath(OUTPUT_FOLDER)
     json_file = output_dir / result_file_name(command_name)
     log.debug("Saving response to %s", json_file.path.resolve())
@@ -101,8 +121,6 @@ def save_command_response(
         command_name,
         json_file.path.resolve(),
     )
-
-
 @contextmanager
 def command_artifacts(save_output: bool) -> Generator[None, None, None]:
     """Recreate the out/ folder, then announce whatever the command produced.
@@ -219,7 +237,11 @@ def _load_debug_data(command_name: str, file_number: int):
         data = json.load(f)
 
     if isinstance(data, list) and len(data) > 0:
-        if command_name in ("test", "refresh", "analyze"):
+        if command_name in (
+            "test",
+            "refresh",
+            "compile",
+        ):
             data = data[0]
 
     return data

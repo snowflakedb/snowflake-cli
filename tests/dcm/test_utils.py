@@ -4,7 +4,9 @@ from unittest import mock
 import pytest
 from snowflake.cli._plugins.dcm.utils import (
     OUTPUT_FOLDER,
+    RENDERED_FOLDER,
     announce_output_artifacts,
+    announce_rendered_definitions,
     prepare_output_folder,
     result_file_exists,
     save_command_response,
@@ -35,6 +37,40 @@ class TestPrepareOutputFolder:
             prepare_output_folder()
 
             assert (tmp_path / OUTPUT_FOLDER).is_dir()
+
+    def test_clears_custom_folder_name(self, tmp_path):
+        with change_directory(tmp_path):
+            out_dir = tmp_path / OUTPUT_FOLDER
+            out_dir.mkdir()
+            compile_json = out_dir / "compile_result.json"
+            compile_json.write_text('{"old": "data"}')
+            rendered_dir = out_dir / RENDERED_FOLDER
+            rendered_dir.mkdir()
+            (rendered_dir / "manifest.yml").write_text("name: x")
+
+            prepare_output_folder()
+
+            assert not compile_json.exists()
+            assert not rendered_dir.exists()
+
+
+class TestAnnounceRenderedDefinitions:
+    def test_prints_path_when_folder_exists(self, tmp_path, capsys):
+        with change_directory(tmp_path):
+            rendered_dir = tmp_path / OUTPUT_FOLDER / RENDERED_FOLDER
+            rendered_dir.mkdir(parents=True)
+
+            announce_rendered_definitions()
+
+            out = capsys.readouterr().out
+            assert "Rendered definitions saved to:" in out
+            assert RENDERED_FOLDER in out
+
+    def test_noop_when_folder_missing(self, tmp_path, capsys):
+        with change_directory(tmp_path):
+            announce_rendered_definitions()
+
+            assert "Rendered definitions saved to:" not in capsys.readouterr().out
 
 
 class TestSaveCommandResponse:
