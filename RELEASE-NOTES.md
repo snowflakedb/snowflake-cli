@@ -21,6 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
+* `snow app deploy` now drops the code stage before recreating it only when the stage already exists. A first deploy has nothing to clear, so it no longer issues `DROP STAGE` unnecessarily, letting a role with only `CREATE STAGE` (and not `OWNERSHIP`) deploy successfully.
 
 
 # v3.22.0
