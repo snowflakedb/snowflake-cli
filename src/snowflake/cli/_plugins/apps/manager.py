@@ -922,6 +922,31 @@ class SnowflakeAppManager(SqlExecutionMixin):
             return []
         return _flatten_missing_privileges(payload)
 
+    def stage_exists(self, stage_fqn: FQN) -> bool:
+        """Return True if the stage already exists and is visible to the role.
+
+        Used to gate the pre-upload drop: a first deploy has no stage to
+        clear, and issuing ``DROP STAGE`` there would demand OWNERSHIP the
+        deploying role need not hold. The existence check only needs USAGE on
+        the schema, so a role with just CREATE STAGE can still deploy.
+        """
+        from snowflake.cli.api.project.util import (
+            identifier_to_show_like_pattern,
+            to_identifier,
+            unquote_identifier,
+        )
+
+        schema_identifier = (
+            f"{to_identifier(stage_fqn.database)}.{to_identifier(stage_fqn.schema)}"
+        )
+        cursor = self.execute_query(
+            f"SHOW STAGES LIKE {identifier_to_show_like_pattern(stage_fqn.name)}"
+            f" IN SCHEMA {schema_identifier}",
+            cursor_class=DictCursor,
+        )
+        unqualified = unquote_identifier(stage_fqn.name).upper()
+        return any(row["name"].upper() == unqualified for row in cursor)
+
     def create_stage(
         self, stage_fqn: FQN, encryption_type: str = "SNOWFLAKE_SSE"
     ) -> None:

@@ -788,13 +788,20 @@ def snowflake_app_deploy(
                         manager.ensure_workspace_live_version(storage_fqn)
                 else:
                     with metrics.span("snowflake_app.upload.prepare_stage"):
-                        # Recreate the stage from scratch so the upload always
-                        # starts from an empty stage. Clearing an existing stage
-                        # with REMOVE can leave stale chunks behind that would
-                        # otherwise be mixed into the build and may conflict.
+                        # Start the upload from an empty stage so files left
+                        # over from a prior deploy never leak into the build.
+                        # Clearing with REMOVE can leave stale chunks behind, so
+                        # drop and recreate instead — but drop only when the
+                        # stage already exists. A first deploy has nothing to
+                        # drop, and issuing DROP STAGE there would demand
+                        # OWNERSHIP the deploying role need not hold, so skipping
+                        # it lets a role with only CREATE STAGE deploy.
                         try:
-                            cli_console.step(f"Recreating stage @{storage_fqn}")
-                            manager.drop_stage_if_exists(storage_fqn)
+                            if manager.stage_exists(storage_fqn):
+                                cli_console.step(f"Recreating stage @{storage_fqn}")
+                                manager.drop_stage_if_exists(storage_fqn)
+                            else:
+                                cli_console.step(f"Creating stage @{storage_fqn}")
                             manager.create_stage(storage_fqn, encryption_type)
                             stage_created = True
                         except ProgrammingError as e:
