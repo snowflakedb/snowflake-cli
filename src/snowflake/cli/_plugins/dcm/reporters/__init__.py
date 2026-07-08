@@ -16,6 +16,7 @@ from snowflake.cli._plugins.dcm.reporters.analyze import (
     AnalyzeReporter,
 )
 from snowflake.cli._plugins.dcm.reporters.base import Reporter
+from snowflake.cli._plugins.dcm.reporters.dependencies import DependenciesReporter
 from snowflake.cli._plugins.dcm.reporters.plan import PlanReporter
 from snowflake.cli._plugins.dcm.reporters.refresh import RefreshReporter
 from snowflake.cli._plugins.dcm.reporters.test import TestReporter
@@ -23,6 +24,7 @@ from snowflake.cli._plugins.dcm.reporters.test import TestReporter
 __all__ = [
     "AnalyzeErrorsReporter",
     "AnalyzeReporter",
+    "DependenciesReporter",
     "Reporter",
     "PlanReporter",
     "RefreshReporter",
