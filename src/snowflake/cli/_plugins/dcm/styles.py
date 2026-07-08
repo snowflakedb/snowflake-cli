@@ -27,10 +27,6 @@ BOLD_STYLE = Style(bold=True)
 # user's terminal theme, consistent with BLUE above.
 OBJECT_NAME_STYLE = Style(color="magenta")
 
-# Legacy object-name style still referenced by the plan reporter until it
-# adopts the magenta OBJECT_NAME_STYLE / ALTER-tree rendering.
-DOMAIN_STYLE = Style(color="cyan")
-
 # Refresh
 STATUS_STYLE = Style(color=BLUE)
 REMOVED_STYLE = Style(color="red", italic=True)
