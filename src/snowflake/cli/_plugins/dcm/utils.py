@@ -85,6 +85,25 @@ def save_command_response(
         log.debug("Response file already exists. Will not recreate it.")
         return
 
+    output_dir = SecurePath(OUTPUT_FOLDER)
+    json_file = output_dir / result_file_name(command_name)
+    log.debug("Saving response to %s", json_file.path.resolve())
+    try:
+        if isinstance(raw_data, str):
+            json_file.write_text(raw_data)
+        else:
+            json_file.write_text(json.dumps(raw_data))
+    except Exception as e:
+        raise CliError(
+            f"Failed to save command response to {json_file.path.resolve()}: {e}"
+        )
+    log.info(
+        "Saved raw JSON response for command '%s' in %s.",
+        command_name,
+        json_file.path.resolve(),
+    )
+
+
 def announce_rendered_definitions() -> None:
     """Print a label and a gray, clickable line to the rendered definitions folder.
 
@@ -104,23 +123,8 @@ def announce_rendered_definitions() -> None:
         style=Style(color="grey50", link=f"file://{abs_path}"),
     )
     cli_console.styled_message("\n")
-    output_dir = SecurePath(OUTPUT_FOLDER)
-    json_file = output_dir / result_file_name(command_name)
-    log.debug("Saving response to %s", json_file.path.resolve())
-    try:
-        if isinstance(raw_data, str):
-            json_file.write_text(raw_data)
-        else:
-            json_file.write_text(json.dumps(raw_data))
-    except Exception as e:
-        raise CliError(
-            f"Failed to save command response to {json_file.path.resolve()}: {e}"
-        )
-    log.info(
-        "Saved raw JSON response for command '%s' in %s.",
-        command_name,
-        json_file.path.resolve(),
-    )
+
+
 @contextmanager
 def command_artifacts(save_output: bool) -> Generator[None, None, None]:
     """Recreate the out/ folder, then announce whatever the command produced.
@@ -241,6 +245,7 @@ def _load_debug_data(command_name: str, file_number: int):
             "test",
             "refresh",
             "compile",
+            "dependencies",
         ):
             data = data[0]
 

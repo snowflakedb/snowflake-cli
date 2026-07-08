@@ -50,6 +50,7 @@ from snowflake.cli._plugins.dcm.progress import (
 from snowflake.cli._plugins.dcm.reporters import (
     AnalyzeErrorsReporter,
     AnalyzeReporter,
+    DependenciesReporter,
     PlanReporter,
     RefreshReporter,
     TestReporter,
@@ -669,6 +670,56 @@ def compile_project(
         if save_output:
             announce_rendered_definitions()
         return reporter.process(result)
+
+
+@app.command(
+    requires_connection=True,
+)
+def dependencies(
+    identifier: Optional[FQN] = optional_dcm_identifier,
+    from_location: SecurePath = from_option,
+    variables: Optional[List[str]] = variables_flag,
+    target: Optional[str] = target_option,
+    save_output: bool = save_output_option,
+    **options,
+):
+    """
+    Analyzes a DCM Project and generates a dependency diagram.
+
+    The diagram is written as a Mermaid flowchart in a Markdown file that can
+    be opened in your IDE's Markdown preview to explore object dependencies.
+    """
+    with command_artifacts(save_output):
+        context = _resolve_context_with_required_manifest(
+            from_location, identifier, target
+        )
+        project_id = context.project_identifier
+
+        progress = MultiStepProgress([UPLOAD, COMPILE])
+        with progress_session(progress):
+            manager = DCMProjectManager()
+            effective_stage = _upload_step(
+                progress, manager, project_id, from_location, assets=context.assets
+            )
+            result = progress.run_step(
+                COMPILE.key,
+                lambda step: manager.raw_analyze(
+                    project_identifier=project_id,
+                    configuration=context.configuration,
+                    from_stage=effective_stage,
+                    variables=variables,
+                    save_output=save_output,
+                ),
+            )
+
+        reporter = DependenciesReporter(
+            project_identifier=project_id, save_output=save_output
+        )
+        try:
+            return reporter.process(result)
+        finally:
+            if save_output:
+                announce_rendered_definitions()
 
 
 @app.command(requires_connection=True)
