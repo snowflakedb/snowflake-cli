@@ -14,12 +14,12 @@
 from unittest import mock
 
 import pytest
+import typer
 from snowflake.cli._plugins.dcm.reporters.test import (
     TestReporter,
     TestRow,
     TestStatus,
 )
-from snowflake.cli.api.exceptions import CliError
 
 from tests.dcm.test_reporters.utils import (
     CLI_CONSOLE_PATH,
@@ -167,7 +167,11 @@ class TestTestReporter:
         )
         assert output == snapshot
 
-    def test_process_raises_cli_error_on_failures(self):
+    def test_process_exits_nonzero_on_failures(self):
+        """Failures must still set exit code 1, even though the styled
+        summary is now rendered above the divider (instead of being stuffed
+        into a ``CliError`` box). Mirrors :class:`AnalyzeErrorsReporter` /
+        :class:`RefreshReporter`."""
         data = {
             "expectations": [
                 {
@@ -181,10 +185,10 @@ class TestTestReporter:
         cursor = FakeCursor(data)
 
         with mock.patch(CLI_CONSOLE_PATH):
-            with pytest.raises(CliError) as exc_info:
+            with pytest.raises(typer.Exit) as exc_info:
                 reporter.process(cursor)
 
-        assert "1 failed" in exc_info.value.message
+        assert exc_info.value.exit_code == 1
 
     def test_process_does_not_raise_on_success(self):
         data = {

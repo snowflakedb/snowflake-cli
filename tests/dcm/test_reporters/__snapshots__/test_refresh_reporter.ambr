@@ -3,7 +3,8 @@
   '''
   UP-TO-DATE        0       0 DB.SCHEMA.RED_TABLE
   
-  1 up-to-date.
+  1 Dynamic Table refreshed successfully.
+  ================================================================================
   
   '''
 # ---
@@ -18,7 +19,8 @@
   REFRESHED     +1.5B   -999M DB.SCHEMA.BILLIONS
   REFRESHED     +2.5T   -100B DB.SCHEMA.TRILLIONS
   
-  2 refreshed.
+  2 Dynamic Tables refreshed successfully.
+  ================================================================================
   
   '''
 # ---
@@ -26,7 +28,8 @@
   '''
   UNKNOWN                     DB.SCHEMA.NO_STATS
   
-  1 unknown.
+  1 Refresh failed.
+  ================================================================================
   
   '''
 # ---
@@ -34,7 +37,20 @@
   '''
   REFRESHED      +100       0 UNKNOWN
   
-  1 refreshed.
+  1 Dynamic Table refreshed successfully.
+  ================================================================================
+  
+  '''
+# ---
+# name: TestRefreshReporter.test_mixed_success_and_failure
+  '''
+  REFRESHED       +10       0 DB.SCHEMA.OK_REFRESHED
+  UP-TO-DATE        0       0 DB.SCHEMA.OK_UP_TO_DATE
+  UNKNOWN                     DB.SCHEMA.FAILED
+  
+  2 Dynamic Tables refreshed successfully.
+  1 Refresh failed.
+  ================================================================================
   
   '''
 # ---
@@ -45,7 +61,8 @@
   UP-TO-DATE        0       0 DB.SCHEMA.TABLE_C
   REFRESHED     +999k    -500 DB.SCHEMA.TABLE_D
   
-  2 refreshed, 2 up-to-date.
+  4 Dynamic Tables refreshed successfully.
+  ================================================================================
   
   '''
 # ---
@@ -53,6 +70,7 @@
   '''
   
   No dynamic tables found in the project.
+  ================================================================================
   
   '''
 # ---
@@ -60,7 +78,8 @@
   '''
   REFRESHED         0     -3k DB.SCHEMA.DELETES_ONLY
   
-  1 refreshed.
+  1 Dynamic Table refreshed successfully.
+  ================================================================================
   
   '''
 # ---
@@ -68,7 +87,8 @@
   '''
   REFRESHED       +5k       0 DB.SCHEMA.INSERTS_ONLY
   
-  1 refreshed.
+  1 Dynamic Table refreshed successfully.
+  ================================================================================
   
   '''
 # ---
@@ -76,7 +96,8 @@
   '''
   REFRESHED     +1.5k    -200 DB.SCHEMA.CUSTOMERS
   
-  1 refreshed.
+  1 Dynamic Table refreshed successfully.
+  ================================================================================
   
   '''
 # ---
@@ -84,7 +105,8 @@
   '''
   UP-TO-DATE        0       0 DB.SCHEMA.ORDERS
   
-  1 up-to-date.
+  1 Dynamic Table refreshed successfully.
+  ================================================================================
   
   '''
 # ---
