@@ -44,6 +44,43 @@ rules:
       cursor.execute(f"SHOW INTEGRATIONS LIKE '{identifier_to_show_like_pattern(name)}%'")
       ```
 
+  - id: snowflake-cli-feature-flag-no-internal-ids
+    status: shadow
+    rule: |
+      **OBJECTIVE**: Feature flag names must use descriptive, capability-focused names that are
+      safe to expose publicly. They must not embed internal tracking identifiers.
+
+      **REQUIREMENT**: Both the Python enum member name and the string argument passed to
+      `BooleanFlag(...)` must describe what the feature does, not reference internal tickets,
+      issue numbers, or system parameter names. Specifically, flag names must not contain:
+      - Numeric sequences of 4 or more digits that represent issue or tracking IDs
+        (e.g., `3659937`, `12345`)
+      - Prefixes or segments that identify an internal fix or issue reference, such as
+        `FIX_`, `SNOW_<digits>`, or any pattern of the form `_<digits>_`
+
+      Flag names are exposed to users as environment variable names
+      (`SNOWFLAKE_CLI_FEATURES_<NAME>`) and appear in help output and documentation.
+      Embedding internal identifiers leaks implementation details and is confusing to
+      external users.
+
+      ❌ **BAD:**
+      ```python
+      ENABLE_FIX_3659937_DBT_PROJECTS_PROFILES_FILE = BooleanFlag(
+          "ENABLE_FIX_3659937_DBT_PROJECTS_PROFILES_FILE", False
+      )
+      ENABLE_SNOW_12345_SPCS_BUILD_IMAGE = BooleanFlag(
+          "ENABLE_SNOW_12345_SPCS_BUILD_IMAGE", False
+      )
+      ```
+
+      ✅ **GOOD:**
+      ```python
+      ENABLE_DBT_PROJECTS_PROFILES_FILE_PRECEDENCE = BooleanFlag(
+          "ENABLE_DBT_PROJECTS_PROFILES_FILE_PRECEDENCE", False
+      )
+      ENABLE_SPCS_BUILD_IMAGE = BooleanFlag("ENABLE_SPCS_BUILD_IMAGE", False)
+      ```
+
   - id: snowflake-cli-use-cli-error-not-click-exception
     status: shadow
     rule: |

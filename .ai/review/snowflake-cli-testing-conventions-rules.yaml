@@ -1,0 +1,60 @@
+id: snowflake-cli-testing-conventions-rules
+friendly_name: "Snowflake CLI - Testing Conventions Rules"
+status: shadow
+allowed_folders:
+  - "tests/"
+  - "tests_integration/"
+  - "tests_e2e/"
+  - "tests_common/"
+  - "test_external_plugins/"
+excluded_folders: []
+allowed_file_extensions:
+  - ".py"
+rules:
+  - id: snowflake-cli-use-with-feature-flags
+    status: shadow
+    rule: |
+      **OBJECTIVE**: Tests must toggle feature flags through the project's standard helper,
+      not by directly manipulating environment variables.
+
+      **REQUIREMENT**: When a test needs to enable or disable a feature flag, use
+      `with_feature_flags()` from `tests_common.feature_flag_utils` as a decorator, context manager
+      or inside a pytest fixture. Never set `SNOWFLAKE_CLI_FEATURES_*` environment variables
+      directly via `os.environ`, `monkeypatch.setenv`, or any other mechanism.
+
+      Using `with_feature_flags` is safe, composable, and resilient to changes in the
+      env var naming convention. Direct env var manipulation is fragile, bypasses the
+      helper's cleanup guarantees, and diverges from the established project pattern.
+
+      ❌ **BAD:**
+      ```python
+      def test_something(monkeypatch):
+          monkeypatch.setenv("SNOWFLAKE_CLI_FEATURES_ENABLE_MY_FEATURE", "true")
+          # ... test body
+
+      def test_other():
+          os.environ["SNOWFLAKE_CLI_FEATURES_ENABLE_MY_FEATURE"] = "true"
+          try:
+              pass  # test body
+          finally:
+              del os.environ["SNOWFLAKE_CLI_FEATURES_ENABLE_MY_FEATURE"]
+      ```
+
+      ✅ **GOOD:**
+      ```python
+      from tests_common.feature_flag_utils import with_feature_flags
+      from snowflake.cli.api.feature_flags import FeatureFlag
+
+      def test_something():
+          with with_feature_flags({FeatureFlag.ENABLE_MY_FEATURE: True}):
+              pass  # test body
+
+      @with_feature_flags({FeatureFlag.ENABLE_MY_FEATURE: True})
+      def test_something():
+            pass  # test body
+
+      @pytest.fixture
+      def enable_my_feature():
+          with with_feature_flags({FeatureFlag.ENABLE_MY_FEATURE: True}):
+              yield
+      ```
