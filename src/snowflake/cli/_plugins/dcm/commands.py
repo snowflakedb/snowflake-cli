@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+from dataclasses import dataclass
 from typing import List, Optional
 
 import typer
+import yaml
 from snowflake.cli._plugins.connection.util import get_account_identifier
 from snowflake.cli._plugins.dcm.exceptions import (
     InvalidManifestError,
@@ -23,9 +25,18 @@ from snowflake.cli._plugins.dcm.exceptions import (
 )
 from snowflake.cli._plugins.dcm.manager import DCMProjectManager
 from snowflake.cli._plugins.dcm.models import (
+    DEFAULT_DEFINITION_FILE_NAME,
+    DEFAULT_TARGET_NAME,
+    DEFAULT_WAREHOUSE_NAME,
+    DEFINITIONS_FOLDER,
+    MANIFEST_FILE_NAME,
+    SOURCES_FOLDER,
     DCMManifest,
     DCMTarget,
     TargetContext,
+    render_default_definition,
+    render_default_manifest,
+    render_target_block,
 )
 from snowflake.cli._plugins.dcm.progress import DeployProgressTracker
 from snowflake.cli._plugins.dcm.reporters import (
@@ -60,19 +71,21 @@ from snowflake.cli.api.commands.flags import (
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import (
+    DEFAULT_SIZE_LIMIT_MB,
     ObjectType,
 )
-from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.exceptions import CliError, FQNNameError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN, AccountIdentifier
 from snowflake.cli.api.output.types import (
     MessageResult,
     QueryResult,
 )
-from snowflake.cli.api.project.util import same_identifiers
+from snowflake.cli.api.project.util import same_identifiers, to_quoted_identifier
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutor
+from snowflake.connector.cursor import DictCursor
 
 log = logging.getLogger(__name__)
 
@@ -147,6 +160,41 @@ optional_dcm_identifier = typer.Argument(
     """,
     show_default=False,
     click_type=IdentifierType(),
+)
+
+
+init_project_name_option = typer.Option(
+    None,
+    "--project-name",
+    help=(
+        "Name of a new DCM Project to create. A subfolder with this name is created "
+        "in the current directory to hold the `manifest.yml` and `sources/` files. "
+        "Omit it to add a target to an existing `manifest.yml` in the current directory."
+    ),
+    show_default=False,
+)
+
+
+init_target_option = typer.Option(
+    None,
+    "--target",
+    help=(
+        "Name of the target to create in the manifest. Defaults to the current "
+        "account alias. Required in non-interactive mode."
+    ),
+    show_default=False,
+)
+
+
+init_project_identifier_option = typer.Option(
+    None,
+    "--project-identifier",
+    help=(
+        "Identifier of the DCM Project object in Snowflake for the new target "
+        "(e.g. MY_DB.MY_SCHEMA.MY_PROJECT). Defaults to the target name. If "
+        "unqualified, the connection's database and schema are used."
+    ),
+    show_default=False,
 )
 
 
@@ -635,6 +683,676 @@ def dependencies(
     finally:
         if save_output:
             announce_rendered_definitions()
+
+
+_ACCOUNT_PLACEHOLDER = "MY_ORG-MY_ACCOUNT"
+
+
+def _resolve_account_context_for_manifest() -> tuple[str, str]:
+    """Resolve the account identifier and default target name for a new manifest.
+
+    Returns a tuple ``(account_identifier, target_name)`` where
+    ``account_identifier`` is ``ORG-LOCATOR`` and ``target_name`` is the current
+    account's alias. Falls back to placeholders (with a warning) if the account
+    cannot be determined.
+    """
+    try:
+        *_, cursor = get_cli_context().connection.execute_string(
+            "SELECT CURRENT_ORGANIZATION_NAME() AS org, CURRENT_ACCOUNT_NAME() AS alias",
+            cursor_class=DictCursor,
+        )
+        row = cursor.fetchone() or {}
+        org = row.get("ORG")
+        alias = row.get("ALIAS")
+        if not (org and alias):
+            raise ValueError(f"org={org!r}, alias={alias!r}")
+        return f"{org}-{alias}", alias
+    except Exception as e:
+        cli_console.warning(
+            f"⚠️  Could not determine the current account ({e}). "
+            f"Using placeholders in {MANIFEST_FILE_NAME}; update them before deploying."
+        )
+        return _ACCOUNT_PLACEHOLDER, DEFAULT_TARGET_NAME
+
+
+def _resolve_project_owner_for_manifest(interactive: bool) -> str:
+    """Resolve the current role that will own the DCM Project for a new manifest.
+
+    Uses the current session role when it can be determined. Otherwise the user
+    must supply one: prompts for it in interactive mode, or errors so a run never
+    silently records a placeholder ``project_owner``.
+    """
+    role: Optional[str] = None
+    try:
+        role = SqlExecutor().current_role()
+    except Exception as e:
+        cli_console.warning(f"⚠️  Could not determine the current role ({e}).")
+    if role:
+        return role
+
+    if not interactive:
+        raise CliError(
+            "Could not determine the current role to use as the DCM Project's "
+            "project_owner. Run `snow dcm init` interactively to enter a role name."
+        )
+    entered = typer.prompt(
+        "Could not determine the current role. Enter the role that will own the "
+        "DCM Project"
+    ).strip()
+    if not entered:
+        raise CliError("A project owner role is required.")
+    return entered
+
+
+def _new_project_dir(cwd: SecurePath, project_name: str) -> SecurePath:
+    """Return the subfolder for a new project, erroring if it already exists."""
+    name = project_name.strip()
+    if not name:
+        raise CliError("A project name is required.")
+    target_dir = cwd / name
+    if target_dir.exists():
+        raise CliError(
+            f"A '{name}' folder already exists in the current directory. "
+            f"Choose a different project name."
+        )
+    return target_dir
+
+
+def _prompt_new_project_name(cwd: SecurePath) -> SecurePath:
+    """Interactively prompt for a new project name whose folder does not exist."""
+    while True:
+        name = typer.prompt(
+            "Enter a name for the new project (a subfolder with this name is created)"
+        ).strip()
+        if not name:
+            cli_console.warning("A project name is required.")
+            continue
+        if (cwd / name).exists():
+            cli_console.warning(
+                f"A '{name}' folder already exists. Choose a different name."
+            )
+            continue
+        return cwd / name
+
+
+def _resolve_project_location(
+    project_name: Optional[str], interactive: bool, force: bool
+) -> tuple[SecurePath, bool]:
+    """Resolve where ``init`` writes files.
+
+    Returns ``(target_dir, append_to_existing)``. ``append_to_existing`` is True
+    when a target is added to an existing ``manifest.yml`` in the current
+    directory, and False when a new project is scaffolded in a subfolder.
+    """
+    cwd = SecurePath.cwd()
+
+    # Explicit new project via --project-name.
+    if project_name is not None:
+        return _new_project_dir(cwd, project_name), False
+
+    cwd_manifest = cwd / MANIFEST_FILE_NAME
+    if cwd_manifest.exists():
+        # Add to the existing manifest unless the user opts to start a new project.
+        if force or not interactive:
+            return cwd, True
+        cli_console.message(
+            f"A {MANIFEST_FILE_NAME} already exists in the current directory."
+        )
+        if typer.confirm("Add a new target to it?", default=True):
+            return cwd, True
+        raise CliError(
+            f"A {MANIFEST_FILE_NAME} already exists here. To create a new project, "
+            f"change to an empty directory first and run `snow dcm init` from there."
+        )
+
+    # No manifest to add to: a new project is required.
+    if force or not interactive:
+        raise CliError(
+            f"No {MANIFEST_FILE_NAME} found in the current directory. Pass "
+            f"--project-name to create a new project."
+        )
+    return _prompt_new_project_name(cwd), False
+
+
+def _resolve_target_name(
+    target: Optional[str],
+    default_target: str,
+    existing_targets: dict,
+    append_to_existing: bool,
+    interactive: bool,
+    force: bool,
+) -> tuple[str, bool]:
+    """Resolve the target name and whether it must be appended to the manifest.
+
+    Returns ``(target_name, append_target)``. When adding to an existing manifest,
+    a name that already exists is reused (``append_target=False``) in
+    non-interactive/``--force`` runs, or re-prompted interactively.
+    """
+
+    def _collides(name: str) -> bool:
+        return any(str(n).upper() == name.upper() for n in existing_targets)
+
+    def _validate(name: str) -> Optional[str]:
+        if not name:
+            return "Target name cannot be empty."
+        if '"' in name or "\\" in name:
+            return 'Target name cannot contain " or \\ characters.'
+        return None
+
+    if force or not interactive:
+        if not target:
+            raise CliError("--target is required in non-interactive mode.")
+        name = target.strip()
+        error = _validate(name)
+        if error:
+            raise CliError(error)
+        return name, not (append_to_existing and _collides(name))
+
+    if existing_targets:
+        cli_console.message("Existing targets:")
+        with cli_console.indented():
+            for existing in existing_targets:
+                cli_console.message(f"- {existing}")
+    while True:
+        name = typer.prompt(
+            "Enter a name for the new target",
+            default=target or default_target,
+            show_default=True,
+        ).strip()
+        error = _validate(name)
+        if error:
+            cli_console.warning(f"{error} Choose another name.")
+            continue
+        if append_to_existing and _collides(name):
+            cli_console.warning(
+                f"Target '{name}' already exists in the manifest. "
+                f"Choose a different name."
+            )
+            continue
+        return name, True
+
+
+def _parse_object_name(raw: str) -> FQN:
+    """Parse the DCM Project object name, auto-quoting special characters."""
+    raw = raw.strip()
+    if not raw:
+        raise CliError("A DCM Project object name is required.")
+    try:
+        return FQN.from_string(raw)
+    except FQNNameError:
+        # Unqualified name with special characters: quote it automatically so it
+        # becomes a valid Snowflake identifier instead of failing.
+        return FQN.from_string(to_quoted_identifier(raw))
+
+
+def _resolve_namespace_part(
+    kind: str, default: Optional[str], interactive: bool, force: bool
+) -> str:
+    """Resolve a missing database/schema, confirming the connection default or prompting."""
+    if interactive and not force:
+        if default and typer.confirm(
+            f"Use the connection's default {kind} '{default}'?", default=True
+        ):
+            return default
+        entered = typer.prompt(f"Enter the {kind} for the DCM Project").strip()
+        if not entered:
+            raise CliError(f"A {kind} is required for the DCM Project.")
+        return entered
+    if not default:
+        raise CliError(
+            f"No {kind} could be determined for the DCM Project. Provide a fully "
+            f"qualified --project-identifier, or set a {kind} on your connection."
+        )
+    return default
+
+
+def _resolve_project_object_identifier(
+    project_identifier: Optional[str],
+    target_name: str,
+    interactive: bool,
+    force: bool,
+) -> FQN:
+    """Resolve the DCM Project object identifier (defaulting to the target name).
+
+    Prompts to confirm/override the name (interactive), auto-quotes special
+    characters, and fills in the database/schema when the name is not fully
+    qualified.
+    """
+    if project_identifier is None and interactive and not force:
+        project_identifier = typer.prompt(
+            "Enter the DCM Project object name",
+            default=target_name,
+            show_default=True,
+        )
+    raw = project_identifier if project_identifier is not None else target_name
+    fqn = _parse_object_name(raw)
+
+    database = fqn.database or _resolve_namespace_part(
+        "database", get_cli_context().connection.database, interactive, force
+    )
+    schema = fqn.schema or _resolve_namespace_part(
+        "schema", get_cli_context().connection.schema, interactive, force
+    )
+    return fqn.set_database(database).set_schema(schema)
+
+
+def _resolve_warehouse(interactive: bool) -> Optional[str]:
+    """Determine the warehouse to ensure for DCM commands.
+
+    Returns None when the connection already has a warehouse (nothing to do).
+    Otherwise returns a warehouse name to ensure exists: either one the user
+    names interactively, or the default `DCM_WH`.
+    """
+    if get_cli_context().connection.warehouse:
+        return None
+
+    if interactive:
+        warehouse = typer.prompt(
+            "No warehouse is configured for this connection. Enter the name of a "
+            "warehouse to use, or press Enter to create an X-Small warehouse named "
+            f"'{DEFAULT_WAREHOUSE_NAME}'",
+            default=DEFAULT_WAREHOUSE_NAME,
+            show_default=True,
+        ).strip()
+        return warehouse or DEFAULT_WAREHOUSE_NAME
+
+    return DEFAULT_WAREHOUSE_NAME
+
+
+def _warn_configure_warehouse(warehouse: str) -> None:
+    """Tell the user how to make the warehouse usable for later DCM commands."""
+    cli_console.warning(
+        f"⚠️  Your connection has no warehouse. Before running `snow dcm plan` or "
+        f"`snow dcm deploy`, use warehouse '{warehouse}' by either:\n"
+        f"    - passing --warehouse {warehouse} to those commands, or\n"
+        f"    - adding it to your connection in config.toml:\n"
+        f"          [connections.<your_connection>]\n"
+        f'          warehouse = "{warehouse}"'
+    )
+
+
+def _insert_target_block(manifest_text: str, target_block: str) -> str:
+    """Insert ``target_block`` as the last entry of the manifest's ``targets:`` section."""
+    lines = manifest_text.splitlines(keepends=True)
+
+    targets_idx = None
+    for i, line in enumerate(lines):
+        if line[:1].isspace():
+            continue  # not a top-level key
+        if line.rstrip("\n").rstrip() == "targets:":
+            targets_idx = i
+            break
+    if targets_idx is None:
+        raise CliError(
+            f"Could not find a top-level 'targets:' section in {MANIFEST_FILE_NAME} "
+            f"to append to."
+        )
+
+    # The targets block spans indented (or blank) lines after `targets:`.
+    last_child = targets_idx
+    for j in range(targets_idx + 1, len(lines)):
+        line = lines[j]
+        if line.strip() == "":
+            continue  # blank lines do not terminate the block
+        if line[:1].isspace():
+            last_child = j
+            continue
+        break  # a new top-level key ends the targets block
+
+    # Ensure the line we insert after ends with a newline.
+    if not lines[last_child].endswith("\n"):
+        lines[last_child] = lines[last_child] + "\n"
+
+    insert_at = last_child + 1
+    return "".join(lines[:insert_at]) + target_block + "".join(lines[insert_at:])
+
+
+@dataclass
+class _InitPlan:
+    """A resolved plan of everything ``snow dcm init`` will create or change."""
+
+    identifier: FQN
+    database: str
+    schema: str
+    warehouse: Optional[str]  # None when the connection already has one
+    create_warehouse: bool
+    create_database: bool
+    create_schema: bool
+    manifest_exists: bool
+    project_exists: bool
+    account_identifier: str
+    target_name: str
+    project_owner: str
+    is_new_project: bool = False
+    append_target: bool = False
+    existing_manifest_text: Optional[str] = None
+
+
+def _read_existing_targets(manifest_path: SecurePath) -> tuple[str, dict]:
+    """Read an existing manifest, returning its text and its ``targets`` mapping."""
+    text = manifest_path.read_text(file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB)
+    try:
+        data = yaml.safe_load(text) or {}
+    except yaml.YAMLError as e:
+        raise CliError(f"Could not parse {manifest_path.path}: {e}")
+    targets = data.get("targets") or {}
+    if not isinstance(targets, dict):
+        raise CliError(
+            f"Cannot append a target: 'targets' in {manifest_path.path} is not a mapping."
+        )
+    return text, targets
+
+
+def _build_init_plan(
+    dpm: DCMProjectManager,
+    identifier: FQN,
+    target_name: str,
+    append_target: bool,
+    account_identifier: str,
+    project_owner: str,
+    warehouse: Optional[str],
+    manifest_exists: bool,
+    is_new_project: bool,
+    existing_manifest_text: Optional[str],
+    project_exists: bool,
+) -> _InitPlan:
+    """Resolve, without mutating anything, what init needs to create/change."""
+    database = identifier.database
+    schema = identifier.schema
+
+    if project_exists:
+        # The project already exists, so its namespace does too.
+        create_database = False
+        create_schema = False
+    else:
+        db_exists = dpm.database_exists(database)
+        create_database = not db_exists
+        # A missing database implies a missing schema; don't query a schema
+        # inside a database that does not exist yet (it would error).
+        create_schema = (not dpm.schema_exists(database, schema)) if db_exists else True
+
+    create_warehouse = warehouse is not None and not dpm.warehouse_exists(warehouse)
+
+    return _InitPlan(
+        identifier=identifier,
+        database=database,
+        schema=schema,
+        warehouse=warehouse,
+        create_warehouse=create_warehouse,
+        create_database=create_database,
+        create_schema=create_schema,
+        manifest_exists=manifest_exists,
+        project_exists=project_exists,
+        account_identifier=account_identifier,
+        target_name=target_name,
+        project_owner=project_owner,
+        is_new_project=is_new_project,
+        append_target=append_target,
+        existing_manifest_text=existing_manifest_text,
+    )
+
+
+def _init_actions_requiring_approval(
+    plan: _InitPlan, target_dir: SecurePath
+) -> List[str]:
+    """Human-readable list of changes that need the user's explicit approval."""
+    directory = target_dir.path.resolve()
+    actions: List[str] = []
+    if plan.manifest_exists:
+        if plan.append_target:
+            actions.append(
+                f"Append target '{plan.target_name}' to existing {MANIFEST_FILE_NAME} "
+                f"in '{directory}'"
+            )
+        # Reusing an existing target does not modify the manifest, so it is not a
+        # change that needs approval.
+    else:
+        actions.append(
+            f"Create a new project structure with target '{plan.target_name}' "
+            f"({MANIFEST_FILE_NAME} and "
+            f"{SOURCES_FOLDER}/{DEFINITIONS_FOLDER}/{DEFAULT_DEFINITION_FILE_NAME}) "
+            f"in '{directory}'"
+        )
+    if plan.create_warehouse:
+        actions.append(f"Create X-Small warehouse '{plan.warehouse}'")
+    if plan.create_database:
+        actions.append(f"Create database '{plan.database}'")
+    if plan.create_schema:
+        actions.append(f"Create schema '{plan.database}.{plan.schema}'")
+    if not plan.project_exists:
+        actions.append(
+            f"Create DCM Project '{plan.identifier}' in Snowflake "
+            f"(owned by role '{plan.project_owner}')"
+        )
+    return actions
+
+
+def _confirm_init_plan(
+    plan: _InitPlan, target_dir: SecurePath, force: bool, interactive: bool
+) -> None:
+    """Confirm all mutating actions up front, so nothing is created on abort."""
+    actions = _init_actions_requiring_approval(plan, target_dir)
+    if not actions or force:
+        return
+
+    if not interactive:
+        listing = "\n".join(f"    - {a}" for a in actions)
+        raise CliError(
+            "The following changes need approval, but there is no interactive "
+            f"terminal:\n{listing}\n"
+            "Re-run `snow dcm init` interactively, or pass --force to approve them."
+        )
+
+    cli_console.message("`snow dcm init` will make the following changes:")
+    with cli_console.indented():
+        for action in actions:
+            cli_console.message(f"- {action}")
+    # For an existing manifest the user has already confirmed adding the target
+    # (and named it), so don't ask a second time.
+    if plan.manifest_exists:
+        return
+    if not typer.confirm("Proceed?", default=False):
+        raise CliError("Aborted; no changes were made.")
+
+
+def _scaffold_project_files(
+    target_dir: SecurePath, manifest_path: SecurePath, plan: _InitPlan
+) -> None:
+    """Scaffold a new ``manifest.yml`` and a ``sources/definitions/raw.sql`` placeholder."""
+    if not target_dir.exists():
+        target_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(
+        render_default_manifest(
+            project_name=plan.identifier.identifier,
+            account_identifier=plan.account_identifier,
+            project_owner=plan.project_owner,
+            target_name=plan.target_name,
+        )
+    )
+    cli_console.step(f"Created {manifest_path.path}.")
+
+    definitions_dir = target_dir / SOURCES_FOLDER / DEFINITIONS_FOLDER
+    definitions_dir.mkdir(parents=True, exist_ok=True)
+    definition_path = definitions_dir / DEFAULT_DEFINITION_FILE_NAME
+    if definition_path.exists():
+        cli_console.step(f"Using existing {definition_path.path}.")
+    else:
+        definition_path.write_text(render_default_definition())
+        cli_console.step(f"Created {definition_path.path}.")
+
+
+def _execute_init_plan(
+    plan: _InitPlan,
+    target_dir: SecurePath,
+    manifest_path: SecurePath,
+    dpm: DCMProjectManager,
+) -> None:
+    """Perform the approved plan in a safe order (no side effects before this point)."""
+    # 1. Local files.
+    if plan.manifest_exists:
+        if plan.append_target:
+            updated = _insert_target_block(
+                plan.existing_manifest_text or "",
+                render_target_block(
+                    project_name=plan.identifier.identifier,
+                    account_identifier=plan.account_identifier,
+                    project_owner=plan.project_owner,
+                    target_name=plan.target_name,
+                ),
+            )
+            manifest_path.write_text(updated)
+            cli_console.step(
+                f"Appended target '{plan.target_name}' to {manifest_path.path} "
+                f"(default target unchanged)."
+            )
+        else:
+            cli_console.step(
+                f"Reusing existing target '{plan.target_name}' in {manifest_path.path}."
+            )
+    else:
+        _scaffold_project_files(target_dir, manifest_path, plan)
+
+    # 2. Warehouse.
+    if plan.warehouse is None:
+        cli_console.step(f"Using warehouse '{get_cli_context().connection.warehouse}'.")
+    elif plan.create_warehouse:
+        dpm.create_warehouse(plan.warehouse)
+        cli_console.step(f"Created X-Small warehouse '{plan.warehouse}'.")
+    else:
+        cli_console.step(f"Using existing warehouse '{plan.warehouse}'.")
+
+    # 3. Namespace and project.
+    if plan.project_exists:
+        cli_console.step(
+            f"DCM Project '{plan.identifier}' already exists in Snowflake; skipping creation."
+        )
+    else:
+        if plan.create_database:
+            dpm.create_database(plan.database)
+            cli_console.step(f"Created database '{plan.database}'.")
+        else:
+            cli_console.step(f"Using existing database '{plan.database}'.")
+
+        if plan.create_schema:
+            dpm.create_schema(plan.database, plan.schema)
+            cli_console.step(f"Created schema '{plan.database}.{plan.schema}'.")
+        else:
+            cli_console.step(f"Using existing schema '{plan.database}.{plan.schema}'.")
+
+        dpm.create(project_identifier=plan.identifier)
+        cli_console.step(f"Created DCM Project '{plan.identifier}' in Snowflake.")
+
+    # 4. Guidance for a connection that had no warehouse.
+    if plan.warehouse is not None:
+        _warn_configure_warehouse(plan.warehouse)
+
+
+def _print_init_next_steps(plan: _InitPlan, target_dir: SecurePath) -> None:
+    """Print short guidance on how to proceed after initialization."""
+    cli_console.message("\nNext steps:")
+    with cli_console.indented():
+        step = 1
+        if plan.is_new_project:
+            cli_console.message(
+                f"{step}. Change into the project folder: `cd {target_dir.path.name}`."
+            )
+            step += 1
+        if plan.manifest_exists:
+            cli_console.message(
+                f"{step}. Review or add object definitions in the "
+                f"'{SOURCES_FOLDER}/{DEFINITIONS_FOLDER}' folder."
+            )
+        else:
+            cli_console.message(
+                f"{step}. Add your object definitions to the "
+                f"'{SOURCES_FOLDER}/{DEFINITIONS_FOLDER}' folder "
+                f"(edit the generated '{DEFAULT_DEFINITION_FILE_NAME}' placeholder)."
+            )
+        step += 1
+        cli_console.message(
+            f"{step}. Run `snow dcm plan {plan.identifier} --target {plan.target_name}` "
+            f"to preview the changes, then "
+            f"`snow dcm deploy {plan.identifier} --target {plan.target_name}` "
+            f"to apply them."
+        )
+
+
+@app.command(
+    requires_connection=True,
+)
+def init(
+    project_name: Optional[str] = init_project_name_option,
+    target: Optional[str] = init_target_option,
+    project_identifier: Optional[str] = init_project_identifier_option,
+    if_not_exists: bool = IfNotExistsOption(
+        help="Do nothing if the project already exists in Snowflake."
+    ),
+    force: bool = ForceOption,
+    interactive: bool = InteractiveOption,
+    **options,
+):
+    """
+    Initializes a DCM Project. You either create a new project — pass `--project-name` (or choose one interactively) and a subfolder is created with a `manifest.yml` and a `sources/definitions/raw.sql` placeholder — or add a new target to an existing `manifest.yml` in the current directory. You then name the target (defaults to the account alias) and the DCM Project object (defaults to the target name; special characters are automatically double-quoted). If the object name is not fully qualified, the connection's default database and schema are used (or you are prompted), and they are created if missing. All changes are summarized and confirmed up front; pass `--force` to approve them non-interactively (which then requires `--target`). Nothing is created if you decline. After initialization, prints the next steps.
+    """
+    # Step 1: choose a new project (subfolder) or an existing manifest in the cwd.
+    target_dir, append_to_existing = _resolve_project_location(
+        project_name, interactive, force
+    )
+    manifest_path = target_dir / MANIFEST_FILE_NAME
+    is_new_project = not append_to_existing
+
+    existing_manifest_text: Optional[str] = None
+    existing_targets: dict = {}
+    if append_to_existing:
+        existing_manifest_text, existing_targets = _read_existing_targets(manifest_path)
+
+    account_identifier, default_target = _resolve_account_context_for_manifest()
+
+    # Step 2: name the new target.
+    target_name, append_target = _resolve_target_name(
+        target,
+        default_target,
+        existing_targets,
+        append_to_existing,
+        interactive,
+        force,
+    )
+
+    # Step 3 & 4: name the DCM Project object and qualify its namespace.
+    identifier = _resolve_project_object_identifier(
+        project_identifier, target_name, interactive, force
+    )
+    project_owner = _resolve_project_owner_for_manifest(interactive and not force)
+
+    om = ObjectManager()
+    project_exists = om.object_exists(object_type="dcm", fqn=identifier)
+    if project_exists and not if_not_exists:
+        raise CliError(f"DCM Project '{identifier}' already exists.")
+
+    warehouse = _resolve_warehouse(interactive and not force)
+
+    dpm = DCMProjectManager()
+    plan = _build_init_plan(
+        dpm=dpm,
+        identifier=identifier,
+        target_name=target_name,
+        append_target=append_target,
+        account_identifier=account_identifier,
+        project_owner=project_owner,
+        warehouse=warehouse,
+        manifest_exists=append_to_existing,
+        is_new_project=is_new_project,
+        existing_manifest_text=existing_manifest_text,
+        project_exists=project_exists,
+    )
+    _confirm_init_plan(plan, target_dir, force=force, interactive=interactive)
+
+    with cli_console.phase(f"Initializing DCM Project '{identifier}'"):
+        _execute_init_plan(plan, target_dir, manifest_path, dpm)
+
+    _print_init_next_steps(plan, target_dir)
+
+    return MessageResult(f"Initialized DCM Project '{identifier}'.")
 
 
 @app.command(requires_connection=True)

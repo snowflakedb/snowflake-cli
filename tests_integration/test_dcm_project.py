@@ -17,12 +17,10 @@ import os
 import warnings
 from contextlib import contextmanager
 from pathlib import Path
-
-import yaml
+from typing import Optional, Set, Tuple
 
 import pytest
-
-from typing import Set, Optional, Tuple
+import yaml
 
 from tests_integration.conftest import CommandResult
 
@@ -1066,3 +1064,162 @@ def test_dcm_project_owner_validation(
         result = runner.invoke_with_connection(["dcm", "create", "--target", "dev"])
         assert result.exit_code == 0
         assert "Role mismatch" in result.output
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_dcm_init(runner, test_database, tmp_path):
+    project_folder = "my_init_project"
+    identifier = f"{test_database}.PUBLIC.my_init_project"
+
+    original_cwd = os.getcwd()
+    try:
+        os.chdir(tmp_path)
+
+        # Create a new project in a subfolder. --force approves the plan
+        # non-interactively and requires --target.
+        result = runner.invoke_with_connection(
+            [
+                "dcm",
+                "init",
+                "--project-name",
+                project_folder,
+                "--target",
+                "dev",
+                "--project-identifier",
+                identifier,
+                "--force",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert f"Initialized DCM Project '{identifier}'." in result.output
+
+        init_dir = tmp_path / project_folder
+        manifest_path = init_dir / "manifest.yml"
+        assert manifest_path.exists()
+        assert (init_dir / "sources" / "definitions" / "raw.sql").exists()
+        manifest = yaml.safe_load(manifest_path.read_text())
+        assert manifest["manifest_version"] == 2
+        assert manifest["type"] == "dcm_project"
+        assert "dev" in manifest["targets"]
+        target = manifest["targets"]["dev"]
+        # project_name is stored fully qualified.
+        assert target["project_name"] == identifier
+        # account_identifier is ORG-LOCATOR.
+        assert "-" in target["account_identifier"]
+
+        # The project now exists in Snowflake: re-running without --if-not-exists
+        # fails.
+        result = runner.invoke_with_connection(
+            [
+                "dcm",
+                "init",
+                "--project-name",
+                "my_init_project_2",
+                "--target",
+                "dev",
+                "--project-identifier",
+                identifier,
+                "--force",
+            ]
+        )
+        assert result.exit_code == 1, result.output
+        assert f"DCM Project '{identifier}' already exists." in result.output
+
+        # With --if-not-exists it succeeds and still scaffolds the manifest.
+        result = runner.invoke_with_connection(
+            [
+                "dcm",
+                "init",
+                "--project-name",
+                "my_init_project_2",
+                "--target",
+                "dev",
+                "--project-identifier",
+                identifier,
+                "--if-not-exists",
+                "--force",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "my_init_project_2" / "manifest.yml").exists()
+
+        # Running from a directory that already has a manifest (no --project-name)
+        # appends a new target without changing the existing default_target.
+        append_dir = tmp_path / "dcm_init_append"
+        append_dir.mkdir()
+        (append_dir / "manifest.yml").write_text(
+            "manifest_version: 2\n"
+            'type: "dcm_project"\n'
+            "\n"
+            'default_target: "existing_target"\n'
+            "\n"
+            "targets:\n"
+            '  "existing_target":\n'
+            f'    project_name: "{identifier}"\n'
+            '    account_identifier: "SOME_ORG-SOME_LOC"\n'
+            '    project_owner: "SOME_ROLE"\n'
+        )
+        os.chdir(append_dir)
+        result = runner.invoke_with_connection(
+            [
+                "dcm",
+                "init",
+                "--target",
+                "second_target",
+                "--project-identifier",
+                identifier,
+                "--if-not-exists",
+                "--force",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        appended = yaml.safe_load((append_dir / "manifest.yml").read_text())
+        # The existing default target is preserved and a second target is appended.
+        assert appended["default_target"] == "existing_target"
+        assert "existing_target" in appended["targets"]
+        assert len(appended["targets"]) == 2
+    finally:
+        os.chdir(original_cwd)
+
+    # Clean up
+    result = runner.invoke_with_connection(["dcm", "drop", identifier])
+    assert result.exit_code == 0, result.output
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_dcm_init_creates_schema(runner, test_database, tmp_path, snowflake_session):
+    new_schema = "DCM_INIT_NEW_SCHEMA"
+    identifier = f"{test_database}.{new_schema}.my_init_project"
+
+    original_cwd = os.getcwd()
+    try:
+        os.chdir(tmp_path)
+
+        # Creating the missing schema requires interactive confirmation.
+        result = runner.invoke_with_connection(
+            [
+                "dcm",
+                "init",
+                "--project-name",
+                "my_init_project",
+                "--target",
+                "dev",
+                "--project-identifier",
+                identifier,
+                "--interactive",
+            ],
+            input="y\n",
+        )
+        assert result.exit_code == 0, result.output
+        assert "Created schema" in result.output
+
+        # The project lives in the newly created schema.
+        result = runner.invoke_with_connection(["dcm", "describe", identifier])
+        assert result.exit_code == 0, result.output
+    finally:
+        os.chdir(original_cwd)
+        snowflake_session.execute_string(
+            f"DROP SCHEMA IF EXISTS {test_database}.{new_schema}"
+        )

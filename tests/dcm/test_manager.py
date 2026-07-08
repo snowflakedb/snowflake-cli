@@ -24,6 +24,7 @@ from snowflake.cli._plugins.dcm.manager import (
 )
 from snowflake.cli._plugins.dcm.models import MANIFEST_FILE_NAME
 from snowflake.cli.api.identifiers import FQN
+from snowflake.connector.cursor import DictCursor
 
 execute_queries = "snowflake.cli._plugins.dcm.manager.DCMProjectManager.execute_query"
 TEST_STAGE = FQN.from_stage("@test_stage")
@@ -51,6 +52,78 @@ def test_create(mock_execute_query):
 
     mock_execute_query.assert_called_once_with(
         "CREATE DCM PROJECT IDENTIFIER('project_mock_fqn')"
+    )
+
+
+@mock.patch(execute_queries)
+def test_create_database(mock_execute_query):
+    mgr = DCMProjectManager()
+    mgr.create_database("my_db")
+
+    mock_execute_query.assert_called_once_with(
+        "CREATE DATABASE IF NOT EXISTS IDENTIFIER('my_db')"
+    )
+
+
+@mock.patch(execute_queries)
+def test_create_schema(mock_execute_query):
+    mgr = DCMProjectManager()
+    mgr.create_schema("my_db", "my_schema")
+
+    mock_execute_query.assert_called_once_with(
+        "CREATE SCHEMA IF NOT EXISTS IDENTIFIER('my_db.my_schema')"
+    )
+
+
+@mock.patch(execute_queries)
+def test_database_exists(mock_execute_query):
+    mock_execute_query.return_value.fetchone.return_value = {"name": "MY_DB"}
+    mgr = DCMProjectManager()
+
+    assert mgr.database_exists("my_db") is True
+    mock_execute_query.assert_called_once_with(
+        "SHOW DATABASES LIKE 'my_db'", cursor_class=DictCursor
+    )
+
+
+@mock.patch(execute_queries)
+def test_database_does_not_exist(mock_execute_query):
+    mock_execute_query.return_value.fetchone.return_value = None
+    mgr = DCMProjectManager()
+
+    assert mgr.database_exists("my_db") is False
+
+
+@mock.patch(execute_queries)
+def test_schema_exists(mock_execute_query):
+    mock_execute_query.return_value.fetchone.return_value = {"name": "MY_SCHEMA"}
+    mgr = DCMProjectManager()
+
+    assert mgr.schema_exists("my_db", "my_schema") is True
+    mock_execute_query.assert_called_once_with(
+        "SHOW SCHEMAS LIKE 'my_schema' IN DATABASE IDENTIFIER('my_db')",
+        cursor_class=DictCursor,
+    )
+
+
+@mock.patch(execute_queries)
+def test_create_warehouse(mock_execute_query):
+    mgr = DCMProjectManager()
+    mgr.create_warehouse("dcm_wh")
+
+    mock_execute_query.assert_called_once_with(
+        "CREATE WAREHOUSE IF NOT EXISTS IDENTIFIER('dcm_wh') WAREHOUSE_SIZE = 'XSMALL'"
+    )
+
+
+@mock.patch(execute_queries)
+def test_warehouse_exists(mock_execute_query):
+    mock_execute_query.return_value.fetchone.return_value = {"name": "DCM_WH"}
+    mgr = DCMProjectManager()
+
+    assert mgr.warehouse_exists("dcm_wh") is True
+    mock_execute_query.assert_called_once_with(
+        "SHOW WAREHOUSES LIKE 'dcm_wh'", cursor_class=DictCursor
     )
 
 

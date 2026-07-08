@@ -29,8 +29,71 @@ from snowflake.cli.api.secure_path import SecurePath
 MANIFEST_FILE_NAME = "manifest.yml"
 DCM_PROJECT_TYPE = "dcm_project"
 SOURCES_FOLDER = "sources"
+DEFINITIONS_FOLDER = "definitions"
+DEFAULT_DEFINITION_FILE_NAME = "raw.sql"
 SUPPORTED_MANIFEST_VERSION = 2
+DEFAULT_TARGET_NAME = "dev"
+DEFAULT_WAREHOUSE_NAME = "DCM_WH"
+DEFAULT_WAREHOUSE_SIZE = "XSMALL"
 log = logging.getLogger(__name__)
+
+
+def render_default_definition() -> str:
+    """Render placeholder contents for a new DCM definitions SQL file."""
+    return (
+        "-- Add your DCM object definitions here.\n"
+        "-- Example:\n"
+        "-- DEFINE TABLE my_table (id INT, name STRING);\n"
+    )
+
+
+def _yaml_double_quoted(value: str) -> str:
+    """Render ``value`` as a YAML double-quoted scalar, escaping ``\\`` and ``"``.
+
+    Project object names and roles can be quoted Snowflake identifiers (e.g.
+    ``"my project"``), so values written into the manifest must escape embedded
+    quotes to stay valid YAML.
+    """
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+def render_target_block(
+    project_name: str,
+    account_identifier: str,
+    project_owner: str,
+    target_name: str,
+) -> str:
+    """Render a single indented ``targets:`` entry for a DCM v2 manifest."""
+    return (
+        f"  {_yaml_double_quoted(target_name)}:\n"
+        f"    project_name: {_yaml_double_quoted(project_name)}\n"
+        f"    account_identifier: {_yaml_double_quoted(account_identifier)}\n"
+        f"    project_owner: {_yaml_double_quoted(project_owner)}\n"
+    )
+
+
+def render_default_manifest(
+    project_name: str,
+    account_identifier: str,
+    project_owner: str,
+    target_name: str = DEFAULT_TARGET_NAME,
+) -> str:
+    """Render the contents of a default DCM v2 ``manifest.yml`` for ``dcm init``."""
+    return (
+        f"manifest_version: {SUPPORTED_MANIFEST_VERSION}\n"
+        f'type: "{DCM_PROJECT_TYPE}"\n'
+        "\n"
+        f"default_target: {_yaml_double_quoted(target_name)}\n"
+        "\n"
+        "targets:\n"
+        + render_target_block(
+            project_name=project_name,
+            account_identifier=account_identifier,
+            project_owner=project_owner,
+            target_name=target_name,
+        )
+    )
 
 
 @dataclass
