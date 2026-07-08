@@ -544,14 +544,12 @@ def test_purge_project_with_alias(mock_execute_query):
 class TestSyncLocalFiles:
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put_recursive")
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put")
-    @mock.patch(
-        "snowflake.cli._plugins.dcm.manager.DCMProjectManager._bundle_definition_files"
-    )
+    @mock.patch("snowflake.cli._plugins.dcm.manager.bundle_artifacts")
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
     def test_uploads_to_temporary_stage(
         self,
         mock_create_stage,
-        mock_bundle,
+        mock_bundle_artifacts,
         mock_put,
         mock_put_recursive,
         project_directory,
@@ -567,7 +565,7 @@ class TestSyncLocalFiles:
             mock_create_stage.assert_called_once()
             assert mock_create_stage.call_args.kwargs["temporary"] is True
 
-            mock_bundle.assert_called_once()
+            mock_bundle_artifacts.assert_called_once()
 
             mock_put_recursive.assert_called_once()
             assert mock_put_recursive.call_args.kwargs["stage_path"] == str(
@@ -580,14 +578,12 @@ class TestSyncLocalFiles:
 
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put_recursive")
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put")
-    @mock.patch(
-        "snowflake.cli._plugins.dcm.manager.DCMProjectManager._bundle_definition_files"
-    )
+    @mock.patch("snowflake.cli._plugins.dcm.manager.bundle_artifacts")
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
     def test_sync_local_files_with_source_directory(
         self,
         _mock_create_stage,
-        mock_bundle,
+        mock_bundle_artifacts,
         mock_put,
         mock_put_recursive,
         tmp_path,
@@ -615,20 +611,18 @@ class TestSyncLocalFiles:
             project_identifier=TEST_PROJECT, source_directory=str(source_dir)
         )
 
-        mock_bundle.assert_called_once()
-        actual_project_root = mock_bundle.call_args.kwargs["project_root"]
+        mock_bundle_artifacts.assert_called_once()
+        actual_project_root = mock_bundle_artifacts.call_args.args[0].project_root
         assert actual_project_root.resolve() == source_dir.resolve()
 
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put_recursive")
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put")
-    @mock.patch(
-        "snowflake.cli._plugins.dcm.manager.DCMProjectManager._bundle_definition_files"
-    )
+    @mock.patch("snowflake.cli._plugins.dcm.manager.bundle_artifacts")
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
     def test_sync_local_files_with_relative_source_directory(
         self,
         _mock_create_stage,
-        mock_bundle,
+        mock_bundle_artifacts,
         mock_put,
         mock_put_recursive,
         tmp_path,
@@ -657,8 +651,8 @@ class TestSyncLocalFiles:
                 source_directory="relative_source",
             )
 
-            mock_bundle.assert_called_once()
-            actual_project_root = mock_bundle.call_args.kwargs["project_root"]
+            mock_bundle_artifacts.assert_called_once()
+            actual_project_root = mock_bundle_artifacts.call_args.args[0].project_root
             assert actual_project_root.is_absolute()
             assert actual_project_root.resolve() == source_dir.resolve()
         finally:
@@ -666,14 +660,12 @@ class TestSyncLocalFiles:
 
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put_recursive")
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put")
-    @mock.patch(
-        "snowflake.cli._plugins.dcm.manager.DCMProjectManager._bundle_definition_files"
-    )
+    @mock.patch("snowflake.cli._plugins.dcm.manager.bundle_artifacts")
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
     def test_sync_local_files_collects_manifest_and_sources(
         self,
         _mock_create_stage,
-        mock_bundle,
+        mock_bundle_artifacts,
         mock_put,
         mock_put_recursive,
         tmp_path,
@@ -707,8 +699,8 @@ class TestSyncLocalFiles:
             project_identifier=TEST_PROJECT, source_directory=str(source_dir)
         )
 
-        mock_bundle.assert_called_once()
-        artifacts = mock_bundle.call_args.kwargs["artifacts"]
+        mock_bundle_artifacts.assert_called_once()
+        artifacts = mock_bundle_artifacts.call_args.args[1]
         artifact_srcs = [a.src for a in artifacts]
 
         assert MANIFEST_FILE_NAME in artifact_srcs
@@ -766,3 +758,25 @@ class TestSyncLocalFiles:
             assert any(
                 filename in q and stage_dest in q for q in put_queries
             ), f"expected a PUT for {filename} to {stage_dest}; got: {put_queries}"
+
+
+class TestSummarizeUploadPaths:
+    def test_groups_by_sources_subfolder(self):
+        paths = [
+            MANIFEST_FILE_NAME,
+            f"{SOURCES_FOLDER}/definitions/a.sql",
+            f"{SOURCES_FOLDER}/definitions/b.sql",
+            f"{SOURCES_FOLDER}/macros/m.sql",
+            f"{SOURCES_FOLDER}/.DS_Store",
+        ]
+        lines = DCMProjectManager._summarize_upload_paths(paths)  # noqa: SLF001
+        # Singular "file " is padded with a trailing space so adjacent rows
+        # line up vertically with the plural "files" rows in the upload
+        # details block. The literal expected strings below intentionally
+        # contain that double-space; do not "fix" it.
+        assert lines == [
+            f"Upload {MANIFEST_FILE_NAME}",
+            f"Upload 1 file  from {SOURCES_FOLDER}/",
+            f"Upload 2 files from {SOURCES_FOLDER}/definitions",
+            f"Upload 1 file  from {SOURCES_FOLDER}/macros",
+        ]
