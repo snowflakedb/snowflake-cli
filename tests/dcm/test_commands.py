@@ -1,5 +1,4 @@
 import json
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 from unittest import mock
@@ -2335,27 +2334,15 @@ class TestDCMPreview:
         assert "Missing option '--object'" in result.output
 
 
-@pytest.fixture
-def freeze_progress_clock():
-    """Freeze the progress tracker's clock so rendered phase durations are
-    deterministic.
-
-    ``refresh`` and ``test`` render the real ``DeployProgressTracker`` phase
-    line, which includes a wall-clock duration (e.g. ``(0.0s)``). The mocked
-    SQL call returns almost instantly, so the duration normally rounds to
-    ``0.0s`` — but on a loaded CI worker the two ``datetime.now()`` reads can
-    span >0.05s and render ``(0.1s)``, breaking the snapshot. Pinning
-    ``datetime.now()`` to a constant makes the duration exactly ``0.0s``.
-    """
-    frozen = datetime(2024, 1, 1, 0, 0, 0)
-    with mock.patch("snowflake.cli._plugins.dcm.progress.datetime") as mock_datetime:
-        mock_datetime.now.return_value = frozen
-        yield
-
-
 class TestDCMRefresh:
     @pytest.fixture(autouse=True)
-    def _freeze_clock(self, freeze_progress_clock):
+    def _mock_tracker(self, mock_deploy_tracker):
+        # ``refresh`` renders the real ``DeployProgressTracker`` phase line via
+        # a Rich ``Live`` display, whose final frame emits a platform-dependent
+        # number of trailing newlines — making the captured output (and thus the
+        # snapshot) non-portable across OSes. Mock the tracker so these
+        # snapshots cover only the deterministic reporter output, matching how
+        # every other DCM command test already works.
         yield
 
     def test_refresh_with_outdated_tables(
@@ -2519,7 +2506,10 @@ class TestDCMRefresh:
 
 class TestDCMTest:
     @pytest.fixture(autouse=True)
-    def _freeze_clock(self, freeze_progress_clock):
+    def _mock_tracker(self, mock_deploy_tracker):
+        # See ``TestDCMRefresh._mock_tracker``: mock the tracker so the snapshot
+        # only covers the deterministic reporter output (the Rich ``Live`` phase
+        # line renders a platform-dependent number of trailing newlines).
         yield
 
     def test_test_all_passing(self, mock_dcm_manager, runner, mock_cursor, snapshot):
