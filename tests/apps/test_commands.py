@@ -1200,6 +1200,30 @@ class TestSnowflakeAppManager:
         )
 
     @patch(EXECUTE_QUERY)
+    def test_stage_exists_returns_true(self, mock_execute):
+        mock_cursor = Mock()
+        mock_cursor.__iter__ = Mock(return_value=iter([{"name": "STAGE"}]))
+        mock_execute.return_value = mock_cursor
+        fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
+        assert SnowflakeAppManager().stage_exists(fqn) is True
+        query = mock_execute.call_args[0][0]
+        assert "SHOW STAGES LIKE" in query
+        assert "IN SCHEMA" in query
+        assert "DB.SCHEMA" in query
+        assert mock_execute.call_args.kwargs["cursor_class"] is DictCursor
+
+    @patch(EXECUTE_QUERY)
+    def test_stage_exists_returns_false(self, mock_execute):
+        mock_cursor = Mock()
+        mock_cursor.__iter__ = Mock(return_value=iter([]))
+        mock_execute.return_value = mock_cursor
+        fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
+        assert SnowflakeAppManager().stage_exists(fqn) is False
+        query = mock_execute.call_args[0][0]
+        assert "SHOW STAGES LIKE" in query
+        assert "IN SCHEMA" in query
+
+    @patch(EXECUTE_QUERY)
     def test_create_workspace_ensures_live_version(self, mock_execute):
         fqn = FQN(database="DB", schema="SCHEMA", name="WORKSPACE")
         SnowflakeAppManager().create_workspace(fqn)
@@ -6588,6 +6612,109 @@ class TestDeployCommand:
         drop_span = _get_completed_span("snowflake_app.build.drop_stage")
         assert drop_span is not None
         assert drop_span[CLIMetricsSpan.ERROR_KEY] is None
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_skips_drop_when_stage_absent(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """A first deploy has no stage to clear, so the pre-upload drop is
+        skipped: the stage is only created, never dropped before create. This
+        lets a role with only CREATE STAGE (no OWNERSHIP) deploy."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = Mock(
+            encryption_type="SNOWFLAKE_SSE",
+            database=None,
+            schema_=None,
+        )
+        entity.code_stage.name = "MY_STAGE"
+        entity.code_workspace = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.runtime_image = "runtime:latest"
+        entity.query_warehouse = "WH"
+        entity.artifact_repository = None
+        entity.build_compute_pool = None
+        entity.service_compute_pool = None
+        entity.build_eai = None
+        mock_get_entity.return_value = entity
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.stage_exists.return_value = False
+        mock_mgr.artifact_repo_exists.return_value = False
+        mock_mgr.build_app_artifact_repo.return_value = (
+            "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
+        )
+        mock_poll.side_effect = [
+            "DONE",
+            {
+                "url": "my-app.snowflakecomputing.app",
+                "is_upgrading": "false",
+            },
+        ]
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "deploy"])
+            assert result.exit_code == 0, result.output
+
+        stage_fqn = FQN(database="TEST_DB", schema="TEST_SCHEMA", name="MY_STAGE")
+        method_calls = mock_mgr.method_calls
+        build_index = next(
+            i for i, c in enumerate(method_calls) if c[0] == "build_app_artifact_repo"
+        )
+        drop_indices = [
+            i
+            for i, c in enumerate(method_calls)
+            if c[0] == "drop_stage_if_exists" and c.args == (stage_fqn,)
+        ]
+        # The stage did not exist, so it is never dropped before create; the
+        # only drop is the best-effort post-build cleanup of the stage this
+        # invocation created.
+        assert len(drop_indices) == 1
+        assert drop_indices[0] > build_index
+        mock_mgr.create_stage.assert_called_once()
+        assert "Creating stage @" in result.output
+        assert "Recreating stage @" not in result.output
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
