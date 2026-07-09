@@ -1,9 +1,6 @@
 # serializer version: 1
 # name: TestDCMRefresh.test_refresh_with_fresh_tables
   '''
-  
-  REFRESH   ✓  (0.0s)
-  
   UP-TO-DATE        0       0 JW_DCM_TESTALL.ANALYTICS.DYNAMIC_EMPLOYEES
   
   1 Dynamic Table refreshed successfully.
@@ -14,9 +11,6 @@
 # name: TestDCMRefresh.test_refresh_with_no_dynamic_tables
   '''
   
-  REFRESH   ✓  (0.0s)
-  
-  
   No dynamic tables found in the project.
   ================================================================================
   
@@ -24,9 +18,6 @@
 # ---
 # name: TestDCMRefresh.test_refresh_with_outdated_tables
   '''
-  
-  REFRESH   ✓  (0.0s)
-  
   REFRESHED    +12.3k   -999B JW_DCM_TESTALL.ANALYTICS.DYNAMIC_EMPLOYEES
   
   1 Dynamic Table refreshed successfully.
@@ -36,9 +27,6 @@
 # ---
 # name: TestDCMTest.test_test_all_passing
   '''
-  
-  TEST      ✓  (0.0s)
-  
   ✓ PASS      DB.SCHEMA.EMPLOYEES (ROW_COUNT_CHECK)
   ✓ PASS      DB.SCHEMA.ORDERS (NULL_CHECK)
   
@@ -50,9 +38,6 @@
 # name: TestDCMTest.test_test_no_expectations
   '''
   
-  TEST      ✓  (0.0s)
-  
-  
   No expectations found in the project.
   ================================================================================
   
@@ -60,9 +45,6 @@
 # ---
 # name: TestDCMTest.test_test_with_failures
   '''
-  
-  TEST      ✓  (0.0s)
-  
   ✓ PASS      DB.SCHEMA.EMPLOYEES (ROW_COUNT_CHECK)
   ✗ FAIL      DB.SCHEMA.ORDERS (NULL_CHECK)
     └─ Expected: = 0, Got: 15 (Metric: null_count)
