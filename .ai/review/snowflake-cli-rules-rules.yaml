@@ -8,6 +8,8 @@ allowed_file_extensions:
 rules:
   - id: snowflake-cli-rules-prefix
     rule: |
+      **SCOPE**: This rule applies ONLY to ArcticOwl ruleset files — `.yaml` files located directly under `.ai/review/` (e.g. `.ai/review/snowflake-cli-markdown-rules.yaml`). Files in subdirectories of `.ai/review/` (such as `*-test/` folders containing test fixtures) and all other YAML files in the repository must not be reviewed by this rule. If the file does not match this description, make no comments and stop.
+
       **OBJECTIVE**: Snowflake CLI rules need to be easy to find in reporting, thus they need consistent prefixing.
 
       **REQUIREMENT**: Rule files have a top-level `id` field and an `id` field on each entry

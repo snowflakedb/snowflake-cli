@@ -1,7 +1,8 @@
-id: snowflake-cli-python-rules
-friendly_name: "Snowflake CLI - Python Review Rules"
+id: snowflake-cli-coding-rules
+friendly_name: "Snowflake CLI - Coding Rules"
 status: shadow
-allowed_folders: []
+allowed_folders:
+  - "src/"
 excluded_folders: []
 allowed_file_extensions:
   - ".py"

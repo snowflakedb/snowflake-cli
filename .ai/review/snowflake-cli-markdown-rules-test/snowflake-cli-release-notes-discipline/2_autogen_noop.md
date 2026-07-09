@@ -29,3 +29,5 @@
 * Fixed `snow connection test` incorrectly reporting a failed connection when the server returns a non-critical warning during handshake.
 * Fixed `snow stage copy` failing silently when the destination path contains spaces; an error message is now shown and the operation is aborted cleanly.
 * Fixed `snow git fetch` crashing when the repository URL includes authentication tokens in certain formats.
+* Updated `snowflake-connector-python` to version 4.6.0.
+* Upgraded `pip` from 24.0 to 24.2.

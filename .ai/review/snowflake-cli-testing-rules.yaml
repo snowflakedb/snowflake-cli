@@ -1,5 +1,5 @@
-id: snowflake-cli-testing-conventions-rules
-friendly_name: "Snowflake CLI - Testing Conventions Rules"
+id: snowflake-cli-testing-rules
+friendly_name: "Snowflake CLI - Testing Rules"
 status: shadow
 allowed_folders:
   - "tests/"

@@ -8,15 +8,22 @@ allowed_file_extensions:
 rules:
   - id: snowflake-cli-release-notes-discipline
     rule: |
+      **SCOPE**: This rule applies ONLY to files named `RELEASE-NOTES.md`. If the file you are reviewing has any other name, make no comments and stop.
+
       **OBJECTIVE**: Keep `RELEASE-NOTES.md` correct, user-focused, and free of misplaced or noise entries.
 
       **REQUIREMENT**: Add a release-notes entry only for user-facing product changes. Place it under
       `# Unreleased version` as the last item in the correct subsection (`## Backward incompatibility`,
       `## Deprecations`, `## New additions`, or `## Fixes and improvements`) — never under an already-released
       `# vX.Y.Z` heading. Describe the user-visible impact concisely (1–2 sentences); do not leak internal
-      implementation details (function names, system functions). Do not add entries for internal/CI-only changes, for
-      features in Private Preview, or for work that is not yet enabled.
+      implementation details (function names, system functions). Do not add entries for internal/CI-only changes
+      (e.g., CI pipeline configuration, test infrastructure, internal code refactors with no user-visible effect),
+      for features in Private Preview, or for work that is not yet enabled.
       Remove duplicates of entries that already shipped in a released version.
+
+      **Package and dependency version upgrades are user-facing changes** — they can affect runtime behaviour,
+      security posture, and compatibility, so they **must** be included in release notes. Do not flag or remove
+      dependency upgrade entries.
 
       ❌ **BAD:**
       ```markdown
@@ -26,6 +33,14 @@ rules:
         has no attribute 'items'` because `ConnectionConfig.from_dict` now raises when
         called with a non-table value.   <!-- under a released version; leaks internals -->
       * `snow --docs` now emits MDX fragments for snowflake-prod-docs.  <!-- internal-only -->
+
+      # Unreleased version
+      ## New additions
+      * Updated GitHub Actions CI pipeline to use reusable workflow definitions.  <!-- CI-only -->
+
+      ## Fixes and improvements
+      * Updated `_resolve_connection_params` to call `ConfigManager.fetch_raw_dict` instead of
+        the deprecated `ConfigManager.load_legacy_format`.  <!-- internal refactor, leaks function names -->
       ```
 
       ✅ **GOOD:**
@@ -35,4 +50,28 @@ rules:
       * Fixed `snow connection list` crashing with `AttributeError` when `config.toml`
         contains a scalar value directly under `[connections]`. Such entries are now
         skipped with a warning so valid connections are still listed.
+      * Updated `snowflake-connector-python` to version 4.5.0.  <!-- dependency upgrade: always include -->
+      * Upgraded `pip` from 24.0 to 24.2.  <!-- dependency upgrade: always include -->
+      ```
+
+  - id: snowflake-cli-security-fix-vagueness
+    rule: |
+      **SCOPE**: This rule applies ONLY to files named `RELEASE-NOTES.md`. If the file you are reviewing has any other name, make no comments and stop.
+
+      **OBJECTIVE**: Prevent release-notes entries for security fixes from revealing exploitable implementation details.
+
+      **REQUIREMENT**: When an entry describes a security fix (injection flaws, path traversal, authentication bypass, privilege escalation, input sanitization, etc.), describe the user-visible improvement only. Do not reveal: the attack vector, the name of the vulnerable field or parameter, what bypass or exploit was possible, or what data could be exposed. Use neutral language such as "improved validation", "improved sanitization", or "improved handling".
+
+      ❌ **BAD:**
+      ```markdown
+      * Fixed a SQL injection in the `query` field of `snowflake.yml` that allowed bypassing row-level security and executing arbitrary SQL.
+      * Fixed path traversal in `--artifact-dir` that allowed reading files outside the project root.
+      * Fixed an authentication bypass in `snow connection test` when using token-based auth that allowed skipping MFA enforcement.
+      ```
+
+      ✅ **GOOD:**
+      ```markdown
+      * Improved sanitization of user-provided values in `snowflake.yml` project configuration.
+      * Improved validation of file path inputs in artifact-related commands.
+      * Improved robustness of connection authentication handling.
       ```
