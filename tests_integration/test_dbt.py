@@ -19,9 +19,15 @@ from unittest import mock
 
 import pytest
 import yaml
-
-from snowflake.cli._plugins.dbt.constants import ENV_FILENAME, PROFILES_FILENAME
+from snowflake.cli._plugins.dbt.constants import (
+    DBT_PROJECTS_PROFILES_FILENAME,
+    ENV_FILENAME,
+    PROFILES_FILENAME,
+)
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
+
+from tests_common.feature_flag_utils import with_feature_flags
 
 
 def _setup_dbt_profile(root_dir: Path, snowflake_session):
@@ -38,6 +44,17 @@ def _setup_dbt_profile(root_dir: Path, snowflake_session):
     profiles["dbt_integration_project"]["outputs"]["prod"] = prod_profile
 
     (root_dir / PROFILES_FILENAME).write_text(yaml.dump(profiles))
+
+
+def _write_dbt_projects_profile(profiles_dir: Path, override_schema: str):
+    """Write a dbt_projects_profiles.yml alongside profiles.yml in profiles_dir,
+    identical except its dev target points at override_schema. The schema a model
+    lands in then reveals which file the server used as the effective profiles.yml.
+    """
+    with open(profiles_dir / PROFILES_FILENAME, "r") as f:
+        profiles = yaml.safe_load(f)
+    profiles["dbt_integration_project"]["outputs"]["dev"]["schema"] = override_schema
+    (profiles_dir / DBT_PROJECTS_PROFILES_FILENAME).write_text(yaml.dump(profiles))
 
 
 def _assert_default_target(name, runner, default_target):
@@ -1048,3 +1065,88 @@ def test_execute_with_use_shell_env_vars(
         row = _run_and_fetch(["--use-shell-env-vars", "--env=prod"])
         assert row["FOO"] == "prod_foo", row
         assert row["BAR"] == "prod_bar", row
+
+
+@pytest.mark.integration
+@pytest.mark.qa_only
+def test_deploy_dbt_projects_profiles_precedence(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    """
+    What: End to end, a dbt_projects_profiles.yml in --profiles-dir takes
+          precedence over profiles.yml, and the deployed project runs with it.
+    How: Put profiles.yml (dev target -> the session schema) and
+         dbt_projects_profiles.yml (dev target -> a distinct override schema) in a
+         separate --profiles-dir. Deploy with the CLI feature flag on and the
+         server gate on, then execute `run`.
+    Expected: the model materializes in the override schema, proving
+              dbt_projects_profiles.yml won over profiles.yml through the full
+              deploy + execute flow.
+
+    Marked qa_only because it requires the feature active on BOTH sides: the CLI
+    flag (ENABLE_DBT_PROJECT_PROFILES_FILE_PRECEDENCE) and the server account gate
+    (ENABLE_FIX_3659937_DBT_PROJECTS_PROFILES_FILE). The account gate must be
+    enabled on the test account before running this test. Remove the qa_only marker
+    once the feature is GA.
+    """
+    with with_feature_flags(
+        {FeatureFlag.ENABLE_DBT_PROJECT_PROFILES_FILE_PRECEDENCE: True}
+    ):
+        ts = int(datetime.datetime.now().timestamp())
+        override_schema = f"{snowflake_session.schema}_DBTPROJ_{ts}"
+        snowflake_session.execute_string(
+            f"CREATE SCHEMA IF NOT EXISTS {snowflake_session.database}.{override_schema}"
+        )
+        try:
+            with project_directory("dbt_project") as root_dir:
+                name = f"dbt_projects_profiles_{ts}"
+
+                # profiles.yml -> the session schema
+                _setup_dbt_profile(root_dir, snowflake_session)
+
+                # Move profiles into a separate --profiles-dir and add the
+                # Snowflake-specific file (-> override schema), so the only profiles
+                # file the CLI stages is the one it resolves.
+                profiles_dir = Path(root_dir) / "profiles"
+                profiles_dir.mkdir(parents=True, exist_ok=True)
+                (root_dir / PROFILES_FILENAME).rename(profiles_dir / PROFILES_FILENAME)
+                _write_dbt_projects_profile(profiles_dir, override_schema)
+
+                result = runner.invoke_with_connection_json(
+                    [
+                        "dbt",
+                        "deploy",
+                        name,
+                        "--profiles-dir",
+                        str(profiles_dir.resolve()),
+                    ]
+                )
+                assert result.exit_code == 0, result.output
+
+                result = runner.invoke_passthrough_with_connection(
+                    args=["dbt", "execute"],
+                    passthrough_args=[name, "run"],
+                )
+                assert result.exit_code == 0, result.output
+                assert "Done. PASS=2 WARN=0 ERROR=0 SKIP=0 TOTAL=2" in result.output
+
+                # The model landed in the override schema => dbt_projects_profiles.yml
+                # was used, not profiles.yml.
+                result = runner.invoke_with_connection_json(
+                    [
+                        "sql",
+                        "-q",
+                        f"select count(*) as COUNT from "
+                        f"{snowflake_session.database}.{override_schema}.my_second_dbt_model;",
+                    ]
+                )
+                assert result.exit_code == 0, result.output
+                assert len(result.json) == 1, result.json
+                assert result.json[0]["COUNT"] == 1, result.json[0]
+        finally:
+            snowflake_session.execute_string(
+                f"DROP SCHEMA IF EXISTS {snowflake_session.database}.{override_schema}"
+            )

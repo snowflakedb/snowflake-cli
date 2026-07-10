@@ -7,6 +7,7 @@ from unittest import mock
 import pytest
 import yaml
 from snowflake.cli._plugins.dbt.constants import (
+    DBT_PROJECTS_PROFILES_FILENAME,
     ENV_FILENAME,
     PROFILES_FILENAME,
     SUPPORTED_DBT_VERSIONS_QUERY,
@@ -16,11 +17,13 @@ from snowflake.cli._plugins.dbt.manager import (
     DBTManager,
 )
 from snowflake.cli.api.exceptions import CliArgumentError, CliError
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector import ProgrammingError
 
 from tests_common import IS_WINDOWS
+from tests_common.feature_flag_utils import with_feature_flags
 
 
 def _supported_versions_payload(*versions: str) -> str:
@@ -67,6 +70,44 @@ class TestDeploy:
         mock_execute_query.assert_called_once_with(expected_query)
         mock_create.assert_called_once_with(mock_from_resource(), temporary=True)
         mock_put_recursive.assert_called_once()
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_accepts_dbt_projects_profiles_file(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        project_path,
+        profile,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+        enable_dbt_projects_profiles_file,
+    ):
+        """
+        What: End-to-end, deploy accepts a project whose profiles come from
+              dbt_projects_profiles.yml (no profiles.yml) when the flag is on.
+        How: Build a source dir with dbt_project.yml (profile: dev) and only
+             dbt_projects_profiles.yml; enable the flag; call deploy with the
+             stage operations mocked.
+        Expected: deploy completes and issues CREATE DBT PROJECT — i.e. both
+                  validation and staging accepted dbt_projects_profiles.yml.
+        """
+        (project_path / "dbt_project.yml").write_text(yaml.dump({"profile": "dev"}))
+        _write_profile(project_path, DBT_PROJECTS_PROFILES_FILENAME, profile)
+
+        DBTManager().deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(project_path),
+            profiles_path=SecurePath(project_path),
+            force=False,
+            attrs=DBTDeployAttributes(),
+        )
+
+        expected_query = f"CREATE DBT PROJECT test_project\nFROM {mock_from_resource()}"
+        mock_execute_query.assert_called_once_with(expected_query)
 
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
@@ -614,7 +655,9 @@ dev
         os.symlink(dbt_profiles_file, tmp_profiles_file)
         assert tmp_profiles_file.is_symlink() is True
 
-        DBTManager._prepare_profiles_file(profiles_path, tmp_dbt_path)  # noqa: SLF001
+        DBTManager._prepare_profiles_file(  # noqa: SLF001
+            SecurePath(profiles_path), SecurePath(tmp_dbt_path)
+        )
 
         assert tmp_profiles_file.is_symlink() is False
 
@@ -634,7 +677,9 @@ dev
 
         tmp_dbt_path = tmp_path_factory.mktemp("dbt")
 
-        DBTManager._prepare_profiles_file(profiles_path, tmp_dbt_path)  # noqa: SLF001
+        DBTManager._prepare_profiles_file(  # noqa: SLF001
+            SecurePath(profiles_path), SecurePath(tmp_dbt_path)
+        )
 
         assert tmp_dbt_path.is_symlink() is False
         with open(tmp_dbt_path / PROFILES_FILENAME, "r") as fp:
@@ -672,7 +717,9 @@ dev
         (profiles_path / PROFILES_FILENAME).write_text(raw_yaml)
         tmp_dbt_path = tmp_path_factory.mktemp("dbt")
 
-        DBTManager._prepare_profiles_file(profiles_path, tmp_dbt_path)  # noqa: SLF001
+        DBTManager._prepare_profiles_file(  # noqa: SLF001
+            SecurePath(profiles_path), SecurePath(tmp_dbt_path)
+        )
 
         staged = (tmp_dbt_path / PROFILES_FILENAME).read_text()
         # type before account (non-alphabetical), threads before database
@@ -1971,3 +2018,429 @@ class TestCollectShellEnvVars:
         assert forwarded == {}
         assert dropped == 1
         assert skipped == 0
+
+
+def _write_profile(directory: Path, filename: str, profile: dict) -> Path:
+    """Write a dbt profiles mapping to <directory>/<filename> and return the path."""
+    path = directory / filename
+    path.write_text(yaml.dump(profile))
+    return path
+
+
+class TestDbtProjectsProfilesFile:
+    """Coverage for the ENABLE_DBT_PROJECT_PROFILES_FILE_PRECEDENCE behavior:
+    dbt_projects_profiles.yml takes precedence over profiles.yml and is staged
+    under its own name, gated behind the feature flag."""
+
+    # --- full flag x files staging matrix (before/after truth table) ---
+
+    @pytest.mark.parametrize(
+        "flag_on, dbt_projects_present, profiles_present, expected_staged, expected_error",
+        [
+            pytest.param(
+                False,
+                True,
+                True,
+                PROFILES_FILENAME,
+                None,
+                id="flag_off-both_present-stages_profiles",
+            ),
+            pytest.param(
+                False,
+                True,
+                False,
+                None,
+                PROFILES_FILENAME,
+                id="flag_off-only_dbt_projects-errors_profiles_missing",
+            ),
+            pytest.param(
+                False,
+                False,
+                True,
+                PROFILES_FILENAME,
+                None,
+                id="flag_off-only_profiles-stages_profiles",
+            ),
+            pytest.param(
+                False,
+                False,
+                False,
+                None,
+                PROFILES_FILENAME,
+                id="flag_off-neither-errors_profiles_missing",
+            ),
+            pytest.param(
+                True,
+                True,
+                True,
+                DBT_PROJECTS_PROFILES_FILENAME,
+                None,
+                id="flag_on-both_present-stages_dbt_projects",
+            ),
+            pytest.param(
+                True,
+                True,
+                False,
+                DBT_PROJECTS_PROFILES_FILENAME,
+                None,
+                id="flag_on-only_dbt_projects-stages_dbt_projects",
+            ),
+            pytest.param(
+                True,
+                False,
+                True,
+                PROFILES_FILENAME,
+                None,
+                id="flag_on-only_profiles-stages_profiles",
+            ),
+            pytest.param(
+                True,
+                False,
+                False,
+                None,
+                f"{DBT_PROJECTS_PROFILES_FILENAME} or {PROFILES_FILENAME}",
+                id="flag_on-neither-errors_both_names",
+            ),
+        ],
+    )
+    def test_staging_matrix(
+        self,
+        tmp_path_factory,
+        profile,
+        flag_on,
+        dbt_projects_present,
+        profiles_present,
+        expected_staged,
+        expected_error,
+    ):
+        """
+        What: Pin the staging outcome of _prepare_profiles_file across every
+              combination of the feature flag and which profiles files are
+              present. This is the before/after truth table for the feature.
+        How: For each combination, create a profiles dir with the requested
+             files, force the flag to the given state, and run
+             _prepare_profiles_file into a fresh staging dir.
+        Expected: when a file should be staged, the staging dir holds exactly that
+                  filename and not the other candidate; when nothing is recognized,
+                  a CliError naming the expected file(s) is raised.
+        """
+        profiles_dir = tmp_path_factory.mktemp("profiles")
+        tmp_dir = tmp_path_factory.mktemp("stage")
+        if dbt_projects_present:
+            _write_profile(profiles_dir, DBT_PROJECTS_PROFILES_FILENAME, profile)
+        if profiles_present:
+            _write_profile(profiles_dir, PROFILES_FILENAME, profile)
+
+        with with_feature_flags(
+            {FeatureFlag.ENABLE_DBT_PROJECT_PROFILES_FILE_PRECEDENCE: flag_on}
+        ):
+            if expected_error is not None:
+                with pytest.raises(CliError) as exc_info:
+                    DBTManager._prepare_profiles_file(  # noqa: SLF001
+                        SecurePath(profiles_dir), SecurePath(tmp_dir)
+                    )
+                assert expected_error in exc_info.value.message
+                assert "does not exist" in exc_info.value.message
+            else:
+                DBTManager._prepare_profiles_file(  # noqa: SLF001
+                    SecurePath(profiles_dir), SecurePath(tmp_dir)
+                )
+                assert (tmp_dir / expected_staged).exists()
+                other = (
+                    PROFILES_FILENAME
+                    if expected_staged == DBT_PROJECTS_PROFILES_FILENAME
+                    else DBT_PROJECTS_PROFILES_FILENAME
+                )
+                assert not (tmp_dir / other).exists()
+
+    def test_warning_when_both_profiles_files_present_non_root(
+        self, tmp_path_factory, profile, enable_dbt_projects_profiles_file
+    ):
+        """
+        What: When --profiles-dir is a separate folder containing both files,
+              the CLI warns that only dbt_projects_profiles.yml will be copied,
+              and profiles.yml is removed from the staging dir.
+        How: Write both files into a dedicated profiles dir (is_project_root=False),
+             call _prepare_profiles_file, and inspect warning + staging dir.
+        Expected: warning mentions both filenames; staging dir has
+                  dbt_projects_profiles.yml and no profiles.yml.
+        """
+        profiles_dir = tmp_path_factory.mktemp("profiles")
+        tmp_dir = tmp_path_factory.mktemp("stage")
+        _write_profile(profiles_dir, DBT_PROJECTS_PROFILES_FILENAME, profile)
+        _write_profile(profiles_dir, PROFILES_FILENAME, profile)
+        # Simulate profiles.yml already in tmp_dir from copy_to_tmp_dir
+        _write_profile(tmp_dir, PROFILES_FILENAME, profile)
+
+        with mock.patch(
+            "snowflake.cli._plugins.dbt.manager.cli_console"
+        ) as mock_console:
+            DBTManager._prepare_profiles_file(  # noqa: SLF001
+                SecurePath(profiles_dir), SecurePath(tmp_dir), is_project_root=False
+            )
+            warning_calls = [str(call) for call in mock_console.warning.call_args_list]
+            assert any(
+                DBT_PROJECTS_PROFILES_FILENAME in c and PROFILES_FILENAME in c
+                for c in warning_calls
+            ), f"Expected warning mentioning both filenames, got: {warning_calls}"
+        assert (tmp_dir / DBT_PROJECTS_PROFILES_FILENAME).exists()
+        assert not (tmp_dir / PROFILES_FILENAME).exists()
+
+    def test_warning_when_both_profiles_files_present_project_root(
+        self, tmp_path_factory, profile, enable_dbt_projects_profiles_file
+    ):
+        """
+        What: When --profiles-dir is the project root and both files are present,
+              the CLI warns that dbt_projects_profiles.yml takes precedence, keeps
+              both files in the staging dir, and redacts comments from profiles.yml
+              (the losing file) the same way it redacts the winner.
+        How: Write both files into the profiles dir with a YAML comment (is_project_root=True),
+             seed tmp_dir with a raw copy of profiles.yml (as copy_to_tmp_dir would),
+             call _prepare_profiles_file, and inspect warning + staging dir contents.
+        Expected: warning mentions both filenames; both files remain in staging dir;
+                  the staged profiles.yml has its comment stripped.
+        """
+        profiles_dir = tmp_path_factory.mktemp("profiles")
+        tmp_dir = tmp_path_factory.mktemp("stage")
+        _write_profile(profiles_dir, DBT_PROJECTS_PROFILES_FILENAME, profile)
+        _write_profile(profiles_dir, PROFILES_FILENAME, profile)
+        # Write profiles.yml with a comment into the source dir so we can confirm
+        # the comment is stripped from the staged copy.
+        profiles_with_comment = profiles_dir / PROFILES_FILENAME
+        profiles_with_comment.write_text(
+            "# sensitive comment\n" + profiles_with_comment.read_text()
+        )
+        # Simulate both files in tmp_dir as copy_to_tmp_dir would place them (raw).
+        _write_profile(tmp_dir, DBT_PROJECTS_PROFILES_FILENAME, profile)
+        raw_in_tmp = tmp_dir / PROFILES_FILENAME
+        raw_in_tmp.write_text(profiles_with_comment.read_text())
+
+        with mock.patch(
+            "snowflake.cli._plugins.dbt.manager.cli_console"
+        ) as mock_console:
+            DBTManager._prepare_profiles_file(  # noqa: SLF001
+                SecurePath(profiles_dir), SecurePath(tmp_dir), is_project_root=True
+            )
+            warning_calls = [str(call) for call in mock_console.warning.call_args_list]
+            assert any(
+                DBT_PROJECTS_PROFILES_FILENAME in c and PROFILES_FILENAME in c
+                for c in warning_calls
+            ), f"Expected warning mentioning both filenames, got: {warning_calls}"
+        assert (tmp_dir / DBT_PROJECTS_PROFILES_FILENAME).exists()
+        staged_profiles_path = tmp_dir / PROFILES_FILENAME
+        assert staged_profiles_path.exists()
+        assert "sensitive comment" not in staged_profiles_path.read_text()
+
+    # --- resolver / candidate precedence ---
+
+    def test_resolver_ignores_dbt_projects_file_when_flag_disabled(self, project_path):
+        """
+        What: With the flag off, dbt_projects_profiles.yml is not a recognized
+              profiles source — only profiles.yml is.
+        How: Write just dbt_projects_profiles.yml into the dir; leave the flag at
+             its default (off); call the candidate list and the resolver.
+        Expected: candidates == ('profiles.yml',) and the resolver returns None,
+                  so today's behavior is preserved byte-for-byte.
+        """
+        _write_profile(project_path, DBT_PROJECTS_PROFILES_FILENAME, {"dev": {}})
+
+        assert DBTManager._candidate_profiles_filenames() == (  # noqa: SLF001
+            PROFILES_FILENAME,
+        )
+        assert (
+            DBTManager._resolve_profiles_filename(  # noqa: SLF001
+                SecurePath(project_path)
+            )
+            is None
+        )
+
+    def test_resolver_returns_profiles_yml_when_only_that_present(
+        self, project_path, enable_dbt_projects_profiles_file
+    ):
+        """
+        What: With the flag on and only profiles.yml present, profiles.yml is
+              resolved.
+        How: Write only profiles.yml; enable the flag; call the resolver.
+        Expected: resolver returns 'profiles.yml'.
+        """
+        _write_profile(project_path, PROFILES_FILENAME, {"dev": {}})
+
+        assert (
+            DBTManager._resolve_profiles_filename(  # noqa: SLF001
+                SecurePath(project_path)
+            )
+            == PROFILES_FILENAME
+        )
+
+    def test_resolver_returns_dbt_projects_file_when_only_that_present(
+        self, project_path, enable_dbt_projects_profiles_file
+    ):
+        """
+        What: With the flag on and only dbt_projects_profiles.yml present, it is
+              resolved.
+        How: Write only dbt_projects_profiles.yml; enable the flag; call resolver.
+        Expected: resolver returns 'dbt_projects_profiles.yml'.
+        """
+        _write_profile(project_path, DBT_PROJECTS_PROFILES_FILENAME, {"dev": {}})
+
+        assert (
+            DBTManager._resolve_profiles_filename(  # noqa: SLF001
+                SecurePath(project_path)
+            )
+            == DBT_PROJECTS_PROFILES_FILENAME
+        )
+
+    def test_resolver_prefers_dbt_projects_file_when_both_present(
+        self, project_path, enable_dbt_projects_profiles_file
+    ):
+        """
+        What: dbt_projects_profiles.yml wins over profiles.yml when both exist.
+        How: Write both files; enable the flag; inspect candidate order and the
+             resolver result.
+        Expected: candidates lead with dbt_projects_profiles.yml and the resolver
+                  returns it.
+        """
+        _write_profile(project_path, PROFILES_FILENAME, {"dev": {}})
+        _write_profile(project_path, DBT_PROJECTS_PROFILES_FILENAME, {"dev": {}})
+
+        assert DBTManager._candidate_profiles_filenames() == (  # noqa: SLF001
+            DBT_PROJECTS_PROFILES_FILENAME,
+            PROFILES_FILENAME,
+        )
+        assert (
+            DBTManager._resolve_profiles_filename(  # noqa: SLF001
+                SecurePath(project_path)
+            )
+            == DBT_PROJECTS_PROFILES_FILENAME
+        )
+
+    def test_resolver_returns_none_when_neither_present(
+        self, project_path, enable_dbt_projects_profiles_file
+    ):
+        """
+        What: With the flag on but no profiles file present, nothing resolves.
+        How: Use an empty dir; enable the flag; call the resolver.
+        Expected: resolver returns None.
+        """
+        assert (
+            DBTManager._resolve_profiles_filename(  # noqa: SLF001
+                SecurePath(project_path)
+            )
+            is None
+        )
+
+    # --- _prepare_profiles_file (staging) ---
+
+    def test_prepare_stages_dbt_projects_file_under_own_name_when_both_present(
+        self, tmp_path_factory, profile, enable_dbt_projects_profiles_file
+    ):
+        """
+        What: When both files exist, staging copies dbt_projects_profiles.yml into
+              the staging root under its own name (not renamed to profiles.yml).
+        How: Write both files into a profiles dir; enable the flag; run
+             _prepare_profiles_file into a fresh tmp dir.
+        Expected: tmp dir contains dbt_projects_profiles.yml with the parsed
+                  content, and _prepare did not create a profiles.yml of its own.
+        """
+        profiles_dir = tmp_path_factory.mktemp("profiles")
+        tmp_dir = tmp_path_factory.mktemp("stage")
+        _write_profile(profiles_dir, PROFILES_FILENAME, {"other_profile": {}})
+        _write_profile(profiles_dir, DBT_PROJECTS_PROFILES_FILENAME, profile)
+
+        DBTManager._prepare_profiles_file(  # noqa: SLF001
+            SecurePath(profiles_dir), SecurePath(tmp_dir)
+        )
+
+        staged = tmp_dir / DBT_PROJECTS_PROFILES_FILENAME
+        assert staged.exists()
+        assert not (tmp_dir / PROFILES_FILENAME).exists()
+        with open(staged) as fp:
+            assert yaml.safe_load(fp) == profile
+
+    def test_prepare_removes_existing_tmp_profiles_yml_when_dbt_projects_wins(
+        self, tmp_path_factory, profile, enable_dbt_projects_profiles_file
+    ):
+        """
+        What: When dbt_projects_profiles.yml wins, any profiles.yml that was
+              already in the staging dir (copied there from the project source
+              by copy_to_tmp_dir) is removed so the server never sees both.
+        How: Pre-create a profiles.yml in the staging dir; write both files in
+             the --profiles-dir; enable the flag; run _prepare_profiles_file.
+        Expected: dbt_projects_profiles.yml is staged and profiles.yml is gone
+                  from the staging dir.
+        """
+        profiles_dir = tmp_path_factory.mktemp("profiles")
+        tmp_dir = tmp_path_factory.mktemp("stage")
+        _write_profile(tmp_dir, PROFILES_FILENAME, {"copied_from_source": {}})
+        _write_profile(profiles_dir, PROFILES_FILENAME, {"other_profile": {}})
+        _write_profile(profiles_dir, DBT_PROJECTS_PROFILES_FILENAME, profile)
+
+        DBTManager._prepare_profiles_file(  # noqa: SLF001
+            SecurePath(profiles_dir), SecurePath(tmp_dir)
+        )
+
+        assert (tmp_dir / DBT_PROJECTS_PROFILES_FILENAME).exists()
+        assert not (tmp_dir / PROFILES_FILENAME).exists()
+
+    # --- _validate_profiles ---
+
+    def test_validate_accepts_dbt_projects_file(
+        self,
+        mock_validate_role,
+        project_path,
+        profile,
+        enable_dbt_projects_profiles_file,
+    ):
+        """
+        What: Validation works against dbt_projects_profiles.yml (identical schema
+              to profiles.yml).
+        How: Write only dbt_projects_profiles.yml with a valid 'dev' profile;
+             enable the flag; call _validate_profiles.
+        Expected: no error is raised.
+        """
+        _write_profile(project_path, DBT_PROJECTS_PROFILES_FILENAME, profile)
+
+        DBTManager()._validate_profiles(SecurePath(project_path), "dev")  # noqa: SLF001
+
+    def test_validate_prefers_dbt_projects_file_when_both_present(
+        self,
+        mock_validate_role,
+        project_path,
+        profile,
+        enable_dbt_projects_profiles_file,
+    ):
+        """
+        What: Validation reads the higher-precedence dbt_projects_profiles.yml,
+              not profiles.yml, when both exist.
+        How: Put a profiles.yml that does NOT define the requested profile, and a
+             dbt_projects_profiles.yml that DOES; enable the flag; validate 'dev'.
+        Expected: validation passes — proving it read dbt_projects_profiles.yml.
+                  (If it had read profiles.yml it would raise 'not defined'.)
+        """
+        _write_profile(
+            project_path, PROFILES_FILENAME, {"wrong_profile": {"outputs": {}}}
+        )
+        _write_profile(project_path, DBT_PROJECTS_PROFILES_FILENAME, profile)
+
+        DBTManager()._validate_profiles(SecurePath(project_path), "dev")  # noqa: SLF001
+
+    def test_validate_raises_with_both_names_when_neither_present(
+        self, mock_validate_role, project_path, enable_dbt_projects_profiles_file
+    ):
+        """
+        What: With the flag on and no profiles file present, the error names both
+              accepted filenames.
+        How: Use an empty dir; enable the flag; call _validate_profiles.
+        Expected: CliError mentioning both dbt_projects_profiles.yml and
+                  profiles.yml.
+        """
+        with pytest.raises(CliError) as exc_info:
+            DBTManager()._validate_profiles(  # noqa: SLF001
+                SecurePath(project_path), "dev"
+            )
+
+        assert (
+            exc_info.value.message
+            == f"{DBT_PROJECTS_PROFILES_FILENAME} or {PROFILES_FILENAME} does not exist "
+            f"in directory {project_path.absolute()}."
+        )
