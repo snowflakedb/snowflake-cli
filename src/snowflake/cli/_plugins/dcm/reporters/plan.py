@@ -176,24 +176,100 @@ class PlanDetail:
 # the output, so they're collapsed to one line and cut to this width.
 _MAX_VALUE_LEN = 50
 
+# When a modified value is windowed around its first difference, keep this
+# many characters of shared context before the change so the reader can see
+# what leads into it (e.g. "… GROUP BY a → … GROUP BY b").
+_DIFF_CONTEXT = 12
+
+# Minimum characters of the first difference (and whatever follows it) that a
+# plain head truncation must keep visible. When the first difference sits
+# closer than this to the cut, head truncation would hide the actual change,
+# so we window around the difference instead.
+_MIN_DIFF_TAIL = 8
+
 # Separator between a modified property's previous and new value. The arrow
 # glyph is rendered in the ALTER color so it visually splits old from new.
 _VALUE_ARROW = "→"
 _VALUE_TRANSITION = f" {_VALUE_ARROW} "
 
 
-def _truncate_inline(text: str) -> str:
-    """Collapse all whitespace (incl. newlines) to single spaces and truncate.
+def _collapse_whitespace(text: str) -> str:
+    """Squash runs of whitespace (incl. newlines) to single spaces.
 
     ``sanitize_for_terminal`` only strips ANSI escapes, so a multi-line value
-    would still contain newlines that break the single-line tree layout. We
-    squash runs of whitespace to one space and cap the result at
+    would still contain newlines that break the single-line tree layout.
+    """
+    return " ".join(text.split())
+
+
+def _truncate_inline(text: str) -> str:
+    """Collapse whitespace and truncate from the start.
+
+    Squashes runs of whitespace to one space and caps the result at
     :data:`_MAX_VALUE_LEN`, appending an ellipsis when truncated.
     """
-    collapsed = " ".join(text.split())
+    collapsed = _collapse_whitespace(text)
     if len(collapsed) <= _MAX_VALUE_LEN:
         return collapsed
     return collapsed[:_MAX_VALUE_LEN].rstrip() + "…"
+
+
+def _common_prefix_len(first: str, second: str) -> int:
+    """Return the length of the longest shared leading substring."""
+    limit = min(len(first), len(second))
+    index = 0
+    while index < limit and first[index] == second[index]:
+        index += 1
+    return index
+
+
+def _window_value(collapsed: str, start: int) -> str:
+    """Return a ``_MAX_VALUE_LEN`` slice of ``collapsed`` starting at ``start``.
+
+    A leading ellipsis marks content clipped before the window and a trailing
+    ellipsis marks content clipped after it, so it's clear the value is only a
+    fragment of a larger string.
+    """
+    end = start + _MAX_VALUE_LEN
+    segment = collapsed[start:end]
+    prefix = "…" if start > 0 else ""
+    suffix = "…" if end < len(collapsed) else ""
+    if prefix:
+        # The window starts inside the string, so a leading space would just
+        # sit awkwardly after the ellipsis; drop it for a tighter "…word".
+        segment = segment.lstrip()
+    if suffix:
+        segment = segment.rstrip()
+    return prefix + segment + suffix
+
+
+def _truncate_value_pair(prev: str, new: str) -> Tuple[str, str]:
+    """Truncate a modified property's previous and new values for display.
+
+    Both values are collapsed to a single line. When neither exceeds the width
+    budget they're shown verbatim. When at least one is too long they're
+    normally cut from the start — but if the two values share a long common
+    prefix (e.g. a large ``SELECT`` whose only change is a trailing
+    ``GROUP BY``), a head cut would show identical text on both sides of the
+    arrow and hide the change. In that case we anchor a fixed-width window on
+    the first differing character, keeping a little shared context before it,
+    so the changed segment stays visible on both sides.
+    """
+    prev_collapsed = _collapse_whitespace(prev)
+    new_collapsed = _collapse_whitespace(new)
+    if len(prev_collapsed) <= _MAX_VALUE_LEN and len(new_collapsed) <= _MAX_VALUE_LEN:
+        return prev_collapsed, new_collapsed
+
+    diff_at = _common_prefix_len(prev_collapsed, new_collapsed)
+    # If head truncation still reveals the first difference with a little of
+    # its tail, keep the simpler start-anchored form.
+    if diff_at <= _MAX_VALUE_LEN - _MIN_DIFF_TAIL:
+        return _truncate_inline(prev_collapsed), _truncate_inline(new_collapsed)
+
+    # The change is buried past the head window; anchor both values on it,
+    # using the same start offset so the shared context lines up.
+    start = diff_at - _DIFF_CONTEXT
+    return _window_value(prev_collapsed, start), _window_value(new_collapsed, start)
 
 
 def _format_scalar_value(value: Any) -> Optional[str]:
@@ -250,14 +326,16 @@ def _format_change_desc(
         attr = sanitize_for_terminal(attribute_name).upper()
         new_scalar = _format_scalar_value(value)
         prev_scalar = _format_scalar_value(prev_value)
-        new_str = _truncate_inline(new_scalar) if new_scalar is not None else None
-        prev_str = _truncate_inline(prev_scalar) if prev_scalar is not None else None
         # A modified property reports both the old and the new value; show the
-        # transition so the change is self-explanatory.
-        if prev_str is not None and new_str is not None:
+        # transition so the change is self-explanatory. When the values are
+        # long, ``_truncate_value_pair`` windows them around the first
+        # difference so the actual change stays visible (rather than cutting
+        # both to an identical shared prefix).
+        if prev_scalar is not None and new_scalar is not None:
+            prev_str, new_str = _truncate_value_pair(prev_scalar, new_scalar)
             return attr, f"{attr}: {prev_str}{_VALUE_TRANSITION}{new_str}"
-        if new_str is not None:
-            return attr, f"{attr} = {new_str}"
+        if new_scalar is not None:
+            return attr, f"{attr} = {_truncate_inline(new_scalar)}"
         return attr, attr
     return None, ""
 

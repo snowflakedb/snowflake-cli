@@ -16,11 +16,13 @@ from unittest import mock
 import pytest
 from snowflake.cli._plugins.dcm import styles
 from snowflake.cli._plugins.dcm.reporters.plan import (
+    _DIFF_CONTEXT,
     _MAX_VALUE_LEN,
     PlanDetail,
     PlanReporter,
     PlanRow,
     _truncate_inline,
+    _truncate_value_pair,
 )
 from snowflake.cli.api.identifiers import FQN
 
@@ -53,6 +55,50 @@ class TestTruncateInline:
         result = _truncate_inline("y" * (_MAX_VALUE_LEN + 10))
         assert result == "y" * _MAX_VALUE_LEN + "…"
         assert len(result) == _MAX_VALUE_LEN + 1
+
+
+class TestTruncateValuePair:
+    def test_short_values_shown_verbatim(self):
+        assert _truncate_value_pair("SMALL", "LARGE") == ("SMALL", "LARGE")
+
+    def test_collapses_whitespace_on_both(self):
+        assert _truncate_value_pair("a\n b", "a\tc") == ("a b", "a c")
+
+    def test_difference_near_start_uses_head_truncation(self):
+        # Values diverge immediately, so a plain head cut already shows it.
+        prev = "AAAA" + "x" * _MAX_VALUE_LEN
+        new = "BBBB" + "x" * _MAX_VALUE_LEN
+        prev_str, new_str = _truncate_value_pair(prev, new)
+        assert prev_str == _truncate_inline(prev)
+        assert new_str == _truncate_inline(new)
+        assert not prev_str.startswith("…")
+        assert not new_str.startswith("…")
+
+    def test_trailing_difference_is_windowed_and_visible(self):
+        # A long shared SELECT whose only change is the trailing GROUP BY.
+        shared = "SELECT a, b, c FROM my_very_long_table_name WHERE flag = TRUE "
+        prev = shared + "GROUP BY a"
+        new = shared + "GROUP BY b"
+        prev_str, new_str = _truncate_value_pair(prev, new)
+
+        # The actual change is visible on both sides ...
+        assert prev_str.endswith("GROUP BY a")
+        assert new_str.endswith("GROUP BY b")
+        # ... prefixed with an ellipsis marking the clipped shared head ...
+        assert prev_str.startswith("…")
+        assert new_str.startswith("…")
+        # ... and the shared context leading into the change lines up.
+        assert prev_str[:-1] == new_str[:-1]
+
+    def test_windowed_values_keep_leading_context(self):
+        shared = "x" * 60
+        prev = shared + "OLD"
+        new = shared + "NEW"
+        prev_str, new_str = _truncate_value_pair(prev, new)
+        # Roughly _DIFF_CONTEXT shared chars precede the change (after the
+        # leading ellipsis), so the reader sees what leads into the diff.
+        assert prev_str.startswith("…" + "x" * _DIFF_CONTEXT + "OLD")
+        assert new_str.startswith("…" + "x" * _DIFF_CONTEXT + "NEW")
 
 
 class TestPlanReporterTerse:
@@ -1030,6 +1076,36 @@ class TestPlanRow:
         assert "\n" not in new_rendered
         assert new_rendered.endswith("…")
         assert len(new_rendered) == _MAX_VALUE_LEN + 1
+
+    def test_from_dict_modified_property_windows_trailing_change(self):
+        """A long body changed only at the end still shows the change."""
+        shared = "SELECT col_a, col_b, col_c FROM analytics.long_source_table "
+        prev_body = shared + "GROUP BY col_a"
+        new_body = shared + "ORDER BY col_b"
+        entry = {
+            "type": "ALTER",
+            "object_id": {"domain": "VIEW", "fqn": '"V"'},
+            "changes": [
+                {
+                    "kind": "modified",
+                    "attribute_name": "text",
+                    "prev_value": prev_body,
+                    "value": new_body,
+                }
+            ],
+        }
+
+        row = PlanRow.from_dict(entry)
+
+        assert len(row.details) == 1
+        desc = row.details[0].desc
+        prev_rendered, new_rendered = desc.removeprefix("TEXT: ").split(" → ")
+        # The trailing change is windowed into view rather than cut off by a
+        # head truncation that would have shown identical text on both sides.
+        assert prev_rendered.endswith("GROUP BY col_a")
+        assert new_rendered.endswith("ORDER BY col_b")
+        assert prev_rendered.startswith("…")
+        assert new_rendered.startswith("…")
 
     def test_from_dict_create_skips_details(self):
         """Only ALTER rows render sub-changes; CREATE stays terse."""
