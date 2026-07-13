@@ -201,6 +201,8 @@ def convert_snowpark_to_v2_data(snowpark: Snowpark) -> Dict[str, Any]:
             "external_access_integrations": entity.external_access_integrations,
             "secrets": entity.secrets,
             "imports": entity.imports,
+            "strict": entity.strict,
+            "immutable": entity.immutable,
             "identifier": identifier,
             "meta": {"use_mixins": [SNOWPARK_SHARED_MIXIN]},
         }

@@ -64,6 +64,17 @@ class SnowparkEntityModel(
         default=None, title="Resource constraints for the function/procedure"
     )
 
+    strict: Optional[bool] = Field(
+        title="If True, the function/procedure is created with RETURNS NULL ON NULL INPUT "
+        "and the handler is not invoked when any input argument is NULL.",
+        default=False,
+    )
+    immutable: Optional[bool] = Field(
+        title="If True, the function/procedure is created as IMMUTABLE, letting Snowflake "
+        "reuse results for identical inputs. Only safe when the handler has no side effects.",
+        default=False,
+    )
+
     @field_validator("artifacts")
     @classmethod
     def _convert_artifacts(cls, artifacts: Union[dict, str]):
