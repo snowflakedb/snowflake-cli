@@ -784,7 +784,9 @@
                                                                                   
    For Snowflake App Runtime projects (snowflake-app entities): Resolves the      
    service endpoint URL and launches the browser. Use --print-only to print the   
-   URL, or --settings to open the Snowsight app-settings page instead.            
+   URL, or --settings to open the Snowsight app-settings page instead. Use        
+   --watch to wait for the app service to be created and become ready instead of  
+   failing.                                                                       
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --print-only                       (Snowflake App Runtime only) Print the    |
@@ -793,6 +795,9 @@
   | --settings                         (Snowflake App Runtime only) Open the app |
   |                                    settings page in Snowsight instead of the |
   |                                    app itself.                               |
+  | --watch                            (Snowflake App Runtime only) Do not fail  |
+  |                                    if the app service does not exist yet;    |
+  |                                    poll until its endpoint is ready.         |
   | --package-entity-id          TEXT  (Native App only) The ID of the package   |
   |                                    entity on which to operate when the       |
   |                                    definition_version is 2 or higher.        |
