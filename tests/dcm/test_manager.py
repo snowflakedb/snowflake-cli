@@ -644,6 +644,9 @@ class TestSyncLocalFiles:
             assert mock_put_recursive.call_args.kwargs["stage_path"] == str(
                 mock_from_resource()
             )
+            # The connector's built-in PUT progress bar must be disabled so it
+            # doesn't corrupt DCM's own live UPLOAD display.
+            assert mock_put_recursive.call_args.kwargs["show_progress_bar"] is False
 
             mock_put.assert_not_called()
 
@@ -811,11 +814,18 @@ class TestSyncLocalFiles:
             project_identifier=TEST_PROJECT, source_directory=str(source_dir)
         )
 
-        put_queries = [
-            call.args[0]
+        put_calls = [
+            call
             for call in mock_execute_query.call_args_list
             if call.args and call.args[0].lstrip().lower().startswith("put ")
         ]
+        put_queries = [call.args[0] for call in put_calls]
+        # DCM renders its own live UPLOAD progress, so the connector's built-in
+        # PUT progress bar must be suppressed (it writes to the import-time
+        # stdout and corrupts the rich Live display on PowerShell).
+        assert put_calls, "expected at least one PUT to be issued"
+        for call in put_calls:
+            assert call.kwargs.get("_show_progress_bar") is False
         for q in put_queries:
             assert (
                 "/dbt/*" not in q

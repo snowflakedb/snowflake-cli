@@ -361,12 +361,20 @@ class StageManager(SqlExecutionMixin):
         role: Optional[str] = None,
         auto_compress: bool = False,
         use_dict_cursor: bool = False,
+        show_progress_bar: bool = True,
     ) -> SnowflakeCursor:
         """
         This method will take a file path from the user's system and put it into a Snowflake stage,
         which includes its fully qualified name as well as the path within the stage.
         If provided with a role, then temporarily use this role to perform the operation above,
         and switch back to the original role for the next commands to run.
+
+        Set ``show_progress_bar=False`` to suppress the connector's built-in
+        per-file PUT progress output. The connector writes that progress to the
+        ``sys.stdout`` it captured at import time, which bypasses any active
+        ``rich.live.Live`` display and corrupts it (most visibly on Windows
+        PowerShell, where each refresh gets dumped on a new line). Callers that
+        render their own progress UI should turn it off.
         """
         if "*" not in str(local_path):
             local_path_obj = Path(local_path)
@@ -379,10 +387,17 @@ class StageManager(SqlExecutionMixin):
             spath = self.build_path(stage_path)
             local_resolved_path = path_resolver(str(local_path))
             log.info("Uploading %s to %s", local_resolved_path, stage_path)
+            extra_kwargs: Dict = {}
+            # Only forward the flag when suppressing the bar so the default
+            # code path (and its assertions) stay byte-for-byte unchanged;
+            # ``True`` already matches the connector's default.
+            if not show_progress_bar:
+                extra_kwargs["_show_progress_bar"] = False
             cursor = self.execute_query(
                 f"put {self._to_uri(local_resolved_path)} {spath.path_for_sql()} "
                 f"auto_compress={str(auto_compress).lower()} parallel={parallel} overwrite={overwrite}",
                 cursor_class=DictCursor if use_dict_cursor else SnowflakeCursor,
+                **extra_kwargs,
             )
         return cursor
 
@@ -433,6 +448,7 @@ class StageManager(SqlExecutionMixin):
         role: Optional[str] = None,
         auto_compress: bool = False,
         temp_directory: Optional[Path] = None,
+        show_progress_bar: bool = True,
     ) -> Generator[dict, None, None]:
         is_temp_dir_provided = temp_directory is not None
 
@@ -465,6 +481,7 @@ class StageManager(SqlExecutionMixin):
                         role=role,
                         auto_compress=auto_compress,
                         use_dict_cursor=True,
+                        show_progress_bar=show_progress_bar,
                     ).fetchall()
 
                     # Rewrite results to have resolved paths for better UX

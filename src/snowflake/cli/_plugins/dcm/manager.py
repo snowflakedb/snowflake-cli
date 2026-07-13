@@ -484,10 +484,15 @@ class DCMProjectManager(SqlExecutionMixin):
                 fqn=FQN.from_stage(stage_fqn.identifier), temporary=True
             )
 
+            # ``show_progress_bar=False``: DCM renders its own live UPLOAD
+            # phase, and the connector's built-in PUT progress writes to the
+            # import-time ``sys.stdout`` (bypassing our ``rich.live.Live``
+            # display and corrupting it, most visibly on Windows PowerShell).
             for result in stage_manager.put_recursive(
                 local_path=project_paths.bundle_root,
                 stage_path=stage_fqn.identifier,
                 temp_directory=project_paths.bundle_root,
+                show_progress_bar=False,
             ):
                 if progress:
                     progress.advance_upload()
@@ -498,7 +503,11 @@ class DCMProjectManager(SqlExecutionMixin):
                 )
 
             for entry in plan.individual_files:
-                stage_manager.put(local_path=entry.file, stage_path=entry.dest)
+                stage_manager.put(
+                    local_path=entry.file,
+                    stage_path=entry.dest,
+                    show_progress_bar=False,
+                )
                 if progress:
                     progress.advance_upload()
                 log.info(
