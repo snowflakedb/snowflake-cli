@@ -12,6 +12,7 @@ from snowflake.cli._plugins.dcm.models import DCMManifest, DCMTarget
 from snowflake.cli.api.identifiers import FQN, AccountIdentifier
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils.path_utils import change_directory
+from snowflake.connector.errors import ProgrammingError
 
 
 def _analyze_response(files=None):
@@ -32,9 +33,16 @@ def _analyze_response(files=None):
 
 
 def _assert_json_dumped(command: str, api_result: dict[str, Any], tmp_path: Path):
-    json_file = tmp_path / "out" / f"{command}.json"
+    json_file = tmp_path / "out" / f"{command}_result.json"
     assert json_file.exists()
     assert json.loads(json_file.read_text()) == api_result
+
+
+def _assert_no_result_json(command: str, tmp_path: Path):
+    """Commands that download the backend's own <command>_result.json must not
+    also write a redundant raw-response file."""
+    assert not (tmp_path / "out" / f"{command}_result.json").exists()
+    assert not (tmp_path / "out" / f"{command}.json").exists()
 
 
 def _mock_cursor_for_format(mock_cursor, data: dict, format_name: str):
@@ -1094,10 +1102,55 @@ class TestDCMPlan:
 
             assert result.exit_code == 0, result.output
 
-            json_file = tmp_path / "out" / "plan.json"
-            assert json_file.exists()
-            assert json.loads(json_file.read_text()) == {"version": 2, "changeset": []}
-            _assert_json_dumped("plan", plan_response, tmp_path)
+            # ``plan`` relies on the backend's downloaded ``plan_result.json``
+            # (via collect_output) and must not write a redundant raw response.
+            _assert_no_result_json("plan", tmp_path)
+
+    def test_plan_failure_with_save_output_writes_error_result(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        mock_cursor,
+        mock_connect,
+        tmp_path,
+    ):
+        # A failed PLAN never produces the backend's own plan_result.json, so
+        # with --save-output the error is captured into out/plan_result.json
+        # instead of being terminal-only.
+        error_body = '{"error": "SQL compilation error"}'
+        mock_dcm_manager().plan.side_effect = ProgrammingError(msg=error_body)
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["dcm", "plan", "fooBar", "--save-output"])
+
+            assert result.exit_code != 0
+            result_file = tmp_path / "out" / "plan_result.json"
+            assert result_file.exists()
+            assert json.loads(result_file.read_text()) == {
+                "error": "SQL compilation error"
+            }
+
+    def test_plan_failure_without_save_output_writes_nothing(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        mock_cursor,
+        mock_connect,
+        tmp_path,
+    ):
+        mock_dcm_manager().plan.side_effect = ProgrammingError(msg="boom")
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["dcm", "plan", "fooBar"])
+
+            assert result.exit_code != 0
+            assert not (tmp_path / "out" / "plan_result.json").exists()
 
     @pytest.mark.parametrize("format_name", ["json", "json_ext"])
     def test_plan_with_json_formats_returns_response(
@@ -1451,7 +1504,7 @@ class TestDCMRawAnalyze:
             result = runner.invoke(["dcm", "raw-analyze", "fooBar", "--save-output"])
 
             assert result.exit_code == 0, result.output
-            _assert_json_dumped("raw-analyze", analyze_response, tmp_path)
+            _assert_no_result_json("raw-analyze", tmp_path)
 
     def test_raw_analyze_from_stage_fails(
         self, mock_dcm_manager, runner, project_directory
@@ -1524,7 +1577,6 @@ class TestDCMAnalyze:
             variables=None,
             save_output=False,
             command_name="compile",
-            output_folder_name="rendered_definitions",
         )
 
     def test_analyze_with_errors_exits_with_formatted_output(
@@ -1629,7 +1681,6 @@ class TestDCMAnalyze:
             variables=["key=value"],
             save_output=False,
             command_name="compile",
-            output_folder_name="rendered_definitions",
         )
 
     def test_analyze_with_target(
@@ -1673,7 +1724,6 @@ class TestDCMAnalyze:
             variables=None,
             save_output=False,
             command_name="compile",
-            output_folder_name="rendered_definitions",
         )
 
     def test_analyze_with_save_output(
@@ -1703,7 +1753,6 @@ class TestDCMAnalyze:
             variables=None,
             save_output=True,
             command_name="compile",
-            output_folder_name="rendered_definitions",
         )
 
     def test_analyze_with_save_output_saves_response(
@@ -1741,7 +1790,7 @@ class TestDCMAnalyze:
             result = runner.invoke(["dcm", "compile", "fooBar", "--save-output"])
 
             assert result.exit_code == 0, result.output
-            _assert_json_dumped("compile", analyze_response, tmp_path)
+            _assert_no_result_json("compile", tmp_path)
 
     def test_analyze_from_stage_fails(
         self, mock_dcm_manager, runner, project_directory
@@ -1875,7 +1924,6 @@ class TestDCMDependencies:
             variables=None,
             save_output=False,
             command_name="dependencies",
-            output_folder_name="rendered_definitions",
         )
 
     def test_dependencies_with_variables(
@@ -1905,7 +1953,6 @@ class TestDCMDependencies:
             variables=["key=value"],
             save_output=False,
             command_name="dependencies",
-            output_folder_name="rendered_definitions",
         )
 
     def test_dependencies_shown_in_help(self, runner):

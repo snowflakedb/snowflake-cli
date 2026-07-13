@@ -227,7 +227,7 @@ def test_analyze_project_with_save_output(
     mock_create.assert_called_once_with(temp_stage_fqn, temporary=True)
     mock_get_recursive.assert_called_once_with(
         stage_path=f"@{str(temp_stage_fqn)}/outputs",
-        dest_path=Path("out/raw-analyze"),
+        dest_path=Path("out"),
     )
 
 
@@ -258,7 +258,7 @@ def test_analyze_project_with_output_path__exception_handling(
     mock_create.assert_called_once_with(temp_stage_fqn, temporary=True)
     mock_get_recursive.assert_called_once_with(
         stage_path=f"@{str(temp_stage_fqn)}/outputs",
-        dest_path=Path("out/raw-analyze"),
+        dest_path=Path("out"),
     )
 
 
@@ -476,7 +476,7 @@ def test_plan_project_with_output_path__exception_handling(
     mock_create.assert_called_once_with(temp_stage_fqn, temporary=True)
     mock_get_recursive.assert_called_once_with(
         stage_path=f"@{str(temp_stage_fqn)}/outputs",
-        dest_path=Path("out/plan"),
+        dest_path=Path("out"),
     )
 
 

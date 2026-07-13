@@ -568,6 +568,9 @@ class PlanReporter(Reporter[PlanRow]):
     def __init__(self, save_output: bool = False, command_name: str = "plan"):
         super().__init__(save_output=save_output)
         self.command_name = command_name
+        # ``plan`` downloads the backend's ``plan_result.json`` via
+        # ``collect_output``; ``deploy``/``purge`` don't, so they still write it.
+        self.write_result_file = command_name != "plan"
         self._summary = self.Summary()
 
     @staticmethod

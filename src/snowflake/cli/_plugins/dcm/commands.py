@@ -48,10 +48,10 @@ from snowflake.cli._plugins.dcm.reporters import (
     TestReporter,
 )
 from snowflake.cli._plugins.dcm.utils import (
-    RENDERED_DEFINITIONS_FOLDER,
     announce_rendered_definitions,
     clear_command_artifacts,
     mock_dcm_response,
+    save_error_result_on_failure,
 )
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
@@ -397,25 +397,26 @@ def deploy(
         cli_console.warning("Skipping planning step")
 
     manager = DCMProjectManager()
-    tracker = DeployProgressTracker(conn=manager.connection)
-    with tracker.session():
-        effective_stage = manager.sync_local_files(
-            project_identifier=project_id,
-            source_directory=str(from_location.path),
-            progress=tracker,
-        )
-        sfqid = manager.deploy_async(
-            project_identifier=project_id,
-            configuration=context.configuration,
-            from_stage=effective_stage,
-            variables=variables,
-            alias=alias,
-            skip_plan=skip_plan,
-        )
-        result = tracker.run_deploy_poll(sfqid)
+    with save_error_result_on_failure("deploy", save_output):
+        tracker = DeployProgressTracker(conn=manager.connection)
+        with tracker.session():
+            effective_stage = manager.sync_local_files(
+                project_identifier=project_id,
+                source_directory=str(from_location.path),
+                progress=tracker,
+            )
+            sfqid = manager.deploy_async(
+                project_identifier=project_id,
+                configuration=context.configuration,
+                from_stage=effective_stage,
+                variables=variables,
+                alias=alias,
+                skip_plan=skip_plan,
+            )
+            result = tracker.run_deploy_poll(sfqid)
 
-    reporter = PlanReporter(save_output=save_output, command_name="deploy")
-    return reporter.process(result)
+        reporter = PlanReporter(save_output=save_output, command_name="deploy")
+        return reporter.process(result)
 
 
 _PURGE_CONFIRM_COMMAND = "PURGE"
@@ -485,17 +486,18 @@ def purge(
         cli_console.warning("Skipping planning step")
 
     manager = DCMProjectManager()
-    tracker = DeployProgressTracker(conn=manager.connection, operation="purge")
-    with tracker.session():
-        sfqid = manager.purge_async(
-            project_identifier=project_id,
-            alias=alias,
-            skip_plan=skip_plan,
-        )
-        result = tracker.run_deploy_poll(sfqid)
+    with save_error_result_on_failure("purge", save_output):
+        tracker = DeployProgressTracker(conn=manager.connection, operation="purge")
+        with tracker.session():
+            sfqid = manager.purge_async(
+                project_identifier=project_id,
+                alias=alias,
+                skip_plan=skip_plan,
+            )
+            result = tracker.run_deploy_poll(sfqid)
 
-    reporter = PlanReporter(save_output=save_output, command_name="purge")
-    return reporter.process(result)
+        reporter = PlanReporter(save_output=save_output, command_name="purge")
+        return reporter.process(result)
 
 
 @app.command(requires_connection=True)
@@ -522,28 +524,29 @@ def plan(
     project_id = context.project_identifier
 
     manager = DCMProjectManager()
-    tracker = DeployProgressTracker(conn=manager.connection, operation="plan")
-    with tracker.session():
-        effective_stage = manager.sync_local_files(
-            project_identifier=project_id,
-            source_directory=str(from_location.path),
-            progress=tracker,
-        )
-        result = tracker.run_loader_phase(
-            lambda: manager.plan(
+    with save_error_result_on_failure("plan", save_output):
+        tracker = DeployProgressTracker(conn=manager.connection, operation="plan")
+        with tracker.session():
+            effective_stage = manager.sync_local_files(
                 project_identifier=project_id,
-                configuration=context.configuration,
-                from_stage=effective_stage,
-                variables=variables,
-                save_output=save_output,
-                delta=delta,
-            ),
-            phase_name="PLAN",
-            simulated_phases=("RENDER", "COMPILE"),
-        )
+                source_directory=str(from_location.path),
+                progress=tracker,
+            )
+            result = tracker.run_loader_phase(
+                lambda: manager.plan(
+                    project_identifier=project_id,
+                    configuration=context.configuration,
+                    from_stage=effective_stage,
+                    variables=variables,
+                    save_output=save_output,
+                    delta=delta,
+                ),
+                phase_name="PLAN",
+                simulated_phases=("RENDER", "COMPILE"),
+            )
 
-    reporter = PlanReporter(save_output=save_output, command_name="plan")
-    return reporter.process(result)
+        reporter = PlanReporter(save_output=save_output, command_name="plan")
+        return reporter.process(result)
 
 
 @app.command(requires_connection=True, hidden=True)
@@ -596,39 +599,39 @@ def compile_project(
     """
     Compiles a DCM Project and prints a formatted list of errors found.
     """
-    clear_command_artifacts("compile", folder_name=RENDERED_DEFINITIONS_FOLDER)
+    clear_command_artifacts("compile")
 
     context = _resolve_context_with_required_manifest(from_location, identifier, target)
     project_id = context.project_identifier
 
     manager = DCMProjectManager()
-    tracker = DeployProgressTracker(conn=manager.connection, operation="compile")
-    with tracker.session():
-        effective_stage = manager.sync_local_files(
-            project_identifier=project_id,
-            source_directory=str(from_location.path),
-            progress=tracker,
-        )
-        result = tracker.run_loader_phase(
-            lambda: manager.raw_analyze(
+    with save_error_result_on_failure("compile", save_output):
+        tracker = DeployProgressTracker(conn=manager.connection, operation="compile")
+        with tracker.session():
+            effective_stage = manager.sync_local_files(
                 project_identifier=project_id,
-                configuration=context.configuration,
-                from_stage=effective_stage,
-                variables=variables,
-                save_output=save_output,
-                command_name="compile",
-                output_folder_name=RENDERED_DEFINITIONS_FOLDER,
-            ),
-            phase_name="COMPILE",
-            simulated_phases=["RENDER"],
-        )
+                source_directory=str(from_location.path),
+                progress=tracker,
+            )
+            result = tracker.run_loader_phase(
+                lambda: manager.raw_analyze(
+                    project_identifier=project_id,
+                    configuration=context.configuration,
+                    from_stage=effective_stage,
+                    variables=variables,
+                    save_output=save_output,
+                    command_name="compile",
+                ),
+                phase_name="COMPILE",
+                simulated_phases=["RENDER"],
+            )
 
-    reporter = AnalyzeErrorsReporter(save_output=save_output)
-    if save_output:
-        announce_rendered_definitions()
-    # The reporter prints the trailing "=" divider itself (Reporter.print_separator),
-    # on both the success and error paths, so no separate separator is needed here.
-    return reporter.process(result)
+        reporter = AnalyzeErrorsReporter(save_output=save_output)
+        if save_output:
+            announce_rendered_definitions()
+        # The reporter prints the trailing "=" divider itself (Reporter.print_separator),
+        # on both the success and error paths, so no separate separator is needed here.
+        return reporter.process(result)
 
 
 @app.command(
@@ -648,41 +651,41 @@ def dependencies(
     The diagram is written as a Mermaid flowchart in a Markdown file that can
     be opened in your IDE's Markdown preview to explore object dependencies.
     """
-    clear_command_artifacts("dependencies", folder_name=RENDERED_DEFINITIONS_FOLDER)
+    clear_command_artifacts("dependencies")
 
     context = _resolve_context_with_required_manifest(from_location, identifier, target)
     project_id = context.project_identifier
 
     manager = DCMProjectManager()
-    tracker = DeployProgressTracker(conn=manager.connection, operation="compile")
-    with tracker.session():
-        effective_stage = manager.sync_local_files(
-            project_identifier=project_id,
-            source_directory=str(from_location.path),
-            progress=tracker,
-        )
-        result = tracker.run_loader_phase(
-            lambda: manager.raw_analyze(
+    with save_error_result_on_failure("dependencies", save_output):
+        tracker = DeployProgressTracker(conn=manager.connection, operation="compile")
+        with tracker.session():
+            effective_stage = manager.sync_local_files(
                 project_identifier=project_id,
-                configuration=context.configuration,
-                from_stage=effective_stage,
-                variables=variables,
-                save_output=save_output,
-                command_name="dependencies",
-                output_folder_name=RENDERED_DEFINITIONS_FOLDER,
-            ),
-            phase_name="COMPILE",
-            simulated_phases=["RENDER"],
-        )
+                source_directory=str(from_location.path),
+                progress=tracker,
+            )
+            result = tracker.run_loader_phase(
+                lambda: manager.raw_analyze(
+                    project_identifier=project_id,
+                    configuration=context.configuration,
+                    from_stage=effective_stage,
+                    variables=variables,
+                    save_output=save_output,
+                    command_name="dependencies",
+                ),
+                phase_name="COMPILE",
+                simulated_phases=["RENDER"],
+            )
 
-    reporter = DependenciesReporter(
-        project_identifier=project_id, save_output=save_output
-    )
-    try:
-        return reporter.process(result)
-    finally:
-        if save_output:
-            announce_rendered_definitions()
+        reporter = DependenciesReporter(
+            project_identifier=project_id, save_output=save_output
+        )
+        try:
+            return reporter.process(result)
+        finally:
+            if save_output:
+                announce_rendered_definitions()
 
 
 _ACCOUNT_PLACEHOLDER = "MY_ORG-MY_ACCOUNT"

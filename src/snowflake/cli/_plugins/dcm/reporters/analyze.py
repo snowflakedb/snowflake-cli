@@ -266,6 +266,8 @@ class AnalyzeReporter(Reporter[Dict[str, Any]]):
     def __init__(self, save_output: bool = False):
         super().__init__(save_output=save_output)
         self.command_name = "raw-analyze"
+        # The backend downloads its own result file via ``collect_output``.
+        self.write_result_file = False
         self._error_count = 0
 
     def extract_data(self, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -326,6 +328,8 @@ class AnalyzeErrorsReporter(Reporter[_FileFindings]):
         # ``compile`` prints its own "Rendered definitions saved to:" line, so
         # suppress the generic "Artifacts saved to" step.
         self.announce_save = False
+        # The backend downloads ``compile_result.json`` via ``collect_output``.
+        self.write_result_file = False
         self._error_count = 0
         self._warning_count = 0
         self._info_count = 0
