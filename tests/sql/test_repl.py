@@ -35,10 +35,12 @@ def make_repl(mock_cursor):
 def test_repl_input_handling(repl, capsys, os_agnostic_snapshot):
     user_inputs = iter(("select 1;", "exit", "y"))
 
-    with mock.patch.object(
-        repl.session,
-        "prompt",
-        side_effect=user_inputs,
+    with (
+        mock.patch.object(repl.session, "prompt", side_effect=user_inputs),
+        mock.patch(
+            "snowflake.cli._plugins.sql.repl.time.monotonic",
+            side_effect=[0.0, 0.123],
+        ),
     ):
         repl.run()
 
