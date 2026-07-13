@@ -49,6 +49,11 @@ class Reporter(ABC, Generic[T]):
         # to" step (the file is still written). Commands that render their own
         # output-location line (e.g. ``compile``) opt out of the default step.
         self.announce_save = True
+        # When False, the raw cursor response is not written to
+        # ``out/<command>_result.json``. Commands that download the backend's own
+        # ``<command>_result.json`` (via ``collect_output``) opt out so we don't
+        # duplicate/overwrite that richer file with the raw response.
+        self.write_result_file = True
 
     @abstractmethod
     def extract_data(self, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -92,7 +97,7 @@ class Reporter(ABC, Generic[T]):
 
     def _try_save_response(self, result_json: Dict[str, Any]) -> None:
         """Save raw JSON response if save_output is enabled and raw data is available."""
-        if self.save_output:
+        if self.save_output and self.write_result_file:
             save_command_response(
                 self.command_name,
                 result_json,

@@ -334,6 +334,10 @@ class DependenciesReporter(Reporter[Dict[str, Any]]):
     ) -> None:
         super().__init__(save_output=save_output)
         self.command_name = "dependencies"
+        # ``dependencies`` writes its own ``dependencies.md`` (always) and
+        # downloads backend output via ``collect_output``; the raw response is
+        # redundant, so don't write ``dependencies_result.json``.
+        self.write_result_file = False
         self._project_identifier = project_identifier
         self._output_path = output_path or (
             SecurePath(OUTPUT_FOLDER) / DEFAULT_DEPENDENCIES_FILENAME

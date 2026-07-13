@@ -15,6 +15,7 @@ import json
 import logging
 import os
 from contextlib import contextmanager
+from datetime import datetime
 from functools import wraps
 from pathlib import Path
 from typing import Any, Dict, Generator
@@ -31,28 +32,28 @@ from snowflake.cli.api.stage_path import StagePath
 log = logging.getLogger(__name__)
 
 OUTPUT_FOLDER = "out"
-# Local folder (under out/) where the backend-rendered project definitions are
-# downloaded. Shared by the ``compile`` and ``dependencies`` commands so the
-# rendered output always lands in the same, descriptively-named place.
-RENDERED_DEFINITIONS_FOLDER = "rendered_definitions"
+# Subfolder (under out/) into which the backend nests the rendered project
+# definitions. Every ``--save-output`` command surfaces it at the same
+# canonical ``out/rendered/`` location, regardless of which command produced it.
+RENDERED_FOLDER = "rendered"
+# Provenance file written alongside the rendered definitions so users can tell
+# when (and by which command) the current out/rendered/ snapshot was produced.
+# It is wiped and rewritten with the folder on every ``--save-output`` run.
+RENDERED_METADATA_FILE = "rendered_metadata.json"
 
 
-def clear_command_artifacts(
-    command_name: str,
-    *,
-    folder_name: str | None = None,
-) -> None:
+def clear_command_artifacts(command_name: str) -> None:
     """Clear previous artifacts for the given command from the out/ directory.
 
-    ``folder_name`` defaults to ``command_name`` but can be set independently for
-    commands whose artifacts folder doesn't share the command name (e.g.
-    ``compile`` writes ``compile.json`` and ``rendered_definitions/``).
+    Removes the command's ``<command_name>_result.json`` (and ``.md``) files.
+    The shared ``out/rendered/`` folder is owned by :func:`collect_output`, which
+    wipes and rewrites it on each ``--save-output`` run.
     """
     output_dir = SecurePath(OUTPUT_FOLDER)
     if not output_dir.exists():
         return
 
-    json_file = output_dir / f"{command_name}.json"
+    json_file = output_dir / f"{command_name}_result.json"
     if json_file.exists():
         json_file.unlink()
 
@@ -61,11 +62,33 @@ def clear_command_artifacts(
     if markdown_file.exists():
         markdown_file.unlink()
 
-    artifacts_dir = output_dir / (folder_name or command_name)
-    if artifacts_dir.exists():
-        artifacts_dir.rmdir(recursive=True)
-
     log.info("Cleared previous artifacts for command '%s'.", command_name)
+
+
+def _write_rendered_metadata(
+    rendered_folder: SecurePath, project_identifier: FQN, command_name: str
+) -> None:
+    """Record when (and by which command) the rendered snapshot was produced."""
+    metadata = {
+        "rendered_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "project": project_identifier.identifier,
+        "command": command_name,
+    }
+    try:
+        (rendered_folder / RENDERED_METADATA_FILE).write_text(json.dumps(metadata))
+    except Exception as e:  # never fail the command just because the marker failed
+        log.warning("Failed to write rendered definitions metadata: %s", e)
+
+
+def _read_rendered_timestamp(rendered_folder: SecurePath) -> str | None:
+    """Return the ``rendered_at`` timestamp from the marker file, if available."""
+    marker = rendered_folder / RENDERED_METADATA_FILE
+    if not marker.exists():
+        return None
+    try:
+        return json.loads(marker.read_text(file_size_limit_mb=1)).get("rendered_at")
+    except Exception:
+        return None
 
 
 def announce_rendered_definitions() -> None:
@@ -75,7 +98,7 @@ def announce_rendered_definitions() -> None:
     output). Used by the ``compile`` and ``dependencies`` commands after a
     ``--save-output`` run to point the user at the downloaded definitions.
     """
-    folder = SecurePath(OUTPUT_FOLDER) / RENDERED_DEFINITIONS_FOLDER
+    folder = SecurePath(OUTPUT_FOLDER) / RENDERED_FOLDER
     if not folder.exists():
         return
     abs_path = folder.path.resolve()
@@ -86,6 +109,12 @@ def announce_rendered_definitions() -> None:
         f"{abs_path}",
         style=Style(color="grey50", link=f"file://{abs_path}"),
     )
+    rendered_at = _read_rendered_timestamp(folder)
+    if rendered_at:
+        cli_console.styled_message("\n")
+        cli_console.styled_message(
+            f"Rendered at: {rendered_at}", style=Style(color="grey50")
+        )
     cli_console.styled_message("\n")
 
 
@@ -94,14 +123,14 @@ def save_command_response(
     raw_data: Dict[str, Any] | str,
     announce: bool = True,
 ) -> None:
-    """Save raw JSON response to out/<command_name>.json.
+    """Save raw JSON response to out/<command_name>_result.json.
 
     When ``announce`` is False the "Artifacts saved to" step is suppressed (the
     file is still written) so callers can present their own output layout.
     """
     output_dir = SecurePath(OUTPUT_FOLDER)
     output_dir.mkdir(exist_ok=True)
-    json_file = output_dir / f"{command_name}.json"
+    json_file = output_dir / f"{command_name}_result.json"
     try:
         if isinstance(raw_data, str):
             json_file.write_text(raw_data)
@@ -119,18 +148,67 @@ def save_command_response(
         cli_console.step(f"Artifacts saved to: {output_dir.path.resolve()}")
 
 
+def _save_error_result(command_name: str, error: Exception) -> None:
+    """Fallback: persist a failed command's error as out/<command>_result.json.
+
+    Only writes when the backend didn't already download its own result file —
+    a successful run's richer file is never clobbered.
+    """
+    result_file = SecurePath(OUTPUT_FOLDER) / f"{command_name}_result.json"
+    if result_file.exists():
+        return
+    message = str(error)
+    # DCM backend errors frequently arrive as a JSON body; preserve it as JSON
+    # when so, otherwise store the raw message the CLI displayed.
+    payload: Any
+    try:
+        payload = json.loads(message)
+    except (ValueError, TypeError):
+        payload = message
+    try:
+        save_command_response(command_name, payload, announce=False)
+    except Exception as e:  # never mask the original failure
+        log.warning("Failed to write error fallback result file: %s", e)
+
+
+@contextmanager
+def save_error_result_on_failure(
+    command_name: str, save_output: bool
+) -> Generator[None, None, None]:
+    """Write out/<command>_result.json from the raised error when a run fails.
+
+    When a command fails before the backend produced its own
+    ``<command>_result.json`` (e.g. a ``plan`` that errors during compilation),
+    the raised error is the only diagnostic the user gets — and today it lives
+    only in the terminal. With ``--save-output`` set, this captures that error
+    into ``out/<command>_result.json`` (the file the run would otherwise be
+    missing) before re-raising, so the CLI still surfaces the error as usual.
+    """
+    try:
+        yield
+    except Exception as e:
+        if save_output:
+            _save_error_result(command_name, e)
+        raise
+
+
 @contextmanager
 def collect_output(
-    project_identifier: FQN, command_name: str, folder_name: str | None = None
+    project_identifier: FQN, command_name: str
 ) -> Generator[str, None, None]:
     """
     Context manager for handling command output artifacts - creates temporary stage,
-    downloads files to out/<folder_name>/ folder after execution.
+    downloads files directly into the out/ folder after execution.
+
+    The backend nests the rendered project definitions under a ``rendered/``
+    subfolder of the ``OUTPUT_PATH`` it's given and writes the ``*_result.json``
+    files as siblings of it. Downloading straight into ``out/`` therefore lands
+    the definitions at ``out/rendered/`` (no intermediate level) and the result
+    files directly under ``out/``.
 
     Args:
         project_identifier: The DCM project identifier
         command_name: Name of the command, used for logging
-        folder_name: Local output subdirectory under out/ (defaults to command_name)
 
     Yields:
         str: The effective output path to use in the DCM command
@@ -149,7 +227,7 @@ def collect_output(
     effective_output_path = StagePath.from_stage_str(
         temp_stage_fqn.identifier
     ).joinpath("/outputs")
-    local_output_path = SecurePath(OUTPUT_FOLDER) / (folder_name or command_name)
+    output_dir = SecurePath(OUTPUT_FOLDER)
 
     try:
         yield effective_output_path.absolute_path()
@@ -159,13 +237,21 @@ def collect_output(
             command_name,
             project_identifier,
             effective_output_path.absolute_path(),
-            local_output_path.resolve(),
+            output_dir.resolve(),
         )
-        local_output_path.mkdir(parents=True, exist_ok=True)
+        # Delete-then-write: wipe any previous run's rendered definitions so
+        # stale files never linger, no matter which command produced them.
+        (output_dir / RENDERED_FOLDER).rmdir(recursive=True, missing_ok=True)
+        output_dir.mkdir(parents=True, exist_ok=True)
         stage_manager.get_recursive(
             stage_path=effective_output_path.absolute_path(),
-            dest_path=local_output_path.path,
+            dest_path=output_dir.path,
         )
+        # Stamp the freshly downloaded snapshot so users can tell when it was
+        # produced. Only when the backend actually rendered definitions.
+        rendered_dir = output_dir / RENDERED_FOLDER
+        if rendered_dir.exists():
+            _write_rendered_metadata(rendered_dir, project_identifier, command_name)
 
 
 class FakeCursor:
