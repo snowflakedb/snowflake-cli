@@ -5200,6 +5200,163 @@ class TestOpenCommand:
             assert "MY%20SCHEMA" in path_arg
             assert "MY%20APP" in path_arg
 
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.typer.launch")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_open_watch_returns_immediately_when_ready(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        mock_launch,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """--watch returns without polling when the endpoint is already ready."""
+        entity = Mock()
+        entity.fqn = Mock(database="DB", schema="SCHEMA", name="MY_APP")
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.describe_app_service.return_value = {
+            "url": "my-app.snowflakecomputing.app",
+            "is_upgrading": "false",
+        }
+        mock_mgr.resolve_application_service_url_from_describe.side_effect = (
+            SnowflakeAppManager().resolve_application_service_url_from_describe
+        )
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "open", "--watch"])
+            assert result.exit_code == 0, result.output
+            assert result.output.strip() == "https://my-app.snowflakecomputing.app"
+            mock_launch.assert_called_once_with("https://my-app.snowflakecomputing.app")
+            mock_poll.assert_not_called()
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.typer.launch")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_open_watch_polls_until_ready_when_service_missing(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        mock_launch,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """--watch tolerates a not-yet-created service and polls until ready."""
+        entity = Mock()
+        entity.fqn = Mock(database="DB", schema="SCHEMA", name="MY_APP")
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        # Service does not exist yet: DESCRIBE raises during the initial check.
+        mock_mgr.describe_app_service.side_effect = ProgrammingError(
+            "does not exist or not authorized"
+        )
+        mock_mgr.resolve_application_service_url_from_describe.side_effect = (
+            SnowflakeAppManager().resolve_application_service_url_from_describe
+        )
+        # The polling loop eventually observes a ready endpoint.
+        mock_poll.return_value = {
+            "url": "my-app.snowflakecomputing.app",
+            "is_upgrading": "false",
+        }
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "open", "--watch"])
+            assert result.exit_code == 0, result.output
+            assert "https://my-app.snowflakecomputing.app" in result.output
+            mock_poll.assert_called_once()
+            mock_launch.assert_called_once_with("https://my-app.snowflakecomputing.app")
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.typer.launch")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_open_watch_print_only_does_not_launch(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        mock_launch,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """--watch with --print-only prints the URL without opening a browser."""
+        entity = Mock()
+        entity.fqn = Mock(database="DB", schema="SCHEMA", name="MY_APP")
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.describe_app_service.return_value = {
+            "url": "my-app.snowflakecomputing.app",
+            "is_upgrading": "false",
+        }
+        mock_mgr.resolve_application_service_url_from_describe.side_effect = (
+            SnowflakeAppManager().resolve_application_service_url_from_describe
+        )
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "open", "--watch", "--print-only"])
+            assert result.exit_code == 0, result.output
+            assert result.output.strip() == "https://my-app.snowflakecomputing.app"
+            mock_launch.assert_not_called()
+
+    @patch("snowflake.cli._plugins.apps.manager.time.sleep")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_open_watch_fails_when_service_reports_failed(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        mock_sleep,
+        runner,
+        tmp_path,
+    ):
+        """--watch stops waiting and errors when the service reports FAILED."""
+        entity = Mock()
+        entity.fqn = Mock(database="DB", schema="SCHEMA", name="MY_APP")
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.describe_app_service.return_value = {"status": "FAILED"}
+        mock_mgr.resolve_application_service_url_from_describe.side_effect = (
+            SnowflakeAppManager().resolve_application_service_url_from_describe
+        )
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "open", "--watch"])
+            assert result.exit_code == 1
+            assert "status=FAILED" in result.output
+
 
 # ── Events CLI command tests ──────────────────────────────────────────
 

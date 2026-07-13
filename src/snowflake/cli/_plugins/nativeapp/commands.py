@@ -344,6 +344,11 @@ def app_open(
         "--settings",
         help="(Snowflake App Runtime only) Open the app settings page in Snowsight instead of the app itself.",
     ),
+    watch: bool = typer.Option(
+        False,
+        "--watch",
+        help="(Snowflake App Runtime only) Do not fail if the app service does not exist yet; poll until its endpoint is ready.",
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -355,12 +360,13 @@ def app_open(
     For Snowflake App Runtime projects (snowflake-app entities):
       Resolves the service endpoint URL and launches the browser. Use
       ``--print-only`` to print the URL, or ``--settings`` to open the
-      Snowsight app-settings page instead.
+      Snowsight app-settings page instead. Use ``--watch`` to wait for the
+      app service to be created and become ready instead of failing.
     """
     app_flow: AppFlow = options["app_flow"]
     if app_flow == AppFlow.SNOWFLAKE_APP:
         return snowflake_app_open(
-            options.get("entity_id") or None, print_only, settings
+            options.get("entity_id") or None, print_only, settings, watch
         )
 
     _reject_snowflake_app_options(
@@ -368,6 +374,7 @@ def app_open(
         **{
             "--print-only": True if print_only else None,
             "--settings": True if settings else None,
+            "--watch": True if watch else None,
         },
     )
 

@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* `snow app open` now accepts a `--watch` flag for Snowflake App Runtime projects. With `--watch`, the command no longer fails when the app service does not exist yet; it polls until the service is created and its endpoint is ready before opening (or printing) the URL.
 
 ## Fixes and improvements
 * `snow app deploy` now drops the code stage before recreating it only when the stage already exists. A first deploy has nothing to clear, so it no longer issues `DROP STAGE` unnecessarily, letting a role with only `CREATE STAGE` (and not `OWNERSHIP`) deploy successfully.
