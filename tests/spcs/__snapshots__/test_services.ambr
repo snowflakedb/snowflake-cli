@@ -67,6 +67,18 @@
   
   '''
 # ---
+# name: test_events_output_all_levels
+  '''
+  +--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+  | TIMESTAMP                  | DATABASE NAME   | SCHEMA NAME     | SERVICE NAME | INSTANCE ID | CONTAINER NAME | SEVERITY | EVENT NAME                     | EVENT VALUE                                                   |
+  |----------------------------+-----------------+-----------------+--------------+-------------+----------------+----------+--------------------------------+---------------------------------------------------------------|
+  | 2026-07-07 20:46:54.913605 | SVC_USER_EVENTS | SVC_USER_EVENTS | SVC001       | N/A         | N/A            | INFO     | SERVICE.STATUS_CHANGE          | {"message": "Service is ready", "status": "RUNNING"}          |
+  | 2026-07-07 20:46:55.130550 | SVC_USER_EVENTS | SVC_USER_EVENTS | SVC001       | 0           | N/A            | INFO     | SERVICE_INSTANCE.STATUS_CHANGE | {"message": "Service instance is running", "status": "READY"} |
+  | 2026-06-23 23:10:11.150000 |                 | SVC_USER_EVENTS | SVC001       | 0           | main           | INFO     | CONTAINER.STATUS_CHANGE        | {"message": "Waiting to start", "status": "PENDING"}          |
+  +--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+  
+  '''
+# ---
 # name: test_latest_metrics
   '''
   +------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -82,7 +94,7 @@
                       select *
                       from event_table_db.data_schema.snowservices_logs
                       where (
-                          resource_attributes:"snow.service.name" = 'LOG_EVENT' and (resource_attributes:"snow.service.instance" = '0' OR resource_attributes:"snow.service.container.instance" = '0') and resource_attributes:"snow.service.container.name" = 'log-printer'
+                          upper(resource_attributes:"snow.service.name") = upper('LOG_EVENT') and (resource_attributes:"snow.service.instance" = '0' OR resource_attributes:"snow.service.container.instance" = '0') and resource_attributes:"snow.service.container.name" = 'log-printer'
                           
                           and timestamp >= sysdate() - interval '2 hour'
                           and timestamp <= sysdate() - interval '1 hour'
