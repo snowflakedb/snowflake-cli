@@ -50,7 +50,7 @@ if ! GH_TOKEN="${MIRROR_GH_TOKEN}" gh api \
   echo "Branch '${BRANCH}' not found on mirror — attempting to seed it."
 
   # Fork point: last common ancestor of source main and the release branch.
-  forkpoint=$(gh api \
+  forkpoint=$(GH_TOKEN="${SOURCE_GH_TOKEN}" gh api \
     "repos/${SOURCE_ORG}/${SOURCE_REPO}/compare/main...${BRANCH}" \
     --jq '.merge_base_commit.sha' 2>/dev/null) \
     || { echo "ERROR: cannot find '${BRANCH}' on source — does it exist?" >&2; exit 1; }

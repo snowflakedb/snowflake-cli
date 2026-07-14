@@ -30,7 +30,7 @@ done
 # ---------- branch discovery ----------
 echo "Listing release branches from ${SOURCE_ORG}/${SOURCE_REPO}..."
 
-branches=$(gh api \
+branches=$(GH_TOKEN="${SOURCE_GH_TOKEN}" gh api \
   "repos/${SOURCE_ORG}/${SOURCE_REPO}/branches" \
   --paginate \
   --jq '.[].name' \
