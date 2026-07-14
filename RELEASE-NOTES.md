@@ -26,6 +26,12 @@
 * `snow app deploy` now drops the code stage before recreating it only when the stage already exists. A first deploy has nothing to clear, so it no longer issues `DROP STAGE` unnecessarily, letting a role with only `CREATE STAGE` (and not `OWNERSHIP`) deploy successfully.
 
 
+# v3.22.1
+
+## Fixes and improvements
+* `snow streamlit deploy`: fix re-deploy incorrectly attempting to UNSET schema-inherited governance tags the deploying role has no APPLY privilege on. Omitting the `tags:` property from `snowflake.yml` now leaves directly-set tags untouched; use `tags: []` to explicitly clear all directly-set tags.
+
+
 # v3.22.0
 
 ## Deprecations
