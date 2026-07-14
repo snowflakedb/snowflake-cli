@@ -5,6 +5,7 @@ on:
     branches:
       # Add allowlisted branches here — keep in sync with CUSTOM_BRANCHES in the run step below.
       # - example-branch
+      - dcm-early-access
       - dcm-early-access-improvements
       - code
   workflow_dispatch:
@@ -58,6 +59,7 @@ jobs:
         run: |
           # Allowlist — keep in sync with on.push.branches above
           CUSTOM_BRANCHES=(
+            "dcm-early-access"
             "dcm-early-access-improvements"
             "code"
           )
