@@ -21,8 +21,10 @@ from snowflake.cli.api.commands.snow_typer import (
     PREVIEW_PREFIX,
     SnowTyper,
     SnowTyperFactory,
+    SortedTyperGroup,
 )
 from snowflake.cli.api.output.types import MessageResult
+from typer.main import get_command
 from typer.testing import CliRunner
 
 
@@ -406,3 +408,127 @@ def test_snow_typer_preview_works_with_help_parameter():
         docstring_cmd_info.callback.__doc__
         == f"{PREVIEW_PREFIX}This command uses docstring."
     )
+
+
+# Tests for injectable group_class on SnowTyperFactory / SnowTyper
+
+
+class _MyGroup(SortedTyperGroup):
+    """Trivial SortedTyperGroup subclass used to verify group_class injection."""
+
+
+def _factory_with_two_commands(**factory_kwargs) -> SnowTyperFactory:
+    # Two commands are required so that Typer keeps a real group (a single
+    # command app is collapsed into a bare command by Typer).
+    app = SnowTyperFactory(name="grouped_app", **factory_kwargs)
+
+    @app.command("first_cmd", requires_global_options=False, requires_connection=False)
+    def first_cmd():
+        return MessageResult("first")
+
+    @app.command("second_cmd", requires_global_options=False, requires_connection=False)
+    def second_cmd():
+        return MessageResult("second")
+
+    return app
+
+
+def test_factory_honors_custom_group_class():
+    """A custom group_class is used for the underlying Click group."""
+    app = _factory_with_two_commands(group_class=_MyGroup).create_instance()
+
+    group = get_command(app)
+    assert isinstance(group, _MyGroup)
+    assert type(group) is _MyGroup
+
+
+def test_factory_defaults_to_sorted_typer_group():
+    """Without group_class the default SortedTyperGroup is used."""
+    app = _factory_with_two_commands().create_instance()
+
+    group = get_command(app)
+    assert isinstance(group, SortedTyperGroup)
+    assert not isinstance(group, _MyGroup)
+
+
+def test_snow_typer_honors_custom_group_class_directly():
+    """SnowTyper itself forwards group_class to the Click group."""
+    app = SnowTyper(name="direct", group_class=_MyGroup)
+
+    @app.command("first_cmd", requires_global_options=False, requires_connection=False)
+    def first_cmd():
+        return MessageResult("first")
+
+    @app.command("second_cmd", requires_global_options=False, requires_connection=False)
+    def second_cmd():
+        return MessageResult("second")
+
+    group = get_command(app)
+    assert isinstance(group, _MyGroup)
+
+
+# Tests for add_typer kwargs forwarding
+
+
+def _subapp_factory(name: str) -> SnowTyperFactory:
+    sub = SnowTyperFactory(name=name)
+
+    @sub.command("sub_cmd", requires_global_options=False, requires_connection=False)
+    def sub_cmd():
+        return MessageResult("sub")
+
+    return sub
+
+
+def test_add_typer_forwards_kwargs_to_subgroup():
+    """add_typer kwargs (e.g. rich_help_panel) are forwarded to add_typer."""
+    parent = SnowTyperFactory(name="parent")
+
+    @parent.command(
+        "parent_cmd", requires_global_options=False, requires_connection=False
+    )
+    def parent_cmd():
+        return MessageResult("parent")
+
+    parent.add_typer(_subapp_factory("sub"), rich_help_panel="My Panel")
+
+    group = get_command(parent.create_instance())
+    subcommand = group.commands["sub"]
+    assert subcommand.rich_help_panel == "My Panel"
+
+
+def test_add_typer_without_kwargs_has_no_rich_help_panel():
+    """A subapp added without kwargs registers with no rich_help_panel."""
+    parent = SnowTyperFactory(name="parent")
+
+    @parent.command(
+        "parent_cmd", requires_global_options=False, requires_connection=False
+    )
+    def parent_cmd():
+        return MessageResult("parent")
+
+    parent.add_typer(_subapp_factory("sub"))
+
+    group = get_command(parent.create_instance())
+    subcommand = group.commands["sub"]
+    assert getattr(subcommand, "rich_help_panel", None) is None
+
+
+def test_add_typer_subcommands_are_invokable(cli):
+    """Regression: a factory with a subapp still builds and is invokable."""
+    parent = SnowTyperFactory(name="parent")
+
+    @parent.command(
+        "parent_cmd", requires_global_options=False, requires_connection=False
+    )
+    def parent_cmd():
+        return MessageResult("parent")
+
+    parent.add_typer(_subapp_factory("sub"))
+
+    app = parent.create_instance()
+    result = cli(app)(["sub", "--help"])
+    assert result.exit_code == 0, result.output
+
+    sub_result = cli(app)(["sub", "sub_cmd", "--help"])
+    assert sub_result.exit_code == 0, sub_result.output
