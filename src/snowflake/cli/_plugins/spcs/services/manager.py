@@ -539,8 +539,8 @@ class ServiceManager(SqlExecutionMixin):
     def get_events(
         self,
         service_name: str,
-        instance_id: str,
-        container_name: str,
+        instance_id: str | None = None,
+        container_name: str | None = None,
         since: str | datetime | None = None,
         until: str | datetime | None = None,
         first: Optional[int] = None,
@@ -567,7 +567,7 @@ class ServiceManager(SqlExecutionMixin):
                             {since_clause}
                             {until_clause}
                         )
-                        and record_type = 'LOG'
+                        and record_type = 'EVENT'
                         and scope['name'] = 'snow.spcs.platform'
                         order by timestamp desc
                         {last_clause}

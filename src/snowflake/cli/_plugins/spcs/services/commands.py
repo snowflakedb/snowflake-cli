@@ -110,6 +110,20 @@ show_all_columns_option = typer.Option(
     help="Fetch all columns.",
 )
 
+events_container_name_option = typer.Option(
+    None,
+    "--container-name",
+    help="Narrow events to this container. Requires --instance-id.",
+    show_default=False,
+)
+
+events_instance_id_option = typer.Option(
+    None,
+    "--instance-id",
+    help="Narrow events to this service instance, starting with 0.",
+    show_default=False,
+)
+
 
 def _service_name_callback(name: FQN) -> FQN:
     if not is_valid_object_name(name.identifier, max_depth=2, allow_quoted=False):
@@ -427,20 +441,19 @@ def logs(
 
 @app.command(
     requires_connection=True,
-    is_enabled=FeatureFlag.ENABLE_SPCS_SERVICE_EVENTS.is_enabled,
 )
 def events(
     name: FQN = ServiceNameArgument,
-    container_name: str = container_name_option,
-    instance_id: str = instance_id_option,
+    container_name: Optional[str] = events_container_name_option,
+    instance_id: Optional[str] = events_instance_id_option,
     since: str = since_option,
     until: str = until_option,
-    first: int = typer.Option(
+    first: Optional[int] = typer.Option(
         default=None,
         show_default=False,
         help="Fetch only the first N events. Cannot be used with --last.",
     ),
-    last: int = typer.Option(
+    last: Optional[int] = typer.Option(
         default=None,
         show_default=False,
         help="Fetch only the last N events. Cannot be used with --first.",
@@ -449,11 +462,26 @@ def events(
     **options,
 ):
     """
-    Retrieve platform events for a service container.
+    Retrieve platform events for a service.
+
+    By default, all platform events for the service are returned. The following
+    filters narrow the results:
+
+    * --instance-id restricts events to a single service instance.
+    * --container-name restricts events to a single container (requires
+      --instance-id).
+    * --since / --until restrict events to a time window, in Snowflake interval
+      syntax.
+    * --first / --last return only the first / last N events.
     """
 
     if first is not None and last is not None:
         raise IncompatibleParametersError(["--first", "--last"])
+
+    if container_name is not None and instance_id is None:
+        raise CliArgumentError(
+            "--instance-id is required when --container-name is specified."
+        )
 
     manager = ServiceManager()
     events = manager.get_events(
