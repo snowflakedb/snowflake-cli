@@ -3,7 +3,7 @@ from unittest import mock
 
 import pytest
 from snowflake.cli._plugins.object.common import Tag
-from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity
+from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity, _TagRef
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     SPCS_RUNTIME_V2_NAME,
     StreamlitEntityModel,
@@ -14,6 +14,7 @@ from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
 
+from tests.conftest import MockCursor
 from tests.streamlit.streamlit_test_class import STREAMLIT_NAME, StreamlitTestClass
 
 CONNECTOR = "snowflake.connector.connect"
@@ -876,11 +877,11 @@ class TestStreamlitEntity(StreamlitTestClass):
         model.set_entity_id("test_streamlit")
         entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
 
-        sql = entity.get_unset_tag_sql(["cost_center", "owner"])
+        sql = entity.get_unset_tag_sql(["MYDB.PUBLIC.COST_CENTER", "MYDB.PUBLIC.OWNER"])
 
         assert (
             sql
-            == "ALTER STREAMLIT IDENTIFIER('test_streamlit') UNSET TAG cost_center,owner;"
+            == "ALTER STREAMLIT IDENTIFIER('test_streamlit') UNSET TAG MYDB.PUBLIC.COST_CENTER,MYDB.PUBLIC.OWNER;"
         )
 
     def test_sync_tags_unsets_removed_and_sets_desired(self, workspace_context):
@@ -897,15 +898,15 @@ class TestStreamlitEntity(StreamlitTestClass):
         with (
             mock.patch.object(
                 entity,
-                "_get_current_tag_names",
-                return_value=["old_tag"],  # already parsed strings
+                "_get_current_tags",
+                return_value=[_TagRef("OLD_TAG", "MYDB.MYSCHEMA.OLD_TAG")],
             ),
             mock.patch.object(entity, "_execute_query") as mock_exec,
         ):
             entity._sync_tags()  # noqa: SLF001
 
         calls = [str(c.args[0]) for c in mock_exec.call_args_list]
-        assert any("UNSET TAG old_tag" in c for c in calls)
+        assert any("UNSET TAG MYDB.MYSCHEMA.OLD_TAG" in c for c in calls)
         assert any("SET TAG new_tag='v'" in c for c in calls)
 
     def test_sync_tags_unsets_all_when_no_desired_tags(self, workspace_context):
@@ -914,13 +915,19 @@ class TestStreamlitEntity(StreamlitTestClass):
             identifier="test_streamlit",
             main_file="streamlit_app.py",
             artifacts=["streamlit_app.py"],
+            tags=[],
         )
         model.set_entity_id("test_streamlit")
         entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
 
         with (
             mock.patch.object(
-                entity, "_get_current_tag_names", return_value=["tag_a", "tag_b"]
+                entity,
+                "_get_current_tags",
+                return_value=[
+                    _TagRef("TAG_A", "MYDB.MYSCHEMA.TAG_A"),
+                    _TagRef("TAG_B", "MYDB.MYSCHEMA.TAG_B"),
+                ],
             ),
             mock.patch.object(entity, "_execute_query") as mock_exec,
         ):
@@ -931,7 +938,9 @@ class TestStreamlitEntity(StreamlitTestClass):
         assert "UNSET TAG" in unset_sql
         assert " SET TAG " not in unset_sql
 
-    def test_sync_tags_no_current_no_desired_is_noop(self, workspace_context):
+    def test_sync_tags_skips_when_tags_property_absent(self, workspace_context):
+        """When tags is not set in snowflake.yml (None), _sync_tags must be a no-op.
+        Neither _get_current_tags nor any query should be issued."""
         model = StreamlitEntityModel(
             type="streamlit",
             identifier="test_streamlit",
@@ -942,9 +951,106 @@ class TestStreamlitEntity(StreamlitTestClass):
         entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
 
         with (
-            mock.patch.object(entity, "_get_current_tag_names", return_value=[]),
+            mock.patch.object(entity, "_get_current_tags") as mock_get,
+            mock.patch.object(entity, "_execute_query") as mock_exec,
+        ):
+            entity._sync_tags()  # noqa: SLF001
+
+        mock_get.assert_not_called()
+        mock_exec.assert_not_called()
+
+    def test_sync_tags_unsets_all_when_tags_explicitly_empty(self, workspace_context):
+        """tags: [] explicitly means 'manage tags and remove all' — unset everything currently set."""
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+            tags=[],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        with (
+            mock.patch.object(entity, "_get_current_tags", return_value=[]),
             mock.patch.object(entity, "_execute_query") as mock_exec,
         ):
             entity._sync_tags()  # noqa: SLF001
 
         mock_exec.assert_not_called()
+
+    def test_get_current_tags_qualifies_information_schema_with_database(
+        self, workspace_context
+    ):
+        """information_schema must be qualified with the resolved database so the query
+        works when no default database is active in the session."""
+        self.mock_conn.database = "MYDB"
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        self.mock_execute.return_value = MockCursor.from_input(
+            [("MYDB", "MYSCHEMA", "MY_TAG")], ["TAG_DATABASE", "TAG_SCHEMA", "TAG_NAME"]
+        )
+
+        result = entity._get_current_tags()  # noqa: SLF001
+
+        issued_sql = self.mock_execute.call_args.args[0]
+        assert "MYDB.information_schema.tag_references" in issued_sql
+        assert "WHERE LEVEL = 'STREAMLIT'" in issued_sql
+        assert result == [_TagRef("MY_TAG", "MYDB.MYSCHEMA.MY_TAG")]
+
+    def test_get_current_tags_falls_back_to_unqualified_when_no_database(
+        self, workspace_context
+    ):
+        """When neither the model nor the connection has a database, information_schema
+        is left unqualified (matching the pre-existing behaviour)."""
+        self.mock_conn.database = None
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        self.mock_execute.return_value = MockCursor.from_input([], [])
+
+        entity._get_current_tags()  # noqa: SLF001
+
+        issued_sql = self.mock_execute.call_args.args[0]
+        assert issued_sql.startswith(
+            "SELECT TAG_DATABASE, TAG_SCHEMA, TAG_NAME FROM TABLE(information_schema"
+        )
+
+    def test_sync_tags_uses_fqn_for_unset(self, workspace_context):
+        """UNSET TAG must use FQN so it resolves correctly outside the tag's schema."""
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+            tags=[],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        with (
+            mock.patch.object(
+                entity,
+                "_get_current_tags",
+                return_value=[_TagRef("GOV_TAG", "GOV_DB.GOV_SCHEMA.GOV_TAG")],
+            ),
+            mock.patch.object(entity, "_execute_query") as mock_exec,
+        ):
+            entity._sync_tags()  # noqa: SLF001
+
+        unset_sql = mock_exec.call_args.args[0]
+        assert "GOV_DB.GOV_SCHEMA.GOV_TAG" in unset_sql
+        assert "UNSET TAG GOV_DB.GOV_SCHEMA.GOV_TAG" in unset_sql
