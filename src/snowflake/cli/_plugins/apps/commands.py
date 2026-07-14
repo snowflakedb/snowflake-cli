@@ -294,7 +294,9 @@ def snowflake_app_setup(
                 # server-side. On accounts where that function is not yet
                 # available, ``fetch_app_service_defaults`` transparently falls
                 # back to the legacy ``SHOW PARAMETERS`` + ``EXPLAIN_PRIVILEGES``
-                # flow, so the resolution below is unaffected either way.
+                # flow, so the resolution below is unaffected either way. The
+                # fetch span nests under this ``resolve_defaults`` span, which it
+                # reads from the metrics span stack.
                 params = manager.fetch_app_service_defaults()
 
             def _resolve(
@@ -739,6 +741,7 @@ def snowflake_app_deploy(
     app_name = fqn.name
 
     ctx = get_cli_context()
+    metrics = ctx.metrics
     conn = ctx.connection_context
     database = fqn.database or conn.database
     schema = fqn.schema or conn.schema
@@ -751,7 +754,8 @@ def snowflake_app_deploy(
 
     # ── Resolve defaults (snowflake.yml > account parameters > built-in) ──
     manager = SnowflakeAppManager(interactive=interactive)
-    defaults = _resolve_deploy_defaults(entity, manager, app_name=app_name)
+    with metrics.span("snowflake_app.deploy.resolve_defaults"):
+        defaults = _resolve_deploy_defaults(entity, manager, app_name=app_name)
 
     database = defaults["database"]
     schema = defaults["schema"]
@@ -804,8 +808,6 @@ def snowflake_app_deploy(
     )
     service_fqn = app_fqn(database=database, schema=schema, name=app_name)
     workspace_source_uri = manager.workspace_subdirectory_uri(storage_fqn, app_name)
-
-    metrics = get_cli_context().metrics
 
     # Tracks whether this invocation created the code stage, so it can be
     # dropped once the build has consumed it (see the build phase below).
@@ -1222,10 +1224,14 @@ def snowflake_app_teardown(
             )
 
     if not force:
-        should_continue = typer.confirm(
-            f"Are you sure you want to drop {object_kind} {service_fqn.identifier}"
-            f" and its associated objects?"
-        )
+        # Wrap the interactive prompt in its own span so the time spent waiting
+        # on the user is attributable and does not silently inflate the overall
+        # command duration (which is otherwise unaccounted for by any span).
+        with metrics.span("snowflake_app.teardown.confirm"):
+            should_continue = typer.confirm(
+                f"Are you sure you want to drop {object_kind} {service_fqn.identifier}"
+                f" and its associated objects?"
+            )
         if not should_continue:
             return MessageResult("Teardown cancelled.")
 

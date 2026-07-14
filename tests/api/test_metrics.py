@@ -158,6 +158,7 @@ def test_metrics_spans_single_span_no_error_or_parent():
     assert span1_dict[CLIMetricsSpan.START_TIME_KEY] > 0
     assert span1_dict[CLIMetricsSpan.EXECUTION_TIME_KEY] > 0
     assert span1_dict[CLIMetricsSpan.ERROR_KEY] is None
+    assert span1_dict[CLIMetricsSpan.ERROR_CODE_KEY] is None
     assert span1_dict[CLIMetricsSpan.PARENT_KEY] is None
     assert span1_dict[CLIMetricsSpan.PARENT_ID_KEY] is None
     assert span1_dict[CLIMetricsSpan.SPAN_COUNT_IN_SUBTREE_KEY] == 1
@@ -334,6 +335,27 @@ def test_metrics_spans_error_is_propagated():
     assert len(metrics.completed_spans) == 1
     step1_dict = metrics.completed_spans[0]
     assert step1_dict[CLIMetricsSpan.ERROR_KEY] == "RuntimeError"
+    # A plain exception carries no Snowflake error code.
+    assert step1_dict[CLIMetricsSpan.ERROR_CODE_KEY] is None
+
+
+def test_metrics_spans_error_code_is_recorded_from_errno():
+    # given
+    metrics = CLIMetrics()
+
+    class CodedError(Exception):
+        errno = 3001
+
+    # when
+    with pytest.raises(CodedError):
+        with metrics.span("step1"):
+            raise CodedError()
+
+    # then
+    assert len(metrics.completed_spans) == 1
+    step1_dict = metrics.completed_spans[0]
+    assert step1_dict[CLIMetricsSpan.ERROR_KEY] == "CodedError"
+    assert step1_dict[CLIMetricsSpan.ERROR_CODE_KEY] == 3001
 
 
 def test_metrics_spans_empty_name_raises_error():
