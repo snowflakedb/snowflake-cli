@@ -21,6 +21,7 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Generator, Iterable, List, Optional, cast
 
+import click
 import typer
 from click import ClickException
 from snowflake.cli._plugins.apps.commands import (
@@ -46,6 +47,8 @@ from snowflake.cli._plugins.nativeapp.release_directive.commands import (
 )
 from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
+    NATIVE_APP_ENTITY_TYPES,
+    SNOWFLAKE_APP_ENTITY_TYPES,
     AppFlow,
     find_entity,
     force_project_definition_v2,
@@ -66,7 +69,7 @@ from snowflake.cli.api.commands.flags import (
     ForceOption,
     InteractiveOption,
 )
-from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory, SortedTyperGroup
 from snowflake.cli.api.config import get_file_io_encoding
 from snowflake.cli.api.entities.utils import EntityActions
 from snowflake.cli.api.exceptions import (
@@ -79,16 +82,102 @@ from snowflake.cli.api.output.types import (
     ObjectResult,
     StreamResult,
 )
+from snowflake.cli.api.project.definition import _get_merged_definitions
+from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.util import same_identifiers
 from typing_extensions import Annotated
+
+log = logging.getLogger(__name__)
+
+# Help panels used to group ``snow app`` subcommands. They double as the
+# filter key for SmartAppGroup: when a project's app family is unambiguous,
+# the panel that belongs to the other family is hidden from help.
+NATIVE_APP_PANEL = "Native App commands"
+SNOWFLAKE_APP_PANEL = "Snowflake App Runtime commands"
+COMMON_PANEL = "Common commands"
+
+
+def _detect_app_family(cwd: str) -> Optional[AppFlow]:
+    """Best-effort, side-effect-free detection of a project's app family.
+
+    Reads the raw (un-templated, un-validated) ``snowflake.yml`` merged with
+    ``snowflake.local.yml`` and returns ``AppFlow.NATIVE_APP``,
+    ``AppFlow.SNOWFLAKE_APP``, or ``None``. Only reports a concrete family when
+    the project unambiguously belongs to it; anything else (no project, parse
+    error, or a mix of both families) yields ``None`` so help falls back to
+    showing every command.
+    """
+    try:
+        root = DefinitionManager.find_project_root(Path(cwd))
+        if root is None:
+            return None
+        paths = DefinitionManager(str(root)).project_config_paths
+        raw = (
+            _get_merged_definitions(paths, encoding=get_file_io_encoding() or "utf-8")
+            or {}
+        )
+
+        # v1 definitions are always Native App -- they use the top-level
+        # ``native_app`` key rather than typed entities.
+        if raw.get("native_app") is not None:
+            return AppFlow.NATIVE_APP
+
+        entities = raw.get("entities") or {}
+        types = {
+            str(entity.get("type", "")).strip().lower()
+            for entity in entities.values()
+            if isinstance(entity, dict)
+        }
+        has_native = bool(types & NATIVE_APP_ENTITY_TYPES)
+        has_snowflake = bool(types & SNOWFLAKE_APP_ENTITY_TYPES)
+        if has_native and not has_snowflake:
+            return AppFlow.NATIVE_APP
+        if has_snowflake and not has_native:
+            return AppFlow.SNOWFLAKE_APP
+        return None
+    except Exception:  # noqa: BLE001 - help must never crash on a bad manifest
+        log.debug("Could not detect app family for smart help", exc_info=True)
+        return None
+
+
+class SmartAppGroup(SortedTyperGroup):
+    """``snow app`` group that hides the irrelevant family's commands from help.
+
+    Filtering only affects the help listing (``list_commands``). Hidden
+    commands remain fully runnable via ``get_command`` -- they simply don't
+    clutter the help output for a project that clearly belongs to one family.
+    """
+
+    # The panel to hide for each unambiguous family (the *other* family's panel).
+    _PANEL_TO_HIDE = {
+        AppFlow.NATIVE_APP: SNOWFLAKE_APP_PANEL,
+        AppFlow.SNOWFLAKE_APP: NATIVE_APP_PANEL,
+    }
+
+    def list_commands(self, ctx: click.Context) -> List[str]:
+        # Detection runs on every help render (not cached): it is cheap and the
+        # result depends on the current working directory, which can change
+        # between invocations within a single process (e.g. tests, REPLs).
+        names = super().list_commands(ctx)
+        hidden_panel = self._PANEL_TO_HIDE.get(_detect_app_family(str(Path.cwd())))
+        if hidden_panel is None:
+            return names
+        return [
+            name
+            for name in names
+            if getattr(self.get_command(ctx, name), "rich_help_panel", None)
+            != hidden_panel
+        ]
+
 
 app = SnowTyperFactory(
     name="app",
     help="Manages Snowflake Native Apps and Snowflake App Runtime.",
+    group_class=SmartAppGroup,
 )
-app.add_typer(versions_app)
-app.add_typer(release_directives_app)
-app.add_typer(release_channels_app)
+app.add_typer(versions_app, rich_help_panel=NATIVE_APP_PANEL)
+app.add_typer(release_directives_app, rich_help_panel=NATIVE_APP_PANEL)
+app.add_typer(release_channels_app, rich_help_panel=NATIVE_APP_PANEL)
 
 
 @app.callback()
@@ -119,9 +208,6 @@ def _app_group_callback() -> None:
     get_cli_context_manager().project_definition_encoding = (
         get_file_io_encoding() or "utf-8"
     )
-
-
-log = logging.getLogger(__name__)
 
 
 # Sentinel used on events --last to tell "user didn't pass --last" apart
@@ -168,7 +254,7 @@ def _reject_snowflake_app_options(command: str, **options: object) -> None:
         )
 
 
-@app.command("setup", requires_connection=True)
+@app.command("setup", requires_connection=True, rich_help_panel=SNOWFLAKE_APP_PANEL)
 def app_setup(
     app_name: Optional[str] = typer.Option(
         None,
@@ -204,7 +290,7 @@ def app_setup(
     return snowflake_app_setup(app_name, dry_run, compute_pool, build_eai)
 
 
-@app.command("bundle")
+@app.command("bundle", rich_help_panel=COMMON_PANEL)
 @with_project_definition()
 @with_app_flow_routing()
 def app_bundle(
@@ -238,7 +324,9 @@ def app_bundle(
     return MessageResult(f"Bundle generated at {ws.project_root / package.deploy_root}")
 
 
-@app.command("diff", requires_connection=True, hidden=True)
+@app.command(
+    "diff", requires_connection=True, hidden=True, rich_help_panel=NATIVE_APP_PANEL
+)
 @with_project_definition()
 @native_app_only("diff")
 @force_project_definition_v2()
@@ -265,7 +353,7 @@ def app_diff(
     return None
 
 
-@app.command("run", requires_connection=True)
+@app.command("run", requires_connection=True, rich_help_panel=NATIVE_APP_PANEL)
 @with_project_definition()
 @native_app_only("run")
 @force_project_definition_v2(app_required=True)
@@ -330,7 +418,7 @@ def app_run(
     )
 
 
-@app.command("open", requires_connection=True)
+@app.command("open", requires_connection=True, rich_help_panel=COMMON_PANEL)
 @with_project_definition()
 @with_app_flow_routing(app_required=True)
 def app_open(
@@ -394,7 +482,7 @@ def app_open(
         )
 
 
-@app.command("teardown", requires_connection=True)
+@app.command("teardown", requires_connection=True, rich_help_panel=COMMON_PANEL)
 @with_project_definition()
 @with_app_flow_routing(single_app_and_package=False)
 def app_teardown(
@@ -480,7 +568,7 @@ def app_teardown(
     return MessageResult(f"Teardown is now complete.")
 
 
-@app.command("deploy", requires_connection=True)
+@app.command("deploy", requires_connection=True, rich_help_panel=COMMON_PANEL)
 @with_project_definition()
 @with_app_flow_routing()
 def app_deploy(
@@ -611,7 +699,7 @@ def app_deploy(
     )
 
 
-@app.command("validate", requires_connection=True)
+@app.command("validate", requires_connection=True, rich_help_panel=COMMON_PANEL)
 @with_project_definition()
 @with_app_flow_routing()
 def app_validate(
@@ -668,7 +756,7 @@ class RecordType(Enum):
 DEFAULT_EVENT_FOLLOW_LAST = 20
 
 
-@app.command("events", requires_connection=True)
+@app.command("events", requires_connection=True, rich_help_panel=COMMON_PANEL)
 @with_project_definition()
 @with_app_flow_routing(app_required=True)
 def app_events(
@@ -847,7 +935,7 @@ class EventResult(ObjectResult, MessageResult):
         return self._element
 
 
-@app.command("publish", requires_connection=True)
+@app.command("publish", requires_connection=True, rich_help_panel=NATIVE_APP_PANEL)
 @with_project_definition()
 @native_app_only("publish")
 @force_project_definition_v2()
