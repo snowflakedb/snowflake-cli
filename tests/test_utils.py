@@ -23,6 +23,9 @@ import snowflake.cli._plugins.snowpark.models
 import snowflake.cli._plugins.snowpark.package.utils
 from snowflake.cli._plugins.connection.util import (
     LOCAL_DEPLOYMENT_REGION,
+    SNOWSIGHT_DEFAULT_HOST,
+    MissingConnectionAccountError,
+    MissingConnectionRegionError,
     UIParameter,
     get_context,
     get_host_region,
@@ -219,6 +222,41 @@ def test_make_snowsight_url(
     get_account.return_value = account
     actual = make_snowsight_url(None, path)  # all uses of conn are mocked
     assert actual == expected
+
+
+@patch("snowflake.cli._plugins.connection.util.get_account")
+@patch("snowflake.cli._plugins.connection.util.get_context")
+@patch("snowflake.cli._plugins.connection.util.get_snowsight_host")
+@pytest.mark.parametrize(
+    "raising_fn, exc",
+    [
+        (
+            "get_context",
+            MissingConnectionRegionError(
+                "acct.westeurope.azure.snowflakecomputing.com"
+            ),
+        ),
+        ("get_account", MissingConnectionAccountError(mock.MagicMock())),
+    ],
+)
+def test_make_snowsight_url_falls_back_when_url_cannot_be_resolved(
+    get_snowsight_host, get_context, get_account, raising_fn, exc
+):
+    """When the region or account cannot be resolved (e.g. Azure 5-part hosts),
+    make_snowsight_url should return the default Snowsight root instead of raising.
+    """
+    get_snowsight_host.return_value = "https://app.snowflake.com"
+    get_context.return_value = "org"
+    get_account.return_value = "account"
+
+    if raising_fn == "get_context":
+        get_context.side_effect = exc
+    else:
+        get_account.side_effect = exc
+
+    actual = make_snowsight_url(None, "/#/streamlit-apps/MY_APP")
+    assert actual == SNOWSIGHT_DEFAULT_HOST
+    assert SNOWSIGHT_DEFAULT_HOST == "https://app.snowflake.com"
 
 
 @patch("snowflake.cli._plugins.connection.util.get_account")
