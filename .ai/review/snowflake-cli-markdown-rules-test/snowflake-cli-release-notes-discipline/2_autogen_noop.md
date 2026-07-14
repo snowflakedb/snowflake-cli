@@ -31,3 +31,34 @@
 * Fixed `snow git fetch` crashing when the repository URL includes authentication tokens in certain formats.
 * Updated `snowflake-connector-python` to version 4.6.0.
 * Upgraded `pip` from 24.0 to 24.2.
+
+# v3.22.1
+
+## Fixes and improvements
+* `snow streamlit deploy`: fixed re-deploy incorrectly attempting to UNSET schema-inherited governance tags the deploying role has no APPLY privilege on.
+
+# v3.22.0
+
+## Deprecations
+* The `--legacy-auth` flag for `snow connection` is deprecated and will be removed in a future release.
+
+## New additions
+* Added `tags` field to Streamlit entity so that tags can be set with `snow streamlit deploy`.
+
+## Fixes and improvements
+* Fixed `snow app setup` incorrectly treating system-default parameter values as admin-configured values.
+* Updated `snowflake-connector-python` to version 4.5.0.
+
+# v3.21.1
+<!-- Correct: backport patch — placed immediately before v3.21.0, its base version, even though v3.22.x is newer -->
+
+## Fixes and improvements
+* Fixed `snow connection list` crashing with an `AttributeError` when `config.toml` contains a scalar value directly under `[connections]`.
+
+# v3.21.0
+
+## New additions
+* Added `snow notebook execute` command.
+
+## Fixes and improvements
+* Fixed `snow stage copy` failing when destination path contains spaces.
