@@ -17,7 +17,6 @@ import re
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from textwrap import dedent
 from unittest.mock import Mock, call, patch
 
@@ -64,26 +63,6 @@ SPEC_DICT = {
 EXECUTE_QUERY = (
     "snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query"
 )
-
-
-@pytest.fixture()
-def enable_events_and_metrics_config():
-    from snowflake.cli.api.utils.path_utils import path_resolver
-
-    from tests.conftest import clean_logging_handlers
-
-    with TemporaryDirectory() as tempdir:
-        resolved_tempdir = path_resolver(tempdir)
-        config_toml = Path(resolved_tempdir) / "config.toml"
-        config_toml.write_text(
-            "[cli.features]\n"
-            "enable_spcs_service_events = true\n"
-            "enable_spcs_service_metrics = true\n"
-        )
-        try:
-            yield config_toml
-        finally:
-            clean_logging_handlers()
 
 
 @patch(EXECUTE_QUERY)
@@ -990,9 +969,7 @@ def test_empty_dedup_log_records_does_not_cause_index_error():
 
 
 @patch(EXECUTE_QUERY)
-def test_logs_incompatible_flags(
-    mock_execute_query, runner, enable_events_and_metrics_config
-):
+def test_logs_incompatible_flags(mock_execute_query, runner):
     result = runner.invoke(
         [
             "spcs",
@@ -1047,9 +1024,7 @@ def test_logs_streaming_flag_is_hidden(runner):
 
 
 @patch(EXECUTE_QUERY)
-def test_events_all_filters(
-    mock_execute_query, runner, enable_events_and_metrics_config
-):
+def test_events_all_filters(mock_execute_query, runner):
     mock_execute_query.side_effect = [
         [
             {
@@ -1092,8 +1067,7 @@ def test_events_all_filters(
         ),
     ]
 
-    result = runner.invoke_with_config_file(
-        enable_events_and_metrics_config,
+    result = runner.invoke(
         [
             "spcs",
             "service",
@@ -1130,11 +1104,11 @@ def test_events_all_filters(
         "                        select *\n"
         "                        from event_table_db.data_schema.snowservices_logs\n"
         "                        where (\n"
-        "                            resource_attributes:\"snow.service.name\" = 'LOG_EVENT' and (resource_attributes:\"snow.service.instance\" = '0' OR resource_attributes:\"snow.service.container.instance\" = '0') and resource_attributes:\"snow.service.container.name\" = 'log-printer'\n"
+        "                            upper(resource_attributes:\"snow.service.name\") = upper('LOG_EVENT') and (resource_attributes:\"snow.service.instance\" = '0' OR resource_attributes:\"snow.service.container.instance\" = '0') and resource_attributes:\"snow.service.container.name\" = 'log-printer'\n"
         "                            and timestamp >= sysdate() - interval '2 hours'\n"
         "                            and timestamp <= sysdate() - interval '1 hour'\n"
         "                        )\n"
-        "                        and record_type = 'LOG'\n"
+        "                        and record_type = 'EVENT'\n"
         "                        and scope['name'] = 'snow.spcs.platform'\n"
         "                        order by timestamp desc\n"
         "                        limit 10\n"
@@ -1149,9 +1123,8 @@ def test_events_all_filters(
     ), f"Generated query does not match expected query.\n\nActual:\n{actual_query}\n\nExpected:\n{expected_query}"
 
 
-def test_events_first_last_incompatibility(runner, enable_events_and_metrics_config):
-    result = runner.invoke_with_config_file(
-        enable_events_and_metrics_config,
+def test_events_first_last_incompatibility(runner):
+    result = runner.invoke(
         [
             "spcs",
             "service",
@@ -1179,9 +1152,206 @@ def test_events_first_last_incompatibility(runner, enable_events_and_metrics_con
 
 
 @patch(EXECUTE_QUERY)
-def test_latest_metrics(
-    mock_execute_query, runner, snapshot, enable_events_and_metrics_config
-):
+def test_events_service_level(mock_execute_query, runner):
+    mock_execute_query.side_effect = [
+        [
+            {
+                "key": "EVENT_TABLE",
+                "value": "event_table_db.data_schema.snowservices_logs",
+            }
+        ],
+        Mock(fetchall=lambda: []),
+    ]
+
+    result = runner.invoke(
+        ["spcs", "service", "events", "LOG_EVENT"],
+    )
+
+    assert result.exit_code == 0, f"Command failed with output: {result.output}"
+
+    actual_query = mock_execute_query.mock_calls[1].args[0]
+    assert (
+        "upper(resource_attributes:\"snow.service.name\") = upper('LOG_EVENT')"
+        in actual_query
+    )
+    assert "snow.service.instance" not in actual_query
+    assert "snow.service.container.name" not in actual_query
+    assert "and record_type = 'EVENT'" in actual_query
+
+
+@patch(EXECUTE_QUERY)
+def test_events_instance_level(mock_execute_query, runner):
+    mock_execute_query.side_effect = [
+        [
+            {
+                "key": "EVENT_TABLE",
+                "value": "event_table_db.data_schema.snowservices_logs",
+            }
+        ],
+        Mock(fetchall=lambda: []),
+    ]
+
+    result = runner.invoke(
+        ["spcs", "service", "events", "LOG_EVENT", "--instance-id", "0"],
+    )
+
+    assert result.exit_code == 0, f"Command failed with output: {result.output}"
+
+    actual_query = mock_execute_query.mock_calls[1].args[0]
+    assert (
+        "upper(resource_attributes:\"snow.service.name\") = upper('LOG_EVENT')"
+        in actual_query
+    )
+    assert (
+        "(resource_attributes:\"snow.service.instance\" = '0' "
+        "OR resource_attributes:\"snow.service.container.instance\" = '0')"
+    ) in actual_query
+    assert "snow.service.container.name" not in actual_query
+    assert "and record_type = 'EVENT'" in actual_query
+
+
+def test_events_container_requires_instance(runner):
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "events",
+            "LOG_EVENT",
+            "--container-name",
+            "log-printer",
+        ],
+    )
+
+    assert result.exit_code != 0, result.output
+    assert (
+        "--instance-id is required when --container-name is specified." in result.output
+    )
+
+
+def _event_row(timestamp, resource_attributes, record, value):
+    # Mirrors the real event-table shape: RECORD carries the event name/severity and
+    # RECORD_ATTRIBUTES is NULL for platform events.
+    return (
+        timestamp,
+        None,
+        timestamp,
+        None,
+        None,
+        json.dumps(resource_attributes),
+        json.dumps({"name": "snow.spcs.platform"}),
+        None,
+        "EVENT",
+        json.dumps(record),
+        None,
+        json.dumps(value),
+        None,
+    )
+
+
+_SERVICE_EVENT = _event_row(
+    "2026-07-07 20:46:54.913605",
+    {
+        "snow.database.name": "SVC_USER_EVENTS",
+        "snow.schema.name": "SVC_USER_EVENTS",
+        "snow.service.name": "SVC001",
+    },
+    {"name": "SERVICE.STATUS_CHANGE", "severity_text": "INFO"},
+    {"message": "Service is ready", "status": "RUNNING"},
+)
+_INSTANCE_EVENT = _event_row(
+    "2026-07-07 20:46:55.130550",
+    {
+        "snow.database.name": "SVC_USER_EVENTS",
+        "snow.schema.name": "SVC_USER_EVENTS",
+        "snow.service.name": "SVC001",
+        "snow.service.instance": "0",
+    },
+    {"name": "SERVICE_INSTANCE.STATUS_CHANGE", "severity_text": "INFO"},
+    {"message": "Service instance is running", "status": "READY"},
+)
+_CONTAINER_EVENT = _event_row(
+    "2026-06-23 23:10:11.150000",
+    {
+        "snow.database.name": "",
+        "snow.schema.name": "SVC_USER_EVENTS",
+        "snow.service.name": "SVC001",
+        "snow.service.instance": "0",
+        "snow.service.container.name": "main",
+    },
+    {"name": "CONTAINER.STATUS_CHANGE", "severity_text": "INFO"},
+    {"message": "Waiting to start", "status": "PENDING"},
+)
+
+
+@patch(EXECUTE_QUERY)
+def test_events_output_all_levels(mock_execute_query, runner, snapshot):
+    mock_execute_query.side_effect = [
+        [
+            {
+                "key": "EVENT_TABLE",
+                "value": "event_table_db.data_schema.snowservices_logs",
+            }
+        ],
+        Mock(fetchall=lambda: [_SERVICE_EVENT, _INSTANCE_EVENT, _CONTAINER_EVENT]),
+    ]
+
+    result = runner.invoke(
+        ["spcs", "service", "events", "SVC001"],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert result.output == snapshot
+
+
+@patch(EXECUTE_QUERY)
+def test_events_first(mock_execute_query, runner):
+    mock_execute_query.side_effect = [
+        [
+            {
+                "key": "EVENT_TABLE",
+                "value": "event_table_db.data_schema.snowservices_logs",
+            }
+        ],
+        Mock(fetchall=lambda: []),
+    ]
+
+    result = runner.invoke(
+        ["spcs", "service", "events", "SVC001", "--instance-id", "0", "--first", "5"],
+    )
+
+    assert result.exit_code == 0, result.output
+
+    actual_query = mock_execute_query.mock_calls[1].args[0]
+    # --first limits the outer ascending query only; the inner query has no limit.
+    assert actual_query.count("limit") == 1
+    assert "order by timestamp asc\n                    limit 5" in actual_query
+
+
+@patch(EXECUTE_QUERY)
+def test_events_show_all_columns(mock_execute_query, runner):
+    mock_execute_query.side_effect = [
+        [
+            {
+                "key": "EVENT_TABLE",
+                "value": "event_table_db.data_schema.snowservices_logs",
+            }
+        ],
+        Mock(fetchall=lambda: [_CONTAINER_EVENT]),
+    ]
+
+    result = runner.invoke(
+        ["spcs", "service", "events", "SVC001", "--instance-id", "0", "--all"],
+    )
+
+    assert result.exit_code == 0, result.output
+    # --all emits the raw event-table columns instead of the formatted view.
+    assert "RECORD_TYPE" in result.output
+    assert "RESOURCE_ATTRIBUTES" in result.output
+    assert "EVENT NAME" not in result.output
+
+
+@patch(EXECUTE_QUERY)
+def test_latest_metrics(mock_execute_query, runner, snapshot):
     mock_execute_query.side_effect = [
         [
             {
@@ -1220,8 +1390,7 @@ def test_latest_metrics(
         ),
     ]
 
-    result = runner.invoke_with_config_file(
-        enable_events_and_metrics_config,
+    result = runner.invoke(
         [
             "spcs",
             "service",
@@ -1260,7 +1429,7 @@ def test_latest_metrics(
         "                where \n"
         "                    record_type = 'METRIC'\n"
         "                    and scope['name'] = 'snow.spcs.platform'\n"
-        "                    and resource_attributes:\"snow.service.name\" = 'LOG_EVENT' and (resource_attributes:\"snow.service.instance\" = '0' OR resource_attributes:\"snow.service.container.instance\" = '0') and resource_attributes:\"snow.service.container.name\" = 'log-printer'  \n"
+        "                    and upper(resource_attributes:\"snow.service.name\") = upper('LOG_EVENT') and (resource_attributes:\"snow.service.instance\" = '0' OR resource_attributes:\"snow.service.container.instance\" = '0') and resource_attributes:\"snow.service.container.name\" = 'log-printer'  \n"
         "                    and timestamp > dateadd('hour', -1, current_timestamp)  \n"
         "            )\n"
         "            select *\n"
@@ -1279,42 +1448,8 @@ def test_latest_metrics(
     )
 
 
-def test_service_events_disabled(runner, config_file):
-    with config_file("") as config:
-        result = runner.invoke_with_config_file(
-            config,
-            [
-                "spcs",
-                "service",
-                "events",
-                "LOG_EVENT",
-                "--container-name",
-                "log-printer",
-                "--instance-id",
-                "0",
-                "--since",
-                "1 minute",
-            ],
-        )
-    assert (
-        result.exit_code != 0
-    ), "Expected a non-zero exit code due to feature flag being disabled"
-    expected_output = (
-        "Usage: root spcs service [OPTIONS] COMMAND [ARGS]...\n"
-        "Try 'root spcs service --help' for help.\n"
-        "+- Error ----------------------------------------------------------------------+\n"
-        "| No such command 'events'.                                                    |\n"
-        "+------------------------------------------------------------------------------+\n"
-    )
-    assert (
-        result.output == expected_output
-    ), f"Expected formatted output not found: {result.output}"
-
-
 @patch(EXECUTE_QUERY)
-def test_metrics_all_filters(
-    mock_execute_query, runner, enable_events_and_metrics_config, snapshot
-):
+def test_metrics_all_filters(mock_execute_query, runner, snapshot):
     mock_execute_query.side_effect = [
         [
             {
@@ -1353,8 +1488,7 @@ def test_metrics_all_filters(
         ),
     ]
 
-    result = runner.invoke_with_config_file(
-        enable_events_and_metrics_config,
+    result = runner.invoke(
         [
             "spcs",
             "service",

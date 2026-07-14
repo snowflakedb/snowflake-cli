@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* `snow spcs service events` is now generally available. This command returns service-level and service-instance-level platform events in addition to container-level events.
 * `snow app open` now accepts a `--watch` flag for Snowflake App Runtime projects. With `--watch`, the command no longer fails when the app service does not exist yet; it polls until the service is created and its endpoint is ready before opening (or printing) the URL.
 
 ## Fixes and improvements

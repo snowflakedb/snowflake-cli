@@ -22,7 +22,7 @@ from typing import TextIO
 from click import ClickException
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import ObjectAlreadyExistsError
-from snowflake.cli.api.project.util import unquote_identifier
+from snowflake.cli.api.project.util import to_string_literal, unquote_identifier
 from snowflake.connector.errors import ProgrammingError
 
 EVENT_COLUMN_NAMES = [
@@ -143,21 +143,21 @@ def new_logs_only(prev_log_records: list[str], new_log_records: list[str]) -> li
 
 
 def build_resource_clause(
-    service_name: str, instance_id: str, container_name: str
+    service_name: str, instance_id: str | None, container_name: str | None
 ) -> str:
     resource_filters = []
     if service_name:
         resource_filters.append(
-            f"resource_attributes:\"snow.service.name\" = '{service_name}'"
+            f'upper(resource_attributes:"snow.service.name") = upper({to_string_literal(service_name)})'
         )
     if instance_id:
         resource_filters.append(
-            f"(resource_attributes:\"snow.service.instance\" = '{instance_id}' "
-            f"OR resource_attributes:\"snow.service.container.instance\" = '{instance_id}')"
+            f'(resource_attributes:"snow.service.instance" = {to_string_literal(instance_id)} '
+            f'OR resource_attributes:"snow.service.container.instance" = {to_string_literal(instance_id)})'
         )
     if container_name:
         resource_filters.append(
-            f"resource_attributes:\"snow.service.container.name\" = '{container_name}'"
+            f'resource_attributes:"snow.service.container.name" = {to_string_literal(container_name)}'
         )
     return " and ".join(resource_filters) if resource_filters else "1=1"
 
@@ -171,12 +171,16 @@ def build_time_clauses(
     if isinstance(since, datetime):
         since_clause = f"and timestamp >= '{since}'"
     elif isinstance(since, str) and since:
-        since_clause = f"and timestamp >= sysdate() - interval '{since}'"
+        since_clause = (
+            f"and timestamp >= sysdate() - interval {to_string_literal(since)}"
+        )
 
     if isinstance(until, datetime):
         until_clause = f"and timestamp <= '{until}'"
     elif isinstance(until, str) and until:
-        until_clause = f"and timestamp <= sysdate() - interval '{until}'"
+        until_clause = (
+            f"and timestamp <= sysdate() - interval {to_string_literal(until)}"
+        )
 
     return since_clause, until_clause
 
@@ -190,16 +194,18 @@ def build_db_and_schema_clause(database_name: str, schema_name: str | None) -> s
 
 def format_event_row(event_dict: dict) -> dict:
     try:
-        resource_attributes = json.loads(event_dict.get("RESOURCE_ATTRIBUTES", "{}"))
-        record_attributes = json.loads(event_dict.get("RECORD_ATTRIBUTES", "{}"))
-        record = json.loads(event_dict.get("RECORD", "{}"))
+        resource_attributes = json.loads(event_dict.get("RESOURCE_ATTRIBUTES") or "{}")
+        record_attributes = json.loads(event_dict.get("RECORD_ATTRIBUTES") or "{}")
+        record = json.loads(event_dict.get("RECORD") or "{}")
 
         database_name = resource_attributes.get("snow.database.name", "N/A")
         schema_name = resource_attributes.get("snow.schema.name", "N/A")
         service_name = resource_attributes.get("snow.service.name", "N/A")
         instance_name = resource_attributes.get("snow.service.instance", "N/A")
         container_name = resource_attributes.get("snow.service.container.name", "N/A")
-        event_name = record_attributes.get("event.name", "Unknown Event")
+        event_name = record.get("name") or record_attributes.get(
+            "event.name", "Unknown Event"
+        )
         event_value = event_dict.get("VALUE", "Unknown Value")
         severity = record.get("severity_text", "Unknown Severity")
 

@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 from unittest.mock import Mock
 
 import pytest
 from click import ClickException
 from snowflake.cli._plugins.spcs.common import (
+    format_event_row,
     handle_object_already_exists,
     validate_and_set_instances,
 )
@@ -77,3 +79,43 @@ def test_handle_object_exists_error_other_error():
     with pytest.raises(ProgrammingError) as e:
         handle_object_already_exists(other_error, Mock(spec=ObjectType), "TEST_OBJECT")
     assert other_error == e.value
+
+
+def test_format_event_row_reads_name_from_record():
+    # Service-/instance-level events carry NULL RECORD_ATTRIBUTES and put the event
+    # name in RECORD["name"] rather than RECORD_ATTRIBUTES["event.name"].
+    event_dict = {
+        "TIMESTAMP": "2026-06-23 23:10:12.689608",
+        "RESOURCE_ATTRIBUTES": json.dumps(
+            {"snow.service.name": "SVC001", "snow.service.instance": "0"}
+        ),
+        "RECORD_ATTRIBUTES": None,
+        "RECORD": json.dumps(
+            {"name": "SERVICE_INSTANCE.STATUS_CHANGE", "severity_text": "INFO"}
+        ),
+        "VALUE": json.dumps({"message": "Service instance is pending"}),
+    }
+
+    formatted = format_event_row(event_dict)
+
+    assert formatted["SERVICE NAME"] == "SVC001"
+    assert formatted["INSTANCE ID"] == "0"
+    assert formatted["EVENT NAME"] == "SERVICE_INSTANCE.STATUS_CHANGE"
+    assert formatted["SEVERITY"] == "INFO"
+
+
+def test_format_event_row_handles_null_json_columns():
+    # All JSON columns NULL must not crash; fall back to the placeholder values.
+    event_dict = {
+        "TIMESTAMP": "2024-12-14 22:27:25.420",
+        "RESOURCE_ATTRIBUTES": None,
+        "RECORD_ATTRIBUTES": None,
+        "RECORD": None,
+        "VALUE": "READY",
+    }
+
+    formatted = format_event_row(event_dict)
+
+    assert formatted["EVENT NAME"] == "Unknown Event"
+    assert formatted["SEVERITY"] == "Unknown Severity"
+    assert formatted["EVENT VALUE"] == "READY"
