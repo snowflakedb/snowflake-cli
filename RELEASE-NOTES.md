@@ -23,6 +23,12 @@
 ## Fixes and improvements
 
 
+# v3.22.1
+
+## Fixes and improvements
+* `snow streamlit deploy`: fix re-deploy incorrectly attempting to UNSET schema-inherited governance tags the deploying role has no APPLY privilege on. Omitting the `tags:` property from `snowflake.yml` now leaves directly-set tags untouched; use `tags: []` to explicitly clear all directly-set tags.
+
+
 # v3.22.0
 
 ## Deprecations
