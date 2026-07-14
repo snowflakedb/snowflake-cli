@@ -1,7 +1,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, NamedTuple, Optional
 
 from click import ClickException
 from snowflake.cli._plugins.connection.util import make_snowsight_url
@@ -29,6 +29,11 @@ from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
 log = logging.getLogger(__name__)
+
+
+class _TagRef(NamedTuple):
+    name: str
+    fqn: str
 
 
 def _main_file_covered_by_artifacts(
@@ -329,27 +334,44 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         tag_list = Tag.to_sql_tag_list(self.model.tags)
         return f"ALTER STREAMLIT {self._get_sql_identifier()} SET TAG {tag_list};"
 
-    def get_unset_tag_sql(self, tag_names: list) -> str:
+    def get_unset_tag_sql(self, tag_fqns: list[str]) -> str:
         return (
             f"ALTER STREAMLIT {self._get_sql_identifier()} UNSET TAG "
-            + ",".join(tag_names)
+            + ",".join(tag_fqns)
             + ";"
         )
 
-    def _get_current_tag_names(self) -> list:
+    def _get_current_tags(self) -> list[_TagRef]:
+        """Return one _TagRef per tag directly set on this object.
+
+        Filtering by LEVEL = 'STREAMLIT' excludes schema- and database-inherited
+        tags, which the deploying role may not have APPLY privilege on and
+        therefore cannot UNSET.
+        """
         fqn = self._get_fqn()
+        db_prefix = f"{to_identifier(fqn.database)}." if fqn.database else ""
         rows = self._execute_query(
-            f"SELECT TAG_NAME FROM TABLE(information_schema.tag_references("
-            f"{to_string_literal(fqn.identifier)}, 'STREAMLIT'))"
+            f"SELECT TAG_DATABASE, TAG_SCHEMA, TAG_NAME "
+            f"FROM TABLE({db_prefix}information_schema.tag_references("
+            f"{to_string_literal(fqn.identifier)}, 'STREAMLIT')) "
+            f"WHERE LEVEL = 'STREAMLIT'"
         ).fetchall()
-        return [row[0] for row in rows]
+        return [
+            _TagRef(
+                name=row[2].upper(),
+                fqn=f"{to_identifier(row[0])}.{to_identifier(row[1])}.{to_identifier(row[2])}",
+            )
+            for row in rows
+        ]
 
     def _sync_tags(self) -> None:
-        current = set(self._get_current_tag_names())
-        desired = {t.name.upper() for t in (self.model.tags or [])}
-        to_unset = list(current - desired)
-        if to_unset:
-            self._execute_query(self.get_unset_tag_sql(to_unset))
+        if self.model.tags is None:
+            return
+        current = self._get_current_tags()
+        desired = {t.name.upper() for t in self.model.tags}
+        to_unset_fqns = [ref.fqn for ref in current if ref.name not in desired]
+        if to_unset_fqns:
+            self._execute_query(self.get_unset_tag_sql(to_unset_fqns))
         set_tag_sql = self.get_set_tag_sql()
         if set_tag_sql:
             self._execute_query(set_tag_sql)

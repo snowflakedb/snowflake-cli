@@ -301,6 +301,85 @@ def test_streamlit_tags_alter_flow(
 
 
 @pytest.mark.integration
+def test_streamlit_redeploy_does_not_unset_inherited_schema_tags(
+    _streamlit_test_steps,
+    project_directory,
+    snowflake_session,
+):
+    """
+    Regression test for https://github.com/snowflakedb/snowflake-cli/issues/3142
+
+    When the schema carries governance tags inherited by the Streamlit object,
+    re-deploy must not attempt to UNSET those tags and must not destroy the
+    inherited tag association.
+
+    The governance tag lives in a separate schema so it can't be resolved by its
+    short name in the app schema, reproducing the exact failure condition.
+    """
+    entity_id = "app_1"
+    sql = _streamlit_test_steps.setup.sql_test_helper.execute_single_sql
+    runner = _streamlit_test_steps.setup.runner
+    db = snowflake_session.database
+    # Capture schema before CREATE SCHEMA below implicitly switches the session schema.
+    schema = snowflake_session.schema
+
+    gov_schema = "cli_test_gov_schema"
+    gov_tag = "cli_test_schema_level_tag"
+
+    def get_gov_tag_value():
+        rows = sql(
+            f"SELECT SYSTEM$GET_TAG('{db}.{gov_schema}.{gov_tag}', "
+            f"'{db}.{schema}.{entity_id}', 'STREAMLIT') AS v"
+        )
+        return rows[0]["V"]
+
+    try:
+        sql(f"CREATE SCHEMA IF NOT EXISTS {db}.{gov_schema}")
+        sql(f"CREATE TAG IF NOT EXISTS {db}.{gov_schema}.{gov_tag}")
+        # Apply the governance tag at the schema level — all objects in the
+        # test schema inherit it, but the tag only resolves via its FQN.
+        sql(
+            f"ALTER SCHEMA {db}.{schema} "
+            f"SET TAG {db}.{gov_schema}.{gov_tag} = 'governed'"
+        )
+
+        with project_directory("streamlit_v2"):
+            # First deploy: creates the app.
+            result = runner.invoke_with_connection_json(
+                ["streamlit", "deploy", entity_id]
+            )
+            assert result.exit_code == 0, result.output
+
+            # Governance tag must be inherited from schema immediately after deploy.
+            assert (
+                get_gov_tag_value() == "governed"
+            ), "Governance tag should be inherited by the streamlit app from its schema"
+
+            # Re-deploy: snowflake.yml has no `tags:` property, so _sync_tags
+            # returns early without touching any tags.
+            result = runner.invoke_with_connection_json(
+                ["streamlit", "deploy", entity_id, "--replace"]
+            )
+            assert result.exit_code == 0, (
+                "Re-deploy must succeed: _sync_tags should skip when tags "
+                "property is absent in snowflake.yml\n" + result.output
+            )
+
+            # Governance tag must still be inherited after re-deploy.
+            assert (
+                get_gov_tag_value() == "governed"
+            ), "Governance tag must still be inherited after re-deploy"
+    finally:
+        try:
+            sql(f"ALTER SCHEMA {db}.{schema} UNSET TAG {db}.{gov_schema}.{gov_tag}")
+        except Exception:
+            pass
+        sql(f"DROP TAG IF EXISTS {db}.{gov_schema}.{gov_tag}")
+        sql(f"DROP SCHEMA IF EXISTS {db}.{gov_schema}")
+        sql(f"DROP STREAMLIT IF EXISTS {entity_id}")
+
+
+@pytest.mark.integration
 def test_streamlit_grants_experimental_flow(
     _streamlit_test_steps,
     project_directory,
