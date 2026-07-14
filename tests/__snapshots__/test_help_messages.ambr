@@ -4543,11 +4543,15 @@
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
-  +- Commands -------------------------------------------------------------------+
+  +- Common commands ------------------------------------------------------------+
   | bundle              Prepares a local folder with configured app artifacts.   |
   | deploy              Deploys the app.                                         |
   | events              Fetches recent event / log output from the app.          |
   | open                Opens the deployed app in the browser.                   |
+  | teardown            Drops the deployed app and its associated objects.       |
+  | validate            Validates the app.                                       |
+  +------------------------------------------------------------------------------+
+  +- Native App commands --------------------------------------------------------+
   | publish             (Native App only) Adds the version to the release        |
   |                     channel and updates the release directive with the new   |
   |                     version and patch.                                       |
@@ -4557,11 +4561,11 @@
   |                     Snowflake account, uploads code files to its stage, then |
   |                     creates or upgrades an application object from the       |
   |                     application package.                                     |
+  | version             Manages versions defined in an application package       |
+  +------------------------------------------------------------------------------+
+  +- Snowflake App Runtime commands ---------------------------------------------+
   | setup               (Snowflake App Runtime only) Initializes a snowflake.yml |
   |                     for a Snowflake App Runtime project.                     |
-  | teardown            Drops the deployed app and its associated objects.       |
-  | validate            Validates the app.                                       |
-  | version             Manages versions defined in an application package       |
   +------------------------------------------------------------------------------+
   
   
@@ -25669,11 +25673,15 @@
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
-  +- Commands -------------------------------------------------------------------+
+  +- Common commands ------------------------------------------------------------+
   | bundle              Prepares a local folder with configured app artifacts.   |
   | deploy              Deploys the app.                                         |
   | events              Fetches recent event / log output from the app.          |
   | open                Opens the deployed app in the browser.                   |
+  | teardown            Drops the deployed app and its associated objects.       |
+  | validate            Validates the app.                                       |
+  +------------------------------------------------------------------------------+
+  +- Native App commands --------------------------------------------------------+
   | publish             (Native App only) Adds the version to the release        |
   |                     channel and updates the release directive with the new   |
   |                     version and patch.                                       |
@@ -25683,11 +25691,11 @@
   |                     Snowflake account, uploads code files to its stage, then |
   |                     creates or upgrades an application object from the       |
   |                     application package.                                     |
+  | version             Manages versions defined in an application package       |
+  +------------------------------------------------------------------------------+
+  +- Snowflake App Runtime commands ---------------------------------------------+
   | setup               (Snowflake App Runtime only) Initializes a snowflake.yml |
   |                     for a Snowflake App Runtime project.                     |
-  | teardown            Drops the deployed app and its associated objects.       |
-  | validate            Validates the app.                                       |
-  | version             Manages versions defined in an application package       |
   +------------------------------------------------------------------------------+
   
   
