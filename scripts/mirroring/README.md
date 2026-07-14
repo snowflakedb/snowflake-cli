@@ -55,7 +55,7 @@ the ongoing incremental sync.
 |---|---|---|
 | `mirror-main.yml` | push to `main` + hourly fallback (`7 * * * *`) | `mirror-main.sh` |
 | `mirror-release.yml` | `workflow_dispatch` + daily at 20:00 CET (`0 19 * * *` UTC) | `mirror-release-branches.sh` then `mirror-tags.sh` |
-| `mirror-custom-branches.yml` | push to allowlisted branches | `mirror-branch.sh` |
+| `mirror-custom-branches.yml` | push to allowlisted branches + `workflow_dispatch` (pick a branch) | `mirror-branch.sh` |
 
 `mirror-release.yml` is the intended entry point for the releasing engineer: run it
 manually via `workflow_dispatch` when the internal release process is done (branch
