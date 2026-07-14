@@ -268,7 +268,7 @@ def snow_executable(tag: str):
                     "-m",
                     "pip",
                     "install",
-                    f"git+https://github.com/snowflakedb/snowflake-cli.git@{tag}",
+                    f"git+https://github.com/snowflake-eng/snowflake-cli.git@{tag}",
                 ]
             )
 
