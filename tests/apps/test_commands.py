@@ -2657,6 +2657,40 @@ class TestFetchAppServiceDefaults:
         span = _get_completed_span(self._SPAN_NAME)
         assert span[CLIMetricsSpan.ERROR_KEY] == "ProgrammingError"
 
+    @patch(EXECUTE_QUERY)
+    def test_span_name_defaults_to_snowflake_app(self, mock_execute):
+        """With no caller supplied, the span keeps the bare
+        ``snowflake_app.fetch_app_service_defaults`` name."""
+        cursor = Mock()
+        cursor.fetchone.return_value = ('{"database": "MY_DB"}',)
+        mock_execute.return_value = cursor
+
+        _reset_command_metrics()
+        SnowflakeAppManager().fetch_app_service_defaults()
+
+        _get_completed_span("snowflake_app.fetch_app_service_defaults")
+
+    @patch(EXECUTE_QUERY)
+    def test_span_nests_under_enclosing_span(self, mock_execute):
+        """The fetch span reads the enclosing span from the metrics stack, so it
+        is named after — and nested under — whatever span the caller opened."""
+        cursor = Mock()
+        cursor.fetchone.return_value = ('{"database": "MY_DB"}',)
+        mock_execute.return_value = cursor
+
+        _reset_command_metrics()
+        metrics = get_cli_context_manager().metrics
+        with metrics.span("snowflake_app.deploy.resolve_defaults"):
+            SnowflakeAppManager().fetch_app_service_defaults()
+
+        span = _get_completed_span(
+            "snowflake_app.deploy.resolve_defaults.fetch_app_service_defaults"
+        )
+        assert span[CLIMetricsSpan.ERROR_KEY] is None
+        assert (
+            span[CLIMetricsSpan.PARENT_KEY] == "snowflake_app.deploy.resolve_defaults"
+        )
+
 
 class TestIsUnknownFunctionError:
     """``_is_unknown_function_error`` decides whether a failed
@@ -3185,6 +3219,46 @@ class TestResolveDeployDefaults:
         assert result["service_compute_pool"] == "YML_SVC_POOL"
         assert result["build_eai"] == "YML_EAI"
         assert result["service_eai"] == "YML_SERVICE_EAI"
+
+    @patch(FETCH_APP_SERVICE_DEFAULTS, return_value={})
+    @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
+    def test_calls_fetch_app_service_defaults(self, mock_ctx, mock_params):
+        """``fetch_app_service_defaults`` is invoked without any span plumbing —
+        it reads the enclosing span itself, so the caller need only open the
+        ``resolve_defaults`` span."""
+        from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
+
+        entity = self._make_entity()
+        _resolve_deploy_defaults(entity, SnowflakeAppManager())
+        mock_params.assert_called_once_with()
+
+    @patch.object(SnowflakeAppManager, "get_personal_database", return_value=None)
+    @patch(EXECUTE_QUERY)
+    def test_fetch_span_nests_under_deploy_resolve_defaults(
+        self, mock_execute, mock_personal_db
+    ):
+        """End-to-end through the real ``_resolve_deploy_defaults`` wrapped in the
+        span the deploy command opens: the (real) fetch span must nest under
+        ``snowflake_app.deploy.resolve_defaults``. A hardcoded prefix would not
+        satisfy the ``PARENT_KEY`` assertion."""
+        from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
+
+        cursor = Mock()
+        cursor.fetchone.return_value = ('{"database": "MY_DB"}',)
+        mock_execute.return_value = cursor
+
+        entity = self._make_entity()
+        _reset_command_metrics()
+        metrics = get_cli_context_manager().metrics
+        with metrics.span("snowflake_app.deploy.resolve_defaults"):
+            _resolve_deploy_defaults(entity, SnowflakeAppManager(), app_name="MY_APP")
+
+        span = _get_completed_span(
+            "snowflake_app.deploy.resolve_defaults.fetch_app_service_defaults"
+        )
+        assert (
+            span[CLIMetricsSpan.PARENT_KEY] == "snowflake_app.deploy.resolve_defaults"
+        )
 
     @patch(
         FETCH_APP_SERVICE_DEFAULTS,
@@ -5827,6 +5901,9 @@ class TestDeployCommand:
             assert "Verify privileges for CREATE" in result.output
             create_span = _get_completed_span("snowflake_app.deploy_service.create")
             assert create_span[CLIMetricsSpan.ERROR_KEY] == ProgrammingError.__name__
+            # The deploy path wraps default resolution in its own span so the
+            # server-defaults fetch is attributable to the deploy command.
+            _get_completed_span("snowflake_app.deploy.resolve_defaults")
             mock_log.info.assert_any_call("create failed line1")
             mock_log.info.assert_any_call("create failed line2")
 
@@ -8487,3 +8564,107 @@ class TestTeardownCommand:
         mock_mgr.drop_stage_if_exists.assert_not_called()
         span = _get_completed_span("snowflake_app.teardown.drop_service")
         assert span[CLIMetricsSpan.ERROR_KEY] == CliError.__name__
+
+    @patch("snowflake.cli._plugins.apps.commands.typer.confirm", return_value=True)
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_teardown_records_confirm_span_when_not_forced(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_confirm,
+        runner,
+        tmp_path,
+    ):
+        """Without ``--force`` the interactive prompt is wrapped in a
+        ``snowflake_app.teardown.confirm`` span so the user-input wait is
+        attributable rather than untracked."""
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.code_workspace = None
+        entity.artifact_repository = None
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.is_application_service.return_value = True
+        mock_mgr.describe_app_service.return_value = {}
+        mock_mgr.get_service_status.return_value = "IDLE"
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            _reset_command_metrics()
+            result = runner.invoke(["app", "teardown"])
+
+        assert result.exit_code == 0, result.output
+        mock_confirm.assert_called_once()
+        span = _get_completed_span("snowflake_app.teardown.confirm")
+        assert span[CLIMetricsSpan.ERROR_KEY] is None
+
+    @patch("snowflake.cli._plugins.apps.commands.typer.confirm", return_value=False)
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_teardown_records_confirm_span_when_cancelled(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_confirm,
+        runner,
+        tmp_path,
+    ):
+        """Declining the prompt still records the confirm span and drops
+        nothing."""
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.code_workspace = None
+        entity.artifact_repository = None
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.is_application_service.return_value = True
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            _reset_command_metrics()
+            result = runner.invoke(["app", "teardown"])
+
+        assert result.exit_code == 0, result.output
+        assert "Teardown cancelled." in result.output
+        mock_mgr.drop_app_service_if_exists.assert_not_called()
+        span = _get_completed_span("snowflake_app.teardown.confirm")
+        assert span[CLIMetricsSpan.ERROR_KEY] is None
