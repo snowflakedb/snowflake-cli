@@ -754,9 +754,9 @@ wheels = [{ url = "https://files.pythonhosted.org/packages/6f/96/fe627f6c8bcb477
 
 [[packages]]
 name = "snowflake-snowpark-python"
-version = "1.41.0"
-sdist = { url = "https://files.pythonhosted.org/packages/f3/3c/cc3a4b4c02aa080dc13ec47f4069cfe08557f67f33f9cd772b42dc317175/snowflake_snowpark_python-1.41.0.tar.gz", upload-time = 2025-10-23T20:48:06Z, size = 1781618, hashes = { sha256 = "19c90354eb103c37c6502e5b880b47235db6abb0fac1910c022aa98740331785" } }
-wheels = [{ url = "https://files.pythonhosted.org/packages/13/a2/7e6a9f6a8a46e672f2129e2dcb091ca1d661773a5e069a2402323e2c4788/snowflake_snowpark_python-1.41.0-py3-none-any.whl", upload-time = 2025-10-23T20:48:05Z, size = 1825526, hashes = { sha256 = "8897937bae16d16d06c216c5835907a2aff711d20f82288233ad0700c1c278e7" } }]
+version = "1.53.0"
+sdist = { url = "https://files.pythonhosted.org/packages/67/98/38189e919c54fc6f09a43e778d850ebf2116ced491595971ae5f9ca01b0c/snowflake_snowpark_python-1.53.0.tar.gz", upload-time = 2026-07-09T16:15:19Z, size = 1783158, hashes = { sha256 = "6eab04d5703fac72982f3666140c006d6fb9964d46a04fd953766410af8fc62e" } }
+wheels = [{ url = "https://files.pythonhosted.org/packages/e9/43/ae0aa755bfddf902223386ed55e290113763632d6cc0bc3932fc20c6902f/snowflake_snowpark_python-1.53.0-py3-none-any.whl", upload-time = 2026-07-09T16:15:18Z, size = 1871191, hashes = { sha256 = "5b1048fe624534be181ffd152f05ac6e621455674359532de6ab6e478a287b9b" } }]
 
 [[packages]]
 name = "sortedcontainers"
