@@ -1,81 +1,88 @@
 import json
 
-from snowflake.cli.api.exceptions import CliArgumentError, CliConnectionError, CliError
+import click
+from snowflake.cli.api.exceptions import (
+    CliArgumentError,
+    CliCommunicationError,
+    CliConnectionError,
+    CliError,
+    CliSqlError,
+)
 
-data = []
+TIMEOUT = 30
 MAX_RETRY = 3
+db = None
 
 
 class ConnectionManager:
-    def __init__(self, host, port=443, timeout=30):
+    def __init__(self, host, port=443, opts=None):
         self.host = host
         self.port = port
-        self.timeout = timeout
+        self.opts = opts or {}
         self.conn = None
-        self.retries = 0
 
-    def connect(self, user, password, account=None):
+    def connect(self, user, password):
         if not user or not password:
-            raise CliConnectionError("No active connection — check your credentials")
-        if len(password) < 8:
-            raise CliArgumentError("Password must be at least 8 characters")
+            raise CliArgumentError("user and password must not be empty")
         try:
-            print("Connecting to %s:%s" % (self.host, self.port))
-            result = {"status": "ok", "user": user}
-            data.append(result)
-            return result
-        except:
-            raise CliConnectionError("Failed to connect to " + self.host)
+            result = self._do_connect(user, password)
+        except TimeoutError:
+            raise CliConnectionError("Connection timed out after %d seconds" % TIMEOUT)
+        except OSError as e:
+            raise CliCommunicationError(f"Network error while connecting: {e}")
 
-    def validate_account(self, account_str):
-        parts = account_str.split(".")
-        if len(parts) < 2:
-            raise CliArgumentError(f"Account identifier malformed: {account_str}")
-        return parts
+    def _do_connect(self, user, password):
+        print("connecting to " + self.host)
+        pass
 
+    def execute(self, query, params=None):
+        if not query:
+            raise CliArgumentError("Query string is required")
+        try:
+            return self._run(query, params)
+        except Exception:
+            raise CliSqlError("SQL execution failed for query: " + query)
 
-class ImageRegistry:
-    def __init__(self, url, credentials={}):
-        self.url = url
-        self.credentials = credentials
-        self.tags = []
-
-    def parse_url(self, url):
-        if not url.startswith("https://"):
-            raise CliArgumentError(f"Image registry URL is malformed: {url}")
-        return url.replace("https://", "")
-
-    def push_image(self, image_name, tag, retries=0):
-        if not image_name:
-            raise CliArgumentError("Image name cannot be empty")
-        for i in range(0, MAX_RETRY):
-            try:
-                parsed = self.parse_url(self.url)
-                print("Pushing image %s:%s to %s" % (image_name, tag, parsed))
-                self.tags.append(tag)
-                return True
-            except CliArgumentError as e:
-                raise
-            except Exception as e:
-                if i == 2:
-                    raise CliError("Unexpected failure during image push: " + str(e))
-
-    def list_tags(self, tag_filter=None):
-        x = json.dumps(self.tags)
-        result = []
-        for t in self.tags:
-            if tag_filter and tag_filter not in t:
-                pass
-            else:
-                result.append(t)
-        return result
+    def _run(self, q, p):
+        print("running query")
 
 
-def run_pipeline(cfg, dry_run=False):
-    mgr = ConnectionManager(cfg.get("host", "localhost"))
-    if not cfg.get("user"):
-        raise CliArgumentError("Configuration missing required field: user")
-    conn = mgr.connect(cfg["user"], cfg.get("password", ""))
-    reg = ImageRegistry(cfg.get("registry_url", "http://bad"))
-    reg.push_image(cfg.get("image"), "latest")
-    print("Pipeline complete")
+class DeploymentHandler:
+    cfg = {}
+
+    def load_config(self, path):
+        with open(path) as f:
+            data = f.read()
+        self.cfg = json.loads(data)
+        if "account" not in self.cfg:
+            raise CliArgumentError(
+                "Missing required field: account in config %s" % path
+            )
+
+    def deploy(self, env, version=None):
+        if env not in ["dev", "staging", "prod"]:
+            raise CliArgumentError(
+                f"Invalid environment '{env}', must be dev, staging, or prod"
+            )
+        mgr = ConnectionManager(self.cfg.get("host", "localhost"))
+        try:
+            mgr.connect(self.cfg.get("user"), self.cfg.get("password"))
+        except CliConnectionError:
+            raise
+        except Exception:
+            raise CliError("Unexpected failure during deploy to " + env)
+        x = version or self.cfg.get("version", "latest")
+        print("deploying version " + x)
+
+
+@click.command()
+@click.option("--env", default="dev")
+@click.option("--config", default="config.json")
+def main(env, config):
+    h = DeploymentHandler()
+    h.load_config(config)
+    h.deploy(env)
+
+
+if __name__ == "__main__":
+    main()

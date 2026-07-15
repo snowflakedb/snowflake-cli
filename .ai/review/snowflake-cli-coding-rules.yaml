@@ -85,26 +85,44 @@ rules:
   - id: snowflake-cli-use-cli-error-not-click-exception
     status: shadow
     rule: |
-      **OBJECTIVE**: Phase out bare `ClickException` in favour of the project's `CliError`
-      hierarchy, which carries structured exit-codes and typed subclasses.
+      **OBJECTIVE**: Prevent `click.ClickException` from being introduced in new or modified
+      code. The project uses the `CliError` hierarchy, which provides structured exit-codes and
+      typed subclasses that carry more context than a bare `ClickException`.
 
-      **REQUIREMENT**: In new or modified code, raise `CliError` (or a subclass) instead of
-      `click.ClickException`. When a change already touches code that raises `ClickException`,
-      migrate those raises in the same change. Use the most specific subclass available for the
-      context; available subclasses are in `src/snowflake/cli/api/exceptions.py`. Do not
-      introduce new bare `ClickException` raises; the remaining ones in the codebase are being
-      migrated opportunistically.
+      **REQUIREMENT**: Raise `CliError` or one of its subclasses instead of
+      `click.ClickException` or `ClickException`. When a change already touches a line that
+      raises `ClickException`, migrate that raise in the same PR. Choose the most specific
+      subclass for the situation — subclasses and their intended use are in
+      `src/snowflake/cli/api/exceptions.py`:
+
+      - `CliArgumentError` — bad CLI argument or input value
+      - `CliConnectionError` — cannot establish or use a Snowflake connection
+      - `CliCommunicationError` — network or protocol error after connection
+      - `CliSqlError` — SQL execution failure
+      - `CliError` — generic, when no specific subclass fits
+
+      Do not introduce new `ClickException` raises; remaining occurrences in the codebase
+      are being migrated opportunistically.
 
       ❌ **BAD:**
       ```python
+      import click
+      from click import ClickException
+
       raise click.ClickException(f"Image registry URL is malformed: {url}")
       raise ClickException("No active connection — check your credentials")
+      raise ClickException(f"SQL execution failed: {e}")
       ```
 
       ✅ **GOOD:**
       ```python
-      from snowflake.cli.api.exceptions import CliArgumentError, CliConnectionError
+      from snowflake.cli.api.exceptions import (
+          CliArgumentError,
+          CliConnectionError,
+          CliSqlError,
+      )
 
       raise CliArgumentError(f"Image registry URL is malformed: {url}")
       raise CliConnectionError("No active connection — check your credentials")
+      raise CliSqlError(f"SQL execution failed: {e}")
       ```
