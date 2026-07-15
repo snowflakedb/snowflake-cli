@@ -55,11 +55,30 @@ uvx --from snowflake-cli snow --help
 
 Requires [Homebrew](https://brew.sh/).
 
+There are two ways to install Snowflake CLI via Homebrew:
+
+**Option 1 – Homebrew core formula** (simpler, no tap required):
+
 ```bash
-brew tap snowflakedb/snowflake-cli
 brew install snowflake-cli
 snow --help
 ```
+
+The formula is maintained by the Homebrew community and may trail the latest release.
+
+**Option 2 – Snowflake-maintained tap (recommended for latest releases)**:
+
+The tap distributes a pre-built binary (cask) maintained directly by Snowflake and updated with every release.
+Homebrew requires you to explicitly trust third-party taps before installing casks from them:
+
+```bash
+brew tap snowflakedb/snowflake-cli
+brew trust --cask snowflakedb/snowflake-cli/snowflake-cli
+brew install --cask snowflake-cli
+snow --help
+```
+
+Once trusted, future upgrades work normally: `brew upgrade --cask snowflake-cli`
 
 ### Install from source
 
