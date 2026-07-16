@@ -367,7 +367,10 @@ class DependenciesReporter(Reporter[Dict[str, Any]]):
 
         output = self._output_path
         output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(markdown)
+        # Force UTF-8: the diagram embeds non-ASCII (box-drawing section
+        # separators, Mermaid glyphs) that the platform default encoding
+        # (cp1252 on Windows) can't encode, raising UnicodeEncodeError.
+        output.write_text(markdown, encoding="utf-8")
         self._written_path = str(output.path.resolve())
         log.info(
             "Wrote DCM dependency diagram (%d nodes, %d edges) to %s.",

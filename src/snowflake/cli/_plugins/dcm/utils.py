@@ -132,10 +132,13 @@ def save_command_response(
     output_dir.mkdir(exist_ok=True)
     json_file = output_dir / f"{command_name}_result.json"
     try:
+        # Force UTF-8 so non-ASCII payloads (e.g. a backend error message
+        # captured as the fallback result) never hit the platform default
+        # encoding (cp1252 on Windows) and raise UnicodeEncodeError.
         if isinstance(raw_data, str):
-            json_file.write_text(raw_data)
+            json_file.write_text(raw_data, encoding="utf-8")
         else:
-            json_file.write_text(json.dumps(raw_data))
+            json_file.write_text(json.dumps(raw_data), encoding="utf-8")
     except Exception as e:
         log.error("Failed to save command response: %s", e)
         return
