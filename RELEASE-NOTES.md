@@ -22,6 +22,7 @@
 * `snow spcs service events` is now generally available. This command returns service-level and service-instance-level platform events in addition to container-level events.
 * `snow app open` now accepts a `--watch` flag for Snowflake App Runtime projects. With `--watch`, the command no longer fails when the app service does not exist yet; it polls until the service is created and its endpoint is ready before opening (or printing) the URL.
 * `snow app --help` is now context-aware: when the current project's `snowflake.yml` unambiguously targets one app family (Native Apps or Snowflake App Runtime), the help listing hides the other family's commands. Detection is conservative — a mixed, missing, or unparsable project shows every command — and hidden commands remain fully runnable. Because the same filtering backs shell completion and Click's "did you mean" suggestions, the hidden family's commands also stop appearing in `snow app <TAB>` completion for such a project (they still run when invoked explicitly).
+* `snow dcm plan` now supports the `--delta` flag for incremental deployments. This option enables processing only statements that have changed since the last deploy, plus statements potentially impacted by those changes.
 
 ## Fixes and improvements
 * `snow app deploy` now drops the code stage before recreating it only when the stage already exists. A first deploy has nothing to clear, so it no longer issues `DROP STAGE` unnecessarily, letting a role with only `CREATE STAGE` (and not `OWNERSHIP`) deploy successfully.

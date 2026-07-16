@@ -448,7 +448,6 @@ def plan(
         False,
         "--delta",
         help="Process only statements changed since the last `deploy`, plus statements potentially impacted by those changes.",
-        hidden=not FeatureFlag.ENABLE_DCM_EARLY_ACCESS.is_enabled(),
     ),
     **options,
 ):
