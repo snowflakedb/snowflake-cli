@@ -13,6 +13,8 @@
 # limitations under the License.
 """Unit tests for the DCM deploy/plan live progress tracker rendering."""
 
+import io
+import logging
 from datetime import datetime
 from unittest import mock
 from unittest.mock import MagicMock
@@ -22,6 +24,7 @@ from snowflake.cli._plugins.dcm.progress import (
     UPLOAD_PHASE,
     DeployProgressTracker,
     PhaseStatus,
+    _quiet_console_logging,
 )
 
 
@@ -339,3 +342,71 @@ class TestRunLoaderPhaseSilent:
             for p in tracker._phases  # noqa: SLF001
             if p.name != UPLOAD_PHASE
         )
+
+
+class TestQuietConsoleLogging:
+    """``_quiet_console_logging`` keeps sub-ERROR log noise (e.g. urllib3's
+    transient ``RemoteDisconnected`` retry emitted mid-upload) off the terminal
+    while the Live display owns it, so stray writes can't corrupt the repaint
+    on Windows PowerShell. ERROR+ still surfaces and state is restored on exit.
+    """
+
+    def _console_logger(self):
+        """A logger with a StreamHandler writing to an in-memory buffer,
+        standing in for the ``--verbose``/``--debug`` console handler."""
+        stream = io.StringIO()
+        handler = logging.StreamHandler(stream)
+        handler.setLevel(logging.NOTSET)
+        logger = logging.getLogger("snowflake.connector.vendored.urllib3.test")
+        logger.handlers = [handler]
+        logger.setLevel(logging.DEBUG)
+        logger.propagate = False
+        return logger, stream
+
+    def test_warnings_suppressed_errors_pass_during_live(self):
+        logger, stream = self._console_logger()
+
+        with _quiet_console_logging():
+            logger.warning(
+                "Retrying (...) after connection broken by RemoteDisconnected"
+            )
+            logger.error("hard failure")
+
+        output = stream.getvalue()
+        assert "RemoteDisconnected" not in output
+        assert "hard failure" in output
+
+    def test_filter_removed_after_exit(self):
+        logger, stream = self._console_logger()
+
+        with _quiet_console_logging():
+            pass
+        logger.warning("visible again")
+
+        assert "visible again" in stream.getvalue()
+
+    def test_last_resort_level_restored(self):
+        original_level = logging.lastResort.level
+
+        with _quiet_console_logging():
+            assert logging.lastResort.level == logging.ERROR
+
+        assert logging.lastResort.level == original_level
+
+    def test_file_handlers_are_not_filtered(self, tmp_path):
+        """FileHandlers (a StreamHandler subclass) must keep logging so the
+        on-disk log file is never affected by the terminal-only suppression."""
+        log_file = tmp_path / "test.log"
+        handler = logging.FileHandler(log_file)
+        logger = logging.getLogger("snowflake.cli.test_quiet_file")
+        logger.handlers = [handler]
+        logger.setLevel(logging.DEBUG)
+        logger.propagate = False
+
+        try:
+            with _quiet_console_logging():
+                logger.warning("should still hit the file")
+        finally:
+            handler.close()
+
+        assert "should still hit the file" in log_file.read_text()

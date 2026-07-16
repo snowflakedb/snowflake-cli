@@ -104,6 +104,65 @@ def _spinner_glyph() -> str:
     ]
 
 
+class _DropBelowError(logging.Filter):
+    """Logging filter that lets only ``ERROR`` and above through."""
+
+    def filter(self, record: logging.LogRecord) -> bool:  # noqa: A003
+        return record.levelno >= logging.ERROR
+
+
+@contextmanager
+def _quiet_console_logging() -> Iterator[None]:
+    """Keep sub-ERROR log noise off the terminal while a Live display owns it.
+
+    During the upload phase the connector can emit transient warnings from
+    background worker threads — most visibly urllib3's ``Retrying (...) after
+    connection broken by 'RemoteDisconnected'`` when a stage PUT connection is
+    reset and then succeeds on retry. Those records reach the terminal through
+    the root ``lastResort`` handler (or, under ``--verbose``/``--debug``, a
+    console ``StreamHandler``). Every stray write forces Rich to reprint above
+    the live region, and on Windows PowerShell that repaint corrupts the
+    display — each frame is dumped on a new line instead of updating in place
+    (it works in CMD, which tolerates the interleaving).
+
+    For the lifetime of the Live we drop console log records below ERROR so
+    nothing races the repaint. ERROR and above still surface, and file logging
+    is untouched (transient retries were never written to the log file anyway).
+    """
+    drop = _DropBelowError()
+
+    # ``lastResort`` is the shared handler Python uses when a record would
+    # otherwise reach no handler at all (the path the connector's urllib3
+    # warnings take in the default, non-verbose CLI). Raise its threshold to
+    # ERROR for the duration; restore it afterwards.
+    last_resort = logging.lastResort
+    saved_last_resort_level = last_resort.level if last_resort is not None else None
+    if last_resort is not None:
+        last_resort.setLevel(logging.ERROR)
+
+    # Under ``--verbose``/``--debug`` a console StreamHandler is attached to the
+    # ``snowflake``/``snowflake.cli`` loggers; filter those too. FileHandlers
+    # (a StreamHandler subclass) are intentionally left alone.
+    filtered: List[logging.Handler] = []
+    manager_dict = logging.Logger.manager.loggerDict
+    for name in (None, *list(manager_dict)):
+        logger = logging.getLogger(name)  # type: ignore[arg-type]
+        for handler in list(getattr(logger, "handlers", [])):
+            if isinstance(handler, logging.StreamHandler) and not isinstance(
+                handler, logging.FileHandler
+            ):
+                handler.addFilter(drop)
+                filtered.append(handler)
+
+    try:
+        yield
+    finally:
+        if last_resort is not None and saved_last_resort_level is not None:
+            last_resort.setLevel(saved_last_resort_level)
+        for handler in filtered:
+            handler.removeFilter(drop)
+
+
 class PhaseStatus(str, Enum):
     """Lifecycle state of a single phase in the live checklist."""
 
@@ -309,7 +368,7 @@ class DeployProgressTracker:
         console = get_console()
         if self._has_upload_phase():
             self.start_upload()
-        with Live(
+        with _quiet_console_logging(), Live(
             self, console=console, refresh_per_second=_LIVE_REFRESH_PER_SECOND
         ) as live:
             self._live = live
@@ -552,7 +611,7 @@ class DeployProgressTracker:
         if self._live is not None:
             yield self._live
             return
-        with Live(
+        with _quiet_console_logging(), Live(
             self,
             console=get_console(),
             refresh_per_second=_LIVE_REFRESH_PER_SECOND,
