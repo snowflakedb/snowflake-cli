@@ -294,7 +294,9 @@ def snowflake_app_setup(
                 # server-side. On accounts where that function is not yet
                 # available, ``fetch_app_service_defaults`` transparently falls
                 # back to the legacy ``SHOW PARAMETERS`` + ``EXPLAIN_PRIVILEGES``
-                # flow, so the resolution below is unaffected either way.
+                # flow, so the resolution below is unaffected either way. The
+                # fetch span nests under this ``resolve_defaults`` span, which it
+                # reads from the metrics span stack.
                 params = manager.fetch_app_service_defaults()
 
             def _resolve(
@@ -496,11 +498,85 @@ def snowflake_app_validate(entity_id: Optional[str]) -> CommandResult:
     return MessageResult("Valid Snowflake App Runtime project.")
 
 
+def _wait_for_service_endpoint(
+    manager: SnowflakeAppManager,
+    service_fqn: FQN,
+    metrics,
+) -> str:
+    """Poll an application service until it exposes a browser-ready URL.
+
+    Unlike the default ``open`` path, this tolerates a service that does not
+    exist yet: ``DESCRIBE APPLICATION SERVICE`` raises a ``ProgrammingError``
+    while the service is still being created, which is treated as "not ready
+    yet" so the loop keeps waiting instead of failing. Returns the resolved
+    URL once available; raises ``CliError`` if the service reports FAILED or
+    the wait times out.
+    """
+
+    def _describe() -> dict:
+        try:
+            return manager.describe_app_service(service_fqn)
+        except ProgrammingError:
+            # Service not created yet (or not visible) — keep polling.
+            return {}
+
+    def _url_is_ready(desc: dict) -> bool:
+        return manager.resolve_application_service_url_from_describe(desc) is not None
+
+    def _svc_has_failed(desc: dict) -> bool:
+        return desc.get("status", "").upper() == "FAILED"
+
+    def _format_status(desc: dict) -> str:
+        if not desc:
+            return "waiting for service to be created..."
+        url = desc.get("url")
+        if url:
+            return sanitize_for_terminal(url)
+        status = (desc.get("status") or "").strip()
+        if status:
+            return sanitize_for_terminal(status)
+        return "url not yet available"
+
+    # Fast path: return immediately if the endpoint is already available so a
+    # ready app does not incur an extra polling interval of latency.
+    initial = _describe()
+    ready_url = manager.resolve_application_service_url_from_describe(initial)
+    if ready_url:
+        return ready_url
+
+    cli_console.step(
+        f"[{_ts()}] Waiting for application service "
+        f"'{service_fqn.identifier}' to be ready..."
+    )
+    with metrics.span("snowflake_app.open.wait_for_endpoint"):
+        desc = _poll_until(
+            poll_fn=_describe,
+            is_done=_url_is_ready,
+            is_error=_svc_has_failed,
+            format_status=_format_status,
+            timeout_message=(
+                "Timed out waiting for application service "
+                f"'{service_fqn.identifier}' to become ready. "
+                "Check application service state and logs:\n"
+                f"  DESCRIBE APPLICATION SERVICE {service_fqn.identifier}\n"
+                f"  CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{service_fqn.identifier}')"
+            ),
+        )
+    url = manager.resolve_application_service_url_from_describe(desc)
+    if not url:
+        raise CliError(
+            "Application service URL is not available. "
+            f"Check: DESCRIBE APPLICATION SERVICE {service_fqn.identifier}"
+        )
+    return url
+
+
 @_utf8_output
 def snowflake_app_open(
     entity_id: Optional[str],
     print_only: bool,
     settings: bool,
+    watch: bool = False,
 ) -> CommandResult:
     """Open a deployed Snowflake App Runtime (or its settings page) in the browser."""
     resolved_entity_id = _resolve_entity_id(entity_id)
@@ -541,19 +617,24 @@ def snowflake_app_open(
         service_fqn = app_fqn(database=db, schema=schema, name=fqn.name)
 
         manager = SnowflakeAppManager()
-        try:
-            with metrics.span("snowflake_app.open.resolve_endpoint"):
-                url = manager.get_service_endpoint_url(service_fqn)
-                if not url:
-                    raise CliError(
-                        f"No endpoint URL found for service {service_fqn}. "
-                        f"Is the app deployed? Run 'snow app deploy' first."
-                    )
-        except ProgrammingError as err:
-            raise CliError(
-                f"Could not resolve endpoint URL for service {service_fqn.identifier}. "
-                "This may indicate missing privileges on the target schema or application service."
-            ) from err
+        if watch:
+            # In watch mode the service may not exist yet — poll until it is
+            # created and its endpoint is ready rather than failing.
+            url = _wait_for_service_endpoint(manager, service_fqn, metrics)
+        else:
+            try:
+                with metrics.span("snowflake_app.open.resolve_endpoint"):
+                    url = manager.get_service_endpoint_url(service_fqn)
+                    if not url:
+                        raise CliError(
+                            f"No endpoint URL found for service {service_fqn}. "
+                            f"Is the app deployed? Run 'snow app deploy' first."
+                        )
+            except ProgrammingError as err:
+                raise CliError(
+                    f"Could not resolve endpoint URL for service {service_fqn.identifier}. "
+                    "This may indicate missing privileges on the target schema or application service."
+                ) from err
 
     if not print_only:
         typer.launch(url)
@@ -660,6 +741,7 @@ def snowflake_app_deploy(
     app_name = fqn.name
 
     ctx = get_cli_context()
+    metrics = ctx.metrics
     conn = ctx.connection_context
     database = fqn.database or conn.database
     schema = fqn.schema or conn.schema
@@ -672,7 +754,8 @@ def snowflake_app_deploy(
 
     # ── Resolve defaults (snowflake.yml > account parameters > built-in) ──
     manager = SnowflakeAppManager(interactive=interactive)
-    defaults = _resolve_deploy_defaults(entity, manager, app_name=app_name)
+    with metrics.span("snowflake_app.deploy.resolve_defaults"):
+        defaults = _resolve_deploy_defaults(entity, manager, app_name=app_name)
 
     database = defaults["database"]
     schema = defaults["schema"]
@@ -725,8 +808,6 @@ def snowflake_app_deploy(
     )
     service_fqn = app_fqn(database=database, schema=schema, name=app_name)
     workspace_source_uri = manager.workspace_subdirectory_uri(storage_fqn, app_name)
-
-    metrics = get_cli_context().metrics
 
     # Tracks whether this invocation created the code stage, so it can be
     # dropped once the build has consumed it (see the build phase below).
@@ -1143,10 +1224,14 @@ def snowflake_app_teardown(
             )
 
     if not force:
-        should_continue = typer.confirm(
-            f"Are you sure you want to drop {object_kind} {service_fqn.identifier}"
-            f" and its associated objects?"
-        )
+        # Wrap the interactive prompt in its own span so the time spent waiting
+        # on the user is attributable and does not silently inflate the overall
+        # command duration (which is otherwise unaccounted for by any span).
+        with metrics.span("snowflake_app.teardown.confirm"):
+            should_continue = typer.confirm(
+                f"Are you sure you want to drop {object_kind} {service_fqn.identifier}"
+                f" and its associated objects?"
+            )
         if not should_continue:
             return MessageResult("Teardown cancelled.")
 

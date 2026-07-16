@@ -195,8 +195,6 @@ def _test_steps(_test_setup):
     service_name = f"spcs_service_{random_uuid}"
     test_steps = SnowparkServicesTestSteps(_test_setup)
 
-    test_steps.warm_up(service_name=service_name)
-
     yield test_steps, service_name
 
     service_fqn = f"{test_steps.database}.{test_steps.schema}.{service_name}"

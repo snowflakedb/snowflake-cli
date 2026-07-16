@@ -784,7 +784,9 @@
                                                                                   
    For Snowflake App Runtime projects (snowflake-app entities): Resolves the      
    service endpoint URL and launches the browser. Use --print-only to print the   
-   URL, or --settings to open the Snowsight app-settings page instead.            
+   URL, or --settings to open the Snowsight app-settings page instead. Use        
+   --watch to wait for the app service to be created and become ready instead of  
+   failing.                                                                       
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --print-only                       (Snowflake App Runtime only) Print the    |
@@ -793,6 +795,9 @@
   | --settings                         (Snowflake App Runtime only) Open the app |
   |                                    settings page in Snowsight instead of the |
   |                                    app itself.                               |
+  | --watch                            (Snowflake App Runtime only) Do not fail  |
+  |                                    if the app service does not exist yet;    |
+  |                                    poll until its endpoint is ready.         |
   | --package-entity-id          TEXT  (Native App only) The ID of the package   |
   |                                    entity on which to operate when the       |
   |                                    definition_version is 2 or higher.        |
@@ -4538,11 +4543,15 @@
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
-  +- Commands -------------------------------------------------------------------+
+  +- Common commands ------------------------------------------------------------+
   | bundle              Prepares a local folder with configured app artifacts.   |
   | deploy              Deploys the app.                                         |
   | events              Fetches recent event / log output from the app.          |
   | open                Opens the deployed app in the browser.                   |
+  | teardown            Drops the deployed app and its associated objects.       |
+  | validate            Validates the app.                                       |
+  +------------------------------------------------------------------------------+
+  +- Native App commands --------------------------------------------------------+
   | publish             (Native App only) Adds the version to the release        |
   |                     channel and updates the release directive with the new   |
   |                     version and patch.                                       |
@@ -4552,11 +4561,11 @@
   |                     Snowflake account, uploads code files to its stage, then |
   |                     creates or upgrades an application object from the       |
   |                     application package.                                     |
+  | version             Manages versions defined in an application package       |
+  +------------------------------------------------------------------------------+
+  +- Snowflake App Runtime commands ---------------------------------------------+
   | setup               (Snowflake App Runtime only) Initializes a snowflake.yml |
   |                     for a Snowflake App Runtime project.                     |
-  | teardown            Drops the deployed app and its associated objects.       |
-  | validate            Validates the app.                                       |
-  | version             Manages versions defined in an application package       |
   +------------------------------------------------------------------------------+
   
   
@@ -20570,6 +20579,181 @@
   
   '''
 # ---
+# name: test_help_messages[spcs.service.events]
+  '''
+                                                                                  
+   Usage: root spcs service events [OPTIONS] NAME                                 
+                                                                                  
+   Retrieve platform events for a service.                                        
+                                                                                  
+   By default, all platform events for the service are returned. The following    
+   filters narrow the results:                                                    
+                                                                                  
+    • --instance-id restricts events to a single service instance.                
+    • --container-name restricts events to a single container (requires           
+      --instance-id).                                                             
+    • --since / --until restrict events to a time window, in Snowflake interval   
+      syntax.                                                                     
+    • --first / --last return only the first / last N events.                     
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  | *    name      TEXT  Identifier of the service; for example: my_service      |
+  |                      [required]                                              |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | --container-name          TEXT     Narrow events to this container. Requires |
+  |                                    --instance-id.                            |
+  | --instance-id             TEXT     Narrow events to this service instance,   |
+  |                                    starting with 0.                          |
+  | --since                   TEXT     Fetch events that are newer than this     |
+  |                                    time ago, in Snowflake interval syntax.   |
+  | --until                   TEXT     Fetch events that are older than this     |
+  |                                    time ago, in Snowflake interval syntax.   |
+  | --first                   INTEGER  Fetch only the first N events. Cannot be  |
+  |                                    used with --last.                         |
+  | --last                    INTEGER  Fetch only the last N events. Cannot be   |
+  |                                    used with --first.                        |
+  | --all                              Fetch all columns.                        |
+  | --help            -h               Show this message and exit.               |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment    -c      TEXT     Name of the connection, as    |
+  |                                                defined in your config.toml   |
+  |                                                file. Default: default.       |
+  | --host                                TEXT     Host address for the          |
+  |                                                connection. Overrides the     |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --port                                INTEGER  Port for the connection.      |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --protocol                            TEXT     Protocol to use for the       |
+  |                                                connection, for example       |
+  |                                                https. Overrides the value    |
+  |                                                specified for the connection. |
+  | --account,--accountname               TEXT     Name assigned to your         |
+  |                                                Snowflake account. Overrides  |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --user,--username                     TEXT     Username to connect to        |
+  |                                                Snowflake. Overrides the      |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --password                            TEXT     Snowflake password. Overrides |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --authenticator                       TEXT     Snowflake authenticator.      |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --workload-identity-provider          TEXT     Workload identity provider    |
+  |                                                (AWS, AZURE, GCP, OIDC).      |
+  |                                                Overrides the value specified |
+  |                                                for the connection            |
+  | --private-key-file,--privat…          TEXT     Snowflake private key file    |
+  |                                                path. Overrides the value     |
+  |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
+  | --token-file-path                     TEXT     Path to file with an OAuth    |
+  |                                                token to use when connecting  |
+  |                                                to Snowflake.                 |
+  | --database,--dbname                   TEXT     Database to use. Overrides    |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --schema,--schemaname                 TEXT     Database schema to use.       |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --role,--rolename                     TEXT     Role to use. Overrides the    |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --warehouse                           TEXT     Warehouse to use. Overrides   |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --temporary-connection        -x               Uses a connection defined     |
+  |                                                with command-line parameters, |
+  |                                                instead of one defined in     |
+  |                                                config                        |
+  | --mfa-passcode                        TEXT     Token to use for multi-factor |
+  |                                                authentication (MFA)          |
+  | --enable-diag                                  Whether to generate a         |
+  |                                                connection diagnostic report. |
+  | --diag-log-path                       TEXT     Path for the generated        |
+  |                                                report. Defaults to system    |
+  |                                                temporary directory.          |
+  | --diag-allowlist-path                 TEXT     Path to a JSON file that      |
+  |                                                contains allowlist            |
+  |                                                parameters.                   |
+  | --oauth-client-id                     TEXT     Value of client id provided   |
+  |                                                by the Identity Provider for  |
+  |                                                Snowflake integration.        |
+  | --oauth-client-secret                 TEXT     Value of the client secret    |
+  |                                                provided by the Identity      |
+  |                                                Provider for Snowflake        |
+  |                                                integration.                  |
+  | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
+  |                                                supplying the authorization   |
+  |                                                code to the driver.           |
+  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
+  |                                                supplying the access tokens   |
+  |                                                to the driver.                |
+  | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
+  |                                                code redirection.             |
+  | --oauth-scope                         TEXT     Scope requested in the        |
+  |                                                Identity Provider             |
+  |                                                authorization request.        |
+  | --oauth-disable-pkce                           Disables Proof Key for Code   |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
+  | --oauth-enable-refresh-toke…                   Enables a silent              |
+  |                                                re-authentication when the    |
+  |                                                actual access token becomes   |
+  |                                                outdated. Default: False.     |
+  | --oauth-enable-single-use-r…                   Whether to opt-in to          |
+  |                                                single-use refresh token      |
+  |                                                semantics. Default: False.    |
+  | --client-store-temporary-cr…                   Store the temporary           |
+  |                                                credential.                   |
+  | --secondary-roles                     TEXT     Secondary roles mode applied  |
+  |                                                when the session starts.      |
+  |                                                Supported values are ALL and  |
+  |                                                NONE; pass NONE to run the    |
+  |                                                session only with the primary |
+  |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
+  |                                CSV]                   format.                |
+  |                                                       [default: TABLE]       |
+  | --verbose              -v                             Displays log entries   |
+  |                                                       for log levels info    |
+  |                                                       and higher.            |
+  | --debug                                               Displays log entries   |
+  |                                                       for log levels debug   |
+  |                                                       and higher; debug logs |
+  |                                                       contain additional     |
+  |                                                       information.           |
+  | --silent                                              Turns off intermediate |
+  |                                                       output to console.     |
+  | --enhanced-exit-codes                                 Differentiate exit     |
+  |                                                       error codes based on   |
+  |                                                       failure type.          |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified. [env var:   |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
 # name: test_help_messages[spcs.service.execute-job]
   '''
                                                                                   
@@ -22842,6 +23026,7 @@
   |                   definition file.                                           |
   | describe          Provides description of service.                           |
   | drop              Drops a service.                                           |
+  | events            Retrieve platform events for a service.                    |
   | execute-job       Creates and executes a job service in the                  |
   |                   current schema.                                            |
   | list              Lists all available services.                              |
@@ -26049,11 +26234,15 @@
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
-  +- Commands -------------------------------------------------------------------+
+  +- Common commands ------------------------------------------------------------+
   | bundle              Prepares a local folder with configured app artifacts.   |
   | deploy              Deploys the app.                                         |
   | events              Fetches recent event / log output from the app.          |
   | open                Opens the deployed app in the browser.                   |
+  | teardown            Drops the deployed app and its associated objects.       |
+  | validate            Validates the app.                                       |
+  +------------------------------------------------------------------------------+
+  +- Native App commands --------------------------------------------------------+
   | publish             (Native App only) Adds the version to the release        |
   |                     channel and updates the release directive with the new   |
   |                     version and patch.                                       |
@@ -26063,11 +26252,11 @@
   |                     Snowflake account, uploads code files to its stage, then |
   |                     creates or upgrades an application object from the       |
   |                     application package.                                     |
+  | version             Manages versions defined in an application package       |
+  +------------------------------------------------------------------------------+
+  +- Snowflake App Runtime commands ---------------------------------------------+
   | setup               (Snowflake App Runtime only) Initializes a snowflake.yml |
   |                     for a Snowflake App Runtime project.                     |
-  | teardown            Drops the deployed app and its associated objects.       |
-  | validate            Validates the app.                                       |
-  | version             Manages versions defined in an application package       |
   +------------------------------------------------------------------------------+
   
   
@@ -26661,6 +26850,7 @@
   |                   definition file.                                           |
   | describe          Provides description of service.                           |
   | drop              Drops a service.                                           |
+  | events            Retrieve platform events for a service.                    |
   | execute-job       Creates and executes a job service in the                  |
   |                   current schema.                                            |
   | list              Lists all available services.                              |

@@ -4,6 +4,9 @@ from unittest import mock
 import pytest
 import yaml
 from snowflake.cli._plugins.dbt.constants import ENV_FILENAME, PROFILES_FILENAME
+from snowflake.cli.api.feature_flags import FeatureFlag
+
+from tests_common.feature_flag_utils import with_feature_flags
 
 
 @pytest.fixture
@@ -28,6 +31,14 @@ def mock_validate_role():
         return_value=True,
     ) as _fixture:
         yield _fixture
+
+
+@pytest.fixture
+def enable_dbt_projects_profiles_file():
+    with with_feature_flags(
+        {FeatureFlag.ENABLE_DBT_PROJECT_PROFILES_FILE_PRECEDENCE: True}
+    ):
+        yield
 
 
 @pytest.fixture()
