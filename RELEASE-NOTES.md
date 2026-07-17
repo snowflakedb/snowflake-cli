@@ -21,8 +21,6 @@
 ## New additions
 
 ## Fixes and improvements
-* `snow dcm` commands now upload local project files to the temporary stage in parallel instead of one directory at a time. Upload wall-clock is dominated by per-PUT round-trip latency, so projects with many nested folders (e.g. one file per directory) see a large speedup. Concurrency can be tuned with the `SNOWFLAKE_CLI_DCM_UPLOAD_WORKERS` environment variable (default 16; set to 1 to restore the previous serial behavior).
-* `snow dcm plan --save-output` no longer masks an execution-phase `PLAN` failure with an unrelated artifact-download error. When the backend fails before writing to `OUTPUT_PATH`, the CLI now surfaces the original `PLAN` error and only logs a warning if the best-effort artifact download also fails.
 
 
 # v3.23.0

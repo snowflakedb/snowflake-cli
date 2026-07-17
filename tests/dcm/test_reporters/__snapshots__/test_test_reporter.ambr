@@ -3,8 +3,7 @@
   '''
   ✓ PASS      DB.SCHEMA.RED_TABLE (green_check)
   
-  Ran 1 data quality test: 1 passed, 0 failed expectations.
-  ================================================================================
+  1 passed, 0 failed out of 1 total.
   
   '''
 # ---
@@ -18,8 +17,7 @@
   '''
   ? UNKNOWN   DB.SCHEMA.UNKNOWN_STATUS (some_check)
   
-  Ran 1 data quality test: 0 passed, 0 failed, 1 unknown expectation.
-  ================================================================================
+  0 passed, 0 failed, 1 unknown out of 1 total.
   
   '''
 # ---
@@ -27,7 +25,6 @@
   '''
   
   No expectations found in the project.
-  ================================================================================
   
   '''
 # ---
@@ -38,8 +35,7 @@
     └─ Expected: = 0, Got: 42 (Metric: null_count)
   ✓ PASS      DB.SCHEMA.TABLE_C (range_check)
   
-  Ran 3 data quality tests: 2 passed, 1 failed expectation.
-  ================================================================================
+  2 passed, 1 failed out of 3 total.
   
   '''
 # ---
@@ -47,7 +43,6 @@
   '''
   
   No expectations found in the project.
-  ================================================================================
   
   '''
 # ---
@@ -55,8 +50,7 @@
   '''
   ✓ PASS      DB.SCHEMA.VALID (valid_check)
   
-  Ran 1 data quality test: 1 passed, 0 failed expectations.
-  ================================================================================
+  1 passed, 0 failed out of 1 total.
   
   '''
 # ---
@@ -65,8 +59,7 @@
   ✗ FAIL      DB.SCHEMA.ORDERS (null_check)
     └─ Expected: = 0, Got: 15 (Metric: null_count)
   
-  Ran 1 data quality test: 0 passed, 1 failed expectation.
-  ================================================================================
+  0 passed, 1 failed out of 1 total.
   
   '''
 # ---
@@ -74,8 +67,7 @@
   '''
   ✓ PASS      DB.SCHEMA.CUSTOMERS (row_count_check)
   
-  Ran 1 data quality test: 1 passed, 0 failed expectations.
-  ================================================================================
+  1 passed, 0 failed out of 1 total.
   
   '''
 # ---

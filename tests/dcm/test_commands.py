@@ -10,39 +10,26 @@ from snowflake.cli._plugins.dcm.commands import (
 )
 from snowflake.cli._plugins.dcm.models import DCMManifest, DCMTarget
 from snowflake.cli.api.identifiers import FQN, AccountIdentifier
-from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils.path_utils import change_directory
-from snowflake.connector.errors import ProgrammingError
 
 
 def _analyze_response(files=None):
-    """Helper to create a JSON analyze response string.
-
-    Uses the new server response shape: ``issues[]`` arrays with a ``severity``
-    field at each level (file / definition / top-level).
-    """
+    """Helper to create a JSON analyze response string."""
     if files is None:
         files = [
             {
                 "sourcePath": "sources/definitions/ok.sql",
-                "definitions": [{"name": "OK", "issues": []}],
-                "issues": [],
+                "definitions": [{"name": "OK", "errors": []}],
+                "errors": [],
             }
         ]
     return json.dumps({"files": files})
 
 
 def _assert_json_dumped(command: str, api_result: dict[str, Any], tmp_path: Path):
-    json_file = tmp_path / "out" / f"{command}_result.json"
+    json_file = tmp_path / "out" / f"{command}.json"
     assert json_file.exists()
     assert json.loads(json_file.read_text()) == api_result
-
-
-def _assert_no_result_json(command: str, tmp_path: Path):
-    """Commands that download the backend's own <command>_result.json must not
-    also write a redundant raw-response file."""
-    assert not (tmp_path / "out" / f"{command}_result.json").exists()
-    assert not (tmp_path / "out" / f"{command}.json").exists()
 
 
 def _mock_cursor_for_format(mock_cursor, data: dict, format_name: str):
@@ -86,22 +73,6 @@ def mock_manifest_load():
 @pytest.fixture
 def mock_object_manager():
     with mock.patch("snowflake.cli._plugins.dcm.commands.ObjectManager") as _fixture:
-        yield _fixture
-
-
-@pytest.fixture
-def mock_deploy_tracker():
-    with mock.patch(
-        "snowflake.cli._plugins.dcm.commands.DeployProgressTracker"
-    ) as _fixture:
-        # ``run_loader_phase`` is expected to invoke its first-arg callable
-        # (the SQL execution closure) and return its result. The real
-        # implementation does that around a live spinner; in tests we just
-        # call the closure directly so ``manager.raw_analyze`` / ``manager.plan``
-        # actually runs and downstream assertions still hold.
-        _fixture.return_value.run_loader_phase.side_effect = (
-            lambda execute_fn, **_kwargs: execute_fn()
-        )
         yield _fixture
 
 
@@ -217,17 +188,13 @@ class TestDCMDeploy:
     def test_deploy_project(
         self,
         mock_dcm_manager,
-        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
-            mock_cursor
-        )
+        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
@@ -236,7 +203,7 @@ class TestDCMDeploy:
 
         assert result.exit_code == 0, result.output
 
-        mock_dcm_manager().deploy_async.assert_called_once_with(
+        mock_dcm_manager().deploy.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
@@ -248,17 +215,13 @@ class TestDCMDeploy:
     def test_deploy_project_with_variables(
         self,
         mock_dcm_manager,
-        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
-            mock_cursor
-        )
+        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
@@ -266,7 +229,7 @@ class TestDCMDeploy:
             result = runner.invoke(["dcm", "deploy", "fooBar", "-D", "key=value"])
         assert result.exit_code == 0, result.output
 
-        mock_dcm_manager().deploy_async.assert_called_once_with(
+        mock_dcm_manager().deploy.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
@@ -278,17 +241,13 @@ class TestDCMDeploy:
     def test_deploy_project_with_alias(
         self,
         mock_dcm_manager,
-        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
-            mock_cursor
-        )
+        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
@@ -296,7 +255,7 @@ class TestDCMDeploy:
             result = runner.invoke(["dcm", "deploy", "fooBar", "--alias", "my_alias"])
         assert result.exit_code == 0, result.output
 
-        mock_dcm_manager().deploy_async.assert_called_once_with(
+        mock_dcm_manager().deploy.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
@@ -310,17 +269,13 @@ class TestDCMDeploy:
         self,
         _mock_create,
         mock_dcm_manager,
-        mock_deploy_tracker,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
         """Test that files are synced to project stage when from_stage is not provided."""
-        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
-            mock_cursor
-        )
+        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = (
             "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
         )
@@ -329,14 +284,13 @@ class TestDCMDeploy:
             result = runner.invoke(["dcm", "deploy", "my_project"])
             assert result.exit_code == 0, result.output
 
-        call_args = mock_dcm_manager().deploy_async.call_args
+        call_args = mock_dcm_manager().deploy.call_args
         assert "DCM_FOOBAR" in call_args.kwargs["from_stage"]
         assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
 
     def test_deploy_project_with_from_local_directory(
         self,
         mock_dcm_manager,
-        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
@@ -344,10 +298,7 @@ class TestDCMDeploy:
         mock_connect,
         tmp_path,
     ):
-        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
-            mock_cursor
-        )
+        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = (
             "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
         )
@@ -368,26 +319,21 @@ class TestDCMDeploy:
         mock_dcm_manager().sync_local_files.assert_called_once_with(
             project_identifier=FQN.from_string("my_project"),
             source_directory=str(source_dir),
-            progress=mock_deploy_tracker.return_value,
         )
 
-        call_args = mock_dcm_manager().deploy_async.call_args
+        call_args = mock_dcm_manager().deploy.call_args
         assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
 
     def test_deploy_with_target_flag(
         self,
         mock_dcm_manager,
-        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
-            mock_cursor
-        )
+        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
@@ -404,7 +350,7 @@ class TestDCMDeploy:
             result = runner.invoke(["dcm", "deploy", "--target", "dev"])
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().deploy_async.assert_called_once_with(
+        mock_dcm_manager().deploy.assert_called_once_with(
             project_identifier=FQN.from_string("my_project"),
             configuration=None,
             from_stage="TMP_STAGE",
@@ -416,17 +362,13 @@ class TestDCMDeploy:
     def test_deploy_with_default_target(
         self,
         mock_dcm_manager,
-        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
-            mock_cursor
-        )
+        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
@@ -443,7 +385,7 @@ class TestDCMDeploy:
             result = runner.invoke(["dcm", "deploy"])
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().deploy_async.assert_called_once_with(
+        mock_dcm_manager().deploy.assert_called_once_with(
             project_identifier=FQN.from_string("my_project"),
             configuration=None,
             from_stage="TMP_STAGE",
@@ -455,7 +397,6 @@ class TestDCMDeploy:
     def test_deploy_explicit_identifier_still_uses_target_config(
         self,
         mock_dcm_manager,
-        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
@@ -464,10 +405,7 @@ class TestDCMDeploy:
     ):
         """When explicit identifier is provided, it overrides target's project_name
         but configuration from target should still be applied."""
-        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
-            mock_cursor
-        )
+        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
@@ -491,7 +429,7 @@ class TestDCMDeploy:
             )
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().deploy_async.assert_called_once_with(
+        mock_dcm_manager().deploy.assert_called_once_with(
             project_identifier=FQN.from_string("explicit_project"),
             configuration="DEV_CONFIG",
             from_stage="TMP_STAGE",
@@ -503,17 +441,13 @@ class TestDCMDeploy:
     def test_deploy_with_target_uses_configuration(
         self,
         mock_dcm_manager,
-        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
-            mock_cursor
-        )
+        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
@@ -535,7 +469,7 @@ class TestDCMDeploy:
             result = runner.invoke(["dcm", "deploy", "--target", "dev"])
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().deploy_async.assert_called_once_with(
+        mock_dcm_manager().deploy.assert_called_once_with(
             project_identifier=FQN.from_string("my_project"),
             configuration="DEV_CONFIG",
             from_stage="TMP_STAGE",
@@ -547,7 +481,6 @@ class TestDCMDeploy:
     def test_deploy_with_save_output(
         self,
         mock_dcm_manager,
-        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         mock_cursor,
@@ -555,8 +488,7 @@ class TestDCMDeploy:
         tmp_path,
     ):
         plan_response = {"version": 2, "changeset": []}
-        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+        mock_dcm_manager().deploy.return_value = _plan_cursor(
             mock_cursor, json.dumps(plan_response)
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
@@ -572,7 +504,6 @@ class TestDCMDeploy:
     def test_deploy_with_json_formats_returns_response(
         self,
         mock_dcm_manager,
-        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         mock_cursor,
@@ -581,9 +512,8 @@ class TestDCMDeploy:
         format_name,
     ):
         plan_response = {"version": 2, "changeset": []}
-        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run_deploy_poll.return_value = (
-            _mock_cursor_for_format(mock_cursor, plan_response, format_name)
+        mock_dcm_manager().deploy.return_value = _mock_cursor_for_format(
+            mock_cursor, plan_response, format_name
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
@@ -624,7 +554,6 @@ class TestDCMPurge:
         user_inputs,
         expected_prompt_count,
         mock_dcm_manager,
-        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
@@ -632,10 +561,7 @@ class TestDCMPurge:
         mock_connect,
     ):
         mock_prompt.side_effect = user_inputs
-        mock_dcm_manager().purge_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
-            mock_cursor
-        )
+        mock_dcm_manager().purge.return_value = _plan_cursor(mock_cursor)
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
@@ -645,7 +571,7 @@ class TestDCMPurge:
 
         assert result.exit_code == 0, result.output
         assert mock_prompt.call_count == expected_prompt_count
-        mock_dcm_manager().purge_async.assert_called_once_with(
+        mock_dcm_manager().purge.assert_called_once_with(
             project_identifier=FQN.from_string(project_identifier),
             alias=None,
             skip_plan=False,
@@ -658,17 +584,13 @@ class TestDCMPurge:
         self,
         mock_prompt,
         mock_dcm_manager,
-        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().purge_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
-            mock_cursor
-        )
+        mock_dcm_manager().purge.return_value = _plan_cursor(mock_cursor)
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
@@ -678,7 +600,7 @@ class TestDCMPurge:
 
         assert result.exit_code == 0, result.output
 
-        mock_dcm_manager().purge_async.assert_called_once_with(
+        mock_dcm_manager().purge.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             alias="my_alias",
             skip_plan=False,
@@ -703,7 +625,7 @@ class TestDCMPurge:
             result = runner.invoke(["dcm", "purge", "fooBar", "--interactive"])
 
         assert result.exit_code != 0
-        mock_dcm_manager().purge_async.assert_not_called()
+        mock_dcm_manager().purge.assert_not_called()
 
     @mock.patch(
         "snowflake.cli._plugins.dcm.commands.typer.prompt",
@@ -713,17 +635,13 @@ class TestDCMPurge:
         self,
         mock_prompt,
         mock_dcm_manager,
-        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().purge_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
-            mock_cursor
-        )
+        mock_dcm_manager().purge.return_value = _plan_cursor(mock_cursor)
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
                 "manifest_version": 2,
@@ -739,7 +657,7 @@ class TestDCMPurge:
             result = runner.invoke(["dcm", "purge", "--target", "dev", "--interactive"])
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().purge_async.assert_called_once_with(
+        mock_dcm_manager().purge.assert_called_once_with(
             project_identifier=FQN.from_string("my_project"),
             alias=None,
             skip_plan=False,
@@ -753,17 +671,13 @@ class TestDCMPurge:
         self,
         mock_prompt,
         mock_dcm_manager,
-        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().purge_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
-            mock_cursor
-        )
+        mock_dcm_manager().purge.return_value = _plan_cursor(mock_cursor)
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
@@ -773,7 +687,7 @@ class TestDCMPurge:
         assert "  Project identifier mismatch" in result.output
         assert "Expected: fooBar" in result.output
         assert "provided: wrong_project" in result.output
-        mock_dcm_manager().purge_async.assert_called_once()
+        mock_dcm_manager().purge.assert_called_once()
 
     @mock.patch(
         "snowflake.cli._plugins.dcm.commands.typer.prompt", return_value="purge fooBar"
@@ -782,7 +696,6 @@ class TestDCMPurge:
         self,
         mock_prompt,
         mock_dcm_manager,
-        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         mock_cursor,
@@ -790,8 +703,7 @@ class TestDCMPurge:
         tmp_path,
     ):
         plan_response = {"version": 2, "changeset": []}
-        mock_dcm_manager().purge_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+        mock_dcm_manager().purge.return_value = _plan_cursor(
             mock_cursor, json.dumps(plan_response)
         )
         mock_manifest_load.return_value = _manifest_without_config()
@@ -811,17 +723,13 @@ class TestDCMPurge:
         mock_confirm_purge,
         extra_args,
         mock_dcm_manager,
-        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().purge_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
-            mock_cursor
-        )
+        mock_dcm_manager().purge.return_value = _plan_cursor(mock_cursor)
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
@@ -829,7 +737,7 @@ class TestDCMPurge:
 
         assert result.exit_code == 0, result.output
         mock_confirm_purge.assert_not_called()
-        mock_dcm_manager().purge_async.assert_called_once_with(
+        mock_dcm_manager().purge.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             alias=None,
             skip_plan=False,
@@ -854,7 +762,7 @@ class TestDCMPurge:
             "Cannot purge the DCM project non-interactively without --force"
             in result.output
         )
-        mock_dcm_manager().purge_async.assert_not_called()
+        mock_dcm_manager().purge.assert_not_called()
 
     @mock.patch(
         "snowflake.cli.api.commands.flags.is_tty_interactive", return_value=False
@@ -879,7 +787,7 @@ class TestDCMPurge:
             "Cannot purge the DCM project non-interactively without --force"
             in result.output
         )
-        mock_dcm_manager().purge_async.assert_not_called()
+        mock_dcm_manager().purge.assert_not_called()
 
     @mock.patch(
         "snowflake.cli.api.commands.flags.is_tty_interactive", return_value=True
@@ -892,17 +800,13 @@ class TestDCMPurge:
         mock_prompt,
         mock_is_tty,
         mock_dcm_manager,
-        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().purge_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
-            mock_cursor
-        )
+        mock_dcm_manager().purge.return_value = _plan_cursor(mock_cursor)
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
@@ -910,7 +814,7 @@ class TestDCMPurge:
 
         assert result.exit_code == 0, result.output
         mock_prompt.assert_called()
-        mock_dcm_manager().purge_async.assert_called_once()
+        mock_dcm_manager().purge.assert_called_once()
 
 
 class TestDCMPlan:
@@ -1075,7 +979,6 @@ class TestDCMPlan:
         mock_dcm_manager().sync_local_files.assert_called_once_with(
             project_identifier=FQN.from_string("my_project"),
             source_directory=str(source_dir),
-            progress=mock.ANY,
         )
 
         call_args = mock_dcm_manager().plan.call_args
@@ -1102,55 +1005,10 @@ class TestDCMPlan:
 
             assert result.exit_code == 0, result.output
 
-            # ``plan`` relies on the backend's downloaded ``plan_result.json``
-            # (via collect_output) and must not write a redundant raw response.
-            _assert_no_result_json("plan", tmp_path)
-
-    def test_plan_failure_with_save_output_writes_error_result(
-        self,
-        mock_dcm_manager,
-        mock_manifest_load,
-        runner,
-        mock_cursor,
-        mock_connect,
-        tmp_path,
-    ):
-        # A failed PLAN never produces the backend's own plan_result.json, so
-        # with --save-output the error is captured into out/plan_result.json
-        # instead of being terminal-only.
-        error_body = '{"error": "SQL compilation error"}'
-        mock_dcm_manager().plan.side_effect = ProgrammingError(msg=error_body)
-        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
-        mock_manifest_load.return_value = _manifest_without_config()
-
-        with change_directory(tmp_path):
-            result = runner.invoke(["dcm", "plan", "fooBar", "--save-output"])
-
-            assert result.exit_code != 0
-            result_file = tmp_path / "out" / "plan_result.json"
-            assert result_file.exists()
-            assert json.loads(result_file.read_text()) == {
-                "error": "SQL compilation error"
-            }
-
-    def test_plan_failure_without_save_output_writes_nothing(
-        self,
-        mock_dcm_manager,
-        mock_manifest_load,
-        runner,
-        mock_cursor,
-        mock_connect,
-        tmp_path,
-    ):
-        mock_dcm_manager().plan.side_effect = ProgrammingError(msg="boom")
-        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
-        mock_manifest_load.return_value = _manifest_without_config()
-
-        with change_directory(tmp_path):
-            result = runner.invoke(["dcm", "plan", "fooBar"])
-
-            assert result.exit_code != 0
-            assert not (tmp_path / "out" / "plan_result.json").exists()
+            json_file = tmp_path / "out" / "plan.json"
+            assert json_file.exists()
+            assert json.loads(json_file.read_text()) == {"version": 2, "changeset": []}
+            _assert_json_dumped("plan", plan_response, tmp_path)
 
     @pytest.mark.parametrize("format_name", ["json", "json_ext"])
     def test_plan_with_json_formats_returns_response(
@@ -1220,7 +1078,7 @@ class TestDCMRawAnalyze:
                 {
                     "sourcePath": "sources/definitions/bad.sql",
                     "definitions": [],
-                    "issues": [{"message": "syntax error", "severity": "ERROR"}],
+                    "errors": [{"message": "syntax error"}],
                 }
             ]
         )
@@ -1233,7 +1091,7 @@ class TestDCMRawAnalyze:
         with project_directory("dcm_project"):
             result = runner.invoke(["dcm", "raw-analyze", "fooBar"])
         assert result.exit_code == 1, result.output
-        assert "Static analysis of DCM Project files found 1 error." in result.output
+        assert "1 error(s)" in result.output
 
     def test_raw_analyze_with_variables(
         self,
@@ -1489,8 +1347,8 @@ class TestDCMRawAnalyze:
             "files": [
                 {
                     "sourcePath": "sources/definitions/ok.sql",
-                    "definitions": [{"name": "OK", "issues": []}],
-                    "issues": [],
+                    "definitions": [{"name": "OK", "errors": []}],
+                    "errors": [],
                 }
             ]
         }
@@ -1504,7 +1362,7 @@ class TestDCMRawAnalyze:
             result = runner.invoke(["dcm", "raw-analyze", "fooBar", "--save-output"])
 
             assert result.exit_code == 0, result.output
-            _assert_no_result_json("raw-analyze", tmp_path)
+            _assert_json_dumped("raw-analyze", analyze_response, tmp_path)
 
     def test_raw_analyze_from_stage_fails(
         self, mock_dcm_manager, runner, project_directory
@@ -1545,428 +1403,6 @@ class TestDCMRawAnalyze:
         assert result.exit_code == 0, result.output
         payload = json.loads(result.output)
         _assert_format_result(payload, json.loads(analyze_response), format_name)
-
-
-class TestDCMAnalyze:
-    def test_analyze_basic_no_errors(
-        self,
-        mock_dcm_manager,
-        mock_deploy_tracker,
-        mock_manifest_load,
-        runner,
-        project_directory,
-        mock_cursor,
-        mock_connect,
-    ):
-        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
-            rows=[(_analyze_response(),)], columns=("result",)
-        )
-        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
-        mock_manifest_load.return_value = _manifest_without_config()
-
-        with project_directory("dcm_project"):
-            result = runner.invoke(["dcm", "compile", "fooBar"])
-
-        assert result.exit_code == 0, result.output
-        assert "Static analysis of DCM Project files found no errors." in result.output
-
-        mock_dcm_manager().raw_analyze.assert_called_once_with(
-            project_identifier=FQN.from_string("fooBar"),
-            configuration=None,
-            from_stage="TMP_STAGE",
-            variables=None,
-            save_output=False,
-            command_name="compile",
-        )
-
-    def test_analyze_with_errors_exits_with_formatted_output(
-        self,
-        mock_dcm_manager,
-        mock_deploy_tracker,
-        mock_manifest_load,
-        runner,
-        project_directory,
-        mock_cursor,
-        mock_connect,
-    ):
-        error_response = _analyze_response(
-            files=[
-                {
-                    "source_path": "sources/definitions/bad.sql",
-                    "definitions": [
-                        {
-                            "id": {
-                                "name": "MY_TABLE",
-                                "schema": "PUBLIC",
-                                "database": "MY_DB",
-                                "domain": "TABLE",
-                            },
-                            "refined_domain": "table",
-                            "issues": [
-                                {
-                                    "source_position": {"line": 3, "column": 0},
-                                    "message": "column FOO not found",
-                                    "code": "001632",
-                                    "type": "syntax_error",
-                                    "severity": "ERROR",
-                                }
-                            ],
-                        }
-                    ],
-                    "issues": [
-                        {
-                            "source_position": {"line": 1, "column": 0},
-                            "message": "file-level syntax error",
-                            "code": "001597",
-                            "type": "syntax_error",
-                            "severity": "ERROR",
-                        }
-                    ],
-                },
-                {
-                    "source_path": "sources/definitions/ok.sql",
-                    "definitions": [
-                        {"id": {"name": "OK", "domain": "TABLE"}, "issues": []}
-                    ],
-                    "issues": [],
-                },
-            ]
-        )
-        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
-            rows=[(error_response,)], columns=("result",)
-        )
-        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
-        mock_manifest_load.return_value = _manifest_without_config()
-
-        with project_directory("dcm_project"):
-            result = runner.invoke(["dcm", "compile", "fooBar"])
-
-        assert result.exit_code == 1, result.output
-        assert "sources/definitions/bad.sql" in result.output
-        assert "file-level syntax error" in result.output
-        assert "MY_DB.PUBLIC.MY_TABLE (TABLE)" in result.output
-        assert "column FOO not found" in result.output
-        # Error codes are not rendered; line:col positions are.
-        assert "[001597]" not in result.output
-        assert "[001632]" not in result.output
-        assert "line 1:0:" in result.output
-        assert "line 3:0:" in result.output
-        assert "Static analysis of DCM Project files found 2 errors." in result.output
-        assert "sources/definitions/ok.sql" not in result.output
-
-    def test_analyze_with_variables(
-        self,
-        mock_dcm_manager,
-        mock_deploy_tracker,
-        mock_manifest_load,
-        runner,
-        project_directory,
-        mock_cursor,
-        mock_connect,
-    ):
-        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
-            rows=[(_analyze_response(),)], columns=("result",)
-        )
-        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
-        mock_manifest_load.return_value = _manifest_without_config()
-
-        with project_directory("dcm_project"):
-            result = runner.invoke(["dcm", "compile", "fooBar", "-D", "key=value"])
-
-        assert result.exit_code == 0, result.output
-        mock_dcm_manager().raw_analyze.assert_called_once_with(
-            project_identifier=FQN.from_string("fooBar"),
-            configuration=None,
-            from_stage="TMP_STAGE",
-            variables=["key=value"],
-            save_output=False,
-            command_name="compile",
-        )
-
-    def test_analyze_with_target(
-        self,
-        mock_dcm_manager,
-        mock_deploy_tracker,
-        mock_manifest_load,
-        runner,
-        project_directory,
-        mock_cursor,
-        mock_connect,
-    ):
-        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
-            rows=[(_analyze_response(),)], columns=("result",)
-        )
-        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
-        mock_manifest_load.return_value = DCMManifest.from_dict(
-            {
-                "manifest_version": 2,
-                "type": "dcm_project",
-                "default_target": "dev",
-                "targets": {
-                    "dev": {
-                        "project_name": "my_project",
-                        "templating_config": "dev_config",
-                        **_DEFAULT_TARGET_FIELDS,
-                    }
-                },
-                "templating": {"configurations": {"dev_config": {}}},
-            }
-        )
-
-        with project_directory("dcm_project"):
-            result = runner.invoke(["dcm", "compile", "--target", "dev"])
-
-        assert result.exit_code == 0, result.output
-        mock_dcm_manager().raw_analyze.assert_called_once_with(
-            project_identifier=FQN.from_string("my_project"),
-            configuration="DEV_CONFIG",
-            from_stage="TMP_STAGE",
-            variables=None,
-            save_output=False,
-            command_name="compile",
-        )
-
-    def test_analyze_with_save_output(
-        self,
-        mock_dcm_manager,
-        mock_deploy_tracker,
-        mock_manifest_load,
-        runner,
-        project_directory,
-        mock_cursor,
-        mock_connect,
-    ):
-        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
-            rows=[(_analyze_response(),)], columns=("result",)
-        )
-        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
-        mock_manifest_load.return_value = _manifest_without_config()
-
-        with project_directory("dcm_project"):
-            result = runner.invoke(["dcm", "compile", "fooBar", "--save-output"])
-
-        assert result.exit_code == 0, result.output
-        mock_dcm_manager().raw_analyze.assert_called_once_with(
-            project_identifier=FQN.from_string("fooBar"),
-            configuration=None,
-            from_stage="TMP_STAGE",
-            variables=None,
-            save_output=True,
-            command_name="compile",
-        )
-
-    def test_analyze_with_save_output_saves_response(
-        self,
-        mock_dcm_manager,
-        mock_deploy_tracker,
-        mock_manifest_load,
-        runner,
-        mock_cursor,
-        mock_connect,
-        tmp_path,
-    ):
-        analyze_response = {
-            "files": [
-                {
-                    "source_path": "sources/definitions/ok.sql",
-                    "definitions": [
-                        {
-                            "id": {"name": "OK", "domain": "TABLE"},
-                            "refined_domain": "table",
-                            "issues": [],
-                        }
-                    ],
-                    "issues": [],
-                }
-            ]
-        }
-        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
-            rows=[(json.dumps(analyze_response),)], columns=("result",)
-        )
-        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
-        mock_manifest_load.return_value = _manifest_without_config()
-
-        with change_directory(tmp_path):
-            result = runner.invoke(["dcm", "compile", "fooBar", "--save-output"])
-
-            assert result.exit_code == 0, result.output
-            _assert_no_result_json("compile", tmp_path)
-
-    def test_analyze_from_stage_fails(
-        self, mock_dcm_manager, runner, project_directory
-    ):
-        result = runner.invoke(["dcm", "compile", "fooBar", "--from", "@my_stage"])
-        assert result.exit_code == 1, result.output
-        assert "Stage paths are not supported" in result.output
-
-    @pytest.mark.parametrize("format_name", ["json", "json_ext"])
-    def test_analyze_with_json_formats_returns_response(
-        self,
-        mock_dcm_manager,
-        mock_deploy_tracker,
-        mock_manifest_load,
-        runner,
-        mock_cursor,
-        mock_connect,
-        project_directory,
-        format_name,
-    ):
-        analyze_response = _analyze_response()
-        mock_dcm_manager().raw_analyze.return_value = _mock_cursor_for_format(
-            mock_cursor, json.loads(analyze_response), format_name
-        )
-        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
-        mock_manifest_load.return_value = _manifest_without_config()
-
-        with project_directory("dcm_project"):
-            result = runner.invoke(
-                ["dcm", "compile", "fooBar", "--format", format_name]
-            )
-
-        assert result.exit_code == 0, result.output
-        payload = json.loads(result.output)
-        _assert_format_result(payload, json.loads(analyze_response), format_name)
-
-
-def _dependencies_response():
-    """Analyze response with a table feeding a dynamic table (one edge)."""
-    return json.dumps(
-        {
-            "files": [
-                {
-                    "source_path": "sources/definitions/raw.sql",
-                    "definitions": [
-                        {
-                            "id": {
-                                "name": "CUSTOMER",
-                                "schema": "RAW",
-                                "database": "DB",
-                                "domain": "TABLE",
-                            },
-                            "dependencies": [],
-                            "refined_domain": "table",
-                            "issues": [],
-                        }
-                    ],
-                    "issues": [],
-                },
-                {
-                    "source_path": "sources/definitions/analytics.sql",
-                    "definitions": [
-                        {
-                            "id": {
-                                "name": "ENRICHED",
-                                "schema": "ANALYTICS",
-                                "database": "DB",
-                                "domain": "TABLE",
-                            },
-                            "dependencies": [
-                                {
-                                    "source_id": {
-                                        "name": "CUSTOMER",
-                                        "schema": "RAW",
-                                        "database": "DB",
-                                        "domain": "TABLE",
-                                    }
-                                }
-                            ],
-                            "refined_domain": "dynamic_table",
-                            "properties": [{"name": "TARGET_LAG", "value": "1 day"}],
-                            "issues": [],
-                        }
-                    ],
-                    "issues": [],
-                },
-            ]
-        }
-    )
-
-
-class TestDCMDependencies:
-    def test_dependencies_writes_markdown_and_links_to_it(
-        self,
-        mock_dcm_manager,
-        mock_deploy_tracker,
-        mock_manifest_load,
-        runner,
-        mock_cursor,
-        mock_connect,
-        tmp_path,
-    ):
-        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
-            rows=[(_dependencies_response(),)], columns=("result",)
-        )
-        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
-        mock_manifest_load.return_value = _manifest_without_config()
-
-        with change_directory(tmp_path):
-            result = runner.invoke(["dcm", "dependencies", "fooBar"])
-
-            assert result.exit_code == 0, result.output
-
-            dependencies_file = tmp_path / "out" / "dependencies.md"
-            assert dependencies_file.exists()
-            content = dependencies_file.read_text()
-
-        assert "# DCM Project dependencies for" in content
-        assert "flowchart LR" in content
-        assert "Table: CUSTOMER\\nDB.RAW" in content
-        assert "Dynamic Table [lag: 1 day]\\nENRICHED\\nDB.ANALYTICS" in content
-        assert "CUSTOMER --> ENRICHED" in content
-
-        # The CLI points the user at the generated file.
-        assert "dependencies.md" in result.output
-
-        mock_dcm_manager().raw_analyze.assert_called_once_with(
-            project_identifier=FQN.from_string("fooBar"),
-            configuration=None,
-            from_stage="TMP_STAGE",
-            variables=None,
-            save_output=False,
-            command_name="dependencies",
-        )
-
-    def test_dependencies_with_variables(
-        self,
-        mock_dcm_manager,
-        mock_deploy_tracker,
-        mock_manifest_load,
-        runner,
-        mock_cursor,
-        mock_connect,
-        tmp_path,
-    ):
-        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
-            rows=[(_dependencies_response(),)], columns=("result",)
-        )
-        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
-        mock_manifest_load.return_value = _manifest_without_config()
-
-        with change_directory(tmp_path):
-            result = runner.invoke(["dcm", "dependencies", "fooBar", "-D", "key=value"])
-
-        assert result.exit_code == 0, result.output
-        mock_dcm_manager().raw_analyze.assert_called_once_with(
-            project_identifier=FQN.from_string("fooBar"),
-            configuration=None,
-            from_stage="TMP_STAGE",
-            variables=["key=value"],
-            save_output=False,
-            command_name="dependencies",
-        )
-
-    def test_dependencies_shown_in_help(self, runner):
-        result = runner.invoke(["dcm", "--help"])
-        assert result.exit_code == 0
-        assert "dependencies" in result.output
-
-    def test_dependencies_from_stage_fails(self, mock_dcm_manager, runner, tmp_path):
-        with change_directory(tmp_path):
-            result = runner.invoke(
-                ["dcm", "dependencies", "fooBar", "--from", "@my_stage"]
-            )
-        assert result.exit_code == 1, result.output
-        assert "Stage paths are not supported" in result.output
 
 
 class TestDCMList:
@@ -2382,16 +1818,6 @@ class TestDCMPreview:
 
 
 class TestDCMRefresh:
-    @pytest.fixture(autouse=True)
-    def _mock_tracker(self, mock_deploy_tracker):
-        # ``refresh`` renders the real ``DeployProgressTracker`` phase line via
-        # a Rich ``Live`` display, whose final frame emits a platform-dependent
-        # number of trailing newlines — making the captured output (and thus the
-        # snapshot) non-portable across OSes. Mock the tracker so these
-        # snapshots cover only the deterministic reporter output, matching how
-        # every other DCM command test already works.
-        yield
-
     def test_refresh_with_outdated_tables(
         self, mock_dcm_manager, runner, mock_cursor, snapshot
     ):
@@ -2552,13 +1978,6 @@ class TestDCMRefresh:
 
 
 class TestDCMTest:
-    @pytest.fixture(autouse=True)
-    def _mock_tracker(self, mock_deploy_tracker):
-        # See ``TestDCMRefresh._mock_tracker``: mock the tracker so the snapshot
-        # only covers the deterministic reporter output (the Rich ``Live`` phase
-        # line renders a platform-dependent number of trailing newlines).
-        yield
-
     def test_test_all_passing(self, mock_dcm_manager, runner, mock_cursor, snapshot):
         test_result = {
             "expectations": [
@@ -2735,7 +2154,6 @@ class TestAccountIdentifierValidationForCommands:
     def test_deploy_calls_check_account_identifier(
         self,
         mock_dcm_manager,
-        mock_deploy_tracker,
         mock_manifest_load,
         mock_check_account_identifier,
         runner,
@@ -2743,10 +2161,7 @@ class TestAccountIdentifierValidationForCommands:
         mock_cursor,
         mock_connect,
     ):
-        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
-        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
-            mock_cursor
-        )
+        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
@@ -3065,987 +2480,3 @@ def test_check_project_owner_mismatch_warning_sanitizes_manifest_value(
     warning_message = mock_console.warning.call_args[0][0]
     assert "\x1b" not in warning_message
     assert "FINANCE_ROLE injected" in warning_message
-
-
-@pytest.fixture
-def mock_manifest_account_owner():
-    with mock.patch(
-        "snowflake.cli._plugins.dcm.commands._resolve_account_context_for_manifest",
-        return_value=("MY_ORG-MY_LOCATOR", "dev"),
-    ), mock.patch(
-        "snowflake.cli._plugins.dcm.commands._resolve_project_owner_for_manifest",
-        return_value="MY_ROLE",
-    ):
-        yield
-
-
-@pytest.fixture
-def mock_no_connection_warehouse():
-    with mock.patch("snowflake.cli._plugins.dcm.commands.get_cli_context") as _fixture:
-        conn = _fixture.return_value.connection
-        conn.warehouse = None
-        conn.database = "MockDatabase"
-        conn.schema = "MockSchema"
-        yield _fixture
-
-
-class TestDCMInit:
-    def test_init_creates_new_project_with_force(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        mock_manifest_account_owner,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        mock_object_manager().object_exists.return_value = False
-
-        with change_directory(tmp_path):
-            result = runner.invoke(
-                [
-                    "dcm",
-                    "init",
-                    "--project-name",
-                    "myproj",
-                    "--target",
-                    "dev",
-                    "--force",
-                ]
-            )
-            assert result.exit_code == 0, result.output
-
-            project_dir = tmp_path / "myproj"
-            manifest = DCMManifest.load(SecurePath(project_dir))
-
-        # Files land inside the new project subfolder.
-        assert (project_dir / "manifest.yml").exists()
-        assert (project_dir / "sources" / "definitions" / "raw.sql").exists()
-        assert manifest.manifest_version == 2
-        assert manifest.default_target == "DEV"
-        target = manifest.get_effective_target()
-        # The DCM Project object name defaults to the target name.
-        assert target.project_name == "MockDatabase.MockSchema.dev"
-        assert target.account_identifier == "MY_ORG-MY_LOCATOR"
-        assert target.project_owner == "MY_ROLE"
-        mock_dcm_manager().create.assert_called_once_with(
-            project_identifier=FQN.from_string("MockDatabase.MockSchema.dev")
-        )
-
-    def test_init_new_project_with_explicit_qualified_identifier(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        mock_manifest_account_owner,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        mock_object_manager().object_exists.return_value = False
-
-        with change_directory(tmp_path):
-            result = runner.invoke(
-                [
-                    "dcm",
-                    "init",
-                    "--project-name",
-                    "myproj",
-                    "--target",
-                    "prod",
-                    "--project-identifier",
-                    "MY_DB.MY_SC.MYPROJ",
-                    "--force",
-                ]
-            )
-            assert result.exit_code == 0, result.output
-            manifest = DCMManifest.load(SecurePath(tmp_path / "myproj"))
-
-        assert manifest.default_target == "PROD"
-        assert manifest.get_effective_target().project_name == "MY_DB.MY_SC.MYPROJ"
-        mock_dcm_manager().create.assert_called_once_with(
-            project_identifier=FQN.from_string("MY_DB.MY_SC.MYPROJ")
-        )
-
-    def test_init_new_project_auto_quotes_special_characters(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        mock_manifest_account_owner,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        mock_object_manager().object_exists.return_value = False
-
-        with change_directory(tmp_path):
-            result = runner.invoke(
-                [
-                    "dcm",
-                    "init",
-                    "--project-name",
-                    "myproj",
-                    "--target",
-                    "dev",
-                    "--project-identifier",
-                    "my project",
-                    "--force",
-                ]
-            )
-            assert result.exit_code == 0, result.output
-            # The manifest is still valid YAML despite the quoted identifier.
-            manifest = DCMManifest.load(SecurePath(tmp_path / "myproj"))
-
-        assert (
-            manifest.get_effective_target().project_name
-            == 'MockDatabase.MockSchema."my project"'
-        )
-        mock_dcm_manager().create.assert_called_once_with(
-            project_identifier=FQN.from_string('MockDatabase.MockSchema."my project"')
-        )
-
-    def test_init_new_project_folder_exists_errors(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        mock_manifest_account_owner,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        mock_object_manager().object_exists.return_value = False
-        (tmp_path / "myproj").mkdir()
-
-        with change_directory(tmp_path):
-            result = runner.invoke(
-                [
-                    "dcm",
-                    "init",
-                    "--project-name",
-                    "myproj",
-                    "--target",
-                    "dev",
-                    "--force",
-                ]
-            )
-
-        assert result.exit_code == 1, result.output
-        assert "already exists" in result.output
-        mock_dcm_manager().create.assert_not_called()
-
-    def test_init_requires_target_in_non_interactive(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        mock_manifest_account_owner,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        mock_object_manager().object_exists.return_value = False
-
-        with change_directory(tmp_path):
-            result = runner.invoke(
-                ["dcm", "init", "--project-name", "myproj", "--no-interactive"]
-            )
-
-        assert result.exit_code == 1, result.output
-        assert "--target is required" in result.output
-        mock_dcm_manager().create.assert_not_called()
-
-    def test_init_errors_without_manifest_or_project_name_non_interactive(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        mock_manifest_account_owner,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        with change_directory(tmp_path):
-            result = runner.invoke(
-                ["dcm", "init", "--target", "dev", "--no-interactive"]
-            )
-
-        assert result.exit_code == 1, result.output
-        assert "--project-name" in result.output
-        mock_dcm_manager().create.assert_not_called()
-
-    def test_init_interactive_new_project_no_manifest(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        mock_manifest_account_owner,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        mock_object_manager().object_exists.return_value = False
-
-        with change_directory(tmp_path):
-            # project name, target (default), object name (default), use db, use
-            # schema, proceed.
-            result = runner.invoke(
-                ["dcm", "init", "--interactive"],
-                input="myproj\n\n\ny\ny\ny\n",
-            )
-            assert result.exit_code == 0, result.output
-            manifest = DCMManifest.load(SecurePath(tmp_path / "myproj"))
-
-        assert manifest.default_target == "DEV"
-        assert (
-            manifest.get_effective_target().project_name
-            == "MockDatabase.MockSchema.dev"
-        )
-        mock_dcm_manager().create.assert_called_once_with(
-            project_identifier=FQN.from_string("MockDatabase.MockSchema.dev")
-        )
-
-    def test_init_interactive_overrides_object_name(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        mock_manifest_account_owner,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        mock_object_manager().object_exists.return_value = False
-
-        with change_directory(tmp_path):
-            # project name, target (default dev), object name override, use db,
-            # use schema, proceed.
-            result = runner.invoke(
-                ["dcm", "init", "--interactive"],
-                input="myproj\n\nCUSTOM_OBJ\ny\ny\ny\n",
-            )
-            assert result.exit_code == 0, result.output
-            manifest = DCMManifest.load(SecurePath(tmp_path / "myproj"))
-
-        assert (
-            manifest.get_effective_target().project_name
-            == "MockDatabase.MockSchema.CUSTOM_OBJ"
-        )
-
-    def test_init_interactive_enter_custom_database(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        mock_manifest_account_owner,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        mock_object_manager().object_exists.return_value = False
-
-        with change_directory(tmp_path):
-            # project name, target default, object default, decline default db +
-            # enter one, accept default schema, proceed.
-            result = runner.invoke(
-                ["dcm", "init", "--interactive"],
-                input="myproj\n\n\nn\nCUSTOM_DB\ny\ny\n",
-            )
-            assert result.exit_code == 0, result.output
-            manifest = DCMManifest.load(SecurePath(tmp_path / "myproj"))
-
-        assert (
-            manifest.get_effective_target().project_name == "CUSTOM_DB.MockSchema.dev"
-        )
-
-    @staticmethod
-    def _existing_manifest(default_target: str = "prod") -> str:
-        return (
-            "manifest_version: 2\n"
-            'type: "dcm_project"\n'
-            "\n"
-            f'default_target: "{default_target}"\n'
-            "\n"
-            "targets:\n"
-            f'  "{default_target}":\n'
-            '    project_name: "OTHER_DB.OTHER_SCHEMA.EXISTING"\n'
-            '    account_identifier: "SOME_ORG-SOME_LOC"\n'
-            '    project_owner: "SOME_ROLE"\n'
-        )
-
-    def test_init_appends_target_to_existing_manifest_with_force(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        mock_manifest_account_owner,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        mock_object_manager().object_exists.return_value = False
-        (tmp_path / "manifest.yml").write_text(self._existing_manifest())
-
-        with change_directory(tmp_path):
-            result = runner.invoke(["dcm", "init", "--target", "staging", "--force"])
-            assert result.exit_code == 0, result.output
-            manifest = DCMManifest.load(SecurePath(tmp_path))
-
-        # The existing default target is preserved and the new target is appended.
-        assert manifest.default_target == "PROD"
-        assert "PROD" in manifest.targets
-        assert "STAGING" in manifest.targets
-        assert (
-            manifest.targets["STAGING"].project_name
-            == "MockDatabase.MockSchema.staging"
-        )
-        # No placeholder is scaffolded when adding to an existing manifest.
-        assert not (tmp_path / "sources" / "definitions" / "raw.sql").exists()
-        mock_dcm_manager().create.assert_called_once_with(
-            project_identifier=FQN.from_string("MockDatabase.MockSchema.staging")
-        )
-
-    def test_init_interactive_appends_target_to_existing_manifest(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        mock_manifest_account_owner,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        mock_object_manager().object_exists.return_value = False
-        (tmp_path / "manifest.yml").write_text(self._existing_manifest())
-
-        with change_directory(tmp_path):
-            # add target?, target name, object name (default), use db, use schema.
-            # No final "Proceed?" for an existing manifest.
-            result = runner.invoke(
-                ["dcm", "init", "--interactive"],
-                input="y\nstaging\n\ny\ny\n",
-            )
-            assert result.exit_code == 0, result.output
-            manifest = DCMManifest.load(SecurePath(tmp_path))
-
-        # The user is shown the existing targets before choosing to add one.
-        assert "prod" in result.output
-        assert "add a new target" in result.output.lower()
-        assert manifest.default_target == "PROD"
-        assert "PROD" in manifest.targets
-        assert "STAGING" in manifest.targets
-        assert (
-            manifest.targets["STAGING"].project_name
-            == "MockDatabase.MockSchema.staging"
-        )
-        mock_dcm_manager().create.assert_called_once_with(
-            project_identifier=FQN.from_string("MockDatabase.MockSchema.staging")
-        )
-
-    def test_init_interactive_declines_existing_manifest_errors(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        mock_manifest_account_owner,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        mock_object_manager().object_exists.return_value = False
-        existing = self._existing_manifest()
-        (tmp_path / "manifest.yml").write_text(existing)
-
-        with change_directory(tmp_path):
-            # Decline adding a target to the existing manifest.
-            result = runner.invoke(
-                ["dcm", "init", "--interactive"],
-                input="n\n",
-            )
-
-        # Declining errors out instead of scaffolding a new project, and the
-        # existing manifest is left untouched.
-        assert result.exit_code == 1, result.output
-        assert "To create a new project" in result.output
-        assert (tmp_path / "manifest.yml").read_text() == existing
-        assert not (tmp_path / "myproj").exists()
-
-    def test_init_interactive_reprompts_on_folder_exists(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        mock_manifest_account_owner,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        mock_object_manager().object_exists.return_value = False
-        (tmp_path / "taken").mkdir()
-
-        with change_directory(tmp_path):
-            # A taken folder name is rejected and re-prompted.
-            result = runner.invoke(
-                ["dcm", "init", "--interactive"],
-                input="taken\nmyproj\n\n\ny\ny\ny\n",
-            )
-            assert result.exit_code == 0, result.output
-
-        assert "already exists" in result.output
-        assert (tmp_path / "myproj" / "manifest.yml").exists()
-
-    def test_init_interactive_reprompts_on_colliding_target(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        mock_manifest_account_owner,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        mock_object_manager().object_exists.return_value = False
-        # The account alias resolved by the fixture is "dev"; a matching target
-        # already exists, so the default name collides and the user is re-prompted.
-        existing = self._existing_manifest(default_target="dev")
-        (tmp_path / "manifest.yml").write_text(existing)
-
-        with change_directory(tmp_path):
-            # add target?, colliding default (re-prompted), unique name, object
-            # default, use db, use schema.
-            result = runner.invoke(
-                ["dcm", "init", "--interactive"],
-                input="y\n\nstaging\n\ny\ny\n",
-            )
-            assert result.exit_code == 0, result.output
-            manifest = DCMManifest.load(SecurePath(tmp_path))
-
-        assert "already exists" in result.output
-        assert "DEV" in manifest.targets
-        assert "STAGING" in manifest.targets
-        assert (
-            manifest.targets["STAGING"].project_name
-            == "MockDatabase.MockSchema.staging"
-        )
-        mock_dcm_manager().create.assert_called_once_with(
-            project_identifier=FQN.from_string("MockDatabase.MockSchema.staging")
-        )
-
-    def test_init_interactive_reprompts_on_invalid_target_name(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        mock_manifest_account_owner,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        mock_object_manager().object_exists.return_value = False
-        (tmp_path / "manifest.yml").write_text(self._existing_manifest())
-
-        with change_directory(tmp_path):
-            # add target?, invalid name (re-prompted), valid name, object default,
-            # use db, use schema.
-            result = runner.invoke(
-                ["dcm", "init", "--interactive"],
-                input='y\nbad"name\nstaging\n\ny\ny\n',
-            )
-            assert result.exit_code == 0, result.output
-            manifest = DCMManifest.load(SecurePath(tmp_path))
-
-        assert "cannot contain" in result.output
-        assert "STAGING" in manifest.targets
-        assert 'bad"name' not in (tmp_path / "manifest.yml").read_text()
-
-    def test_init_reuses_existing_target_with_force(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        mock_manifest_account_owner,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        mock_object_manager().object_exists.return_value = False
-        # The requested target name already exists; with --force the existing
-        # target is reused instead of failing, so the manifest is left untouched.
-        existing = self._existing_manifest(default_target="dev")
-        (tmp_path / "manifest.yml").write_text(existing)
-
-        with change_directory(tmp_path):
-            result = runner.invoke(["dcm", "init", "--target", "dev", "--force"])
-            assert result.exit_code == 0, result.output
-
-        assert "Reusing existing target" in result.output
-        assert (tmp_path / "manifest.yml").read_text() == existing
-        mock_dcm_manager().create.assert_called_once_with(
-            project_identifier=FQN.from_string("MockDatabase.MockSchema.dev")
-        )
-
-    def test_init_fails_when_project_exists(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        mock_manifest_account_owner,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        mock_object_manager().object_exists.return_value = True
-
-        with change_directory(tmp_path):
-            result = runner.invoke(
-                ["dcm", "init", "--project-name", "myproj", "--target", "dev"]
-            )
-
-        assert result.exit_code == 1, result.output
-        assert "already exists" in result.output
-        assert not (tmp_path / "myproj").exists()
-        mock_dcm_manager().create.assert_not_called()
-
-    def test_init_project_exists_with_if_not_exists(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        mock_manifest_account_owner,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        mock_object_manager().object_exists.return_value = True
-
-        with change_directory(tmp_path):
-            result = runner.invoke(
-                [
-                    "dcm",
-                    "init",
-                    "--project-name",
-                    "myproj",
-                    "--target",
-                    "dev",
-                    "--if-not-exists",
-                    "--force",
-                ]
-            )
-            assert result.exit_code == 0, result.output
-
-        assert (tmp_path / "myproj" / "manifest.yml").exists()
-        mock_dcm_manager().create.assert_not_called()
-        mock_dcm_manager().create_database.assert_not_called()
-        mock_dcm_manager().create_schema.assert_not_called()
-
-    def test_init_creates_missing_database_and_schema(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        mock_manifest_account_owner,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        # project does not exist yet
-        mock_object_manager().object_exists.return_value = False
-        # database and schema do not exist yet
-        mock_dcm_manager().database_exists.return_value = False
-        mock_dcm_manager().schema_exists.return_value = False
-
-        with change_directory(tmp_path):
-            result = runner.invoke(
-                [
-                    "dcm",
-                    "init",
-                    "--project-name",
-                    "myproj",
-                    "--target",
-                    "dev",
-                    "--force",
-                ]
-            )
-            assert result.exit_code == 0, result.output
-
-        mock_dcm_manager().create_database.assert_called_once_with("MockDatabase")
-        mock_dcm_manager().create_schema.assert_called_once_with(
-            "MockDatabase", "MockSchema"
-        )
-        mock_dcm_manager().create.assert_called_once_with(
-            project_identifier=FQN.from_string("MockDatabase.MockSchema.dev")
-        )
-
-    def test_init_aborts_when_plan_declined(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        mock_manifest_account_owner,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        mock_object_manager().object_exists.return_value = False
-        mock_dcm_manager().database_exists.return_value = False
-
-        with change_directory(tmp_path):
-            # A fully qualified identifier avoids namespace prompts, so the only
-            # prompt is the final confirmation, which is declined.
-            result = runner.invoke(
-                [
-                    "dcm",
-                    "init",
-                    "--project-name",
-                    "myproj",
-                    "--target",
-                    "dev",
-                    "--project-identifier",
-                    "MockDatabase.MockSchema.dev",
-                    "--interactive",
-                ],
-                input="n\n",
-            )
-
-        assert result.exit_code == 1, result.output
-        assert not (tmp_path / "myproj").exists()
-        mock_dcm_manager().create_database.assert_not_called()
-        mock_dcm_manager().create.assert_not_called()
-
-    def test_init_errors_on_missing_namespace_non_interactive(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        mock_manifest_account_owner,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        mock_object_manager().object_exists.return_value = False
-
-        with mock.patch("snowflake.cli._plugins.dcm.commands.get_cli_context") as ctx:
-            conn = ctx.return_value.connection
-            conn.warehouse = "MockWarehouse"
-            conn.database = None
-            conn.schema = None
-            with change_directory(tmp_path):
-                result = runner.invoke(
-                    [
-                        "dcm",
-                        "init",
-                        "--project-name",
-                        "myproj",
-                        "--target",
-                        "dev",
-                        "--no-interactive",
-                    ]
-                )
-
-        assert result.exit_code == 1, result.output
-        assert "database" in result.output.lower()
-        mock_dcm_manager().create.assert_not_called()
-
-    def test_init_force_flag_provisions_non_interactively(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        mock_manifest_account_owner,
-        mock_no_connection_warehouse,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        mock_object_manager().object_exists.return_value = False
-        mock_dcm_manager().database_exists.return_value = False
-        mock_dcm_manager().schema_exists.return_value = False
-        mock_dcm_manager().warehouse_exists.return_value = False
-
-        with change_directory(tmp_path):
-            # --force approves creating the warehouse, database, and schema.
-            result = runner.invoke(
-                [
-                    "dcm",
-                    "init",
-                    "--project-name",
-                    "myproj",
-                    "--target",
-                    "dev",
-                    "--force",
-                ]
-            )
-            assert result.exit_code == 0, result.output
-
-        mock_dcm_manager().create_warehouse.assert_called_once_with("DCM_WH")
-        mock_dcm_manager().create_database.assert_called_once_with("MockDatabase")
-        mock_dcm_manager().create_schema.assert_called_once_with(
-            "MockDatabase", "MockSchema"
-        )
-        mock_dcm_manager().create.assert_called_once_with(
-            project_identifier=FQN.from_string("MockDatabase.MockSchema.dev")
-        )
-
-    def test_init_prompts_for_namespace_when_unqualified(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        mock_manifest_account_owner,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        mock_object_manager().object_exists.return_value = False
-
-        with mock.patch("snowflake.cli._plugins.dcm.commands.get_cli_context") as ctx:
-            conn = ctx.return_value.connection
-            conn.warehouse = "MockWarehouse"
-            conn.database = None
-            conn.schema = None
-            with change_directory(tmp_path):
-                # project name, target default, object default, enter db, enter
-                # schema, proceed.
-                result = runner.invoke(
-                    ["dcm", "init", "--interactive"],
-                    input="myproj\n\n\nMY_DB\nMY_SCHEMA\ny\n",
-                )
-                assert result.exit_code == 0, result.output
-                manifest = DCMManifest.load(SecurePath(tmp_path / "myproj"))
-
-        target = manifest.get_effective_target()
-        assert target.project_name == "MY_DB.MY_SCHEMA.dev"
-        mock_dcm_manager().create.assert_called_once_with(
-            project_identifier=FQN.from_string("MY_DB.MY_SCHEMA.dev")
-        )
-
-    def test_init_uses_existing_database_and_schema(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        mock_manifest_account_owner,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        mock_object_manager().object_exists.return_value = False
-        mock_dcm_manager().database_exists.return_value = True
-        mock_dcm_manager().schema_exists.return_value = True
-
-        with change_directory(tmp_path):
-            result = runner.invoke(
-                [
-                    "dcm",
-                    "init",
-                    "--project-name",
-                    "myproj",
-                    "--target",
-                    "dev",
-                    "--force",
-                ]
-            )
-            assert result.exit_code == 0, result.output
-
-        mock_dcm_manager().create_database.assert_not_called()
-        mock_dcm_manager().create_schema.assert_not_called()
-        mock_dcm_manager().create.assert_called_once_with(
-            project_identifier=FQN.from_string("MockDatabase.MockSchema.dev")
-        )
-
-    def test_init_uses_connection_warehouse(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        mock_manifest_account_owner,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        mock_object_manager().object_exists.return_value = False
-
-        with change_directory(tmp_path):
-            result = runner.invoke(
-                [
-                    "dcm",
-                    "init",
-                    "--project-name",
-                    "myproj",
-                    "--target",
-                    "dev",
-                    "--force",
-                ]
-            )
-            assert result.exit_code == 0, result.output
-
-        mock_dcm_manager().warehouse_exists.assert_not_called()
-        mock_dcm_manager().create_warehouse.assert_not_called()
-
-    def test_init_creates_default_warehouse_when_missing(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        mock_manifest_account_owner,
-        mock_no_connection_warehouse,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        mock_object_manager().object_exists.return_value = False
-        mock_dcm_manager().warehouse_exists.return_value = False
-
-        with change_directory(tmp_path):
-            # Non-interactive provisioning requires --force.
-            result = runner.invoke(
-                [
-                    "dcm",
-                    "init",
-                    "--project-name",
-                    "myproj",
-                    "--target",
-                    "dev",
-                    "--force",
-                ]
-            )
-            assert result.exit_code == 0, result.output
-
-        mock_dcm_manager().create_warehouse.assert_called_once_with("DCM_WH")
-
-    def test_init_prompts_for_warehouse_when_missing(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        mock_manifest_account_owner,
-        mock_no_connection_warehouse,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        mock_object_manager().object_exists.return_value = False
-        mock_dcm_manager().warehouse_exists.return_value = True
-
-        with change_directory(tmp_path):
-            # project name, target default, object default, use db, use schema,
-            # warehouse name, proceed.
-            result = runner.invoke(
-                ["dcm", "init", "--interactive"],
-                input="myproj\n\n\ny\ny\nMY_WH\ny\n",
-            )
-            assert result.exit_code == 0, result.output
-
-        mock_dcm_manager().warehouse_exists.assert_called_once_with("MY_WH")
-        mock_dcm_manager().create_warehouse.assert_not_called()
-
-    def test_init_confirms_empty_scaffold_and_aborts_when_declined(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        mock_manifest_account_owner,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        mock_object_manager().object_exists.return_value = False
-        # Namespace and warehouse already exist, so scaffolding is the only change.
-        mock_dcm_manager().database_exists.return_value = True
-        mock_dcm_manager().schema_exists.return_value = True
-
-        with change_directory(tmp_path):
-            # A fully qualified identifier avoids namespace prompts; decline the
-            # final confirmation of creating the empty project structure.
-            result = runner.invoke(
-                [
-                    "dcm",
-                    "init",
-                    "--project-name",
-                    "myproj",
-                    "--target",
-                    "dev",
-                    "--project-identifier",
-                    "MockDatabase.MockSchema.dev",
-                    "--interactive",
-                ],
-                input="n\n",
-            )
-
-        assert result.exit_code == 1, result.output
-        # The summary states where the structure is created and who owns the project.
-        assert "myproj" in result.output
-        assert "owned by role 'MY_ROLE'" in result.output
-        assert not (tmp_path / "myproj").exists()
-        mock_dcm_manager().create.assert_not_called()
-
-    def test_init_prints_next_steps(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        mock_manifest_account_owner,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        mock_object_manager().object_exists.return_value = False
-
-        with change_directory(tmp_path):
-            result = runner.invoke(
-                [
-                    "dcm",
-                    "init",
-                    "--project-name",
-                    "myproj",
-                    "--target",
-                    "dev",
-                    "--force",
-                ]
-            )
-            assert result.exit_code == 0, result.output
-
-        assert "Next steps" in result.output
-        # New projects are created in a subfolder, so guidance says to cd into it.
-        assert "cd myproj" in result.output
-        assert "sources/definitions" in result.output
-        # The plan/deploy guidance references the user's target explicitly.
-        assert "snow dcm plan" in result.output
-        assert "--target dev" in result.output
-
-    def test_init_prompts_for_role_when_current_role_unknown(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        mock_object_manager().object_exists.return_value = False
-
-        with mock.patch(
-            "snowflake.cli._plugins.dcm.commands._resolve_account_context_for_manifest",
-            return_value=("MY_ORG-MY_LOCATOR", "dev"),
-        ), mock.patch(
-            "snowflake.cli._plugins.dcm.commands.SqlExecutor"
-        ) as mock_executor_cls:
-            mock_executor_cls().current_role.return_value = None
-            with change_directory(tmp_path):
-                # project name, target default, object default, use db, use schema,
-                # enter role, proceed.
-                result = runner.invoke(
-                    ["dcm", "init", "--interactive"],
-                    input="myproj\n\n\ny\ny\nMY_ENTERED_ROLE\ny\n",
-                )
-                assert result.exit_code == 0, result.output
-                manifest = DCMManifest.load(SecurePath(tmp_path / "myproj"))
-
-        assert manifest.get_effective_target().project_owner == "MY_ENTERED_ROLE"
-
-    def test_init_errors_when_role_unknown_non_interactive(
-        self,
-        mock_dcm_manager,
-        mock_object_manager,
-        runner,
-        tmp_path,
-        mock_connect,
-    ):
-        mock_object_manager().object_exists.return_value = False
-
-        with mock.patch(
-            "snowflake.cli._plugins.dcm.commands._resolve_account_context_for_manifest",
-            return_value=("MY_ORG-MY_LOCATOR", "dev"),
-        ), mock.patch(
-            "snowflake.cli._plugins.dcm.commands.SqlExecutor"
-        ) as mock_executor_cls:
-            mock_executor_cls().current_role.return_value = None
-            with change_directory(tmp_path):
-                result = runner.invoke(
-                    [
-                        "dcm",
-                        "init",
-                        "--project-name",
-                        "myproj",
-                        "--target",
-                        "dev",
-                        "--force",
-                    ]
-                )
-
-        assert result.exit_code == 1, result.output
-        assert "Could not determine the current role" in result.output
-        assert not (tmp_path / "myproj").exists()
-        mock_dcm_manager().create.assert_not_called()

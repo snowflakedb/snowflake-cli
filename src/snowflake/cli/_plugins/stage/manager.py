@@ -22,9 +22,7 @@ import re
 import shutil
 import time
 from collections import deque
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import nullcontext
-from contextvars import copy_context
 from dataclasses import dataclass
 from enum import Enum
 from os import path
@@ -58,12 +56,6 @@ except ImportError:
     pass
 
 log = logging.getLogger(__name__)
-
-
-# Default fan-out for parallel recursive uploads. Upload wall-clock is dominated
-# by per-PUT round-trip latency (GS query + cloud-storage handshake), not file
-# size, so overlapping PUTs across directories is the main lever.
-DEFAULT_UPLOAD_WORKERS = 16
 
 
 UNQUOTED_FILE_URI_REGEX = r"[\w/*?\-.=&{}$#[\]\"\\!@%^+:]+"
@@ -369,20 +361,12 @@ class StageManager(SqlExecutionMixin):
         role: Optional[str] = None,
         auto_compress: bool = False,
         use_dict_cursor: bool = False,
-        show_progress_bar: bool = True,
     ) -> SnowflakeCursor:
         """
         This method will take a file path from the user's system and put it into a Snowflake stage,
         which includes its fully qualified name as well as the path within the stage.
         If provided with a role, then temporarily use this role to perform the operation above,
         and switch back to the original role for the next commands to run.
-
-        Set ``show_progress_bar=False`` to suppress the connector's built-in
-        per-file PUT progress output. The connector writes that progress to the
-        ``sys.stdout`` it captured at import time, which bypasses any active
-        ``rich.live.Live`` display and corrupts it (most visibly on Windows
-        PowerShell, where each refresh gets dumped on a new line). Callers that
-        render their own progress UI should turn it off.
         """
         if "*" not in str(local_path):
             local_path_obj = Path(local_path)
@@ -395,17 +379,10 @@ class StageManager(SqlExecutionMixin):
             spath = self.build_path(stage_path)
             local_resolved_path = path_resolver(str(local_path))
             log.info("Uploading %s to %s", local_resolved_path, stage_path)
-            extra_kwargs: Dict = {}
-            # Only forward the flag when suppressing the bar so the default
-            # code path (and its assertions) stay byte-for-byte unchanged;
-            # ``True`` already matches the connector's default.
-            if not show_progress_bar:
-                extra_kwargs["_show_progress_bar"] = False
             cursor = self.execute_query(
                 f"put {self._to_uri(local_resolved_path)} {spath.path_for_sql()} "
                 f"auto_compress={str(auto_compress).lower()} parallel={parallel} overwrite={overwrite}",
                 cursor_class=DictCursor if use_dict_cursor else SnowflakeCursor,
-                **extra_kwargs,
             )
         return cursor
 
@@ -456,7 +433,6 @@ class StageManager(SqlExecutionMixin):
         role: Optional[str] = None,
         auto_compress: bool = False,
         temp_directory: Optional[Path] = None,
-        show_progress_bar: bool = True,
     ) -> Generator[dict, None, None]:
         is_temp_dir_provided = temp_directory is not None
 
@@ -489,7 +465,6 @@ class StageManager(SqlExecutionMixin):
                         role=role,
                         auto_compress=auto_compress,
                         use_dict_cursor=True,
-                        show_progress_bar=show_progress_bar,
                     ).fetchall()
 
                     # Rewrite results to have resolved paths for better UX
@@ -539,98 +514,6 @@ class StageManager(SqlExecutionMixin):
             list(deepest_dirs), key=lambda d: len(d.parts), reverse=True
         )
         return deepest_dirs_list
-
-    @staticmethod
-    def _link_or_copy_file(src: Path, dst: Path) -> None:
-        """Materialize ``src`` at ``dst`` cheaply, preferring a symlink."""
-        try:
-            os.symlink(resolve_without_follow(src), dst)
-        except OSError:
-            shutil.copyfile(src, dst)
-
-    def put_recursive_parallel(
-        self,
-        local_path: Path,
-        stage_path: str,
-        parallel: int = 4,
-        overwrite: bool = False,
-        role: Optional[str] = None,
-        auto_compress: bool = False,
-        temp_directory: Optional[Path] = None,
-        max_workers: int = DEFAULT_UPLOAD_WORKERS,
-        show_progress_bar: bool = True,
-    ) -> Generator[dict, None, None]:
-        """Parallel variant of :meth:`put_recursive`.
-
-        The upload unit is unchanged: one PUT per directory that directly
-        contains files (so multi-file directories are still batched into a
-        single round-trip). The only difference from ``put_recursive`` is that
-        these per-directory PUTs run concurrently on a thread pool instead of
-        one-at-a-time, since upload time is dominated by per-PUT round-trip
-        latency rather than payload size.
-
-        The connector raises on a directory inside a PUT glob, so each
-        directory is uploaded through an isolated view containing only its
-        direct files (this is what the sequential version achieves by
-        ``rmtree``-ing children before uploading a parent).
-        """
-        is_temp_dir_provided = temp_directory is not None
-
-        with TemporaryDirectory() if temp_directory is None else nullcontext(str(temp_directory)) as tmp:  # type: ignore[attr-defined]
-            temp_dir_with_copy = Path(tmp)
-            if not is_temp_dir_provided:
-                self.copy_to_tmp_dir(local_path, temp_dir_with_copy)
-
-            base = StagePath.from_stage_str(stage_path)
-
-            with TemporaryDirectory() as iso_root_str:
-                iso_root = Path(iso_root_str)
-                units: list[tuple[Path, StagePath, Path]] = []
-                for idx, (dirpath, _dirnames, filenames) in enumerate(
-                    os.walk(temp_dir_with_copy)
-                ):
-                    source_dir = Path(dirpath)
-                    files = [f for f in filenames if (source_dir / f).is_file()]
-                    if not files:
-                        continue
-                    rel = source_dir.relative_to(temp_dir_with_copy)
-                    iso_dir = iso_root / str(idx)
-                    iso_dir.mkdir(parents=True, exist_ok=True)
-                    for name in files:
-                        self._link_or_copy_file(source_dir / name, iso_dir / name)
-                    destination = base if rel == Path(".") else base / rel
-                    units.append((iso_dir, destination, rel))
-
-                def _upload(unit: tuple[Path, StagePath, Path]) -> list[dict]:
-                    iso_dir, destination, rel = unit
-                    rows: list[dict] = self.put(
-                        local_path=iso_dir,
-                        stage_path=destination,
-                        parallel=parallel,
-                        overwrite=overwrite,
-                        role=role,
-                        auto_compress=auto_compress,
-                        show_progress_bar=show_progress_bar,
-                        use_dict_cursor=True,
-                    ).fetchall()
-                    for item in rows:
-                        source_name = item["source"]
-                        item["source"] = (
-                            source_name if rel == Path(".") else str(rel / source_name)
-                        )
-                        item["target"] = str(destination / item["target"])
-                    return rows
-
-                # The Snowflake connection lives in a ContextVar that does not
-                # propagate to worker threads, so run each upload inside a copy
-                # of the calling thread's context (captured on this thread).
-                with ThreadPoolExecutor(max_workers=max(1, max_workers)) as executor:
-                    futures = [
-                        executor.submit(copy_context().run, _upload, unit)
-                        for unit in units
-                    ]
-                    for future in as_completed(futures):
-                        yield from future.result()
 
     def copy_files(self, source_path: str, destination_path: str) -> SnowflakeCursor:
         source_stage_path = self.build_path(source_path)

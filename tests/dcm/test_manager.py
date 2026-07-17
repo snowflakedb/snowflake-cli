@@ -24,7 +24,6 @@ from snowflake.cli._plugins.dcm.manager import (
 )
 from snowflake.cli._plugins.dcm.models import MANIFEST_FILE_NAME
 from snowflake.cli.api.identifiers import FQN
-from snowflake.connector.cursor import DictCursor
 
 execute_queries = "snowflake.cli._plugins.dcm.manager.DCMProjectManager.execute_query"
 TEST_STAGE = FQN.from_stage("@test_stage")
@@ -52,78 +51,6 @@ def test_create(mock_execute_query):
 
     mock_execute_query.assert_called_once_with(
         "CREATE DCM PROJECT IDENTIFIER('project_mock_fqn')"
-    )
-
-
-@mock.patch(execute_queries)
-def test_create_database(mock_execute_query):
-    mgr = DCMProjectManager()
-    mgr.create_database("my_db")
-
-    mock_execute_query.assert_called_once_with(
-        "CREATE DATABASE IF NOT EXISTS IDENTIFIER('my_db')"
-    )
-
-
-@mock.patch(execute_queries)
-def test_create_schema(mock_execute_query):
-    mgr = DCMProjectManager()
-    mgr.create_schema("my_db", "my_schema")
-
-    mock_execute_query.assert_called_once_with(
-        "CREATE SCHEMA IF NOT EXISTS IDENTIFIER('my_db.my_schema')"
-    )
-
-
-@mock.patch(execute_queries)
-def test_database_exists(mock_execute_query):
-    mock_execute_query.return_value.fetchone.return_value = {"name": "MY_DB"}
-    mgr = DCMProjectManager()
-
-    assert mgr.database_exists("my_db") is True
-    mock_execute_query.assert_called_once_with(
-        "SHOW DATABASES LIKE 'my_db'", cursor_class=DictCursor
-    )
-
-
-@mock.patch(execute_queries)
-def test_database_does_not_exist(mock_execute_query):
-    mock_execute_query.return_value.fetchone.return_value = None
-    mgr = DCMProjectManager()
-
-    assert mgr.database_exists("my_db") is False
-
-
-@mock.patch(execute_queries)
-def test_schema_exists(mock_execute_query):
-    mock_execute_query.return_value.fetchone.return_value = {"name": "MY_SCHEMA"}
-    mgr = DCMProjectManager()
-
-    assert mgr.schema_exists("my_db", "my_schema") is True
-    mock_execute_query.assert_called_once_with(
-        "SHOW SCHEMAS LIKE 'my_schema' IN DATABASE IDENTIFIER('my_db')",
-        cursor_class=DictCursor,
-    )
-
-
-@mock.patch(execute_queries)
-def test_create_warehouse(mock_execute_query):
-    mgr = DCMProjectManager()
-    mgr.create_warehouse("dcm_wh")
-
-    mock_execute_query.assert_called_once_with(
-        "CREATE WAREHOUSE IF NOT EXISTS IDENTIFIER('dcm_wh') WAREHOUSE_SIZE = 'XSMALL'"
-    )
-
-
-@mock.patch(execute_queries)
-def test_warehouse_exists(mock_execute_query):
-    mock_execute_query.return_value.fetchone.return_value = {"name": "DCM_WH"}
-    mgr = DCMProjectManager()
-
-    assert mgr.warehouse_exists("dcm_wh") is True
-    mock_execute_query.assert_called_once_with(
-        "SHOW WAREHOUSES LIKE 'dcm_wh'", cursor_class=DictCursor
     )
 
 
@@ -227,7 +154,7 @@ def test_analyze_project_with_save_output(
     mock_create.assert_called_once_with(temp_stage_fqn, temporary=True)
     mock_get_recursive.assert_called_once_with(
         stage_path=f"@{str(temp_stage_fqn)}/outputs",
-        dest_path=Path("out"),
+        dest_path=Path("out/raw-analyze"),
     )
 
 
@@ -258,7 +185,7 @@ def test_analyze_project_with_output_path__exception_handling(
     mock_create.assert_called_once_with(temp_stage_fqn, temporary=True)
     mock_get_recursive.assert_called_once_with(
         stage_path=f"@{str(temp_stage_fqn)}/outputs",
-        dest_path=Path("out"),
+        dest_path=Path("out/raw-analyze"),
     )
 
 
@@ -476,7 +403,7 @@ def test_plan_project_with_output_path__exception_handling(
     mock_create.assert_called_once_with(temp_stage_fqn, temporary=True)
     mock_get_recursive.assert_called_once_with(
         stage_path=f"@{str(temp_stage_fqn)}/outputs",
-        dest_path=Path("out"),
+        dest_path=Path("out/plan"),
     )
 
 
@@ -615,16 +542,16 @@ def test_purge_project_with_alias(mock_execute_query):
 
 
 class TestSyncLocalFiles:
-    @mock.patch(
-        "snowflake.cli._plugins.dcm.manager.StageManager.put_recursive_parallel"
-    )
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put_recursive")
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put")
-    @mock.patch("snowflake.cli._plugins.dcm.manager.bundle_artifacts")
+    @mock.patch(
+        "snowflake.cli._plugins.dcm.manager.DCMProjectManager._bundle_definition_files"
+    )
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
     def test_uploads_to_temporary_stage(
         self,
         mock_create_stage,
-        mock_bundle_artifacts,
+        mock_bundle,
         mock_put,
         mock_put_recursive,
         project_directory,
@@ -640,30 +567,27 @@ class TestSyncLocalFiles:
             mock_create_stage.assert_called_once()
             assert mock_create_stage.call_args.kwargs["temporary"] is True
 
-            mock_bundle_artifacts.assert_called_once()
+            mock_bundle.assert_called_once()
 
             mock_put_recursive.assert_called_once()
             assert mock_put_recursive.call_args.kwargs["stage_path"] == str(
                 mock_from_resource()
             )
-            # The connector's built-in PUT progress bar must be disabled so it
-            # doesn't corrupt DCM's own live UPLOAD display.
-            assert mock_put_recursive.call_args.kwargs["show_progress_bar"] is False
 
             mock_put.assert_not_called()
 
             assert result == str(mock_from_resource())
 
-    @mock.patch(
-        "snowflake.cli._plugins.dcm.manager.StageManager.put_recursive_parallel"
-    )
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put_recursive")
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put")
-    @mock.patch("snowflake.cli._plugins.dcm.manager.bundle_artifacts")
+    @mock.patch(
+        "snowflake.cli._plugins.dcm.manager.DCMProjectManager._bundle_definition_files"
+    )
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
     def test_sync_local_files_with_source_directory(
         self,
         _mock_create_stage,
-        mock_bundle_artifacts,
+        mock_bundle,
         mock_put,
         mock_put_recursive,
         tmp_path,
@@ -691,20 +615,20 @@ class TestSyncLocalFiles:
             project_identifier=TEST_PROJECT, source_directory=str(source_dir)
         )
 
-        mock_bundle_artifacts.assert_called_once()
-        actual_project_root = mock_bundle_artifacts.call_args.args[0].project_root
+        mock_bundle.assert_called_once()
+        actual_project_root = mock_bundle.call_args.kwargs["project_root"]
         assert actual_project_root.resolve() == source_dir.resolve()
 
-    @mock.patch(
-        "snowflake.cli._plugins.dcm.manager.StageManager.put_recursive_parallel"
-    )
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put_recursive")
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put")
-    @mock.patch("snowflake.cli._plugins.dcm.manager.bundle_artifacts")
+    @mock.patch(
+        "snowflake.cli._plugins.dcm.manager.DCMProjectManager._bundle_definition_files"
+    )
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
     def test_sync_local_files_with_relative_source_directory(
         self,
         _mock_create_stage,
-        mock_bundle_artifacts,
+        mock_bundle,
         mock_put,
         mock_put_recursive,
         tmp_path,
@@ -733,23 +657,23 @@ class TestSyncLocalFiles:
                 source_directory="relative_source",
             )
 
-            mock_bundle_artifacts.assert_called_once()
-            actual_project_root = mock_bundle_artifacts.call_args.args[0].project_root
+            mock_bundle.assert_called_once()
+            actual_project_root = mock_bundle.call_args.kwargs["project_root"]
             assert actual_project_root.is_absolute()
             assert actual_project_root.resolve() == source_dir.resolve()
         finally:
             os.chdir(original_cwd)
 
-    @mock.patch(
-        "snowflake.cli._plugins.dcm.manager.StageManager.put_recursive_parallel"
-    )
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put_recursive")
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put")
-    @mock.patch("snowflake.cli._plugins.dcm.manager.bundle_artifacts")
+    @mock.patch(
+        "snowflake.cli._plugins.dcm.manager.DCMProjectManager._bundle_definition_files"
+    )
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
     def test_sync_local_files_collects_manifest_and_sources(
         self,
         _mock_create_stage,
-        mock_bundle_artifacts,
+        mock_bundle,
         mock_put,
         mock_put_recursive,
         tmp_path,
@@ -783,8 +707,8 @@ class TestSyncLocalFiles:
             project_identifier=TEST_PROJECT, source_directory=str(source_dir)
         )
 
-        mock_bundle_artifacts.assert_called_once()
-        artifacts = mock_bundle_artifacts.call_args.args[1]
+        mock_bundle.assert_called_once()
+        artifacts = mock_bundle.call_args.kwargs["artifacts"]
         artifact_srcs = [a.src for a in artifacts]
 
         assert MANIFEST_FILE_NAME in artifact_srcs
@@ -818,28 +742,15 @@ class TestSyncLocalFiles:
         (hidden_dir / "visible.sql").touch()
         (hidden_dir / "sub" / "deep.sql").touch()
 
-        # Pin to a single worker so the PUT queries recorded on the shared mock
-        # are deterministic (the set of queries is identical regardless of
-        # parallelism; only their ordering/concurrency changes).
-        with mock.patch(
-            "snowflake.cli._plugins.dcm.manager._dcm_upload_workers", return_value=1
-        ):
-            DCMProjectManager.sync_local_files(
-                project_identifier=TEST_PROJECT, source_directory=str(source_dir)
-            )
+        DCMProjectManager.sync_local_files(
+            project_identifier=TEST_PROJECT, source_directory=str(source_dir)
+        )
 
-        put_calls = [
-            call
+        put_queries = [
+            call.args[0]
             for call in mock_execute_query.call_args_list
             if call.args and call.args[0].lstrip().lower().startswith("put ")
         ]
-        put_queries = [call.args[0] for call in put_calls]
-        # DCM renders its own live UPLOAD progress, so the connector's built-in
-        # PUT progress bar must be suppressed (it writes to the import-time
-        # stdout and corrupts the rich Live display on PowerShell).
-        assert put_calls, "expected at least one PUT to be issued"
-        for call in put_calls:
-            assert call.kwargs.get("_show_progress_bar") is False
         for q in put_queries:
             assert (
                 "/dbt/*" not in q
@@ -855,25 +766,3 @@ class TestSyncLocalFiles:
             assert any(
                 filename in q and stage_dest in q for q in put_queries
             ), f"expected a PUT for {filename} to {stage_dest}; got: {put_queries}"
-
-
-class TestSummarizeUploadPaths:
-    def test_groups_by_sources_subfolder(self):
-        paths = [
-            MANIFEST_FILE_NAME,
-            f"{SOURCES_FOLDER}/definitions/a.sql",
-            f"{SOURCES_FOLDER}/definitions/b.sql",
-            f"{SOURCES_FOLDER}/macros/m.sql",
-            f"{SOURCES_FOLDER}/.DS_Store",
-        ]
-        lines = DCMProjectManager._summarize_upload_paths(paths)  # noqa: SLF001
-        # Singular "file " is padded with a trailing space so adjacent rows
-        # line up vertically with the plural "files" rows in the upload
-        # details block. The literal expected strings below intentionally
-        # contain that double-space; do not "fix" it.
-        assert lines == [
-            f"Upload {MANIFEST_FILE_NAME}",
-            f"Upload 1 file  from {SOURCES_FOLDER}/",
-            f"Upload 2 files from {SOURCES_FOLDER}/definitions",
-            f"Upload 1 file  from {SOURCES_FOLDER}/macros",
-        ]
