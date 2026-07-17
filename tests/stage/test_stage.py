@@ -1566,6 +1566,66 @@ def test_recursive_upload(temporary_directory, pattern):
     ]
 
 
+def _collect_recursive_uploads(root: Path, *, parallel: bool):
+    """Drive a recursive-upload strategy with the network PUT stubbed.
+
+    Returns (uploaded_set, put_count) where uploaded_set is the set of
+    (source, target) pairs the generator yields. The PUT itself is faked to
+    report the files in the directory it was handed, so this captures exactly
+    what each strategy decides to upload and where.
+    """
+
+    def fake_put(*args, **kwargs):
+        local_path = Path(kwargs["local_path"])
+        files = sorted(p.name for p in local_path.iterdir() if p.is_file())
+        cursor = MagicMock()
+        cursor.fetchall.return_value = [
+            {"source": name, "target": name} for name in files
+        ]
+        return cursor
+
+    put_mock = MagicMock(side_effect=fake_put)
+    sm = StageManager()
+    with mock.patch.object(StageManager, "put", new=put_mock):
+        if parallel:
+            gen = sm.put_recursive_parallel(
+                local_path=root, stage_path="@stageName", temp_directory=root
+            )
+        else:
+            gen = sm.put_recursive(
+                local_path=root, stage_path="@stageName", temp_directory=root
+            )
+        uploaded = {(str(item["source"]), str(item["target"])) for item in gen}
+    return uploaded, put_mock.call_count
+
+
+def test_put_recursive_parallel_matches_sequential(temporary_directory):
+    """put_recursive_parallel must upload the exact same {source -> target}
+    set as the sequential put_recursive, with the same number of PUTs (one per
+    file-bearing directory). Only the scheduling differs."""
+    import shutil
+
+    src = Path(temporary_directory) / "src"
+    src.mkdir()
+    RecursiveUploadTester(str(src)).prepare(structure=NESTED_STRUCTURE)
+
+    seq_root = Path(temporary_directory) / "seq"
+    par_root = Path(temporary_directory) / "par"
+    shutil.copytree(src, seq_root)
+    shutil.copytree(src, par_root)
+
+    seq_uploads, seq_puts = _collect_recursive_uploads(seq_root, parallel=False)
+    par_uploads, par_puts = _collect_recursive_uploads(par_root, parallel=True)
+
+    assert par_uploads == seq_uploads
+    assert par_puts == seq_puts
+    # Sanity: every leaf file in the fixture is accounted for, and there is one
+    # PUT per file-bearing directory (batching preserved, not one PUT per file).
+    expected_files = sum(1 for p in src.rglob("*") if p.is_file())
+    assert len(seq_uploads) == expected_files
+    assert seq_puts < expected_files  # dirs with >1 file are batched
+
+
 def test_recursive_upload_with_empty_dir(temporary_directory):
     structure = {}
 

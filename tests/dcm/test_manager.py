@@ -615,7 +615,9 @@ def test_purge_project_with_alias(mock_execute_query):
 
 
 class TestSyncLocalFiles:
-    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put_recursive")
+    @mock.patch(
+        "snowflake.cli._plugins.dcm.manager.StageManager.put_recursive_parallel"
+    )
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put")
     @mock.patch("snowflake.cli._plugins.dcm.manager.bundle_artifacts")
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
@@ -652,7 +654,9 @@ class TestSyncLocalFiles:
 
             assert result == str(mock_from_resource())
 
-    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put_recursive")
+    @mock.patch(
+        "snowflake.cli._plugins.dcm.manager.StageManager.put_recursive_parallel"
+    )
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put")
     @mock.patch("snowflake.cli._plugins.dcm.manager.bundle_artifacts")
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
@@ -691,7 +695,9 @@ class TestSyncLocalFiles:
         actual_project_root = mock_bundle_artifacts.call_args.args[0].project_root
         assert actual_project_root.resolve() == source_dir.resolve()
 
-    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put_recursive")
+    @mock.patch(
+        "snowflake.cli._plugins.dcm.manager.StageManager.put_recursive_parallel"
+    )
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put")
     @mock.patch("snowflake.cli._plugins.dcm.manager.bundle_artifacts")
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
@@ -734,7 +740,9 @@ class TestSyncLocalFiles:
         finally:
             os.chdir(original_cwd)
 
-    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put_recursive")
+    @mock.patch(
+        "snowflake.cli._plugins.dcm.manager.StageManager.put_recursive_parallel"
+    )
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put")
     @mock.patch("snowflake.cli._plugins.dcm.manager.bundle_artifacts")
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
@@ -810,9 +818,15 @@ class TestSyncLocalFiles:
         (hidden_dir / "visible.sql").touch()
         (hidden_dir / "sub" / "deep.sql").touch()
 
-        DCMProjectManager.sync_local_files(
-            project_identifier=TEST_PROJECT, source_directory=str(source_dir)
-        )
+        # Pin to a single worker so the PUT queries recorded on the shared mock
+        # are deterministic (the set of queries is identical regardless of
+        # parallelism; only their ordering/concurrency changes).
+        with mock.patch(
+            "snowflake.cli._plugins.dcm.manager._dcm_upload_workers", return_value=1
+        ):
+            DCMProjectManager.sync_local_files(
+                project_identifier=TEST_PROJECT, source_directory=str(source_dir)
+            )
 
         put_calls = [
             call

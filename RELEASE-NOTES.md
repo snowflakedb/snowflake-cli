@@ -21,6 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
+* `snow dcm` commands now upload local project files to the temporary stage in parallel instead of one directory at a time. Upload wall-clock is dominated by per-PUT round-trip latency, so projects with many nested folders (e.g. one file per directory) see a large speedup. Concurrency can be tuned with the `SNOWFLAKE_CLI_DCM_UPLOAD_WORKERS` environment variable (default 16; set to 1 to restore the previous serial behavior).
 
 
 # v3.23.0

@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextvars import copy_context
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional
@@ -22,7 +25,7 @@ from snowflake.cli._plugins.dcm.models import (
     SOURCES_FOLDER,
 )
 from snowflake.cli._plugins.dcm.utils import collect_output
-from snowflake.cli._plugins.stage.manager import StageManager
+from snowflake.cli._plugins.stage.manager import DEFAULT_UPLOAD_WORKERS, StageManager
 from snowflake.cli.api.artifacts.utils import bundle_artifacts
 from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.console.console import cli_console
@@ -43,6 +46,20 @@ if TYPE_CHECKING:
     from snowflake.cli._plugins.dcm.progress import DeployProgressTracker
 
 log = logging.getLogger(__name__)
+
+
+def _dcm_upload_workers() -> int:
+    """Thread-pool size for DCM stage uploads (override via env)."""
+    raw = os.environ.get("SNOWFLAKE_CLI_DCM_UPLOAD_WORKERS")
+    if raw:
+        try:
+            value = int(raw)
+        except ValueError:
+            log.warning("Invalid SNOWFLAKE_CLI_DCM_UPLOAD_WORKERS=%r; ignoring.", raw)
+        else:
+            if value >= 1:
+                return value
+    return DEFAULT_UPLOAD_WORKERS
 
 
 @dataclass
@@ -486,10 +503,20 @@ class DCMProjectManager(SqlExecutionMixin):
             # phase, and the connector's built-in PUT progress writes to the
             # import-time ``sys.stdout`` (bypassing our ``rich.live.Live``
             # display and corrupting it, most visibly on Windows PowerShell).
-            for result in stage_manager.put_recursive(
+            #
+            # ``put_recursive_parallel`` keeps the same upload unit as
+            # ``put_recursive`` (one PUT per file-bearing directory, so
+            # multi-file directories are still batched) but runs those
+            # per-directory PUTs concurrently, since upload wall-clock is
+            # dominated by per-PUT round-trip latency, not payload size.
+            # Fan-out is ``SNOWFLAKE_CLI_DCM_UPLOAD_WORKERS`` (default 16; set
+            # to 1 to restore the previous serial behavior).
+            upload_workers = _dcm_upload_workers()
+            for result in stage_manager.put_recursive_parallel(
                 local_path=project_paths.bundle_root,
                 stage_path=stage_fqn.identifier,
                 temp_directory=project_paths.bundle_root,
+                max_workers=upload_workers,
                 show_progress_bar=False,
             ):
                 if progress:
@@ -500,19 +527,35 @@ class DCMProjectManager(SqlExecutionMixin):
                     result["target"],
                 )
 
-            for entry in plan.individual_files:
-                stage_manager.put(
-                    local_path=entry.file,
-                    stage_path=entry.dest,
-                    show_progress_bar=False,
-                )
-                if progress:
-                    progress.advance_upload()
-                log.info(
-                    "Uploaded %s to %s",
-                    entry.file.relative_to(source_path.path),
-                    entry.dest,
-                )
+            # Files under hidden paths are excluded from the recursive upload
+            # above and uploaded directly; parallelize them as well. The
+            # Snowflake connection lives in a ContextVar that does not
+            # propagate to worker threads, so run each upload inside a copy of
+            # the calling thread's context (captured on this thread).
+            if plan.individual_files:
+
+                def _upload_individual(entry: FileUpload) -> FileUpload:
+                    stage_manager.put(
+                        local_path=entry.file,
+                        stage_path=entry.dest,
+                        show_progress_bar=False,
+                    )
+                    return entry
+
+                with ThreadPoolExecutor(max_workers=upload_workers) as executor:
+                    futures = [
+                        executor.submit(copy_context().run, _upload_individual, entry)
+                        for entry in plan.individual_files
+                    ]
+                    for future in as_completed(futures):
+                        entry = future.result()
+                        if progress:
+                            progress.advance_upload()
+                        log.info(
+                            "Uploaded %s to %s",
+                            entry.file.relative_to(source_path.path),
+                            entry.dest,
+                        )
         finally:
             project_paths.clean_up_output()
 
