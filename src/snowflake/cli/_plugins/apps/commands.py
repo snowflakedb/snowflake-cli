@@ -603,15 +603,8 @@ def snowflake_app_open(
                 f".{identifier_for_url(schema)}"
                 f".{identifier_for_url(fqn.name)}"
             )
-            service_fqn = app_fqn(database=db, schema=schema, name=fqn.name)
-            manager = SnowflakeAppManager()
-            segment = (
-                "app-service"
-                if manager.is_application_service(service_fqn)
-                else "service"
-            )
             url = make_snowsight_url(
-                ctx.connection, f"#/apps/{segment}/{app_id}/details"
+                ctx.connection, f"#/apps/app-service/{app_id}/details"
             )
     else:
         service_fqn = app_fqn(database=db, schema=schema, name=fqn.name)
@@ -1175,7 +1168,6 @@ def snowflake_app_teardown(
 
     app_name = fqn.name
     service_fqn = app_fqn(database=db, schema=schema, name=app_name)
-    is_application_service = manager.is_application_service(service_fqn)
 
     # Mirror the deploy-time backend selection so a personal-database app is
     # torn down via its workspace rather than a (never-created) stage.
@@ -1188,39 +1180,26 @@ def snowflake_app_teardown(
     storage_schema = storage.schema_override or schema
 
     storage_fqn = app_fqn(database=storage_db, schema=storage_schema, name=storage_name)
-    build_job_fqn = app_fqn(database=db, schema=schema, name=f"{app_name}_BUILD_JOB")
-
-    object_kind = "application service" if is_application_service else "service"
 
     def _app_service_still_exists() -> bool:
         try:
-            if manager.describe_app_service(service_fqn):
-                return True
+            return bool(manager.describe_app_service(service_fqn))
         except ProgrammingError:
-            pass
-        return manager.get_service_status(service_fqn) != "IDLE"
+            return False
 
     def _verify_service_drop() -> None:
         try:
-            still_exists = (
-                _app_service_still_exists()
-                if is_application_service
-                else manager.get_service_status(service_fqn) != "IDLE"
-            )
+            still_exists = _app_service_still_exists()
         except Exception as err:
             raise CliError(
-                f"Could not verify {object_kind} {service_fqn.identifier} was dropped: {err}"
+                f"Could not verify application service {service_fqn.identifier} "
+                f"was dropped: {err}"
             ) from err
 
         if still_exists:
-            if is_application_service:
-                raise CliError(
-                    f"Failed to drop application service {service_fqn.identifier}. "
-                    f"Check: DESCRIBE APPLICATION SERVICE {service_fqn.identifier}"
-                )
             raise CliError(
-                f"Failed to drop service {service_fqn.identifier}. "
-                f"Check: SHOW SERVICES IN SCHEMA {service_fqn.prefix}"
+                f"Failed to drop application service {service_fqn.identifier}. "
+                f"Check: DESCRIBE APPLICATION SERVICE {service_fqn.identifier}"
             )
 
     if not force:
@@ -1229,18 +1208,15 @@ def snowflake_app_teardown(
         # command duration (which is otherwise unaccounted for by any span).
         with metrics.span("snowflake_app.teardown.confirm"):
             should_continue = typer.confirm(
-                f"Are you sure you want to drop {object_kind} {service_fqn.identifier}"
-                f" and its associated objects?"
+                f"Are you sure you want to drop application service "
+                f"{service_fqn.identifier} and its associated objects?"
             )
         if not should_continue:
             return MessageResult("Teardown cancelled.")
 
-    cli_console.step(f"Dropping {object_kind} {service_fqn.identifier}")
+    cli_console.step(f"Dropping application service {service_fqn.identifier}")
     with metrics.span("snowflake_app.teardown.drop_service"):
-        if is_application_service:
-            manager.drop_app_service_if_exists(service_fqn)
-        else:
-            manager.drop_service_if_exists(service_fqn)
+        manager.drop_app_service_if_exists(service_fqn)
         _verify_service_drop()
 
     if use_workspace:
@@ -1257,11 +1233,6 @@ def snowflake_app_teardown(
         with metrics.span("snowflake_app.teardown.drop_stage"):
             manager.drop_stage_if_exists(storage_fqn)
 
-    if not is_application_service:
-        cli_console.step(f"Dropping build job service {build_job_fqn.identifier}")
-        with metrics.span("snowflake_app.teardown.drop_build_job"):
-            manager.drop_service_if_exists(build_job_fqn)
-
     return MessageResult(
-        f"Successfully dropped {object_kind} {service_fqn.identifier}."
+        f"Successfully dropped application service {service_fqn.identifier}."
     )

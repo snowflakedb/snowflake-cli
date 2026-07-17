@@ -98,7 +98,6 @@ if TYPE_CHECKING:
     from snowflake.cli._plugins.apps.snowflake_app_entity_model import (
         SnowflakeAppEntityModel,
     )
-from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.artifacts.utils import symlink_or_copy
 from snowflake.cli.api.cli_global_context import get_cli_context
@@ -310,16 +309,6 @@ def _poll_until(
         f"{timeout_message} "
         f"(timed out after {max_attempts * interval_seconds // 60} minutes)"
     )
-
-
-def _object_exists(object_type: str, name: str) -> bool:
-    """Check if an object exists in Snowflake."""
-    try:
-        return ObjectManager().object_exists(
-            object_type=object_type, fqn=FQN.from_string(name)
-        )
-    except Exception:
-        return False
 
 
 def _is_unknown_function_error(exc: ProgrammingError) -> bool:
@@ -983,10 +972,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
         normalised = {k.lower(): v for k, v in row.items()}
         return normalised.get("status", "IDLE")
 
-    def drop_service_if_exists(self, service_fqn: FQN) -> None:
-        """Drop a service if it exists."""
-        self.execute_query(f"DROP SERVICE IF EXISTS {service_fqn.sql_identifier}")
-
     def drop_app_service_if_exists(self, service_fqn: FQN) -> None:
         """Drop an application service if it exists."""
         self.execute_query(
@@ -1223,24 +1208,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
             )
 
         yield from self._run_uploads(uploads)
-
-    def get_service_status(self, service_fqn: FQN) -> str:
-        """
-        Get the status of a service.
-
-        Returns:
-            - "IDLE" if the service doesn't exist
-            - The actual status from SHOW SERVICES (e.g., "PENDING", "READY", "SUSPENDED", "FAILED")
-        """
-        cursor = self.execute_query(
-            f"SHOW SERVICES IN SCHEMA {service_fqn.prefix}",
-            cursor_class=DictCursor,
-        )
-        for row in cursor:
-            if row["name"].upper() == service_fqn.name.upper():
-                return row["status"]
-
-        return "IDLE"
 
     def get_service_logs(self, service_fqn: FQN, last: int = 500) -> str:
         """Fetch recent log output from an application service."""
@@ -1600,31 +1567,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
         if version:
             query += f"\nTO VERSION {version}"
         self.execute_query(query)
-
-    def is_application_service(self, service_fqn: FQN) -> bool:
-        """Return True when settings should use the ``app-service`` URL segment.
-
-        Detection order:
-        1) If ``DESCRIBE APPLICATION SERVICE`` returns a row, treat as application
-           service.
-        2) Otherwise, if a legacy ``SERVICE`` object exists with the same FQN,
-           treat as legacy service.
-        3) If type checks fail (errors/unknown), default to application service.
-        """
-        try:
-            if self.describe_app_service(service_fqn):
-                return True
-        except ProgrammingError:
-            log.debug(
-                "DESCRIBE APPLICATION SERVICE failed for %s",
-                service_fqn,
-                exc_info=True,
-            )
-
-        if _object_exists("service", service_fqn.identifier):
-            return False
-
-        return True
 
     def describe_app_service(self, service_fqn: FQN) -> Dict[str, Any]:
         """Run ``DESCRIBE APPLICATION SERVICE`` and return a case-insensitive
