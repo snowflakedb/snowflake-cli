@@ -5423,7 +5423,7 @@
    Snowflake.                                                                     
                                                                                   
    Examples: snow dbt deploy PROJECT snow dbt deploy PROJECT                      
-   --source=/Users/jdoe/project --force                                           
+   --source=/Users/jdoe/project                                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the DBT Project; for example: my_pipeline |
@@ -5440,9 +5440,11 @@
   |                                                    Defaults to directory     |
   |                                                    provided in --source or   |
   |                                                    current working directory |
-  | --force                        --no-force          Overwrites conflicting    |
-  |                                                    files in the project, if  |
-  |                                                    any.                      |
+  | --force                        --no-force          Recreates the dbt project |
+  |                                                    object with CREATE OR     |
+  |                                                    REPLACE DBT PROJECT. This |
+  |                                                    removes all existing      |
+  |                                                    versions and run history. |
   |                                                    [default: no-force]       |
   | --default-target                             TEXT  Default target for the    |
   |                                                    dbt project. Mutually     |

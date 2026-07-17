@@ -142,7 +142,7 @@ def deploy_dbt(
     ),
     force: Optional[bool] = typer.Option(
         False,
-        help="Overwrites conflicting files in the project, if any.",
+        help="Recreates the dbt project object with CREATE OR REPLACE DBT PROJECT. This removes all existing versions and run history.",
     ),
     default_target: Optional[str] = DefaultTargetOption(
         help="Default target for the dbt project. Mutually exclusive with --unset-default-target.",
@@ -189,7 +189,7 @@ def deploy_dbt(
 
     Examples:
         snow dbt deploy PROJECT
-        snow dbt deploy PROJECT --source=/Users/jdoe/project --force
+        snow dbt deploy PROJECT --source=/Users/jdoe/project
     """
     project_path = SecurePath(source) if source is not None else SecurePath.cwd()
     profiles_dir_path = SecurePath(profiles_dir) if profiles_dir else project_path
