@@ -15,6 +15,7 @@
  -->
 # Unreleased version
 ## Backward incompatibility
+* `snow app` commands for Snowflake App Runtime projects now always operate on `APPLICATION SERVICE` objects and no longer fall back to plain SPCS `SERVICE` objects. `snow app open --settings` always uses the `app-service` Snowsight URL segment, and `snow app teardown` always drops and verifies the app via `APPLICATION SERVICE`. Apps still deployed as legacy SPCS services are no longer supported by these commands.
 
 ## Deprecations
 
