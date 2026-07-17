@@ -334,6 +334,7 @@ def test_user_stage_execute(runner, test_database, test_root_path, snapshot):
 
 
 @pytest.mark.integration
+@pytest.mark.no_ud  # UD Rust core raises "Handle not found" (handle_manager.rs) during stage execute with Python files
 def test_stage_execute_python(
     snowflake_session, runner, test_database, test_root_path, snapshot
 ):
@@ -382,6 +383,7 @@ def test_stage_execute_python(
 
 
 @pytest.mark.integration
+@pytest.mark.no_ud  # UD Rust core raises "Handle not found" (handle_manager.rs) during stage execute with Python files
 def test_stage_execute_python_without_requirements(
     snowflake_session, runner, test_database, test_root_path, snapshot
 ):

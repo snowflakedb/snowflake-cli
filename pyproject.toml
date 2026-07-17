@@ -194,7 +194,7 @@ check = [
   'ls .hatch/ud/lib/python3.12/site-packages/snowflake',
   'pip install "git+https://github.com/snowflakedb/universal-driver@{env:UD_BRANCH:main}#subdirectory=python"',
   "python -c \"from packaging.version import Version; import snowflake.connector; v = Version(snowflake.connector.__version__); assert v.major >= 5, 'Expected snowflake-connector-python >= 5, got ' + str(v)\"",
-  'pytest -m "integration and not qa_only" -n8 --maxfail=1000 --dist=worksteal --ignore=tests_integration/tests_using_container_services --ignore=tests_integration/nativeapp tests_integration/ {args}'
+  'pytest -m "integration and not qa_only and not no_ud" -n8 --maxfail=1000 --dist=worksteal --ignore=tests_integration/tests_using_container_services --ignore=tests_integration/nativeapp tests_integration/ {args}'
 ]
 
 
@@ -235,6 +235,7 @@ markers = [
   "integration_experimental: experimental integration test",
   "no_qa: mark test as not to be run in QA",
   "qa_only: mark test as to be run only in QA",
+  "no_ud: mark test as incompatible with the Universal Driver",
 ]
 
 
