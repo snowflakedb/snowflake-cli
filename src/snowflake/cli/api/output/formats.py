@@ -20,7 +20,12 @@ class OutputFormat(Enum):
     JSON = "JSON"
     JSON_EXT = "JSON_EXT"
     CSV = "CSV"
+    TOON = "TOON"
 
     @property
     def is_json(self) -> bool:
         return self in (OutputFormat.JSON, OutputFormat.JSON_EXT)
+
+    @property
+    def is_structured(self) -> bool:
+        return self.is_json or self in (OutputFormat.CSV, OutputFormat.TOON)

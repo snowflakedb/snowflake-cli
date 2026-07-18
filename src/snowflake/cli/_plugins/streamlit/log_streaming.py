@@ -153,13 +153,13 @@ def _result_for_entry(entry, output_format: OutputFormat) -> CommandResult:
     """
     Pick the CommandResult subclass best matched to the current output format.
 
-    - JSON / CSV: yield a dict via ObjectResult so the framework produces
+    - JSON / CSV / TOON: yield a dict via ObjectResult so the framework produces
       valid JSONL / CSV rows that downstream tools (e.g. ``jq``) can parse.
     - TABLE / plain: yield a pre-formatted line via MessageResult so each
       log entry renders as a single human-readable row instead of a
       two-column key/value table.
     """
-    if output_format == OutputFormat.CSV or output_format.is_json:
+    if output_format.is_structured:
         return ObjectResult(entry.to_dict())
     return MessageResult(entry.format_line())
 

@@ -30,6 +30,7 @@ from snowflake.cli.api.output.types import (
     SingleQueryResult,
     StreamResult,
 )
+from toon_format import decode as toon_decode
 
 from tests.testing_utils.conversion import get_output, get_output_as_json
 
@@ -617,3 +618,100 @@ def _bytearray_result(mock_cursor):
             rows=[(bytearray("THIS SHOULD WORK", "utf-8"),)],
         )
     )
+
+
+def test_toon_collection_result(capsys):
+    collection = CollectionResult([{"a": 1, "b": "x"}, {"a": 2, "b": "y,z"}])
+    print_result(collection, output_format=OutputFormat.TOON)
+    assert toon_decode(get_output(capsys).rstrip("\n")) == [
+        {"a": 1, "b": "x"},
+        {"a": 2, "b": "y,z"},
+    ]
+
+
+def test_toon_object_result(capsys):
+    print_result(ObjectResult({"key": "value", "n": 7}), output_format=OutputFormat.TOON)
+    assert toon_decode(get_output(capsys).rstrip("\n")) == {"key": "value", "n": 7}
+
+
+def test_toon_message_result(capsys):
+    print_result(MessageResult("done"), output_format=OutputFormat.TOON)
+    assert toon_decode(get_output(capsys).rstrip("\n")) == {"message": "done"}
+
+
+def test_toon_multiple_results(capsys):
+    results = MultipleResults([CollectionResult([{"a": 1}]), MessageResult("done")])
+    print_result(results, output_format=OutputFormat.TOON)
+    docs = get_output(capsys).strip("\n").split("\n\n")
+    assert len(docs) == 2
+    assert toon_decode(docs[0]) == [{"a": 1}]
+    assert toon_decode(docs[1]) == {"message": "done"}
+
+
+def test_toon_query_result(capsys, mock_cursor):
+    result = QueryResult(
+        mock_cursor(columns=["A", "TS"], rows=[(1, datetime(2022, 3, 21))])
+    )
+    print_result(result, output_format=OutputFormat.TOON)
+    assert toon_decode(get_output(capsys).rstrip("\n")) == [
+        {"A": 1, "TS": "2022-03-21T00:00:00"}
+    ]
+
+
+def test_toon_special_types(capsys):
+    row = {
+        "date": datetime(2022, 3, 21, 1, 2, 3),
+        "dec": Decimal("1.5"),
+        "bytes": bytearray("THIS SHOULD WORK", "utf-8"),
+        "none": None,
+        "num": 42,
+    }
+    print_result(CollectionResult([row]), output_format=OutputFormat.TOON)
+    assert toon_decode(get_output(capsys).rstrip("\n")) == [
+        {
+            "date": "2022-03-21T01:02:03",
+            "dec": "1.5",
+            "bytes": "544849532053484f554c4420574f524b",
+            "none": None,
+            "num": 42,
+        }
+    ]
+
+
+def test_print_stream_result_toon(capsys, _stream):
+    print_result(_stream, output_format=OutputFormat.TOON)
+    docs = get_output(capsys).strip("\n").split("\n\n")
+    assert [toon_decode(doc) for doc in docs] == [
+        {"message": "1"},
+        {"2": "3"},
+    ]
+
+
+def test_toon_empty_single_query_result_prints_null(capsys, mock_cursor):
+    result = SingleQueryResult(mock_cursor(columns=["A"], rows=[]))
+    print_result(result, output_format=OutputFormat.TOON)
+    assert get_output(capsys) == "null\n"
+
+
+def test_toon_sanitizes_keys(capsys):
+    collection = CollectionResult([{"a\x1b[31mb": 1}])
+    print_result(collection, output_format=OutputFormat.TOON)
+    output = get_output(capsys)
+    assert "\x1b" not in output
+    assert toon_decode(output.rstrip("\n")) == [{"ab": 1}]
+
+
+def test_toon_non_finite_floats_match_json_tokens(capsys):
+    collection = CollectionResult(
+        [{"nan": float("nan"), "inf": float("inf"), "ninf": float("-inf"), "null": None}]
+    )
+    print_result(collection, output_format=OutputFormat.TOON)
+    assert toon_decode(get_output(capsys).rstrip("\n")) == [
+        {"nan": "NaN", "inf": "Infinity", "ninf": "-Infinity", "null": None}
+    ]
+
+
+def test_toon_bytes_and_bytearray_hex_encoded(capsys):
+    collection = CollectionResult([{"b": b"\x01\x02", "ba": bytearray(b"\x01\x02")}])
+    print_result(collection, output_format=OutputFormat.TOON)
+    assert toon_decode(get_output(capsys).rstrip("\n")) == [{"b": "0102", "ba": "0102"}]

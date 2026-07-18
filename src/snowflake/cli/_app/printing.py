@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 import sys
 from datetime import date, datetime, time
 from decimal import Decimal
@@ -29,6 +30,7 @@ from rich import print as rich_print
 from rich.console import Console
 from rich.live import Live
 from rich.table import Table
+from toon_format import encode as toon_encode
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
@@ -224,8 +226,50 @@ def __to_str(val):
     return str(val)
 
 
-def is_structured_format(output_format):
-    return output_format.is_json or output_format == OutputFormat.CSV
+def _to_encodable_value(value):
+    """Convert a value to a primitive encodable type (same semantics as CustomJSONEncoder)."""
+    if isinstance(value, str):
+        return sanitize_for_terminal(value)
+    if isinstance(value, (date, datetime, time)):
+        return value.isoformat()
+    if isinstance(value, Path):
+        return value.as_posix()
+    if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, (bytes, bytearray)):
+        return value.hex()
+    if isinstance(value, float) and not math.isfinite(value):
+        # toon_encode would collapse non-finite floats to null, making them
+        # indistinguishable from SQL NULL; use the same tokens JSON output emits
+        if math.isnan(value):
+            return "NaN"
+        return "Infinity" if value > 0 else "-Infinity"
+    if isinstance(value, dict):
+        # keys can be server-controlled column names — sanitize them too
+        return {
+            sanitize_for_terminal(str(k)): _to_encodable_value(v)
+            for k, v in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [_to_encodable_value(v) for v in value]
+    if value is None or isinstance(value, (int, float, bool)):
+        return value
+    return str(value)
+
+
+def _print_toon_result(result: CommandResult):
+    """Print a single CommandResult as a TOON document."""
+    if isinstance(result, CollectionResult):
+        # ponytail: toon-format has no streaming encoder; we materialize all rows
+        # in memory, same ceiling as pre-streaming --format json.
+        data: Any = [_to_encodable_value(row) for row in result.result]
+    elif isinstance(result, (ObjectResult, MessageResult)):
+        # ObjectResult(None) — e.g. SingleQueryResult of an empty cursor —
+        # encodes as `null`, matching the JSON output for the same result
+        data = _to_encodable_value(result.result)
+    else:
+        return
+    print(toon_encode(data), flush=True)
 
 
 def print_structured(
@@ -233,11 +277,13 @@ def print_structured(
 ):
     """Handles outputs like json, csv and other structured and parsable formats with streaming."""
     printed_end_line = False
+    # Non-JSON structured formats share the same dispatch shape; JSON is the fallback.
+    printer = _RESULT_PRINTERS.get(output_format)
 
     if isinstance(result, MultipleResults):
-        if output_format == OutputFormat.CSV:
+        if printer:
             for command_result in result.result:
-                _print_csv_result_streaming(command_result)
+                printer(command_result)
                 print(flush=True)
             printed_end_line = True
         else:
@@ -246,15 +292,15 @@ def print_structured(
         # A StreamResult prints each value onto its own line
         # instead of joining all the values into a JSON array or CSV entry set
         for r in result.result:
-            if output_format == OutputFormat.CSV:
-                _print_csv_result_streaming(r)
+            if printer:
+                printer(r)
             else:
                 json.dump(r, sys.stdout, cls=StreamingJSONEncoder)
             print(flush=True)
             printed_end_line = True
     else:
-        if output_format == OutputFormat.CSV:
-            _print_csv_result_streaming(result)
+        if printer:
+            printer(result)
             printed_end_line = True
         else:
             _print_json_result_streaming(result)
@@ -308,6 +354,13 @@ def _print_csv_result_streaming(result: CommandResult):
         _print_object_result_as_csv(result)
     elif isinstance(result, MessageResult):
         _print_message_result_as_csv(result)
+
+
+# Per-result printers for non-JSON structured formats (JSON is the dispatch fallback)
+_RESULT_PRINTERS = {
+    OutputFormat.CSV: _print_csv_result_streaming,
+    OutputFormat.TOON: _print_toon_result,
+}
 
 
 def _stream_json(result):
@@ -365,7 +418,7 @@ def print_result(cmd_result: CommandResult, output_format: OutputFormat | None =
     match cmd_result:
         case EmptyResult():
             return
-        case _ if is_structured_format(output_format):
+        case _ if output_format.is_structured:
             print_structured(cmd_result, output_format)
         case MultipleResults() | StreamResult():
             for res in cmd_result.result:

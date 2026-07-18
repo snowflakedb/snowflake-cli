@@ -59,6 +59,7 @@ snowflake-core==1.10.0
 snowflake-snowpark-python==1.53.0
 sortedcontainers==2.4.0
 tomlkit==0.13.3
+toon-format==0.9.0b1
 typer==0.17.3
 typing-extensions==4.14.1
 typing-inspection==0.4.2
