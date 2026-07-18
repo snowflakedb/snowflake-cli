@@ -466,7 +466,7 @@ def generate_project_schema(
     # Under a structured output format, return the schema as an object so the
     # command emits the JSON Schema document itself rather than a stringified
     # blob nested under a "message" key.
-    if get_cli_context().output_format.is_json:
+    if get_cli_context().output_format.is_structured:
         return ObjectResult(schema)
 
     return MessageResult(json.dumps(schema, indent=2, sort_keys=True))

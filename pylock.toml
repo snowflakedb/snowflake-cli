@@ -771,6 +771,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/cc/18/0bbf3884e9eaa3881
 wheels = [{ url = "https://files.pythonhosted.org/packages/bd/75/8539d011f6be8e29f339c42e633aae3cb73bffa95dd0f9adec09b9c58e85/tomlkit-0.13.3-py3-none-any.whl", upload-time = 2025-06-05T07:13:43Z, size = 38901, hashes = { sha256 = "c89c649d79ee40629a9fda55f8ace8c6a1b42deb912b2a8fd8d942ddadb606b0" } }]
 
 [[packages]]
+name = "toon-format"
+version = "0.9.0b1"
+sdist = { url = "https://files.pythonhosted.org/packages/fa/15/d23d6d3e36aa4ec96dd5692bc7715fe17015b669e8f0d1c5c7fa906a3ceb/toon_format-0.9.0b1.tar.gz", upload-time = 2025-11-08T19:22:53Z, size = 87398, hashes = { sha256 = "8f391dd6ad9677c78366bd8eb6762d064a2183f67b9b7da1f348fdb6ee8738e7" } }
+wheels = [{ url = "https://files.pythonhosted.org/packages/63/f3/27ab1d982bb81bf9ac5be70b4c774996eb8562b93c77e93c253c22be951f/toon_format-0.9.0b1-py3-none-any.whl", upload-time = 2025-11-08T19:22:51Z, size = 36173, hashes = { sha256 = "efeee919501f91137f017f7bed34789c067f76178111aa872a49bc8653dce3be" } }]
+
+[[packages]]
 name = "typer"
 version = "0.17.3"
 sdist = { url = "https://files.pythonhosted.org/packages/dd/82/f4bfed3bc18c6ebd6f828320811bbe4098f92a31adf4040bee59c4ae02ea/typer-0.17.3.tar.gz", upload-time = 2025-08-30T12:35:24Z, size = 103517, hashes = { sha256 = "0c600503d472bcf98d29914d4dcd67f80c24cc245395e2e00ba3603c9332e8ba" } }

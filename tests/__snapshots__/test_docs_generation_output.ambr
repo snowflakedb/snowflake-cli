@@ -285,7 +285,7 @@
   Keep the session active indefinitely, even if there is no activity from the user.
   
   </dd>
-  <dt>`--format [TABLE|JSON|JSON_EXT|CSV]`</dt>
+  <dt>`--format [TABLE|JSON|JSON_EXT|CSV|TOON]`</dt>
   <dd>
   
   Specifies the output format. Default: TABLE.

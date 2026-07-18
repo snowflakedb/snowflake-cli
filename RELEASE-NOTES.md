@@ -20,8 +20,10 @@
 ## Deprecations
 
 ## New additions
+* Added new `TOON` output format (`--format toon`) — token-efficient structured output for LLM consumption.
 
 ## Fixes and improvements
+* Commands that previously emitted no output under `--format csv` (e.g. `snow stage diff`, `snow app diff`) now return structured results for all structured output formats.
 
 
 # v3.23.0

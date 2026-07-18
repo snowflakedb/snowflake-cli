@@ -417,8 +417,7 @@ def snowflake_app_setup(
                         encoding=encoding,
                     )
 
-            is_json = get_cli_context().output_format.is_json
-            if is_json:
+            if get_cli_context().output_format.is_structured:
                 return ObjectResult({"success": not dry_run, **resolved_values})
 
             if dry_run:
