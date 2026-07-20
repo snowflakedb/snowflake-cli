@@ -18,7 +18,9 @@ source "${_LIB_DIR}/config.sh"
 #
 # Runs Copybara in Docker. All args after <workflow> are appended to the
 # Copybara migrate command after the workflow name, so positional source_ref
-# must come before flag args (e.g. copybara_run mirror release-1.0 --git-destination-push=release-1.0).
+# must come before flag args. Always pass fully qualified refs to avoid
+# ambiguity with same-named tags
+# (e.g. copybara_run mirror refs/heads/release-1.0 --git-destination-push=refs/heads/release-1.0).
 # --git-destination-url is always appended last by this function.
 #
 # Returns the Copybara exit code (4 = NO_OP is a valid success; caller decides).

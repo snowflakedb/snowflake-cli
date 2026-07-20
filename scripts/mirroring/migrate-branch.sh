@@ -65,7 +65,7 @@ extra_args=()
 if [[ "${BRANCH}" == "main" ]]; then
   iterative_args=("${COPYBARA_WORKFLOW}" "--last-rev=${LAST_REV}"                                                 "${extra_args[@]}")
 else
-  iterative_args=("${COPYBARA_WORKFLOW}" "${BRANCH}" "--git-destination-push=${BRANCH}" "--last-rev=${LAST_REV}" "${extra_args[@]}")
+  iterative_args=("${COPYBARA_WORKFLOW}" "refs/heads/${BRANCH}" "--git-destination-push=refs/heads/${BRANCH}" "--last-rev=${LAST_REV}" "${extra_args[@]}")
 fi
 
 # ---------- helpers ----------

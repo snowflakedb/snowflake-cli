@@ -93,9 +93,9 @@ fi
 # The destination branch now has a GitOrigin-RevId on its tip (either from the
 # seed step above or from a previous mirror run). Copybara auto-detects the
 # baseline from that trailer — no --force or --init-history needed.
-extra_args=("--git-destination-push=${BRANCH}")
+extra_args=("--git-destination-push=refs/heads/${BRANCH}")
 [[ "${DRY_RUN}" == true ]] && extra_args+=("--dry-run")
 
 rc=0
-copybara_run "${COPYBARA_WORKFLOW}" "${BRANCH}" "${extra_args[@]}" || rc=$?
+copybara_run "${COPYBARA_WORKFLOW}" "refs/heads/${BRANCH}" "${extra_args[@]}" || rc=$?
 handle_copybara_rc "${rc}" "${BRANCH}"
