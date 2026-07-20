@@ -22,6 +22,7 @@
 ## New additions
 
 ## Fixes and improvements
+* Fixed `SandboxEnvBuilder` failing with `SIGABRT` on macOS when creating a codegen sandbox virtual environment. On macOS, `python-build-standalone` (used by hatch and uv) embeds a `@executable_path`-relative reference to `libpython`; copying the binary into the venv breaks dyld resolution. The venv is now created with symlinks on macOS so the dynamic linker can resolve the library from its original location.
 
 
 # v3.23.0
