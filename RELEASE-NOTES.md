@@ -20,6 +20,7 @@
 ## Deprecations
 
 ## New additions
+* DCM projects: `snow dcm deploy`, `snow dcm plan`, `snow dcm preview`, and `snow dcm raw-analyze` now support environment variables and secrets declared in a project manifest's `templating.env_vars`/`templating.env_secrets` sections. Declared values are collected from the shell environment at command time and forwarded to the server; `raw-analyze` previously had no support for this at all.
 
 ## Fixes and improvements
 

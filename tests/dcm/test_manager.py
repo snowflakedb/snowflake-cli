@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import os
 from pathlib import Path
 from unittest import mock
@@ -26,6 +27,9 @@ from snowflake.cli._plugins.dcm.models import MANIFEST_FILE_NAME
 from snowflake.cli.api.identifiers import FQN
 
 execute_queries = "snowflake.cli._plugins.dcm.manager.DCMProjectManager.execute_query"
+execute_query_with_params = (
+    "snowflake.cli._plugins.dcm.manager.DCMProjectManager.execute_query_with_params"
+)
 TEST_STAGE = FQN.from_stage("@test_stage")
 TEST_PROJECT = FQN.from_string("my_project")
 
@@ -190,6 +194,58 @@ def test_analyze_project_with_output_path__exception_handling(
 
 
 @mock.patch(execute_queries)
+@mock.patch(execute_query_with_params)
+def test_raw_analyze_project_with_env_vars(
+    mock_execute_with_params, mock_execute_query
+):
+    mgr = DCMProjectManager()
+    env_vars = {"WH_SIZE": "XLARGE"}
+
+    mgr.raw_analyze(
+        project_identifier=TEST_PROJECT,
+        from_stage="@my_stage",
+        env_vars=env_vars,
+    )
+
+    mock_execute_with_params.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') ANALYZE ENVIRONMENT (?)"
+        " FROM @my_stage",
+        params=[json.dumps(env_vars)],
+    )
+    mock_execute_query.assert_not_called()
+
+
+@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.get_recursive")
+@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
+@mock.patch(execute_queries)
+@mock.patch(execute_query_with_params)
+def test_raw_analyze_project_with_save_output_and_env_vars(
+    mock_execute_with_params,
+    mock_execute_query,
+    mock_create,
+    mock_get_recursive,
+    mock_from_resource,
+    project_directory,
+):
+    mgr = DCMProjectManager()
+    env_vars = {"WH_SIZE": "XLARGE"}
+
+    mgr.raw_analyze(
+        project_identifier=TEST_PROJECT,
+        from_stage="@test_stage",
+        save_output=True,
+        env_vars=env_vars,
+    )
+
+    mock_execute_with_params.assert_called_once()
+    query = mock_execute_with_params.call_args.kwargs["query"]
+    assert "ENVIRONMENT (?)" in query
+    assert "OUTPUT_PATH" in query
+    assert mock_execute_with_params.call_args.kwargs["params"] == [json.dumps(env_vars)]
+    mock_execute_query.assert_not_called()
+
+
+@mock.patch(execute_queries)
 def test_deploy_project(mock_execute_query):
     mgr = DCMProjectManager()
     mgr.deploy(
@@ -266,6 +322,57 @@ def test_deploy_project_with_default_deployment(mock_execute_query, project_dire
 
 
 @mock.patch(execute_queries)
+@mock.patch(execute_query_with_params)
+def test_deploy_project_with_env_vars(mock_execute_with_params, mock_execute_query):
+    mgr = DCMProjectManager()
+    env_vars = {"DB_HOST": "prod.analytics.internal"}
+
+    mgr.deploy(
+        project_identifier=TEST_PROJECT,
+        from_stage="@test_stage",
+        configuration="some_configuration",
+        env_vars=env_vars,
+    )
+
+    mock_execute_with_params.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY USING CONFIGURATION"
+        " some_configuration ENVIRONMENT (?) FROM @test_stage",
+        params=[json.dumps(env_vars)],
+    )
+    mock_execute_query.assert_not_called()
+
+
+@mock.patch(execute_queries)
+@mock.patch(execute_query_with_params)
+def test_deploy_project_without_env_vars_uses_plain_execute(
+    mock_execute_with_params, mock_execute_query
+):
+    mgr = DCMProjectManager()
+
+    mgr.deploy(project_identifier=TEST_PROJECT, from_stage="@test_stage", env_vars=None)
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY FROM @test_stage"
+    )
+    mock_execute_with_params.assert_not_called()
+
+
+@mock.patch(execute_queries)
+@mock.patch(execute_query_with_params)
+def test_deploy_project_with_empty_env_vars_uses_plain_execute(
+    mock_execute_with_params, mock_execute_query
+):
+    mgr = DCMProjectManager()
+
+    mgr.deploy(project_identifier=TEST_PROJECT, from_stage="@test_stage", env_vars={})
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY FROM @test_stage"
+    )
+    mock_execute_with_params.assert_not_called()
+
+
+@mock.patch(execute_queries)
 def test_plan_project_default_no_download(mock_execute_query, project_directory):
     mgr = DCMProjectManager()
 
@@ -333,6 +440,56 @@ def test_plan_project_with_delta(mock_execute_query):
     mock_execute_query.assert_called_once_with(
         query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN DELTA FROM @my_stage"
     )
+
+
+@mock.patch(execute_queries)
+@mock.patch(execute_query_with_params)
+def test_plan_project_with_env_vars(mock_execute_with_params, mock_execute_query):
+    mgr = DCMProjectManager()
+    env_vars = {"WH_SIZE": "XLARGE"}
+
+    mgr.plan(
+        project_identifier=TEST_PROJECT,
+        from_stage="@my_stage",
+        env_vars=env_vars,
+    )
+
+    mock_execute_with_params.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN ENVIRONMENT (?)"
+        " FROM @my_stage",
+        params=[json.dumps(env_vars)],
+    )
+    mock_execute_query.assert_not_called()
+
+
+@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.get_recursive")
+@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
+@mock.patch(execute_queries)
+@mock.patch(execute_query_with_params)
+def test_plan_project_with_save_output_and_env_vars(
+    mock_execute_with_params,
+    mock_execute_query,
+    mock_create,
+    mock_get_recursive,
+    mock_from_resource,
+    project_directory,
+):
+    mgr = DCMProjectManager()
+    env_vars = {"WH_SIZE": "XLARGE"}
+
+    mgr.plan(
+        project_identifier=TEST_PROJECT,
+        from_stage="@test_stage",
+        save_output=True,
+        env_vars=env_vars,
+    )
+
+    mock_execute_with_params.assert_called_once()
+    query = mock_execute_with_params.call_args.kwargs["query"]
+    assert "ENVIRONMENT (?)" in query
+    assert "OUTPUT_PATH" in query
+    assert mock_execute_with_params.call_args.kwargs["params"] == [json.dumps(env_vars)]
+    mock_execute_query.assert_not_called()
 
 
 @mock.patch(execute_queries)
@@ -455,6 +612,27 @@ def test_preview_project_with_various_options(
         + expected_suffix
     )
     mock_execute_query.assert_called_once_with(query=expected_query)
+
+
+@mock.patch(execute_queries)
+@mock.patch(execute_query_with_params)
+def test_preview_project_with_env_vars(mock_execute_with_params, mock_execute_query):
+    mgr = DCMProjectManager()
+    env_vars = {"DB_HOST": "prod.analytics.internal"}
+
+    mgr.preview(
+        project_identifier=TEST_PROJECT,
+        object_identifier=FQN.from_string("my_view"),
+        from_stage="@test_stage",
+        env_vars=env_vars,
+    )
+
+    mock_execute_with_params.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PREVIEW"
+        " IDENTIFIER('my_view') ENVIRONMENT (?) FROM @test_stage",
+        params=[json.dumps(env_vars)],
+    )
+    mock_execute_query.assert_not_called()
 
 
 @mock.patch(execute_queries)
