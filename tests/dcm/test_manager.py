@@ -462,6 +462,33 @@ def test_plan_project_with_env_vars(mock_execute_with_params, mock_execute_query
     mock_execute_query.assert_not_called()
 
 
+@mock.patch(execute_queries)
+@mock.patch(execute_query_with_params)
+def test_plan_project_with_configuration_variables_and_env_vars(
+    mock_execute_with_params, mock_execute_query
+):
+    # ENVIRONMENT is stacked after USING CONFIGURATION/variables and before FROM --
+    # verifies the two clause-building code paths (templating vars vs. env vars)
+    # compose correctly instead of one clobbering the other.
+    mgr = DCMProjectManager()
+    env_vars = {"WH_SIZE": "XLARGE"}
+
+    mgr.plan(
+        project_identifier=TEST_PROJECT,
+        from_stage="@my_stage",
+        configuration="some_configuration",
+        variables=["key=value"],
+        env_vars=env_vars,
+    )
+
+    mock_execute_with_params.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN USING CONFIGURATION"
+        " some_configuration (key=>value) ENVIRONMENT (?) FROM @my_stage",
+        params=[json.dumps(env_vars)],
+    )
+    mock_execute_query.assert_not_called()
+
+
 @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.get_recursive")
 @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
 @mock.patch(execute_queries)
