@@ -111,10 +111,7 @@ class BaseSqlExecutor:
         Unlike execute_query(), this calls cursor.execute() directly instead
         of going through execute_stream() (which never forwards bind
         params), and forces qmark paramstyle so a literal `?` in the query
-        text is bound server-side rather than client-side `%`-interpolated
-        (the connector's default pyformat paramstyle would otherwise leave
-        `?` untouched since there's no `%s` in the query for it to
-        substitute).
+        text is bound server-side rather than client-side.
         """
         self._log.debug("Executing with params: %s", query)
         cursor = self._conn.cursor()
