@@ -19,7 +19,6 @@ def collect_env_vars(declared_names: Set[str]) -> Dict[str, str]:
     """Collect values for declared env var names from the process environment.
 
     Names declared in the manifest but not present in the environment are
-    silently omitted — GS/Jinja's own fallback (default filter, or a
-    compile error if there's no default) handles the absence.
+    silently omitted — GS handles the absence.
     """
     return {name: os.environ[name] for name in declared_names if name in os.environ}
