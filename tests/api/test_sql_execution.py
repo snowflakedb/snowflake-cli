@@ -17,7 +17,7 @@ from unittest import mock
 import pytest
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.sql_execution import SqlExecutor
+from snowflake.cli.api.sql_execution import BaseSqlExecutor, SqlExecutor
 
 EXECUTE_QUERY = f"snowflake.cli.api.sql_execution.BaseSqlExecutor.execute_query"
 
@@ -201,3 +201,33 @@ def test_create_api_integration_escapes_allowed_prefix(
     assert mock_execute_query.call_count == 1
     query = mock_execute_query.mock_calls[0].args[0]
     assert f"api_allowed_prefixes = ('{expected_prefix}')" in query
+
+
+def test_execute_query_with_params_forces_qmark_paramstyle():
+    """cursor.execute() defaults to pyformat, which client-side `%`-interpolates
+    the query and never recognizes a literal `?` as a bind marker. Passing
+    _force_qmark_paramstyle=True is what makes the `?` a real server-side bind."""
+    mock_connection = mock.MagicMock()
+    mock_cursor = mock_connection.cursor.return_value
+
+    executor = BaseSqlExecutor(connection=mock_connection)
+    query = "EXECUTE DCM PROJECT IDENTIFIER('p') DEPLOY ENVIRONMENT (?) FROM @stage"
+    result = executor.execute_query_with_params(query, params=['{"KEY": "value"}'])
+
+    mock_connection.cursor.assert_called_once()
+    mock_cursor.execute.assert_called_once_with(
+        query, ['{"KEY": "value"}'], _force_qmark_paramstyle=True
+    )
+    assert result is mock_cursor
+
+
+def test_execute_query_with_params_defaults_params_to_none():
+    mock_connection = mock.MagicMock()
+    mock_cursor = mock_connection.cursor.return_value
+
+    executor = BaseSqlExecutor(connection=mock_connection)
+    executor.execute_query_with_params("select current_role()")
+
+    mock_cursor.execute.assert_called_once_with(
+        "select current_role()", None, _force_qmark_paramstyle=True
+    )

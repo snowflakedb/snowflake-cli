@@ -25,6 +25,7 @@ from snowflake.cli._plugins.dcm.models import (
     MANIFEST_FILE_NAME,
     DCMManifest,
     DCMTarget,
+    DCMTemplating,
 )
 from snowflake.cli.api.secure_path import SecurePath
 
@@ -45,6 +46,9 @@ class TestDCMManifest:
         assert manifest.targets == {}
         assert manifest.templating.defaults == {}
         assert manifest.templating.configurations == {}
+        assert manifest.templating.env_vars == []
+        assert manifest.templating.env_secrets == []
+        assert manifest.templating.declared_variable_names == set()
 
     def test_manifest_from_dict_with_targets(self):
         data = {
@@ -78,6 +82,11 @@ class TestDCMManifest:
         assert manifest.targets["DEV"].templating_config == "DEV"
         assert manifest.targets["PROD"].project_name == "DB.SCHEMA.PROJECT_PROD"
         assert manifest.targets["PROD"].templating_config == "PROD"
+        # templating is declared here, but without env_vars/env_secrets keys
+        # at all (as opposed to declared-empty) -- must still default cleanly.
+        assert manifest.templating.env_vars == []
+        assert manifest.templating.env_secrets == []
+        assert manifest.templating.declared_variable_names == set()
 
     def test_manifest_from_dict_with_templating(self):
         data = {
@@ -89,6 +98,8 @@ class TestDCMManifest:
                     "dev": {"wh_size": "XSMALL", "suffix": "_dev"},
                     "prod": {"wh_size": "LARGE", "suffix": ""},
                 },
+                "env_vars": [{"DB_HOST": None}, {"WH_SIZE": None}],
+                "env_secrets": [{"AWS_SECRET_KEY": None}],
             },
         }
         manifest = DCMManifest.from_dict(data)
@@ -103,6 +114,85 @@ class TestDCMManifest:
             "DEV": {"wh_size": "XSMALL", "suffix": "_dev"},
             "PROD": {"wh_size": "LARGE", "suffix": ""},
         }
+        assert manifest.templating.env_vars == ["DB_HOST", "WH_SIZE"]
+        assert manifest.templating.env_secrets == ["AWS_SECRET_KEY"]
+        assert manifest.templating.declared_variable_names == {
+            "DB_HOST",
+            "WH_SIZE",
+            "AWS_SECRET_KEY",
+        }
+
+    def test_templating_declared_variable_names_env_vars_only(self):
+        """env_secrets key is entirely absent here, not just empty."""
+        templating = DCMTemplating.from_dict(
+            {"env_vars": [{"DB_HOST": None}, {"WH_SIZE": None}]}
+        )
+
+        assert templating.env_secrets == []
+        assert templating.declared_variable_names == {"DB_HOST", "WH_SIZE"}
+
+    def test_templating_declared_variable_names_env_secrets_only(self):
+        """env_vars key is entirely absent here, not just empty."""
+        templating = DCMTemplating.from_dict(
+            {"env_secrets": [{"AWS_SECRET_KEY": None}]}
+        )
+
+        assert templating.env_vars == []
+
+        assert templating.declared_variable_names == {"AWS_SECRET_KEY"}
+
+    def test_templating_declared_variable_names_deduplicates_overlap(self):
+        """A name declared in both lists (invalid per GS's EnvVarsValidator,
+        but the CLI doesn't validate this) is not double-counted."""
+        templating = DCMTemplating.from_dict(
+            {
+                "env_vars": [{"SHARED_NAME": None}],
+                "env_secrets": [{"SHARED_NAME": None}],
+            }
+        )
+
+        assert templating.declared_variable_names == {"SHARED_NAME"}
+
+    def test_templating_declared_variable_names_case_preserved(self):
+        """Unlike configuration names, env var names are matched by exact
+        string equality server-side, so case must be preserved."""
+        templating = DCMTemplating.from_dict({"env_vars": [{"db_Host": None}]})
+
+        assert templating.declared_variable_names == {"db_Host"}
+        assert "DB_HOST" not in templating.declared_variable_names
+
+    def test_templating_env_vars_each_entry_is_a_single_key_mapping(self):
+        """Real manifest shape: each `env_vars`/`env_secrets` entry is a
+        single-key mapping (`- BUILD_NUMBER:` in YAML), matching GS's
+        EnvVarDefinition/EnvSecretDefinition -- currently-empty placeholders
+        reserved for future per-variable properties. The key is the declared
+        name; the value (always None today) is ignored."""
+        templating = DCMTemplating.from_dict(
+            {
+                "env_vars": [{"BUILD_NUMBER": None}, {"INCLUDE_REPORTS": None}],
+                "env_secrets": [{"API_KEY": None}],
+            }
+        )
+
+        assert templating.env_vars == ["BUILD_NUMBER", "INCLUDE_REPORTS"]
+        assert templating.env_secrets == ["API_KEY"]
+
+    def test_templating_env_vars_accepts_plain_strings_too(self):
+        """Not the real manifest shape, but tolerated for robustness --
+        a plain string entry is used as-is rather than rejected."""
+        templating = DCMTemplating.from_dict({"env_vars": ["BUILD_NUMBER"]})
+
+        assert templating.env_vars == ["BUILD_NUMBER"]
+
+    def test_templating_env_vars_section_present_but_empty(self):
+        """`env_vars:`/`env_secrets:` declared with no entries parses as
+        None via PyYAML, not []; from_dict must coerce it rather than
+        blow up in _declared_names' `for entry in None` loop."""
+        templating = DCMTemplating.from_dict({"env_vars": None, "env_secrets": None})
+
+        assert templating.env_vars == []
+        assert templating.env_secrets == []
+        assert templating.declared_variable_names == set()
 
     def test_manifest_get_target_not_found(self):
         data = {

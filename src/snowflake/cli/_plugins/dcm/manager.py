@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import json
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -58,6 +59,7 @@ class DCMProjectManager(SqlExecutionMixin):
         variables: List[str] | None = None,
         alias: str | None = None,
         skip_plan: bool = False,
+        env_vars: dict[str, str] | None = None,
     ) -> SnowflakeCursor:
         log.info(
             "Running DCM deploy manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d, skip_plan=%s).",
@@ -70,10 +72,12 @@ class DCMProjectManager(SqlExecutionMixin):
         if alias:
             query += f' AS "{alias}"'
         query += self._get_configuration_and_variables_query(configuration, variables)
+        if env_vars:
+            query += " ENVIRONMENT (?)"
         query += self._get_from_stage_query(from_stage)
         if skip_plan:
             query += f" SKIP PLAN"
-        return self.execute_query(query=query)
+        return self._execute_with_optional_env_vars(query, env_vars)
 
     def raw_analyze(
         self,
@@ -82,6 +86,7 @@ class DCMProjectManager(SqlExecutionMixin):
         configuration: str | None = None,
         variables: List[str] | None = None,
         save_output: bool = False,
+        env_vars: dict[str, str] | None = None,
     ):
         log.info(
             "Running DCM raw-analyze manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d, save_output=%s).",
@@ -92,6 +97,8 @@ class DCMProjectManager(SqlExecutionMixin):
         )
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} ANALYZE"
         query += self._get_configuration_and_variables_query(configuration, variables)
+        if env_vars:
+            query += " ENVIRONMENT (?)"
         query += self._get_from_stage_query(from_stage)
 
         if save_output:
@@ -99,9 +106,9 @@ class DCMProjectManager(SqlExecutionMixin):
                 project_identifier, command_name="raw-analyze"
             ) as output_stage:
                 query += f" OUTPUT_PATH {output_stage}"
-                result = self.execute_query(query=query)
+                result = self._execute_with_optional_env_vars(query, env_vars)
         else:
-            result = self.execute_query(query=query)
+            result = self._execute_with_optional_env_vars(query, env_vars)
         return result
 
     def plan(
@@ -112,6 +119,7 @@ class DCMProjectManager(SqlExecutionMixin):
         variables: List[str] | None = None,
         save_output: bool = False,
         delta: bool = False,
+        env_vars: dict[str, str] | None = None,
     ) -> SnowflakeCursor:
         log.info(
             "Running DCM plan manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d, save_output=%s, delta=%s).",
@@ -125,6 +133,8 @@ class DCMProjectManager(SqlExecutionMixin):
         if delta:
             query += " DELTA"
         query += self._get_configuration_and_variables_query(configuration, variables)
+        if env_vars:
+            query += " ENVIRONMENT (?)"
         query += self._get_from_stage_query(from_stage)
 
         if save_output:
@@ -132,9 +142,9 @@ class DCMProjectManager(SqlExecutionMixin):
                 project_identifier, command_name="plan"
             ) as output_stage:
                 query += f" OUTPUT_PATH {output_stage}"
-                result = self.execute_query(query=query)
+                result = self._execute_with_optional_env_vars(query, env_vars)
         else:
-            result = self.execute_query(query=query)
+            result = self._execute_with_optional_env_vars(query, env_vars)
         return result
 
     def create(self, project_identifier: FQN) -> None:
@@ -181,6 +191,7 @@ class DCMProjectManager(SqlExecutionMixin):
         configuration: str | None = None,
         variables: List[str] | None = None,
         limit: int | None = None,
+        env_vars: dict[str, str] | None = None,
     ) -> SnowflakeCursor:
         log.info(
             "Running DCM preview manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d).",
@@ -190,10 +201,12 @@ class DCMProjectManager(SqlExecutionMixin):
         )
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} PREVIEW {object_identifier.sql_identifier}"
         query += self._get_configuration_and_variables_query(configuration, variables)
+        if env_vars:
+            query += " ENVIRONMENT (?)"
         query += self._get_from_stage_query(from_stage)
         if limit is not None:
             query += f" LIMIT {limit}"
-        return self.execute_query(query=query)
+        return self._execute_with_optional_env_vars(query, env_vars)
 
     def refresh(self, project_identifier: FQN) -> SnowflakeCursor:
         log.info(
@@ -227,6 +240,15 @@ class DCMProjectManager(SqlExecutionMixin):
             project_identifier,
         )
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} TEST ALL"
+        return self.execute_query(query=query)
+
+    def _execute_with_optional_env_vars(
+        self, query: str, env_vars: dict[str, str] | None
+    ) -> SnowflakeCursor:
+        if env_vars:
+            return self.execute_query_with_params(
+                query=query, params=[json.dumps(env_vars)]
+            )
         return self.execute_query(query=query)
 
     @staticmethod
