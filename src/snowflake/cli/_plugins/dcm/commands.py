@@ -70,7 +70,6 @@ log = logging.getLogger(__name__)
 app = SnowTyperFactory(
     name="dcm",
     help="Manages DCM Projects in Snowflake.",
-    is_hidden=FeatureFlag.ENABLE_SNOWFLAKE_PROJECTS.is_disabled,
 )
 
 dcm_identifier = identifier_argument(sf_object="DCM Project", example="MY_PROJECT")
