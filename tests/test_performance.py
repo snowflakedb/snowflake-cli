@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import os
 import subprocess
 from timeit import default_timer as timer
 
@@ -29,7 +28,6 @@ def test_snow_help_performance():
         subprocess.run(
             ["snow", "--help"],
             stdout=subprocess.DEVNULL,
-            env={"SNOWFLAKE_FEATURE_ENABLE_SNOWFLAKE_PROJECTS": "False", **os.environ},
         )
         end = timer()
         results.append(end - start)
