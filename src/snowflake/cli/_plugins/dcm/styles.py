@@ -16,6 +16,7 @@ from rich.style import Style
 _COLOR_BLUE = "#a0a8fe"
 
 DOMAIN_STYLE = Style(color="cyan")
+OBJECT_NAME_STYLE = Style(color="magenta")
 BOLD_STYLE = Style(bold=True)
 
 # Refresh
@@ -28,7 +29,9 @@ PASS_STYLE = Style(color="green")
 FAIL_STYLE = Style(color="red")
 
 # Plan
+NEUTRAL_STYLE = Style()
 CREATE_STYLE = Style(color="green")
 ALTER_STYLE = Style(color="yellow")
 DROP_STYLE = Style(color="red")
 UNKNOWN_STYLE = Style(color=_COLOR_BLUE)
+VALUE_STYLE = Style(color="cyan")
