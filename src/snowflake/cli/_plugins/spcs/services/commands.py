@@ -14,13 +14,16 @@
 
 from __future__ import annotations
 
+import base64
 import itertools
+import signal
 import time
 import uuid
 from pathlib import Path
 from typing import Generator, Iterable, List, Optional, cast
 
 import typer
+from click import ClickException
 from snowflake.cli._plugins.object.command_aliases import (
     add_object_command_aliases,
     scope_option,
@@ -28,9 +31,17 @@ from snowflake.cli._plugins.object.command_aliases import (
 from snowflake.cli._plugins.object.common import CommentOption, Tag, TagOption
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.spcs.common import (
+    filter_log_timestamp,
+    new_logs_only,
     validate_and_set_instances,
 )
 from snowflake.cli._plugins.spcs.services.manager import ServiceManager
+from snowflake.cli._plugins.spcs.services.remote_build_manager import (
+    RemoteBuildJobStatus,
+    RemoteBuildManager,
+    RemoteBuildPermanentError,
+    RemoteBuildStatus,
+)
 from snowflake.cli._plugins.spcs.services.service_entity_model import ServiceEntityModel
 from snowflake.cli._plugins.spcs.services.service_project_paths import (
     ServiceProjectPaths,
@@ -51,6 +62,7 @@ from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import (
     CliArgumentError,
+    CliError,
     IncompatibleParametersError,
 )
 from snowflake.cli.api.feature_flags import FeatureFlag
@@ -59,6 +71,7 @@ from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
     MessageResult,
+    ObjectResult,
     QueryJsonValueResult,
     QueryResult,
     SingleQueryResult,
@@ -123,6 +136,17 @@ events_instance_id_option = typer.Option(
     help="Narrow events to this service instance, starting with 0.",
     show_default=False,
 )
+
+# Overall wait budget for the whole submit -> terminal-status wait in `remote_build`,
+# covering REST polling and best-effort SQL log streaming alike. Replaces what used to
+# be three independently-timed phases (a 300s REST pending-poll, a SQL-readiness
+# sub-loop, and a 60s post-streaming fallback poll).
+_REMOTE_BUILD_OVERALL_WAIT_SECONDS = 1800
+_REMOTE_BUILD_POLL_INTERVAL_SECONDS = 5
+_REMOTE_BUILD_MAX_CONSECUTIVE_REST_ERRORS = 3
+# Hard cap on history pages fetched by remote-build-history. With healthy paging
+# (50 jobs/page) this is far above any realistic 30-day window.
+_REMOTE_BUILD_HISTORY_MAX_PAGES = 1000
 
 
 def _service_name_callback(name: FQN) -> FQN:
@@ -755,7 +779,7 @@ def build_image(
 
     This command is hidden by default. To make it visible in help output, enable the
     feature flag in your config.toml:
-    [cli.feature_flags]
+    [cli.features]
     enable_spcs_build_image = true
 
     Or set the environment variable:
@@ -805,15 +829,15 @@ def build_image(
             )
 
     stage_manager = StageManager()
-    use_temporary_stage = stage is None
-
-    if use_temporary_stage:
+    if stage is None:
+        use_temporary_stage = True
         # Create a stage
         stage = f"{job_name}_stage"
         cli_console.step(f"Creating temporary stage: {stage}")
         stage_fqn = FQN.from_string(stage).using_context()
         stage_manager.create(fqn=stage_fqn)
     else:
+        use_temporary_stage = False
         # Use the provided stage (ensure it exists)
         stage_fqn = FQN.from_string(stage)
         cli_console.step(f"Using existing stage: {stage_fqn.identifier}")
@@ -991,3 +1015,664 @@ def build_image(
             cli_console.warning(f"Failed to clean up build context files: {e}")
 
     return SingleQueryResult(cursor)
+
+
+@app.command(
+    "remote-build",
+    requires_connection=True,
+    hidden=not FeatureFlag.ENABLE_SPCS_REMOTE_BUILD.is_enabled(),
+)
+def remote_build(
+    build_context_dir: Path = typer.Option(
+        ...,
+        "--build-context-dir",
+        help="Directory to use as build context. Must contain a Dockerfile (image) or project root (app).",
+        file_okay=False,
+        dir_okay=True,
+        exists=True,
+        show_default=False,
+    ),
+    location: str = typer.Option(
+        None,
+        "--location",
+        help=(
+            "Target repository for the build output. "
+            "For image builds: IMAGE REPOSITORY in [db.][schema.]repo format (optional, account default used when omitted). "
+            "For app builds: ARTIFACT REPOSITORY in db.schema.repo format (required)."
+        ),
+        show_default=False,
+    ),
+    name: str = typer.Option(
+        None,
+        "--name",
+        help=(
+            "Output name. "
+            "For image builds: short image name without a tag. "
+            "For app builds: artifact package name. "
+            "Auto-generated when omitted."
+        ),
+        show_default=False,
+    ),
+    image_tag: str = typer.Option(
+        None,
+        "--image-tag",
+        help="Tag for the built image. Applies to image builds only. Defaults to 'latest' when omitted.",
+        show_default=False,
+    ),
+    project_type: str = typer.Option(
+        None,
+        "--project-type",
+        help="Project type hint for app builds (e.g. 'node', 'python'). Ignored for image builds.",
+        show_default=False,
+    ),
+    compute_pool: str = typer.Option(
+        None,
+        "--compute-pool",
+        help="Compute pool to run the build job on. Uses the platform default when omitted.",
+        show_default=False,
+    ),
+    stage: Optional[str] = typer.Option(
+        None,
+        "--stage",
+        help="Stage to store build context files. Format: [db.][schema.]stage_name. If not provided, a temporary stage will be created and dropped automatically.",
+        show_default=False,
+    ),
+    build_type: str = typer.Option(
+        "image",
+        "--build-type",
+        help="Type of build to execute: 'image' (default) or 'app'.",
+        show_default=True,
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Builds an image or app artifact using the Snowflake remote build REST API.
+
+    This command is hidden by default. To make it visible in help output, enable the
+    feature flag in your config.toml:
+    [cli.features]
+    enable_spcs_remote_build = true
+
+    Or set the environment variable:
+    export SNOWFLAKE_CLI_FEATURES_ENABLE_SPCS_REMOTE_BUILD=true
+
+    Unlike ``build-image`` (which runs an ``EXECUTE JOB SERVICE`` system function),
+    this command calls the GS REST API directly:
+
+    - ``POST /api/v2/remote-build/execute`` to submit the build
+    - ``GET  /api/v2/remote-build/jobs/<name>`` to poll status
+
+    **Build types:**
+
+    - ``--build-type image`` (default): builds an OCI container image and pushes it to an IMAGE REPOSITORY.
+      Equivalent to ``SYSTEM$SPCS_TEST_REMOTE_BUILD``.
+    - ``--build-type app``: builds an application tarball and uploads it to an ARTIFACT REPOSITORY.
+      ``--location`` (ARTIFACT REPOSITORY) is required. Equivalent to ``SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO``.
+
+    **Required account parameters (must be set to 'enable'):**
+
+    - ``ENABLE_SNOW_API_FOR_REMOTE_BUILD`` — gates the REST API endpoints (all build types).
+    - ``ENABLE_SPCS_RUNTIME_IMAGE_BUILDER_FUNCTIONS`` — gates image builds (``--build-type image``).
+    - ``ENABLE_SPCS_RUNTIME_APP_BUILDER_FUNCTIONS`` — gates app/tarball builds (``--build-type app``).
+
+    On qualification and test deployments all three parameters default to ``true``.
+    On a standard account you must explicitly enable the relevant parameters before this command works.
+    """
+    if build_type not in ("image", "app"):
+        raise CliArgumentError(
+            f"Invalid build type '{build_type}'. Must be 'image' or 'app'."
+        )
+
+    # For app builds, location (ARTIFACT REPOSITORY) is required.
+    if build_type == "app" and not location:
+        raise CliArgumentError(
+            "--location is required for app builds. "
+            "Provide the fully-qualified ARTIFACT REPOSITORY name (db.schema.repo)."
+        )
+
+    # Verify build context directory has the expected entry point.
+    if build_type == "image":
+        dockerfile_path = build_context_dir / "Dockerfile"
+        if not dockerfile_path.exists() or not dockerfile_path.is_file():
+            raise CliArgumentError(
+                f"Dockerfile not found in build context directory '{build_context_dir}'. "
+                f"Expected to find: {dockerfile_path}"
+            )
+
+    # Validate name (image name or artifact package name) when provided.
+    if name and not name.replace("_", "").replace("-", "").replace(".", "").isalnum():
+        raise CliArgumentError(
+            f"Invalid name '{name}'. Must contain only alphanumeric characters, hyphens, underscores, and dots."
+        )
+
+    if (
+        image_tag
+        and not image_tag.replace("_", "").replace("-", "").replace(".", "").isalnum()
+    ):
+        raise CliArgumentError(
+            f"Invalid image tag '{image_tag}'. Must contain only alphanumeric characters, hyphens, underscores, and dots."
+        )
+
+    # Generate a unique identifier for this build operation (used for stage naming only;
+    # the server assigns its own job name independently).
+    build_uuid = uuid.uuid4().hex[:8]
+    local_job_name = f"remote_build_{build_uuid}"
+
+    stage_manager = StageManager()
+    if stage is None:
+        use_temporary_stage = True
+        stage = f"{local_job_name}_stage"
+        cli_console.step(f"Creating temporary stage: {stage}")
+        stage_fqn = FQN.from_string(stage).using_context()
+        stage_manager.create(fqn=stage_fqn)
+    else:
+        use_temporary_stage = False
+        stage_fqn = FQN.from_string(stage)
+        cli_console.step(f"Using existing stage: {stage_fqn.identifier}")
+
+    # Upload build context to stage
+    build_context_stage_path = f"build_contexts/{local_job_name}"
+    cli_console.step(
+        f"Uploading build context from {build_context_dir} to @{stage_fqn.identifier}/{build_context_stage_path}"
+    )
+
+    stage_path = StagePath.from_stage_str(
+        f"@{stage_fqn.identifier}/{build_context_stage_path}"
+    )
+    # Derive build_source from the same StagePath used for the upload so the server
+    # always reads from the location we actually wrote to (quoted identifiers, @/slash
+    # normalization, etc.).
+    build_source = stage_path.absolute_path()
+
+    # Upload and submit are wrapped together so that any failure — including a mid-upload
+    # error from put_recursive — triggers stage cleanup before re-raising.
+    remote_build_manager = RemoteBuildManager()
+    try:
+        for _ in stage_manager.put_recursive(
+            local_path=build_context_dir,
+            stage_path=str(stage_path),
+            overwrite=True,
+        ):
+            pass
+
+        # Submit the build via the GS REST API
+        cli_console.step("Submitting remote build via REST API...")
+        assigned_job_name = remote_build_manager.create_remote_builder(
+            build_source=build_source,
+            location=location,
+            name=name,
+            image_tag=image_tag,
+            project_type=project_type,
+            compute_pool=compute_pool,
+            build_type=build_type,
+        )
+    except ClickException:
+        # CliError / ClickException already carry a user-friendly message; clean up then
+        # re-raise as-is.
+        _cleanup_stage(
+            use_temporary_stage,
+            stage,
+            stage_fqn,
+            build_context_stage_path,
+            stage_manager,
+        )
+        raise
+    except Exception as exc:
+        # Unexpected errors (e.g. network failure during upload) — clean up, then surface
+        # as a CliError so the CLI can print the message and exit non-zero cleanly.
+        _cleanup_stage(
+            use_temporary_stage,
+            stage,
+            stage_fqn,
+            build_context_stage_path,
+            stage_manager,
+        )
+        raise CliError(f"Remote build failed: {exc}") from exc
+
+    cli_console.step(f"Build job submitted: {assigned_job_name}")
+    cli_console.message(
+        f"Waiting for job to complete (polling REST every "
+        f"{_REMOTE_BUILD_POLL_INTERVAL_SECONDS}s; streaming logs via SQL once available)..."
+    )
+    cli_console.message("")
+
+    try:
+        final_status, interrupted = _wait_for_remote_build_completion(
+            remote_build_manager=remote_build_manager,
+            service_manager=ServiceManager(),
+            job_name=assigned_job_name,
+        )
+    except RemoteBuildPermanentError:
+        # Non-retryable REST failure (see error below) — e.g. auth, a disabled feature
+        # flag, or a bad request. The job was already submitted and may still be
+        # running server-side, so don't touch the stage; point the user at
+        # remote-build-status once the underlying issue is resolved.
+        cli_console.warning(
+            f"\nRemote build job '{assigned_job_name}' was already submitted; its status "
+            "could not be confirmed (see error below)."
+        )
+        cli_console.message(
+            "Once resolved, check its status with: "
+            f"snow spcs service remote-build-status --job-name {assigned_job_name}"
+        )
+        if use_temporary_stage:
+            cli_console.warning(
+                f"Remember to manually clean up stage: DROP STAGE {stage_fqn.sql_identifier};"
+            )
+        else:
+            cli_console.warning(
+                f"Remember to manually clean up build context: REMOVE @{stage_fqn.identifier}/{build_context_stage_path};"
+            )
+        raise
+
+    if interrupted:
+        cli_console.warning(
+            f"\nRemote build job '{assigned_job_name}' is still running in the background."
+        )
+        cli_console.message(
+            f"Use 'snow spcs service remote-build-status --job-name {assigned_job_name}' to check its progress."
+        )
+        cli_console.message(
+            f"Use 'snow spcs service logs {assigned_job_name} --container-name main --instance-id 0' to view logs."
+        )
+        if use_temporary_stage:
+            cli_console.warning(
+                f"Remember to manually clean up stage: DROP STAGE {stage_fqn.sql_identifier};"
+            )
+        else:
+            cli_console.warning(
+                f"Remember to manually clean up build context: REMOVE @{stage_fqn.identifier}/{build_context_stage_path};"
+            )
+        return MessageResult(
+            f"Remote build job '{assigned_job_name}' is running in the background."
+        )
+
+    final_job_status = final_status.job_status if final_status is not None else None
+
+    cli_console.message("")
+    if final_job_status == RemoteBuildStatus.DONE:
+        cli_console.message(
+            f"✓ Remote build job '{assigned_job_name}' completed successfully."
+        )
+    elif final_job_status == RemoteBuildStatus.FAILED:
+        cli_console.warning(f"✗ Remote build job '{assigned_job_name}' failed.")
+    elif final_job_status == RemoteBuildStatus.CANCELLED:
+        cli_console.warning(f"✗ Remote build job '{assigned_job_name}' was cancelled.")
+
+    # Only clean up the stage once the job is in a terminal state. If we couldn't
+    # confirm a terminal status (e.g. the overall wait budget elapsed first), the build
+    # may still be running server-side and the stage must be kept so the job can read
+    # its build context.
+    if final_status is not None and final_status.is_terminal:
+        _cleanup_stage(
+            use_temporary_stage,
+            stage,
+            stage_fqn,
+            build_context_stage_path,
+            stage_manager,
+        )
+        if final_job_status == RemoteBuildStatus.DONE:
+            return MessageResult(
+                f"Remote build job '{assigned_job_name}' completed successfully."
+            )
+        # FAILED or CANCELLED — non-zero exit so automation can detect the failure.
+        raise CliError(
+            f"Remote build job '{assigned_job_name}' finished with status: {final_job_status}."
+        )
+    else:
+        # Could not confirm terminal status — stage is kept, non-zero exit so the caller
+        # knows the outcome is unconfirmed and should not proceed as if the build succeeded.
+        stage_hint = (
+            f"DROP STAGE {stage_fqn.sql_identifier};"
+            if use_temporary_stage
+            else f"REMOVE @{stage_fqn.identifier}/{build_context_stage_path};"
+        )
+        raise CliError(
+            f"Remote build job '{assigned_job_name}' did not reach a terminal state within the "
+            f"{_REMOTE_BUILD_OVERALL_WAIT_SECONDS}s wait budget "
+            f"(last known status: {final_job_status!r}). The job may still be running.\n"
+            f"  • Check status: snow spcs service remote-build-status --job-name {assigned_job_name}\n"
+            f"  • Clean up stage manually once done: {stage_hint}"
+        )
+
+
+@app.command(
+    "remote-build-status",
+    requires_connection=True,
+    hidden=not FeatureFlag.ENABLE_SPCS_REMOTE_BUILD.is_enabled(),
+)
+def remote_build_status(
+    job_name: str = typer.Option(
+        ...,
+        "--job-name",
+        help="Fully-qualified name of the remote build job to look up (e.g. MYDB.PUBLIC.SPCS_IMAGE_BUILDER_JOB_abc123).",
+        show_default=False,
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Displays the current status of a remote build job.
+
+    Looks up the job in the live service store first; falls back to the 30-day job history
+    for completed jobs.
+
+    This command is hidden by default. Enable it with:
+
+        [cli.features]
+        enable_spcs_remote_build = true
+    """
+    manager = RemoteBuildManager()
+    job = manager.get_remote_builder(job_name)
+    if job is None:
+        return MessageResult(f"No remote build job found with name '{job_name}'.")
+    return ObjectResult(
+        {
+            "job_name": job.job_name,
+            "status": job.job_status,
+            "creation_time": job.creation_time,
+            "end_time": job.end_time,
+        }
+    )
+
+
+@app.command(
+    "remote-build-history",
+    requires_connection=True,
+    hidden=not FeatureFlag.ENABLE_SPCS_REMOTE_BUILD.is_enabled(),
+)
+def remote_build_history(
+    page_size: int = typer.Option(
+        50,
+        "--page-size",
+        help="Number of jobs to request per server page (1–200).",
+        show_default=True,
+        min=1,
+        max=200,
+    ),
+    start_token: Optional[str] = typer.Option(
+        None,
+        "--start-token",
+        help=(
+            "Resume from a specific page token (printed by a prior capped run as "
+            "'Resume with: --start-token <token>'). "
+            "When omitted, starts from the most recent job and walks back ~30 days."
+        ),
+        show_default=False,
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Lists all remote build jobs for the current account from the past ~30 days,
+    newest first.
+
+    Automatically follows pagination tokens until the server reports no further results,
+    collecting every page into a single table.  Use --page-size to control how many records
+    are requested per round-trip (default 50).
+
+    To resume from a known point, pass the token printed by a previous interrupted run via
+    --start-token.
+
+    This command is hidden by default. Enable it with:
+
+        [cli.features]
+        enable_spcs_remote_build = true
+    """
+    manager = RemoteBuildManager()
+    all_rows: list[dict] = []
+    token: Optional[str] = start_token
+
+    # Lower bound: jobs created before this point are outside the 30-day window.
+    _thirty_days_ms = 30 * 24 * 60 * 60 * 1000
+    cutoff_ms = int(time.time() * 1000) - _thirty_days_ms
+
+    pages_fetched = 0
+
+    while True:
+        response = manager.list_remote_build_jobs(limit=page_size, page_token=token)
+        pages_fetched += 1
+        page_jobs = response.get("jobs", [])
+        for j in page_jobs:
+            all_rows.append(
+                {
+                    "job_name": j.get("job_name", ""),
+                    "status": j.get("job_status", ""),
+                    "creation_time": j.get("creation_time", ""),
+                    "end_time": j.get("end_time", ""),
+                }
+            )
+        token = response.get("next_page_token")
+        if not token:
+            break
+        if pages_fetched >= _REMOTE_BUILD_HISTORY_MAX_PAGES:
+            cli_console.warning(
+                f"Stopped after {_REMOTE_BUILD_HISTORY_MAX_PAGES} pages to avoid an unbounded loop. "
+                f"Resume with: --start-token {token}"
+            )
+            break
+        # The server page token is Base64url(str(createdOnMs)).
+        # If the token can't be decoded, treat it as untrustworthy and stop — continuing
+        # with an opaque token could loop forever if the server is misbehaving.
+        token_ms = _decode_history_token(token)
+        if token_ms is None:
+            cli_console.warning(
+                "Received an unrecognised page token from the server; stopping pagination."
+            )
+            break
+        # If the next window's end already lies past our 30-day horizon there can be no
+        # remaining jobs within the retention window — stop here.
+        if token_ms < cutoff_ms:
+            break
+
+    if not all_rows:
+        return MessageResult("No remote build jobs found in the past 30 days.")
+
+    return CollectionResult(all_rows)
+
+
+class _InterruptFlag:
+    """Mutable flag set by a SIGINT handler so a polling loop can detect Ctrl+C
+    reliably on every iteration.
+
+    This is necessary instead of a plain ``except KeyboardInterrupt`` around the
+    loop because ``ServiceManager.stream_logs`` catches and swallows
+    ``KeyboardInterrupt`` internally (by design, so that ``snow spcs service logs
+    --follow`` can exit its tail loop cleanly) — that exception would never reach
+    a caller-side handler wrapping a call into it. Installing our own SIGINT
+    handler intercepts the signal before Python turns it into a KeyboardInterrupt
+    exception at all, so Ctrl+C is detected the same way regardless of which part
+    of the wait loop happens to be executing (REST call, SQL log fetch, sleep).
+    """
+
+    def __init__(self) -> None:
+        self.is_set = False
+
+    def handler(self, signum, frame) -> None:  # noqa: ARG002
+        self.is_set = True
+
+
+def _wait_for_remote_build_completion(
+    remote_build_manager: RemoteBuildManager,
+    service_manager: ServiceManager,
+    job_name: str,
+) -> tuple[Optional[RemoteBuildJobStatus], bool]:
+    """
+    Waits for a submitted remote build job to reach a terminal status.
+
+    This is a single consolidated wait loop. It replaces an earlier design with three
+    independently-timed phases (a REST pending-poll, a SQL-readiness sub-loop, and a
+    post-streaming fallback poll) which proved hard to get right: each phase had its own
+    timeout and its own error handling, and fixing an edge case in one phase repeatedly
+    surfaced a new edge case in another (e.g. Ctrl+C only being honored in one phase,
+    a timeout in one phase silently succeeding, transient REST errors aborting the
+    command outright).
+
+    Design:
+
+    - REST status (via ``get_remote_builder``) is the single, authoritative source of
+      truth for job completion. Transient REST errors (network blips, unclassified/5xx
+      responses) are retried in place rather than aborting the whole command — the loop
+      keeps going even after several consecutive failures, it just stops polling REST
+      that iteration and relies on the last known status. Definitive, non-retryable
+      failures (auth, bad request, not found, disabled feature flag — raised as
+      ``RemoteBuildPermanentError``) are *not* retried: they propagate immediately so
+      the command fails fast instead of burning the whole wait budget on an outcome
+      that cannot change.
+    - Log streaming is opportunistic/best-effort: once the service becomes describable
+      via SQL, new log lines are fetched and printed each iteration. SQL availability
+      never gates completion detection — the loop still relies solely on REST for that.
+    - A single overall timeout budget covers the whole wait (submission acceptance
+      through terminal status), rather than several stacked, separately-timed phases.
+    - Ctrl+C is detected via a SIGINT flag (see ``_InterruptFlag``) checked once per
+      iteration, so it is honored uniformly no matter which part of the loop body is
+      currently executing.
+
+    Raises:
+        RemoteBuildPermanentError: if ``get_remote_builder`` reports a definitive,
+            non-retryable failure. Callers should treat the job as submitted-but-
+            unconfirmed (do not clean up the stage) rather than as failed.
+
+    Returns:
+        A tuple of ``(final_status, interrupted)``:
+          - ``final_status``: the last known :class:`RemoteBuildJobStatus`. Its
+            ``is_terminal`` property is ``True`` if a terminal status (``DONE``/
+            ``FAILED``/``CANCELLED``) was observed before the timeout; otherwise it
+            reflects the last observed non-terminal status, or is ``None`` if the job
+            was never observed at all.
+          - ``interrupted``: ``True`` if the user pressed Ctrl+C during the wait.
+    """
+    interrupt_flag = _InterruptFlag()
+    previous_handler = signal.signal(signal.SIGINT, interrupt_flag.handler)
+
+    current_status: Optional[RemoteBuildJobStatus] = None
+    consecutive_rest_errors = 0
+    since_timestamp = ""
+    prev_log_records: List[str] = []
+    elapsed = 0
+
+    try:
+        while elapsed < _REMOTE_BUILD_OVERALL_WAIT_SECONDS:
+            if interrupt_flag.is_set:
+                return current_status, True
+
+            try:
+                job_info = remote_build_manager.get_remote_builder(job_name)
+                consecutive_rest_errors = 0
+            except RemoteBuildPermanentError:
+                # A definitive, non-retryable failure (auth, bad request, not found,
+                # disabled feature flag) — retrying for the length of the wait budget
+                # would just waste time on an outcome that will never change. Let it
+                # propagate immediately so the command fails fast.
+                raise
+            except Exception as exc:
+                consecutive_rest_errors += 1
+                cli_console.warning(
+                    f"REST status check failed ({exc}); retrying "
+                    f"({consecutive_rest_errors}/{_REMOTE_BUILD_MAX_CONSECUTIVE_REST_ERRORS})..."
+                )
+                job_info = None
+                if consecutive_rest_errors == _REMOTE_BUILD_MAX_CONSECUTIVE_REST_ERRORS:
+                    cli_console.warning(
+                        f"REST status check has failed {consecutive_rest_errors} times in a "
+                        "row; will keep waiting, but status updates may be stale."
+                    )
+
+            if job_info is not None:
+                if (
+                    current_status is None
+                    or job_info.job_status != current_status.job_status
+                ):
+                    cli_console.message(f"Current job status: {job_info.job_status}")
+                current_status = job_info
+                if job_info.is_terminal:
+                    return current_status, False
+            elif consecutive_rest_errors == 0:
+                cli_console.message("Waiting for job to appear...")
+
+            # Opportunistically stream any new log lines via SQL. This is best-effort: the
+            # service may not be describable yet (e.g. still PENDING, or the SQL plane
+            # briefly lagging the REST-observed state) — any failure here is silently
+            # ignored and retried next iteration. REST remains authoritative for
+            # completion regardless of whether this succeeds.
+            try:
+                raw_log_blocks = list(
+                    service_manager.logs(
+                        service_name=job_name,
+                        instance_id="0",
+                        container_name="main",
+                        num_lines=1000,
+                        since_timestamp=since_timestamp,
+                        include_timestamps=True,
+                    )
+                )
+                new_log_records = [
+                    line
+                    for block in raw_log_blocks
+                    for line in block.split("\n")
+                    if line.strip()
+                ]
+                if new_log_records:
+                    dedup_records = new_logs_only(prev_log_records, new_log_records)
+                    if dedup_records:
+                        for log in dedup_records:
+                            cli_console.message(
+                                filter_log_timestamp(log, include_timestamps=False)
+                            )
+                        since_timestamp = dedup_records[-1].split(" ", 1)[0]
+                        prev_log_records = dedup_records
+            except Exception:
+                pass
+
+            if interrupt_flag.is_set:
+                return current_status, True
+
+            time.sleep(_REMOTE_BUILD_POLL_INTERVAL_SECONDS)
+            elapsed += _REMOTE_BUILD_POLL_INTERVAL_SECONDS
+
+        return current_status, False
+    finally:
+        signal.signal(signal.SIGINT, previous_handler)
+
+
+def _decode_history_token(token: str) -> Optional[int]:
+    """Decode a server-issued history page token to a millisecond UTC timestamp.
+
+    The server encodes page tokens as Base64url(str(createdOnMs)).  Returns None
+    if the token cannot be parsed, in which case the caller should not apply the
+    timestamp guard.
+    """
+    try:
+        # urlsafe_b64decode requires padding; add it back before decoding.
+        padded = token + "=" * (-len(token) % 4)
+        raw = base64.urlsafe_b64decode(padded).decode()
+        return int(raw)
+    except Exception:
+        return None
+
+
+def _cleanup_stage(
+    use_temporary_stage: bool,
+    stage: str,
+    stage_fqn: FQN,
+    build_context_stage_path: str,
+    stage_manager: StageManager,
+) -> None:
+    """Clean up stage resources after a build (temporary or customer-provided)."""
+    if use_temporary_stage:
+        cli_console.step(f"Cleaning up stage: {stage}")
+        try:
+            object_manager = ObjectManager()
+            object_manager.drop(object_type="stage", fqn=stage_fqn, if_exists=True)
+            cli_console.message(f"✓ Dropped stage {stage}")
+        except ProgrammingError as e:
+            cli_console.warning(f"Failed to clean up stage: {e}")
+    else:
+        cli_console.step(f"Cleaning up build context files from stage: {stage}")
+        try:
+            stage_manager.remove(
+                stage_name=stage_fqn.identifier, path=build_context_stage_path
+            )
+            cli_console.message(
+                f"✓ Removed build context files from {stage}/{build_context_stage_path}"
+            )
+        except ProgrammingError as e:
+            cli_console.warning(f"Failed to clean up build context files: {e}")
