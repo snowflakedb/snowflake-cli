@@ -30,7 +30,7 @@ the mirror, so tags cannot be pushed directly.
 
 ## Decision
 
-Tags are mirrored by a separate script (`mirror-tags.sh`) that maps source
+Tags are mirrored by a separate script (`mirror-release-tags.sh`) that maps source
 commit SHAs to their destination equivalents via the `GitOrigin-RevId` trailer,
 then creates matching refs on the mirror using the GitHub API.
 
