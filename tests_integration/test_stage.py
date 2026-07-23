@@ -611,6 +611,17 @@ def test_stage_list(runner, test_database):
         assert result.json[0]["name"] == f"{stage_name}/under/directory/test.txt"
 
 
+def _uploaded_rows_sorted(rows):
+    """Return upload-result rows sorted by their (unique) source path.
+
+    Recursive uploads now run per-directory PUTs concurrently, so ``result.json``
+    rows arrive in completion order rather than a fixed traversal order. Sorting
+    by ``source`` keeps these assertions checking the exact set of rows — every
+    field of every row — without depending on scheduling.
+    """
+    return sorted(rows, key=lambda row: row["source"])
+
+
 @pytest.mark.integration
 @pytest.mark.parametrize("pattern", ["", "**/*", "**"])
 def test_recursive_upload(temporary_directory, pattern, runner, test_database):
@@ -631,98 +642,102 @@ def test_recursive_upload(temporary_directory, pattern, runner, test_database):
     )
 
     assert len(result.json) == 9
-    assert result.json == [
-        {
-            "message": "",
-            "source": "dir2/dir21/dir211/dir2111/file21111.py",
-            "source_compression": "NONE",
-            "source_size": 8,
-            "status": "UPLOADED",
-            "target": "@recursive_upload/dir2/dir21/dir211/dir2111/file21111.py",
-            "target_compression": "NONE",
-            "target_size": 16,
-        },
-        {
-            "message": "",
-            "source": "dir1/dir12/file121.py",
-            "source_compression": "NONE",
-            "source_size": 8,
-            "status": "UPLOADED",
-            "target": "@recursive_upload/dir1/dir12/file121.py",
-            "target_compression": "NONE",
-            "target_size": 16,
-        },
-        {
-            "message": "",
-            "source": "dir1/dir12/file122.md",
-            "source_compression": "NONE",
-            "source_size": 8,
-            "status": "UPLOADED",
-            "target": "@recursive_upload/dir1/dir12/file122.md",
-            "target_compression": "NONE",
-            "target_size": 16,
-        },
-        {
-            "message": "",
-            "source": "dir3/dir32/file321",
-            "source_compression": "NONE",
-            "source_size": 8,
-            "status": "UPLOADED",
-            "target": "@recursive_upload/dir3/dir32/file321",
-            "target_compression": "NONE",
-            "target_size": 16,
-        },
-        {
-            "message": "",
-            "source": "dir1/file1.py",
-            "source_compression": "NONE",
-            "source_size": 8,
-            "status": "UPLOADED",
-            "target": "@recursive_upload/dir1/file1.py",
-            "target_compression": "NONE",
-            "target_size": 16,
-        },
-        {
-            "message": "",
-            "source": "dir1/file1.txt",
-            "source_compression": "NONE",
-            "source_size": 8,
-            "status": "UPLOADED",
-            "target": "@recursive_upload/dir1/file1.txt",
-            "target_compression": "NONE",
-            "target_size": 16,
-        },
-        {
-            "message": "",
-            "source": "dir3/file31",
-            "source_compression": "NONE",
-            "source_size": 8,
-            "status": "UPLOADED",
-            "target": "@recursive_upload/dir3/file31",
-            "target_compression": "NONE",
-            "target_size": 16,
-        },
-        {
-            "message": "",
-            "source": "dir2/file21",
-            "source_compression": "NONE",
-            "source_size": 8,
-            "status": "UPLOADED",
-            "target": "@recursive_upload/dir2/file21",
-            "target_compression": "NONE",
-            "target_size": 16,
-        },
-        {
-            "message": "",
-            "source": "file4.foo",
-            "source_compression": "NONE",
-            "source_size": 8,
-            "status": "UPLOADED",
-            "target": "@recursive_upload/file4.foo",
-            "target_compression": "NONE",
-            "target_size": 16,
-        },
-    ]
+    # Uploads run concurrently, so rows come back in completion order; compare
+    # the full set of rows independent of ordering.
+    assert _uploaded_rows_sorted(result.json) == _uploaded_rows_sorted(
+        [
+            {
+                "message": "",
+                "source": "dir2/dir21/dir211/dir2111/file21111.py",
+                "source_compression": "NONE",
+                "source_size": 8,
+                "status": "UPLOADED",
+                "target": "@recursive_upload/dir2/dir21/dir211/dir2111/file21111.py",
+                "target_compression": "NONE",
+                "target_size": 16,
+            },
+            {
+                "message": "",
+                "source": "dir1/dir12/file121.py",
+                "source_compression": "NONE",
+                "source_size": 8,
+                "status": "UPLOADED",
+                "target": "@recursive_upload/dir1/dir12/file121.py",
+                "target_compression": "NONE",
+                "target_size": 16,
+            },
+            {
+                "message": "",
+                "source": "dir1/dir12/file122.md",
+                "source_compression": "NONE",
+                "source_size": 8,
+                "status": "UPLOADED",
+                "target": "@recursive_upload/dir1/dir12/file122.md",
+                "target_compression": "NONE",
+                "target_size": 16,
+            },
+            {
+                "message": "",
+                "source": "dir3/dir32/file321",
+                "source_compression": "NONE",
+                "source_size": 8,
+                "status": "UPLOADED",
+                "target": "@recursive_upload/dir3/dir32/file321",
+                "target_compression": "NONE",
+                "target_size": 16,
+            },
+            {
+                "message": "",
+                "source": "dir1/file1.py",
+                "source_compression": "NONE",
+                "source_size": 8,
+                "status": "UPLOADED",
+                "target": "@recursive_upload/dir1/file1.py",
+                "target_compression": "NONE",
+                "target_size": 16,
+            },
+            {
+                "message": "",
+                "source": "dir1/file1.txt",
+                "source_compression": "NONE",
+                "source_size": 8,
+                "status": "UPLOADED",
+                "target": "@recursive_upload/dir1/file1.txt",
+                "target_compression": "NONE",
+                "target_size": 16,
+            },
+            {
+                "message": "",
+                "source": "dir3/file31",
+                "source_compression": "NONE",
+                "source_size": 8,
+                "status": "UPLOADED",
+                "target": "@recursive_upload/dir3/file31",
+                "target_compression": "NONE",
+                "target_size": 16,
+            },
+            {
+                "message": "",
+                "source": "dir2/file21",
+                "source_compression": "NONE",
+                "source_size": 8,
+                "status": "UPLOADED",
+                "target": "@recursive_upload/dir2/file21",
+                "target_compression": "NONE",
+                "target_size": 16,
+            },
+            {
+                "message": "",
+                "source": "file4.foo",
+                "source_compression": "NONE",
+                "source_size": 8,
+                "status": "UPLOADED",
+                "target": "@recursive_upload/file4.foo",
+                "target_compression": "NONE",
+                "target_size": 16,
+            },
+        ]
+    )
 
 
 @pytest.mark.integration
@@ -751,38 +766,42 @@ def test_recursive_upload_glob_file_pattern(temporary_directory, runner, test_da
     assert result.exit_code == 0, result.output
 
     assert len(result.json) == 3
-    assert result.json == [
-        {
-            "message": "",
-            "source": "dir2/dir21/dir211/dir2111/file21111.py",
-            "source_compression": "NONE",
-            "source_size": 8,
-            "status": "UPLOADED",
-            "target": "@recursive_upload/dir2/dir21/dir211/dir2111/file21111.py",
-            "target_compression": "NONE",
-            "target_size": 16,
-        },
-        {
-            "message": "",
-            "source": "dir1/dir12/file121.py",
-            "source_compression": "NONE",
-            "source_size": 8,
-            "status": "UPLOADED",
-            "target": "@recursive_upload/dir1/dir12/file121.py",
-            "target_compression": "NONE",
-            "target_size": 16,
-        },
-        {
-            "message": "",
-            "source": "dir1/file1.py",
-            "source_compression": "NONE",
-            "source_size": 8,
-            "status": "UPLOADED",
-            "target": "@recursive_upload/dir1/file1.py",
-            "target_compression": "NONE",
-            "target_size": 16,
-        },
-    ]
+    # Uploads run concurrently, so rows come back in completion order; compare
+    # the full set of rows independent of ordering.
+    assert _uploaded_rows_sorted(result.json) == _uploaded_rows_sorted(
+        [
+            {
+                "message": "",
+                "source": "dir2/dir21/dir211/dir2111/file21111.py",
+                "source_compression": "NONE",
+                "source_size": 8,
+                "status": "UPLOADED",
+                "target": "@recursive_upload/dir2/dir21/dir211/dir2111/file21111.py",
+                "target_compression": "NONE",
+                "target_size": 16,
+            },
+            {
+                "message": "",
+                "source": "dir1/dir12/file121.py",
+                "source_compression": "NONE",
+                "source_size": 8,
+                "status": "UPLOADED",
+                "target": "@recursive_upload/dir1/dir12/file121.py",
+                "target_compression": "NONE",
+                "target_size": 16,
+            },
+            {
+                "message": "",
+                "source": "dir1/file1.py",
+                "source_compression": "NONE",
+                "source_size": 8,
+                "status": "UPLOADED",
+                "target": "@recursive_upload/dir1/file1.py",
+                "target_compression": "NONE",
+                "target_size": 16,
+            },
+        ]
+    )
 
 
 @pytest.mark.integration

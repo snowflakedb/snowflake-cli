@@ -21,15 +21,16 @@ import os
 import re
 import shutil
 import time
-from collections import deque
-from contextlib import nullcontext
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import contextmanager, nullcontext
+from contextvars import copy_context
 from dataclasses import dataclass
 from enum import Enum
 from os import path
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from textwrap import dedent
-from typing import Deque, Dict, Generator, List, Optional, Union
+from typing import Dict, Generator, List, Optional, Union
 
 from click import UsageError
 from snowflake.cli._plugins.snowpark.package_utils import parse_requirements
@@ -37,6 +38,7 @@ from snowflake.cli.api.commands.common import (
     OnErrorType,
     Variable,
 )
+from snowflake.cli.api.config import get_config_value
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
@@ -56,6 +58,51 @@ except ImportError:
     pass
 
 log = logging.getLogger(__name__)
+
+
+# Total upload-concurrency budget for recursive stage uploads. Wall-clock is
+# dominated by per-PUT round-trip latency (GS query + cloud-storage handshake),
+# not payload size, so overlapping PUTs is the main lever. The budget is split
+# between the directory fan-out and each PUT's connector PARALLEL (see
+# put_recursive), so it also bounds total concurrency for callers that pass a
+# parallel value such as `snow stage copy --parallel`.
+DEFAULT_UPLOAD_WORKERS = 16
+
+# The budget is the ``cli.stage_upload_workers`` config value, i.e. the
+# SNOWFLAKE_CLI_STAGE_UPLOAD_WORKERS env var first, then config.toml.
+STAGE_UPLOAD_WORKERS_CONFIG_PATH = ("cli",)
+STAGE_UPLOAD_WORKERS_CONFIG_KEY = "stage_upload_workers"
+STAGE_UPLOAD_WORKERS_ENV_VAR = "SNOWFLAKE_CLI_STAGE_UPLOAD_WORKERS"
+
+
+def _resolve_upload_workers() -> int:
+    """Resolve the total upload-concurrency budget for recursive uploads.
+
+    Read from the ``cli.stage_upload_workers`` config value
+    (``SNOWFLAKE_CLI_STAGE_UPLOAD_WORKERS`` env var first, then ``config.toml``),
+    falling back to :data:`DEFAULT_UPLOAD_WORKERS`. An invalid value (non-integer
+    or less than 1) is rejected rather than silently ignored, so a typo surfaces.
+    """
+    raw = get_config_value(
+        *STAGE_UPLOAD_WORKERS_CONFIG_PATH,
+        key=STAGE_UPLOAD_WORKERS_CONFIG_KEY,
+        default=None,
+    )
+    if raw is None:
+        return DEFAULT_UPLOAD_WORKERS
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        raise CliError(
+            f"Invalid {STAGE_UPLOAD_WORKERS_ENV_VAR}={raw!r}: "
+            "expected a positive integer."
+        ) from None
+    if value < 1:
+        raise CliError(
+            f"Invalid {STAGE_UPLOAD_WORKERS_ENV_VAR}={value}: "
+            "must be a positive integer (>= 1)."
+        )
+    return value
 
 
 UNQUOTED_FILE_URI_REGEX = r"[\w/*?\-.=&{}$#[\]\"\\!@%^+:]+"
@@ -388,17 +435,11 @@ class StageManager(SqlExecutionMixin):
 
     @staticmethod
     def _symlink_or_copy(source_root: Path, source_file_or_dir: Path, dest_dir: Path):
-
         absolute_src = resolve_without_follow(source_file_or_dir)
         dest_path = dest_dir / source_file_or_dir.relative_to(source_root)
 
         if absolute_src.is_file():
-            try:
-                os.symlink(absolute_src, dest_path)
-            except OSError:
-                if not dest_path.parent.exists():
-                    dest_path.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(absolute_src, dest_path)
+            StageManager._link_or_copy_file(source_file_or_dir, dest_path)
         else:
             dest_path.mkdir(exist_ok=True, parents=True)
 
@@ -424,6 +465,24 @@ class StageManager(SqlExecutionMixin):
                 dest_dir=temp_dir_with_copy,
             )
 
+    @contextmanager
+    def _prepared_upload_dir(
+        self, local_path: Path, temp_directory: Optional[Path]
+    ) -> Generator[Path, None, None]:
+        """Yield the directory whose tree should be uploaded.
+
+        When ``temp_directory`` is provided it is used as-is; otherwise a
+        ``TemporaryDirectory`` is created and ``local_path`` is materialized
+        into it (applying any glob filter). Used by :meth:`put_recursive`.
+        """
+        with TemporaryDirectory() if temp_directory is None else nullcontext(
+            str(temp_directory)
+        ) as tmp:  # type: ignore[attr-defined]
+            temp_dir_with_copy = Path(tmp)
+            if temp_directory is None:
+                self.copy_to_tmp_dir(local_path, temp_dir_with_copy)
+            yield temp_dir_with_copy
+
     def put_recursive(
         self,
         local_path: Path,
@@ -434,31 +493,68 @@ class StageManager(SqlExecutionMixin):
         auto_compress: bool = False,
         temp_directory: Optional[Path] = None,
     ) -> Generator[dict, None, None]:
-        is_temp_dir_provided = temp_directory is not None
+        """Recursively upload ``local_path`` to ``stage_path``.
 
-        with TemporaryDirectory() if temp_directory is None else nullcontext(str(temp_directory)) as tmp:  # type: ignore[attr-defined]
-            temp_dir_with_copy = Path(tmp)
-            if not is_temp_dir_provided:
-                self.copy_to_tmp_dir(local_path, temp_dir_with_copy)
+        One PUT is issued per directory that directly contains files (so a
+        directory's files are batched into a single round-trip); these
+        per-directory PUTs run concurrently, because upload time is dominated by
+        per-PUT round-trip latency rather than payload size. Callers only
+        describe *what* to upload; the concurrency is an implementation detail
+        owned here.
 
-            # Find the deepest directories, we will be iterating from bottom to top
-            deepest_dirs_list = self._find_deepest_directories(temp_dir_with_copy)
+        Total concurrency is a hard cap. One budget from
+        :func:`_resolve_upload_workers` (``SNOWFLAKE_CLI_STAGE_UPLOAD_WORKERS``,
+        default :data:`DEFAULT_UPLOAD_WORKERS`) is split between the directory
+        fan-out and each PUT's connector ``PARALLEL``: ``parallel`` is first
+        clamped into ``[1, budget]``, then the fan-out is ``budget // parallel``,
+        so ``dir_workers * parallel <= budget`` always holds. A caller passing
+        ``parallel`` (e.g. ``snow stage copy --parallel``) therefore never
+        multiplies into ``budget * parallel`` threads, even when ``parallel``
+        exceeds the budget. A caller whose files are small (e.g. DCM) passes
+        ``parallel=1`` to spend the whole budget on fan-out; ``budget`` of 1
+        uploads one directory at a time.
 
-            while deepest_dirs_list:
-                # Remove as visited
-                directory = deepest_dirs_list.pop(0)
+        The connector raises on a directory inside a PUT glob, so each directory
+        is uploaded through an isolated view containing only its direct files.
+        The source tree is never mutated.
+        """
+        budget = _resolve_upload_workers()
+        # Clamp the per-PUT PARALLEL into [1, budget] before splitting the
+        # budget, so it stays a genuine hard cap on total upload threads:
+        # dir_workers * parallel == (budget // parallel) * parallel <= budget.
+        # Without the clamp, a parallel larger than the budget would floor
+        # dir_workers to 1 yet still spawn `parallel` PUT threads per directory,
+        # exceeding the budget.
+        parallel = min(budget, max(parallel, 1))
+        dir_workers = max(1, budget // parallel)
 
-                # We reached root but there are still directories to process
-                if directory == temp_dir_with_copy and deepest_dirs_list:
-                    continue
+        with self._prepared_upload_dir(
+            local_path, temp_directory
+        ) as temp_dir_with_copy:
+            base = StagePath.from_stage_str(stage_path)
 
-                # Upload the directory content, at this moment the directory has only files
-                if list(directory.iterdir()):
-                    destination = StagePath.from_stage_str(
-                        stage_path
-                    ) / directory.relative_to(temp_dir_with_copy)
-                    results: list[dict] = self.put(
-                        local_path=directory,
+            with TemporaryDirectory() as iso_root_str:
+                iso_root = Path(iso_root_str)
+                units: list[tuple[Path, StagePath, Path]] = []
+                for idx, (dirpath, _dirnames, filenames) in enumerate(
+                    os.walk(temp_dir_with_copy)
+                ):
+                    source_dir = Path(dirpath)
+                    files = [f for f in filenames if (source_dir / f).is_file()]
+                    if not files:
+                        continue
+                    rel = source_dir.relative_to(temp_dir_with_copy)
+                    iso_dir = iso_root / str(idx)
+                    iso_dir.mkdir(parents=True, exist_ok=True)
+                    for name in files:
+                        self._link_or_copy_file(source_dir / name, iso_dir / name)
+                    destination = base if rel == Path(".") else base / rel
+                    units.append((iso_dir, destination, rel))
+
+                def _upload(unit: tuple[Path, StagePath, Path]) -> list[dict]:
+                    iso_dir, destination, rel = unit
+                    rows: list[dict] = self.put(
+                        local_path=iso_dir,
                         stage_path=destination,
                         parallel=parallel,
                         overwrite=overwrite,
@@ -466,54 +562,35 @@ class StageManager(SqlExecutionMixin):
                         auto_compress=auto_compress,
                         use_dict_cursor=True,
                     ).fetchall()
-
-                    # Rewrite results to have resolved paths for better UX
-                    for item in results:
-                        item["source"] = (directory / item["source"]).relative_to(
-                            temp_dir_with_copy
+                    for item in rows:
+                        source_name = item["source"]
+                        item["source"] = (
+                            source_name if rel == Path(".") else str(rel / source_name)
                         )
                         item["target"] = str(destination / item["target"])
-                        yield item
+                    return rows
 
-                # We end if we reach the root directory
-                if directory == temp_dir_with_copy:
-                    break
-                # Add parent directory to the list if it's not already there
-                if directory.parent not in deepest_dirs_list and not any(
-                    (
-                        existing_dir.is_relative_to(directory.parent)
-                        for existing_dir in deepest_dirs_list
-                    )
-                ):
-                    deepest_dirs_list.append(directory.parent)
-
-                # Remove the directory so the parent directory will contain only files
-                shutil.rmtree(directory)
+                # The Snowflake connection lives in a ContextVar that does not
+                # propagate to worker threads, so run each upload inside a copy
+                # of the calling thread's context (captured on this thread).
+                with ThreadPoolExecutor(max_workers=dir_workers) as executor:
+                    futures = [
+                        executor.submit(copy_context().run, _upload, unit)
+                        for unit in units
+                    ]
+                    for future in as_completed(futures):
+                        yield from future.result()
 
     @staticmethod
-    def _find_deepest_directories(root_directory: Path) -> list[Path]:
-        """
-        BFS to find the deepest directories. Build a tree of directories
-        structure and return leaves.
-        """
-        deepest_dirs: list[Path] = list()
-
-        queue: Deque[Path] = deque()
-        queue.append(root_directory)
-        while queue:
-            current_dir = queue.popleft()
-            # Sorted to have deterministic order
-            children_directories = sorted(
-                list(d for d in current_dir.iterdir() if d.is_dir())
-            )
-            if not children_directories and current_dir not in deepest_dirs:
-                deepest_dirs.append(current_dir)
-            else:
-                queue.extend([c for c in children_directories if c not in deepest_dirs])
-        deepest_dirs_list = sorted(
-            list(deepest_dirs), key=lambda d: len(d.parts), reverse=True
-        )
-        return deepest_dirs_list
+    def _link_or_copy_file(src: Path, dst: Path) -> None:
+        """Symlink ``src`` at ``dst``, falling back to a copy (e.g. on Windows)."""
+        absolute_src = resolve_without_follow(src)
+        try:
+            os.symlink(absolute_src, dst)
+        except OSError:
+            if not dst.parent.exists():
+                dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(absolute_src, dst)
 
     def copy_files(self, source_path: str, destination_path: str) -> SnowflakeCursor:
         source_stage_path = self.build_path(source_path)
