@@ -22,6 +22,7 @@
 ## New additions
 
 ## Fixes and improvements
+* `snow dcm plan`, `deploy`, and `purge` now render each altered object's changes as an indented tree, showing added, modified, and removed columns, constraints, grants, and other properties — with previous → new values — instead of only the object name. Long or multi-line values are collapsed to a single line.
 
 
 # v3.23.0
