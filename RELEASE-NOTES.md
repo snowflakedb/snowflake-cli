@@ -21,6 +21,7 @@
 
 ## New additions
 * `snow dcm plan` now supports the `--delta` flag for incremental deployments. This option enables processing only statements that have changed since the last deploy, plus statements potentially impacted by those changes. This feature is in Public Preview phase, gated by the `enable_dcm_plan_delta` CLI feature flag.
+* `snow dcm` commands are now generally available (GA). DCM provides infrastructure-as-code capabilities for managing Snowflake objects through declarative SQL files. All DCM commands are now available without needing to enable the `enable_snowflake_projects` feature flag.
 
 ## Fixes and improvements
 * Recursive stage uploads now upload directories concurrently instead of one at a time. This applies to every command that uploads a directory tree to a stage (e.g. `snow stage copy --recursive`, `snow dcm` deploy/plan/analyze, `snow dbt deploy`, `snow spcs service build-image`). Upload wall-clock is dominated by per-PUT round-trip latency, so trees with many nested folders (e.g. one file per directory) see a large speedup. Total upload concurrency is bounded by the `SNOWFLAKE_CLI_STAGE_UPLOAD_WORKERS` setting (config key `cli.stage_upload_workers`, default 16; set to 1 to restore the previous serial behavior). For `snow stage copy` this budget is shared with `--parallel` rather than multiplied by it, so existing invocations do not spawn more threads than before.
