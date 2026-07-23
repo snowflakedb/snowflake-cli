@@ -3223,6 +3223,25 @@ class TestResolveDeployDefaults:
         assert result["schema"] == "MY_SCHEMA"
 
     @patch(FETCH_APP_SERVICE_DEFAULTS, return_value={})
+    @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
+    @patch("snowflake.cli.api.cli_global_context.get_cli_context")
+    def test_bare_user_dollar_in_yml_is_expanded(
+        self, mock_fqn_ctx, mock_ctx, mock_params
+    ):
+        """A bare ``USER$`` database configured in snowflake.yml is expanded to
+        the caller's personal database via ``FQN.using_context()`` -- the same
+        built-in expansion other CLI commands rely on."""
+        from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
+
+        mock_fqn_ctx.return_value.connection = Mock(
+            user="TESTUSER", database=None, schema=None
+        )
+        entity = self._make_entity(schema="PUBLIC")
+        entity.fqn = FQN(database="USER$", schema="PUBLIC", name="MY_APP")
+        result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
+        assert result["database"] == "USER$TESTUSER"
+
+    @patch(FETCH_APP_SERVICE_DEFAULTS, return_value={})
     @patch(
         GET_CLI_CONTEXT,
         return_value=_mock_connection_context(
@@ -4591,6 +4610,80 @@ class TestValidateCommand:
             result = runner.invoke(["app", "validate"])
             assert result.exit_code == 0, result.output
             assert "Valid Snowflake App Runtime project" in result.output
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_validate_stays_offline_without_database(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_perform_bundle,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        """With no database configured, ``validate`` performs bundle-only
+        validation and must not resolve the connection context, so a future
+        refactor cannot silently make offline validation require a connection."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        entity.fqn = Mock(database=None, schema=None, name="MY_APP")
+        mock_get_entity.return_value = entity
+        self._configure_manager_mock(mock_manager_cls)
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "validate"])
+            assert result.exit_code == 0, result.output
+            assert "Valid Snowflake App Runtime project" in result.output
+
+        entity.fqn.using_context.assert_not_called()
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_validate_resolves_context_when_database_configured(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_perform_bundle,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        """When a database is configured, ``validate`` resolves the connection
+        context (which is where a bare ``USER$`` is expanded to the caller's
+        personal database) before validating the destination."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = self._make_validate_entity()
+        mock_get_entity.return_value = entity
+        self._configure_manager_mock(mock_manager_cls)
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "validate"])
+            assert result.exit_code == 0, result.output
+
+        entity.fqn.using_context.assert_called_once()
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands._get_entity")

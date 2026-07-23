@@ -563,7 +563,11 @@ def _resolve_deploy_defaults(
     """
 
     # ── 1. snowflake.yml values ───────────────────────────────────────
+    # Resolve db/schema from the active connection in place on the shared
+    # entity.fqn (also expands USER$ → USER$<user>); downstream re-reads of
+    # entity.fqn intentionally see the resolved value.
     fqn = entity.fqn
+    fqn.using_context()
     if app_name is None:
         app_name = fqn.name
     yml_vals: Dict[str, Optional[str]] = {

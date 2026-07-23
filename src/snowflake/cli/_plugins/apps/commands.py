@@ -467,6 +467,12 @@ def snowflake_app_validate(entity_id: Optional[str]) -> CommandResult:
 
     # ── Validate database and schema ──────────────────────────────────
     fqn = entity.fqn
+    if fqn.database:
+        # Only touch the connection when there is a destination to validate;
+        # bundle-only validation stays offline. Resolution happens in place on
+        # the shared entity.fqn (also expands USER$ → USER$<user>); downstream
+        # re-reads of entity.fqn (e.g. perform_bundle) see the resolved value.
+        fqn.using_context()
     database = fqn.database
     schema = fqn.schema
 
@@ -582,7 +588,11 @@ def snowflake_app_open(
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 
+    # Resolve db/schema from the active connection in place on the shared
+    # entity.fqn (also expands USER$ → USER$<user>); downstream re-reads of
+    # entity.fqn intentionally see the resolved value.
     fqn = entity.fqn
+    fqn.using_context()
     ctx = get_cli_context()
     metrics = ctx.metrics
 
@@ -643,7 +653,11 @@ def snowflake_app_events(
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 
+    # Resolve db/schema from the active connection in place on the shared
+    # entity.fqn (also expands USER$ → USER$<user>); downstream re-reads of
+    # entity.fqn intentionally see the resolved value.
     fqn = entity.fqn
+    fqn.using_context()
     # Rebuild to a 3-part name; entity FQN may carry extra fields (e.g. prefix)
     service_fqn = app_fqn(database=fqn.database, schema=fqn.schema, name=fqn.name)
 
@@ -730,7 +744,11 @@ def snowflake_app_deploy(
     entity = _get_entity(resolved_entity_id)
 
     # ── Extract entity configuration ──────────────────────────────────
+    # Resolve db/schema from the active connection in place on the shared
+    # entity.fqn (also expands USER$ → USER$<user>); downstream re-reads of
+    # entity.fqn (e.g. perform_bundle) intentionally see the resolved value.
     fqn = entity.fqn
+    fqn.using_context()
     app_name = fqn.name
 
     ctx = get_cli_context()
@@ -1150,7 +1168,11 @@ def snowflake_app_teardown(
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 
+    # Resolve db/schema from the active connection in place on the shared
+    # entity.fqn (also expands USER$ → USER$<user>); downstream re-reads of
+    # entity.fqn intentionally see the resolved value.
     fqn = entity.fqn
+    fqn.using_context()
     manager = SnowflakeAppManager()
     metrics = get_cli_context().metrics
     with metrics.span("snowflake_app.teardown.resolve_defaults"):
