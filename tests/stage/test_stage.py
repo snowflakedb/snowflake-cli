@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import glob
+import os
 from pathlib import Path
 from typing import Optional
 from unittest import mock
@@ -19,8 +20,14 @@ from unittest.mock import MagicMock
 
 import pytest
 from snowflake.cli._plugins.git.manager import GitManager
-from snowflake.cli._plugins.stage.manager import StageManager, TemporaryDirectory
+from snowflake.cli._plugins.stage.manager import (
+    STAGE_UPLOAD_WORKERS_ENV_VAR,
+    StageManager,
+    TemporaryDirectory,
+    _resolve_upload_workers,
+)
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.stage_path import StagePath
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
@@ -1486,12 +1493,33 @@ class RecursiveUploadTester:
             ):
                 if self.temp_directory is not None:
                     MockTemporaryDirectory.current_name = self.temp_directory.name
-                generator = StageManager().put_recursive(
-                    Path(local_path), "stageName", temp_directory=self.temp_directory
-                )
-                list(generator)
+                # Force a single upload worker so PUTs are recorded in a
+                # deterministic order (assertions below are order-insensitive
+                # regardless, but this keeps the mock bookkeeping simple).
+                with mock.patch.dict(os.environ, {STAGE_UPLOAD_WORKERS_ENV_VAR: "1"}):
+                    generator = StageManager().put_recursive(
+                        Path(local_path),
+                        "stageName",
+                        temp_directory=self.temp_directory,
+                    )
+                    list(generator)
 
         return Path(MockTemporaryDirectory.current_name)
+
+
+def _uploaded_destinations(tester: RecursiveUploadTester) -> list:
+    """Stage destinations of the PUTs the tester recorded, order-insensitive.
+
+    ``put_recursive`` uploads each directory through an isolated view, so a
+    recorded ``local_path`` is an opaque temp dir; the ``stage_path``
+    (destination) is the meaningful, deterministic output. One PUT is issued
+    per directory that directly contains files.
+    """
+    return sorted((call["stage_path"] for call in tester.calls), key=str)
+
+
+def _expected_destinations(*stage_strs: str) -> list:
+    return sorted((StagePath.from_stage_str(s) for s in stage_strs), key=str)
 
 
 NESTED_STRUCTURE = {
@@ -1528,42 +1556,132 @@ NESTED_STRUCTURE = {
 def test_recursive_upload(temporary_directory, pattern):
     tester = RecursiveUploadTester(temporary_directory)
     tester.prepare(structure=NESTED_STRUCTURE)
-    tmp_created_by_copy = tester.execute(local_path=temporary_directory + "/" + pattern)
+    tester.execute(local_path=temporary_directory + "/" + pattern)
 
-    assert tester.calls == [
-        # Leaves
-        dict(
-            local_path=tmp_created_by_copy / "dir2/dir21/dir211/dir2111",
-            stage_path=StagePath.from_stage_str("@stageName/dir2/dir21/dir211/dir2111"),
-        ),
-        dict(
-            local_path=tmp_created_by_copy / "dir1/dir12/",
-            stage_path=StagePath.from_stage_str("@stageName/dir1/dir12"),
-        ),
-        dict(
-            local_path=tmp_created_by_copy / "dir3/dir32/",
-            stage_path=StagePath.from_stage_str("@stageName/dir3/dir32"),
-        ),
-        # Next level
-        dict(
-            local_path=tmp_created_by_copy / "dir1/",
-            stage_path=StagePath.from_stage_str("@stageName/dir1"),
-        ),
-        dict(
-            local_path=tmp_created_by_copy / "dir3/",
-            stage_path=StagePath.from_stage_str("@stageName/dir3"),
-        ),
-        # Next level
-        dict(
-            local_path=tmp_created_by_copy / "dir2",
-            stage_path=StagePath.from_stage_str("@stageName/dir2"),
-        ),
-        # Next level
-        dict(
-            local_path=tmp_created_by_copy,
-            stage_path=StagePath.from_stage_str("@stageName"),
-        ),
-    ]
+    # One PUT per directory that directly contains files (order-insensitive:
+    # the uploads run concurrently).
+    assert _uploaded_destinations(tester) == _expected_destinations(
+        "@stageName",
+        "@stageName/dir1",
+        "@stageName/dir1/dir12",
+        "@stageName/dir2",
+        "@stageName/dir2/dir21/dir211/dir2111",
+        "@stageName/dir3",
+        "@stageName/dir3/dir32",
+    )
+
+
+def _collect_recursive_uploads(root: Path, *, parallel: bool):
+    """Drive put_recursive with the network PUT stubbed.
+
+    Returns (uploaded_set, put_count) where uploaded_set is the set of
+    (source, target) pairs the generator yields. The PUT itself is faked to
+    report the files in the directory it was handed, so this captures exactly
+    what put_recursive uploads and where. ``parallel`` selects the upload
+    budget (a fan-out of several workers vs. a single worker).
+    """
+
+    def fake_put(*args, **kwargs):
+        local_path = Path(kwargs["local_path"])
+        files = sorted(p.name for p in local_path.iterdir() if p.is_file())
+        cursor = MagicMock()
+        cursor.fetchall.return_value = [
+            {"source": name, "target": name} for name in files
+        ]
+        return cursor
+
+    put_mock = MagicMock(side_effect=fake_put)
+    sm = StageManager()
+    budget = "16" if parallel else "1"
+    with mock.patch.object(StageManager, "put", new=put_mock), mock.patch.dict(
+        os.environ, {STAGE_UPLOAD_WORKERS_ENV_VAR: budget}
+    ):
+        gen = sm.put_recursive(
+            local_path=root,
+            stage_path="@stageName",
+            temp_directory=root,
+        )
+        uploaded = {(str(item["source"]), str(item["target"])) for item in gen}
+    return uploaded, put_mock.call_count
+
+
+def test_put_recursive_output_is_worker_count_invariant(temporary_directory):
+    """put_recursive must yield the exact same {source -> target} set, and the
+    same number of PUTs (one per file-bearing directory), whether it fans out
+    across many workers or uploads one directory at a time. Only scheduling
+    differs."""
+    import shutil
+
+    src = Path(temporary_directory) / "src"
+    src.mkdir()
+    RecursiveUploadTester(str(src)).prepare(structure=NESTED_STRUCTURE)
+
+    seq_root = Path(temporary_directory) / "seq"
+    par_root = Path(temporary_directory) / "par"
+    shutil.copytree(src, seq_root)
+    shutil.copytree(src, par_root)
+
+    seq_uploads, seq_puts = _collect_recursive_uploads(seq_root, parallel=False)
+    par_uploads, par_puts = _collect_recursive_uploads(par_root, parallel=True)
+
+    assert par_uploads == seq_uploads
+    assert par_puts == seq_puts
+    # Sanity: every leaf file in the fixture is accounted for, and there is one
+    # PUT per file-bearing directory (batching preserved, not one PUT per file).
+    expected_files = sum(1 for p in src.rglob("*") if p.is_file())
+    assert len(seq_uploads) == expected_files
+    assert seq_puts < expected_files  # dirs with >1 file are batched
+
+
+def test_put_recursive_parallel_over_budget_stays_within_budget(temporary_directory):
+    """The worker budget is a hard cap on total upload threads.
+
+    When ``parallel`` exceeds the budget, put_recursive must clamp the per-PUT
+    connector ``PARALLEL`` so ``dir_workers * parallel <= budget`` still holds.
+    Regression: previously ``parallel > budget`` floored the fan-out to 1 but
+    still passed the un-clamped ``parallel`` to each PUT, so the connector spawned
+    ``parallel`` threads per directory and blew past the budget.
+    """
+    from snowflake.cli._plugins.stage import manager as stage_manager
+
+    src = Path(temporary_directory) / "src"
+    src.mkdir()
+    RecursiveUploadTester(str(src)).prepare(structure=NESTED_STRUCTURE)
+
+    budget = 4
+    requested_parallel = 16  # deliberately larger than the budget
+
+    put_mock = MagicMock(
+        side_effect=lambda *a, **k: MagicMock(fetchall=MagicMock(return_value=[]))
+    )
+    captured_max_workers: list = []
+    real_executor = stage_manager.ThreadPoolExecutor
+
+    def recording_executor(*args, **kwargs):
+        captured_max_workers.append(kwargs.get("max_workers"))
+        return real_executor(*args, **kwargs)
+
+    with mock.patch.object(StageManager, "put", new=put_mock), mock.patch.object(
+        stage_manager, "ThreadPoolExecutor", side_effect=recording_executor
+    ), mock.patch.dict(os.environ, {STAGE_UPLOAD_WORKERS_ENV_VAR: str(budget)}):
+        list(
+            StageManager().put_recursive(
+                local_path=src,
+                stage_path="@stageName",
+                parallel=requested_parallel,
+                temp_directory=src,
+            )
+        )
+
+    # Each PUT is told to use at most `budget` connector threads (clamped down
+    # from the requested 16), and the fan-out is sized so the product cannot
+    # exceed the budget.
+    put_parallels = [call.kwargs["parallel"] for call in put_mock.call_args_list]
+    assert put_parallels, "expected at least one PUT"
+    assert max(put_parallels) == budget
+    assert len(captured_max_workers) == 1
+    dir_workers = captured_max_workers[0]
+    assert dir_workers * max(put_parallels) <= budget
 
 
 def test_recursive_upload_with_empty_dir(temporary_directory):
@@ -1579,37 +1697,23 @@ def test_recursive_upload_with_empty_dir(temporary_directory):
 def test_recursive_upload_glob_file_pattern(temporary_directory):
     tester = RecursiveUploadTester(temporary_directory)
     tester.prepare(structure=NESTED_STRUCTURE)
-    tmp_created_by_copy = tester.execute(local_path=f"{temporary_directory}/**/*.py")
+    tester.execute(local_path=f"{temporary_directory}/**/*.py")
 
-    assert tester.calls == [
-        # Leaves
-        dict(
-            local_path=tmp_created_by_copy / "dir2/dir21/dir211/dir2111/",
-            stage_path=StagePath.from_stage_str("@stageName/dir2/dir21/dir211/dir2111"),
-        ),
-        dict(
-            local_path=tmp_created_by_copy / "dir1/dir12/",
-            stage_path=StagePath.from_stage_str("@stageName/dir1/dir12"),
-        ),
-        # Next level
-        dict(
-            local_path=tmp_created_by_copy / "dir1/",
-            stage_path=StagePath.from_stage_str("@stageName/dir1"),
-        ),
-    ]
+    # Only directories that contain a matching .py file are uploaded.
+    assert _uploaded_destinations(tester) == _expected_destinations(
+        "@stageName/dir1",
+        "@stageName/dir1/dir12",
+        "@stageName/dir2/dir21/dir211/dir2111",
+    )
 
 
 def test_recursive_upload_no_recursive_glob_pattern(temporary_directory):
     tester = RecursiveUploadTester(temporary_directory)
     tester.prepare(structure=NESTED_STRUCTURE)
-    tmp_created_by_copy = tester.execute(local_path=f"{temporary_directory}/*.foo")
+    tester.execute(local_path=f"{temporary_directory}/*.foo")
 
-    assert tester.calls == [
-        dict(
-            local_path=tmp_created_by_copy,
-            stage_path=StagePath.from_stage_str("@stageName"),
-        ),
-    ]
+    # Only the root file4.foo matches, so only the root directory is uploaded.
+    assert _uploaded_destinations(tester) == _expected_destinations("@stageName")
 
 
 NESTED_UNBALANCED_STRUCTURE = {
@@ -1724,12 +1828,14 @@ def test_stage_put_recursive_with_square_brackets(
 
     tester = RecursiveUploadTester(temporary_directory)
     tester.prepare(structure=structure)
-    tmp_created_by_copy = tester.execute(local_path=temporary_directory)
+    tester.execute(local_path=temporary_directory)
 
-    actual_paths = [call["local_path"] for call in tester.calls]
-    assert tmp_created_by_copy / "app/campaigns/[id]" in actual_paths
-    assert tmp_created_by_copy / "app/campaigns/[slug]" in actual_paths
-    assert len(tester.calls) >= 2
+    # Each bracketed directory is uploaded to its bracketed stage destination.
+    # (The isolated per-directory view means brackets never reach a PUT glob.)
+    destinations = {str(call["stage_path"]) for call in tester.calls}
+    assert any("[id]" in d for d in destinations)
+    assert any("[slug]" in d for d in destinations)
+    assert len(tester.calls) == 2
 
 
 @mock.patch(f"{STAGE_MANAGER}.execute_query")
@@ -1770,3 +1876,35 @@ def test_stage_put_with_square_brackets_and_trailing_slash(mock_execute, mock_cu
         assert call_args == (
             f"put file://{expected_path} @stageName auto_compress=false parallel=4 overwrite=False"
         )
+
+
+class TestStageUploadWorkers:
+    """Resolution of the recursive-upload concurrency budget."""
+
+    def test_defaults_when_unset(self, monkeypatch):
+        monkeypatch.delenv(STAGE_UPLOAD_WORKERS_ENV_VAR, raising=False)
+        # Literal on purpose: bumping DEFAULT_UPLOAD_WORKERS should be caught
+        # here as a deliberate change rather than pass silently.
+        assert _resolve_upload_workers() == 16
+
+    def test_empty_env_uses_default(self, monkeypatch):
+        # An empty value is treated as unset by the config system.
+        monkeypatch.setenv(STAGE_UPLOAD_WORKERS_ENV_VAR, "")
+        assert _resolve_upload_workers() == 16
+
+    @pytest.mark.parametrize("raw, expected", [("1", 1), ("8", 8), ("32", 32)])
+    def test_valid_env_override(self, monkeypatch, raw, expected):
+        monkeypatch.setenv(STAGE_UPLOAD_WORKERS_ENV_VAR, raw)
+        assert _resolve_upload_workers() == expected
+
+    @pytest.mark.parametrize("raw", ["0", "-1", "-100"])
+    def test_rejects_non_positive_env(self, monkeypatch, raw):
+        monkeypatch.setenv(STAGE_UPLOAD_WORKERS_ENV_VAR, raw)
+        with pytest.raises(CliError, match="must be a positive integer"):
+            _resolve_upload_workers()
+
+    @pytest.mark.parametrize("raw", ["abc", "3.5", "10x", " "])
+    def test_rejects_non_integer_env(self, monkeypatch, raw):
+        monkeypatch.setenv(STAGE_UPLOAD_WORKERS_ENV_VAR, raw)
+        with pytest.raises(CliError, match="expected a positive integer"):
+            _resolve_upload_workers()

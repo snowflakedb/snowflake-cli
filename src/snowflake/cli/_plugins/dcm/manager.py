@@ -293,6 +293,10 @@ class DCMProjectManager(SqlExecutionMixin):
                     local_path=tmp_path,
                     stage_path=stage_fqn.identifier,
                     temp_directory=tmp_path,
+                    # DCM uploads many small files; spend the whole upload
+                    # concurrency budget on directory fan-out rather than
+                    # per-PUT PARALLEL (parallel=1 => fan-out == full budget).
+                    parallel=1,
                 ):
                     log.info(
                         "Uploaded %s to %s",
