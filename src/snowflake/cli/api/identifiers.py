@@ -28,6 +28,7 @@ from snowflake.cli.api.project.util import (
     VALID_IDENTIFIER_REGEX,
     identifier_for_url,
     sanitize_identifier,
+    to_identifier,
     to_string_literal,
     unquote_identifier,
 )
@@ -207,6 +208,29 @@ class FQN:
 
     def using_connection(self, conn) -> "FQN":
         """Update the instance with database and schema from connection."""
+        # Expand bare USER$ → USER$<username> using the connection's known user.
+        # The server already supports this shorthand, but the CLI needs the full
+        # name for validation queries (SHOW DATABASES LIKE ...) and error messages.
+        # This only applies to a database supplied on the FQN itself; a database
+        # inherited from the connection below is already fully resolved.
+        #
+        # Match Snowflake's own recognition of the personal-database keyword: any
+        # unquoted spelling (USER$, user$, UsEr$) normalizes to USER$, and quoted
+        # "USER$" is accepted, but quoted mixed-case like "UsEr$" is a distinct,
+        # case-sensitive name that Snowflake does NOT treat as a personal database.
+        # unquote_identifier() already uppercases unquoted identifiers while
+        # preserving the case of quoted ones, so comparing without an extra
+        # .upper() reproduces exactly that distinction.
+        if (
+            self._database
+            and unquote_identifier(self._database) == "USER$"
+            and getattr(conn, "user", None)
+        ):
+            # Quote the whole name when the username isn't a safe unquoted
+            # identifier (e.g. email-style logins like "user@domain.com"), so
+            # the resulting personal database is well-formed for the
+            # client-side SHOW DATABASES LIKE ... validation and error messages.
+            self._database = to_identifier(f"USER${conn.user}")
         # Update the identifier only it if wasn't already a qualified name
         if conn.database and not self.database:
             self.set_database(conn.database)
