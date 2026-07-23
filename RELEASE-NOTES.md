@@ -20,6 +20,7 @@
 ## Deprecations
 
 ## New additions
+* Added `snow spcs service remote-build`, `remote-build-status`, and `remote-build-history` commands that submit and track SPCS image/app builds via the remote build REST API. These commands are hidden by default and gated by the `enable_spcs_remote_build` CLI feature flag.
 * `snow dcm plan` now supports the `--delta` flag for incremental deployments. This option enables processing only statements that have changed since the last deploy, plus statements potentially impacted by those changes. This feature is in Public Preview phase, gated by the `enable_dcm_plan_delta` CLI feature flag.
 * `snow dcm` commands are now generally available (GA). DCM provides infrastructure-as-code capabilities for managing Snowflake objects through declarative SQL files. All DCM commands are now available without needing to enable the `enable_snowflake_projects` feature flag.
 * DCM projects: `snow dcm deploy`, `snow dcm plan`, `snow dcm preview`, and `snow dcm raw-analyze` now support environment variables and secrets declared in a project manifest's `templating.env_vars`/`templating.env_secrets` sections. Declared values are collected from the shell environment at command time and forwarded to the server; `raw-analyze` previously had no support for this at all.
