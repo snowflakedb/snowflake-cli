@@ -16,6 +16,7 @@ from typing import List, Optional
 
 import typer
 from snowflake.cli._plugins.connection.util import get_account_identifier
+from snowflake.cli._plugins.dcm.env import collect_env_vars
 from snowflake.cli._plugins.dcm.exceptions import (
     InvalidManifestError,
     ManifestConfigurationError,
@@ -257,6 +258,7 @@ def _resolve_target_context(
     return TargetContext(
         project_identifier=project_id,
         configuration=effective_target.templating_config,
+        declared_variable_names=manifest.templating.declared_variable_names,
     )
 
 
@@ -335,6 +337,7 @@ def deploy(
 
     context = _resolve_context_with_required_manifest(from_location, identifier, target)
     project_id = context.project_identifier
+    env_vars = collect_env_vars(context.declared_variable_names)
 
     manager = DCMProjectManager()
     effective_stage = manager.sync_local_files(
@@ -353,6 +356,7 @@ def deploy(
             variables=variables,
             alias=alias,
             skip_plan=skip_plan,
+            env_vars=env_vars,
         )
 
     reporter = PlanReporter(save_output=save_output, command_name="deploy")
@@ -459,6 +463,7 @@ def plan(
 
     context = _resolve_context_with_required_manifest(from_location, identifier, target)
     project_id = context.project_identifier
+    env_vars = collect_env_vars(context.declared_variable_names)
 
     manager = DCMProjectManager()
     effective_stage = manager.sync_local_files(
@@ -475,6 +480,7 @@ def plan(
             variables=variables,
             save_output=save_output,
             delta=delta,
+            env_vars=env_vars,
         )
 
     reporter = PlanReporter(save_output=save_output, command_name="plan")
@@ -495,6 +501,7 @@ def raw_analyze(
 
     context = _resolve_context_with_required_manifest(from_location, identifier, target)
     project_id = context.project_identifier
+    env_vars = collect_env_vars(context.declared_variable_names)
 
     manager = DCMProjectManager()
     effective_stage = manager.sync_local_files(
@@ -510,6 +517,7 @@ def raw_analyze(
             from_stage=effective_stage,
             variables=variables,
             save_output=save_output,
+            env_vars=env_vars,
         )
 
     reporter = AnalyzeReporter(save_output=save_output)
@@ -686,6 +694,7 @@ def preview(
     """
     context = _resolve_context_with_required_manifest(from_location, identifier, target)
     project_id = context.project_identifier
+    env_vars = collect_env_vars(context.declared_variable_names)
 
     manager = DCMProjectManager()
     effective_stage = manager.sync_local_files(
@@ -705,6 +714,7 @@ def preview(
             from_stage=effective_stage,
             variables=variables,
             limit=limit,
+            env_vars=env_vars,
         )
 
     return QueryResult(result)
