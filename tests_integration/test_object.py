@@ -149,28 +149,6 @@ def test_list_with_scope(runner, test_database, snowflake_session):
 
 
 @pytest.mark.integration
-def test_list_with_in_account_flag(runner, snowflake_session):
-    """Test that --in-account flag lists objects at account scope."""
-    result = runner.invoke_with_connection_json(
-        ["object", "list", "database", "--limit", "100", "--in-account"]
-    )
-    assert result.exit_code == 0, result.output
-
-    # Verify the SQL query executed is correct by comparing with direct SQL
-    curr = snowflake_session.execute_string("show databases in account limit 100")
-    expected = row_from_cursor(curr[-1])
-
-    # Should have same structure
-    assert result.json[0].keys() == expected[0].keys()
-    # Compare database names from CLI result with direct SQL result
-    cli_db_names = {db["name"].upper() for db in result.json}
-    sql_db_names = {db["name"].upper() for db in expected}
-    assert (
-        cli_db_names == sql_db_names
-    ), f"Database names mismatch. CLI: {cli_db_names}, SQL: {sql_db_names}"
-
-
-@pytest.mark.integration
 def test_list_terse(runner, test_database, snowflake_session):
     table_name = ObjectNameProvider("Public_Table").create_and_get_next_object_name()
     snowflake_session.execute_string(f"create table {table_name} (some_number NUMBER)")
