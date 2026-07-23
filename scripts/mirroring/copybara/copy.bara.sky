@@ -53,7 +53,7 @@ core.workflow(
     mode = "ITERATIVE",
     origin = git.github_origin(
         url = SOURCE_REPO,
-        ref = "main",
+        ref = "main",  # overridden at runtime
     ),
     # Direct push — no PR gate. Safety relies on the denylist + the
     # verify_match checks below, plus environment approval on dispatch,
@@ -61,7 +61,7 @@ core.workflow(
     # which flags new files in public paths whose content looks internal.
     destination = git.github_destination(
         url = MIRROR_REPO,
-        push = "main",
+        push = "main",  # overridden at runtime
     ),
     authoring = authoring.pass_thru(
         "Mirror Bot <mirror-bot@snowflake.com>"

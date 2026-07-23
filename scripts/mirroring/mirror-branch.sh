@@ -11,8 +11,8 @@
 # All GitHub operations use gh api (not git-over-HTTPS) to avoid libcurl version
 # mismatches with Nix-managed git on the host.
 #
-# If the fork point is not yet on the mirror's main, the script fails fast with
-# instructions to run mirror-main.sh first. No --force or --init-history is used.
+# If the fork point is not yet on the mirror's trunk, the script fails fast with
+# instructions to run mirror-trunk.sh first. No --force or --init-history is used.
 #
 # Usage: mirror-branch.sh --branch <name> [--dry-run]
 #
@@ -41,7 +41,7 @@ done
 [[ -z "${SOURCE_GH_TOKEN:-}" ]] && { echo "ERROR: SOURCE_GH_TOKEN is not set" >&2; exit 1; }
 [[ -z "${MIRROR_GH_TOKEN:-}" ]] && { echo "ERROR: MIRROR_GH_TOKEN is not set" >&2; exit 1; }
 [[ -z "${BRANCH}"            ]] && { echo "ERROR: --branch is required" >&2;        exit 1; }
-[[ "${BRANCH}" == "main"     ]] && { echo "ERROR: use mirror-main.sh for the main branch" >&2; exit 1; }
+[[ "${BRANCH}" == "${TRUNK_BRANCH}" ]] && { echo "ERROR: use mirror-trunk.sh for the trunk branch" >&2; exit 1; }
 
 # ---------- seeding ----------
 if ! GH_TOKEN="${MIRROR_GH_TOKEN}" gh api \
@@ -51,24 +51,24 @@ if ! GH_TOKEN="${MIRROR_GH_TOKEN}" gh api \
 
   # Fork point: last common ancestor of source main and the release branch.
   forkpoint=$(GH_TOKEN="${SOURCE_GH_TOKEN}" gh api \
-    "repos/${SOURCE_ORG}/${SOURCE_REPO}/compare/main...${BRANCH}" \
+    "repos/${SOURCE_ORG}/${SOURCE_REPO}/compare/${TRUNK_BRANCH}...${BRANCH}" \
     --jq '.merge_base_commit.sha' 2>/dev/null) \
     || { echo "ERROR: cannot find '${BRANCH}' on source — does it exist?" >&2; exit 1; }
   [[ -z "${forkpoint}" ]] \
     && { echo "ERROR: cannot determine fork point for '${BRANCH}'" >&2; exit 1; }
 
   # Find the destination commit that corresponds to the fork point via the
-  # GitOrigin-RevId trailer Copybara stamps on every mirrored main commit.
-  echo "Searching mirror's main for GitOrigin-RevId: ${forkpoint}..."
+  # GitOrigin-RevId trailer Copybara stamps on every mirrored trunk commit.
+  echo "Searching mirror's '${TRUNK_BRANCH}' for GitOrigin-RevId: ${forkpoint}..."
   seed=$(GH_TOKEN="${MIRROR_GH_TOKEN}" gh api \
-    "repos/${MIRROR_ORG}/${MIRROR_REPO}/commits?sha=main&per_page=100" \
+    "repos/${MIRROR_ORG}/${MIRROR_REPO}/commits?sha=${TRUNK_BRANCH}&per_page=100" \
     --paginate \
     --jq ".[] | select(.commit.message | contains(\"GitOrigin-RevId: ${forkpoint}\")) | .sha" \
     | head -1 || true)
 
   if [[ -z "${seed}" ]]; then
-    echo "ERROR: fork point ${forkpoint} is not yet on the mirror's main." >&2
-    echo "       Run mirror-main.sh first, then retry." >&2
+    echo "ERROR: fork point ${forkpoint} is not yet on the mirror's '${TRUNK_BRANCH}'." >&2
+    echo "       Run mirror-trunk.sh first, then retry." >&2
     exit 1
   fi
 

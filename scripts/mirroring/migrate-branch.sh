@@ -60,13 +60,7 @@ fi
 extra_args=()
 [[ "${DRY_RUN}" == true ]] && extra_args+=("--dry-run")
 
-# main uses only the workflow name; other branches require a positional source
-# ref and --git-destination-push to override the "main" defaults in copy.bara.sky.
-if [[ "${BRANCH}" == "main" ]]; then
-  iterative_args=("${COPYBARA_WORKFLOW}" "--last-rev=${LAST_REV}"                                                 "${extra_args[@]}")
-else
-  iterative_args=("${COPYBARA_WORKFLOW}" "refs/heads/${BRANCH}" "--git-destination-push=refs/heads/${BRANCH}" "--last-rev=${LAST_REV}" "${extra_args[@]}")
-fi
+iterative_args=("${COPYBARA_WORKFLOW}" "refs/heads/${BRANCH}" "--git-destination-push=refs/heads/${BRANCH}" "--last-rev=${LAST_REV}" "${extra_args[@]}")
 
 # ---------- helpers ----------
 # Push a single baseline commit to the mirror branch: adds an empty .copybara

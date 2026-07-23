@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Local wrapper for mirror-main.sh.
+# Local wrapper for mirror-trunk.sh.
 # Mints tokens from the local GitHub CLI and App credentials, builds the
 # Copybara Docker image, then delegates to the core script.
 #
-# Usage: local-mirror-main.sh [--dry-run]
+# Usage: local-mirror-trunk.sh [--dry-run]
 set -euo pipefail
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
@@ -32,4 +32,4 @@ docker build \
   "${SCRIPT_DIR}/../copybara"
 
 # ---------- delegate ----------
-exec "${SCRIPT_DIR}/../mirror-main.sh" "$@"
+exec "${SCRIPT_DIR}/../mirror-trunk.sh" "$@"

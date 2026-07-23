@@ -23,8 +23,8 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 source "${SCRIPT_DIR}/lib/config.sh"
 
 # Tag patterns. Each drives a specific branch-inference search order.
-# Release tags:  vX.Y.Z      → search release-vX.Y.Z first, then main
-# RC tags:       vX.Y.Z-rcN  → search main first, then release-vX.Y.Z
+# Release tags:  vX.Y.Z      → search release-vX.Y.Z first, then trunk
+# RC tags:       vX.Y.Z-rcN  → search trunk first, then release-vX.Y.Z
 RELEASE_TAG_RE='^v[0-9]+\.[0-9]+\.[0-9]+$'
 RC_TAG_RE='^v[0-9]+\.[0-9]+\.[0-9]+-rc[0-9]+$'
 
@@ -97,9 +97,9 @@ while IFS= read -r tag; do
   # Determine the search order based on tag type.
   release_branch=$(infer_release_branch "${tag}")
   if [[ "${tag_type}" == "release" ]]; then
-    search_order=("${release_branch}" "main")
+    search_order=("${release_branch}" "${TRUNK_BRANCH}")
   else
-    search_order=("main" "${release_branch}")
+    search_order=("${TRUNK_BRANCH}" "${release_branch}")
   fi
 
   # Build full args list and delegate to the single-tag primitive.

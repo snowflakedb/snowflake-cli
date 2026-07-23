@@ -50,11 +50,11 @@ jobs:
           build-args: |
             COPYBARA_RELEASE=${{ env.COPYBARA_RELEASE }}
 
-      - name: Run mirror-main.sh
+      - name: Run mirror-trunk.sh
         env:
           SOURCE_GH_TOKEN: ${{ github.token }}
           MIRROR_GH_TOKEN: ${{ steps.mirror-token.outputs.token }}
         run: |
           args=()
           [[ "${{ inputs.dry_run }}" == "true" ]] && args+=(--dry-run)
-          bash scripts/mirroring/mirror-main.sh "${args[@]}"
+          bash scripts/mirroring/mirror-trunk.sh "${args[@]}"

@@ -13,6 +13,8 @@ MIRROR_REPO="snowflake-cli"
 MIRROR_BOT_NAME="Mirror Bot"
 MIRROR_BOT_EMAIL="mirror-bot@snowflake.com"
 
+TRUNK_BRANCH="main"
+
 # Copybara workflow name — must match the name() in copy.bara.sky
 COPYBARA_WORKFLOW="mirror"
 

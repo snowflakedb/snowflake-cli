@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Scheduled incremental mirror of the main branch.
+# Scheduled incremental mirror of the trunk branch (TRUNK_BRANCH in lib/config.sh).
 # No branching logic — if the destination has no GitOrigin-RevId baseline,
-# Copybara fails fast. Run migrate-branch.sh --branch main first.
+# Copybara fails fast. Run migrate-branch.sh --branch <trunk> first.
 #
-# Usage: mirror-main.sh [--dry-run]
+# Usage: mirror-trunk.sh [--dry-run]
 #
 # Required env:
 #   SOURCE_GH_TOKEN   token for internal source repo
@@ -29,9 +29,9 @@ done
 [[ -z "${MIRROR_GH_TOKEN:-}" ]] && { echo "ERROR: MIRROR_GH_TOKEN is not set" >&2; exit 1; }
 
 # ---------- run ----------
-extra_args=()
+extra_args=("refs/heads/${TRUNK_BRANCH}" "--git-destination-push=refs/heads/${TRUNK_BRANCH}")
 [[ "${DRY_RUN}" == true ]] && extra_args+=("--dry-run")
 
 rc=0
 copybara_run "${COPYBARA_WORKFLOW}" "${extra_args[@]}" || rc=$?
-handle_copybara_rc "${rc}" "main"
+handle_copybara_rc "${rc}" "${TRUNK_BRANCH}"
