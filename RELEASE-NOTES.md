@@ -20,6 +20,7 @@
 ## Deprecations
 
 ## New additions
+* `snow dcm plan` now supports the `--delta` flag for incremental deployments. This option enables processing only statements that have changed since the last deploy, plus statements potentially impacted by those changes. This feature is in Public Preview phase, gated by the `enable_dcm_plan_delta` CLI feature flag.
 
 ## Fixes and improvements
 * `snow dcm plan`, `deploy`, and `purge` now render each altered object's changes as an indented tree, showing added, modified, and removed columns, constraints, grants, and other properties — with previous → new values — instead of only the object name. Long or multi-line values are collapsed to a single line.
