@@ -13,7 +13,7 @@
 # limitations under the License.
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Set
 
 import yaml
 from snowflake.cli._plugins.dcm.exceptions import (
@@ -39,6 +39,21 @@ class DCMTemplating:
 
     defaults: Dict[str, Any] = field(default_factory=dict)
     configurations: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    env_vars: List[str] = field(default_factory=list)
+    env_secrets: List[str] = field(default_factory=list)
+
+    @staticmethod
+    def _declared_names(raw_entries: List[Any]) -> List[str]:
+        """Each entry is a single-key mapping (e.g. `- BUILD_NUMBER:` in the
+        manifest) -- the key is the declared name; the value is a reserved,
+        currently-empty placeholder for future per-variable properties."""
+        names: List[str] = []
+        for entry in raw_entries:
+            if isinstance(entry, dict):
+                names.extend(entry.keys())
+            else:
+                names.append(entry)
+        return names
 
     @classmethod
     def from_dict(cls, data: Optional[Dict[str, Any]]) -> "DCMTemplating":
@@ -48,7 +63,18 @@ class DCMTemplating:
         return cls(
             defaults=data.get("defaults", {}),
             configurations={k.upper(): v for k, v in configurations.items()},
+            env_vars=cls._declared_names(data.get("env_vars") or []),
+            env_secrets=cls._declared_names(data.get("env_secrets") or []),
         )
+
+    @property
+    def declared_variable_names(self) -> Set[str]:
+        """Names declared in either env_vars or env_secrets.
+
+        The CLI does not distinguish secret vs. non-secret declarations —
+        that distinction is only meaningful server-side.
+        """
+        return set(self.env_vars) | set(self.env_secrets)
 
 
 @dataclass
@@ -219,3 +245,4 @@ class TargetContext:
 
     project_identifier: FQN
     configuration: Optional[str] = None
+    declared_variable_names: Set[str] = field(default_factory=set)
