@@ -35,7 +35,10 @@ from snowflake.cli._plugins.spcs.services.service_entity_model import ServiceEnt
 from snowflake.cli._plugins.spcs.services.service_project_paths import (
     ServiceProjectPaths,
 )
-from snowflake.cli._plugins.stage.manager import StageManager
+from snowflake.cli._plugins.stage.manager import (
+    InternalStageEncryptionType,
+    StageManager,
+)
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
@@ -735,6 +738,15 @@ def build_image(
         help="Stage to store build context files. Format: [db.][schema.]stage_name. If not provided, a temporary stage will be created and dropped automatically. If provided, only the uploaded build context files will be removed after the build completes.",
         show_default=False,
     ),
+    stage_encryption: Optional[str] = typer.Option(
+        None,
+        "--stage-encryption",
+        help=(
+            "SNOWFLAKE_SSE or SNOWFLAKE_FULL for an auto-created temporary stage; "
+            "ignored when --stage is set. Omit for legacy CREATE STAGE (no ENCRYPTION clause)."
+        ),
+        show_default=False,
+    ),
     job_name: str = typer.Option(
         None,
         "--job-name",
@@ -769,6 +781,9 @@ def build_image(
     If --stage is not provided, a stage will be automatically created using the
     current session's database and schema context, and dropped after the build completes.
     If your session doesn't have a database/schema set, you should provide --stage explicitly.
+
+    Optional ``--stage-encryption`` applies only when the CLI creates that temporary stage
+    (for example use ``SNOWFLAKE_SSE`` when your deployment requires it for stage-mounted builds).
     """
     # Verify Dockerfile exists in build context directory
     dockerfile_path = build_context_dir / "Dockerfile"
@@ -804,15 +819,31 @@ def build_image(
                 f"Invalid job name '{job_name}'. Must be a valid unquoted identifier."
             )
 
-    stage_manager = StageManager()
     use_temporary_stage = stage is None
+
+    temp_encryption: InternalStageEncryptionType | None = None
+    if stage_encryption is not None:
+        key = stage_encryption.strip().upper()
+        try:
+            temp_encryption = InternalStageEncryptionType(key)
+        except ValueError:
+            allowed = ", ".join(sorted(e.value for e in InternalStageEncryptionType))
+            raise CliArgumentError(
+                f"Invalid --stage-encryption {stage_encryption!r}. "
+                f"Expected one of: {allowed}."
+            )
+
+    stage_manager = StageManager()
 
     if use_temporary_stage:
         # Create a stage
         stage = f"{job_name}_stage"
         cli_console.step(f"Creating temporary stage: {stage}")
         stage_fqn = FQN.from_string(stage).using_context()
-        stage_manager.create(fqn=stage_fqn)
+        if temp_encryption is not None:
+            stage_manager.create(fqn=stage_fqn, encryption=temp_encryption)
+        else:
+            stage_manager.create(fqn=stage_fqn)
     else:
         # Use the provided stage (ensure it exists)
         stage_fqn = FQN.from_string(stage)
