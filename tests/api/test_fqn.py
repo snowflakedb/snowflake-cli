@@ -315,6 +315,64 @@ def test_using_connection():
     assert fqn.identifier == "database_test.test_schema.name"
 
 
+def test_using_connection_expands_bare_user_dollar():
+    conn = MagicMock(database=None, schema=None, user="TESTUSER")
+    fqn = FQN(database="USER$", schema="PUBLIC", name="my_ws").using_connection(conn)
+    assert fqn.database == "USER$TESTUSER"
+
+
+def test_using_connection_expands_quoted_bare_user_dollar():
+    conn = MagicMock(database=None, schema=None, user="TESTUSER")
+    fqn = FQN(database='"USER$"', schema="PUBLIC", name="my_ws").using_connection(conn)
+    assert fqn.database == "USER$TESTUSER"
+
+
+def test_using_connection_expands_unquoted_mixed_case_user_dollar():
+    # Unquoted identifiers are case-insensitive in Snowflake, so UsEr$ is the
+    # same personal-database keyword as USER$ and should expand.
+    conn = MagicMock(database=None, schema=None, user="TESTUSER")
+    fqn = FQN(database="UsEr$", schema="PUBLIC", name="my_ws").using_connection(conn)
+    assert fqn.database == "USER$TESTUSER"
+
+
+def test_using_connection_does_not_expand_quoted_mixed_case_user_dollar():
+    # Quoted "UsEr$" is a distinct, case-sensitive name that Snowflake does NOT
+    # treat as a personal database, so it must be left untouched.
+    conn = MagicMock(database=None, schema=None, user="TESTUSER")
+    fqn = FQN(database='"UsEr$"', schema="PUBLIC", name="my_ws").using_connection(conn)
+    assert fqn.database == '"UsEr$"'
+
+
+def test_using_connection_does_not_expand_full_pdb():
+    conn = MagicMock(database=None, schema=None, user="TESTUSER")
+    fqn = FQN(database="USER$TESTUSER", schema="PUBLIC", name="my_ws").using_connection(
+        conn
+    )
+    assert fqn.database == "USER$TESTUSER"
+
+
+def test_using_connection_skips_expansion_when_no_user():
+    conn = MagicMock(database=None, schema=None, user=None)
+    fqn = FQN(database="USER$", schema="PUBLIC", name="my_ws").using_connection(conn)
+    assert fqn.database == "USER$"
+
+
+def test_using_connection_quotes_unsafe_username():
+    # An email-style login isn't a safe unquoted identifier, so the resulting
+    # personal database must be quoted to stay well-formed downstream.
+    conn = MagicMock(database=None, schema=None, user="user@domain.com")
+    fqn = FQN(database="USER$", schema="PUBLIC", name="my_ws").using_connection(conn)
+    assert fqn.database == '"USER$user@domain.com"'
+
+
+def test_using_connection_user_dollar_wins_over_conn_database():
+    # Expansion runs before the connection-database inheritance, so a USER$
+    # supplied on the FQN is not clobbered by a differing connection database.
+    conn = MagicMock(database="OTHER_DB", schema=None, user="TESTUSER")
+    fqn = FQN(database="USER$", schema="PUBLIC", name="my_ws").using_connection(conn)
+    assert fqn.database == "USER$TESTUSER"
+
+
 @mock.patch("snowflake.cli.api.cli_global_context.get_cli_context")
 def test_using_context(mock_ctx):
     mock_ctx().connection = MagicMock(database="database_test", schema="test_schema")
