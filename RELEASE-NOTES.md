@@ -20,6 +20,7 @@
 ## Deprecations
 
 ## New additions
+* Added optional `--validation-profile` to `snow spcs service remote-build` (e.g. `ML_JOB`, `NOTEBOOK`). The value is forwarded as `validation_profile` on `POST /api/v2/remote-build/execute` so the image builder can select a pre-baked validation ruleset. When omitted, no image validation is requested. Ignored for `--build-type app`.
 * Added `snow spcs service remote-build`, `remote-build-status`, and `remote-build-history` commands that submit and track SPCS image/app builds via the remote build REST API. These commands are hidden by default and gated by the `enable_spcs_remote_build` CLI feature flag.
 * `snow dcm plan` now supports the `--delta` flag for incremental deployments. This option enables processing only statements that have changed since the last deploy, plus statements potentially impacted by those changes. This feature is in Public Preview phase, gated by the `enable_dcm_plan_delta` CLI feature flag.
 * `snow dcm` commands are now generally available (GA). DCM provides infrastructure-as-code capabilities for managing Snowflake objects through declarative SQL files. All DCM commands are now available without needing to enable the `enable_snowflake_projects` feature flag.

@@ -125,6 +125,7 @@ class RemoteBuildManager(SqlExecutionMixin):
         project_type: Optional[str] = None,
         compute_pool: Optional[str] = None,
         build_type: str = "image",
+        validation_profile: Optional[str] = None,
     ) -> str:
         """
         Submit a remote build via POST /api/v2/remote-build/execute.
@@ -142,6 +143,10 @@ class RemoteBuildManager(SqlExecutionMixin):
             project_type: Project type hint for app builds (e.g. ``"node"``, ``"python"``).
             compute_pool: Compute pool to run the build job on.
             build_type: ``"image"`` (default) or ``"app"``.
+            validation_profile: Validation profile for image builds (e.g. ``"ML_JOB"``,
+                ``"NOTEBOOK"``). Selects the pre-baked ruleset the image builder runs before
+                publish. Ignored by the server for app builds. When omitted, no image
+                validation is requested.
 
         Returns:
             The ``job_name`` assigned to this build by the server.
@@ -161,6 +166,8 @@ class RemoteBuildManager(SqlExecutionMixin):
             body["project_type"] = project_type
         if compute_pool:
             body["compute_pool"] = compute_pool
+        if validation_profile:
+            body["validation_profile"] = validation_profile
 
         rest = RestApi(self._conn)
         try:

@@ -21849,42 +21849,51 @@
    this command works.                                                            
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | *  --build-context-dir          DIRECTORY  Directory to use as build         |
-  |                                            context. Must contain a           |
-  |                                            Dockerfile (image) or project     |
-  |                                            root (app).                       |
-  |                                            [required]                        |
-  |    --location                   TEXT       Target repository for the build   |
-  |                                            output. For image builds: IMAGE   |
-  |                                            REPOSITORY in [db.][schema.]repo  |
-  |                                            format (optional, account default |
-  |                                            used when omitted). For app       |
-  |                                            builds: ARTIFACT REPOSITORY in    |
-  |                                            db.schema.repo format (required). |
-  |    --name                       TEXT       Output name. For image builds:    |
-  |                                            short image name without a tag.   |
-  |                                            For app builds: artifact package  |
-  |                                            name. Auto-generated when         |
-  |                                            omitted.                          |
-  |    --image-tag                  TEXT       Tag for the built image. Applies  |
-  |                                            to image builds only. Defaults to |
-  |                                            'latest' when omitted.            |
-  |    --project-type               TEXT       Project type hint for app builds  |
-  |                                            (e.g. 'node', 'python'). Ignored  |
-  |                                            for image builds.                 |
-  |    --compute-pool               TEXT       Compute pool to run the build job |
-  |                                            on. Uses the platform default     |
-  |                                            when omitted.                     |
-  |    --stage                      TEXT       Stage to store build context      |
-  |                                            files. Format:                    |
-  |                                            [db.][schema.]stage_name. If not  |
-  |                                            provided, a temporary stage will  |
-  |                                            be created and dropped            |
-  |                                            automatically.                    |
-  |    --build-type                 TEXT       Type of build to execute: 'image' |
-  |                                            (default) or 'app'.               |
-  |                                            [default: image]                  |
-  |    --help               -h                 Show this message and exit.       |
+  | *  --build-context-dir           DIRECTORY  Directory to use as build        |
+  |                                             context. Must contain a          |
+  |                                             Dockerfile (image) or project    |
+  |                                             root (app).                      |
+  |                                             [required]                       |
+  |    --location                    TEXT       Target repository for the build  |
+  |                                             output. For image builds: IMAGE  |
+  |                                             REPOSITORY in [db.][schema.]repo |
+  |                                             format (optional, account        |
+  |                                             default used when omitted). For  |
+  |                                             app builds: ARTIFACT REPOSITORY  |
+  |                                             in db.schema.repo format         |
+  |                                             (required).                      |
+  |    --name                        TEXT       Output name. For image builds:   |
+  |                                             short image name without a tag.  |
+  |                                             For app builds: artifact package |
+  |                                             name. Auto-generated when        |
+  |                                             omitted.                         |
+  |    --image-tag                   TEXT       Tag for the built image. Applies |
+  |                                             to image builds only. Defaults   |
+  |                                             to 'latest' when omitted.        |
+  |    --project-type                TEXT       Project type hint for app builds |
+  |                                             (e.g. 'node', 'python'). Ignored |
+  |                                             for image builds.                |
+  |    --compute-pool                TEXT       Compute pool to run the build    |
+  |                                             job on. Uses the platform        |
+  |                                             default when omitted.            |
+  |    --stage                       TEXT       Stage to store build context     |
+  |                                             files. Format:                   |
+  |                                             [db.][schema.]stage_name. If not |
+  |                                             provided, a temporary stage will |
+  |                                             be created and dropped           |
+  |                                             automatically.                   |
+  |    --build-type                  TEXT       Type of build to execute:        |
+  |                                             'image' (default) or 'app'.      |
+  |                                             [default: image]                 |
+  |    --validation-profile          TEXT       Validation profile for image     |
+  |                                             builds (e.g. ML_JOB, NOTEBOOK).  |
+  |                                             Selects the pre-baked ruleset    |
+  |                                             the image builder runs before    |
+  |                                             publish. Ignored for             |
+  |                                             --build-type app. When omitted,  |
+  |                                             no image validation is           |
+  |                                             requested.                       |
+  |    --help                -h                 Show this message and exit.      |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
