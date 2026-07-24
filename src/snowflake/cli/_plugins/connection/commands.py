@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import os.path
+from dataclasses import asdict
 from pathlib import Path
 from typing import Optional
 
@@ -28,6 +29,13 @@ from click import (  # type: ignore
 )
 from click.core import ParameterSource  # type: ignore
 from snowflake import connector
+from snowflake.cli._plugins.connection.diagnostic import (
+    DiagnosticReport,
+    NetworkPolicySnapshot,
+    collect_network_policy,
+    run_diagnostic,
+    status_line,
+)
 from snowflake.cli._plugins.connection.util import (
     strip_if_value_present,
 )
@@ -67,12 +75,15 @@ from snowflake.cli.api.config import (
 from snowflake.cli.api.config_ng.masking import mask_sensitive_value
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
+from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
     MessageResult,
+    MultipleResults,
     ObjectResult,
 )
+from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector import ProgrammingError
 from snowflake.connector.constants import CONNECTIONS_FILE
@@ -395,6 +406,15 @@ def test(
 
     # Test connection
     cli_context = get_cli_context()
+    conn_ctx = cli_context.connection_context
+
+    # The connector's `enable_diag=True` runs ConnectionDiagnostic during
+    # connect() — a silent multi-second probe of every endpoint. Surface a
+    # heads-up so the wait isn't unexplained; our own per-endpoint stream
+    # comes later via `_connection_test_with_diag`.
+    if conn_ctx.enable_diag and cli_context.output_format == OutputFormat.TABLE:
+        cli_console.message("Running connector connectivity probe...")
+
     conn = cli_context.connection
 
     # Test session attributes
@@ -416,7 +436,6 @@ def test(
     except ProgrammingError as err:
         raise ClickException(str(err))
 
-    conn_ctx = cli_context.connection_context
     result = {
         "Connection name": conn_ctx.connection_name,
         "Status": "OK",
@@ -432,8 +451,144 @@ def test(
         result["Diag Report Location"] = os.path.join(
             conn_ctx.diag_log_path, "SnowflakeConnectionTestReport.txt"
         )
+        return _connection_test_with_diag(conn, conn_ctx, result)
 
     return ObjectResult(result)
+
+
+def _connection_test_with_diag(
+    conn,
+    conn_ctx,
+    connection_summary: dict,
+) -> CommandResult:
+    """Run the SnowCD-style per-endpoint diagnostic and assemble the result.
+
+    For TABLE output: streams `Checking <TYPE>: <host> <icon>` lines as the
+    run progresses, then appends a per-endpoint table, a network-policy block,
+    and a `Results: ...` summary line.
+
+    For JSON / CSV output: returns the structured diagnostic nested under a
+    `Diagnostic` key so consumers can read everything off one object.
+    """
+    is_table_output = get_cli_context().output_format == OutputFormat.TABLE
+
+    if is_table_output:
+        cli_console.message("Fetching allowlist from Snowflake...")
+    report = run_diagnostic(
+        conn=conn,
+        allowlist_path=conn_ctx.diag_allowlist_path,
+        on_check=lambda c: (
+            cli_console.message(status_line(c)) if is_table_output else None
+        ),
+    )
+
+    if is_table_output:
+        cli_console.message("Inspecting network policies...")
+    policy = collect_network_policy(conn, user=conn.user)
+
+    if not is_table_output:
+        connection_summary["Diagnostic"] = {
+            "checks": [asdict(c) for c in report.checks],
+            "healthy": report.healthy,
+            "unhealthy": report.unhealthy,
+            "skipped": report.skipped,
+            "tested": report.tested,
+            "network_policy": asdict(policy),
+        }
+        return ObjectResult(connection_summary)
+
+    return _diagnostic_table_results(connection_summary, report, policy)
+
+
+def _safe(value: Optional[str], fallback: str = "") -> str:
+    """Return `value` with ANSI escapes stripped, or `fallback` when missing."""
+    if value is None or value == "":
+        return fallback
+    return sanitize_for_terminal(value) or fallback
+
+
+def _diagnostic_table_results(
+    connection_summary: dict,
+    report: DiagnosticReport,
+    policy: NetworkPolicySnapshot,
+) -> CommandResult:
+    """Assemble the TABLE-format output: summary, per-endpoint rows, policy block, totals.
+
+    Every server-derived string (host, IP, policy/rule names, allow/block lists,
+    cert metadata) is run through `sanitize_for_terminal` before display so a
+    crafted response from `SYSTEM$ALLOWLIST()` or `DESC NETWORK POLICY` cannot
+    inject ANSI escape sequences into the user's terminal.
+    """
+    results = MultipleResults()
+    results.add(ObjectResult(connection_summary))
+
+    tested_rows = [
+        {
+            "url": _safe(c.host),
+            "type": _safe(c.type),
+            "status": c.status,
+            "latency_ms": c.latency_ms if c.latency_ms is not None else "",
+            "issuer": _safe(c.cert_issuer),
+            "cert_expires": _safe(c.cert_expires),
+        }
+        for c in report.checks
+        if c.status != "Skipped"
+    ]
+    if tested_rows:
+        results.add(CollectionResult(tested_rows))
+
+    if policy.has_policy():
+        policy_summary = {
+            "Effective network policy": _safe(policy.effective_policy),
+            "Source": "user" if policy.user_policy else "account",
+            "Account-level": _safe(policy.account_policy, "(none)"),
+            "User-level": _safe(policy.user_policy, "(none)"),
+            "Current IP": _safe(policy.current_ip, "(unknown)"),
+            "Allowed IPs": ", ".join(
+                sanitize_for_terminal(v) or "" for v in policy.allowed_ip_list
+            )
+            or "(none)",
+            "Blocked IPs": ", ".join(
+                sanitize_for_terminal(v) or "" for v in policy.blocked_ip_list
+            )
+            or "(none)",
+            "Allowed network rules": ", ".join(
+                sanitize_for_terminal(v) or "" for v in policy.allowed_network_rule_list
+            )
+            or "(none)",
+            "Blocked network rules": ", ".join(
+                sanitize_for_terminal(v) or "" for v in policy.blocked_network_rule_list
+            )
+            or "(none)",
+        }
+        if policy.error:
+            # `error` interpolates the server-supplied policy name.
+            policy_summary["Note"] = _safe(policy.error)
+        results.add(ObjectResult(policy_summary))
+        if policy.rules:
+            results.add(
+                CollectionResult(
+                    [
+                        {
+                            "rule": _safe(r.name),
+                            "mode": _safe(r.mode),
+                            "type": _safe(r.type),
+                            "values": ", ".join(
+                                sanitize_for_terminal(v) or "" for v in r.values
+                            ),
+                        }
+                        for r in policy.rules
+                    ]
+                )
+            )
+    elif policy.current_ip:
+        results.add(
+            MessageResult(
+                f"No network policy in effect (current IP: {_safe(policy.current_ip)})."
+            )
+        )
+    results.add(MessageResult(report.summary_line()))
+    return results
 
 
 @app.command(requires_connection=False)
