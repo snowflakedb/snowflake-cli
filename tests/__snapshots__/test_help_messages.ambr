@@ -24828,8 +24828,11 @@
   |                                    exists. It only uploads new and           |
   |                                    overwrites existing files, but does not   |
   |                                    remove any files already on the stage.    |
-  | --prune        --no-prune          Delete files that exist in the stage, but |
-  |                                    not in the local filesystem.              |
+  | --prune        --no-prune          Delete files that exist in the app's      |
+  |                                    stage directory but not in the local      |
+  |                                    filesystem. When multiple apps share the  |
+  |                                    same stage, only the deployed app's files |
+  |                                    are affected.                             |
   |                                    [default: no-prune]                       |
   | --open                             Whether to open the Streamlit app in a    |
   |                                    browser.                                  |
