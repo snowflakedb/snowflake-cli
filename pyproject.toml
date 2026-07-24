@@ -104,6 +104,11 @@ packages = ["src/snowflake"]
 [tool.hatch.envs.default]
 python = "3.10"
 features = ["development"]
+# Use uv as the installer for faster environment creation (notably on CI
+# cache-miss). Scoped to the default (unit-test) env; the integration/e2e
+# envs still use pip because their `pip install` pre-install steps have not
+# been verified against uv's pip-less virtualenvs.
+installer = "uv"
 
 [tool.hatch.envs.default.scripts]
 # Unit tests are parallelized with pytest-xdist. `loaded_modules` runs serially
