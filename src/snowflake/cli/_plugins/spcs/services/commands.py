@@ -1083,6 +1083,16 @@ def remote_build(
         help="Type of build to execute: 'image' (default) or 'app'.",
         show_default=True,
     ),
+    validation_profile: Optional[str] = typer.Option(
+        None,
+        "--validation-profile",
+        help=(
+            "Validation profile for image builds (e.g. ML_JOB, NOTEBOOK). "
+            "Selects the pre-baked ruleset the image builder runs before publish. "
+            "Ignored for --build-type app. When omitted, no image validation is requested."
+        ),
+        show_default=False,
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -1205,6 +1215,7 @@ def remote_build(
             project_type=project_type,
             compute_pool=compute_pool,
             build_type=build_type,
+            validation_profile=validation_profile,
         )
     except ClickException:
         # CliError / ClickException already carry a user-friendly message; clean up then

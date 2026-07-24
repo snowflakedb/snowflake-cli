@@ -166,6 +166,26 @@ class TestRemoteBuildManagerCreateRemoteBuilder:
         assert "name" not in body
         assert "image_tag" not in body
         assert "job_name" not in body
+        assert "validation_profile" not in body
+
+    @patch(_REST_API_SEND)
+    def test_create_remote_builder_with_validation_profile(self, mock_send):
+        """validation_profile is included in the body when provided."""
+        mock_send.return_value = {"job_name": "server_assigned_job"}
+        manager = self._make_manager()
+
+        result = manager.create_remote_builder(
+            build_source="@MY_DB.PUBLIC.SRC/ctx",
+            location="my_db.my_schema.my_repo",
+            name="my_image",
+            image_tag="v1.0",
+            validation_profile="ML_JOB",
+        )
+
+        assert result == "server_assigned_job"
+        body = mock_send.call_args[1]["data"]
+        assert body["validation_profile"] == "ML_JOB"
+        assert body["build_type"] == "image"
 
     @patch(_REST_API_SEND)
     def test_create_remote_builder_all_fields(self, mock_send):
@@ -181,6 +201,7 @@ class TestRemoteBuildManagerCreateRemoteBuilder:
             project_type="node",
             compute_pool="MY_POOL",
             build_type="app",
+            validation_profile="NOTEBOOK",
         )
 
         assert result == "server_assigned_job"
@@ -192,6 +213,7 @@ class TestRemoteBuildManagerCreateRemoteBuilder:
         assert body["project_type"] == "node"
         assert body["compute_pool"] == "MY_POOL"
         assert body["build_type"] == "app"
+        assert body["validation_profile"] == "NOTEBOOK"
         # These SPCS-specific knobs were removed from the CLI/manager surface so the
         # backend can change (e.g. SPCS → CNG) without a CLI-facing contract change.
         assert "runtime_image" not in body
@@ -727,6 +749,7 @@ class TestRemoteBuildCliSuccess:
         assert call_kwargs["name"] == "my_image"
         assert call_kwargs["image_tag"] == "v1.0"
         assert call_kwargs["build_type"] == "image"
+        assert call_kwargs["validation_profile"] is None
         assert "@" in call_kwargs["build_source"]
         assert "build_contexts/" in call_kwargs["build_source"]
 
@@ -735,6 +758,66 @@ class TestRemoteBuildCliSuccess:
 
         # Success message appears
         assert "remote_build_test123" in result.output or "DONE" in result.output
+
+    @patch("time.sleep")
+    @patch(_COMMANDS_OBJECT_MANAGER)
+    @patch(_COMMANDS_SERVICE_MANAGER)
+    @patch(_COMMANDS_REMOTE_BUILD_MANAGER)
+    @patch(_STAGE_PUT)
+    @patch(_STAGE_EXECUTE_QUERY)
+    def test_remote_build_forwards_validation_profile(
+        self,
+        mock_stage_exec,
+        mock_stage_put,
+        mock_rb_manager_class,
+        mock_svc_manager_class,
+        mock_obj_manager_class,
+        mock_sleep,
+        runner,
+        temporary_directory,
+    ):
+        """--validation-profile is passed through to create_remote_builder unchanged."""
+        ctx = _make_build_context(Path(temporary_directory))
+        mock_stage_put.return_value = Mock(fetchall=lambda: [])
+
+        mock_rb_manager = Mock()
+        mock_rb_manager_class.return_value = mock_rb_manager
+        mock_rb_manager.create_remote_builder.return_value = "remote_build_val123"
+
+        done_status = RemoteBuildJobStatus.from_dict(
+            {**_SAMPLE_JOB, "job_name": "remote_build_val123", "job_status": "DONE"}
+        )
+        mock_rb_manager.get_remote_builder.return_value = done_status
+
+        mock_svc_manager = Mock()
+        mock_svc_manager_class.return_value = mock_svc_manager
+        mock_svc_manager.logs.return_value = ["2026-07-11T00:00:01Z Building image..."]
+
+        mock_obj_manager = Mock()
+        mock_obj_manager_class.return_value = mock_obj_manager
+
+        result = runner.invoke(
+            [
+                "spcs",
+                "service",
+                "remote-build",
+                "--build-context-dir",
+                str(ctx),
+                "--location",
+                "my_db.my_schema.my_repo",
+                "--name",
+                "my_image",
+                "--validation-profile",
+                "CUSTOM_PROFILE",
+                "--stage",
+                "test_db.public.test_stage",
+            ],
+            catch_exceptions=False,
+        )
+
+        assert result.exit_code == 0, result.output
+        call_kwargs = mock_rb_manager.create_remote_builder.call_args[1]
+        assert call_kwargs["validation_profile"] == "CUSTOM_PROFILE"
 
     @patch("time.sleep")
     @patch(_COMMANDS_OBJECT_MANAGER)
