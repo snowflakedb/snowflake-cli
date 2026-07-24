@@ -110,11 +110,11 @@ features = ["development"]
 # in a fresh process because it asserts on `sys.modules` after CLI startup,
 # which is meaningless under a long-lived xdist worker.
 test = [
-  "pytest -n auto --dist=worksteal tests/",
+  "pytest -n auto --dist=worksteal --durations=25 tests/",
   "pytest -m loaded_modules tests/",
 ]
 test-cov = [
-  "pytest --cov=snowflake.cli --cov-report= -n auto --dist=worksteal tests/",
+  "pytest --cov=snowflake.cli --cov-report= -n auto --dist=worksteal --durations=25 tests/",
   "pytest --cov=snowflake.cli --cov-append --cov-report= -m loaded_modules tests/",
   "coverage report",
 ]
