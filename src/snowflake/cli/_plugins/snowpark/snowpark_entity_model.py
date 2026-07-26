@@ -64,6 +64,16 @@ class SnowparkEntityModel(
         default=None, title="Resource constraints for the function/procedure"
     )
 
+    log_level: Optional[str] = Field(
+        default=None, title="Log level for the function/procedure"
+    )
+    trace_level: Optional[str] = Field(
+        default=None, title="Trace level for the function/procedure"
+    )
+    metric_level: Optional[str] = Field(
+        default=None, title="Metric level for the function/procedure"
+    )
+
     @field_validator("artifacts")
     @classmethod
     def _convert_artifacts(cls, artifacts: Union[dict, str]):

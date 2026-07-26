@@ -192,6 +192,15 @@ class SnowparkEntity(EntityBase[Generic[T]]):
         if self.model.resource_constraint:
             query.append(self._get_resource_constraints_sql())
 
+        if self.model.log_level:
+            query.append(f"LOG_LEVEL = {self.model.log_level}")
+
+        if self.model.trace_level:
+            query.append(f"TRACE_LEVEL = {self.model.trace_level}")
+
+        if self.model.metric_level:
+            query.append(f"METRIC_LEVEL = {self.model.metric_level}")
+
         if self.model.type == "procedure" and self.model.execute_as_caller:
             query.append("EXECUTE AS CALLER")
 

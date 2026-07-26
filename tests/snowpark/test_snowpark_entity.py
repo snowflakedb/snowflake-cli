@@ -246,3 +246,33 @@ def test_get_deploy_sql_with_packages_and_artifact_repository_packages(
         match="You cannot specify both artifact_repository_packages and packages.",
     ):
         entity.model.artifact_repository_packages = ["package1", "package2"]
+
+
+def test_get_deploy_sql_with_telemetry_levels(example_function_workspace, snapshot):
+    """Test that log_level, trace_level, and metric_level are added to SQL"""
+    entity, _ = example_function_workspace
+    entity.model.log_level = "INFO"
+    entity.model.trace_level = "ON_EVENT"
+    entity.model.metric_level = "ALL"
+
+    deploy_sql = entity.get_deploy_sql(CreateMode.create)
+    assert deploy_sql == snapshot
+
+
+@pytest.mark.parametrize(
+    "property_name, property_value, expected_sql",
+    [
+        ("log_level", "INFO", "LOG_LEVEL = INFO"),
+        ("trace_level", "ON_EVENT", "TRACE_LEVEL = ON_EVENT"),
+        ("metric_level", "ALL", "METRIC_LEVEL = ALL"),
+    ],
+)
+def test_get_deploy_sql_with_individual_telemetry_property(
+    example_function_workspace, property_name, property_value, expected_sql
+):
+    """Test each telemetry property individually"""
+    entity, _ = example_function_workspace
+    setattr(entity.model, property_name, property_value)
+
+    deploy_sql = entity.get_deploy_sql(CreateMode.create)
+    assert expected_sql in deploy_sql
