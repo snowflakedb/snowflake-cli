@@ -22,6 +22,7 @@ import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional
 
+import tomllib
 from click import ClickException
 from snowflake.cli._plugins.snowpark.models import (
     Requirement,
@@ -61,6 +62,47 @@ def parse_requirements(
             line = re.sub(r"\s*#.*", "", line).strip()
             if line:
                 reqs.append(Requirement.parse_line(line))
+    return reqs
+
+
+def parse_pyproject_dependencies(
+    pyproject_file: SecurePath,
+) -> List[Requirement]:
+    """Reads runtime dependencies from a PEP 621 ``pyproject.toml`` file.
+
+    Only ``[project].dependencies`` is consulted. ``build-system.requires``
+    and ``[project.optional-dependencies]`` are intentionally ignored so that
+    `snow snowpark build` doesn't pull in tooling needed only at build/test
+    time. If the file has no ``[project]`` table (e.g. a pure Poetry project
+    that hasn't adopted PEP 621), an empty list is returned.
+    """
+    if not pyproject_file.exists():
+        return []
+
+    content = pyproject_file.read_text(file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB)
+    try:
+        data = tomllib.loads(content)
+    except tomllib.TOMLDecodeError as err:
+        raise ClickException(f"Failed to parse {pyproject_file.path}: {err}") from err
+
+    project = data.get("project") or {}
+    raw_deps = project.get("dependencies") or []
+    if not isinstance(raw_deps, list):
+        raise ClickException(
+            f"Invalid [project].dependencies in {pyproject_file.path}: "
+            "expected a list of PEP 508 requirement strings."
+        )
+
+    reqs: List[Requirement] = []
+    for entry in raw_deps:
+        if not isinstance(entry, str):
+            raise ClickException(
+                f"Invalid dependency entry in {pyproject_file.path}: "
+                f"expected a string, got {type(entry).__name__}."
+            )
+        line = entry.strip()
+        if line:
+            reqs.append(Requirement.parse_line(line))
     return reqs
 
 
