@@ -26,6 +26,7 @@ from snowflake.cli._plugins.dbt.constants import (
 )
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.utils.types import try_cast_to_bool
 
 from tests_common.feature_flag_utils import with_feature_flags
 
@@ -237,6 +238,75 @@ def test_deploy_and_execute(
         )
         assert len(result.json) == 1, result.json
         assert result.json[0]["COUNT"] == 1, result.json[0]
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_deploy_writeback_and_auto_compile(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    """Deploy sets DEFAULT_WRITEBACK / AUTO_COMPILE on CREATE, then flips them via
+    ALTER ... SET on redeploy; the values are read back through `dbt list`.
+
+    Marked qa_only because writeback and auto-compile must be enabled on the test
+    account. Remove the qa_only marker once the feature is GA.
+    """
+    with project_directory("dbt_project") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_writeback_{ts}"
+        _setup_dbt_profile(root_dir, snowflake_session)
+
+        # CREATE with both enabled -> properties inlined on CREATE DBT PROJECT
+        result = runner.invoke_with_connection_json(
+            ["dbt", "deploy", name, "--default-writeback", "--auto-compile"]
+        )
+        assert result.exit_code == 0, result.output
+        obj = _verify_dbt_project_exists(runner, name)
+        assert try_cast_to_bool(obj["default_writeback"]) is True, obj
+        assert try_cast_to_bool(obj["auto_compile"]) is True, obj
+
+        # Redeploy with the negations -> ALTER ... SET flips both off
+        result = runner.invoke_with_connection_json(
+            ["dbt", "deploy", name, "--no-default-writeback", "--no-auto-compile"]
+        )
+        assert result.exit_code == 0, result.output
+        obj = _verify_dbt_project_exists(runner, name)
+        assert try_cast_to_bool(obj["default_writeback"]) is False, obj
+        assert try_cast_to_bool(obj["auto_compile"]) is False, obj
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_execute_with_writeback(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    """Per-run --writeback emits the WRITEBACK clause on EXECUTE DBT PROJECT and the
+    run completes. (The writeback effect itself is applied server-side and is not
+    asserted here.)
+
+    Marked qa_only because writeback must be enabled on the test account. Remove the
+    qa_only marker once the feature is GA.
+    """
+    with project_directory("dbt_project") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_execute_wb_{ts}"
+        _setup_dbt_profile(root_dir, snowflake_session)
+        result = runner.invoke_with_connection_json(["dbt", "deploy", name])
+        assert result.exit_code == 0, result.output
+
+        # --writeback must be placed before the dbt command
+        result = runner.invoke_passthrough_with_connection(
+            args=["dbt", "execute", "--writeback"],
+            passthrough_args=[name, "run"],
+        )
+        assert result.exit_code == 0, result.output
+        assert "Done. PASS=2 WARN=0 ERROR=0 SKIP=0 TOTAL=2" in result.output
 
 
 @pytest.mark.integration
