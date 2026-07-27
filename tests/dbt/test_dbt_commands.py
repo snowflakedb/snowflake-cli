@@ -110,6 +110,26 @@ class TestDBTDescribe:
         )
 
 
+class TestDBTCopy:
+    def test_copy_command_alias(self, mock_connect, runner):
+        # `snow dbt copy` re-registers the `snow stage copy` command, so both must
+        # generate identical SQL for the same stage-to-stage copy.
+        result = runner.invoke(
+            ["stage", "copy", "@stage_a/path", "@stage_b/path2"],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0, result.output
+        result = runner.invoke(
+            ["dbt", "copy", "@stage_a/path", "@stage_b/path2"],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0, result.output
+
+        queries = mock_connect.mocked_ctx.get_queries()
+        assert len(queries) == 2
+        assert queries[0] == queries[1]
+
+
 class TestDBTDeploy:
     @pytest.fixture
     def mock_deploy(self):
@@ -139,6 +159,43 @@ class TestDBTDeploy:
         assert str(mock_deploy.call_args[0][0]) == "TEST_PIPELINE"
         assert call_kwargs["path"] == SecurePath(dbt_project_path)
         assert call_kwargs["attrs"].dbt_version is None
+        # New tri-state options default to None (leave unchanged / server default).
+        assert call_kwargs["attrs"].default_writeback is None
+        assert call_kwargs["attrs"].auto_compile is None
+
+    @pytest.mark.parametrize(
+        "flag,expected",
+        [
+            ("--default-writeback", True),
+            ("--no-default-writeback", False),
+        ],
+    )
+    def test_deploy_default_writeback_passes_to_manager(
+        self, runner, dbt_project_path, mock_deploy, flag, expected
+    ):
+        result = runner.invoke(
+            ["dbt", "deploy", "TEST_PIPELINE", f"--source={dbt_project_path}", flag]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert mock_deploy.call_args[1]["attrs"].default_writeback is expected
+
+    @pytest.mark.parametrize(
+        "flag,expected",
+        [
+            ("--auto-compile", True),
+            ("--no-auto-compile", False),
+        ],
+    )
+    def test_deploy_auto_compile_passes_to_manager(
+        self, runner, dbt_project_path, mock_deploy, flag, expected
+    ):
+        result = runner.invoke(
+            ["dbt", "deploy", "TEST_PIPELINE", f"--source={dbt_project_path}", flag]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert mock_deploy.call_args[1]["attrs"].auto_compile is expected
 
     def test_force_flag_uses_create_or_replace(self, runner, mock_deploy):
         result = runner.invoke(
@@ -1123,6 +1180,33 @@ class TestDBTExecute:
         assert (
             mock_connect.mocked_ctx.get_query() == "EXECUTE DBT PROJECT pipeline_name "
             "ENV_VARS=('DBT_ENV_SECRET_TOKEN'='xyz') args='run'"
+        )
+
+    @pytest.mark.parametrize(
+        "flag,expected_clause",
+        [
+            ("--writeback", "WRITEBACK=TRUE "),
+            ("--no-writeback", "WRITEBACK=FALSE "),
+        ],
+    )
+    def test_dbt_execute_writeback(
+        self, mock_connect, mock_cursor, runner, flag, expected_clause
+    ):
+        cursor = mock_cursor(
+            rows=[(True, "very detailed logs")],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+
+        # --writeback must precede the project name / dbt command.
+        result = runner.invoke(
+            ["dbt", "execute", flag, "pipeline_name", "run"],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert (
+            mock_connect.mocked_ctx.get_query()
+            == f"EXECUTE DBT PROJECT pipeline_name {expected_clause}args='run'"
         )
 
     def test_dbt_execute_env_vars_async(self, mock_connect, runner):

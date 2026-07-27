@@ -34,6 +34,7 @@ from snowflake.cli._plugins.dbt.manager import (
 )
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
+from snowflake.cli._plugins.stage.commands import copy as stage_copy
 from snowflake.cli.api.commands.decorators import global_options_with_connection
 from snowflake.cli.api.commands.flags import identifier_argument, like_option
 from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
@@ -95,6 +96,22 @@ add_object_command_aliases(
     scope_option=scope_option(help_example="`list --in database my_db`"),
     ommit_commands=["create"],
 )
+
+# Alias `snow stage copy` as `snow dbt copy` so users working with a dbt project's
+# stage don't have to switch command groups. This registers the exact same command
+# function under the dbt app (SnowTyperFactory.command returns the function
+# unchanged and builds an independent click command per app), so behavior and flags
+# are identical to `snow stage copy` with no side effects on it. The `help=` override
+# gives `snow dbt copy` its own description without touching `snow stage copy`.
+app.command(
+    "copy",
+    requires_connection=True,
+    help=(
+        "Copies files between a local directory and a stage, or between stages "
+        "(you provide the full @stage/… path). Behaves exactly like "
+        "`snow stage copy`; handy when working with a dbt project's files on a stage."
+    ),
+)(stage_copy)
 
 
 def _env_callback(value: Optional[str]) -> Optional[str]:
@@ -182,6 +199,23 @@ def deploy_dbt(
         show_default=False,
         help="dbt Core version to use for the project, for example '1.10.15'. Full list of supported versions can be found at https://docs.snowflake.com/en/user-guide/data-engineering/dbt-projects-on-snowflake-dbt-core-versions",
     ),
+    default_writeback: Optional[bool] = typer.Option(
+        None,
+        "--default-writeback/--no-default-writeback",
+        show_default=False,
+        help="Set the writeback default persisted on the dbt project. Omit to leave "
+        "the existing setting unchanged.",
+        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_WRITEBACK.is_enabled(),
+    ),
+    auto_compile: Optional[bool] = typer.Option(
+        None,
+        "--auto-compile/--no-auto-compile",
+        show_default=False,
+        help="Set whether the dbt project is compiled on deploy; persisted on the "
+        "project and applied to subsequent deploys until changed. Omit to leave the "
+        "existing setting unchanged.",
+        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_AUTO_COMPILE.is_enabled(),
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -202,6 +236,8 @@ def deploy_dbt(
         external_access_integrations=external_access_integrations,
         install_local_deps=install_local_deps,
         dbt_version=dbt_version,
+        default_writeback=default_writeback,
+        auto_compile=auto_compile,
     )
     return QueryResult(
         DBTManager().deploy(
@@ -275,6 +311,14 @@ def before_callback(
         "confidential data in shell environment variables with the DBT_ "
         "prefix.",
     ),
+    writeback: Optional[bool] = typer.Option(
+        None,
+        "--writeback/--no-writeback",
+        show_default=False,
+        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_WRITEBACK.is_enabled(),
+        help="Whether to write dbt results back for this run. Must be placed before "
+        "the dbt command. Omit to use the project's default.",
+    ),
     **options,
 ):
     """Handles global options passed before the command and takes pipeline name to be accessed through child context later."""
@@ -302,6 +346,7 @@ for cmd in DBT_COMMANDS:
         environment = ctx.parent.params.get("environment")
         env_vars = ctx.parent.params.get("env_vars")
         use_shell_env_vars = ctx.parent.params.get("use_shell_env_vars", False)
+        writeback = ctx.parent.params.get("writeback")
         execute_args = (
             dbt_command,
             name,
@@ -315,7 +360,9 @@ for cmd in DBT_COMMANDS:
 
         if run_async is True:
             result = dbt_manager.execute(
-                *execute_args, use_shell_env_vars=use_shell_env_vars
+                *execute_args,
+                use_shell_env_vars=use_shell_env_vars,
+                writeback=writeback,
             )
             return MessageResult(
                 f"Command submitted. You can check the result with `snow sql -q \"select execution_status from table(information_schema.query_history_by_user()) where query_id in ('{result.sfqid}');\"`"
@@ -324,7 +371,9 @@ for cmd in DBT_COMMANDS:
         with cli_console.spinner() as spinner:
             spinner.add_task(description=f"Executing 'dbt {dbt_command}'", total=None)
             result = dbt_manager.execute(
-                *execute_args, use_shell_env_vars=use_shell_env_vars
+                *execute_args,
+                use_shell_env_vars=use_shell_env_vars,
+                writeback=writeback,
             )
 
             try:
