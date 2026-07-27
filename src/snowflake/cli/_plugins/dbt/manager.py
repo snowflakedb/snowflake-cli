@@ -25,10 +25,13 @@ from typing import Dict, List, Optional, TypedDict
 
 import yaml
 from snowflake.cli._plugins.dbt.constants import (
+    AUTO_COMPILE_PROPERTY,
     DBT_PROJECTS_PROFILES_FILENAME,
+    DEFAULT_WRITEBACK_PROPERTY,
     ENV_FILENAME,
     PROFILES_FILENAME,
     SUPPORTED_DBT_VERSIONS_QUERY,
+    WRITEBACK_CLAUSE,
 )
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.stage.manager import StageManager
@@ -40,6 +43,7 @@ from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.cli.api.utils.types import try_cast_to_bool
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 
@@ -63,6 +67,28 @@ def _reject_control_chars(value: Optional[str], flag_name: str) -> Optional[str]
             f"(newlines, tabs, etc.)"
         )
     return value
+
+
+def _sql_bool(value: bool) -> str:
+    """Render a Python bool as the SQL literal expected by DBT PROJECT DDL."""
+    return "TRUE" if value else "FALSE"
+
+
+def _coerce_optional_bool(value) -> Optional[bool]:
+    """Coerce a value read back from DESCRIBE into Optional[bool].
+
+    DESCRIBE DBT PROJECT returns these columns as strings ('true'/'false'), and
+    the column may be absent entirely (e.g. auto_compile when its DESC column is
+    gated off, or older-type projects) -> None. Delegates the string parsing to
+    the shared try_cast_to_bool util and maps None/unparsable to None so a
+    subsequent ALTER only fires on an unambiguous change.
+    """
+    if value is None:
+        return None
+    try:
+        return try_cast_to_bool(value)
+    except ValueError:
+        return None
 
 
 def _collect_shell_env_vars() -> tuple[Dict[str, str], int, int]:
@@ -133,6 +159,8 @@ class DBTObjectEditableAttributes(TypedDict):
     default_env: Optional[str]
     external_access_integrations: Optional[List[str]]
     dbt_version: Optional[str]
+    default_writeback: Optional[bool]
+    auto_compile: Optional[bool]
 
 
 @dataclass
@@ -146,6 +174,10 @@ class DBTDeployAttributes:
     external_access_integrations: Optional[List[str]] = None
     install_local_deps: bool = False
     dbt_version: Optional[str] = None
+    # Tri-state: None leaves the persisted default unchanged; True/False set it.
+    default_writeback: Optional[bool] = None
+    # Tri-state: None uses the server default; True/False set it explicitly.
+    auto_compile: Optional[bool] = None
 
 
 class DBTManager(SqlExecutionMixin):
@@ -202,6 +234,8 @@ class DBTManager(SqlExecutionMixin):
             default_env=row_dict.get("default_environment"),
             external_access_integrations=external_access_integrations,
             dbt_version=row_dict.get("dbt_version"),
+            default_writeback=_coerce_optional_bool(row_dict.get("default_writeback")),
+            auto_compile=_coerce_optional_bool(row_dict.get("auto_compile")),
         )
 
     def _get_supported_dbt_versions(self) -> List[str]:
@@ -353,6 +387,25 @@ class DBTManager(SqlExecutionMixin):
         if attrs.dbt_version:
             set_properties.append(f"DBT_VERSION={to_string_literal(attrs.dbt_version)}")
 
+        # default_writeback and auto_compile are persisted properties on the DBT
+        # PROJECT object; only SET when the user asked (not None) and the requested
+        # value differs from the current one. Both are set via ALTER ... SET (not on
+        # ADD VERSION); auto_compile governs the base compile performed on the
+        # ADD VERSION that follows.
+        if attrs.default_writeback is not None:
+            current_default_writeback = dbt_object_attributes.get("default_writeback")
+            if current_default_writeback != attrs.default_writeback:
+                set_properties.append(
+                    f"{DEFAULT_WRITEBACK_PROPERTY}={_sql_bool(attrs.default_writeback)}"
+                )
+
+        if attrs.auto_compile is not None:
+            current_auto_compile = dbt_object_attributes.get("auto_compile")
+            if current_auto_compile != attrs.auto_compile:
+                set_properties.append(
+                    f"{AUTO_COMPILE_PROPERTY}={_sql_bool(attrs.auto_compile)}"
+                )
+
         current_external_access_integrations = dbt_object_attributes.get(
             "external_access_integrations"
         )
@@ -418,6 +471,12 @@ class DBTManager(SqlExecutionMixin):
             query += f" DEFAULT_ENVIRONMENT={to_string_literal(attrs.default_env)}"
         if attrs.dbt_version:
             query += f" DBT_VERSION={to_string_literal(attrs.dbt_version)}"
+        if attrs.default_writeback is not None:
+            query += (
+                f" {DEFAULT_WRITEBACK_PROPERTY}={_sql_bool(attrs.default_writeback)}"
+            )
+        if attrs.auto_compile is not None:
+            query += f" {AUTO_COMPILE_PROPERTY}={_sql_bool(attrs.auto_compile)}"
         query = self._handle_external_access_integrations_query(
             query, attrs.external_access_integrations, attrs.install_local_deps
         )
@@ -451,6 +510,12 @@ class DBTManager(SqlExecutionMixin):
             query += f" DEFAULT_ENVIRONMENT={to_string_literal(attrs.default_env)}"
         if attrs.dbt_version:
             query += f" DBT_VERSION={to_string_literal(attrs.dbt_version)}"
+        if attrs.default_writeback is not None:
+            query += (
+                f" {DEFAULT_WRITEBACK_PROPERTY}={_sql_bool(attrs.default_writeback)}"
+            )
+        if attrs.auto_compile is not None:
+            query += f" {AUTO_COMPILE_PROPERTY}={_sql_bool(attrs.auto_compile)}"
         query = self._handle_external_access_integrations_query(
             query, attrs.external_access_integrations, attrs.install_local_deps
         )
@@ -676,6 +741,7 @@ class DBTManager(SqlExecutionMixin):
         env_vars: Optional[str] = None,
         *dbt_cli_args,
         use_shell_env_vars: bool = False,
+        writeback: Optional[bool] = None,
     ) -> SnowflakeCursor:
         if dbt_cli_args:
             processed_args = self._process_dbt_args(dbt_cli_args)
@@ -685,6 +751,8 @@ class DBTManager(SqlExecutionMixin):
             query += f" dbt_version={to_string_literal(dbt_version)}"
         if environment:
             query += f" ENVIRONMENT={to_string_literal(environment)}"
+        if writeback is not None:
+            query += f" {WRITEBACK_CLAUSE}={_sql_bool(writeback)}"
 
         merged: Dict[str, str] = {}
         if use_shell_env_vars:
