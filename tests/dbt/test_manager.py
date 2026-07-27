@@ -168,6 +168,124 @@ class TestDeploy:
 
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    @pytest.mark.parametrize(
+        "default_writeback,auto_compile,expected_suffix",
+        [
+            (True, None, " DEFAULT_WRITEBACK=TRUE"),
+            (False, None, " DEFAULT_WRITEBACK=FALSE"),
+            (None, True, " AUTO_COMPILE=TRUE"),
+            (None, False, " AUTO_COMPILE=FALSE"),
+            (True, False, " DEFAULT_WRITEBACK=TRUE AUTO_COMPILE=FALSE"),
+            (None, None, ""),
+        ],
+    )
+    def test_deploy_create_with_writeback_and_auto_compile(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+        default_writeback,
+        auto_compile,
+        expected_suffix,
+    ):
+        DBTManager().deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            attrs=DBTDeployAttributes(
+                default_writeback=default_writeback, auto_compile=auto_compile
+            ),
+        )
+
+        expected_query = (
+            f"CREATE DBT PROJECT test_project\nFROM {mock_from_resource()}"
+            f"{expected_suffix}"
+        )
+        mock_execute_query.assert_called_once_with(expected_query)
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_alter_sets_writeback_and_auto_compiles(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        # Existing object with writeback OFF and auto_compile OFF; user turns both
+        # ON. Both are persisted properties set via ALTER ... SET (one statement),
+        # then ADD VERSION runs without an AUTO_COMPILE clause (which the server
+        # rejects on ADD VERSION).
+        mock_get_dbt_object_attributes.return_value = {
+            "default_target": None,
+            "external_access_integrations": None,
+            "default_writeback": False,
+            "auto_compile": False,
+        }
+
+        DBTManager().deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            attrs=DBTDeployAttributes(default_writeback=True, auto_compile=True),
+        )
+
+        assert mock_execute_query.call_count == 2
+        calls = mock_execute_query.call_args_list
+        assert (
+            calls[0].args[0]
+            == "ALTER DBT PROJECT test_project SET DEFAULT_WRITEBACK=TRUE, AUTO_COMPILE=TRUE"
+        )
+        assert (
+            calls[1].args[0]
+            == f"ALTER DBT PROJECT test_project ADD VERSION\nFROM {mock_from_resource()}"
+        )
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_alter_skips_writeback_when_unchanged(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        # Writeback already ON and requested ON again -> no SET, only ADD VERSION.
+        mock_get_dbt_object_attributes.return_value = {
+            "default_target": None,
+            "external_access_integrations": None,
+            "default_writeback": True,
+        }
+
+        DBTManager().deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            attrs=DBTDeployAttributes(default_writeback=True),
+        )
+
+        mock_execute_query.assert_called_once_with(
+            f"ALTER DBT PROJECT test_project ADD VERSION\nFROM {mock_from_resource()}"
+        )
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
     @mock.patch("snowflake.cli.api.identifiers.time.time", return_value=1234567890)
     def test_deploys_project_with_case_sensitive_name(
         self,
@@ -1733,6 +1851,32 @@ class TestExecute:
         mock_execute_query.assert_called_once_with(
             "EXECUTE DBT PROJECT pipeline args='run'", _exec_async=False
         )
+
+    @pytest.mark.parametrize(
+        "writeback,expected_query",
+        [
+            (
+                True,
+                "EXECUTE DBT PROJECT pipeline WRITEBACK=TRUE args='run'",
+            ),
+            (
+                False,
+                "EXECUTE DBT PROJECT pipeline WRITEBACK=FALSE args='run'",
+            ),
+            (
+                None,
+                "EXECUTE DBT PROJECT pipeline args='run'",
+            ),
+        ],
+    )
+    def test_execute_with_writeback(
+        self, mock_execute_query, writeback, expected_query
+    ):
+        DBTManager().execute(
+            "run", FQN.from_string("pipeline"), False, writeback=writeback
+        )
+
+        mock_execute_query.assert_called_once_with(expected_query, _exec_async=False)
 
     @pytest.mark.parametrize(
         "raw_value,expected_error",
