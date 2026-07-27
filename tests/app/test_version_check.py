@@ -12,6 +12,7 @@ from snowflake.cli._app.version_check import (
     NEW_VERSION_MESSAGE_INTERVAL,
     _VersionCache,
     get_new_version_msg,
+    get_version_info,
     was_warning_shown_recently,
 )
 from snowflake.cli.api.config import config_init
@@ -23,7 +24,7 @@ _WARNING_MESSAGE = (
 _PATCH_VERSION = ["snowflake.cli._app.version_check.VERSION", "1.0.0"]
 _PATCH_LAST_VERSION = [
     "snowflake.cli._app.version_check._VersionCache.get_last_version",
-    lambda _: Version("2.0.0"),
+    lambda _self, force_refresh=False: Version("2.0.0"),
 ]
 
 
@@ -61,6 +62,17 @@ def test_banner_shows_up_in_command_invocation(build_runner, warning_is_thrown):
 @patch(*_PATCH_LAST_VERSION)  # type: ignore
 def test_banner_do_not_shows_up_if_silent(build_runner, recwarn):
     build_runner().invoke(["connection", "set-default", "default", "--silent"])
+    for warning in recwarn:
+        assert _WARNING_MESSAGE not in str(warning.message)
+
+
+@patch(*_PATCH_VERSION)
+@patch(*_PATCH_LAST_VERSION)  # type: ignore
+def test_check_version_command_suppresses_passive_banner(build_runner, recwarn):
+    """`snow helpers check-version` reports the update itself, so the passive
+    banner must not also fire on top of its output."""
+    result = build_runner().invoke(["helpers", "check-version"])
+    assert result.exit_code == 0, result.output
     for warning in recwarn:
         assert _WARNING_MESSAGE not in str(warning.message)
 
@@ -190,6 +202,25 @@ def test_read_last_version_and_updates_it(
             assert data == old_data
 
 
+@patch("snowflake.cli._app.version_check._VersionCache._update_latest_version")
+@patch("snowflake.cli._app.version_check.time.time", lambda: 60)
+def test_force_refresh_skips_fresh_cache(mock_update, named_temporary_file):
+    """force_refresh=True must bypass an in-interval cache and re-query."""
+    mock_update.return_value = Version("9.9.9")
+    with named_temporary_file() as f:
+        # last_time_check=59 with now=60 is well within VERSION_CACHE_REFRESH_INTERVAL,
+        # so without force_refresh this cache would be returned as-is.
+        f.write_text('{"last_time_check": 59, "version": "4.2.3"}')
+        vc = _VersionCache()
+        vc._cache_file = SecurePath(f)  # noqa: SLF001
+
+        assert vc._read_latest_version(force_refresh=False) == Version("4.2.3")  # noqa
+        mock_update.assert_not_called()
+
+        assert vc._read_latest_version(force_refresh=True) == Version("9.9.9")  # noqa
+        mock_update.assert_called_once()
+
+
 @pytest.mark.parametrize(
     "now,last_time_shown,expected",
     [
@@ -209,6 +240,43 @@ def test_was_warning_shown_recently_parametrized(
 ):
     mock_time.return_value = now
     assert was_warning_shown_recently(last_time_shown) is expected
+
+
+@patch(*_PATCH_VERSION)
+@patch(*_PATCH_LAST_VERSION)  # type: ignore
+def test_get_version_info_update_available():
+    info = get_version_info()
+    assert info.current_version == "1.0.0"
+    assert info.latest_version == "2.0.0"
+    assert info.update_available is True
+
+
+@patch("snowflake.cli._app.version_check.VERSION", "2.0.0")
+@patch(*_PATCH_LAST_VERSION)  # type: ignore
+def test_get_version_info_up_to_date():
+    info = get_version_info()
+    assert info.update_available is False
+
+
+@patch(*_PATCH_VERSION)
+@patch(
+    "snowflake.cli._app.version_check._VersionCache.get_last_version",
+    lambda _self, force_refresh=False: None,
+)
+def test_get_version_info_latest_unavailable():
+    info = get_version_info()
+    assert info.latest_version is None
+    assert info.update_available is False
+
+
+@patch(*_PATCH_VERSION)
+def test_get_version_info_force_refresh_is_forwarded():
+    with mock.patch(
+        "snowflake.cli._app.version_check._VersionCache.get_last_version",
+        return_value=Version("2.0.0"),
+    ) as mocked:
+        get_version_info(force_refresh=True)
+    mocked.assert_called_once_with(force_refresh=True)
 
 
 @patch(*_PATCH_VERSION)
