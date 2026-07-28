@@ -8,7 +8,7 @@ allowed_file_extensions:
   - ".py"
 rules:
   - id: snowflake-cli-sql-injection-prevention
-    status: shadow
+    status: enabled
     rule: |
       **OBJECTIVE**: Prevent SQL injection when building Snowflake SQL from identifiers,
       config values, or other externally-influenced input.
@@ -20,6 +20,10 @@ rules:
       hand-roll escaping such as `value.replace("'", "\\'")`. Apply the safe form consistently
       to every interpolated component (warehouse, compute pool, role, alias, EAI names), not
       just one. All helpers live in `snowflake.cli.api.project.util`.
+
+      When doing `SHOW … LIKE` to look up a **specific object by name** (not a user search
+      pattern), use `identifier_to_show_like_pattern()` — it also escapes `%` and `_` wildcards
+      so `'my_db'` does not accidentally match `'myXdb'`.
 
       ❌ **BAD:**
       ```python
@@ -42,7 +46,7 @@ rules:
           query += f" AS {to_string_literal(alias)}"
       cursor.execute("CALL SYSTEM$GET_TOKEN(%s, false)", (fqn,))
       set_properties.append(f"QUERY_WAREHOUSE = {to_identifier(self.model.query_warehouse)}")
-      cursor.execute(f"SHOW INTEGRATIONS LIKE '{identifier_to_show_like_pattern(name)}%'")
+      cursor.execute(f"SHOW INTEGRATIONS LIKE {identifier_to_show_like_pattern(name)}")
       ```
 
   - id: snowflake-cli-feature-flag-no-internal-ids
@@ -82,8 +86,48 @@ rules:
       ENABLE_SPCS_BUILD_IMAGE = BooleanFlag("ENABLE_SPCS_BUILD_IMAGE", False)
       ```
 
-  - id: snowflake-cli-use-cli-error-not-click-exception
+  - id: snowflake-cli-securepath-for-file-io
     status: shadow
+    rule: |
+      **OBJECTIVE**: Ensure all file reads and writes use `SecurePath`, which provides an audit trail
+      (every operation is logged at INFO level) and restrictive permissions (0600) for created files.
+
+      **REQUIREMENT**: Use `SecurePath` from `snowflake.cli.api.secure_path` whenever reading or
+      writing file **content** in source code. `pathlib.Path` remains acceptable for pure path
+      manipulation (joining segments, checking suffixes, building paths) but must not be used for
+      `.read_text()`, `.read_bytes()`, `.write_text()`, `.write_bytes()`, or `pathlib.Path.open()`
+      in `src/snowflake/cli/`. For binary I/O, use `SecurePath.open("rb", read_file_limit_mb=...)`
+      as a context manager — `SecurePath` has no `.read_bytes()` shorthand (note: the parameter is
+      `read_file_limit_mb` here, vs `file_size_limit_mb` for `read_text()`).
+
+      **DO NOT FLAG:**
+      - `Path("foo") / "bar"` — pure path construction
+      - `Path("foo").suffix`, `.stem`, `.parent`, `.name` — attribute access only
+      - `Path("foo").exists()`, `.is_file()`, `.is_dir()` — stat/existence checks
+      - Code that already uses `SecurePath`
+      - Test files (`tests/`, `tests_integration/`) — test utilities may use `pathlib.Path`
+
+      **WHAT TO FLAG:**
+      - `Path(...).read_text(...)` / `.read_bytes()` / `.write_text()` / `.write_bytes()` in source
+      - `pathlib.Path(...).open(...)` for reading/writing file content in source code
+      - `open(some_path, ...)` (bare built-in) for reading/writing file content in source code
+
+      ❌ **BAD:**
+      ```python
+      from pathlib import Path
+      content = Path("config.yml").read_text()
+      Path("output.json").write_text(json.dumps(data))
+      ```
+
+      ✅ **GOOD:**
+      ```python
+      from snowflake.cli.api.secure_path import SecurePath
+      content = SecurePath("config.yml").read_text(file_size_limit_mb=1)
+      SecurePath("output.json").write_text(json.dumps(data))
+      ```
+
+  - id: snowflake-cli-use-cli-error-not-click-exception
+    status: enabled
     rule: |
       **OBJECTIVE**: Prevent `click.ClickException` from being introduced in new or modified
       code. The project uses the `CliError` hierarchy, which provides structured exit-codes and
@@ -103,6 +147,14 @@ rules:
 
       Do not introduce new `ClickException` raises; remaining occurrences in the codebase
       are being migrated opportunistically.
+
+      **DO NOT FLAG:**
+      - Existing `raise ClickException(...)` not touched by the current PR (legacy code)
+      - `except ClickException` catch clauses (still needed to catch from Click internals)
+
+      **WHAT TO FLAG:**
+      - Any **new** `raise ClickException(...)` or `raise click.ClickException(...)` introduced in the diff
+      - Importing `ClickException` in a new file when the import is not used solely in an `except` clause
 
       ❌ **BAD:**
       ```python
@@ -125,4 +177,69 @@ rules:
       raise CliArgumentError(f"Image registry URL is malformed: {url}")
       raise CliConnectionError("No active connection — check your credentials")
       raise CliSqlError(f"SQL execution failed: {e}")
+      ```
+
+  - id: snowflake-cli-actionable-error-messages
+    status: shadow
+    rule: |
+      **OBJECTIVE**: Error messages should tell the user both what went wrong and what to do about it.
+      Messages that state only a fact leave users guessing.
+
+      **REQUIREMENT**: When raising `CliError` or any subclass, include a corrective hint where one
+      exists. The message format should be: *what happened* + *how to fix it*.
+
+      **DO NOT FLAG:**
+      - Errors where the fix is self-evident (e.g. `"Value must not be empty"`)
+      - Server-relayed errors where the fix is server-side and unknown to the CLI
+      - Errors in test code
+
+      **WHAT TO FLAG:**
+      - `raise CliError(f"File {path} not found")` — no guidance on what to do
+      - `raise CliError("Invalid configuration")` — no detail on which field is invalid
+      - Short one-word errors like `raise CliError("Unauthorized")` with no next-step hint
+
+      ❌ **BAD:**
+      ```python
+      raise CliError(f"File {path} not found")
+      raise CliError(f"Connection {name} does not exist")
+      ```
+
+      ✅ **GOOD:**
+      ```python
+      raise CliError(f"File {path} not found. Check the path and try again.")
+      raise CliError(
+          f"Connection '{name}' does not exist. "
+          "Run 'snow connection list' to see available connections."
+      )
+      ```
+
+  - id: snowflake-cli-logging-percent-style
+    status: shadow
+    rule: |
+      **OBJECTIVE**: Use `%`-style formatting in `logging` calls — not f-strings or `.format()` —
+      so the string is only built when the message is actually emitted (performance), and to align
+      with the project convention.
+
+      **REQUIREMENT**: All `log.debug(...)`, `log.info(...)`, `log.warning(...)`, `log.error(...)`,
+      `log.critical(...)`, and `log.exception(...)` calls must use positional `%s` arguments.
+
+      **DO NOT FLAG:**
+      - f-strings outside of logging calls (fine everywhere else)
+      - `logging.basicConfig(format=...)` — that is a format pattern string, not a log message
+      - Test code asserting on log output
+
+      **WHAT TO FLAG:**
+      - `log.debug(f"Processing {n} items")` — f-string argument in a logging call
+      - `log.info("Result: {}".format(result))` — `.format()` in a logging call
+
+      ❌ **BAD:**
+      ```python
+      log.debug(f"Processing {len(items)} items from {source}")
+      log.info("Connected to account: {}".format(account))
+      ```
+
+      ✅ **GOOD:**
+      ```python
+      log.debug("Processing %s items from %s", len(items), source)
+      log.info("Connected to account: %s", account)
       ```

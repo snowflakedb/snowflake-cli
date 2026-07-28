@@ -37,9 +37,20 @@ rules:
       Never add entries under an already-released `# vX.Y.Z` heading that is not the brand-new section
       introduced by this PR.
 
-      **Package and dependency version upgrades are user-facing changes** — they can affect runtime behaviour,
-      security posture, and compatibility, so they **must** be included in release notes. Do not flag or remove
-      dependency upgrade entries.
+      **DO NOT FLAG:**
+      - Entries under `## Backward incompatibility` — these always belong, even when they describe internal
+        changes whose breakage is user-visible.
+      - Entries that name internal things only to explain an error message users see (e.g. "Fixed crash in X
+        with message 'Y'" — the message is user-facing).
+      - All dependency and package version upgrades — they can affect runtime behaviour, security posture,
+        and compatibility, and must always appear in release notes.
+
+      **WHAT TO FLAG:**
+      - Entries placed under a released `# vX.Y.Z` heading (must be under `# Unreleased version`)
+      - Entries for CI/build/infrastructure changes (GitHub Actions, test infra, pre-commit, Dockerfile)
+      - Entries describing internal refactors that name functions/modules with no user-visible effect
+      - Entries for features in Private Preview or not yet enabled
+      - Duplicate entries that already appear under a released version
 
       ❌ **BAD (entry placed under an existing released version instead of Unreleased):**
       ```markdown
@@ -134,20 +145,55 @@ rules:
     rule: |
       **SCOPE**: This rule applies ONLY to files named `RELEASE-NOTES.md`. If the file you are reviewing has any other name, make no comments and stop.
 
-      **OBJECTIVE**: Prevent release-notes entries for security fixes from revealing exploitable implementation details.
+      **OBJECTIVE**: Security-fix release note entries must not disclose exploitable details that could
+      help an attacker reproduce the vulnerability before users have had time to upgrade.
 
-      **REQUIREMENT**: When an entry describes a security fix (injection flaws, path traversal, authentication bypass, privilege escalation, input sanitization, etc.), describe the user-visible improvement only. Do not reveal: the attack vector, the name of the vulnerable field or parameter, what bypass or exploit was possible, or what data could be exposed. Use neutral language such as "improved validation", "improved sanitization", or "improved handling".
+      **REQUIREMENT**: When a release note entry describes a security fix, it must use neutral language
+      that confirms a fix was made without revealing:
+      - The specific vulnerable field, parameter, option, or configuration key
+      - The attack vector (SQL injection, path traversal, SSRF, command injection, etc.)
+      - What an attacker could have accessed, read, written, or executed
+      - The exact preconditions for exploitation
 
-      ❌ **BAD:**
-      ```markdown
-      * Fixed a SQL injection in the `query` field of `snowflake.yml` that allowed bypassing row-level security and executing arbitrary SQL.
-      * Fixed path traversal in `--artifact-dir` that allowed reading files outside the project root.
-      * Fixed an authentication bypass in `snow connection test` when using token-based auth that allowed skipping MFA enforcement.
+      Acceptable release note format for security fixes:
+      ```
+      * Improved validation of <general area> inputs in <command or feature>.
+      * Improved sanitisation of user-supplied values in <command or feature>.
+      * Fixed improper input handling in <command or feature>.
       ```
 
-      ✅ **GOOD:**
+      **DO NOT FLAG:**
+      - Entries that describe security improvements without naming a specific attack vector
+      - Entries where the "vulnerability" is a minor UX issue (e.g. "Fixed error message
+        that included a raw stack trace") with no exploitability
+      - Entries that only mention the affected command name (not the specific parameter)
+        alongside a vague description
+
+      **WHAT TO FLAG:**
+      - Entries naming a specific field or parameter that was vulnerable (e.g. "`query` field
+        of `snowflake.yml`", "`--artifact-dir`")
+      - Entries that name the attack class explicitly (SQL injection, path traversal, SSRF, etc.)
+      - Entries that describe what was exploitable (bypassing row-level security, reading arbitrary
+        files, executing arbitrary SQL, etc.)
+
+      ❌ **BAD — reveals the vulnerable field and attack class:**
+      ```markdown
+      * Fixed SQL injection vulnerability in the `query` field of `snowflake.yml` that
+        allowed bypassing row-level security policies and executing arbitrary SQL.
+      ```
+
+      ❌ **BAD — reveals the vulnerable parameter and attack vector:**
+      ```markdown
+      * Fixed path traversal in `--artifact-dir` that allowed reading arbitrary files
+        outside the project root.
+      ```
+
+      ✅ **GOOD — confirms fix without exploitable detail:**
       ```markdown
       * Improved sanitization of user-provided values in `snowflake.yml` project configuration.
+      ```
+
+      ✅ **GOOD — vague but sufficient:**
+      ```markdown
       * Improved validation of file path inputs in artifact-related commands.
-      * Improved robustness of connection authentication handling.
       ```
