@@ -1357,6 +1357,7 @@ def test_history_help(runner):
     assert "--bundle-name" in result.output
     assert "--bundle-database" in result.output
     assert "--bundle-schema" in result.output
+    assert "--entrypoint" in result.output
     assert "--result-limit" in result.output
 
 
@@ -1368,7 +1369,11 @@ def test_history_calls_manager(mock_history, runner, mock_cursor):
 
     assert result.exit_code == 0, result.output
     mock_history.assert_called_once_with(
-        bundle_name=None, database=None, schema=None, result_limit=100
+        bundle_name=None,
+        database=None,
+        schema=None,
+        entrypoint=None,
+        result_limit=100,
     )
 
 
@@ -1380,7 +1385,11 @@ def test_history_passes_result_limit(mock_history, runner, mock_cursor):
 
     assert result.exit_code == 0, result.output
     mock_history.assert_called_once_with(
-        bundle_name=None, database=None, schema=None, result_limit=50
+        bundle_name=None,
+        database=None,
+        schema=None,
+        entrypoint=None,
+        result_limit=50,
     )
 
 
@@ -1398,6 +1407,8 @@ def test_history_calls_manager_with_options(mock_history, runner, mock_cursor):
             "my_db",
             "--bundle-schema",
             "my_schema",
+            "--entrypoint",
+            "src/main.py",
         ]
     )
 
@@ -1406,6 +1417,7 @@ def test_history_calls_manager_with_options(mock_history, runner, mock_cursor):
         bundle_name="my_bundle",
         database="my_db",
         schema="my_schema",
+        entrypoint="src/main.py",
         result_limit=100,
     )
 
@@ -1489,6 +1501,22 @@ def test_history_query_with_schema(mock_connector, mock_ctx, runner):
 
 
 @mock.patch("snowflake.connector.connect")
+def test_history_query_with_entrypoint(mock_connector, mock_ctx, runner):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(["bundle", "history", "--entrypoint", "src/main.py"])
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == (
+        "SELECT * FROM TABLE("
+        "SNOWFLAKE.INFORMATION_SCHEMA.CODE_BUNDLE_HISTORY("
+        "ENTRYPOINT => 'src/main.py', "
+        "RESULT_LIMIT => 100))"
+    )
+
+
+@mock.patch("snowflake.connector.connect")
 def test_history_query_with_all_options(mock_connector, mock_ctx, runner):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
@@ -1503,6 +1531,8 @@ def test_history_query_with_all_options(mock_connector, mock_ctx, runner):
             "my_db",
             "--bundle-schema",
             "my_schema",
+            "--entrypoint",
+            "src/main.py",
             "--result-limit",
             "25",
         ]
@@ -1515,6 +1545,7 @@ def test_history_query_with_all_options(mock_connector, mock_ctx, runner):
         "BUNDLE_NAME => 'my_bundle', "
         "DATABASE => 'my_db', "
         "SCHEMA => 'my_schema', "
+        "ENTRYPOINT => 'src/main.py', "
         "RESULT_LIMIT => 25))"
     )
 

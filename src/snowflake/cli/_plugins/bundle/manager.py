@@ -140,6 +140,7 @@ class CodeBundleManager(SqlExecutionMixin):
         bundle_name: Optional[str] = None,
         database: Optional[str] = None,
         schema: Optional[str] = None,
+        entrypoint: Optional[str] = None,
         result_limit: int = 100,
     ) -> SnowflakeCursor:
         args = []
@@ -149,6 +150,8 @@ class CodeBundleManager(SqlExecutionMixin):
             args.append(f"DATABASE => {to_string_literal(database)}")
         if schema:
             args.append(f"SCHEMA => {to_string_literal(schema)}")
+        if entrypoint:
+            args.append(f"ENTRYPOINT => {to_string_literal(entrypoint)}")
         args.append(f"RESULT_LIMIT => {int(result_limit)}")
         query = (
             "SELECT * FROM TABLE(SNOWFLAKE.INFORMATION_SCHEMA.CODE_BUNDLE_HISTORY("

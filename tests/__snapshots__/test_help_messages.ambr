@@ -4824,6 +4824,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -4974,6 +4977,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -5147,6 +5153,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -5298,6 +5307,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -5456,6 +5468,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -5502,6 +5517,8 @@
   |                                     the given database.                      |
   | --bundle-schema            TEXT     Filter the history to code bundles in    |
   |                                     the given schema.                        |
+  | --entrypoint               TEXT     Filter the history to executions with    |
+  |                                     the given entrypoint.                    |
   | --result-limit             INTEGER  Maximum number of history rows to        |
   |                                     return.                                  |
   |                                     [default: 100]                           |
@@ -5610,6 +5627,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -5768,6 +5788,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -5918,6 +5941,9 @@
   |                                                NONE; pass NONE to run the    |
   |                                                session only with the primary |
   |                                                role.                         |
+  | --server-session-keep-alive                    Keep the session active       |
+  |                                                indefinitely, even if there   |
+  |                                                is no activity from the user. |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -5966,7 +5992,7 @@
   | create    Creates a code bundle for a notebook project.                      |
   | delete    Drops a code bundle.                                               |
   | execute   Executes a code bundle at the given entrypoint.                    |
-  | history   Returns the execution history of a code bundle.                    |
+  | history   Returns the execution history of code bundles.                     |
   | list      Lists code bundles.                                                |
   | status    Returns the execution status of an async code bundle execution.    |
   +------------------------------------------------------------------------------+
@@ -27869,7 +27895,7 @@
   | create    Creates a code bundle for a notebook project.                      |
   | delete    Drops a code bundle.                                               |
   | execute   Executes a code bundle at the given entrypoint.                    |
-  | history   Returns the execution history of a code bundle.                    |
+  | history   Returns the execution history of code bundles.                     |
   | list      Lists code bundles.                                                |
   | status    Returns the execution status of an async code bundle execution.    |
   +------------------------------------------------------------------------------+
