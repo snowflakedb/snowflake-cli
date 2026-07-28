@@ -99,6 +99,7 @@ if TYPE_CHECKING:
     from snowflake.cli._plugins.apps.snowflake_app_entity_model import (
         SnowflakeAppEntityModel,
     )
+from snowflake.cli._plugins.apps.events import EVENT_TABLE_FUNCTION
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.artifacts.utils import symlink_or_copy
 from snowflake.cli.api.cli_global_context import get_cli_context
@@ -1282,6 +1283,35 @@ class SnowflakeAppManager(SqlExecutionMixin):
         cursor = self.execute_query(
             f"CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{service_fqn.identifier}', {last})"
         )
+        row = cursor.fetchone()
+        return row[0] if row else ""
+
+    def get_event_table_data(
+        self,
+        service_fqn: FQN,
+        event_type: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+    ) -> str:
+        """Fetch observability telemetry from an application service's event table.
+
+        Wraps ``SYSTEM$GET_APPLICATION_SERVICE_EVENT_TABLE_DATA``, which returns
+        a VARCHAR holding a JSON array of positional tuples for the requested
+        ``event_type`` (``LOG`` / ``METRIC`` / ``EVENT``). When both bounds are
+        given the call is scoped to that ``[start_time, end_time]`` window;
+        otherwise the function applies its own default window. There is a short
+        ingestion delay before recent data appears.
+        """
+        from snowflake.cli.api.project.util import to_string_literal
+
+        args = [
+            to_string_literal(service_fqn.identifier),
+            to_string_literal(event_type),
+        ]
+        if start_time is not None and end_time is not None:
+            args.append(to_string_literal(start_time))
+            args.append(to_string_literal(end_time))
+        cursor = self.execute_query(f"CALL {EVENT_TABLE_FUNCTION}({', '.join(args)})")
         row = cursor.fetchone()
         return row[0] if row else ""
 

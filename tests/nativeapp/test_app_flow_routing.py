@@ -286,6 +286,16 @@ class TestCrossFlowOptionValidation:
         assert "Snowflake App Runtime entity" in result.output
         assert "--follow" in result.output
 
+    def test_native_app_rejects_snowflake_app_events_options(self, runner, tmp_path):
+        self._write_yml(tmp_path, _NATIVE_APP_YML)
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "events", "--metric", "cpu"])
+
+        assert result.exit_code != 0
+        assert "Native App entity" in result.output
+        assert "--metric" in result.output
+
     def test_snowflake_app_rejects_explicit_native_app_follow_interval(
         self, runner, tmp_path
     ):

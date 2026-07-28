@@ -546,94 +546,141 @@
    https://docs.snowflake.com/en/developer-guide/native-apps/setting-up-logging-a 
    nd-events                                                                      
                                                                                   
-   For Snowflake App Runtime projects (snowflake-app entities): Fetches recent    
-   log lines from the deployed application service. Output is capped at 100KB     
-   regardless of the number of lines requested.                                   
+   For Snowflake App Runtime projects (snowflake-app entities): Returns one of    
+   three observability streams for the application service, selected with --type: 
+                                                                                  
+                                                                                  
+    - log (default): live container log tail, sized with --last (default          
+      500, capped at 100KB). Supplying --since / --until switches to              
+      historical logs read from the service's event table (works over             
+      history and after suspend, with a short ingestion lag).                     
+    - metric: CPU / memory / network telemetry from the event table. Narrow       
+      with --metric cpu|memory|network and use --raw for unconverted values.      
+    - lifecycle: service / container status changes from the event table.         
+                                                                                  
+                                                                                  
+   --since / --until accept relative shorthand (30m, 6h, 2d) or an absolute UTC   
+   timestamp. metric and lifecycle are always historical and default to the last  
+   hour when no window is given.                                                  
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --since                      TEXT                   (Native App only) Fetch  |
-  |                                                     events that are newer    |
-  |                                                     than this time ago, in   |
-  |                                                     Snowflake interval       |
-  |                                                     syntax.                  |
-  | --until                      TEXT                   (Native App only) Fetch  |
-  |                                                     events that are older    |
-  |                                                     than this time ago, in   |
-  |                                                     Snowflake interval       |
-  |                                                     syntax.                  |
-  | --type                       [log|span|span_event]  (Native App only)        |
-  |                                                     Restrict results to      |
-  |                                                     specific record type.    |
-  |                                                     Can be specified         |
-  |                                                     multiple times.          |
-  | --scope                      TEXT                   (Native App only)        |
-  |                                                     Restrict results to a    |
-  |                                                     specific scope name. Can |
-  |                                                     be specified multiple    |
-  |                                                     times.                   |
-  | --consumer-org               TEXT                   (Native App only) The    |
-  |                                                     name of the consumer     |
-  |                                                     organization.            |
-  | --consumer-account           TEXT                   (Native App only) The    |
-  |                                                     name of the consumer     |
-  |                                                     account in the           |
-  |                                                     organization.            |
-  | --consumer-app-hash          TEXT                   (Native App only) The    |
-  |                                                     SHA-1 hash of the        |
-  |                                                     consumer application     |
-  |                                                     name                     |
-  | --first                      INTEGER                (Native App only) Fetch  |
-  |                                                     only the first N events. |
-  |                                                     Cannot be used with      |
-  |                                                     --last.                  |
-  | --last                       INTEGER                Maximum number of events |
-  |                                                     to fetch. Native App:    |
-  |                                                     cannot be used with      |
-  |                                                     --first. Snowflake App   |
-  |                                                     Runtime: number of log   |
-  |                                                     lines to retrieve        |
-  |                                                     (default: 500, capped at |
-  |                                                     100KB).                  |
-  | --follow             -f                             (Native App only)        |
-  |                                                     Continue polling for     |
-  |                                                     events. Implies --last   |
-  |                                                     20 unless overridden or  |
-  |                                                     the --since flag is      |
-  |                                                     used.                    |
-  | --follow-interval            INTEGER                (Native App only)        |
-  |                                                     Polling interval in      |
-  |                                                     seconds when using the   |
-  |                                                     --follow flag. Default:  |
-  |                                                     10.                      |
-  | --package-entity-id          TEXT                   (Native App only) The ID |
-  |                                                     of the package entity on |
-  |                                                     which to operate when    |
-  |                                                     the definition_version   |
-  |                                                     is 2 or higher.          |
-  | --app-entity-id              TEXT                   (Native App only) The ID |
-  |                                                     of the application       |
-  |                                                     entity on which to       |
-  |                                                     operate when the         |
-  |                                                     definition_version is 2  |
-  |                                                     or higher.               |
-  | --entity-id                  TEXT                   (Snowflake App Runtime   |
-  |                                                     only) The ID of the      |
-  |                                                     snowflake-app entity on  |
-  |                                                     which to operate.        |
-  |                                                     Required if multiple     |
-  |                                                     snowflake-app entities   |
-  |                                                     exist.                   |
-  | --project            -p      TEXT                   Path where the Snowflake |
-  |                                                     project is stored.       |
-  |                                                     Defaults to the current  |
-  |                                                     working directory.       |
-  | --env                        TEXT                   String in the format     |
-  |                                                     key=value. Overrides     |
-  |                                                     variables from the env   |
-  |                                                     section used for         |
-  |                                                     templates.               |
-  | --help               -h                             Show this message and    |
-  |                                                     exit.                    |
+  | --since                      TEXT                    Fetch events newer than |
+  |                                                      this time. Native App:  |
+  |                                                      a time ago in Snowflake |
+  |                                                      interval syntax.        |
+  |                                                      Snowflake App Runtime:  |
+  |                                                      relative shorthand      |
+  |                                                      (30m, 6h, 2d) or an     |
+  |                                                      absolute UTC timestamp  |
+  |                                                      (e.g. '2026-07-16       |
+  |                                                      18:00:00'). Supplying a |
+  |                                                      window switches logs to |
+  |                                                      the historical event    |
+  |                                                      table.                  |
+  | --until                      TEXT                    Fetch events older than |
+  |                                                      this time. Native App:  |
+  |                                                      a time ago in Snowflake |
+  |                                                      interval syntax.        |
+  |                                                      Snowflake App Runtime:  |
+  |                                                      relative shorthand      |
+  |                                                      (30m, 6h, 2d) or an     |
+  |                                                      absolute UTC timestamp  |
+  |                                                      (e.g. '2026-07-16       |
+  |                                                      23:59:59').             |
+  | --type                       [log|span|span_event|m  Restrict results to     |
+  |                              etric|lifecycle]        specific record         |
+  |                                                      type(s). Native App:    |
+  |                                                      one or more of log,     |
+  |                                                      span, span_event        |
+  |                                                      (repeatable). Snowflake |
+  |                                                      App Runtime: which      |
+  |                                                      telemetry stream to     |
+  |                                                      return — log (default), |
+  |                                                      metric, or lifecycle.   |
+  | --scope                      TEXT                    (Native App only)       |
+  |                                                      Restrict results to a   |
+  |                                                      specific scope name.    |
+  |                                                      Can be specified        |
+  |                                                      multiple times.         |
+  | --consumer-org               TEXT                    (Native App only) The   |
+  |                                                      name of the consumer    |
+  |                                                      organization.           |
+  | --consumer-account           TEXT                    (Native App only) The   |
+  |                                                      name of the consumer    |
+  |                                                      account in the          |
+  |                                                      organization.           |
+  | --consumer-app-hash          TEXT                    (Native App only) The   |
+  |                                                      SHA-1 hash of the       |
+  |                                                      consumer application    |
+  |                                                      name                    |
+  | --first                      INTEGER                 (Native App only) Fetch |
+  |                                                      only the first N        |
+  |                                                      events. Cannot be used  |
+  |                                                      with --last.            |
+  | --last                       INTEGER                 Maximum number of       |
+  |                                                      events to fetch. Native |
+  |                                                      App: cannot be used     |
+  |                                                      with --first. Snowflake |
+  |                                                      App Runtime: number of  |
+  |                                                      log lines to retrieve   |
+  |                                                      (default: 500, capped   |
+  |                                                      at 100KB).              |
+  | --follow             -f                              (Native App only)       |
+  |                                                      Continue polling for    |
+  |                                                      events. Implies --last  |
+  |                                                      20 unless overridden or |
+  |                                                      the --since flag is     |
+  |                                                      used.                   |
+  | --follow-interval            INTEGER                 (Native App only)       |
+  |                                                      Polling interval in     |
+  |                                                      seconds when using the  |
+  |                                                      --follow flag. Default: |
+  |                                                      10.                     |
+  | --metric                     TEXT                    (Snowflake App Runtime  |
+  |                                                      only) With --type       |
+  |                                                      metric, return only     |
+  |                                                      this metric subset:     |
+  |                                                      cpu, memory, or         |
+  |                                                      network. Omit to return |
+  |                                                      all metrics.            |
+  | --raw                                                (Snowflake App Runtime  |
+  |                                                      only) With --type       |
+  |                                                      metric, emit raw metric |
+  |                                                      values (bytes, cores)   |
+  |                                                      instead of              |
+  |                                                      human-readable          |
+  |                                                      conversions.            |
+  | --package-entity-id          TEXT                    (Native App only) The   |
+  |                                                      ID of the package       |
+  |                                                      entity on which to      |
+  |                                                      operate when the        |
+  |                                                      definition_version is 2 |
+  |                                                      or higher.              |
+  | --app-entity-id              TEXT                    (Native App only) The   |
+  |                                                      ID of the application   |
+  |                                                      entity on which to      |
+  |                                                      operate when the        |
+  |                                                      definition_version is 2 |
+  |                                                      or higher.              |
+  | --entity-id                  TEXT                    (Snowflake App Runtime  |
+  |                                                      only) The ID of the     |
+  |                                                      snowflake-app entity on |
+  |                                                      which to operate.       |
+  |                                                      Required if multiple    |
+  |                                                      snowflake-app entities  |
+  |                                                      exist.                  |
+  | --project            -p      TEXT                    Path where the          |
+  |                                                      Snowflake project is    |
+  |                                                      stored. Defaults to the |
+  |                                                      current working         |
+  |                                                      directory.              |
+  | --env                        TEXT                    String in the format    |
+  |                                                      key=value. Overrides    |
+  |                                                      variables from the env  |
+  |                                                      section used for        |
+  |                                                      templates.              |
+  | --help               -h                              Show this message and   |
+  |                                                      exit.                   |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
