@@ -144,6 +144,12 @@ HistorySchemaOption = typer.Option(
     help="Filter the history to code bundles in the given schema.",
     show_default=False,
 )
+HistoryEntrypointOption = typer.Option(
+    None,
+    "--entrypoint",
+    help="Filter the history to executions with the given entrypoint.",
+    show_default=False,
+)
 
 
 @app.command(requires_connection=True)
@@ -281,6 +287,7 @@ def history(
     bundle_name: Optional[str] = BundleNameOption,
     bundle_database: Optional[str] = HistoryDatabaseOption,
     bundle_schema: Optional[str] = HistorySchemaOption,
+    entrypoint: Optional[str] = HistoryEntrypointOption,
     result_limit: int = ResultLimitOption,
     **options,
 ) -> CommandResult:
@@ -290,6 +297,7 @@ def history(
             bundle_name=bundle_name,
             database=bundle_database,
             schema=bundle_schema,
+            entrypoint=entrypoint,
             result_limit=result_limit,
         )
     )
