@@ -120,6 +120,16 @@ def _env_callback(value: Optional[str]) -> Optional[str]:
     return _reject_control_chars(value, "--env")
 
 
+def _import_callback(value: Optional[list[str]]) -> Optional[list[str]]:
+    # Validate each --import value at parse time (before the connection is
+    # established) so a malformed value fails fast. Runs the same renderer the
+    # SQL builder uses (discarding the result) so validation and rendering can't
+    # drift.
+    for entry in value or []:
+        DBTManager._render_import(entry)  # noqa: SLF001
+    return value
+
+
 def _default_env_callback(value: Optional[str]) -> Optional[str]:
     return _reject_control_chars(value, "--default-env")
 
@@ -427,6 +437,21 @@ def before_callback(
         help="Whether to write dbt results back for this run. Must be placed before "
         "the dbt command. Omit to use the project's default.",
     ),
+    imports: list[str] = typer.Option(
+        [],
+        "--import",
+        show_default=False,
+        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_IMPORTS.is_enabled(),
+        callback=_import_callback,
+        help="Stage contents to import into the run, as an IMPORTS clause. "
+        "Repeatable. Each value is a stage path (@stage/s1), a dbt snow URL "
+        "(snow://dbt/db.schema.project/versions/live), or one of "
+        "SYSTEM$DBT_GET_LAST_RUN_TARGET, SYSTEM$DBT_GET_LAST_SUCCESSFUL_RUN_TARGET, "
+        "SYSTEM$DBT_GET_LAST_FAILED_RUN_TARGET, SYSTEM$LOCATE_DBT_ARTIFACTS — "
+        'optionally with "as folder" (an ASCII name of letters, digits, '
+        "underscores, and hyphens). Single-quote a value that contains spaces, "
+        "e.g. '@\"my stage\"/dir'.",
+    ),
     **options,
 ):
     """Handles global options passed before the command and takes pipeline name to be accessed through child context later."""
@@ -455,6 +480,7 @@ for cmd in DBT_COMMANDS:
         env_vars = ctx.parent.params.get("env_vars")
         use_shell_env_vars = ctx.parent.params.get("use_shell_env_vars", False)
         writeback = ctx.parent.params.get("writeback")
+        imports = ctx.parent.params.get("imports")
         execute_args = (
             dbt_command,
             name,
@@ -471,6 +497,7 @@ for cmd in DBT_COMMANDS:
                 *execute_args,
                 use_shell_env_vars=use_shell_env_vars,
                 writeback=writeback,
+                imports=imports,
             )
             return MessageResult(
                 f"Command submitted. You can check the result with `snow sql -q \"select execution_status from table(information_schema.query_history_by_user()) where query_id in ('{result.sfqid}');\"`"
@@ -482,6 +509,7 @@ for cmd in DBT_COMMANDS:
                 *execute_args,
                 use_shell_env_vars=use_shell_env_vars,
                 writeback=writeback,
+                imports=imports,
             )
 
             try:
