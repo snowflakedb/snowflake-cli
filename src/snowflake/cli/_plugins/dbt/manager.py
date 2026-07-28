@@ -51,6 +51,48 @@ DBT_ENV_SECRET_PREFIX = "DBT_ENV_SECRET_"
 _ENV_VAR_KEY_PREFIX = "DBT_"
 _ENV_VAR_KEY_RE = re.compile(r"^[A-Za-z0-9_]+$")
 _CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
+# Grammar for a single --import value (see _render_import). An entry is
+# "VALUE [as ALIAS]" where each token is a bareword (no spaces) or a
+# single-quoted literal (spaces allowed, internal quotes doubled). VALUE is a
+# stage path (@…), a snow URL (snow://…), or a SYSTEM$ function; ALIAS is a
+# folder name.
+#
+# A well-formed single-quoted SQL string literal (internal quotes doubled).
+_QUOTED_LITERAL = r"'(?:[^']|'')*'"
+# Valid folder-alias (mount name): the server requires an ASCII name of letters,
+# digits, underscores, and hyphens (GS DBT_IMPORTS_INVALID_MOUNT_NAME).
+_MOUNT_NAME_RE = re.compile(r"[A-Za-z0-9_-]+")
+# The SYSTEM$ functions the server accepts inside an IMPORTS entry, mirroring the
+# hardcoded whitelist in GS SqlExecuteDbtProject.evaluateDbtTargetFunction.
+# Compared case-insensitively (GS upper-cases the name before matching).
+_ALLOWED_DBT_IMPORT_FUNCTIONS = frozenset(
+    {
+        "SYSTEM$DBT_GET_LAST_RUN_TARGET",
+        "SYSTEM$DBT_GET_LAST_SUCCESSFUL_RUN_TARGET",
+        "SYSTEM$DBT_GET_LAST_FAILED_RUN_TARGET",
+        "SYSTEM$LOCATE_DBT_ARTIFACTS",
+    }
+)
+# SYSTEM$ scalar function call whose arguments (if any) are string literals only
+# — emitted into SQL verbatim, so both the function name (against the whitelist
+# above) and the arguments are constrained. Matched case-insensitively.
+_SYSTEM_FUNC = (
+    r"(?P<func>SYSTEM\$[A-Za-z_][A-Za-z0-9_]*)"
+    r"\(\s*(?:'(?:[^']|'')*'(?:\s*,\s*'(?:[^']|'')*')*\s*)?\)"
+)
+# Optional trailing " as <folder>", folder being a quoted literal or a bareword.
+_IMPORT_ALIAS = r"(?:\s+[aA][sS]\s+(?P<alias>" + _QUOTED_LITERAL + r"|\S+))?"
+# A SYSTEM$ import: the function (raw) plus an optional alias.
+_SYSTEM_IMPORT_RE = re.compile(
+    r"^(?P<value>" + _SYSTEM_FUNC + r")" + _IMPORT_ALIAS + r"$", re.IGNORECASE
+)
+# A location import: a quoted literal, or a bare @/snow:// token (no spaces),
+# plus an optional alias. Case-insensitive so the snow:// scheme may be given in
+# any case (GS matches it with startsWithIgnoreCase).
+_LOCATION_IMPORT_RE = re.compile(
+    r"^(?P<value>" + _QUOTED_LITERAL + r"|@\S+|snow://\S+)" + _IMPORT_ALIAS + r"$",
+    re.IGNORECASE,
+)
 # Matches any Jinja expression ({{ ... }}). Used to skip local role validation for
 # templated values that GS resolves at CREATE/execute time.
 _JINJA_EXPR = re.compile(r"\{\{.*?\}\}", re.DOTALL)
@@ -756,11 +798,13 @@ class DBTManager(SqlExecutionMixin):
         *dbt_cli_args,
         use_shell_env_vars: bool = False,
         writeback: Optional[bool] = None,
+        imports: Optional[List[str]] = None,
     ) -> SnowflakeCursor:
         if dbt_cli_args:
             processed_args = self._process_dbt_args(dbt_cli_args)
             dbt_command = f"{dbt_command} {processed_args}".strip()
         query = f"EXECUTE DBT PROJECT {name}"
+        query += self._format_imports_clause(imports)
         if dbt_version:
             query += f" dbt_version={to_string_literal(dbt_version)}"
         if environment:
@@ -810,6 +854,102 @@ class DBTManager(SqlExecutionMixin):
             query += env_vars_clause
         query += f" args={to_string_literal(dbt_command)}"
         return self.execute_query(query, _exec_async=run_async)
+
+    @staticmethod
+    def _format_imports_clause(imports: Optional[List[str]]) -> str:
+        if not imports:
+            return ""
+        rendered = ", ".join(DBTManager._render_import(entry) for entry in imports)
+        return f" IMPORTS=({rendered})"
+
+    @staticmethod
+    def _render_import(entry: str) -> str:
+        """Validate a single --import value and render its SQL form.
+
+        An entry is ``VALUE [as ALIAS]``. VALUE is a stage path (``@…``), a dbt
+        snow URL (``snow://dbt/…``), or one of the whitelisted dbt ``SYSTEM$``
+        functions (see ``_ALLOWED_DBT_IMPORT_FUNCTIONS``); ALIAS is a folder
+        name. Each of VALUE (stage/snow only) and ALIAS may be given as a
+        bareword (no spaces) or as a single-quoted literal (spaces allowed in
+        the value) — a value containing spaces must therefore be quoted. The
+        folder alias must not contain spaces (the server requires an ASCII
+        name), and a ``snow://`` URL must be of the ``dbt`` type.
+
+        Rendering: a bare stage/snow value or a bare alias is quoted with
+        ``to_string_literal``; a value or alias the caller already quoted is
+        passed through unchanged (the caller owns its escaping); a ``SYSTEM$``
+        function is emitted verbatim, never quoted. Anything that is not one of
+        these shapes is rejected rather than interpolated into SQL.
+        """
+        _reject_control_chars(entry, "--import")
+        value = entry.strip()
+        if not value:
+            raise CliError("--import value must not be empty.")
+        match = _SYSTEM_IMPORT_RE.match(value)
+        if match is not None:
+            if match.group("func").upper() not in _ALLOWED_DBT_IMPORT_FUNCTIONS:
+                raise CliError(
+                    f"--import function {match.group('func')!r} is not "
+                    "supported. Allowed functions: "
+                    "SYSTEM$DBT_GET_LAST_RUN_TARGET, "
+                    "SYSTEM$DBT_GET_LAST_SUCCESSFUL_RUN_TARGET, "
+                    "SYSTEM$DBT_GET_LAST_FAILED_RUN_TARGET, "
+                    "SYSTEM$LOCATE_DBT_ARTIFACTS."
+                )
+            rendered = match.group("value")  # SYSTEM$ function, emitted raw
+        else:
+            match = _LOCATION_IMPORT_RE.match(value)
+            if match is None:
+                raise CliError(DBTManager._invalid_import_message(value))
+            raw = match.group("value")
+            # For a quoted value, look past the opening quote at the content.
+            content = raw[1:] if raw.startswith("'") else raw
+            # snow:// scheme and dbt type are case-insensitive on the server.
+            lowered = content.lower()
+            if lowered.startswith("snow://") and not lowered.startswith("snow://dbt/"):
+                raise CliError(
+                    "--import snow URL must be a dbt project URL, e.g. "
+                    '"snow://dbt/my_db.my_schema.my_project/versions/live".'
+                )
+            if not (content.startswith("@") or lowered.startswith("snow://dbt/")):
+                raise CliError(DBTManager._invalid_import_message(value))
+            # Reject only a trailing (odd-count) backslash: it would escape the
+            # emitted closing quote and leave an unterminated literal. A
+            # backslash elsewhere is left to the server (matching SQL, which
+            # honors backslash escapes inside string literals).
+            inner = raw[1:-1] if raw.startswith("'") else raw
+            if (len(inner) - len(inner.rstrip("\\"))) % 2 == 1:
+                raise CliError(
+                    "--import value must not end with a backslash; it would "
+                    "escape the closing quote and produce invalid SQL."
+                )
+            rendered = raw if raw.startswith("'") else to_string_literal(raw)
+        alias = match.group("alias")
+        if alias:
+            folder = alias[1:-1] if alias.startswith("'") else alias
+            if not _MOUNT_NAME_RE.fullmatch(folder):
+                raise CliError(
+                    "--import folder alias must be an ASCII name using only "
+                    "letters, digits, underscores, and hyphens, e.g. "
+                    '"@stage/s1 as folder1".'
+                )
+            rendered += " AS " + (
+                alias if alias.startswith("'") else to_string_literal(alias)
+            )
+        return rendered
+
+    @staticmethod
+    def _invalid_import_message(value: str) -> str:
+        return (
+            f"--import value {value!r} is not valid. Provide a stage path "
+            "(@stage/s1), a dbt snow URL "
+            "(snow://dbt/my_db.my_schema.my_project/versions/live), or a "
+            'SYSTEM$ function, optionally followed by "as folder". Stage paths, '
+            "snow URLs, and folder names may be given with or without single "
+            "quotes, but a value containing spaces must be single-quoted "
+            "(e.g. '@\"my stage\"/dir'). Example: "
+            '--import "@stage/s1 as folder1".'
+        )
 
     @staticmethod
     def _format_env_vars_clause_from_dict(pairs: Dict[str, str]) -> str:
