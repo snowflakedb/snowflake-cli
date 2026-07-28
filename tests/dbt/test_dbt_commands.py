@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from unittest import mock
 
@@ -24,9 +25,11 @@ from snowflake.cli._plugins.dbt.constants import (
     RESULT_COLUMN_NAME,
 )
 from snowflake.cli.api.exceptions import CliArgumentError
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.secure_path import SecurePath
 
 from tests_common import IS_WINDOWS
+from tests_common.feature_flag_utils import with_feature_flags
 
 
 class TestDBTList:
@@ -555,6 +558,387 @@ class TestDBTDeploy:
         mock_deploy.assert_called_once()
         call_kwargs = mock_deploy.call_args[1]
         assert call_kwargs["attrs"].dbt_version == "2.0.0-preview.175"
+
+    def test_deploy_with_git_commit_and_branch_passes_to_manager(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", {"GITHUB_ACTIONS": ""}):
+                result = runner.invoke(
+                    [
+                        "dbt",
+                        "deploy",
+                        "TEST_PIPELINE",
+                        f"--source={dbt_project_path}",
+                        "--git-commit=abc123",
+                        "--git-branch=main",
+                    ]
+                )
+
+        assert result.exit_code == 0, result.output
+        mock_deploy.assert_called_once()
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["attrs"].git_commit == "abc123"
+        assert call_kwargs["attrs"].git_branch == "main"
+
+    def test_deploy_with_git_commit_only_passes_to_manager(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", {"GITHUB_ACTIONS": ""}):
+                result = runner.invoke(
+                    [
+                        "dbt",
+                        "deploy",
+                        "TEST_PIPELINE",
+                        f"--source={dbt_project_path}",
+                        "--git-commit=abc123",
+                    ]
+                )
+
+        assert result.exit_code == 0, result.output
+        mock_deploy.assert_called_once()
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["attrs"].git_commit == "abc123"
+        assert call_kwargs["attrs"].git_branch is None
+
+    def test_deploy_gha_auto_detect_suppressed_when_flag_off(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        gha_env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_SHA": "shouldbeignored",
+            "GITHUB_HEAD_REF": "shouldbeignored",
+            "GITHUB_REF_NAME": "shouldbeignored",
+        }
+        with mock.patch.dict("os.environ", gha_env):
+            result = runner.invoke(
+                ["dbt", "deploy", "TEST_PIPELINE", f"--source={dbt_project_path}"]
+            )
+
+        assert result.exit_code == 0, result.output
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["attrs"].git_commit is None
+        assert call_kwargs["attrs"].git_branch is None
+
+    def test_deploy_gha_push_auto_detects_commit_and_branch(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        gha_env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "push",
+            "GITHUB_SHA": "deadbeef",
+            "GITHUB_HEAD_REF": "",
+            "GITHUB_REF_NAME": "main",
+        }
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", gha_env):
+                result = runner.invoke(
+                    ["dbt", "deploy", "TEST_PIPELINE", f"--source={dbt_project_path}"]
+                )
+
+        assert result.exit_code == 0, result.output
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["attrs"].git_commit == "deadbeef"
+        assert call_kwargs["attrs"].git_branch == "main"
+
+    def test_deploy_gha_auto_detect_emits_message(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        gha_env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "push",
+            "GITHUB_SHA": "deadbeef",
+            "GITHUB_HEAD_REF": "",
+            "GITHUB_REF_NAME": "main",
+        }
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", gha_env):
+                result = runner.invoke(
+                    ["dbt", "deploy", "TEST_PIPELINE", f"--source={dbt_project_path}"]
+                )
+
+        # The user is told when values were auto-detected (rather than passed).
+        assert result.exit_code == 0, result.output
+        assert "Auto-detected git metadata" in result.output
+
+    def test_deploy_no_auto_detect_message_when_flags_explicit(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        gha_env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "push",
+            "GITHUB_SHA": "deadbeef",
+            "GITHUB_HEAD_REF": "",
+            "GITHUB_REF_NAME": "main",
+        }
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", gha_env):
+                result = runner.invoke(
+                    [
+                        "dbt",
+                        "deploy",
+                        "TEST_PIPELINE",
+                        f"--source={dbt_project_path}",
+                        "--git-commit=explicit",
+                        "--git-branch=explicit-branch",
+                    ]
+                )
+
+        # Nothing was auto-detected (flags supplied both) → no message.
+        assert result.exit_code == 0, result.output
+        assert "Auto-detected git metadata" not in result.output
+
+    def test_deploy_gha_pull_request_uses_head_sha_from_event_payload(
+        self, runner, dbt_project_path, mock_deploy, tmp_path
+    ):
+        event_file = tmp_path / "event.json"
+        event_file.write_text(
+            json.dumps({"pull_request": {"head": {"sha": "realheadsha"}}})
+        )
+        gha_env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "pull_request",
+            "GITHUB_EVENT_PATH": str(event_file),
+            "GITHUB_SHA": "mergecommit",
+            "GITHUB_HEAD_REF": "my-feature",
+            "GITHUB_REF_NAME": "123/merge",
+        }
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", gha_env):
+                result = runner.invoke(
+                    ["dbt", "deploy", "TEST_PIPELINE", f"--source={dbt_project_path}"]
+                )
+
+        assert result.exit_code == 0, result.output
+        call_kwargs = mock_deploy.call_args[1]
+        # On a pull_request event the recorded commit is the real PR head SHA,
+        # not the ephemeral GITHUB_SHA merge commit.
+        assert call_kwargs["attrs"].git_commit == "realheadsha"
+        assert call_kwargs["attrs"].git_branch == "my-feature"
+
+    def test_deploy_gha_pull_request_missing_payload_leaves_commit_null(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        gha_env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "pull_request",
+            "GITHUB_EVENT_PATH": "/nonexistent/event.json",
+            "GITHUB_SHA": "mergecommit",
+            "GITHUB_HEAD_REF": "my-feature",
+            "GITHUB_REF_NAME": "123/merge",
+        }
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", gha_env):
+                result = runner.invoke(
+                    ["dbt", "deploy", "TEST_PIPELINE", f"--source={dbt_project_path}"]
+                )
+
+        assert result.exit_code == 0, result.output
+        call_kwargs = mock_deploy.call_args[1]
+        # Unreadable payload: the ephemeral merge commit (GITHUB_SHA) is never
+        # recorded; commit is left null. Branch is still known from GITHUB_HEAD_REF.
+        assert call_kwargs["attrs"].git_commit is None
+        assert call_kwargs["attrs"].git_branch == "my-feature"
+
+    def test_deploy_gha_pull_request_missing_payload_uses_explicit_commit(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        gha_env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "pull_request",
+            "GITHUB_EVENT_PATH": "/nonexistent/event.json",
+            "GITHUB_SHA": "mergecommit",
+            "GITHUB_HEAD_REF": "my-feature",
+            "GITHUB_REF_NAME": "123/merge",
+        }
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", gha_env):
+                result = runner.invoke(
+                    [
+                        "dbt",
+                        "deploy",
+                        "TEST_PIPELINE",
+                        f"--source={dbt_project_path}",
+                        "--git-commit=manualsha",
+                    ]
+                )
+
+        assert result.exit_code == 0, result.output
+        call_kwargs = mock_deploy.call_args[1]
+        # Auto-detect couldn't resolve the commit → the explicit flag fills it in.
+        assert call_kwargs["attrs"].git_commit == "manualsha"
+        assert call_kwargs["attrs"].git_branch == "my-feature"
+
+    def test_deploy_gha_pull_request_target_uses_base_commit_and_branch(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        # pull_request_target runs in the base-branch context, so we record the base
+        # commit/branch (GITHUB_SHA/GITHUB_REF_NAME), not the PR feature head.
+        gha_env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "pull_request_target",
+            "GITHUB_SHA": "basecommit",
+            "GITHUB_HEAD_REF": "feature-branch",
+            "GITHUB_REF_NAME": "main",
+        }
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", gha_env):
+                result = runner.invoke(
+                    ["dbt", "deploy", "TEST_PIPELINE", f"--source={dbt_project_path}"]
+                )
+
+        assert result.exit_code == 0, result.output
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["attrs"].git_commit == "basecommit"
+        assert call_kwargs["attrs"].git_branch == "main"
+
+    def test_deploy_gha_malformed_payload_is_best_effort(
+        self, runner, dbt_project_path, mock_deploy, tmp_path
+    ):
+        event_file = tmp_path / "event.json"
+        event_file.write_text("{ this is not valid json")
+        gha_env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "pull_request",
+            "GITHUB_EVENT_PATH": str(event_file),
+            "GITHUB_SHA": "mergecommit",
+            "GITHUB_HEAD_REF": "my-feature",
+            "GITHUB_REF_NAME": "123/merge",
+        }
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", gha_env):
+                result = runner.invoke(
+                    ["dbt", "deploy", "TEST_PIPELINE", f"--source={dbt_project_path}"]
+                )
+
+        # A malformed event payload must never fail the deploy — best-effort → no
+        # metadata is recorded (rather than crashing or guessing).
+        assert result.exit_code == 0, result.output
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["attrs"].git_commit is None
+        assert call_kwargs["attrs"].git_branch is None
+
+    def test_deploy_no_git_metadata_outside_github_actions(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", {"GITHUB_ACTIONS": ""}):
+                result = runner.invoke(
+                    ["dbt", "deploy", "TEST_PIPELINE", f"--source={dbt_project_path}"]
+                )
+
+        assert result.exit_code == 0, result.output
+        call_kwargs = mock_deploy.call_args[1]
+        # Not in GitHub Actions and no explicit flags → nothing auto-detected.
+        assert call_kwargs["attrs"].git_commit is None
+        assert call_kwargs["attrs"].git_branch is None
+
+    def test_deploy_both_flags_skip_auto_detect(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        # Both flags passed: auto-detection is skipped entirely, so even a
+        # malformed event payload never triggers the "could not auto-detect" warning.
+        gha_env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "pull_request",
+            "GITHUB_EVENT_PATH": "/nonexistent/event.json",
+            "GITHUB_SHA": "mergecommit",
+            "GITHUB_HEAD_REF": "my-feature",
+            "GITHUB_REF_NAME": "123/merge",
+        }
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", gha_env):
+                result = runner.invoke(
+                    [
+                        "dbt",
+                        "deploy",
+                        "TEST_PIPELINE",
+                        f"--source={dbt_project_path}",
+                        "--git-commit=explicitc",
+                        "--git-branch=explicitb",
+                    ]
+                )
+
+        assert result.exit_code == 0, result.output
+        assert "Could not auto-detect" not in result.output
+        assert "Auto-detected git metadata" not in result.output
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["attrs"].git_commit == "explicitc"
+        assert call_kwargs["attrs"].git_branch == "explicitb"
+
+    def test_deploy_gha_tag_push_leaves_branch_unset(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        # Tag push: GITHUB_REF_NAME is the tag, not a branch. The commit is still
+        # correct (GITHUB_SHA), but the tag is not recorded as the branch.
+        gha_env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "push",
+            "GITHUB_REF_TYPE": "tag",
+            "GITHUB_SHA": "tagcommit",
+            "GITHUB_HEAD_REF": "",
+            "GITHUB_REF_NAME": "v1.2.3",
+        }
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", gha_env):
+                result = runner.invoke(
+                    ["dbt", "deploy", "TEST_PIPELINE", f"--source={dbt_project_path}"]
+                )
+
+        assert result.exit_code == 0, result.output
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["attrs"].git_commit == "tagcommit"
+        assert call_kwargs["attrs"].git_branch is None
+
+    def test_deploy_explicit_flags_win_over_gha_auto_detect(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        gha_env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "push",
+            "GITHUB_SHA": "envcommit",
+            "GITHUB_HEAD_REF": "",
+            "GITHUB_REF_NAME": "env-branch",
+        }
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", gha_env):
+                result = runner.invoke(
+                    [
+                        "dbt",
+                        "deploy",
+                        "TEST_PIPELINE",
+                        f"--source={dbt_project_path}",
+                        "--git-commit=explicit",
+                        "--git-branch=explicit-branch",
+                    ]
+                )
+
+        assert result.exit_code == 0, result.output
+        call_kwargs = mock_deploy.call_args[1]
+        # Explicit flags take precedence over GitHub Actions auto-detection.
+        assert call_kwargs["attrs"].git_commit == "explicit"
+        assert call_kwargs["attrs"].git_branch == "explicit-branch"
+
+    @pytest.mark.parametrize("flag", ["--git-commit", "--git-branch"])
+    def test_deploy_git_flags_reject_control_chars(
+        self, runner, dbt_project_path, mock_deploy, flag
+    ):
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", {"GITHUB_ACTIONS": ""}):
+                result = runner.invoke(
+                    [
+                        "dbt",
+                        "deploy",
+                        "TEST_PIPELINE",
+                        f"--source={dbt_project_path}",
+                        f"{flag}=abc\ndef",
+                    ]
+                )
+
+        assert result.exit_code != 0, result.output
+        assert "must not contain control characters" in result.output
+        mock_deploy.assert_not_called()
 
     def test_deploy_with_invalid_dbt_version_returns_exit_code_2(
         self, runner, dbt_project_path

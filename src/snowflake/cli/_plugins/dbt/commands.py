@@ -14,7 +14,9 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 from typing import Optional
 
 import typer
@@ -122,6 +124,71 @@ def _default_env_callback(value: Optional[str]) -> Optional[str]:
     return _reject_control_chars(value, "--default-env")
 
 
+def _git_commit_callback(value: Optional[str]) -> Optional[str]:
+    return _reject_control_chars(value, "--git-commit")
+
+
+def _git_branch_callback(value: Optional[str]) -> Optional[str]:
+    return _reject_control_chars(value, "--git-branch")
+
+
+def _github_actions_git_metadata() -> tuple[Optional[str], Optional[str]]:
+    """Auto-detect ``(git_commit, git_branch)`` from GitHub Actions env vars.
+
+    Best-effort: returns ``(None, None)`` on any failure (or when not running under
+    GitHub Actions) so auto-detection can never block a deploy — an explicit
+    ``--git-commit``/``--git-branch`` can always supply the values instead.
+
+    On ``push`` events ``GITHUB_SHA`` / ``GITHUB_REF_NAME`` are the branch-tip
+    commit and branch name. On ``pull_request`` events ``GITHUB_SHA`` is an
+    ephemeral merge commit (PR branch merged into base) that is not the deployed
+    source, so it is never recorded; the commit comes only from the real PR head
+    SHA in the event payload (``.pull_request.head.sha``), and the branch from
+    ``GITHUB_HEAD_REF``. If the payload can't be read, the commit is left unset
+    (``None``) so an explicit ``--git-commit`` can supply it. ``pull_request_target``
+    is intentionally not special-cased: it runs in the base-branch context, so its
+    ``GITHUB_SHA`` (the base commit) already matches what is deployed.
+    """
+    if os.getenv("GITHUB_ACTIONS") != "true":
+        return None, None
+
+    try:
+        if os.getenv("GITHUB_EVENT_NAME") == "pull_request":
+            # Feature-branch deploy: the branch is GITHUB_HEAD_REF and the commit is
+            # the real PR head SHA from the event payload (GITHUB_SHA here is the
+            # ephemeral merge commit). If the payload is unavailable, leave the commit
+            # unset so an explicit --git-commit can supply it.
+            branch = os.getenv("GITHUB_HEAD_REF") or None
+            commit = None
+            event_path = os.getenv("GITHUB_EVENT_PATH")
+            if event_path and os.path.isfile(event_path):
+                with open(event_path, encoding="utf-8") as event_file:
+                    payload = json.load(event_file)
+                commit = (
+                    payload.get("pull_request", {}).get("head", {}).get("sha") or None
+                )
+        else:
+            # push — and everything else, including pull_request_target, which runs in
+            # the base-branch context: GITHUB_SHA/GITHUB_REF_NAME are the commit and
+            # branch that were actually deployed. On a tag push GITHUB_REF_NAME is the
+            # tag (not a branch), so leave the branch unset rather than record a tag.
+            commit = os.getenv("GITHUB_SHA") or None
+            if os.getenv("GITHUB_REF_TYPE") == "tag":
+                branch = None
+            else:
+                branch = os.getenv("GITHUB_REF_NAME") or None
+
+        return commit, branch
+    except Exception:
+        # Best-effort: never let auto-detection break the deploy.
+        cli_console.warning(
+            "Could not auto-detect git metadata from the GitHub Actions environment; "
+            "last_deployed_from will omit it. Pass --git-commit/--git-branch to set it "
+            "explicitly."
+        )
+        return None, None
+
+
 @app.command(
     "deploy",
     requires_connection=True,
@@ -216,6 +283,22 @@ def deploy_dbt(
         "existing setting unchanged.",
         hidden=not FeatureFlag.ENABLE_DBT_PROJECT_AUTO_COMPILE.is_enabled(),
     ),
+    git_commit: Optional[str] = typer.Option(
+        None,
+        "--git-commit",
+        show_default=False,
+        help="Git commit hash to record in last_deployed_from metadata when deploying from a plain stage (e.g. SnowCLI temp stage). In GitHub Actions it is auto-detected when not provided.",
+        hidden=not FeatureFlag.ENABLE_DBT_GIT_METADATA.is_enabled(),
+        callback=_git_commit_callback,
+    ),
+    git_branch: Optional[str] = typer.Option(
+        None,
+        "--git-branch",
+        show_default=False,
+        help="Git branch name to record in last_deployed_from metadata when deploying from a plain stage (e.g. SnowCLI temp stage). In GitHub Actions it is auto-detected when not provided.",
+        hidden=not FeatureFlag.ENABLE_DBT_GIT_METADATA.is_enabled(),
+        callback=_git_branch_callback,
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -228,6 +311,29 @@ def deploy_dbt(
     project_path = SecurePath(source) if source is not None else SecurePath.cwd()
     profiles_dir_path = SecurePath(profiles_dir) if profiles_dir else project_path
     env_file_path = SecurePath(env_file_dir) if env_file_dir else None
+
+    if not FeatureFlag.ENABLE_DBT_GIT_METADATA.is_enabled():
+        git_commit = None
+        git_branch = None
+    elif git_commit is None or git_branch is None:
+        # Explicit flags take precedence; only auto-detect when there's a gap to
+        # fill, so we never do needless work (or warn about auto-detection) when the
+        # caller already passed both values.
+        auto_commit, auto_branch = _github_actions_git_metadata()
+        detected = []
+        if git_commit is None and auto_commit is not None:
+            git_commit = auto_commit
+            detected.append(f"commit {auto_commit}")
+        if git_branch is None and auto_branch is not None:
+            git_branch = auto_branch
+            detected.append(f"branch {auto_branch}")
+        if detected:
+            cli_console.message(
+                "Auto-detected git metadata from the GitHub Actions environment ("
+                + ", ".join(detected)
+                + "); pass --git-commit/--git-branch to override."
+            )
+
     attrs = DBTDeployAttributes(
         default_target=default_target,
         unset_default_target=unset_default_target,
@@ -238,6 +344,8 @@ def deploy_dbt(
         dbt_version=dbt_version,
         default_writeback=default_writeback,
         auto_compile=auto_compile,
+        git_commit=git_commit,
+        git_branch=git_branch,
     )
     return QueryResult(
         DBTManager().deploy(
