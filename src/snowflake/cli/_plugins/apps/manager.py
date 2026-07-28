@@ -37,10 +37,11 @@ from typing import (
 )
 
 DEFAULT_PERSONAL_SCHEMA = "PUBLIC"
-# Shared workspace name used when ``snow app setup`` resolves the destination
-# database from the user's personal database. All of the user's apps live as
-# subdirectories under this single workspace.
-DEFAULT_PERSONAL_WORKSPACE_NAME = "SNOWFLAKE_APPS"
+# Shared workspace name used by ``snow app setup`` for the code-storage backend.
+# The workspace flow is the default for both personal and regular databases, so
+# all of a user's apps live as subdirectories under this single workspace in the
+# resolved destination database/schema.
+DEFAULT_WORKSPACE_NAME = "SNOWFLAKE_APPS"
 WORKSPACE_LIVE_VERSION_PATH = "versions/live"
 
 # Snowflake assigns every user a *personal database* named ``USER$<username>``.
@@ -385,6 +386,23 @@ def _deploy_privilege_check_statements(database: str, schema: str) -> list[str]:
         f"CREATE STAGE {placeholder} ENCRYPTION = (TYPE = 'SNOWFLAKE_SSE')",
         f"CREATE ARTIFACT REPOSITORY {placeholder} TYPE=APPLICATION",
     ]
+
+
+def _workspace_privilege_check_statement(database: str, schema: str) -> str:
+    """Build the representative ``CREATE WORKSPACE`` DDL used to probe whether
+    the current role can use the workspace code-storage backend in
+    *database*/*schema*, via ``EXPLAIN_PRIVILEGES``.
+
+    The object name is a placeholder — the required privilege (``CREATE
+    WORKSPACE`` on the schema) depends on the destination database/schema, not
+    the final object name — and is emitted as a plain (per-component quoted)
+    dotted identifier rather than ``IDENTIFIER(...)`` so the analyzer can
+    resolve it.
+    """
+    placeholder = app_fqn(
+        database=database, schema=schema, name=PRIVILEGE_CHECK_OBJECT_NAME
+    ).identifier
+    return f"CREATE WORKSPACE {placeholder}"
 
 
 def _format_missing_privileges(nodes: list[Dict[str, str]]) -> list[str]:
@@ -919,6 +937,52 @@ class SnowflakeAppManager(SqlExecutionMixin):
             log.debug("Could not parse EXPLAIN_PRIVILEGES output: %r", row[0])
             return []
         return _flatten_missing_privileges(payload)
+
+    def role_can_create_workspace(self, database: str, schema: str) -> bool:
+        """Return whether the current role can create a workspace in *database*/*schema*.
+
+        ``snow app setup`` uses this to decide, up front, whether to persist the
+        workspace code-storage backend (the default) or fall back to a stage,
+        so the choice is baked into ``snowflake.yml`` and later deploys don't
+        have to discover it at runtime.
+
+        The probe issues ``EXPLAIN_PRIVILEGES`` against a representative
+        ``CREATE WORKSPACE`` statement with ``missing_only => true`` for the
+        current role:
+
+        * No missing privileges reported → ``True`` (workspace is usable).
+        * Missing privileges reported → ``False`` (persist a stage instead).
+        * The probe itself cannot be evaluated (e.g. ``EXPLAIN_PRIVILEGES``
+          cannot analyze ``CREATE WORKSPACE`` on this account) → ``True``.
+          The workspace flow is the intended default and ``snow app deploy``
+          still falls back to a stage at runtime if the workspace turns out to
+          be unusable, so an inconclusive probe should not pre-emptively give
+          up the default.
+        """
+        role = self.current_role()
+        statement = _workspace_privilege_check_statement(database, schema)
+        try:
+            missing = self.get_missing_privileges(statement, role)
+        except Exception:
+            log.info(
+                "Could not evaluate CREATE WORKSPACE privileges for %r.%r; "
+                "assuming the workspace backend is usable.",
+                database,
+                schema,
+                exc_info=True,
+            )
+            return True
+        if missing:
+            log.info(
+                "Role %r is missing privileges to create a workspace in %r.%r: %s. "
+                "Falling back to a stage for code storage.",
+                role,
+                database,
+                schema,
+                _format_missing_privileges(missing),
+            )
+            return False
+        return True
 
     def stage_exists(self, stage_fqn: FQN) -> bool:
         """Return True if the stage already exists and is visible to the role.

@@ -15,7 +15,7 @@
 from textwrap import dedent
 from typing import Dict, Optional, cast
 
-from snowflake.cli._plugins.apps.manager import DEFAULT_PERSONAL_WORKSPACE_NAME
+from snowflake.cli._plugins.apps.manager import DEFAULT_WORKSPACE_NAME
 
 
 def _yaml_str(v: str) -> str:
@@ -53,15 +53,16 @@ def _generate_snowflake_yml(
     The artifact repository is omitted from the generated YAML; the CLI
     will default to ``<app-id>_REPO`` at deploy time.
 
-    When ``use_workspace`` is true (database resolved from the user's
-    personal database during ``snow app setup``), the generator emits
-    ``code_workspace`` as a fully-qualified identifier pointing at a shared
-    ``SNOWFLAKE_APPS`` workspace. Each app is uploaded into its own
+    When ``use_workspace`` is true (the default backend, chosen during
+    ``snow app setup`` for both personal and regular databases), the generator
+    emits ``code_workspace`` as a fully-qualified identifier pointing at a
+    shared ``SNOWFLAKE_APPS`` workspace. Each app is uploaded into its own
     subdirectory at deploy time, so a single workspace serves every app the
     user owns.
 
-    Otherwise the generator emits ``code_stage`` as a bare stage name
-    resolved against the app's database and schema at deploy time.
+    Otherwise (``snow app setup`` determined the current role cannot create a
+    workspace in the destination) the generator emits ``code_stage`` as a bare
+    stage name resolved against the app's database and schema at deploy time.
     """
 
     database = cast(str, resolved["database"])
@@ -71,12 +72,12 @@ def _generate_snowflake_yml(
 
     if use_workspace:
         # Shared workspace: all of the user's apps live as subdirectories
-        # under a single ``SNOWFLAKE_APPS`` workspace in their personal DB.
-        # Fully-qualified so it does not implicitly depend on the resolved
-        # database/schema.
+        # under a single ``SNOWFLAKE_APPS`` workspace in the resolved
+        # destination database/schema. Fully-qualified so it does not
+        # implicitly depend on the resolved database/schema.
         code_storage_block = (
             f"\n            code_workspace: "
-            f"{_yaml_str(f'{database}.{schema}.{DEFAULT_PERSONAL_WORKSPACE_NAME}')}\n"
+            f"{_yaml_str(f'{database}.{schema}.{DEFAULT_WORKSPACE_NAME}')}\n"
         )
     else:
         code_storage_block = f"\n            code_stage: {app_id.upper()}_CODE\n"

@@ -1020,6 +1020,48 @@ class TestGetMissingPrivileges:
         )
 
 
+class TestRoleCanCreateWorkspace:
+    """``role_can_create_workspace`` decides the setup-time workspace-vs-stage
+    backend for regular databases by probing CREATE WORKSPACE privileges."""
+
+    def test_authorized_returns_true(self):
+        mgr = SnowflakeAppManager()
+        with patch.object(mgr, "current_role", return_value="R"), patch.object(
+            mgr, "get_missing_privileges", return_value=[]
+        ) as mock_missing:
+            assert mgr.role_can_create_workspace("DB", "SCHEMA") is True
+        statement, role = mock_missing.call_args.args
+        assert statement.startswith("CREATE WORKSPACE ")
+        assert "DB.SCHEMA." in statement
+        assert role == "R"
+
+    def test_missing_privileges_returns_false(self):
+        mgr = SnowflakeAppManager()
+        missing = [
+            {
+                "privilege": "CREATE WORKSPACE",
+                "objectType": "SCHEMA",
+                "objectName": "DB.SCHEMA",
+            }
+        ]
+        with patch.object(mgr, "current_role", return_value="R"), patch.object(
+            mgr, "get_missing_privileges", return_value=missing
+        ):
+            assert mgr.role_can_create_workspace("DB", "SCHEMA") is False
+
+    def test_probe_error_keeps_workspace_default(self):
+        """An inconclusive probe (EXPLAIN_PRIVILEGES cannot analyze CREATE
+        WORKSPACE) keeps the workspace default — deploy still falls back to a
+        stage at runtime if the workspace is unusable."""
+        mgr = SnowflakeAppManager()
+        with patch.object(mgr, "current_role", return_value="R"), patch.object(
+            mgr,
+            "get_missing_privileges",
+            side_effect=ProgrammingError("cannot analyze CREATE WORKSPACE"),
+        ):
+            assert mgr.role_can_create_workspace("DB", "SCHEMA") is True
+
+
 class TestAppFqn:
     """``app_fqn`` is the apps-plugin FQN factory: it routes each component
     through :func:`to_identifier` so the resulting FQN's ``identifier`` /
@@ -3346,6 +3388,9 @@ class TestSetupCommand:
             "query_warehouse": "PARAM_WH",
             "build_eai": "PARAM_EAI",
         }
+        # Regular destination whose role can create a workspace: the workspace
+        # flow is the default, so setup persists ``code_workspace``.
+        mock_mgr.role_can_create_workspace.return_value = True
 
         with change_directory(tmp_path):
             result = runner.invoke(["app", "setup", "--app-name", "my_app"])
@@ -3359,7 +3404,10 @@ class TestSetupCommand:
         assert resolved["build_eai"] == "PARAM_EAI"
         assert "build_compute_pool" not in resolved
         assert "service_compute_pool" not in resolved
-        assert mock_gen.call_args.kwargs["use_workspace"] is False
+        assert mock_gen.call_args.kwargs["use_workspace"] is True
+        mock_mgr.role_can_create_workspace.assert_called_once_with(
+            "PARAM_DB", "PARAM_SCHEMA"
+        )
 
     @patch(
         "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
@@ -4110,10 +4158,11 @@ class TestSetupCommand:
     )
     @patch("snowflake.cli._plugins.apps.commands.get_connection_dict")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
-    def test_setup_uses_stage_when_database_resolved_from_session(
+    def test_setup_falls_back_to_stage_when_role_cannot_create_workspace(
         self, mock_mgr_cls, mock_get_conn, mock_gen, runner, tmp_path
     ):
-        """Session/connection database (not personal DB) should emit code_stage."""
+        """A regular database whose role provably lacks CREATE WORKSPACE
+        persists ``code_stage`` so later deploys skip the workspace flow."""
         mock_get_conn.return_value = {"database": "CONN_DB"}
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.fetch_app_service_defaults.return_value = {
@@ -4122,12 +4171,67 @@ class TestSetupCommand:
             "build_eai": "PARAM_EAI",
         }
         mock_mgr.get_personal_database.return_value = None
+        mock_mgr.role_can_create_workspace.return_value = False
 
         with change_directory(tmp_path):
             result = runner.invoke(["app", "setup", "--app-name", "my_app"])
             assert result.exit_code == 0, result.output
 
         assert mock_gen.call_args.kwargs["use_workspace"] is False
+        mock_mgr.role_can_create_workspace.assert_called_once_with(
+            "CONN_DB", "PARAM_SCHEMA"
+        )
+
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
+        return_value="definition_version: '2'\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.get_connection_dict")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_setup_uses_workspace_for_regular_db_by_default(
+        self, mock_mgr_cls, mock_get_conn, mock_gen, runner, tmp_path
+    ):
+        """A regular database whose role can create a workspace persists
+        ``code_workspace`` — the workspace flow is the default backend."""
+        mock_get_conn.return_value = {"database": "CONN_DB"}
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.fetch_app_service_defaults.return_value = {
+            "schema": "PARAM_SCHEMA",
+            "query_warehouse": "PARAM_WH",
+            "build_eai": "PARAM_EAI",
+        }
+        mock_mgr.get_personal_database.return_value = None
+        mock_mgr.role_can_create_workspace.return_value = True
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+            assert result.exit_code == 0, result.output
+
+        assert mock_gen.call_args.kwargs["use_workspace"] is True
+
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
+        return_value="definition_version: '2'\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_setup_skips_workspace_privilege_check_for_personal_db(
+        self, mock_mgr_cls, mock_gen, runner, tmp_path
+    ):
+        """A personal database always uses a workspace (stages unsupported), so
+        setup does not probe CREATE WORKSPACE privileges."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.fetch_app_service_defaults.return_value = {
+            "database": "USER$MYUSER",
+            "schema": "PUBLIC",
+            "query_warehouse": "PARAM_WH",
+        }
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+            assert result.exit_code == 0, result.output
+
+        assert mock_gen.call_args.kwargs["use_workspace"] is True
+        mock_mgr.role_can_create_workspace.assert_not_called()
 
     @patch(
         "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
@@ -7316,6 +7420,117 @@ class TestDeployCommand:
 
         mock_mgr.clear_workspace_subdirectory.assert_not_called()
         mock_mgr.build_app_artifact_repo.assert_not_called()
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_regular_db_falls_back_to_stage_when_workspace_fails(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """On a regular (non-personal) database, a workspace failure at deploy
+        time falls back to the stage flow: the code is uploaded to a
+        ``<app>_CODE`` stage, the build consumes it, and it is dropped after the
+        build. Mirrors the ``snow app setup`` privilege fallback for roles that
+        cannot create a workspace."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.code_workspace = Mock(database=None, schema_=None)
+        entity.code_workspace.name = "SNOWFLAKE_APPS"
+        entity.artifacts = []
+        entity.meta = None
+        entity.runtime_image = "runtime:latest"
+        entity.query_warehouse = "WH"
+        entity.artifact_repository = None
+        entity.build_compute_pool = None
+        entity.service_compute_pool = None
+        entity.build_eai = None
+        mock_get_entity.return_value = entity
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        workspace_error = ProgrammingError("Insufficient privileges")
+        workspace_error.errno = 3001
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.workspace_subdirectory_uri.return_value = (
+            "snow://workspace/TEST_DB.TEST_SCHEMA.SNOWFLAKE_APPS/versions/live/MY_APP"
+        )
+        # The workspace cannot be created for this role; deploy must recover by
+        # switching to a stage instead of failing.
+        mock_mgr.create_workspace.side_effect = workspace_error
+        mock_mgr.current_role.return_value = "APP_DEPLOYER"
+        mock_mgr.stage_exists.return_value = False
+        mock_mgr.artifact_repo_exists.return_value = False
+        mock_mgr.build_app_artifact_repo.return_value = (
+            "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
+        )
+        _real_manager = SnowflakeAppManager()
+        mock_mgr.resolve_application_service_url_from_describe.side_effect = (
+            _real_manager.resolve_application_service_url_from_describe
+        )
+        mock_poll.side_effect = [
+            "DONE",
+            {"url": "my-app.snowflakecomputing.app", "is_upgrading": "false"},
+        ]
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "deploy"])
+            assert result.exit_code == 0, result.output
+            assert "Falling back to a stage" in result.output
+
+        fallback_stage_fqn = FQN(
+            database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP_CODE"
+        )
+        mock_mgr.create_workspace.assert_called_once()
+        mock_mgr.create_stage.assert_called_once_with(
+            fallback_stage_fqn, "SNOWFLAKE_SSE"
+        )
+        # The build consumes the fallback stage (not a workspace URI) ...
+        assert (
+            mock_mgr.build_app_artifact_repo.call_args.kwargs["stage_fqn"]
+            == fallback_stage_fqn
+        )
+        assert "source_uri" not in mock_mgr.build_app_artifact_repo.call_args.kwargs
+        mock_mgr.workspace_last_subdirectory_uri.assert_not_called()
+        # ... and the created stage is dropped once the build completes.
+        mock_mgr.drop_stage_if_exists.assert_called_once_with(fallback_stage_fqn)
 
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
