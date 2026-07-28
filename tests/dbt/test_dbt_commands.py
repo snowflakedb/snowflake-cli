@@ -1147,6 +1147,273 @@ class TestDBTExecute:
             == "EXECUTE DBT PROJECT pipeline_name args='compile'"
         )
 
+    @pytest.mark.parametrize(
+        "import_args,expected_query",
+        [
+            pytest.param(
+                ["--import", "@stage1/"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=('@stage1/') args='run'",
+                id="bare-stage-path",
+            ),
+            pytest.param(
+                ["--import", "@stage/s1 as folder1"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=('@stage/s1' AS 'folder1') args='run'",
+                id="bare-alias-cli-quotes-it",
+            ),
+            pytest.param(
+                ["--import", "@stage/s1 AS folder1"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=('@stage/s1' AS 'folder1') args='run'",
+                id="uppercase-as",
+            ),
+            pytest.param(
+                ["--import", "@stage/s1 as 'folder1'"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=('@stage/s1' AS 'folder1') args='run'",
+                id="quoted-alias-passthrough",
+            ),
+            pytest.param(
+                ["--import", "snow://dbt/db.schema.proj/versions/live"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=('snow://dbt/db.schema.proj/versions/live') args='run'",
+                id="bare-snow-url",
+            ),
+            pytest.param(
+                ["--import", "snow://dbt/db.schema.proj/versions/live as staging"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=('snow://dbt/db.schema.proj/versions/live' AS 'staging') args='run'",
+                id="snow-url-with-alias",
+            ),
+            pytest.param(
+                ["--import", "SNOW://DBT/db.schema.proj/versions/live"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=('SNOW://DBT/db.schema.proj/versions/live') args='run'",
+                id="snow-url-uppercase-scheme",
+            ),
+            pytest.param(
+                ["--import", "'@\"my stage\"/dir'"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=('@\"my stage\"/dir') args='run'",
+                id="quoted-value-with-space-passthrough",
+            ),
+            pytest.param(
+                # A non-trailing backslash is passed through (matches SQL, which
+                # honors backslash escapes inside string literals).
+                ["--import", "@stage/a\\b"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=('@stage/a\\b') args='run'",
+                id="mid-backslash-passthrough",
+            ),
+            pytest.param(
+                ["--import", "'@\"my stage\"/dir' as folder1"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=('@\"my stage\"/dir' AS 'folder1') args='run'",
+                id="quoted-value-with-space-bare-alias",
+            ),
+            pytest.param(
+                ["--import", "SYSTEM$DBT_GET_LAST_RUN_TARGET('proj')"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=(SYSTEM$DBT_GET_LAST_RUN_TARGET('proj')) args='run'",
+                id="system-func-raw",
+            ),
+            pytest.param(
+                ["--import", "SYSTEM$DBT_GET_LAST_RUN_TARGET('my project')"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=(SYSTEM$DBT_GET_LAST_RUN_TARGET('my project')) args='run'",
+                id="system-func-space-in-arg",
+            ),
+            pytest.param(
+                ["--import", "SYSTEM$DBT_GET_LAST_RUN_TARGET('proj') as folder1"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=(SYSTEM$DBT_GET_LAST_RUN_TARGET('proj') AS 'folder1') args='run'",
+                id="system-func-with-alias",
+            ),
+            pytest.param(
+                ["--import", "system$dbt_get_last_run_target('proj')"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=(system$dbt_get_last_run_target('proj')) args='run'",
+                id="system-func-lowercase",
+            ),
+            pytest.param(
+                ["--import", "SYSTEM$DBT_GET_LAST_SUCCESSFUL_RUN_TARGET('proj')"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=(SYSTEM$DBT_GET_LAST_SUCCESSFUL_RUN_TARGET('proj')) args='run'",
+                id="system-func-last-successful",
+            ),
+            pytest.param(
+                ["--import", "SYSTEM$DBT_GET_LAST_FAILED_RUN_TARGET('proj')"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=(SYSTEM$DBT_GET_LAST_FAILED_RUN_TARGET('proj')) args='run'",
+                id="system-func-last-failed",
+            ),
+            pytest.param(
+                ["--import", "SYSTEM$LOCATE_DBT_ARTIFACTS('proj')"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=(SYSTEM$LOCATE_DBT_ARTIFACTS('proj')) args='run'",
+                id="system-func-locate-artifacts",
+            ),
+            pytest.param(
+                ["--import", "SYSTEM$DBT_GET_LAST_RUN_TARGET('proj', 'target')"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=(SYSTEM$DBT_GET_LAST_RUN_TARGET('proj', 'target')) args='run'",
+                id="system-func-multiple-args",
+            ),
+            pytest.param(
+                [
+                    "--import",
+                    "@stage1/",
+                    "--import",
+                    "snow://dbt/db.schema.proj/versions/live as staging",
+                    "--import",
+                    "SYSTEM$DBT_GET_LAST_RUN_TARGET('proj')",
+                ],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=('@stage1/', 'snow://dbt/db.schema.proj/versions/live' AS 'staging', SYSTEM$DBT_GET_LAST_RUN_TARGET('proj')) args='run'",
+                id="multiple-mixed",
+            ),
+        ],
+    )
+    def test_dbt_execute_imports(
+        self, mock_connect, mock_cursor, runner, import_args, expected_query
+    ):
+        cursor = mock_cursor(
+            rows=[(True, "very detailed logs")],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+
+        result = runner.invoke(["dbt", "execute", *import_args, "pipeline_name", "run"])
+
+        assert result.exit_code == 0, result.output
+        assert mock_connect.mocked_ctx.get_query() == expected_query
+
+    def test_dbt_execute_imports_async_forwards_clause(self, mock_connect, runner):
+        result = runner.invoke(
+            [
+                "dbt",
+                "execute",
+                "--run-async",
+                "--import",
+                "@stage/s1 as folder1",
+                "pipeline_name",
+                "run",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert mock_connect.mocked_ctx.kwargs[0]["_exec_async"] is True
+        assert (
+            mock_connect.mocked_ctx.get_query()
+            == "EXECUTE DBT PROJECT pipeline_name IMPORTS=('@stage/s1' AS 'folder1') args='run'"
+        )
+
+    def test_dbt_execute_without_imports_omits_clause(
+        self, mock_connect, mock_cursor, runner
+    ):
+        cursor = mock_cursor(
+            rows=[(True, "very detailed logs")],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+
+        result = runner.invoke(["dbt", "execute", "pipeline_name", "run"])
+
+        assert result.exit_code == 0, result.output
+        assert (
+            mock_connect.mocked_ctx.get_query()
+            == "EXECUTE DBT PROJECT pipeline_name args='run'"
+        )
+
+    @pytest.mark.parametrize(
+        "bad_value,expected_error",
+        [
+            pytest.param(
+                "@my stage/dir",
+                "is not valid",
+                id="unquoted-space-in-value",
+            ),
+            pytest.param(
+                "@stage /s1",
+                "is not valid",
+                id="internal-space-unquoted",
+            ),
+            pytest.param(
+                "'foo' as 'bar'",
+                "is not valid",
+                id="quoted-non-location",
+            ),
+            pytest.param(
+                "1);DROP/**/TABLE/**/x;--",
+                "is not valid",
+                id="comment-token-injection",
+            ),
+            pytest.param(
+                "'@s/')/**/args='deps'--",
+                "is not valid",
+                id="single-statement-injection",
+            ),
+            pytest.param(
+                "SYSTEM$FOO('a')/**/,current_user()",
+                "is not valid",
+                id="system-func-comment-injection",
+            ),
+            pytest.param(
+                "SYSTEM$FOO('a'); DROP TABLE x --",
+                "is not valid",
+                id="system-func-trailing-sql",
+            ),
+            pytest.param(
+                "SYSTEM$FOO('a')",
+                "is not supported",
+                id="system-func-not-whitelisted",
+            ),
+            pytest.param(
+                "@stage/s1 as as folder1",
+                "is not valid",
+                id="double-as",
+            ),
+            pytest.param(
+                "@stage/s1 as 'my folder'",
+                "must be an ASCII name",
+                id="folder-alias-with-space",
+            ),
+            pytest.param(
+                "@stage/s1 as a.b",
+                "must be an ASCII name",
+                id="folder-alias-with-dot",
+            ),
+            pytest.param(
+                "@stage/s1 as 'a/b'",
+                "must be an ASCII name",
+                id="folder-alias-with-slash",
+            ),
+            pytest.param(
+                "snow://dataset/db.schema.obj/versions/live",
+                "must be a dbt project URL",
+                id="snow-url-non-dbt-type",
+            ),
+            pytest.param(
+                "'snow://dataset/x'",
+                "must be a dbt project URL",
+                id="snow-url-non-dbt-quoted",
+            ),
+            pytest.param(
+                "@s/x\\",
+                "must not end with a backslash",
+                id="value-trailing-backslash",
+            ),
+            pytest.param(
+                "'@s/x\\'",
+                "must not end with a backslash",
+                id="quoted-value-trailing-backslash",
+            ),
+            pytest.param(
+                "   ",
+                "must not be empty",
+                id="empty-value",
+            ),
+            pytest.param(
+                "@stage/s1\tfolder",
+                "must not contain control characters",
+                id="control-char",
+            ),
+        ],
+    )
+    def test_dbt_execute_imports_invalid_input(
+        self, mock_connect, runner, bad_value, expected_error
+    ):
+        result = runner.invoke(
+            ["dbt", "execute", "--import", bad_value, "pipeline_name", "run"]
+        )
+
+        assert result.exit_code != 0, result.output
+        assert expected_error in result.output
+        # Validation runs in the option callback, before any SQL is built.
+        assert mock_connect.mocked_ctx.get_query() == ""
+
     def test_dbt_execute_dbt_failure_returns_non_0_code(
         self, mock_connect, mock_cursor, runner
     ):

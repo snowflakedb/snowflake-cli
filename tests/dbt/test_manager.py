@@ -1932,14 +1932,24 @@ class TestExecute:
                 id="env-vars-value-with-single-quote-escaped",
             ),
             pytest.param(
+                {"imports": ["@stage/s1 as folder1"]},
+                (),
+                "EXECUTE DBT PROJECT pipeline "
+                "IMPORTS=('@stage/s1' AS 'folder1') args='run'",
+                id="imports-only",
+            ),
+            pytest.param(
                 {
+                    "imports": ["@stage1/", "SYSTEM$DBT_GET_LAST_RUN_TARGET('proj')"],
                     "dbt_version": "1.9.0",
                     "environment": "prod",
                     "env_vars": '{"DBT_FOO": "1"}',
                 },
                 (),
-                "EXECUTE DBT PROJECT pipeline dbt_version='1.9.0' "
-                "ENVIRONMENT='prod' ENV_VARS=('DBT_FOO'='1') args='run'",
+                "EXECUTE DBT PROJECT pipeline "
+                "IMPORTS=('@stage1/', SYSTEM$DBT_GET_LAST_RUN_TARGET('proj')) "
+                "dbt_version='1.9.0' ENVIRONMENT='prod' "
+                "ENV_VARS=('DBT_FOO'='1') args='run'",
                 id="all-options-ordering",
             ),
         ],
@@ -1955,6 +1965,7 @@ class TestExecute:
             kwargs.get("environment"),
             kwargs.get("env_vars"),
             *extra_args,
+            imports=kwargs.get("imports"),
         )
 
         mock_execute_query.assert_called_once_with(expected_query, _exec_async=False)

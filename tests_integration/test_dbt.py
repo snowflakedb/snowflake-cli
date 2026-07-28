@@ -323,6 +323,71 @@ def test_execute_with_writeback(
 
 
 @pytest.mark.integration
+@pytest.mark.qa_only
+def test_execute_with_imports(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    """Exercise --import against a real Snowflake DBT PROJECT.
+
+    Verifies that the IMPORTS clause the CLI builds for EXECUTE DBT PROJECT is
+    accepted end-to-end across all supported shapes: a bare stage path, a stage
+    path aliased to a target folder, a SYSTEM$ function (bare and aliased), and a
+    snow://dbt URL — the SYSTEM$ and snow:// grammars being the parts unit tests
+    can't confirm against the server. qa_only because it depends on the backend
+    IMPORTS support being enabled on the account.
+    """
+    with project_directory("dbt_project") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_project_{ts}"
+
+        # A stage whose contents are imported into the run.
+        import_stage = f"dbt_import_stage_{ts}"
+        snowflake_session.execute_string(f"CREATE STAGE {import_stage}")
+
+        _setup_dbt_profile(root_dir, snowflake_session)
+        result = runner.invoke_with_connection_json(["dbt", "deploy", name])
+        assert result.exit_code == 0, result.output
+
+        def _execute_with_import(import_value: str):
+            return runner.invoke_passthrough_with_connection(
+                args=["dbt", "execute", "--import", import_value],
+                passthrough_args=[name, "run"],
+            )
+
+        # A bare stage path: IMPORTS=('@dbt_import_stage_.../')
+        result = _execute_with_import(f"@{import_stage}/")
+        assert result.exit_code == 0, result.output
+
+        # A stage path aliased to a target folder:
+        # IMPORTS=('@dbt_import_stage_.../' AS 'imported')
+        result = _execute_with_import(f"@{import_stage}/ as imported")
+        assert result.exit_code == 0, result.output
+
+        # SYSTEM$ function, bare: IMPORTS=(SYSTEM$DBT_GET_LAST_RUN_TARGET('...'))
+        result = _execute_with_import(f"SYSTEM$DBT_GET_LAST_RUN_TARGET('{name}')")
+        assert result.exit_code == 0, result.output
+
+        # SYSTEM$ function, aliased:
+        # IMPORTS=(SYSTEM$DBT_GET_LAST_RUN_TARGET('...') AS 'last_run')
+        result = _execute_with_import(
+            f"SYSTEM$DBT_GET_LAST_RUN_TARGET('{name}') as last_run"
+        )
+        assert result.exit_code == 0, result.output
+
+        # snow://dbt URL (the deployed project's live version), aliased:
+        # IMPORTS=('snow://dbt/<db>.<schema>.<project>/versions/live' AS 'prev')
+        snow_url = (
+            f"snow://dbt/{snowflake_session.database}."
+            f"{snowflake_session.schema}.{name}/versions/live"
+        )
+        result = _execute_with_import(f"{snow_url} as prev")
+        assert result.exit_code == 0, result.output
+
+
+@pytest.mark.integration
 def test_command_aliases(
     runner,
     snowflake_session,
