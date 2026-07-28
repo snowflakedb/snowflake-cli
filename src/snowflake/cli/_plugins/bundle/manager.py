@@ -146,6 +146,7 @@ class CodeBundleManager(SqlExecutionMixin):
         bundle_types: Optional[List[str]] = None,
         compute_types: Optional[List[str]] = None,
         language_types: Optional[List[str]] = None,
+        status: Optional[str] = None,
         result_limit: int = 100,
     ) -> SnowflakeCursor:
         args = []
@@ -177,6 +178,8 @@ class CodeBundleManager(SqlExecutionMixin):
             args.append(
                 f"LANGUAGE_TYPES => {to_string_literal(','.join(language_types))}"
             )
+        if status:
+            args.append(f"STATUS => {to_string_literal(status)}")
         args.append(f"RESULT_LIMIT => {int(result_limit)}")
         query = (
             "SELECT * FROM TABLE(SNOWFLAKE.INFORMATION_SCHEMA.CODE_BUNDLE_HISTORY("
