@@ -150,6 +150,18 @@ HistoryEntrypointOption = typer.Option(
     help="Filter the history to executions with the given entrypoint.",
     show_default=False,
 )
+HistoryStartTimeRangeStartOption = typer.Option(
+    None,
+    "--start-time-range-start",
+    help="Filter the history to executions that started at or after this timestamp.",
+    show_default=False,
+)
+HistoryStartTimeRangeEndOption = typer.Option(
+    None,
+    "--start-time-range-end",
+    help="Filter the history to executions that started at or before this timestamp.",
+    show_default=False,
+)
 
 
 @app.command(requires_connection=True)
@@ -288,6 +300,8 @@ def history(
     bundle_database: Optional[str] = HistoryDatabaseOption,
     bundle_schema: Optional[str] = HistorySchemaOption,
     entrypoint: Optional[str] = HistoryEntrypointOption,
+    start_time_range_start: Optional[str] = HistoryStartTimeRangeStartOption,
+    start_time_range_end: Optional[str] = HistoryStartTimeRangeEndOption,
     result_limit: int = ResultLimitOption,
     **options,
 ) -> CommandResult:
@@ -298,6 +312,8 @@ def history(
             database=bundle_database,
             schema=bundle_schema,
             entrypoint=entrypoint,
+            start_time_range_start=start_time_range_start,
+            start_time_range_end=start_time_range_end,
             result_limit=result_limit,
         )
     )
