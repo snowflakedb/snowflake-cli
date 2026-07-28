@@ -143,6 +143,9 @@ class CodeBundleManager(SqlExecutionMixin):
         entrypoint: Optional[str] = None,
         start_time_range_start: Optional[str] = None,
         start_time_range_end: Optional[str] = None,
+        bundle_types: Optional[List[str]] = None,
+        compute_types: Optional[List[str]] = None,
+        language_types: Optional[List[str]] = None,
         result_limit: int = 100,
     ) -> SnowflakeCursor:
         args = []
@@ -163,6 +166,16 @@ class CodeBundleManager(SqlExecutionMixin):
             args.append(
                 "START_TIME_RANGE_END => "
                 f"TO_TIMESTAMP_LTZ({to_string_literal(start_time_range_end)})"
+            )
+        if bundle_types:
+            args.append(f"BUNDLE_TYPES => {to_string_literal(','.join(bundle_types))}")
+        if compute_types:
+            args.append(
+                f"COMPUTE_TYPES => {to_string_literal(','.join(compute_types))}"
+            )
+        if language_types:
+            args.append(
+                f"LANGUAGE_TYPES => {to_string_literal(','.join(language_types))}"
             )
         args.append(f"RESULT_LIMIT => {int(result_limit)}")
         query = (

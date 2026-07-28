@@ -1360,6 +1360,9 @@ def test_history_help(runner):
     assert "--entrypoint" in result.output
     assert "--start-time-range-start" in result.output
     assert "--start-time-range-end" in result.output
+    assert "--bundle-types" in result.output
+    assert "--compute-types" in result.output
+    assert "--language-types" in result.output
     assert "--result-limit" in result.output
 
 
@@ -1377,6 +1380,9 @@ def test_history_calls_manager(mock_history, runner, mock_cursor):
         entrypoint=None,
         start_time_range_start=None,
         start_time_range_end=None,
+        bundle_types=None,
+        compute_types=None,
+        language_types=None,
         result_limit=100,
     )
 
@@ -1395,6 +1401,9 @@ def test_history_passes_result_limit(mock_history, runner, mock_cursor):
         entrypoint=None,
         start_time_range_start=None,
         start_time_range_end=None,
+        bundle_types=None,
+        compute_types=None,
+        language_types=None,
         result_limit=50,
     )
 
@@ -1419,6 +1428,12 @@ def test_history_calls_manager_with_options(mock_history, runner, mock_cursor):
             "2024-01-01 00:00:00",
             "--start-time-range-end",
             "2024-01-02 00:00:00",
+            "--bundle-types",
+            "NOTEBOOK",
+            "--compute-types",
+            "WAREHOUSE",
+            "--language-types",
+            "PYTHON",
         ]
     )
 
@@ -1430,6 +1445,9 @@ def test_history_calls_manager_with_options(mock_history, runner, mock_cursor):
         entrypoint="src/main.py",
         start_time_range_start="2024-01-01 00:00:00",
         start_time_range_end="2024-01-02 00:00:00",
+        bundle_types=["NOTEBOOK"],
+        compute_types=["WAREHOUSE"],
+        language_types=["PYTHON"],
         result_limit=100,
     )
 
@@ -1565,6 +1583,63 @@ def test_history_query_with_start_time_range_end(mock_connector, mock_ctx, runne
 
 
 @mock.patch("snowflake.connector.connect")
+def test_history_query_with_bundle_types(mock_connector, mock_ctx, runner):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(
+        [
+            "bundle",
+            "history",
+            "--bundle-types",
+            "NOTEBOOK",
+            "--bundle-types",
+            "STREAMLIT",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == (
+        "SELECT * FROM TABLE("
+        "SNOWFLAKE.INFORMATION_SCHEMA.CODE_BUNDLE_HISTORY("
+        "BUNDLE_TYPES => 'NOTEBOOK,STREAMLIT', "
+        "RESULT_LIMIT => 100))"
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+def test_history_query_with_compute_types(mock_connector, mock_ctx, runner):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(["bundle", "history", "--compute-types", "WAREHOUSE"])
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == (
+        "SELECT * FROM TABLE("
+        "SNOWFLAKE.INFORMATION_SCHEMA.CODE_BUNDLE_HISTORY("
+        "COMPUTE_TYPES => 'WAREHOUSE', "
+        "RESULT_LIMIT => 100))"
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+def test_history_query_with_language_types(mock_connector, mock_ctx, runner):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(["bundle", "history", "--language-types", "PYTHON"])
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == (
+        "SELECT * FROM TABLE("
+        "SNOWFLAKE.INFORMATION_SCHEMA.CODE_BUNDLE_HISTORY("
+        "LANGUAGE_TYPES => 'PYTHON', "
+        "RESULT_LIMIT => 100))"
+    )
+
+
+@mock.patch("snowflake.connector.connect")
 def test_history_query_with_all_options(mock_connector, mock_ctx, runner):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
@@ -1585,6 +1660,12 @@ def test_history_query_with_all_options(mock_connector, mock_ctx, runner):
             "2024-01-01 00:00:00",
             "--start-time-range-end",
             "2024-01-02 00:00:00",
+            "--bundle-types",
+            "NOTEBOOK",
+            "--compute-types",
+            "WAREHOUSE",
+            "--language-types",
+            "PYTHON",
             "--result-limit",
             "25",
         ]
@@ -1600,6 +1681,9 @@ def test_history_query_with_all_options(mock_connector, mock_ctx, runner):
         "ENTRYPOINT => 'src/main.py', "
         "START_TIME_RANGE_START => TO_TIMESTAMP_LTZ('2024-01-01 00:00:00'), "
         "START_TIME_RANGE_END => TO_TIMESTAMP_LTZ('2024-01-02 00:00:00'), "
+        "BUNDLE_TYPES => 'NOTEBOOK', "
+        "COMPUTE_TYPES => 'WAREHOUSE', "
+        "LANGUAGE_TYPES => 'PYTHON', "
         "RESULT_LIMIT => 25))"
     )
 
