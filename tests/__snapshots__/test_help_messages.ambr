@@ -8918,6 +8918,14 @@
   |                              default_target if not specified.                |
   | --save-output                Save command response and artifacts to local    |
   |                              'out/' directory.                               |
+  | --env-file     -e      PATH  Path to a .env file (KEY=VALUE per line) to     |
+  |                              source declared environment variables/secrets   |
+  |                              from, layered under the shell environment. The  |
+  |                              shell always wins on a name declared in both;   |
+  |                              the file only fills in names the shell doesn't  |
+  |                              already provide. Quote a value containing '#'   |
+  |                              or leading/trailing whitespace, or it's         |
+  |                              silently truncated at the '#' or trimmed.       |
   | --help         -h            Show this message and exit.                     |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -9899,6 +9907,14 @@
   |                              default_target if not specified.                |
   | --save-output                Save command response and artifacts to local    |
   |                              'out/' directory.                               |
+  | --env-file     -e      PATH  Path to a .env file (KEY=VALUE per line) to     |
+  |                              source declared environment variables/secrets   |
+  |                              from, layered under the shell environment. The  |
+  |                              shell always wins on a name declared in both;   |
+  |                              the file only fills in names the shell doesn't  |
+  |                              already provide. Quote a value containing '#'   |
+  |                              or leading/trailing whitespace, or it's         |
+  |                              silently truncated at the '#' or trimmed.       |
   | --help         -h            Show this message and exit.                     |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -10065,6 +10081,15 @@
   |    --limit             INTEGER  The maximum number of rows to be returned.   |
   |    --target            TEXT     Target profile from manifest.yml to use.     |
   |                                 Uses default_target if not specified.        |
+  |    --env-file  -e      PATH     Path to a .env file (KEY=VALUE per line) to  |
+  |                                 source declared environment                  |
+  |                                 variables/secrets from, layered under the    |
+  |                                 shell environment. The shell always wins on  |
+  |                                 a name declared in both; the file only fills |
+  |                                 in names the shell doesn't already provide.  |
+  |                                 Quote a value containing '#' or              |
+  |                                 leading/trailing whitespace, or it's         |
+  |                                 silently truncated at the '#' or trimmed.    |
   |    --help      -h               Show this message and exit.                  |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -10413,6 +10438,14 @@
   |                              default_target if not specified.                |
   | --save-output                Save command response and artifacts to local    |
   |                              'out/' directory.                               |
+  | --env-file     -e      PATH  Path to a .env file (KEY=VALUE per line) to     |
+  |                              source declared environment variables/secrets   |
+  |                              from, layered under the shell environment. The  |
+  |                              shell always wins on a name declared in both;   |
+  |                              the file only fills in names the shell doesn't  |
+  |                              already provide. Quote a value containing '#'   |
+  |                              or leading/trailing whitespace, or it's         |
+  |                              silently truncated at the '#' or trimmed.       |
   | --help         -h            Show this message and exit.                     |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
