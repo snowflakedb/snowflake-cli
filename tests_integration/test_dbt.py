@@ -115,6 +115,19 @@ def _assert_dbt_version(name, runner, dbt_version):
         assert result.json[0]["dbt_version"] == dbt_version
 
 
+def _assert_last_deployed_from(name, runner, expected_commit, expected_branch):
+    result = runner.invoke_with_connection_json(["dbt", "describe", name])
+    assert result.exit_code == 0, result.output
+    assert len(result.json) == 1
+    ldf = result.json[0].get("last_deployed_from")
+    assert ldf is not None, "last_deployed_from should be populated"
+    assert ldf.get("git_commit") == expected_commit
+    assert ldf.get("git_branch") == expected_branch
+    assert ldf.get("user") is not None
+    assert ldf.get("timestamp") is not None
+    assert "stage_url" not in ldf
+
+
 def _setup_external_access_integration(runner, integration_name: str):
     """Create external access integration for dbt hub access."""
     network_rule_name = f"{integration_name.upper()}_NETWORK_RULE"
@@ -940,6 +953,79 @@ def test_deploy_with_dbt_version(
         )
         assert result.exit_code == 0, result.output
         _assert_dbt_version(name, runner, "1.10.15")
+
+
+@pytest.mark.integration
+@pytest.mark.qa_only
+def test_deploy_with_git_commit_and_branch(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    with project_directory("dbt_project") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_project_git_metadata_{ts}"
+
+        _setup_dbt_profile(root_dir, snowflake_session)
+
+        result = runner.invoke_with_connection_json(
+            [
+                "dbt",
+                "deploy",
+                name,
+                "--git-commit",
+                "abc123deadbeef",
+                "--git-branch",
+                "main",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_last_deployed_from(name, runner, "abc123deadbeef", "main")
+
+        result = runner.invoke_with_connection_json(
+            [
+                "dbt",
+                "deploy",
+                name,
+                "--git-commit",
+                "newcommithash",
+                "--git-branch",
+                "feature-x",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_last_deployed_from(name, runner, "newcommithash", "feature-x")
+
+
+@pytest.mark.integration
+@pytest.mark.qa_only
+def test_deploy_auto_detects_git_metadata_in_github_actions(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    with project_directory("dbt_project") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_project_gha_autodetect_{ts}"
+
+        _setup_dbt_profile(root_dir, snowflake_session)
+
+        # Simulate a GitHub Actions push run. With no explicit flags, the commit and
+        # branch are auto-detected from GITHUB_SHA / GITHUB_REF_NAME.
+        gha_env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "push",
+            "GITHUB_SHA": "autodetectedsha123",
+            "GITHUB_HEAD_REF": "",
+            "GITHUB_REF_NAME": "main",
+        }
+        with mock.patch.dict(os.environ, gha_env):
+            result = runner.invoke_with_connection_json(["dbt", "deploy", name])
+
+        assert result.exit_code == 0, result.output
+        _assert_last_deployed_from(name, runner, "autodetectedsha123", "main")
 
 
 @pytest.mark.integration
