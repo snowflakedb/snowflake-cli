@@ -596,7 +596,10 @@ class TestDCMDeploy:
         mock_manifest_load.return_value = _manifest_with_env_vars()
 
         with project_directory("dcm_project"):
-            result = runner.invoke(["dcm", "deploy", "fooBar"])
+            with mock.patch(
+                "snowflake.cli._plugins.dcm.env.cli_console"
+            ) as mock_console:
+                result = runner.invoke(["dcm", "deploy", "fooBar"])
 
         assert result.exit_code == 0, result.output
         mock_dcm_manager().deploy.assert_called_once_with(
@@ -608,6 +611,10 @@ class TestDCMDeploy:
             skip_plan=False,
             env_vars={},
         )
+        mock_console.warning.assert_called_once()
+        warning_message = mock_console.warning.call_args[0][0]
+        assert "DB_HOST" in warning_message
+        assert "AWS_SECRET_KEY" in warning_message
 
 
 class TestDCMPurge:
@@ -1152,6 +1159,40 @@ class TestDCMPlan:
             env_vars={"DB_HOST": "prod.analytics.internal", "AWS_SECRET_KEY": "shhh"},
         )
 
+    def test_plan_omits_declared_env_var_missing_from_shell(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        monkeypatch,
+    ):
+        monkeypatch.delenv("DB_HOST", raising=False)
+        monkeypatch.delenv("AWS_SECRET_KEY", raising=False)
+        mock_dcm_manager().plan.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_with_env_vars()
+
+        with project_directory("dcm_project"):
+            with mock.patch(
+                "snowflake.cli._plugins.dcm.env.cli_console"
+            ) as mock_console:
+                result = runner.invoke(["dcm", "plan", "fooBar"])
+
+        assert result.exit_code == 0, result.output
+        mock_dcm_manager().plan.assert_called_once_with(
+            project_identifier=FQN.from_string("fooBar"),
+            configuration=None,
+            from_stage="TMP_STAGE",
+            variables=None,
+            save_output=False,
+            delta=False,
+            env_vars={},
+        )
+        mock_console.warning.assert_called_once()
+
 
 class TestDCMRawAnalyze:
     def test_raw_analyze_basic(
@@ -1212,6 +1253,41 @@ class TestDCMRawAnalyze:
             save_output=False,
             env_vars={"DB_HOST": "prod.analytics.internal", "AWS_SECRET_KEY": "shhh"},
         )
+
+    def test_raw_analyze_omits_declared_env_var_missing_from_shell(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        monkeypatch,
+    ):
+        monkeypatch.delenv("DB_HOST", raising=False)
+        monkeypatch.delenv("AWS_SECRET_KEY", raising=False)
+        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
+            rows=[(_analyze_response(),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_with_env_vars()
+
+        with project_directory("dcm_project"):
+            with mock.patch(
+                "snowflake.cli._plugins.dcm.env.cli_console"
+            ) as mock_console:
+                result = runner.invoke(["dcm", "raw-analyze", "fooBar"])
+
+        assert result.exit_code == 0, result.output
+        mock_dcm_manager().raw_analyze.assert_called_once_with(
+            project_identifier=FQN.from_string("fooBar"),
+            configuration=None,
+            from_stage="TMP_STAGE",
+            variables=None,
+            save_output=False,
+            env_vars={},
+        )
+        mock_console.warning.assert_called_once()
 
     def test_raw_analyze_with_errors_exits(
         self,
@@ -2006,6 +2082,45 @@ class TestDCMPreview:
             limit=None,
             env_vars={"DB_HOST": "prod.analytics.internal", "AWS_SECRET_KEY": "shhh"},
         )
+
+    def test_preview_omits_declared_env_var_missing_from_shell(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        monkeypatch,
+    ):
+        monkeypatch.delenv("DB_HOST", raising=False)
+        monkeypatch.delenv("AWS_SECRET_KEY", raising=False)
+        mock_dcm_manager().preview.return_value = mock_cursor(
+            rows=[(1, "Alice", "alice@example.com")],
+            columns=("id", "name", "email"),
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_with_env_vars()
+
+        with project_directory("dcm_project"):
+            with mock.patch(
+                "snowflake.cli._plugins.dcm.env.cli_console"
+            ) as mock_console:
+                result = runner.invoke(
+                    ["dcm", "preview", "my_project", "--object", "my_table"]
+                )
+
+        assert result.exit_code == 0, result.output
+        mock_dcm_manager().preview.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            object_identifier=FQN.from_string("my_table"),
+            configuration=None,
+            from_stage="TMP_STAGE",
+            variables=None,
+            limit=None,
+            env_vars={},
+        )
+        mock_console.warning.assert_called_once()
 
 
 class TestDCMRefresh:
