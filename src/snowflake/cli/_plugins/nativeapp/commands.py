@@ -751,6 +751,22 @@ class RecordType(Enum):
     SPAN_EVENT = "span_event"
 
 
+class EventType(Enum):
+    """Accepted ``--type`` values across both app flows.
+
+    The option is shared between Native App (``log``/``span``/``span_event``)
+    and Snowflake App Runtime (``log``/``metric``/``lifecycle``). Declaring the
+    union here lets Click reject genuinely unknown values (e.g. ``foo``) at
+    parse time, while each flow rejects the values that don't apply to it.
+    """
+
+    LOG = "log"
+    SPAN = "span"
+    SPAN_EVENT = "span_event"
+    METRIC = "metric"
+    LIFECYCLE = "lifecycle"
+
+
 # The default number of lines to print before streaming when running
 # snow app events --follow
 DEFAULT_EVENT_FOLLOW_LAST = 20
@@ -762,18 +778,34 @@ DEFAULT_EVENT_FOLLOW_LAST = 20
 def app_events(
     since: str = typer.Option(
         default="",
-        help="(Native App only) Fetch events that are newer than this time ago, in Snowflake interval syntax.",
+        help=(
+            "Fetch events newer than this time. "
+            "Native App: a time ago in Snowflake interval syntax. "
+            "Snowflake App Runtime: relative shorthand (30m, 6h, 2d) or an "
+            "absolute UTC timestamp (e.g. '2026-07-16 18:00:00'). Supplying "
+            "a window switches logs to the historical event table."
+        ),
     ),
     until: str = typer.Option(
         default="",
-        help="(Native App only) Fetch events that are older than this time ago, in Snowflake interval syntax.",
+        help=(
+            "Fetch events older than this time. "
+            "Native App: a time ago in Snowflake interval syntax. "
+            "Snowflake App Runtime: relative shorthand (30m, 6h, 2d) or an "
+            "absolute UTC timestamp (e.g. '2026-07-16 23:59:59')."
+        ),
     ),
     record_types: Annotated[
-        list[RecordType], typer.Option(case_sensitive=False)
+        List[EventType], typer.Option(case_sensitive=False)
     ] = typer.Option(
         [],
         "--type",
-        help="(Native App only) Restrict results to specific record type. Can be specified multiple times.",
+        help=(
+            "Restrict results to specific record type(s). "
+            "Native App: one or more of log, span, span_event (repeatable). "
+            "Snowflake App Runtime: which telemetry stream to return — "
+            "log (default), metric, or lifecycle."
+        ),
     ),
     scopes: Annotated[list[str], typer.Option()] = typer.Option(
         [],
@@ -822,6 +854,23 @@ def app_events(
             f"--follow flag. Default: {_DEFAULT_FOLLOW_INTERVAL_SECONDS}."
         ),
     ),
+    metric: Optional[str] = typer.Option(
+        None,
+        "--metric",
+        show_default=False,
+        help=(
+            "(Snowflake App Runtime only) With --type metric, return only this "
+            "metric subset: cpu, memory, or network. Omit to return all metrics."
+        ),
+    ),
+    raw: bool = typer.Option(
+        False,
+        "--raw",
+        help=(
+            "(Snowflake App Runtime only) With --type metric, emit raw metric "
+            "values (bytes, cores) instead of human-readable conversions."
+        ),
+    ),
     **options,
 ):
     """
@@ -837,17 +886,26 @@ def app_events(
       https://docs.snowflake.com/en/developer-guide/native-apps/setting-up-logging-and-events
 
     For Snowflake App Runtime projects (snowflake-app entities):
-      Fetches recent log lines from the deployed application service.
-      Output is capped at 100KB regardless of the number of lines requested.
+      Returns one of three observability streams for the application service,
+      selected with --type:
+
+        - log (default): live container log tail, sized with --last (default
+          500, capped at 100KB). Supplying --since / --until switches to
+          historical logs read from the service's event table (works over
+          history and after suspend, with a short ingestion lag).
+        - metric: CPU / memory / network telemetry from the event table. Narrow
+          with --metric cpu|memory|network and use --raw for unconverted values.
+        - lifecycle: service / container status changes from the event table.
+
+      --since / --until accept relative shorthand (30m, 6h, 2d) or an absolute
+      UTC timestamp. metric and lifecycle are always historical and default to
+      the last hour when no window is given.
     """
     app_flow: AppFlow = options["app_flow"]
     if app_flow == AppFlow.SNOWFLAKE_APP:
         _reject_native_app_options(
             "events",
             **{
-                "--since": since or None,
-                "--until": until or None,
-                "--type": record_types if record_types else None,
                 "--scope": scopes if scopes else None,
                 "--consumer-org": consumer_org or None,
                 "--consumer-account": consumer_account or None,
@@ -857,8 +915,26 @@ def app_events(
                 "--follow-interval": follow_interval,
             },
         )
+        if len(record_types) > 1:
+            raise IncompatibleParametersError(["--type", "--type"])
         effective_last = last if last != _EVENTS_LAST_UNSET else None
-        return snowflake_app_events(options.get("entity_id") or None, effective_last)
+        return snowflake_app_events(
+            options.get("entity_id") or None,
+            effective_last,
+            event_type=record_types[0].value if record_types else None,
+            since=since or None,
+            until=until or None,
+            metric=metric or None,
+            raw=raw,
+        )
+
+    _reject_snowflake_app_options(
+        "events",
+        **{
+            "--metric": metric or None,
+            "--raw": True if raw else None,
+        },
+    )
 
     # The Native App flow already treats -1 as "not set", which is exactly
     # the value of _EVENTS_LAST_UNSET, so forward the CLI value unchanged.
@@ -885,7 +961,16 @@ def app_events(
     )
     app_id = options["app_entity_id"]
 
-    record_type_names = [r.name for r in record_types]
+    record_type_names = []
+    for record_type in record_types:
+        try:
+            record_type_names.append(RecordType(record_type.value).name)
+        except ValueError:
+            valid = ", ".join(rt.value for rt in RecordType)
+            raise ClickException(
+                f"'--type {record_type.value}' is not supported for Native App "
+                f"projects. Valid values are: {valid}."
+            )
 
     if follow and native_last == -1 and not since:
         # If we don't have a value for --last or --since, assume a value

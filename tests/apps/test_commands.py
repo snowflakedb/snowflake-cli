@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import os
 import sys
 from unittest.mock import Mock, call, patch
@@ -2152,6 +2153,36 @@ class TestSnowflakeAppManager:
         fqn = FQN(database="DB", schema="SCHEMA", name="MY_APP")
         logs = SnowflakeAppManager().get_service_logs(fqn)
         assert logs == ""
+
+    @patch(EXECUTE_QUERY)
+    def test_get_event_table_data_with_window(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ("[]",)
+        mock_execute.return_value = cursor
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="MY_APP")
+        payload = SnowflakeAppManager().get_event_table_data(
+            fqn, "METRIC", "2026-07-16 22:00:00", "2026-07-16 23:00:00"
+        )
+        assert payload == "[]"
+        mock_execute.assert_called_once_with(
+            "CALL SYSTEM$GET_APPLICATION_SERVICE_EVENT_TABLE_DATA("
+            "'DB.SCHEMA.MY_APP', 'METRIC', "
+            "'2026-07-16 22:00:00', '2026-07-16 23:00:00')"
+        )
+
+    @patch(EXECUTE_QUERY)
+    def test_get_event_table_data_without_window(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ("[]",)
+        mock_execute.return_value = cursor
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="MY_APP")
+        SnowflakeAppManager().get_event_table_data(fqn, "EVENT")
+        mock_execute.assert_called_once_with(
+            "CALL SYSTEM$GET_APPLICATION_SERVICE_EVENT_TABLE_DATA("
+            "'DB.SCHEMA.MY_APP', 'EVENT')"
+        )
 
     @staticmethod
     def _build_show_containers_cursor(rows):
@@ -5615,6 +5646,195 @@ class TestEventsCommand:
             assert "Verify that the app is deployed" in result.output
             span = _get_completed_span("snowflake_app.events.fetch_logs")
             assert span[CLIMetricsSpan.ERROR_KEY] == ProgrammingError.__name__
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_events_metric_stream(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        entity.fqn = Mock(database="DB", schema="SCHEMA", name="MY_APP")
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.get_event_table_data.return_value = json.dumps(
+            [
+                [
+                    "1784242528.051",
+                    "container.memory.usage",
+                    "196517888",
+                    "byte",
+                    "0",
+                    "runner",
+                    None,
+                    "x",
+                    "y",
+                ]
+            ]
+        )
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(
+                [
+                    "app",
+                    "events",
+                    "--type",
+                    "metric",
+                    "--since",
+                    "1h",
+                    "--format",
+                    "json",
+                ]
+            )
+            assert result.exit_code == 0, result.output
+            records = json.loads(result.output)
+            assert records[0]["metric"] == "container.memory.usage"
+            assert records[0]["value"] == "187.4 MiB"
+            assert records[0]["bytes"] == 196517888
+
+        # The live-tail log path is never used for the metric stream.
+        mock_mgr.get_service_logs.assert_not_called()
+        args = mock_mgr.get_event_table_data.call_args.args
+        assert args[1] == "METRIC"
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_events_lifecycle_stream_maps_to_event_type(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        entity.fqn = Mock(database="DB", schema="SCHEMA", name="MY_APP")
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.get_event_table_data.return_value = json.dumps(
+            [
+                [
+                    "1784242528.0",
+                    "INFO",
+                    "SERVICE.STATUS_CHANGE",
+                    json.dumps({"message": "Service is ready", "status": "RUNNING"}),
+                    None,
+                    None,
+                    "{}",
+                    None,
+                ]
+            ]
+        )
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(
+                ["app", "events", "--type", "lifecycle", "--format", "json"]
+            )
+            assert result.exit_code == 0, result.output
+            records = json.loads(result.output)
+            assert records[0]["event"] == "SERVICE.STATUS_CHANGE"
+            assert records[0]["status"] == "RUNNING"
+            assert records[0]["message"] == "Service is ready"
+
+        args = mock_mgr.get_event_table_data.call_args.args
+        assert args[1] == "EVENT"
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_events_windowed_logs_use_event_table(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        entity.fqn = Mock(database="DB", schema="SCHEMA", name="MY_APP")
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.get_event_table_data.return_value = json.dumps(
+            [["1784242528.0", "0", "runner", "INFO: historical line", "{}"]]
+        )
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "events", "--since", "6h"])
+            assert result.exit_code == 0, result.output
+            assert "historical line" in result.output
+
+        mock_mgr.get_service_logs.assert_not_called()
+        args = mock_mgr.get_event_table_data.call_args.args
+        assert args[1] == "LOG"
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_events_metric_flag_rejected_for_logs(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        entity.fqn = Mock(database="DB", schema="SCHEMA", name="MY_APP")
+        mock_get_entity.return_value = entity
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "events", "--metric", "cpu"])
+            assert result.exit_code != 0
+            assert "--metric can only be used with --type metric" in result.output
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_events_rejects_native_only_options(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        entity.fqn = Mock(database="DB", schema="SCHEMA", name="MY_APP")
+        mock_get_entity.return_value = entity
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "events", "--first", "5"])
+            assert result.exit_code != 0
+            assert "--first" in result.output
 
 
 class TestEnsureUtf8Output:

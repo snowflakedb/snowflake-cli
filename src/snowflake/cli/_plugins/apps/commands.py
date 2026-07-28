@@ -32,6 +32,15 @@ from typing import TYPE_CHECKING, Callable, Literal, NamedTuple, Optional
 
 import typer
 from click import ClickException
+from snowflake.cli._plugins.apps.events import (
+    EventStream,
+    format_log_lines,
+    parse_event_stream,
+    parse_lifecycle_records,
+    parse_metric_category,
+    parse_metric_records,
+    resolve_time_window,
+)
 from snowflake.cli._plugins.apps.generate import _generate_snowflake_yml
 from snowflake.cli._plugins.apps.manager import (
     DEFAULT_PERSONAL_SCHEMA,
@@ -58,6 +67,7 @@ from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
+    CollectionResult,
     CommandResult,
     EmptyResult,
     MessageResult,
@@ -668,8 +678,28 @@ def snowflake_app_open(
 def snowflake_app_events(
     entity_id: Optional[str],
     last: Optional[int],
+    *,
+    event_type: Optional[str] = None,
+    since: Optional[str] = None,
+    until: Optional[str] = None,
+    metric: Optional[str] = None,
+    raw: bool = False,
 ) -> CommandResult:
-    """Fetch recent log events from a deployed Snowflake App Runtime."""
+    """Fetch logs, metrics, or lifecycle events from a deployed Snowflake App Runtime.
+
+    The bare command (``--type log`` with no window) tails the live container's
+    logs, unchanged. Supplying a ``--since`` / ``--until`` window switches logs
+    to the historical event table. ``--type metric`` and ``--type lifecycle``
+    are always sourced from the event table and default to the last hour when no
+    window is given.
+    """
+    stream = parse_event_stream(event_type)
+    category = parse_metric_category(metric)
+    if category is not None and stream is not EventStream.METRIC:
+        raise CliError("--metric can only be used with --type metric.")
+    if raw and stream is not EventStream.METRIC:
+        raise CliError("--raw can only be used with --type metric.")
+
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 
@@ -681,20 +711,48 @@ def snowflake_app_events(
     # Rebuild to a 3-part name; entity FQN may carry extra fields (e.g. prefix)
     service_fqn = app_fqn(database=fqn.database, schema=fqn.schema, name=fqn.name)
 
-    effective_last = last if last is not None else DEFAULT_SNOWFLAKE_APP_EVENTS_LAST
-
     manager = SnowflakeAppManager()
     metrics = get_cli_context().metrics
+
+    # Logs with no window keep the legacy live-container tail.
+    if stream is EventStream.LOG and not since and not until:
+        effective_last = last if last is not None else DEFAULT_SNOWFLAKE_APP_EVENTS_LAST
+        try:
+            with metrics.span("snowflake_app.events.fetch_logs"):
+                logs = manager.get_service_logs(service_fqn, last=effective_last)
+        except ProgrammingError:
+            raise ClickException(
+                f"Could not retrieve logs for '{service_fqn.identifier}'. "
+                "Verify that the app is deployed and the service is running. "
+                "If the service exists, this can also happen when the active role cannot read application service logs."
+            )
+        return MessageResult(logs)
+
+    # Everything else (windowed logs, metrics, lifecycle) reads the event table.
+    start_time, end_time = resolve_time_window(since, until)
     try:
-        with metrics.span("snowflake_app.events.fetch_logs"):
-            logs = manager.get_service_logs(service_fqn, last=effective_last)
+        with metrics.span(f"snowflake_app.events.fetch_{stream.value}"):
+            payload = manager.get_event_table_data(
+                service_fqn,
+                stream.event_table_type,
+                start_time,
+                end_time,
+            )
     except ProgrammingError:
-        raise ClickException(
-            f"Could not retrieve logs for '{service_fqn.identifier}'. "
-            "Verify that the app is deployed and the service is running. "
-            "If the service exists, this can also happen when the active role cannot read application service logs."
+        raise CliError(
+            f"Could not retrieve {stream.value} data for '{service_fqn.identifier}'. "
+            "Verify that the app is deployed and that the active role can read "
+            "the application service's event table. Recently emitted telemetry "
+            "may not appear immediately due to ingestion lag."
         )
-    return MessageResult(logs)
+
+    if stream is EventStream.METRIC:
+        return CollectionResult(
+            parse_metric_records(payload, category=category, raw_values=raw)
+        )
+    if stream is EventStream.LIFECYCLE:
+        return CollectionResult(parse_lifecycle_records(payload))
+    return MessageResult(format_log_lines(payload))
 
 
 def _make_build_log_streamer(
