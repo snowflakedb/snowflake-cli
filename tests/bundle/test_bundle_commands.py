@@ -1358,6 +1358,8 @@ def test_history_help(runner):
     assert "--bundle-database" in result.output
     assert "--bundle-schema" in result.output
     assert "--entrypoint" in result.output
+    assert "--start-time-range-start" in result.output
+    assert "--start-time-range-end" in result.output
     assert "--result-limit" in result.output
 
 
@@ -1373,6 +1375,8 @@ def test_history_calls_manager(mock_history, runner, mock_cursor):
         database=None,
         schema=None,
         entrypoint=None,
+        start_time_range_start=None,
+        start_time_range_end=None,
         result_limit=100,
     )
 
@@ -1389,6 +1393,8 @@ def test_history_passes_result_limit(mock_history, runner, mock_cursor):
         database=None,
         schema=None,
         entrypoint=None,
+        start_time_range_start=None,
+        start_time_range_end=None,
         result_limit=50,
     )
 
@@ -1409,6 +1415,10 @@ def test_history_calls_manager_with_options(mock_history, runner, mock_cursor):
             "my_schema",
             "--entrypoint",
             "src/main.py",
+            "--start-time-range-start",
+            "2024-01-01 00:00:00",
+            "--start-time-range-end",
+            "2024-01-02 00:00:00",
         ]
     )
 
@@ -1418,6 +1428,8 @@ def test_history_calls_manager_with_options(mock_history, runner, mock_cursor):
         database="my_db",
         schema="my_schema",
         entrypoint="src/main.py",
+        start_time_range_start="2024-01-01 00:00:00",
+        start_time_range_end="2024-01-02 00:00:00",
         result_limit=100,
     )
 
@@ -1517,6 +1529,42 @@ def test_history_query_with_entrypoint(mock_connector, mock_ctx, runner):
 
 
 @mock.patch("snowflake.connector.connect")
+def test_history_query_with_start_time_range_start(mock_connector, mock_ctx, runner):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(
+        ["bundle", "history", "--start-time-range-start", "2024-01-01 00:00:00"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == (
+        "SELECT * FROM TABLE("
+        "SNOWFLAKE.INFORMATION_SCHEMA.CODE_BUNDLE_HISTORY("
+        "START_TIME_RANGE_START => TO_TIMESTAMP_LTZ('2024-01-01 00:00:00'), "
+        "RESULT_LIMIT => 100))"
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+def test_history_query_with_start_time_range_end(mock_connector, mock_ctx, runner):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(
+        ["bundle", "history", "--start-time-range-end", "2024-01-02 00:00:00"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == (
+        "SELECT * FROM TABLE("
+        "SNOWFLAKE.INFORMATION_SCHEMA.CODE_BUNDLE_HISTORY("
+        "START_TIME_RANGE_END => TO_TIMESTAMP_LTZ('2024-01-02 00:00:00'), "
+        "RESULT_LIMIT => 100))"
+    )
+
+
+@mock.patch("snowflake.connector.connect")
 def test_history_query_with_all_options(mock_connector, mock_ctx, runner):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
@@ -1533,6 +1581,10 @@ def test_history_query_with_all_options(mock_connector, mock_ctx, runner):
             "my_schema",
             "--entrypoint",
             "src/main.py",
+            "--start-time-range-start",
+            "2024-01-01 00:00:00",
+            "--start-time-range-end",
+            "2024-01-02 00:00:00",
             "--result-limit",
             "25",
         ]
@@ -1546,6 +1598,8 @@ def test_history_query_with_all_options(mock_connector, mock_ctx, runner):
         "DATABASE => 'my_db', "
         "SCHEMA => 'my_schema', "
         "ENTRYPOINT => 'src/main.py', "
+        "START_TIME_RANGE_START => TO_TIMESTAMP_LTZ('2024-01-01 00:00:00'), "
+        "START_TIME_RANGE_END => TO_TIMESTAMP_LTZ('2024-01-02 00:00:00'), "
         "RESULT_LIMIT => 25))"
     )
 

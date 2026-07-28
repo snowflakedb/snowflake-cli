@@ -5464,18 +5464,24 @@
    Returns the execution history of code bundles.                                 
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --bundle-name              TEXT     Filter the history to a specific code    |
-  |                                     bundle name.                             |
-  | --bundle-database          TEXT     Filter the history to code bundles in    |
-  |                                     the given database.                      |
-  | --bundle-schema            TEXT     Filter the history to code bundles in    |
-  |                                     the given schema.                        |
-  | --entrypoint               TEXT     Filter the history to executions with    |
-  |                                     the given entrypoint.                    |
-  | --result-limit             INTEGER  Maximum number of history rows to        |
-  |                                     return.                                  |
-  |                                     [default: 100]                           |
-  | --help             -h               Show this message and exit.              |
+  | --bundle-name                     TEXT     Filter the history to a specific  |
+  |                                            code bundle name.                 |
+  | --bundle-database                 TEXT     Filter the history to code        |
+  |                                            bundles in the given database.    |
+  | --bundle-schema                   TEXT     Filter the history to code        |
+  |                                            bundles in the given schema.      |
+  | --entrypoint                      TEXT     Filter the history to executions  |
+  |                                            with the given entrypoint.        |
+  | --start-time-range-start          TEXT     Filter the history to executions  |
+  |                                            that started at or after this     |
+  |                                            timestamp.                        |
+  | --start-time-range-end            TEXT     Filter the history to executions  |
+  |                                            that started at or before this    |
+  |                                            timestamp.                        |
+  | --result-limit                    INTEGER  Maximum number of history rows to |
+  |                                            return.                           |
+  |                                            [default: 100]                    |
+  | --help                    -h               Show this message and exit.       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |

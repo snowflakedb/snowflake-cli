@@ -141,6 +141,8 @@ class CodeBundleManager(SqlExecutionMixin):
         database: Optional[str] = None,
         schema: Optional[str] = None,
         entrypoint: Optional[str] = None,
+        start_time_range_start: Optional[str] = None,
+        start_time_range_end: Optional[str] = None,
         result_limit: int = 100,
     ) -> SnowflakeCursor:
         args = []
@@ -152,6 +154,16 @@ class CodeBundleManager(SqlExecutionMixin):
             args.append(f"SCHEMA => {to_string_literal(schema)}")
         if entrypoint:
             args.append(f"ENTRYPOINT => {to_string_literal(entrypoint)}")
+        if start_time_range_start:
+            args.append(
+                "START_TIME_RANGE_START => "
+                f"TO_TIMESTAMP_LTZ({to_string_literal(start_time_range_start)})"
+            )
+        if start_time_range_end:
+            args.append(
+                "START_TIME_RANGE_END => "
+                f"TO_TIMESTAMP_LTZ({to_string_literal(start_time_range_end)})"
+            )
         args.append(f"RESULT_LIMIT => {int(result_limit)}")
         query = (
             "SELECT * FROM TABLE(SNOWFLAKE.INFORMATION_SCHEMA.CODE_BUNDLE_HISTORY("
