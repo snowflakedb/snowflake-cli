@@ -33,6 +33,7 @@
 * `snow dcm plan`, `deploy`, and `purge` now render each altered object's changes as an indented tree, showing added, modified, and removed columns, constraints, grants, and other properties — with previous → new values — instead of only the object name. Long or multi-line values are collapsed to a single line.
 * A bare `USER$` database resolved from the active connection is now expanded to the caller's personal database (`USER$<username>`) when the connection specifies a username, so commands validate and report against the fully-qualified name.
 * `snow app` commands (`validate`, `open`, `events`, `deploy`, `teardown`) now resolve their database and schema from the active connection like other CLI commands, so a bare `USER$` database configured in `snowflake.yml` is expanded to the caller's personal database.
+* `snow app setup` now defaults to a workspace for code storage on all databases (previously regular databases used a stage). When the role cannot create a workspace it uses a stage instead, and `snow app deploy` also falls back to a stage if a workspace cannot be used.
 
 
 # v3.23.0

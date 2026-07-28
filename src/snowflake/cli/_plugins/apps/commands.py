@@ -35,7 +35,7 @@ from click import ClickException
 from snowflake.cli._plugins.apps.generate import _generate_snowflake_yml
 from snowflake.cli._plugins.apps.manager import (
     DEFAULT_PERSONAL_SCHEMA,
-    DEFAULT_PERSONAL_WORKSPACE_NAME,
+    DEFAULT_WORKSPACE_NAME,
     DEFINITION_FILENAME,
     SnowflakeAppManager,
     _get_entity,
@@ -215,7 +215,7 @@ def _resolve_code_storage(
     if destination_is_personal:
         return _CodeStorage(
             type="workspace",
-            name=DEFAULT_PERSONAL_WORKSPACE_NAME,
+            name=DEFAULT_WORKSPACE_NAME,
             database_override=None,
             schema_override=None,
             encryption_type="SNOWFLAKE_SSE",
@@ -397,16 +397,29 @@ def snowflake_app_setup(
 
             resolved_values = {k: v[0] for k, v in resolved.items()}
 
+            # ── Decide the code-storage backend ──────────────────────────────
+            # The workspace flow is the default for both personal and regular
+            # databases. Personal databases (``USER$<user>``) do not support
+            # stages, so they always use a workspace. For a regular database the
+            # role's ``CREATE WORKSPACE`` privilege is probed up front and the
+            # backend falls back to a stage only when the role provably cannot
+            # create one — persisting the decision in ``snowflake.yml`` so every
+            # later ``snow app deploy`` follows the same path without having to
+            # rediscover it. An inconclusive probe keeps the workspace default;
+            # deploy still falls back to a stage at runtime if the workspace
+            # turns out to be unusable.
+            destination_db = resolved_values["database"]
+            destination_schema = resolved_values["schema"]
+            if is_personal_database(destination_db):
+                use_workspace = True
+            else:
+                with metrics.span("snowflake_app.setup.check_workspace_privileges"):
+                    use_workspace = manager.role_can_create_workspace(
+                        destination_db, destination_schema
+                    )
+            code_storage = "workspace" if use_workspace else "stage"
+
             if not dry_run:
-                # Use a workspace whenever the destination is a personal database:
-                # either it was resolved from the built-in personal-DB default tier,
-                # or it arrived via an account parameter / the current session but is
-                # still a ``USER$<user>`` personal database. Personal databases do not
-                # support stages, so emitting ``code_stage`` for one would produce a
-                # ``snowflake.yml`` that always fails at deploy time.
-                use_workspace = resolved["database"][
-                    1
-                ] == SOURCE_DEFAULT or is_personal_database(resolved_values["database"])
                 with metrics.span("snowflake_app.setup.write_manifest"):
                     project_file.write_text(
                         _generate_snowflake_yml(
@@ -419,7 +432,13 @@ def snowflake_app_setup(
 
             is_json = get_cli_context().output_format.is_json
             if is_json:
-                return ObjectResult({"success": not dry_run, **resolved_values})
+                return ObjectResult(
+                    {
+                        "success": not dry_run,
+                        "code_storage": code_storage,
+                        **resolved_values,
+                    }
+                )
 
             if dry_run:
                 cli_console.step("Dry run — resolved configuration:")
@@ -435,6 +454,7 @@ def snowflake_app_setup(
                 if value is None and source == SOURCE_MISSING:
                     continue
                 cli_console.step(f"  {key}: {value}  ({source})")
+            cli_console.step(f"  code storage: {code_storage}")
             return EmptyResult()
 
     try:
@@ -829,96 +849,141 @@ def snowflake_app_deploy(
     if run_upload:
         with metrics.span("snowflake_app.bundle"):
             project_paths = perform_bundle(resolved_entity_id, entity)
+
+        def _upload_via_workspace(workspace_fqn: FQN) -> None:
+            """Prepare, upload, and commit the workspace code-storage backend.
+
+            On a permission failure the behaviour depends on the destination: a
+            personal database cannot fall back to a stage, so an actionable
+            :class:`CliError` is raised; a regular database re-raises the raw
+            ``ProgrammingError`` so the caller can fall back to the stage flow.
+            """
+            with metrics.span("snowflake_app.upload.prepare_workspace"):
+                action = "create workspace"
+                required_privilege = "CREATE WORKSPACE on the schema"
+                try:
+                    cli_console.step(f"Creating workspace {workspace_fqn}")
+                    manager.create_workspace(workspace_fqn)
+                    action = "clear workspace files"
+                    required_privilege = "WRITE on the workspace"
+                    cli_console.step(
+                        f"Clearing existing workspace files in {workspace_source_uri}/"
+                    )
+                    manager.clear_workspace_subdirectory(workspace_fqn, app_name)
+                except ProgrammingError as e:
+                    # Regular databases can fall back to a stage, so let the raw
+                    # error propagate for the caller to handle. Personal
+                    # databases have no such fallback (stages are unsupported),
+                    # so surface an actionable privilege error instead.
+                    if not is_personal_database(database):
+                        raise
+                    role = manager.current_role()
+                    role_clause = f"role '{role}'" if role else "your role"
+                    raise CliError(
+                        f"Failed to {action} '{workspace_fqn.identifier}': {e}. "
+                        f"Verify that {role_clause} has the required "
+                        f"privileges (USAGE on the database and schema, "
+                        f"and {required_privilege})."
+                    ) from e
+            with metrics.span("snowflake_app.upload.push_workspace_files"):
+                cli_console.step(f"Uploading bundled files to {workspace_source_uri}")
+                files_uploaded = 0
+                for result in manager.upload_to_workspace(
+                    local_root=project_paths.bundle_root,
+                    workspace_fqn=workspace_fqn,
+                    target_subdirectory=app_name,
+                    overwrite=True,
+                ):
+                    files_uploaded += 1
+                    cli_console.step(
+                        f"  Uploaded {result['source']} -> {result['target']}"
+                    )
+                metrics.set_counter(FILES_UPLOADED_COUNTER, files_uploaded)
+            with metrics.span("snowflake_app.upload.commit_workspace"):
+                cli_console.step(
+                    f"Committing workspace live version for {workspace_fqn}"
+                )
+                manager.commit_workspace_live_version(workspace_fqn)
+                cli_console.step(f"Creating a fresh live version for {workspace_fqn}")
+                manager.ensure_workspace_live_version(workspace_fqn)
+
+        def _upload_via_stage(stage_fqn: FQN, encryption: str) -> None:
+            """Prepare and upload the stage code-storage backend."""
+            with metrics.span("snowflake_app.upload.prepare_stage"):
+                # Start the upload from an empty stage so files left over from a
+                # prior deploy never leak into the build. Clearing with REMOVE
+                # can leave stale chunks behind, so drop and recreate instead —
+                # but drop only when the stage already exists. A first deploy has
+                # nothing to drop, and issuing DROP STAGE there would demand
+                # OWNERSHIP the deploying role need not hold, so skipping it lets
+                # a role with only CREATE STAGE deploy.
+                try:
+                    if manager.stage_exists(stage_fqn):
+                        cli_console.step(f"Recreating stage @{stage_fqn}")
+                        manager.drop_stage_if_exists(stage_fqn)
+                    else:
+                        cli_console.step(f"Creating stage @{stage_fqn}")
+                    manager.create_stage(stage_fqn, encryption)
+                except ProgrammingError as e:
+                    role = manager.current_role()
+                    role_clause = f"role '{role}'" if role else "your role"
+                    raise CliError(
+                        f"Failed to recreate stage '{stage_fqn.identifier}': {e}. "
+                        f"Verify that {role_clause} has the required "
+                        f"privileges (USAGE on the database and schema, "
+                        f"OWNERSHIP on the stage, and CREATE STAGE on the schema)."
+                    ) from e
+
+            with metrics.span("snowflake_app.upload.push_stage_files"):
+                cli_console.step(f"Uploading bundled files to @{stage_fqn}")
+                files_uploaded = 0
+                for result in manager.upload_to_stage(
+                    local_root=project_paths.bundle_root,
+                    stage_fqn=stage_fqn,
+                    overwrite=True,
+                ):
+                    files_uploaded += 1
+                    cli_console.step(
+                        f"  Uploaded {result['source']} -> {result['target']}"
+                    )
+                metrics.set_counter(FILES_UPLOADED_COUNTER, files_uploaded)
+
         try:
             with metrics.span("snowflake_app.upload"):
-                if use_workspace:
-                    with metrics.span("snowflake_app.upload.prepare_workspace"):
-                        action = "create workspace"
-                        required_privilege = "CREATE WORKSPACE on the schema"
-                        try:
-                            cli_console.step(f"Creating workspace {storage_fqn}")
-                            manager.create_workspace(storage_fqn)
-                            action = "clear workspace files"
-                            required_privilege = "WRITE on the workspace"
-                            cli_console.step(
-                                f"Clearing existing workspace files in {workspace_source_uri}/"
-                            )
-                            manager.clear_workspace_subdirectory(storage_fqn, app_name)
-                        except ProgrammingError as e:
-                            role = manager.current_role()
-                            role_clause = f"role '{role}'" if role else "your role"
-                            raise CliError(
-                                f"Failed to {action} '{storage_fqn.identifier}': {e}. "
-                                f"Verify that {role_clause} has the required "
-                                f"privileges (USAGE on the database and schema, "
-                                f"and {required_privilege})."
-                            ) from e
-                    with metrics.span("snowflake_app.upload.push_workspace_files"):
-                        cli_console.step(
-                            f"Uploading bundled files to {workspace_source_uri}"
-                        )
-                        files_uploaded = 0
-                        for result in manager.upload_to_workspace(
-                            local_root=project_paths.bundle_root,
-                            workspace_fqn=storage_fqn,
-                            target_subdirectory=app_name,
-                            overwrite=True,
-                        ):
-                            files_uploaded += 1
-                            cli_console.step(
-                                f"  Uploaded {result['source']} -> {result['target']}"
-                            )
-                        metrics.set_counter(FILES_UPLOADED_COUNTER, files_uploaded)
-                    with metrics.span("snowflake_app.upload.commit_workspace"):
-                        cli_console.step(
-                            f"Committing workspace live version for {storage_fqn}"
-                        )
-                        manager.commit_workspace_live_version(storage_fqn)
-                        cli_console.step(
-                            f"Creating a fresh live version for {storage_fqn}"
-                        )
-                        manager.ensure_workspace_live_version(storage_fqn)
+                if not use_workspace:
+                    _upload_via_stage(storage_fqn, encryption_type)
+                    stage_created = True
+                elif is_personal_database(database):
+                    # Personal databases must use a workspace; there is no stage
+                    # to fall back to, so workspace failures surface as an
+                    # actionable privilege error from the helper.
+                    _upload_via_workspace(storage_fqn)
                 else:
-                    with metrics.span("snowflake_app.upload.prepare_stage"):
-                        # Start the upload from an empty stage so files left
-                        # over from a prior deploy never leak into the build.
-                        # Clearing with REMOVE can leave stale chunks behind, so
-                        # drop and recreate instead — but drop only when the
-                        # stage already exists. A first deploy has nothing to
-                        # drop, and issuing DROP STAGE there would demand
-                        # OWNERSHIP the deploying role need not hold, so skipping
-                        # it lets a role with only CREATE STAGE deploy.
-                        try:
-                            if manager.stage_exists(storage_fqn):
-                                cli_console.step(f"Recreating stage @{storage_fqn}")
-                                manager.drop_stage_if_exists(storage_fqn)
-                            else:
-                                cli_console.step(f"Creating stage @{storage_fqn}")
-                            manager.create_stage(storage_fqn, encryption_type)
-                            stage_created = True
-                        except ProgrammingError as e:
-                            role = manager.current_role()
-                            role_clause = f"role '{role}'" if role else "your role"
-                            raise CliError(
-                                f"Failed to recreate stage '{storage_fqn.identifier}': {e}. "
-                                f"Verify that {role_clause} has the required "
-                                f"privileges (USAGE on the database and schema, "
-                                f"OWNERSHIP on the stage, and CREATE STAGE on the schema)."
-                            ) from e
-
-                    with metrics.span("snowflake_app.upload.push_stage_files"):
-                        cli_console.step(f"Uploading bundled files to @{storage_fqn}")
-                        files_uploaded = 0
-                        for result in manager.upload_to_stage(
-                            local_root=project_paths.bundle_root,
-                            stage_fqn=storage_fqn,
-                            overwrite=True,
-                        ):
-                            files_uploaded += 1
-                            cli_console.step(
-                                f"  Uploaded {result['source']} -> {result['target']}"
-                            )
-                        metrics.set_counter(FILES_UPLOADED_COUNTER, files_uploaded)
+                    try:
+                        _upload_via_workspace(storage_fqn)
+                    except ProgrammingError as e:
+                        # The workspace backend is unusable for this
+                        # role/destination. Fall back to the stage flow so a
+                        # role that cannot create/use a workspace can still
+                        # deploy: upload to a ``<app>_CODE`` stage, let the build
+                        # consume it, and drop it afterwards. ``snow app setup``
+                        # performs the same privilege check up front and persists
+                        # the choice, so this runtime fallback only triggers when
+                        # that decision could not be made (or has since changed).
+                        cli_console.warning(
+                            f"Could not use a workspace for code storage in "
+                            f"'{sanitize_for_terminal(storage_fqn.identifier)}': {e}. "
+                            "Falling back to a stage."
+                        )
+                        use_workspace = False
+                        encryption_type = "SNOWFLAKE_SSE"
+                        storage_fqn = app_fqn(
+                            database=database,
+                            schema=schema,
+                            name=f"{app_name}_CODE",
+                        )
+                        _upload_via_stage(storage_fqn, encryption_type)
+                        stage_created = True
         finally:
             project_paths.clean_up_output()
 
