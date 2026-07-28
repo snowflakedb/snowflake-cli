@@ -746,19 +746,28 @@ class SecretTypeParser(click.ParamType):
         return value
 
 
-class LocalDirectoryType(click.ParamType):
+class _LocalPathType(click.ParamType):
     """Click parameter type that converts a path string to SecurePath."""
 
     name = "PATH"
+    _noun = "path"
 
     def convert(
         self, value: str, param: click.Parameter | None, ctx: click.Context | None
     ) -> SecurePath:
         if is_stage_path(value):
             raise CliArgumentError(
-                "Stage paths are not supported. Please provide a local directory path."
+                f"Stage paths are not supported. Please provide a local {self._noun} path."
             )
         return SecurePath(value).resolve()
+
+
+class LocalDirectoryType(_LocalPathType):
+    _noun = "directory"
+
+
+class LocalFileType(_LocalPathType):
+    _noun = "file"
 
 
 def identifier_argument(

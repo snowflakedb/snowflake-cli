@@ -16,7 +16,7 @@ from typing import List, Optional
 
 import typer
 from snowflake.cli._plugins.connection.util import get_account_identifier
-from snowflake.cli._plugins.dcm.env import collect_env_vars
+from snowflake.cli._plugins.dcm.env import resolve_declared_env_vars
 from snowflake.cli._plugins.dcm.exceptions import (
     InvalidManifestError,
     ManifestConfigurationError,
@@ -45,6 +45,7 @@ from snowflake.cli.api.commands.flags import (
     IfNotExistsOption,
     InteractiveOption,
     LocalDirectoryType,
+    LocalFileType,
     identifier_argument,
     like_option,
     variables_option,
@@ -125,6 +126,20 @@ save_output_option = typer.Option(
     False,
     "--save-output",
     help="Save command response and artifacts to local 'out/' directory.",
+)
+
+env_file_option = typer.Option(
+    None,
+    "--env-file",
+    "-e",
+    help="Path to a .env file (KEY=VALUE per line) to source declared "
+    "environment variables/secrets from, layered under the shell "
+    "environment. The shell always wins on a name declared in both; the "
+    "file only fills in names the shell doesn't already provide. Quote a "
+    "value containing '#' or leading/trailing whitespace, or it's silently "
+    "truncated at the '#' or trimmed.",
+    show_default=False,
+    click_type=LocalFileType(),
 )
 
 
@@ -321,6 +336,7 @@ def deploy(
     alias: Optional[str] = alias_option,
     target: Optional[str] = target_option,
     save_output: bool = save_output_option,
+    env_file: Optional[SecurePath] = env_file_option,
     skip_plan: bool = typer.Option(
         False,
         "--skip-plan",
@@ -336,7 +352,7 @@ def deploy(
 
     context = _resolve_context_with_required_manifest(from_location, identifier, target)
     project_id = context.project_identifier
-    env_vars = collect_env_vars(context.declared_variable_names)
+    env_vars = resolve_declared_env_vars(context.declared_variable_names, env_file)
 
     manager = DCMProjectManager()
     effective_stage = manager.sync_local_files(
@@ -447,6 +463,7 @@ def plan(
     variables: Optional[List[str]] = variables_flag,
     target: Optional[str] = target_option,
     save_output: bool = save_output_option,
+    env_file: Optional[SecurePath] = env_file_option,
     delta: bool = typer.Option(
         False,
         "--delta",
@@ -462,7 +479,7 @@ def plan(
 
     context = _resolve_context_with_required_manifest(from_location, identifier, target)
     project_id = context.project_identifier
-    env_vars = collect_env_vars(context.declared_variable_names)
+    env_vars = resolve_declared_env_vars(context.declared_variable_names, env_file)
 
     manager = DCMProjectManager()
     effective_stage = manager.sync_local_files(
@@ -493,6 +510,7 @@ def raw_analyze(
     variables: Optional[List[str]] = variables_flag,
     target: Optional[str] = target_option,
     save_output: bool = save_output_option,
+    env_file: Optional[SecurePath] = env_file_option,
     **options,
 ):
     """Analyzes a DCM Project."""
@@ -500,7 +518,7 @@ def raw_analyze(
 
     context = _resolve_context_with_required_manifest(from_location, identifier, target)
     project_id = context.project_identifier
-    env_vars = collect_env_vars(context.declared_variable_names)
+    env_vars = resolve_declared_env_vars(context.declared_variable_names, env_file)
 
     manager = DCMProjectManager()
     effective_stage = manager.sync_local_files(
@@ -686,6 +704,7 @@ def preview(
         show_default=False,
     ),
     target: Optional[str] = target_option,
+    env_file: Optional[SecurePath] = env_file_option,
     **options,
 ):
     """
@@ -693,7 +712,7 @@ def preview(
     """
     context = _resolve_context_with_required_manifest(from_location, identifier, target)
     project_id = context.project_identifier
-    env_vars = collect_env_vars(context.declared_variable_names)
+    env_vars = resolve_declared_env_vars(context.declared_variable_names, env_file)
 
     manager = DCMProjectManager()
     effective_stage = manager.sync_local_files(

@@ -616,6 +616,120 @@ class TestDCMDeploy:
         assert "DB_HOST" in warning_message
         assert "AWS_SECRET_KEY" in warning_message
 
+    def test_deploy_reads_env_vars_from_env_file(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        monkeypatch,
+    ):
+        """--env-file fills in names the shell doesn't already provide."""
+        monkeypatch.delenv("DB_HOST", raising=False)
+        monkeypatch.delenv("AWS_SECRET_KEY", raising=False)
+        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_with_env_vars()
+
+        with project_directory("dcm_project") as project_dir:
+            (project_dir / ".env").write_text(
+                "DB_HOST=prod.analytics.internal\nAWS_SECRET_KEY=shhh\n"
+            )
+            result = runner.invoke(
+                ["dcm", "deploy", "fooBar", "--env-file", str(project_dir / ".env")]
+            )
+
+        assert result.exit_code == 0, result.output
+        mock_dcm_manager().deploy.assert_called_once_with(
+            project_identifier=FQN.from_string("fooBar"),
+            configuration=None,
+            from_stage="TMP_STAGE",
+            variables=None,
+            alias=None,
+            skip_plan=False,
+            env_vars={"DB_HOST": "prod.analytics.internal", "AWS_SECRET_KEY": "shhh"},
+        )
+
+    def test_deploy_env_file_shell_value_wins_over_file(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        monkeypatch,
+    ):
+        monkeypatch.setenv("DB_HOST", "from-shell")
+        monkeypatch.delenv("AWS_SECRET_KEY", raising=False)
+        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_with_env_vars()
+
+        with project_directory("dcm_project") as project_dir:
+            (project_dir / ".env").write_text(
+                "DB_HOST=from-file\nAWS_SECRET_KEY=from-file\n"
+            )
+            result = runner.invoke(
+                ["dcm", "deploy", "fooBar", "--env-file", str(project_dir / ".env")]
+            )
+
+        assert result.exit_code == 0, result.output
+        mock_dcm_manager().deploy.assert_called_once_with(
+            project_identifier=FQN.from_string("fooBar"),
+            configuration=None,
+            from_stage="TMP_STAGE",
+            variables=None,
+            alias=None,
+            skip_plan=False,
+            env_vars={"DB_HOST": "from-shell", "AWS_SECRET_KEY": "from-file"},
+        )
+
+    def test_deploy_env_file_missing_fails_even_with_no_declared_env_vars(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+    ):
+        """A user who typed --env-file wants feedback on it regardless of
+        whether the manifest happens to declare any env vars."""
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project") as project_dir:
+            result = runner.invoke(
+                [
+                    "dcm",
+                    "deploy",
+                    "fooBar",
+                    "--env-file",
+                    str(project_dir / "does_not_exist.env"),
+                ]
+            )
+
+        assert result.exit_code == 1, result.output
+        # The error is rendered in a word-wrapped Rich panel, so a long path
+        # (e.g. Windows temp dirs) can split "was not found" across two
+        # bordered lines -- collapse border/whitespace before checking.
+        normalized_output = " ".join(result.output.replace("|", " ").split())
+        assert "was not found" in normalized_output
+        mock_dcm_manager().deploy.assert_not_called()
+
+    def test_deploy_env_file_rejects_stage_path(
+        self, mock_dcm_manager, mock_manifest_load, runner, project_directory
+    ):
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "deploy", "fooBar", "--env-file", "@my_stage"]
+            )
+
+        assert result.exit_code == 1, result.output
+        assert "Stage paths are not supported" in result.output
+
 
 class TestDCMPurge:
     @pytest.mark.parametrize(
@@ -1193,6 +1307,41 @@ class TestDCMPlan:
         )
         mock_console.warning.assert_called_once()
 
+    def test_plan_reads_env_vars_from_env_file(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        monkeypatch,
+    ):
+        monkeypatch.delenv("DB_HOST", raising=False)
+        monkeypatch.delenv("AWS_SECRET_KEY", raising=False)
+        mock_dcm_manager().plan.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_with_env_vars()
+
+        with project_directory("dcm_project") as project_dir:
+            (project_dir / ".env").write_text(
+                "DB_HOST=prod.analytics.internal\nAWS_SECRET_KEY=shhh\n"
+            )
+            result = runner.invoke(
+                ["dcm", "plan", "fooBar", "--env-file", str(project_dir / ".env")]
+            )
+
+        assert result.exit_code == 0, result.output
+        mock_dcm_manager().plan.assert_called_once_with(
+            project_identifier=FQN.from_string("fooBar"),
+            configuration=None,
+            from_stage="TMP_STAGE",
+            variables=None,
+            save_output=False,
+            delta=False,
+            env_vars={"DB_HOST": "prod.analytics.internal", "AWS_SECRET_KEY": "shhh"},
+        )
+
 
 class TestDCMRawAnalyze:
     def test_raw_analyze_basic(
@@ -1288,6 +1437,48 @@ class TestDCMRawAnalyze:
             env_vars={},
         )
         mock_console.warning.assert_called_once()
+
+    def test_raw_analyze_reads_env_vars_from_env_file(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        monkeypatch,
+    ):
+        monkeypatch.delenv("DB_HOST", raising=False)
+        monkeypatch.delenv("AWS_SECRET_KEY", raising=False)
+        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
+            rows=[(_analyze_response(),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_with_env_vars()
+
+        with project_directory("dcm_project") as project_dir:
+            (project_dir / ".env").write_text(
+                "DB_HOST=prod.analytics.internal\nAWS_SECRET_KEY=shhh\n"
+            )
+            result = runner.invoke(
+                [
+                    "dcm",
+                    "raw-analyze",
+                    "fooBar",
+                    "--env-file",
+                    str(project_dir / ".env"),
+                ]
+            )
+
+        assert result.exit_code == 0, result.output
+        mock_dcm_manager().raw_analyze.assert_called_once_with(
+            project_identifier=FQN.from_string("fooBar"),
+            configuration=None,
+            from_stage="TMP_STAGE",
+            variables=None,
+            save_output=False,
+            env_vars={"DB_HOST": "prod.analytics.internal", "AWS_SECRET_KEY": "shhh"},
+        )
 
     def test_raw_analyze_with_errors_exits(
         self,
@@ -2121,6 +2312,52 @@ class TestDCMPreview:
             env_vars={},
         )
         mock_console.warning.assert_called_once()
+
+    def test_preview_reads_env_vars_from_env_file(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        monkeypatch,
+    ):
+        monkeypatch.delenv("DB_HOST", raising=False)
+        monkeypatch.delenv("AWS_SECRET_KEY", raising=False)
+        mock_dcm_manager().preview.return_value = mock_cursor(
+            rows=[(1, "Alice", "alice@example.com")],
+            columns=("id", "name", "email"),
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_with_env_vars()
+
+        with project_directory("dcm_project") as project_dir:
+            (project_dir / ".env").write_text(
+                "DB_HOST=prod.analytics.internal\nAWS_SECRET_KEY=shhh\n"
+            )
+            result = runner.invoke(
+                [
+                    "dcm",
+                    "preview",
+                    "my_project",
+                    "--object",
+                    "my_table",
+                    "--env-file",
+                    str(project_dir / ".env"),
+                ]
+            )
+
+        assert result.exit_code == 0, result.output
+        mock_dcm_manager().preview.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            object_identifier=FQN.from_string("my_table"),
+            configuration=None,
+            from_stage="TMP_STAGE",
+            variables=None,
+            limit=None,
+            env_vars={"DB_HOST": "prod.analytics.internal", "AWS_SECRET_KEY": "shhh"},
+        )
 
 
 class TestDCMRefresh:
