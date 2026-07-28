@@ -162,6 +162,33 @@ HistoryStartTimeRangeEndOption = typer.Option(
     help="Filter the history to executions that started at or before this timestamp.",
     show_default=False,
 )
+HistoryBundleTypesOption = typer.Option(
+    None,
+    "--bundle-types",
+    help=(
+        "Filter the history to the given bundle types. "
+        "Can be specified multiple times."
+    ),
+    show_default=False,
+)
+HistoryComputeTypesOption = typer.Option(
+    None,
+    "--compute-types",
+    help=(
+        "Filter the history to the given compute types. "
+        "Can be specified multiple times."
+    ),
+    show_default=False,
+)
+HistoryLanguageTypesOption = typer.Option(
+    None,
+    "--language-types",
+    help=(
+        "Filter the history to the given language types. "
+        "Can be specified multiple times."
+    ),
+    show_default=False,
+)
 
 
 @app.command(requires_connection=True)
@@ -302,6 +329,9 @@ def history(
     entrypoint: Optional[str] = HistoryEntrypointOption,
     start_time_range_start: Optional[str] = HistoryStartTimeRangeStartOption,
     start_time_range_end: Optional[str] = HistoryStartTimeRangeEndOption,
+    bundle_types: Optional[List[str]] = HistoryBundleTypesOption,
+    compute_types: Optional[List[str]] = HistoryComputeTypesOption,
+    language_types: Optional[List[str]] = HistoryLanguageTypesOption,
     result_limit: int = ResultLimitOption,
     **options,
 ) -> CommandResult:
@@ -314,6 +344,9 @@ def history(
             entrypoint=entrypoint,
             start_time_range_start=start_time_range_start,
             start_time_range_end=start_time_range_end,
+            bundle_types=bundle_types,
+            compute_types=compute_types,
+            language_types=language_types,
             result_limit=result_limit,
         )
     )

@@ -5478,6 +5478,15 @@
   | --start-time-range-end            TEXT     Filter the history to executions  |
   |                                            that started at or before this    |
   |                                            timestamp.                        |
+  | --bundle-types                    TEXT     Filter the history to the given   |
+  |                                            bundle types. Can be specified    |
+  |                                            multiple times.                   |
+  | --compute-types                   TEXT     Filter the history to the given   |
+  |                                            compute types. Can be specified   |
+  |                                            multiple times.                   |
+  | --language-types                  TEXT     Filter the history to the given   |
+  |                                            language types. Can be specified  |
+  |                                            multiple times.                   |
   | --result-limit                    INTEGER  Maximum number of history rows to |
   |                                            return.                           |
   |                                            [default: 100]                    |
