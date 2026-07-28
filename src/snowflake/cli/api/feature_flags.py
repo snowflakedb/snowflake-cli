@@ -83,3 +83,4 @@ class FeatureFlag(FeatureFlagMixin):
     ENABLE_DBT_PROJECT_AUTO_COMPILE = BooleanFlag(
         "ENABLE_DBT_PROJECT_AUTO_COMPILE", False
     )
+    ENABLE_DBT_GIT_METADATA = BooleanFlag("ENABLE_DBT_GIT_METADATA", False)

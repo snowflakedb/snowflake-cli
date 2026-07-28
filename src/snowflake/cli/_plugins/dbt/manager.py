@@ -178,6 +178,8 @@ class DBTDeployAttributes:
     default_writeback: Optional[bool] = None
     # Tri-state: None uses the server default; True/False set it explicitly.
     auto_compile: Optional[bool] = None
+    git_commit: Optional[str] = None
+    git_branch: Optional[str] = None
 
 
 class DBTManager(SqlExecutionMixin):
@@ -427,6 +429,10 @@ class DBTManager(SqlExecutionMixin):
 
         query = f"ALTER DBT PROJECT {fqn} ADD VERSION"
         query += f"\nFROM {stage_name}"
+        if attrs.git_commit:
+            query += f" GIT_COMMIT={to_string_literal(attrs.git_commit)}"
+        if attrs.git_branch:
+            query += f" GIT_BRANCH={to_string_literal(attrs.git_branch)}"
         result = self.execute_query(query)
 
         return result
@@ -477,6 +483,10 @@ class DBTManager(SqlExecutionMixin):
             )
         if attrs.auto_compile is not None:
             query += f" {AUTO_COMPILE_PROPERTY}={_sql_bool(attrs.auto_compile)}"
+        if attrs.git_commit:
+            query += f" GIT_COMMIT={to_string_literal(attrs.git_commit)}"
+        if attrs.git_branch:
+            query += f" GIT_BRANCH={to_string_literal(attrs.git_branch)}"
         query = self._handle_external_access_integrations_query(
             query, attrs.external_access_integrations, attrs.install_local_deps
         )
@@ -516,6 +526,10 @@ class DBTManager(SqlExecutionMixin):
             )
         if attrs.auto_compile is not None:
             query += f" {AUTO_COMPILE_PROPERTY}={_sql_bool(attrs.auto_compile)}"
+        if attrs.git_commit:
+            query += f" GIT_COMMIT={to_string_literal(attrs.git_commit)}"
+        if attrs.git_branch:
+            query += f" GIT_BRANCH={to_string_literal(attrs.git_branch)}"
         query = self._handle_external_access_integrations_query(
             query, attrs.external_access_integrations, attrs.install_local_deps
         )
