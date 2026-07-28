@@ -141,17 +141,28 @@ class TestDCMManifest:
 
         assert templating.declared_variable_names == {"AWS_SECRET_KEY"}
 
-    def test_templating_declared_variable_names_deduplicates_overlap(self):
-        """A name declared in both lists (invalid per GS's EnvVarsValidator,
-        but the CLI doesn't validate this) is not double-counted."""
-        templating = DCMTemplating.from_dict(
-            {
-                "env_vars": [{"SHARED_NAME": None}],
-                "env_secrets": [{"SHARED_NAME": None}],
-            }
-        )
+    def test_templating_rejects_name_in_both_env_vars_and_env_secrets(self):
+        """Matches GS's EnvVarsValidator: a name can't be declared in both
+        lists at once."""
+        with pytest.raises(InvalidManifestError, match="SHARED_NAME"):
+            DCMTemplating.from_dict(
+                {
+                    "env_vars": [{"SHARED_NAME": None}],
+                    "env_secrets": [{"SHARED_NAME": None}],
+                }
+            )
 
-        assert templating.declared_variable_names == {"SHARED_NAME"}
+    def test_templating_rejects_duplicate_name_within_env_vars(self):
+        with pytest.raises(InvalidManifestError, match="DB_HOST"):
+            DCMTemplating.from_dict(
+                {"env_vars": [{"DB_HOST": None}, {"DB_HOST": None}]}
+            )
+
+    def test_templating_rejects_duplicate_name_within_env_secrets(self):
+        with pytest.raises(InvalidManifestError, match="API_KEY"):
+            DCMTemplating.from_dict(
+                {"env_secrets": [{"API_KEY": None}, {"API_KEY": None}]}
+            )
 
     def test_templating_declared_variable_names_case_preserved(self):
         """Unlike configuration names, env var names are matched by exact
@@ -160,6 +171,16 @@ class TestDCMManifest:
 
         assert templating.declared_variable_names == {"db_Host"}
         assert "DB_HOST" not in templating.declared_variable_names
+
+    def test_templating_different_case_names_are_not_duplicates(self):
+        """DB_HOST and db_host are two distinct declared names (exact
+        string equality) -- declaring both is not a duplicate, even though
+        a case-insensitive comparison would treat them the same."""
+        templating = DCMTemplating.from_dict(
+            {"env_vars": [{"DB_HOST": None}, {"db_host": None}]}
+        )
+
+        assert templating.env_vars == ["DB_HOST", "db_host"]
 
     def test_templating_env_vars_each_entry_is_a_single_key_mapping(self):
         """Real manifest shape: each `env_vars`/`env_secrets` entry is a
@@ -177,12 +198,59 @@ class TestDCMManifest:
         assert templating.env_vars == ["BUILD_NUMBER", "INCLUDE_REPORTS"]
         assert templating.env_secrets == ["API_KEY"]
 
-    def test_templating_env_vars_accepts_plain_strings_too(self):
-        """Not the real manifest shape, but tolerated for robustness --
-        a plain string entry is used as-is rather than rejected."""
-        templating = DCMTemplating.from_dict({"env_vars": ["BUILD_NUMBER"]})
+    def test_templating_rejects_multi_key_entry(self):
+        """Each list entry must declare exactly one name -- matches the
+        server's own schema constraint."""
+        with pytest.raises(InvalidManifestError, match="exactly one name"):
+            DCMTemplating.from_dict({"env_vars": [{"FIRST": None, "SECOND": None}]})
 
-        assert templating.env_vars == ["BUILD_NUMBER"]
+    @pytest.mark.parametrize(
+        "bad_name",
+        [
+            "1STARTS_WITH_DIGIT",
+            "has-hyphen",
+            "has space",
+            "has.dot",
+            "",
+        ],
+    )
+    def test_templating_rejects_invalid_env_var_name_format(self, bad_name):
+        """Matches GS's EnvVarsValidator name-pattern regex, the POSIX
+        portable character set (^[a-zA-Z_][a-zA-Z0-9_]*$)."""
+        with pytest.raises(InvalidManifestError, match="POSIX"):
+            DCMTemplating.from_dict({"env_vars": [{bad_name: None}]})
+
+    def test_templating_accepts_valid_env_var_name_formats(self):
+        """Underscore-prefixed and all-underscore names are valid; only
+        digit-first and non-word characters are rejected."""
+        templating = DCMTemplating.from_dict(
+            {"env_vars": [{"_LEADING_UNDERSCORE": None}, {"trailing_digit1": None}]}
+        )
+
+        assert templating.env_vars == ["_LEADING_UNDERSCORE", "trailing_digit1"]
+
+    def test_templating_rejects_reserved_snow_name(self):
+        """_snow is reserved for the built-in Jinja context object."""
+        with pytest.raises(InvalidManifestError, match="reserved"):
+            DCMTemplating.from_dict({"env_secrets": [{"_snow": None}]})
+
+    def test_templating_rejects_non_string_env_var_name(self):
+        """A bare (unquoted) numeric-looking YAML key parses as an int,
+        not a string -- must fail with a clear manifest error, not a raw
+        TypeError from the name-pattern regex match."""
+        with pytest.raises(InvalidManifestError, match="must be a string"):
+            DCMTemplating.from_dict({"env_vars": [{123: None}]})
+
+    def test_templating_env_vars_rejects_bare_string_entry(self):
+        """Real manifest shape requires a single-key mapping (`- NAME:`).
+        GS rejects a bare string entry at the schema level, so the CLI
+        should fail the same way, fast and client-side."""
+        with pytest.raises(InvalidManifestError, match="env_vars"):
+            DCMTemplating.from_dict({"env_vars": ["BUILD_NUMBER"]})
+
+    def test_templating_env_secrets_rejects_bare_string_entry(self):
+        with pytest.raises(InvalidManifestError, match="env_secrets"):
+            DCMTemplating.from_dict({"env_secrets": ["API_KEY"]})
 
     def test_templating_env_vars_section_present_but_empty(self):
         """`env_vars:`/`env_secrets:` declared with no entries parses as
