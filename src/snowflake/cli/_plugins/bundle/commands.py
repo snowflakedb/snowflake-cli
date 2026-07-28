@@ -126,6 +126,24 @@ ResultLimitOption = typer.Option(
     "--result-limit",
     help="Maximum number of history rows to return.",
 )
+BundleNameOption = typer.Option(
+    None,
+    "--bundle-name",
+    help="Filter the history to a specific code bundle name.",
+    show_default=False,
+)
+HistoryDatabaseOption = typer.Option(
+    None,
+    "--bundle-database",
+    help="Filter the history to code bundles in the given database.",
+    show_default=False,
+)
+HistorySchemaOption = typer.Option(
+    None,
+    "--bundle-schema",
+    help="Filter the history to code bundles in the given schema.",
+    show_default=False,
+)
 
 
 @app.command(requires_connection=True)
@@ -260,11 +278,18 @@ def cancel(
 
 @app.command(requires_connection=True)
 def history(
-    identifier: Annotated[FQN, CODE_BUNDLE_IDENTIFIER],
+    bundle_name: Optional[str] = BundleNameOption,
+    bundle_database: Optional[str] = HistoryDatabaseOption,
+    bundle_schema: Optional[str] = HistorySchemaOption,
     result_limit: int = ResultLimitOption,
     **options,
 ) -> CommandResult:
-    """Returns the execution history of a code bundle."""
+    """Returns the execution history of code bundles."""
     return QueryResult(
-        CodeBundleManager().history(name=identifier, result_limit=result_limit)
+        CodeBundleManager().history(
+            bundle_name=bundle_name,
+            database=bundle_database,
+            schema=bundle_schema,
+            result_limit=result_limit,
+        )
     )
