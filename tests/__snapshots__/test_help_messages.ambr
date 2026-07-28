@@ -5491,19 +5491,21 @@
 # name: test_help_messages[bundle.history]
   '''
                                                                                   
-   Usage: root bundle history [OPTIONS] IDENTIFIER                                
+   Usage: root bundle history [OPTIONS]                                           
                                                                                   
-   Returns the execution history of a code bundle.                                
+   Returns the execution history of code bundles.                                 
                                                                                   
-  +- Arguments ------------------------------------------------------------------+
-  | *    identifier      TEXT  Identifier of the code bundle; for example:       |
-  |                            MY_CODE_BUNDLE                                    |
-  |                            [required]                                        |
-  +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --result-limit          INTEGER  Maximum number of history rows to return.   |
-  |                                  [default: 100]                              |
-  | --help          -h               Show this message and exit.                 |
+  | --bundle-name              TEXT     Filter the history to a specific code    |
+  |                                     bundle name.                             |
+  | --bundle-database          TEXT     Filter the history to code bundles in    |
+  |                                     the given database.                      |
+  | --bundle-schema            TEXT     Filter the history to code bundles in    |
+  |                                     the given schema.                        |
+  | --result-limit             INTEGER  Maximum number of history rows to        |
+  |                                     return.                                  |
+  |                                     [default: 100]                           |
+  | --help             -h               Show this message and exit.              |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |

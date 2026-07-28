@@ -135,15 +135,25 @@ class CodeBundleManager(SqlExecutionMixin):
             "SELECT SYSTEM$CANCEL_QUERY(%s)", (query_id,)
         )
 
-    def history(self, name: FQN, result_limit: int = 100) -> SnowflakeCursor:
-        if name is None or not name.name:
-            raise CliError("Code bundle name is required.")
-        fqn = name.using_connection(self._conn)
+    def history(
+        self,
+        bundle_name: Optional[str] = None,
+        database: Optional[str] = None,
+        schema: Optional[str] = None,
+        result_limit: int = 100,
+    ) -> SnowflakeCursor:
+        args = []
+        if bundle_name:
+            args.append(f"BUNDLE_NAME => {to_string_literal(bundle_name)}")
+        if database:
+            args.append(f"DATABASE => {to_string_literal(database)}")
+        if schema:
+            args.append(f"SCHEMA => {to_string_literal(schema)}")
+        args.append(f"RESULT_LIMIT => {int(result_limit)}")
         query = (
-            "SELECT * FROM TABLE("
-            "SNOWFLAKE.INFORMATION_SCHEMA.CODE_BUNDLE_HISTORY("
-            f"BUNDLE_NAME => {to_string_literal(fqn.identifier)}, "
-            f"RESULT_LIMIT => {int(result_limit)}))"
+            "SELECT * FROM TABLE(SNOWFLAKE.INFORMATION_SCHEMA.CODE_BUNDLE_HISTORY("
+            + ", ".join(args)
+            + "))"
         )
         return self.execute_query(query)
 
