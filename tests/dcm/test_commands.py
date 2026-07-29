@@ -621,6 +621,7 @@ class TestDCMDeploy:
     def test_deploy_collects_declared_env_vars_from_shell(
         self,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
@@ -631,7 +632,10 @@ class TestDCMDeploy:
         monkeypatch.setenv("DB_HOST", "prod.analytics.internal")
         monkeypatch.setenv("AWS_SECRET_KEY", "shhh")
         monkeypatch.setenv("UNRELATED_VAR", "should-not-be-sent")
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_with_env_vars()
 
@@ -639,7 +643,7 @@ class TestDCMDeploy:
             result = runner.invoke(["dcm", "deploy", "fooBar"])
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().deploy.assert_called_once_with(
+        mock_dcm_manager().deploy_async.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
@@ -652,6 +656,7 @@ class TestDCMDeploy:
     def test_deploy_omits_declared_env_var_missing_from_shell(
         self,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
@@ -661,7 +666,10 @@ class TestDCMDeploy:
     ):
         monkeypatch.delenv("DB_HOST", raising=False)
         monkeypatch.delenv("AWS_SECRET_KEY", raising=False)
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_with_env_vars()
 
@@ -672,7 +680,7 @@ class TestDCMDeploy:
                 result = runner.invoke(["dcm", "deploy", "fooBar"])
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().deploy.assert_called_once_with(
+        mock_dcm_manager().deploy_async.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
@@ -689,6 +697,7 @@ class TestDCMDeploy:
     def test_deploy_reads_env_vars_from_env_file(
         self,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
@@ -699,7 +708,10 @@ class TestDCMDeploy:
         """--env-file fills in names the shell doesn't already provide."""
         monkeypatch.delenv("DB_HOST", raising=False)
         monkeypatch.delenv("AWS_SECRET_KEY", raising=False)
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_with_env_vars()
 
@@ -712,7 +724,7 @@ class TestDCMDeploy:
             )
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().deploy.assert_called_once_with(
+        mock_dcm_manager().deploy_async.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
@@ -725,6 +737,7 @@ class TestDCMDeploy:
     def test_deploy_env_file_shell_value_wins_over_file(
         self,
         mock_dcm_manager,
+        mock_deploy_tracker,
         mock_manifest_load,
         runner,
         project_directory,
@@ -734,7 +747,10 @@ class TestDCMDeploy:
     ):
         monkeypatch.setenv("DB_HOST", "from-shell")
         monkeypatch.delenv("AWS_SECRET_KEY", raising=False)
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = "mock-sfqid"
+        mock_deploy_tracker.return_value.run_deploy_poll.return_value = _plan_cursor(
+            mock_cursor
+        )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_with_env_vars()
 
@@ -747,7 +763,7 @@ class TestDCMDeploy:
             )
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().deploy.assert_called_once_with(
+        mock_dcm_manager().deploy_async.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
@@ -785,7 +801,7 @@ class TestDCMDeploy:
         # bordered lines -- collapse border/whitespace before checking.
         normalized_output = " ".join(result.output.replace("|", " ").split())
         assert "was not found" in normalized_output
-        mock_dcm_manager().deploy.assert_not_called()
+        mock_dcm_manager().deploy_async.assert_not_called()
 
     def test_deploy_env_file_rejects_stage_path(
         self, mock_dcm_manager, mock_manifest_load, runner, project_directory
