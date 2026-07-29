@@ -19,6 +19,7 @@ import random
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
+from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import to_string_literal
@@ -53,6 +54,8 @@ class CodeBundleManager(SqlExecutionMixin):
             f"{create_clause} {fqn.sql_identifier} " f"FROM {to_string_literal(source)}"
         )
         if comment is not None:
+            # comment arrives already escaped as a SQL string literal by
+            # CommentOption's callback (see _plugins/object/common.py).
             query += f" COMMENT = {comment}"
         return self.execute_query(query)
 
@@ -231,6 +234,7 @@ class CodeBundleManager(SqlExecutionMixin):
         if not root_path.is_dir():
             raise CliError(f"Source path '{local_path}' is not a directory.")
         glob_pattern = os.path.join(glob.escape(local_path), "**", "*")
+        stage_manager = StageManager()
 
         for file_path_str in glob.iglob(glob_pattern, recursive=True):
             file_path = Path(file_path_str)
@@ -248,6 +252,14 @@ class CodeBundleManager(SqlExecutionMixin):
                 stage_dest = f"@{stage_name}"
             else:
                 stage_dest = f"@{stage_name}/{stage_subdir}"
-            self.execute_query(
-                f"PUT file://{file_path} {stage_dest} auto_compress=false"
+            # Delegate to StageManager rather than building the PUT statement
+            # here: it quotes the local file URI and the stage path, so names
+            # containing quotes, spaces or semicolons cannot break out of the
+            # statement. glob.escape is needed because the connector expands
+            # every PUT source through glob.glob, so an unescaped `*`, `?` or
+            # `[` in a filename would be treated as a pattern.
+            stage_manager.put(
+                local_path=glob.escape(str(file_path)),
+                stage_path=stage_dest,
+                auto_compress=False,
             )

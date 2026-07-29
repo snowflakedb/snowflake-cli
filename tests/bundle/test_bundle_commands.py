@@ -16,6 +16,7 @@ from unittest import mock
 
 import pytest
 from snowflake.cli._plugins.bundle.manager import CodeBundleManager
+from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.identifiers import FQN
 
 
@@ -947,7 +948,7 @@ def test_create_with_local_source_uploads_and_creates(
     queries = ctx.get_queries()
     assert queries[0] == "CREATE OR REPLACE TEMPORARY STAGE tmp_bundle_stage_1234567"
     assert any(
-        q.startswith("PUT file://")
+        q.startswith("put file://")
         and "main.py" in q
         and "@tmp_bundle_stage_1234567 " in q
         and "auto_compress=false" in q
@@ -1012,7 +1013,7 @@ def test_create_with_local_source_and_exclude(
 
     assert result.exit_code == 0, result.output
     queries = ctx.get_queries()
-    put_queries = [q for q in queries if q.startswith("PUT file://")]
+    put_queries = [q for q in queries if q.startswith("put file://")]
     assert len(put_queries) == 1, queries
     assert "keep.py" in put_queries[0]
     assert all("skip.pyc" not in q for q in queries)
@@ -1172,7 +1173,7 @@ def test_process_source_with_https_protocol_raises(mock_execute_query):
 # ---------- CodeBundleManager._upload_directory_recursive ----------
 
 
-@mock.patch.object(CodeBundleManager, "execute_query")
+@mock.patch.object(StageManager, "execute_query")
 def test_upload_directory_recursive_with_flat_structure(mock_execute_query, tmp_path):
     (tmp_path / "file1.py").write_text("content1")
     (tmp_path / "file2.py").write_text("content2")
@@ -1183,16 +1184,16 @@ def test_upload_directory_recursive_with_flat_structure(mock_execute_query, tmp_
     assert mock_execute_query.call_count == 2
     calls = [str(call) for call in mock_execute_query.call_args_list]
     assert any(
-        "PUT file://" in call and "file1.py" in call and "@test_stage" in call
+        "put file://" in call and "file1.py" in call and "@test_stage" in call
         for call in calls
     )
     assert any(
-        "PUT file://" in call and "file2.py" in call and "@test_stage" in call
+        "put file://" in call and "file2.py" in call and "@test_stage" in call
         for call in calls
     )
 
 
-@mock.patch.object(CodeBundleManager, "execute_query")
+@mock.patch.object(StageManager, "execute_query")
 def test_upload_directory_recursive_with_nested_structure(mock_execute_query, tmp_path):
     (tmp_path / "root_file.py").write_text("root content")
     subdir = tmp_path / "subdir"
@@ -1219,7 +1220,7 @@ def test_upload_directory_recursive_with_nested_structure(mock_execute_query, tm
     )
 
 
-@mock.patch.object(CodeBundleManager, "execute_query")
+@mock.patch.object(StageManager, "execute_query")
 def test_upload_directory_recursive_not_a_directory(mock_execute_query, tmp_path):
     from snowflake.cli.api.exceptions import CliError
 
@@ -1235,7 +1236,7 @@ def test_upload_directory_recursive_not_a_directory(mock_execute_query, tmp_path
     mock_execute_query.assert_not_called()
 
 
-@mock.patch.object(CodeBundleManager, "execute_query")
+@mock.patch.object(StageManager, "execute_query")
 def test_upload_directory_recursive_nonexistent_path(mock_execute_query, tmp_path):
     from snowflake.cli.api.exceptions import CliError
 
@@ -1250,7 +1251,7 @@ def test_upload_directory_recursive_nonexistent_path(mock_execute_query, tmp_pat
     mock_execute_query.assert_not_called()
 
 
-@mock.patch.object(CodeBundleManager, "execute_query")
+@mock.patch.object(StageManager, "execute_query")
 def test_upload_directory_recursive_empty_directory(mock_execute_query, tmp_path):
     empty_dir = tmp_path / "empty"
     empty_dir.mkdir()
@@ -1261,7 +1262,7 @@ def test_upload_directory_recursive_empty_directory(mock_execute_query, tmp_path
     mock_execute_query.assert_not_called()
 
 
-@mock.patch.object(CodeBundleManager, "execute_query")
+@mock.patch.object(StageManager, "execute_query")
 def test_upload_directory_recursive_skips_subdirectories(mock_execute_query, tmp_path):
     (tmp_path / "file.py").write_text("content")
     subdir = tmp_path / "subdir"
@@ -1275,7 +1276,7 @@ def test_upload_directory_recursive_skips_subdirectories(mock_execute_query, tmp
     assert "file.py" in call_str
 
 
-@mock.patch.object(CodeBundleManager, "execute_query")
+@mock.patch.object(StageManager, "execute_query")
 def test_upload_directory_recursive_excludes_by_filename(mock_execute_query, tmp_path):
     (tmp_path / "keep.py").write_text("keep")
     (tmp_path / "skip.pyc").write_text("skip")
@@ -1291,7 +1292,7 @@ def test_upload_directory_recursive_excludes_by_filename(mock_execute_query, tmp
     assert "skip.pyc" not in call_str
 
 
-@mock.patch.object(CodeBundleManager, "execute_query")
+@mock.patch.object(StageManager, "execute_query")
 def test_upload_directory_recursive_excludes_directory(mock_execute_query, tmp_path):
     (tmp_path / "keep.py").write_text("keep")
     cache_dir = tmp_path / "__pycache__"
@@ -1309,7 +1310,7 @@ def test_upload_directory_recursive_excludes_directory(mock_execute_query, tmp_p
     assert "cached.pyc" not in call_str
 
 
-@mock.patch.object(CodeBundleManager, "execute_query")
+@mock.patch.object(StageManager, "execute_query")
 def test_upload_directory_recursive_excludes_multiple_patterns(
     mock_execute_query, tmp_path
 ):
@@ -1331,7 +1332,7 @@ def test_upload_directory_recursive_excludes_multiple_patterns(
     assert "config" not in call_str
 
 
-@mock.patch.object(CodeBundleManager, "execute_query")
+@mock.patch.object(StageManager, "execute_query")
 def test_upload_directory_recursive_exclude_directory_does_not_exclude_similarly_named_file(
     mock_execute_query, tmp_path
 ):
@@ -1869,3 +1870,66 @@ def test_history_no_args_succeeds(runner, mock_cursor):
         result = runner.invoke(["bundle", "history"])
 
     assert result.exit_code == 0, result.output
+
+
+# ---------- CodeBundleManager._upload_directory_recursive ----------
+
+
+@mock.patch.object(StageManager, "execute_query")
+def test_upload_directory_quotes_hostile_file_name(mock_execute_query, tmp_path):
+    """A filename containing quotes/semicolons must not break out of the PUT."""
+    (tmp_path / "it's; DROP TABLE x.py").write_text("pass")
+
+    CodeBundleManager()._upload_directory_recursive(  # noqa: SLF001
+        str(tmp_path), "my_stage"
+    )
+
+    query = mock_execute_query.call_args[0][0]
+    assert f"file://{tmp_path}/it''s; DROP TABLE x.py'" in query
+    assert query.startswith("put 'file://")
+
+
+@mock.patch.object(StageManager, "execute_query")
+def test_upload_directory_quotes_hostile_subdirectory(mock_execute_query, tmp_path):
+    """A directory name with a quote must be quoted on the stage side too."""
+    hostile_dir = tmp_path / "it's"
+    hostile_dir.mkdir()
+    (hostile_dir / "app.py").write_text("pass")
+
+    CodeBundleManager()._upload_directory_recursive(  # noqa: SLF001
+        str(tmp_path), "my_stage"
+    )
+
+    query = mock_execute_query.call_args[0][0]
+    assert "'@my_stage/it''s'" in query
+
+
+@mock.patch.object(StageManager, "execute_query")
+def test_upload_directory_escapes_glob_metacharacters(mock_execute_query, tmp_path):
+    """`[id]`-style names must be glob-escaped or the connector matches nothing."""
+    route_dir = tmp_path / "[id]"
+    route_dir.mkdir()
+    (route_dir / "page.py").write_text("pass")
+
+    CodeBundleManager()._upload_directory_recursive(  # noqa: SLF001
+        str(tmp_path), "my_stage"
+    )
+
+    query = mock_execute_query.call_args[0][0]
+    assert "[[]id]" in query
+
+
+@mock.patch.object(StageManager, "execute_query")
+def test_upload_directory_plain_name_stays_unquoted(mock_execute_query, tmp_path):
+    """Ordinary paths keep the bare, unquoted URI form."""
+    (tmp_path / "app.py").write_text("pass")
+
+    CodeBundleManager()._upload_directory_recursive(  # noqa: SLF001
+        str(tmp_path), "my_stage"
+    )
+
+    query = mock_execute_query.call_args[0][0]
+    assert query == (
+        f"put file://{tmp_path}/app.py @my_stage "
+        "auto_compress=false parallel=4 overwrite=False"
+    )
