@@ -35,6 +35,7 @@
 * A bare `USER$` database resolved from the active connection is now expanded to the caller's personal database (`USER$<username>`) when the connection specifies a username, so commands validate and report against the fully-qualified name.
 * `snow app` commands (`validate`, `open`, `events`, `deploy`, `teardown`) now resolve their database and schema from the active connection like other CLI commands, so a bare `USER$` database configured in `snowflake.yml` is expanded to the caller's personal database.
 * `snow app setup` now defaults to a workspace for code storage on all databases (previously regular databases used a stage). When the role cannot create a workspace it uses a stage instead, and `snow app deploy` also falls back to a stage if a workspace cannot be used.
+* `snow dcm plan --save-output` no longer masks an execution-phase `PLAN` failure with an unrelated artifact-download error. When the backend fails before writing to `OUTPUT_PATH`, the CLI now surfaces the original `PLAN` error and only logs a warning if the best-effort artifact download also fails.
 
 
 # v3.23.0
