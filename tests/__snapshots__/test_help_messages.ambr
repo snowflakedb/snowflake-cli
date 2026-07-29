@@ -5489,6 +5489,8 @@
   |                                            multiple times.                   |
   | --status                          TEXT     Filter the history to executions  |
   |                                            with the given status.            |
+  | --execution-name                  TEXT     Filter the history to the         |
+  |                                            execution with the given name.    |
   | --result-limit                    INTEGER  Maximum number of history rows to |
   |                                            return.                           |
   |                                            [default: 100]                    |

@@ -195,6 +195,12 @@ HistoryStatusOption = typer.Option(
     help="Filter the history to executions with the given status.",
     show_default=False,
 )
+HistoryExecutionNameOption = typer.Option(
+    None,
+    "--execution-name",
+    help="Filter the history to the execution with the given name.",
+    show_default=False,
+)
 
 
 @app.command(requires_connection=True)
@@ -339,6 +345,7 @@ def history(
     compute_types: Optional[List[str]] = HistoryComputeTypesOption,
     language_types: Optional[List[str]] = HistoryLanguageTypesOption,
     status: Optional[str] = HistoryStatusOption,
+    execution_name: Optional[str] = HistoryExecutionNameOption,
     result_limit: int = ResultLimitOption,
     **options,
 ) -> CommandResult:
@@ -355,6 +362,7 @@ def history(
             compute_types=compute_types,
             language_types=language_types,
             status=status,
+            execution_name=execution_name,
             result_limit=result_limit,
         )
     )
