@@ -1,0 +1,145 @@
+name: E2E Reviewer Eval
+
+# Runs the A/B comparison eval when the reviewer prompt or model changes on a PR.
+#
+# Job overview:
+#   authorize      — same-repo / non-draft gate (identical pattern to cortex_review.yaml)
+#   check-changed  — fast stdlib-only pre-check via check_changed.py; skips the
+#                    expensive eval when only a comment or import changed
+#   eval           — runs ci_compare.py (wraps compare.py + posts the PR comment)
+#
+# compare.py exit codes (propagated by ci_compare.py):
+#   0 = no regressions
+#   1 = error (agent failure, missing results, etc.)  → job fails
+#   2 = regressions detected → job fails with a warning; PR comment is posted
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: ["**"]
+    paths:
+      - ".github/scripts/cortex_e2e_review.py"
+      - ".github/workflows/cortex_review.yaml"
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: "Baseline git ref (default: origin/main)"
+        required: false
+        default: "origin/main"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # Authorization gate — same-repo only, not a draft.
+  # workflow_dispatch bypasses the PR-specific checks.
+  authorize:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.draft == false)
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Authorized"
+
+  # Fast pre-check: compare the prompt hash + model between origin/main and the
+  # PR branch using check_changed.py (stdlib only — no pip installs needed).
+  # Sets the 'changed' output used to gate the eval job.
+  check-changed:
+    needs: authorize
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.detect.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Detect prompt/model change
+        id: detect
+        run: |
+          python3 .github/scripts/eval/check_changed.py \
+            --base-ref origin/main
+
+  eval:
+    needs: check-changed
+    # workflow_dispatch always runs; PR trigger only when prompt/model changed.
+    if: needs.check-changed.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Python 3.11: tomllib is in stdlib (needed for case.toml parsing in runner.py)
+      # and satisfies the TruLens <3.13 requirement for the LLM judge.
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build CLI from PR branch
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+
+      - name: Install TruLens for LLM judge
+        run: |
+          pip install \
+            "trulens-core==2.8.1" \
+            "trulens-connectors-snowflake==2.8.1" \
+            "trulens-providers-cortex==2.8.1"
+
+      - name: Install Cortex Code CLI
+        env:
+          CORTEX_CLI_SHA256: "21e1abe1e7c1d36c6a7a375c952ce43f6aab6f53bf6e1753cd78a7ae2be9d947"
+        run: |
+          curl -fLsS https://ai.snowflake.com/static/cc-scripts/install.sh -o /tmp/cortex-install.sh
+          echo "${CORTEX_CLI_SHA256}  /tmp/cortex-install.sh" | sha256sum -c
+          sh /tmp/cortex-install.sh
+          rm /tmp/cortex-install.sh
+
+      - name: Run A/B eval and post PR comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          SNOWFLAKE_CONNECTIONS_E2EREVIEWER_AUTHENTICATOR: SNOWFLAKE_JWT
+          SNOWFLAKE_CONNECTIONS_E2EREVIEWER_HOST: ${{ secrets.SNOWFLAKE_HOST }}
+          SNOWFLAKE_CONNECTIONS_E2EREVIEWER_USER: ${{ secrets.E2E_PR_REVIEWER_USER }}
+          SNOWFLAKE_CONNECTIONS_E2EREVIEWER_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          # Step-scoped (not job-level) to limit secret exposure to this step only.
+          SNOWFLAKE_CONNECTIONS_E2EREVIEWER_PRIVATE_KEY_RAW: ${{ secrets.E2E_PR_REVIEWER_PRIVATE_KEY_RAW }}
+          SNOWFLAKE_CONNECTIONS_E2EREVIEWER_WAREHOUSE: ${{ secrets.E2E_PR_REVIEWER_WAREHOUSE }}
+          SNOWFLAKE_CONNECTIONS_E2EREVIEWER_ROLE: ${{ secrets.E2E_PR_REVIEWER_ROLE }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_REF: ${{ inputs.base_ref || 'origin/main' }}
+        run: |
+          python .github/scripts/eval/ci_compare.py \
+            ${PR_NUMBER:+--pr-number "$PR_NUMBER"} \
+            --connection e2ereviewer \
+            --base-ref "$BASE_REF" \
+            --results-dir eval_results \
+            --judge
+
+      - name: Upload eval results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-results-${{ github.run_id }}
+          path: |
+            eval_results/
+            !eval_results/venv/
+          retention-days: 14
+          if-no-files-found: warn

@@ -40,10 +40,7 @@ runner, the judge, and ``git show`` entirely.
 
 from __future__ import annotations
 
-import ast
-import hashlib
 import json
-import re
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -57,17 +54,13 @@ for _p in (str(_EVAL_DIR), str(_SCRIPTS_DIR)):
 
 import runner  # noqa: E402
 import scorer  # noqa: E402
+from prompt_spec import (  # noqa: E402
+    REVIEWER_REL_PATH,
+    WORKFLOW_REL_PATH,
+    PromptSpec,
+    extract_prompt_spec,
+)
 from scorer import Aggregate, ScoreReport  # noqa: E402
-
-# The reviewer script, relative to the repo root — the source of both prompt specs.
-REVIEWER_REL_PATH = ".github/scripts/cortex_e2e_review.py"
-
-# The workflow that runs the reviewer in production — the authoritative source for
-# the CORTEX_MODEL env var the job actually uses.
-WORKFLOW_REL_PATH = ".github/workflows/cortex_review.yaml"
-
-# The module-level string constants that together define the reviewer prompt spec.
-PROMPT_CONSTANTS = ("AGENT_PROMPT_TEMPLATE", "LOCAL_DIFF_INSTRUCTIONS")
 
 # Deterministic aggregate metrics to diff, mapped to whether higher is better. The
 # two error rates are the only lower-is-better metrics — a candidate that raises
@@ -83,134 +76,6 @@ METRIC_HIGHER_IS_BETTER: dict[str, bool] = {
     "breaking_changes_accuracy": True,
     "mean_command_coverage": True,
 }
-
-
-# ---------------------------------------------------------------------------
-# Prompt spec extraction (static — ast, no import/execution)
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class PromptSpec:
-    """The inputs that distinguish one reviewer run from another."""
-
-    template: str
-    diff_instructions: str
-    model: str
-
-    def prompt_hash(self) -> str:
-        """Short stable digest of the prompt text (template + diff instructions).
-
-        Model is deliberately excluded — it is reported separately, so two specs
-        that share a prompt but differ only in model show the same hash.
-        """
-        h = hashlib.sha256()
-        h.update(self.template.encode("utf-8"))
-        h.update(b"\x1f")
-        h.update(self.diff_instructions.encode("utf-8"))
-        return h.hexdigest()[:12]
-
-
-def _module_string_constants(source: str, names: tuple[str, ...]) -> dict[str, str]:
-    """Extract top-level ``NAME = <string literal>`` assignments from *source*.
-
-    Uses ``ast`` (never imports/executes the module — the baseline file version may
-    differ from the working tree and pulls in Snowflake imports we don't want to
-    trigger). Adjacent-string-literal concatenation (as ``LOCAL_DIFF_INSTRUCTIONS``
-    uses) is folded by the parser into a single ``Constant``, so ``literal_eval``
-    resolves it directly.
-    """
-    tree = ast.parse(source)
-    wanted = set(names)
-    found: dict[str, str] = {}
-    for node in tree.body:
-        if not isinstance(node, ast.Assign):
-            continue
-        for target in node.targets:
-            if isinstance(target, ast.Name) and target.id in wanted:
-                try:
-                    value = ast.literal_eval(node.value)
-                except (ValueError, SyntaxError):
-                    continue
-                if isinstance(value, str):
-                    found[target.id] = value
-    return found
-
-
-def _extract_model_default(source: str) -> str | None:
-    """Find the ``os.environ.get("CORTEX_MODEL", <default>)`` default in *source*.
-
-    This is the model the reviewer uses when ``CORTEX_MODEL`` is unset — i.e. the
-    workflow default. Returns ``None`` if the pattern isn't found (caller falls back
-    to :data:`runner.DEFAULT_MODEL`).
-    """
-    for node in ast.walk(ast.parse(source)):
-        if not isinstance(node, ast.Call):
-            continue
-        func = node.func
-        if not (
-            isinstance(func, ast.Attribute)
-            and func.attr == "get"
-            and isinstance(func.value, ast.Attribute)
-            and func.value.attr == "environ"
-            and isinstance(func.value.value, ast.Name)
-            and func.value.value.id == "os"
-        ):
-            continue
-        if (
-            len(node.args) >= 2
-            and isinstance(node.args[0], ast.Constant)
-            and node.args[0].value == "CORTEX_MODEL"
-            and isinstance(node.args[1], ast.Constant)
-            and isinstance(node.args[1].value, str)
-        ):
-            return node.args[1].value
-    return None
-
-
-def _extract_model_from_workflow(source: str) -> str | None:
-    """Find the ``CORTEX_MODEL`` env value in the reviewer's workflow YAML.
-
-    The workflow's ``env:`` block is the authoritative production value — it is
-    what the CI job actually sets, independent of the script's own fallback.
-    Strips surrounding quotes so both ``claude-opus-4-6`` and ``"claude-opus-4-6"``
-    resolve to the same string.
-    """
-    m = re.search(r"(?m)^\s+CORTEX_MODEL:\s+(.+?)\s*$", source)
-    return m.group(1).strip("'\"") if m else None
-
-
-def extract_prompt_spec(
-    source: str,
-    workflow_source: str | None = None,
-    model_override: str | None = None,
-) -> PromptSpec:
-    """Build a :class:`PromptSpec` from reviewer-script *source*.
-
-    Model resolution order:
-    1. *model_override* (explicit CLI flag)
-    2. ``CORTEX_MODEL`` from the workflow YAML (*workflow_source*) — the
-       production value the CI job actually uses
-    3. ``os.environ.get("CORTEX_MODEL", …)`` default in the reviewer script
-    4. :data:`runner.DEFAULT_MODEL`
-    """
-    consts = _module_string_constants(source, PROMPT_CONSTANTS)
-    missing = [name for name in PROMPT_CONSTANTS if name not in consts]
-    if missing:
-        raise ValueError(
-            f"reviewer source is missing required constant(s): {', '.join(missing)}"
-        )
-    model = (
-        model_override
-        or (workflow_source and _extract_model_from_workflow(workflow_source))
-        or _extract_model_default(source)
-        or runner.DEFAULT_MODEL
-    )
-    return PromptSpec(
-        template=consts["AGENT_PROMPT_TEMPLATE"],
-        diff_instructions=consts["LOCAL_DIFF_INSTRUCTIONS"],
-        model=model,
-    )
 
 
 def _git_show(repo_relative_ref: str) -> str:

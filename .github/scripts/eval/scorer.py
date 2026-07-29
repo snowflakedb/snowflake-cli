@@ -520,8 +520,6 @@ def build_report(scores: list[CaseScore]) -> ScoreReport:
         overall=aggregate(scores),
         slices={
             "expected_verdict": _slice(scores, lambda s: [s.expected_verdict]),
-            "difficulty": _slice(scores, lambda s: [s.difficulty]),
-            "tag": _slice(scores, lambda s: s.tags or ["untagged"]),
         },
         cases=scores,
     )

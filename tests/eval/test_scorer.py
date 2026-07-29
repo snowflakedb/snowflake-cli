@@ -416,12 +416,8 @@ def test_build_report_slices():
     ]
     report = scorer.build_report(scores)
     assert report.n == 2
-    assert set(report.slices) == {"expected_verdict", "difficulty", "tag"}
+    assert set(report.slices) == {"expected_verdict"}
     assert set(report.slices["expected_verdict"]) == {"FAIL", "PASS"}
-    assert set(report.slices["difficulty"]) == {"easy", "hard"}
-    # A case with multiple tags lands in each tag's slice.
-    assert report.slices["tag"]["sql"].n == 2
-    assert report.slices["tag"]["sanity"].n == 1
 
 
 # ---------------------------------------------------------------------------
@@ -511,8 +507,7 @@ def test_render_markdown_judge_scores_in_slices():
     md = scorer.render_markdown(scorer.build_report(scores))
     # Find the "By expected_verdict" section and confirm judge scores appear there.
     by_verdict_pos = md.index("## By expected_verdict")
-    next_section_pos = md.index("## By difficulty")
-    by_verdict_section = md[by_verdict_pos:next_section_pos]
+    by_verdict_section = md[by_verdict_pos:]
     assert "coverage=0.90" in by_verdict_section
     assert "no_overclaim=0.80" in by_verdict_section
 

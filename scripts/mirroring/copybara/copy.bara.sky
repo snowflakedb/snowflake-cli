@@ -34,6 +34,7 @@ EXCLUDED_PATHS = [
 
     # ── E2E PR reviewer agent framework ──
     ".github/workflows/cortex_review.yaml",
+    ".github/workflows/cortex_eval.yaml",
     ".github/scripts/cortex_e2e_review.py",
     ".github/scripts/eval/**",
     "tests/eval/**",

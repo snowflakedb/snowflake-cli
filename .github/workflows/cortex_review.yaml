@@ -56,7 +56,13 @@ jobs:
           pip install .
 
       - name: Install Cortex Code CLI
-        run: curl -LsS https://ai.snowflake.com/static/cc-scripts/install.sh | sh
+        env:
+          CORTEX_CLI_SHA256: "21e1abe1e7c1d36c6a7a375c952ce43f6aab6f53bf6e1753cd78a7ae2be9d947"
+        run: |
+          curl -fLsS https://ai.snowflake.com/static/cc-scripts/install.sh -o /tmp/cortex-install.sh
+          echo "${CORTEX_CLI_SHA256}  /tmp/cortex-install.sh" | sha256sum -c
+          sh /tmp/cortex-install.sh
+          rm /tmp/cortex-install.sh
 
       - name: Run Cortex E2E review
         env:
@@ -66,6 +72,7 @@ jobs:
           SNOWFLAKE_CONNECTIONS_E2EREVIEWER_HOST: ${{ secrets.SNOWFLAKE_HOST }}
           SNOWFLAKE_CONNECTIONS_E2EREVIEWER_USER: ${{ secrets.E2E_PR_REVIEWER_USER }}
           SNOWFLAKE_CONNECTIONS_E2EREVIEWER_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          # Step-scoped (not job-level) to limit secret exposure to this step only.
           SNOWFLAKE_CONNECTIONS_E2EREVIEWER_PRIVATE_KEY_RAW: ${{ secrets.E2E_PR_REVIEWER_PRIVATE_KEY_RAW }}
           SNOWFLAKE_CONNECTIONS_E2EREVIEWER_WAREHOUSE: ${{ secrets.E2E_PR_REVIEWER_WAREHOUSE }}
           SNOWFLAKE_CONNECTIONS_E2EREVIEWER_ROLE: ${{ secrets.E2E_PR_REVIEWER_ROLE }}
