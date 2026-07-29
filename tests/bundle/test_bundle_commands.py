@@ -1364,6 +1364,7 @@ def test_history_help(runner):
     assert "--compute-types" in result.output
     assert "--language-types" in result.output
     assert "--status" in result.output
+    assert "--execution-name" in result.output
     assert "--result-limit" in result.output
 
 
@@ -1385,6 +1386,7 @@ def test_history_calls_manager(mock_history, runner, mock_cursor):
         compute_types=None,
         language_types=None,
         status=None,
+        execution_name=None,
         result_limit=100,
     )
 
@@ -1407,6 +1409,7 @@ def test_history_passes_result_limit(mock_history, runner, mock_cursor):
         compute_types=None,
         language_types=None,
         status=None,
+        execution_name=None,
         result_limit=50,
     )
 
@@ -1439,6 +1442,8 @@ def test_history_calls_manager_with_options(mock_history, runner, mock_cursor):
             "PYTHON",
             "--status",
             "SUCCEEDED",
+            "--execution-name",
+            "my_execution",
         ]
     )
 
@@ -1454,6 +1459,7 @@ def test_history_calls_manager_with_options(mock_history, runner, mock_cursor):
         compute_types=["WAREHOUSE"],
         language_types=["PYTHON"],
         status="SUCCEEDED",
+        execution_name="my_execution",
         result_limit=100,
     )
 
@@ -1662,6 +1668,22 @@ def test_history_query_with_status(mock_connector, mock_ctx, runner):
 
 
 @mock.patch("snowflake.connector.connect")
+def test_history_query_with_execution_name(mock_connector, mock_ctx, runner):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(["bundle", "history", "--execution-name", "my_execution"])
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == (
+        "SELECT * FROM TABLE("
+        "SNOWFLAKE.INFORMATION_SCHEMA.CODE_BUNDLE_HISTORY("
+        "EXECUTION_NAME => 'my_execution', "
+        "RESULT_LIMIT => 100))"
+    )
+
+
+@mock.patch("snowflake.connector.connect")
 def test_history_query_with_all_options(mock_connector, mock_ctx, runner):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
@@ -1690,6 +1712,8 @@ def test_history_query_with_all_options(mock_connector, mock_ctx, runner):
             "PYTHON",
             "--status",
             "SUCCEEDED",
+            "--execution-name",
+            "my_execution",
             "--result-limit",
             "25",
         ]
@@ -1709,6 +1733,7 @@ def test_history_query_with_all_options(mock_connector, mock_ctx, runner):
         "COMPUTE_TYPES => 'WAREHOUSE', "
         "LANGUAGE_TYPES => 'PYTHON', "
         "STATUS => 'SUCCEEDED', "
+        "EXECUTION_NAME => 'my_execution', "
         "RESULT_LIMIT => 25))"
     )
 
