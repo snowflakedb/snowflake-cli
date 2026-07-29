@@ -663,6 +663,7 @@ def test_execute_calls_manager(mock_execute, runner, mock_statement_success):
     mock_execute.assert_called_once_with(
         name=FQN.from_string(name),
         entrypoint="src/main.py",
+        execution_name=None,
         arguments=None,
         run_async=False,
     )
@@ -693,6 +694,7 @@ def test_execute_calls_manager_with_arguments(
     mock_execute.assert_called_once_with(
         name=FQN.from_string(name),
         entrypoint="src/main.py",
+        execution_name=None,
         arguments=["--custom-arg", "value", "--another-flag"],
         run_async=False,
     )
@@ -738,6 +740,113 @@ def test_execute_query_with_arguments(mock_connector, mock_ctx, runner):
         "EXECUTE CODE BUNDLE IDENTIFIER('MockDatabase.MockSchema.my_bundle') "
         "ENTRYPOINT='src/main.py' "
         "ARGUMENTS=('--custom-arg', 'value', '--another-flag')"
+    )
+
+
+@mock.patch.object(CodeBundleManager, "execute")
+def test_execute_calls_manager_with_execution_name(
+    mock_execute, runner, mock_statement_success
+):
+    mock_execute.return_value = mock_statement_success()
+    name = "my_bundle"
+
+    result = runner.invoke(
+        [
+            "bundle",
+            "execute",
+            name,
+            "--entrypoint",
+            "src/main.py",
+            "--execution-name",
+            "my_run",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    mock_execute.assert_called_once_with(
+        name=FQN.from_string(name),
+        entrypoint="src/main.py",
+        execution_name="my_run",
+        arguments=None,
+        run_async=False,
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+def test_execute_query_with_execution_name(mock_connector, mock_ctx, runner):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(
+        [
+            "bundle",
+            "execute",
+            "my_bundle",
+            "--entrypoint",
+            "src/main.py",
+            "--execution-name",
+            "my_run",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == (
+        "EXECUTE CODE BUNDLE IDENTIFIER('MockDatabase.MockSchema.my_bundle') "
+        "ENTRYPOINT='src/main.py' EXECUTION_NAME='my_run'"
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+def test_execute_query_escapes_execution_name(mock_connector, mock_ctx, runner):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(
+        [
+            "bundle",
+            "execute",
+            "my_bundle",
+            "--entrypoint",
+            "src/main.py",
+            "--execution-name",
+            "it's_a_run",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == (
+        "EXECUTE CODE BUNDLE IDENTIFIER('MockDatabase.MockSchema.my_bundle') "
+        "ENTRYPOINT='src/main.py' EXECUTION_NAME='it''s_a_run'"
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+def test_execute_query_with_execution_name_and_arguments(
+    mock_connector, mock_ctx, runner
+):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(
+        [
+            "bundle",
+            "execute",
+            "my_bundle",
+            "--entrypoint",
+            "src/main.py",
+            "--execution-name",
+            "my_run",
+            "--",
+            "--custom-arg",
+            "value",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == (
+        "EXECUTE CODE BUNDLE IDENTIFIER('MockDatabase.MockSchema.my_bundle') "
+        "ENTRYPOINT='src/main.py' EXECUTION_NAME='my_run' "
+        "ARGUMENTS=('--custom-arg', 'value')"
     )
 
 

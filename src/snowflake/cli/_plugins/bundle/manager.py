@@ -102,6 +102,7 @@ class CodeBundleManager(SqlExecutionMixin):
         self,
         name: FQN,
         entrypoint: str,
+        execution_name: Optional[str] = None,
         arguments: Optional[List[str]] = None,
         run_async: bool = False,
     ) -> SnowflakeCursor:
@@ -114,6 +115,8 @@ class CodeBundleManager(SqlExecutionMixin):
             f"EXECUTE CODE BUNDLE {fqn.sql_identifier} "
             f"ENTRYPOINT={to_string_literal(entrypoint)}"
         )
+        if execution_name:
+            query += f" EXECUTION_NAME={to_string_literal(execution_name)}"
         if arguments:
             formatted_args = ", ".join(to_string_literal(arg) for arg in arguments)
             query += f" ARGUMENTS=({formatted_args})"

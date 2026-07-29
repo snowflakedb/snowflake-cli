@@ -111,6 +111,12 @@ EntrypointOption = typer.Option(
     help="Entrypoint file path within the code bundle.",
     show_default=False,
 )
+ExecutionNameOption = typer.Option(
+    None,
+    "--execution-name",
+    help="Name to assign to this code bundle execution.",
+    show_default=False,
+)
 AsyncOption = typer.Option(
     False,
     "--async",
@@ -293,6 +299,7 @@ def execute(
     ctx: typer.Context,
     identifier: Annotated[FQN, CODE_BUNDLE_IDENTIFIER],
     entrypoint: Annotated[str, EntrypointOption],
+    execution_name: Optional[str] = ExecutionNameOption,
     is_async: bool = AsyncOption,
     **options,
 ) -> CommandResult:
@@ -305,6 +312,7 @@ def execute(
     cursor = CodeBundleManager().execute(
         name=identifier,
         entrypoint=entrypoint,
+        execution_name=execution_name,
         arguments=arguments,
         run_async=is_async,
     )

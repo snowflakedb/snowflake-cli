@@ -41,9 +41,6 @@
   | stage          Manages stages.                                               |
   | streamlit      Manages a Streamlit app in Snowflake.                         |
   +------------------------------------------------------------------------------+
-                                                                                  
-   New version of Snowflake CLI available. Newest: 3.20.0, current: 3.20.0.dev0   
-                                                                                  
   
   
   '''
@@ -5312,11 +5309,14 @@
   |                            [required]                                        |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | *  --entrypoint          TEXT  Entrypoint file path within the code bundle.  |
-  |                                [required]                                    |
-  |    --async                     Run the bundle execution asynchronously and   |
-  |                                return the query ID immediately.              |
-  |    --help        -h            Show this message and exit.                   |
+  | *  --entrypoint              TEXT  Entrypoint file path within the code      |
+  |                                    bundle.                                   |
+  |                                    [required]                                |
+  |    --execution-name          TEXT  Name to assign to this code bundle        |
+  |                                    execution.                                |
+  |    --async                         Run the bundle execution asynchronously   |
+  |                                    and return the query ID immediately.      |
+  |    --help            -h            Show this message and exit.               |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -27668,9 +27668,6 @@
   | stage          Manages stages.                                               |
   | streamlit      Manages a Streamlit app in Snowflake.                         |
   +------------------------------------------------------------------------------+
-                                                                                  
-   New version of Snowflake CLI available. Newest: 3.20.0, current: 3.20.0.dev0   
-                                                                                  
   
   
   '''
