@@ -45,6 +45,7 @@ from snowflake.cli._plugins.apps.manager import (
 )
 from snowflake.cli.api.cli_global_context import get_cli_context_manager
 from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.metrics import CLIMetrics, CLIMetricsSpan
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
@@ -52,6 +53,7 @@ from snowflake.connector.cursor import DictCursor
 from snowflake.connector.errors import ProgrammingError
 
 from tests_common import change_directory, simulated_ansi_locale
+from tests_common.feature_flag_utils import with_feature_flags
 
 EXECUTE_QUERY = "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.execute_query"
 GET_CLI_CONTEXT = "snowflake.cli._plugins.apps.manager.get_cli_context"
@@ -1960,6 +1962,45 @@ class TestSnowflakeAppManager:
         assert "COMMENT = 'it''s a test'" in create_query
 
     @patch(EXECUTE_QUERY)
+    @pytest.mark.parametrize("compute_resource", ["SERVERLESS", "MANAGED_COMPUTE_POOL"])
+    def test_create_app_service_emits_compute_resource(
+        self, mock_execute, compute_resource
+    ):
+        cursor = Mock()
+        mock_execute.return_value = cursor
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="my_app")
+        SnowflakeAppManager().create_app_service(
+            service_fqn=fqn,
+            artifact_repo_fqn="DB.SCHEMA.REPO",
+            package_name="my_app",
+            compute_pool="SVC_POOL",
+            compute_resource=compute_resource,
+        )
+        create_query = self._find_query(
+            mock_execute.call_args_list, "CREATE APPLICATION SERVICE"
+        )
+        assert f"COMPUTE_RESOURCE = {compute_resource}" in create_query
+
+    @patch(EXECUTE_QUERY)
+    def test_create_app_service_omits_compute_resource_when_none(self, mock_execute):
+        cursor = Mock()
+        mock_execute.return_value = cursor
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="my_app")
+        SnowflakeAppManager().create_app_service(
+            service_fqn=fqn,
+            artifact_repo_fqn="DB.SCHEMA.REPO",
+            package_name="my_app",
+            compute_pool="SVC_POOL",
+            compute_resource=None,
+        )
+        create_query = self._find_query(
+            mock_execute.call_args_list, "CREATE APPLICATION SERVICE"
+        )
+        assert "COMPUTE_RESOURCE" not in create_query
+
+    @patch(EXECUTE_QUERY)
     def test_upgrade_app_service_generates_correct_sql(self, mock_execute):
         cursor = Mock()
         mock_execute.return_value = cursor
@@ -3152,6 +3193,7 @@ class TestResolveDeployDefaults:
         build_eai=None,
         service_eai=None,
         artifact_repository=None,
+        compute_resource=None,
         database="TEST_DB",
         schema="TEST_SCHEMA",
         app_name="MY_APP",
@@ -3161,6 +3203,7 @@ class TestResolveDeployDefaults:
         fqn.name = app_name
         entity.fqn = fqn
         entity.query_warehouse = query_warehouse
+        entity.compute_resource = compute_resource
         entity.build_compute_pool = (
             Mock(name_attr=build_compute_pool) if build_compute_pool else None
         )
@@ -3203,6 +3246,24 @@ class TestResolveDeployDefaults:
         assert result["service_compute_pool"] == "YML_SVC_POOL"
         assert result["build_eai"] == "YML_EAI"
         assert result["service_eai"] == "YML_SERVICE_EAI"
+
+    @pytest.mark.parametrize(
+        "compute_resource",
+        ["SERVERLESS", "MANAGED_COMPUTE_POOL", None],
+    )
+    @patch(FETCH_APP_SERVICE_DEFAULTS, return_value={})
+    @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
+    def test_compute_resource_comes_from_yml(
+        self, mock_ctx, mock_params, compute_resource
+    ):
+        """``compute_resource`` is sourced solely from snowflake.yml -- account
+        parameters and session never supply it -- so the entity value flows
+        straight through to the resolved defaults."""
+        from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
+
+        entity = self._make_entity(compute_resource=compute_resource)
+        result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
+        assert result["compute_resource"] == compute_resource
 
     @patch(FETCH_APP_SERVICE_DEFAULTS, return_value={})
     @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
@@ -6625,8 +6686,112 @@ class TestDeployCommand:
             query_warehouse="WH",
             external_access_integrations=["MY_EAI"],
             comment='{"appId": "MY_APP"}',
+            compute_resource=None,
         )
         assert mock_poll.call_count == 2
+
+    @pytest.mark.parametrize(
+        "flag_enabled, expected_compute_resource",
+        [
+            (True, "SERVERLESS"),
+            (False, None),
+        ],
+    )
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "compute_resource": "SERVERLESS",
+            "service_eai": None,
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_compute_resource_gated_by_feature_flag(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        mock_poll,
+        runner,
+        tmp_path,
+        flag_enabled,
+        expected_compute_resource,
+    ):
+        """COMPUTE_RESOURCE is only forwarded when the feature flag is enabled.
+
+        When disabled, ``create_app_service`` is called with
+        ``compute_resource=None`` even though the resolved defaults carry a
+        value — so the emitted DDL (and therefore CLI behavior) is unchanged.
+        """
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.code_workspace = Mock(database=None, schema_=None)
+        entity.code_workspace.name = "MY_APP_CODE"
+        entity.artifacts = []
+        entity.meta = None
+        entity.runtime_image = "runtime:latest"
+        entity.query_warehouse = "WH"
+        entity.artifact_repository = None
+        entity.build_compute_pool = None
+        entity.service_compute_pool = None
+        entity.build_eai = None
+        mock_get_entity.return_value = entity
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.workspace_last_subdirectory_uri.return_value = (
+            _WORKSPACE_BUILD_SOURCE_URI
+        )
+        mock_mgr.artifact_repo_exists.return_value = False
+        mock_mgr.build_app_artifact_repo.return_value = (
+            "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
+        )
+        _real_manager = SnowflakeAppManager()
+        mock_mgr.resolve_application_service_url_from_describe.side_effect = (
+            _real_manager.resolve_application_service_url_from_describe
+        )
+        mock_poll.side_effect = [
+            "DONE",
+            {"url": "my-app.snowflakecomputing.app", "is_upgrading": "false"},
+        ]
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            with with_feature_flags(
+                {FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE: flag_enabled}
+            ):
+                result = runner.invoke(["app", "deploy"])
+            assert result.exit_code == 0, result.output
+
+        create_kwargs = mock_mgr.create_app_service.call_args.kwargs
+        assert create_kwargs["compute_resource"] == expected_compute_resource
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
@@ -6731,6 +6896,7 @@ class TestDeployCommand:
             query_warehouse="WH",
             external_access_integrations=["MY_SERVICE_EAI"],
             comment='{"appId": "MY_APP"}',
+            compute_resource=None,
         )
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")

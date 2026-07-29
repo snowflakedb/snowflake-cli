@@ -564,8 +564,8 @@ def _resolve_deploy_defaults(
     4. Current session values (lowest priority)
 
     Returns a dict with keys ``query_warehouse``, ``build_compute_pool``,
-    ``service_compute_pool``, ``build_eai``, ``service_eai``,
-    ``artifact_repository``,
+    ``service_compute_pool``, ``compute_resource``, ``build_eai``,
+    ``service_eai``, ``artifact_repository``,
     ``artifact_repo_database``, ``artifact_repo_schema``, ``database``,
     and ``schema``.  Any of them may still be ``None`` if no source
     provides a value.
@@ -597,6 +597,10 @@ def _resolve_deploy_defaults(
         "service_compute_pool": (
             entity.service_compute_pool.name if entity.service_compute_pool else None
         ),
+        # Resolved only from snowflake.yml (tier 1); no account-parameter or
+        # session fallback. Emitted on CREATE only when the
+        # ``ENABLE_APP_SERVICE_COMPUTE_RESOURCE`` feature flag is enabled.
+        "compute_resource": entity.compute_resource,
         "build_eai": entity.build_eai.name if entity.build_eai else None,
         "service_eai": entity.service_eai.name if entity.service_eai else None,
         "artifact_repository": (
@@ -1633,8 +1637,18 @@ class SnowflakeAppManager(SqlExecutionMixin):
         query_warehouse: Optional[str] = None,
         external_access_integrations: Optional[list[str]] = None,
         comment: Optional[str] = None,
+        compute_resource: Optional[str] = None,
     ) -> None:
-        """Create an application service from an artifact repository package."""
+        """Create an application service from an artifact repository package.
+
+        ``compute_resource`` (``SERVERLESS`` or ``MANAGED_COMPUTE_POOL``) maps to
+        the write-once ``COMPUTE_RESOURCE`` DDL field. It can only be set at
+        CREATE time — it is immutable afterwards, so it is intentionally never
+        emitted on the ``ALTER ... UPGRADE`` path in
+        :meth:`upgrade_app_service`. Callers gate this behind the
+        ``ENABLE_APP_SERVICE_COMPUTE_RESOURCE`` feature flag; when ``None`` the
+        field is omitted and the server defaults the backend.
+        """
         parts = [
             f"CREATE APPLICATION SERVICE {service_fqn.identifier}",
             f"FROM ARTIFACT REPOSITORY {artifact_repo_fqn} PACKAGE {package_name}",
@@ -1648,6 +1662,8 @@ class SnowflakeAppManager(SqlExecutionMixin):
             parts.append(f"EXTERNAL_ACCESS_INTEGRATIONS = ({eai_list})")
         if query_warehouse:
             parts.append(f"QUERY_WAREHOUSE = {query_warehouse}")
+        if compute_resource:
+            parts.append(f"COMPUTE_RESOURCE = {compute_resource}")
         if comment:
             escaped = comment.replace("'", "''")
             parts.append(f"COMMENT = '{escaped}'")
