@@ -65,6 +65,7 @@ from snowflake.cli.api.config import (
 )
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -856,6 +857,10 @@ def snowflake_app_deploy(
     # for the deployed application service to preserve existing projects.
     service_eai = defaults.get("service_eai") or build_eai
 
+    compute_resource: Optional[str] = None
+    if FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE.is_enabled():
+        compute_resource = defaults.get("compute_resource")
+
     # ── Resolve code storage backend ──────────────────────────────────
     # ``code_stage`` and ``code_workspace`` are mutually exclusive (enforced
     # by the entity model). The backend is chosen here — after the destination
@@ -1181,6 +1186,7 @@ def snowflake_app_deploy(
                         query_warehouse=query_warehouse,
                         external_access_integrations=eai_list,
                         comment=app_comment,
+                        compute_resource=compute_resource,
                     )
                 except ProgrammingError as e:
                     # "Already exists" is the expected re-deploy path: the
