@@ -9,7 +9,6 @@
               └─ set EXPRESSION: value = 0
   
   Planned 1 entity (0 to create, 1 to alter, 0 to drop).
-  ================================================================================
   
   '''
 # ---
@@ -26,7 +25,6 @@
      └─ removed ROLE TEST_TEAM_OWNER_DEV2
   
   Planned 1 entity (0 to create, 1 to alter, 0 to drop).
-  ================================================================================
   
   '''
 # ---
@@ -37,7 +35,6 @@
      └─ removed SNOWHOUSE_IMPORT.CORE.NULL_COUNT$V1(CUSTOMER_CITY)
   
   Planned 1 entity (0 to create, 1 to alter, 0 to drop).
-  ================================================================================
   
   '''
 # ---
