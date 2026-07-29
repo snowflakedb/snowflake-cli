@@ -111,6 +111,11 @@ class SnowflakeAppMetaField(MetaField):
     )
 
 
+# The COMPUTE_RESOURCE DDL field accepts SERVERLESS (CNG) or
+# MANAGED_COMPUTE_POOL (SPCS).
+APP_SERVICE_COMPUTE_RESOURCE_VALUES = ("SERVERLESS", "MANAGED_COMPUTE_POOL")
+
+
 class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
     """Entity model for Snowflake App Runtime (snowflake-app) type."""
 
@@ -142,6 +147,38 @@ class SnowflakeAppEntityModel(EntityModelBaseWithArtifacts):
         if value is None or value == "null":
             return None
         return value
+
+    # Compute resource backing the application service. Experimental surface for
+    # the ``COMPUTE_RESOURCE`` DDL field; gated at deploy time by the
+    # ``ENABLE_APP_SERVICE_COMPUTE_RESOURCE`` feature flag and hidden from the
+    # generated JSON schema (``SkipJsonSchema``) while the feature is in preview.
+    compute_resource: SkipJsonSchema[Optional[str]] = Field(
+        title=(
+            "Compute resource backing the application service "
+            "(SERVERLESS or MANAGED_COMPUTE_POOL)"
+        ),
+        default=None,
+    )
+
+    @field_validator("compute_resource", mode="before")
+    @classmethod
+    def _validate_compute_resource(cls, value):
+        """Normalise ``compute_resource`` to an accepted upper-case DDL value.
+
+        Accepts ``None``/``"null"`` (unset) and the case-insensitive values
+        ``SERVERLESS`` and ``MANAGED_COMPUTE_POOL``.
+        """
+        if value is None or value == "null":
+            return None
+        if not isinstance(value, str):
+            raise ValueError("compute_resource must be a string or null")
+        normalized = value.strip().upper()
+        if normalized not in APP_SERVICE_COMPUTE_RESOURCE_VALUES:
+            raise ValueError(
+                "compute_resource must be one of: "
+                + ", ".join(APP_SERVICE_COMPUTE_RESOURCE_VALUES)
+            )
+        return normalized
 
     build_eai: Union[ExternalAccessReference, None] = Field(
         title="External access integration for build", default=None

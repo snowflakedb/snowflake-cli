@@ -34,26 +34,12 @@ log = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
-# Visual divider printed after every DCM command's reporter output so the
-# command's final line is clearly separated from the next shell prompt
-# (or from a CliError box on failure).
-_REPORT_SEPARATOR = "=" * 80
-
 
 class Reporter(ABC, Generic[T]):
     def __init__(self, save_output: bool = False) -> None:
         self.result_raw_data = None
         self.command_name = ""
         self.save_output = save_output
-        # When False, saving the raw response won't print the "Artifacts saved
-        # to" step (the file is still written). Commands that render their own
-        # output-location line (e.g. ``compile``) opt out of the default step.
-        self.announce_save = True
-        # When False, the raw cursor response is not written to
-        # ``out/<command>_result.json``. Commands that download the backend's own
-        # ``<command>_result.json`` (via ``collect_output``) opt out so we don't
-        # duplicate/overwrite that richer file with the raw response.
-        self.write_result_file = True
 
     @abstractmethod
     def extract_data(self, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -88,21 +74,10 @@ class Reporter(ABC, Generic[T]):
             cli_console.styled_message(renderable.plain, style=renderable.style)
         cli_console.styled_message("\n")
 
-    def print_separator(self) -> None:
-        """Print a divider line that marks the end of the command's output.
-
-        Automatically muted in JSON/CSV output formats (cf. `cli_console`)."""
-        cli_console.styled_message(_REPORT_SEPARATOR, style="dim")
-        cli_console.styled_message("\n")
-
     def _try_save_response(self, result_json: Dict[str, Any]) -> None:
         """Save raw JSON response if save_output is enabled and raw data is available."""
-        if self.save_output and self.write_result_file:
-            save_command_response(
-                self.command_name,
-                result_json,
-                announce=self.announce_save,
-            )
+        if self.save_output:
+            save_command_response(self.command_name, result_json)
 
     def process_payload(self, result_json: Dict[str, Any]) -> None:
         """Process already decoded response payload and print results."""
@@ -113,15 +88,10 @@ class Reporter(ABC, Generic[T]):
         self.print_renderables(parsed_data)
         if self._is_success():
             self.print_summary()
-            self.print_separator()
         else:
             message = "".join(
                 renderable.plain for renderable in self._generate_summary_renderables()
             )
-            # Print the separator before raising so the user still sees a
-            # clean divider between the partial body output and the error
-            # box that the CLI framework renders for the CliError.
-            self.print_separator()
             raise CliError(message)
 
     @staticmethod
