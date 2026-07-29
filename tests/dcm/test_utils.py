@@ -272,6 +272,23 @@ class TestCollectOutput:
             assert (out_dir / "plan_result.json").exists()
             assert not (out_dir / RENDERED_FOLDER).exists()
 
+    def test_original_error_not_masked_when_download_also_fails(
+        self, mock_from_resource, mock_create, mock_get_recursive, tmp_path
+    ):
+        """An execution-phase PLAN failure never populates OUTPUT_PATH, so the
+        best-effort artifact download can itself fail (e.g. stage/path not
+        found). That downstream failure must never replace the real error.
+        """
+        self._stub_stage(mock_from_resource)
+        mock_get_recursive.side_effect = FileNotFoundError(
+            "[Errno 2] No such file or directory"
+        )
+
+        with change_directory(tmp_path):
+            with pytest.raises(RuntimeError, match="003001"):
+                with collect_output(FQN.from_string("my_project"), command_name="plan"):
+                    raise RuntimeError("003001 (42501): access-control error")
+
 
 class TestSaveErrorResultOnFailure:
     """When a --save-output run fails before the backend produced its own

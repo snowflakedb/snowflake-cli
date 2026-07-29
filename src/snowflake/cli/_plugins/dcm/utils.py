@@ -232,9 +232,7 @@ def collect_output(
     ).joinpath("/outputs")
     output_dir = SecurePath(OUTPUT_FOLDER)
 
-    try:
-        yield effective_output_path.absolute_path()
-    finally:
+    def _download_artifacts() -> None:
         log.info(
             "Downloading DCM %s artifacts from stage to local path (project_identifier=%s, stage_path=%s, local_path=%s).",
             command_name,
@@ -255,6 +253,26 @@ def collect_output(
         rendered_dir = output_dir / RENDERED_FOLDER
         if rendered_dir.exists():
             _write_rendered_metadata(rendered_dir, project_identifier, command_name)
+
+    try:
+        yield effective_output_path.absolute_path()
+    except Exception:
+        # The command itself failed (e.g. a PLAN execution-phase error), so
+        # OUTPUT_PATH may never have been populated. Still attempt a
+        # best-effort download for whatever artifacts do exist, but never let
+        # a failure here (e.g. nothing to download) mask the real error.
+        try:
+            _download_artifacts()
+        except Exception as cleanup_error:
+            log.warning(
+                "Failed to download DCM %s artifacts after failure (project_identifier=%s): %s",
+                command_name,
+                project_identifier,
+                cleanup_error,
+            )
+        raise
+    else:
+        _download_artifacts()
 
 
 class FakeCursor:
