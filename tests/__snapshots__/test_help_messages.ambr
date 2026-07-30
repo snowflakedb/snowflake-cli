@@ -9962,6 +9962,9 @@
   |                              already provide. Quote a value containing '#'   |
   |                              or leading/trailing whitespace, or it's         |
   |                              silently truncated at the '#' or trimmed.       |
+  | --delta                      Process only statements changed since the last  |
+  |                              deploy, plus statements potentially impacted by |
+  |                              those changes.                                  |
   | --help         -h            Show this message and exit.                     |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
