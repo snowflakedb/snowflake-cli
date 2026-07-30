@@ -56,7 +56,6 @@ from snowflake.cli.api.constants import (
     ObjectType,
 )
 from snowflake.cli.api.exceptions import CliError
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN, AccountIdentifier
 from snowflake.cli.api.output.types import (
     MessageResult,
@@ -468,7 +467,6 @@ def plan(
         False,
         "--delta",
         help="Process only statements changed since the last `deploy`, plus statements potentially impacted by those changes.",
-        hidden=not FeatureFlag.ENABLE_DCM_PLAN_DELTA.is_enabled(),
     ),
     **options,
 ):
