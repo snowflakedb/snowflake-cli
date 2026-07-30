@@ -104,13 +104,22 @@ def _render_detail(detail: RenderableType) -> RenderableType:
     )
 
 
+def _format_elapsed(seconds: float) -> str:
+    """How long a step took, as ``1h 12m 34s`` - larger units only once reached."""
+    hours, rest = divmod(int(seconds), 3600)
+    minutes, secs = divmod(rest, 60)
+    parts = [f"{hours}h"] if hours else []
+    if hours or minutes:
+        parts.append(f"{minutes}m")
+    parts.append(f"{secs}s")
+    return " ".join(parts)
+
+
 class _ElapsedColumn(TimeElapsedColumn):
     def render(self, task: Task) -> Text:
         if task.elapsed is None:
             return Text("")
-        elapsed = super().render(task)
-        elapsed.style = "dim"
-        return elapsed
+        return Text(_format_elapsed(task.elapsed), style="dim")
 
 
 @dataclass
