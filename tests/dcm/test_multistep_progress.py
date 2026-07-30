@@ -144,7 +144,30 @@ class TestStepRendering:
         line = find_line(progress, "STEP_A")
 
         # then
-        assert re.search(r"\d+:\d{2}:\d{2}", line)
+        assert re.search(r"\b\d+s\b", line)
+
+
+class TestFormatElapsed:
+    @pytest.mark.parametrize(
+        "seconds, expected",
+        [
+            (0, "0s"),
+            (5, "5s"),
+            (59, "59s"),
+            (60, "1m 0s"),
+            (72, "1m 12s"),
+            (599, "9m 59s"),
+            (3600, "1h 0m 0s"),
+            (4354, "1h 12m 34s"),
+            (90061, "25h 1m 1s"),
+            (72.9, "1m 12s"),
+        ],
+    )
+    def test_larger_units_appear_only_once_reached(
+        self, seconds: float, expected: str
+    ) -> None:
+        # given / when / then
+        assert progress_module._format_elapsed(seconds) == expected  # noqa: SLF001
 
 
 class TestStepColors:
@@ -188,7 +211,7 @@ class TestStepColors:
 
         # then
         raw = console.file.getvalue()
-        assert re.search(r"\x1b\[2m\d+:\d{2}:\d{2}", raw)
+        assert re.search(r"\x1b\[2m\d+s", raw)
 
     def test_percentage_rendered_bright_blue(self) -> None:
         # given
@@ -486,7 +509,7 @@ class TestNonTtyStepLines:
 
         # then
         assert re.search(
-            r"❯ Step 1/1 - UPLOAD - ✓ Completed \(\d+:\d{2}:\d{2}\)\n",
+            r"❯ Step 1/1 - UPLOAD - ✓ Completed \(\d+s\)\n",
             capsys.readouterr().out,
         )
 
@@ -502,7 +525,7 @@ class TestNonTtyStepLines:
 
         # then
         assert re.search(
-            r"❯ Step 1/1 - UPLOAD - ✗ Failed \(\d+:\d{2}:\d{2}\)\n",
+            r"❯ Step 1/1 - UPLOAD - ✗ Failed \(\d+s\)\n",
             capsys.readouterr().out,
         )
 
@@ -578,9 +601,7 @@ class TestNonTtyStepLines:
         # then
         lines = [ln for ln in capsys.readouterr().out.split("\n") if ln]
         assert lines[0] == f"❯ Step 1/1 - RENDER - {_SPINNER_FRAMES[0]} Running..."
-        assert re.fullmatch(
-            r"❯ Step 1/1 - RENDER - ✓ Completed \(\d+:\d{2}:\d{2}\)", lines[1]
-        )
+        assert re.fullmatch(r"❯ Step 1/1 - RENDER - ✓ Completed \(\d+s\)", lines[1])
 
 
 class TestStepDetails:

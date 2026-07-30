@@ -2,7 +2,7 @@
 # name: TestDCMRefresh.test_refresh_with_fresh_tables
   '''
   ❯ Step 1/1 - REFRESH - ⠋ Running...
-  ❯ Step 1/1 - REFRESH - ✓ Completed (0:00:00)
+  ❯ Step 1/1 - REFRESH - ✓ Completed (1m 12s)
   
   UP-TO-DATE        0       0 JW_DCM_TESTALL.ANALYTICS.DYNAMIC_EMPLOYEES
   
@@ -13,7 +13,7 @@
 # name: TestDCMRefresh.test_refresh_with_no_dynamic_tables
   '''
   ❯ Step 1/1 - REFRESH - ⠋ Running...
-  ❯ Step 1/1 - REFRESH - ✓ Completed (0:00:00)
+  ❯ Step 1/1 - REFRESH - ✓ Completed (1m 12s)
   
   
   No dynamic tables found in the project.
@@ -23,7 +23,7 @@
 # name: TestDCMRefresh.test_refresh_with_outdated_tables
   '''
   ❯ Step 1/1 - REFRESH - ⠋ Running...
-  ❯ Step 1/1 - REFRESH - ✓ Completed (0:00:00)
+  ❯ Step 1/1 - REFRESH - ✓ Completed (1m 12s)
   
   REFRESHED    +12.3k   -999B JW_DCM_TESTALL.ANALYTICS.DYNAMIC_EMPLOYEES
   
@@ -34,7 +34,7 @@
 # name: TestDCMTest.test_test_all_passing
   '''
   ❯ Step 1/1 - TEST - ⠋ Running...
-  ❯ Step 1/1 - TEST - ✓ Completed (0:00:00)
+  ❯ Step 1/1 - TEST - ✓ Completed (1m 12s)
   
   ✓ PASS      DB.SCHEMA.EMPLOYEES (ROW_COUNT_CHECK)
   ✓ PASS      DB.SCHEMA.ORDERS (NULL_CHECK)
@@ -46,7 +46,7 @@
 # name: TestDCMTest.test_test_no_expectations
   '''
   ❯ Step 1/1 - TEST - ⠋ Running...
-  ❯ Step 1/1 - TEST - ✓ Completed (0:00:00)
+  ❯ Step 1/1 - TEST - ✓ Completed (1m 12s)
   
   
   No expectations found in the project.
@@ -56,7 +56,7 @@
 # name: TestDCMTest.test_test_with_failures
   '''
   ❯ Step 1/1 - TEST - ⠋ Running...
-  ❯ Step 1/1 - TEST - ✓ Completed (0:00:00)
+  ❯ Step 1/1 - TEST - ✓ Completed (1m 12s)
   
   ✓ PASS      DB.SCHEMA.EMPLOYEES (ROW_COUNT_CHECK)
   ✗ FAIL      DB.SCHEMA.ORDERS (NULL_CHECK)
