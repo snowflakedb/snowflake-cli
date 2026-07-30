@@ -17,15 +17,24 @@ from __future__ import annotations
 import json
 import logging
 import time
-from typing import Callable, NoReturn, Optional, Sequence
+from collections import Counter, defaultdict
+from dataclasses import dataclass
+from pathlib import PurePath
+from typing import Callable, Dict, List, NoReturn, Optional, Sequence
 
 from pydantic import BaseModel
+from rich.console import RenderableType
+from rich.table import Table
+from rich.text import Text
+from rich.tree import Tree
 from snowflake.cli._plugins.dcm.multistep_progress import (
     MultiStepProgress,
     StepDefinition,
     StepProgressUpdater,
 )
 from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.constants import QueryStatus
 from snowflake.connector.cursor import SnowflakeCursor
@@ -65,6 +74,97 @@ class FileUploadProgress:
     def advance(self) -> None:
         self._done += 1
         self._step.update(completed=self._done)
+
+
+DETAIL_BULLET = "• "
+_TREE_HEADER = "Upload files"
+
+
+def _bulleted(renderable: RenderableType) -> RenderableType:
+    """Puts a bullet to the left of ``renderable``.
+
+    Laid out as two cells rather than prefixed text, so a renderable spanning
+    several rows keeps them all in the second cell - a tree's guides then line up
+    under its title instead of under the bullet. A grid rather than ``Columns``,
+    which sizes its columns to the console and would pad every row out to it.
+    """
+    row = Table.grid(padding=0)
+    row.add_row(DETAIL_BULLET, renderable)
+    return row
+
+
+@dataclass(frozen=True)
+class UploadFolder:
+    """A folder of files to upload, with the count to display beside its name.
+
+    ``_upload_folders`` only ever nests one level: a root folder's ``count`` is
+    the files directly inside it, and each subfolder's ``count`` is everything
+    beneath it.
+    """
+
+    name: str
+    count: int
+    subfolders: Sequence["UploadFolder"] = ()
+
+
+def _folder_label(name: str, count: int) -> str:
+    if not count:
+        return name
+    unit = "file" if count == 1 else "files"
+    return f"{name} ({count} {unit})"
+
+
+def _printable_filename(name: str) -> str:
+    """A file or folder name reduced to a single printable row.
+
+    ``sanitize_for_terminal`` only strips ANSI escapes, so a name may still
+    carry a newline, a tab, a bidi override, or the surrogates ``pathlib``
+    yields for undecodable bytes - each one breaking the row, colliding with
+    another name, or failing to encode. Anything Python does not call printable
+    is escaped as ``repr`` escapes it; printable names, accents and CJK
+    included, pass through verbatim.
+    """
+    sanitized = sanitize_for_terminal(name) or ""
+    return sanitized if sanitized.isprintable() else repr(sanitized)[1:-1]
+
+
+def _detail_text(text: str) -> Text:
+    """One line of detail, sanitized and kept to a single row.
+
+    Built as ``Text`` so a name containing square brackets is rendered
+    literally rather than read as rich markup, and so a name too long for the
+    terminal is cropped instead of wrapping - a wrapped continuation would
+    break the tree's guide alignment.
+    """
+    return Text(sanitize_for_terminal(text) or "", no_wrap=True, overflow="ellipsis")
+
+
+def _add_folders(node: Tree, folders: Sequence[UploadFolder]) -> None:
+    """Adds each folder as a branch, then its subfolders beneath it."""
+    for folder in folders:
+        label = _folder_label(_printable_filename(folder.name), folder.count)
+        branch = node.add(_detail_text(label))
+        _add_folders(branch, folder.subfolders)
+
+
+def upload_tree(
+    root_files: Sequence[str], folders: Sequence[UploadFolder]
+) -> Optional[RenderableType]:
+    """The files to upload, as a tree whose root is the heading line.
+
+    Root files are named individually; folders carry their file count, nested
+    as deeply as they are given. Rich picks the guide glyphs when this renders,
+    falling back to ASCII where the output stream cannot encode them.
+    """
+    if not root_files and not folders:
+        return None
+
+    tree = Tree(_detail_text(_TREE_HEADER))
+    for name in root_files:
+        tree.add(_detail_text(_printable_filename(name)))
+    _add_folders(tree, folders)
+
+    return tree
 
 
 _FAST_POLL_INTERVAL = 1
@@ -212,3 +312,49 @@ class ServerPoll:
 
     def _finalize_failure(self) -> None:
         self._finalize(self._progress.fail_step)
+
+
+def upload_details(
+    stage_fqn: FQN, relative_paths: Sequence[PurePath]
+) -> List[RenderableType]:
+    """Components shown beneath the upload step.
+
+    Files in the project root are named individually. Deeper files are
+    counted two levels deep at most: each root folder shows how many files
+    sit directly inside it, and each of its direct subfolders shows how many
+    files it holds in total, however deeply nested.
+    """
+    stage_scope = f" inside {stage_fqn.prefix}" if stage_fqn.prefix else ""
+    root_files = sorted(str(rel) for rel in relative_paths if len(rel.parts) == 1)
+    details: List[RenderableType] = [
+        _detail_text(f"Create temporary stage{stage_scope}")
+    ]
+    tree = upload_tree(root_files, _upload_folders(relative_paths))
+    if tree is not None:
+        details.append(tree)
+    return [_bulleted(detail) for detail in details]
+
+
+def _upload_folders(relative_paths: Sequence[PurePath]) -> List[UploadFolder]:
+    direct_counts: Counter = Counter()
+    subfolder_counts: Dict[str, Counter] = defaultdict(Counter)
+    for rel in relative_paths:
+        folders = rel.parts[:-1]
+        if not folders:
+            continue
+        if len(folders) == 1:
+            direct_counts[folders[0]] += 1
+        else:
+            subfolder_counts[folders[0]][folders[1]] += 1
+
+    return [
+        UploadFolder(
+            name=name,
+            count=direct_counts[name],
+            subfolders=[
+                UploadFolder(name=subfolder, count=count)
+                for subfolder, count in sorted(subfolder_counts[name].items())
+            ],
+        )
+        for name in sorted(set(direct_counts) | set(subfolder_counts))
+    ]

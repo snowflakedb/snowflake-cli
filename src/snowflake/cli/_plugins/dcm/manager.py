@@ -14,20 +14,18 @@
 import json
 import logging
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePath
 from tempfile import TemporaryDirectory
 from typing import List
 
 from snowflake.cli._plugins.dcm.models import MANIFEST_FILE_NAME, SOURCES_FOLDER
 from snowflake.cli._plugins.dcm.multistep_progress import StepProgressUpdater
-from snowflake.cli._plugins.dcm.progress import FileUploadProgress
+from snowflake.cli._plugins.dcm.progress import FileUploadProgress, upload_details
 from snowflake.cli._plugins.dcm.utils import collect_output
-from snowflake.cli._plugins.stage.diff import _to_diff_line
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.artifacts.utils import symlink_or_copy
 from snowflake.cli.api.commands.utils import parse_key_value_variables
-from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
@@ -50,7 +48,7 @@ class FileUpload:
 class UploadPlan:
     artifacts: List[PathMapping] = field(default_factory=list)
     individual_files: List[FileUpload] = field(default_factory=list)
-    relative_paths_to_upload: List[str] = field(default_factory=list)
+    relative_paths_to_upload: List[PurePath] = field(default_factory=list)
 
 
 class DCMProjectManager(SqlExecutionMixin):
@@ -328,10 +326,11 @@ class DCMProjectManager(SqlExecutionMixin):
             )
 
             stage_manager = StageManager()
-            DCMProjectManager._report_files_to_be_deployed(plan)
             uploader = FileUploadProgress(progress, len(plan.relative_paths_to_upload))
+            progress.set_details(
+                upload_details(stage_fqn, plan.relative_paths_to_upload)
+            )
 
-            cli_console.step(f"Creating temporary stage {stage_fqn.identifier}.")
             stage_manager.create(
                 fqn=FQN.from_stage(stage_fqn.identifier), temporary=True
             )
@@ -398,7 +397,7 @@ class DCMProjectManager(SqlExecutionMixin):
     @staticmethod
     def _add_manifest(plan: UploadPlan) -> None:
         plan.artifacts.append(PathMapping(src=MANIFEST_FILE_NAME))
-        plan.relative_paths_to_upload.append(MANIFEST_FILE_NAME)
+        plan.relative_paths_to_upload.append(PurePath(MANIFEST_FILE_NAME))
 
     @staticmethod
     def _add_sources(plan: UploadPlan, source_path: Path, stage_root: str) -> None:
@@ -410,7 +409,9 @@ class DCMProjectManager(SqlExecutionMixin):
             if not file.is_file():
                 continue
             relative = file.relative_to(sources_path)
-            plan.relative_paths_to_upload.append(f"{SOURCES_FOLDER}/{relative}")
+            plan.relative_paths_to_upload.append(
+                DCMProjectManager._sources_relative_path(relative)
+            )
             if DCMProjectManager._is_in_hidden_path(relative):
                 dest_dir = DCMProjectManager._sources_stage_destination(
                     relative, stage_root
@@ -422,18 +423,12 @@ class DCMProjectManager(SqlExecutionMixin):
         return any(part.startswith(".") for part in relative.parts)
 
     @staticmethod
+    def _sources_relative_path(relative: PurePath) -> PurePath:
+        return PurePath(SOURCES_FOLDER, *relative.parts)
+
+    @staticmethod
     def _sources_stage_destination(relative: Path, stage_root: str) -> str:
         dest_dir = f"{stage_root}/{SOURCES_FOLDER}"
         if relative.parent != Path("."):
             dest_dir = f"{dest_dir}/{relative.parent.as_posix()}"
         return dest_dir
-
-    @staticmethod
-    def _report_files_to_be_deployed(plan: UploadPlan) -> None:
-        if not plan.relative_paths_to_upload:
-            return
-
-        cli_console.message("Local changes to be deployed:")
-        with cli_console.indented():
-            for rel in plan.relative_paths_to_upload:
-                cli_console.message(_to_diff_line("added", rel, rel))
