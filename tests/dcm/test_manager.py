@@ -14,7 +14,7 @@
 
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from unittest import mock
 
 import pytest
@@ -30,8 +30,10 @@ from snowflake.cli._plugins.dcm.multistep_progress import (
     StepDefinition,
     StepState,
 )
-from snowflake.cli._plugins.dcm.progress import FileUploadProgress
+from snowflake.cli._plugins.dcm.progress import DETAIL_BULLET, FileUploadProgress
 from snowflake.cli.api.identifiers import FQN
+
+from tests.dcm.multi_step_progress_capture import capture_rendered
 
 execute_queries = "snowflake.cli._plugins.dcm.manager.DCMProjectManager.execute_query"
 execute_query_with_params = (
@@ -1049,16 +1051,32 @@ def test_add_sources_without_sources_folder_is_noop(tmp_path):
     assert plan.individual_files == []
 
 
-def test_report_files_to_be_deployed_with_empty_plan_is_noop():
-    # given
+def test_add_sources_records_paths_for_folder_grouping(tmp_path):
+    # given: a nested source file, so the relative path has a separator in it
     plan = UploadPlan()
+    nested = tmp_path / SOURCES_FOLDER / "definitions" / "deeper"
+    nested.mkdir(parents=True)
+    (nested / "a.sql").touch()
 
     # when
-    with mock.patch("snowflake.cli._plugins.dcm.manager.cli_console") as mock_console:
-        DCMProjectManager._report_files_to_be_deployed(plan)  # noqa: SLF001
+    DCMProjectManager._add_sources(plan, tmp_path, "@stage")  # noqa: SLF001
 
-    # then
-    mock_console.message.assert_not_called()
+    # then: recorded as parts, so _upload_folders groups the same way on every
+    # platform without splitting on a separator the host may not use
+    assert [rel.parts for rel in plan.relative_paths_to_upload] == [
+        (SOURCES_FOLDER, "definitions", "deeper", "a.sql")
+    ]
+
+
+def test_windows_relative_path_is_recorded_as_parts():
+    # given: a relative path shaped the way Windows produces one
+    relative = PureWindowsPath("definitions") / "deeper" / "a.sql"
+
+    # when
+    recorded = DCMProjectManager._sources_relative_path(relative)  # noqa: SLF001
+
+    # then: the windows separators become parts, whatever the host flavour is
+    assert recorded.parts == (SOURCES_FOLDER, "definitions", "deeper", "a.sql")
 
 
 class TestSyncLocalFilesProgress:
@@ -1108,3 +1126,57 @@ class TestSyncLocalFilesProgress:
         # then
         assert mock_advance.call_count == 3
         assert progress.step_state("upload") == StepState.RUNNING
+
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put_recursive")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put")
+    @mock.patch(
+        "snowflake.cli._plugins.dcm.manager.DCMProjectManager._bundle_definition_files"
+    )
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
+    def test_upload_summary_renders_under_the_step_row(
+        self,
+        _mock_create_stage,
+        _mock_bundle,
+        _mock_put,
+        mock_put_recursive,
+        tmp_path,
+        mock_connect,
+        mock_cursor,
+        mock_from_resource,
+    ):
+        # given
+        mock_put_recursive.return_value = iter([])
+        source_dir = tmp_path / "project_with_summary"
+        source_dir.mkdir()
+        with open(source_dir / MANIFEST_FILE_NAME, "w") as f:
+            yaml.dump({"manifest_version": 2, "type": "dcm_project"}, f)
+        definitions_dir = source_dir / SOURCES_FOLDER / "definitions"
+        definitions_dir.mkdir(parents=True)
+        (definitions_dir / "a.sql").touch()
+        (definitions_dir / "b.sql").touch()
+
+        progress = MultiStepProgress([StepDefinition("upload", "UPLOAD")])
+
+        # when
+        DCMProjectManager.sync_local_files(
+            project_identifier=TEST_PROJECT,
+            source_directory=str(source_dir),
+            progress=progress.step_progress_updater("upload"),
+        )
+
+        # then: the widget indents every detail component by two. Rich pads the
+        # tree's rows to its own width, which is invisible on screen and already
+        # stripped on the printed path, so compare without it.
+        lines = [
+            line.rstrip() for line in capture_rendered(progress).split("\n") if line
+        ]
+        assert lines == [
+            mock.ANY,
+            f"  {DETAIL_BULLET}Create temporary stage inside "
+            f"{mock_from_resource.return_value.prefix}",
+            f"  {DETAIL_BULLET}Upload files",
+            f"    ├── {MANIFEST_FILE_NAME}",
+            f"    └── {SOURCES_FOLDER}",
+            "        └── definitions (2 files)",
+        ]
+        assert "UPLOAD" in lines[0]
