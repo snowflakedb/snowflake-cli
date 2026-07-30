@@ -202,7 +202,7 @@ def frozen_elapsed_time():
     """
     with mock.patch(
         "snowflake.cli._plugins.dcm.multistep_progress.MultiStepProgress._elapsed_suffix",
-        return_value=" (0:00:00)",
+        return_value=" (1m 12s)",
     ):
         yield
 
