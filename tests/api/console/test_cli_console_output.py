@@ -16,8 +16,10 @@ from __future__ import annotations
 
 from textwrap import dedent
 from typing import Generator
+from unittest import mock
 
 import pytest
+from rich.text import Text
 from snowflake.cli.api.console.console import (
     CliConsole,
 )
@@ -62,6 +64,20 @@ def test_phase_after_step_not_indented(cli_console, capsys):
         cli_console.step("73")
     cli_console.step("42")
     assert_output_matches("42\n  73\n42\n", capsys)
+
+
+def test_renderable_is_printed_as_given(cli_console, capsys):
+    cli_console.renderable(Text("a detail"))
+    assert_output_matches("a detail\n", capsys)
+
+
+def test_renderable_is_muted_when_silent(cli_console, capsys):
+    with mock.patch.object(
+        type(cli_console), "is_silent", new_callable=mock.PropertyMock
+    ) as silent:
+        silent.return_value = True
+        cli_console.renderable(Text("a detail"))
+    assert_output_matches("", capsys)
 
 
 def test_error_messages(cli_console, capsys):

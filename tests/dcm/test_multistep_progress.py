@@ -22,6 +22,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from rich.console import Console
 from rich.spinner import Spinner
+from rich.text import Text
 from snowflake.cli._plugins.dcm import multistep_progress as progress_module
 from snowflake.cli._plugins.dcm.multistep_progress import (
     MultiStepProgress,
@@ -580,6 +581,153 @@ class TestNonTtyStepLines:
         assert re.fullmatch(
             r"❯ Step 1/1 - RENDER - ✓ Completed \(\d+:\d{2}:\d{2}\)", lines[1]
         )
+
+
+class TestStepDetails:
+    def test_details_render_directly_beneath_their_own_step(self) -> None:
+        # given
+        progress = MultiStepProgress(
+            [StepDefinition("a", "UPLOAD"), StepDefinition("b", "RENDER")]
+        )
+        progress.start_step("a")
+
+        # when
+        progress.set_step_details("a", [Text("first detail"), Text("second detail")])
+
+        # then
+        lines = [line for line in capture_rendered(progress).split("\n") if line]
+        assert "UPLOAD" in lines[0]
+        assert lines[1] == "  first detail"
+        assert lines[2] == "  second detail"
+        assert "RENDER" in lines[3]
+
+    def test_details_are_rendered_dim(self) -> None:
+        # given
+        progress = MultiStepProgress([StepDefinition("a", "UPLOAD")])
+        console = _truecolor_console()
+
+        # when
+        progress.set_step_details("a", [Text("a detail")])
+        console.print(progress.get_renderable())
+
+        # then
+        assert "  \x1b[2ma detail" in console.file.getvalue()
+
+    def test_details_survive_step_state_changes(self) -> None:
+        # given
+        progress = MultiStepProgress([StepDefinition("a", "UPLOAD")])
+        progress.start_step("a", total=2)
+        progress.set_step_details("a", [Text("a detail")])
+
+        # when
+        progress.update("a", completed=1)
+        progress.complete_step("a")
+
+        # then
+        assert "  a detail" in capture_rendered(progress)
+
+    def test_no_details_renders_only_step_rows(self) -> None:
+        # given
+        progress = MultiStepProgress([StepDefinition("a", "UPLOAD")])
+
+        # when
+        rendered = capture_rendered(progress)
+
+        # then
+        assert len([line for line in rendered.split("\n") if line]) == 1
+
+    def test_replacing_details_discards_the_previous_lines(self) -> None:
+        # given
+        progress = MultiStepProgress([StepDefinition("a", "UPLOAD")])
+        progress.set_step_details("a", [Text("stale detail")])
+
+        # when
+        progress.set_step_details("a", [Text("fresh detail")])
+
+        # then
+        rendered = capture_rendered(progress)
+        assert "stale detail" not in rendered
+        assert "  fresh detail" in rendered
+
+    def test_updater_sets_details_on_its_own_step(self) -> None:
+        # given
+        progress = MultiStepProgress(
+            [StepDefinition("a", "UPLOAD"), StepDefinition("b", "RENDER")]
+        )
+
+        # when
+        progress.step_progress_updater("b").set_details([Text("a detail")])
+
+        # then
+        lines = [line for line in capture_rendered(progress).split("\n") if line]
+        assert "RENDER" in lines[1]
+        assert lines[2] == "  a detail"
+
+    def test_details_print_indented_under_the_step_line_without_a_tty(
+        self, capsys
+    ) -> None:
+        # given
+        console = _non_terminal_console()
+        with patch.object(progress_module, "get_console", return_value=console):
+            progress = MultiStepProgress([StepDefinition("a", "UPLOAD")])
+            with progress.display():
+                progress.start_step("a")
+                # when
+                progress.set_step_details(
+                    "a", [Text("first detail"), Text("second detail")]
+                )
+
+        # then
+        lines = [ln for ln in capsys.readouterr().out.split("\n") if ln]
+        assert lines[0] == f"❯ Step 1/1 - UPLOAD - {_SPINNER_FRAMES[0]} Running..."
+        assert lines[1].endswith("first detail")
+        assert lines[1].startswith(" ")
+        assert lines[2].endswith("second detail")
+
+    def test_details_are_not_printed_on_a_tty(self, capsys) -> None:
+        # given
+        console = _truecolor_console()
+        with patch.object(progress_module, "get_console", return_value=console):
+            progress = MultiStepProgress([StepDefinition("a", "UPLOAD")])
+            with progress.display():
+                # when
+                progress.set_step_details("a", [Text("a detail")])
+
+        # then
+        assert "a detail" not in capsys.readouterr().out
+
+    def test_details_are_not_printed_outside_a_display_session(self, capsys) -> None:
+        # given: simulates silent mode, where progress.display() is never entered
+        console = _non_terminal_console()
+        with patch.object(progress_module, "get_console", return_value=console):
+            progress = MultiStepProgress([StepDefinition("a", "UPLOAD")])
+
+            # when
+            progress.set_step_details("a", [Text("a detail")])
+
+        # then
+        assert capsys.readouterr().out == ""
+        assert console.file.getvalue() == ""
+
+    def test_a_long_detail_is_cropped_to_the_terminal_without_a_tty(
+        self, capsys
+    ) -> None:
+        # given
+        name = "long" * 40 + ".sql"
+        console = _non_terminal_console()
+        with patch.object(progress_module, "get_console", return_value=console):
+            progress = MultiStepProgress([StepDefinition("a", "UPLOAD")])
+            with progress.display():
+                progress.start_step("a")
+                # when
+                progress.set_step_details("a", [Text(name)])
+
+        # then: printed as the component renders, so a name wider than the
+        # terminal is cropped to one row rather than kept whole
+        printed = [ln for ln in capsys.readouterr().out.split("\n") if "long" in ln]
+        assert len(printed) == 1
+        assert name.startswith(printed[0].strip())
+        assert name not in printed[0]
 
 
 class TestProgressSession:
