@@ -19,7 +19,7 @@ from contextlib import contextmanager
 from typing import Any, Callable, Iterator, Optional
 
 from rich import print as rich_print
-from rich.jupyter import JupyterMixin
+from rich.console import RenderableType
 from snowflake.cli.api.cli_global_context import (
     _CliGlobalContextAccess,
     get_cli_context,
@@ -61,7 +61,7 @@ class AbstractConsole(ABC):
         """Indicated whether output should be grouped."""
         return self._in_phase
 
-    def _print(self, text: JupyterMixin, end: str = "\n"):
+    def _print(self, text: RenderableType, end: str = "\n"):
         if self.is_silent:
             return
         rich_print(text, end=end)
@@ -113,3 +113,12 @@ class AbstractConsole(ABC):
     @abstractmethod
     def styled_message(self, message: str, style: Any):
         """Displays a message with provided style."""
+
+    def renderable(self, renderable: RenderableType):
+        """Displays a rich renderable, such as a tree or a table.
+
+        Concrete rather than abstract: this is the public plugin surface, so an
+        external subclass must keep working across an upgrade. For content that
+        is not a plain message, it is displayed as given - indentation, styling
+        and sanitizing belong to whoever built it."""
+        self._print(renderable)
