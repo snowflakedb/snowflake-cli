@@ -22,8 +22,15 @@ import yaml
 from snowflake.cli._plugins.dcm.manager import (
     SOURCES_FOLDER,
     DCMProjectManager,
+    UploadPlan,
 )
 from snowflake.cli._plugins.dcm.models import MANIFEST_FILE_NAME
+from snowflake.cli._plugins.dcm.multistep_progress import (
+    MultiStepProgress,
+    StepDefinition,
+    StepState,
+)
+from snowflake.cli._plugins.dcm.progress import FileUploadProgress
 from snowflake.cli.api.identifiers import FQN
 
 execute_queries = "snowflake.cli._plugins.dcm.manager.DCMProjectManager.execute_query"
@@ -32,6 +39,18 @@ execute_query_with_params = (
 )
 TEST_STAGE = FQN.from_stage("@test_stage")
 TEST_PROJECT = FQN.from_string("my_project")
+TEST_SFQID = "af72f4cc-107c-4f1b-b8a9-7a9811203bc5"
+
+
+@pytest.fixture
+def mock_conn_cursor():
+    cursor = mock.MagicMock()
+    cursor.sfqid = TEST_SFQID
+    with mock.patch.object(
+        DCMProjectManager, "_conn", new_callable=mock.PropertyMock
+    ) as mock_conn:
+        mock_conn.return_value.cursor.return_value = cursor
+        yield cursor
 
 
 @pytest.fixture
@@ -245,26 +264,27 @@ def test_raw_analyze_project_with_save_output_and_env_vars(
     mock_execute_query.assert_not_called()
 
 
-@mock.patch(execute_queries)
-def test_deploy_project(mock_execute_query):
+def test_deploy_async_project(mock_conn_cursor):
     mgr = DCMProjectManager()
-    mgr.deploy(
+    sfqid = mgr.deploy_async(
         project_identifier=TEST_PROJECT,
         from_stage="@test_stage",
         variables=["key=value", "aaa=bbb"],
         configuration="some_configuration",
     )
 
-    mock_execute_query.assert_called_once_with(
-        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY USING CONFIGURATION some_configuration"
-        " (key=>value, aaa=>bbb) FROM @test_stage"
+    assert sfqid == TEST_SFQID
+    mock_conn_cursor.execute_async.assert_called_once_with(
+        "EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY USING CONFIGURATION some_configuration"
+        " (key=>value, aaa=>bbb) FROM @test_stage",
+        None,
+        _force_qmark_paramstyle=True,
     )
 
 
-@mock.patch(execute_queries)
-def test_deploy_project_with_skip_plan(mock_execute_query):
+def test_deploy_async_project_with_skip_plan(mock_conn_cursor):
     mgr = DCMProjectManager()
-    mgr.deploy(
+    sfqid = mgr.deploy_async(
         project_identifier=TEST_PROJECT,
         from_stage="@test_stage",
         variables=["key=value", "aaa=bbb"],
@@ -272,104 +292,114 @@ def test_deploy_project_with_skip_plan(mock_execute_query):
         skip_plan=True,
     )
 
-    mock_execute_query.assert_called_once_with(
-        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY USING CONFIGURATION some_configuration"
-        " (key=>value, aaa=>bbb) FROM @test_stage SKIP PLAN"
+    assert sfqid == TEST_SFQID
+    mock_conn_cursor.execute_async.assert_called_once_with(
+        "EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY USING CONFIGURATION some_configuration"
+        " (key=>value, aaa=>bbb) FROM @test_stage SKIP PLAN",
+        None,
+        _force_qmark_paramstyle=True,
     )
 
 
-@mock.patch(execute_queries)
-def test_deploy_project_with_from_stage(mock_execute_query):
+def test_deploy_async_project_with_from_stage(mock_conn_cursor):
     mgr = DCMProjectManager()
-    mgr.deploy(
+    sfqid = mgr.deploy_async(
         project_identifier=TEST_PROJECT,
         from_stage="@my_stage",
         variables=["key=value", "aaa=bbb"],
         configuration="some_configuration",
     )
 
-    mock_execute_query.assert_called_once_with(
-        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY USING CONFIGURATION some_configuration"
-        " (key=>value, aaa=>bbb) FROM @my_stage"
+    assert sfqid == TEST_SFQID
+    mock_conn_cursor.execute_async.assert_called_once_with(
+        "EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY USING CONFIGURATION some_configuration"
+        " (key=>value, aaa=>bbb) FROM @my_stage",
+        None,
+        _force_qmark_paramstyle=True,
     )
 
 
-@mock.patch(execute_queries)
-def test_deploy_project_with_from_stage_without_prefix(mock_execute_query):
+def test_deploy_async_project_with_from_stage_without_prefix(mock_conn_cursor):
     mgr = DCMProjectManager()
-    mgr.deploy(
+    sfqid = mgr.deploy_async(
         project_identifier=TEST_PROJECT,
         from_stage="my_stage",
         variables=["key=value", "aaa=bbb"],
         configuration="some_configuration",
     )
 
-    mock_execute_query.assert_called_once_with(
-        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY USING CONFIGURATION some_configuration"
-        " (key=>value, aaa=>bbb) FROM @my_stage"
+    assert sfqid == TEST_SFQID
+    mock_conn_cursor.execute_async.assert_called_once_with(
+        "EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY USING CONFIGURATION some_configuration"
+        " (key=>value, aaa=>bbb) FROM @my_stage",
+        None,
+        _force_qmark_paramstyle=True,
     )
 
 
-@mock.patch(execute_queries)
-def test_deploy_project_with_default_deployment(mock_execute_query, project_directory):
+def test_deploy_async_project_with_default_deployment(
+    mock_conn_cursor, project_directory
+):
     mgr = DCMProjectManager()
 
-    mgr.deploy(project_identifier=TEST_PROJECT, from_stage="@test_stage")
+    sfqid = mgr.deploy_async(project_identifier=TEST_PROJECT, from_stage="@test_stage")
 
-    mock_execute_query.assert_called_once_with(
-        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY FROM @test_stage"
+    assert sfqid == TEST_SFQID
+    mock_conn_cursor.execute_async.assert_called_once_with(
+        "EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY FROM @test_stage",
+        None,
+        _force_qmark_paramstyle=True,
     )
 
 
-@mock.patch(execute_queries)
-@mock.patch(execute_query_with_params)
-def test_deploy_project_with_env_vars(mock_execute_with_params, mock_execute_query):
+def test_deploy_async_project_with_env_vars(mock_conn_cursor):
     mgr = DCMProjectManager()
     env_vars = {"DB_HOST": "prod.analytics.internal"}
 
-    mgr.deploy(
+    sfqid = mgr.deploy_async(
         project_identifier=TEST_PROJECT,
         from_stage="@test_stage",
         configuration="some_configuration",
         env_vars=env_vars,
     )
 
-    mock_execute_with_params.assert_called_once_with(
-        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY USING CONFIGURATION"
+    assert sfqid == TEST_SFQID
+    mock_conn_cursor.execute_async.assert_called_once_with(
+        "EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY USING CONFIGURATION"
         " some_configuration ENVIRONMENT (?) FROM @test_stage",
-        params=[json.dumps(env_vars)],
+        [json.dumps(env_vars)],
+        _force_qmark_paramstyle=True,
     )
-    mock_execute_query.assert_not_called()
 
 
-@mock.patch(execute_queries)
-@mock.patch(execute_query_with_params)
-def test_deploy_project_without_env_vars_uses_plain_execute(
-    mock_execute_with_params, mock_execute_query
-):
+def test_deploy_async_project_without_env_vars_passes_no_params(mock_conn_cursor):
     mgr = DCMProjectManager()
 
-    mgr.deploy(project_identifier=TEST_PROJECT, from_stage="@test_stage", env_vars=None)
-
-    mock_execute_query.assert_called_once_with(
-        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY FROM @test_stage"
+    sfqid = mgr.deploy_async(
+        project_identifier=TEST_PROJECT, from_stage="@test_stage", env_vars=None
     )
-    mock_execute_with_params.assert_not_called()
+
+    assert sfqid == TEST_SFQID
+    mock_conn_cursor.execute_async.assert_called_once_with(
+        "EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY FROM @test_stage",
+        None,
+        _force_qmark_paramstyle=True,
+    )
 
 
-@mock.patch(execute_queries)
-@mock.patch(execute_query_with_params)
-def test_deploy_project_with_empty_env_vars_uses_plain_execute(
-    mock_execute_with_params, mock_execute_query
-):
+def test_deploy_async_project_with_empty_env_vars_passes_no_params(mock_conn_cursor):
     mgr = DCMProjectManager()
 
-    mgr.deploy(project_identifier=TEST_PROJECT, from_stage="@test_stage", env_vars={})
-
-    mock_execute_query.assert_called_once_with(
-        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY FROM @test_stage"
+    sfqid = mgr.deploy_async(
+        project_identifier=TEST_PROJECT, from_stage="@test_stage", env_vars={}
     )
-    mock_execute_with_params.assert_not_called()
+
+    assert sfqid == TEST_SFQID
+    mock_conn_cursor.execute_async.assert_called_once_with(
+        "EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY FROM @test_stage",
+        None,
+        _force_qmark_paramstyle=True,
+    )
 
 
 @mock.patch(execute_queries)
@@ -682,7 +712,6 @@ def test_test_project(mock_execute_query):
     )
 
 
-@mock.patch(execute_queries)
 @pytest.mark.parametrize(
     "alias,expected_alias",
     [
@@ -693,56 +722,65 @@ def test_test_project(mock_execute_query):
         ("v1", '"v1"'),
     ],
 )
-def test_deploy_project_with_alias_special_characters(
-    mock_execute_query, alias, expected_alias
+def test_deploy_async_project_with_alias_special_characters(
+    mock_conn_cursor, alias, expected_alias
 ):
     mgr = DCMProjectManager()
-    mgr.deploy(
+    sfqid = mgr.deploy_async(
         project_identifier=TEST_PROJECT,
         from_stage="@test_stage",
         alias=alias,
     )
 
-    mock_execute_query.assert_called_once_with(
-        query=f"EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY AS {expected_alias} FROM @test_stage"
+    assert sfqid == TEST_SFQID
+    mock_conn_cursor.execute_async.assert_called_once_with(
+        f"EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY AS {expected_alias} FROM @test_stage",
+        None,
+        _force_qmark_paramstyle=True,
     )
 
 
-@mock.patch(execute_queries)
-def test_purge_project(mock_execute_query):
+def test_purge_async_project(mock_conn_cursor):
     mgr = DCMProjectManager()
-    mgr.purge(
+    sfqid = mgr.purge_async(
         project_identifier=TEST_PROJECT,
     )
 
-    mock_execute_query.assert_called_once_with(
-        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PURGE"
+    assert sfqid == TEST_SFQID
+    mock_conn_cursor.execute_async.assert_called_once_with(
+        "EXECUTE DCM PROJECT IDENTIFIER('my_project') PURGE",
+        None,
+        _force_qmark_paramstyle=True,
     )
 
 
-@mock.patch(execute_queries)
-def test_purge_project_with_skip_plan(mock_execute_query):
+def test_purge_async_project_with_skip_plan(mock_conn_cursor):
     mgr = DCMProjectManager()
-    mgr.purge(
+    sfqid = mgr.purge_async(
         project_identifier=TEST_PROJECT,
         skip_plan=True,
     )
 
-    mock_execute_query.assert_called_once_with(
-        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PURGE SKIP PLAN"
+    assert sfqid == TEST_SFQID
+    mock_conn_cursor.execute_async.assert_called_once_with(
+        "EXECUTE DCM PROJECT IDENTIFIER('my_project') PURGE SKIP PLAN",
+        None,
+        _force_qmark_paramstyle=True,
     )
 
 
-@mock.patch(execute_queries)
-def test_purge_project_with_alias(mock_execute_query):
+def test_purge_async_project_with_alias(mock_conn_cursor):
     mgr = DCMProjectManager()
-    mgr.purge(
+    sfqid = mgr.purge_async(
         project_identifier=TEST_PROJECT,
         alias="my_alias",
     )
 
-    mock_execute_query.assert_called_once_with(
-        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PURGE AS \"my_alias\""
+    assert sfqid == TEST_SFQID
+    mock_conn_cursor.execute_async.assert_called_once_with(
+        "EXECUTE DCM PROJECT IDENTIFIER('my_project') PURGE AS \"my_alias\"",
+        None,
+        _force_qmark_paramstyle=True,
     )
 
 
@@ -767,7 +805,9 @@ class TestSyncLocalFiles:
         mock_put_recursive.return_value = iter([])
 
         with project_directory("dcm_project"):
-            result = DCMProjectManager.sync_local_files(project_identifier=TEST_PROJECT)
+            result = DCMProjectManager.sync_local_files(
+                project_identifier=TEST_PROJECT, progress=mock.MagicMock()
+            )
 
             mock_create_stage.assert_called_once()
             assert mock_create_stage.call_args.kwargs["temporary"] is True
@@ -817,7 +857,9 @@ class TestSyncLocalFiles:
         (sources_dir / "custom_query.sql").touch()
 
         DCMProjectManager.sync_local_files(
-            project_identifier=TEST_PROJECT, source_directory=str(source_dir)
+            project_identifier=TEST_PROJECT,
+            source_directory=str(source_dir),
+            progress=mock.MagicMock(),
         )
 
         mock_bundle.assert_called_once()
@@ -860,6 +902,7 @@ class TestSyncLocalFiles:
             DCMProjectManager.sync_local_files(
                 project_identifier=TEST_PROJECT,
                 source_directory="relative_source",
+                progress=mock.MagicMock(),
             )
 
             mock_bundle.assert_called_once()
@@ -909,7 +952,9 @@ class TestSyncLocalFiles:
         (sources_dir / "dbt_project.yml").touch()
 
         DCMProjectManager.sync_local_files(
-            project_identifier=TEST_PROJECT, source_directory=str(source_dir)
+            project_identifier=TEST_PROJECT,
+            source_directory=str(source_dir),
+            progress=mock.MagicMock(),
         )
 
         mock_bundle.assert_called_once()
@@ -948,7 +993,9 @@ class TestSyncLocalFiles:
         (hidden_dir / "sub" / "deep.sql").touch()
 
         DCMProjectManager.sync_local_files(
-            project_identifier=TEST_PROJECT, source_directory=str(source_dir)
+            project_identifier=TEST_PROJECT,
+            source_directory=str(source_dir),
+            progress=mock.MagicMock(),
         )
 
         put_queries = [
@@ -971,3 +1018,93 @@ class TestSyncLocalFiles:
             assert any(
                 filename in q and stage_dest in q for q in put_queries
             ), f"expected a PUT for {filename} to {stage_dest}; got: {put_queries}"
+
+
+def test_connection_returns_underlying_connection():
+    # given
+    sentinel = object()
+
+    with mock.patch.object(
+        DCMProjectManager, "_conn", new_callable=mock.PropertyMock
+    ) as mock_conn:
+        mock_conn.return_value = sentinel
+
+        # when
+        connection = DCMProjectManager().connection
+
+        # then
+        assert connection is sentinel
+
+
+def test_add_sources_without_sources_folder_is_noop(tmp_path):
+    # given
+    plan = UploadPlan()
+
+    # when
+    DCMProjectManager._add_sources(plan, tmp_path, "@stage")  # noqa: SLF001
+
+    # then
+    assert plan.artifacts == []
+    assert plan.relative_paths_to_upload == []
+    assert plan.individual_files == []
+
+
+def test_report_files_to_be_deployed_with_empty_plan_is_noop():
+    # given
+    plan = UploadPlan()
+
+    # when
+    with mock.patch("snowflake.cli._plugins.dcm.manager.cli_console") as mock_console:
+        DCMProjectManager._report_files_to_be_deployed(plan)  # noqa: SLF001
+
+    # then
+    mock_console.message.assert_not_called()
+
+
+class TestSyncLocalFilesProgress:
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put_recursive")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.put")
+    @mock.patch(
+        "snowflake.cli._plugins.dcm.manager.DCMProjectManager._bundle_definition_files"
+    )
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
+    def test_advances_progress_per_uploaded_file(
+        self,
+        _mock_create_stage,
+        _mock_bundle,
+        _mock_put,
+        mock_put_recursive,
+        tmp_path,
+        mock_connect,
+        mock_cursor,
+        mock_from_resource,
+    ):
+        # given
+        mock_put_recursive.return_value = iter(
+            [
+                {"source": "a.sql", "target": "stage/a.sql"},
+                {"source": "b.sql", "target": "stage/b.sql"},
+            ]
+        )
+        source_dir = tmp_path / "project_with_progress"
+        source_dir.mkdir()
+        with open(source_dir / MANIFEST_FILE_NAME, "w") as f:
+            yaml.dump({"manifest_version": 2, "type": "dcm_project"}, f)
+        hidden_dir = source_dir / SOURCES_FOLDER / ".hidden"
+        hidden_dir.mkdir(parents=True)
+        (hidden_dir / "x.sql").touch()
+
+        progress = MultiStepProgress([StepDefinition("upload", "Uploading")])
+        updater = progress.step_progress_updater("upload")
+
+        # when
+        with mock.patch.object(FileUploadProgress, "advance") as mock_advance:
+            DCMProjectManager.sync_local_files(
+                project_identifier=TEST_PROJECT,
+                source_directory=str(source_dir),
+                progress=updater,
+            )
+
+        # then
+        assert mock_advance.call_count == 3
+        assert progress.step_state("upload") == StepState.RUNNING

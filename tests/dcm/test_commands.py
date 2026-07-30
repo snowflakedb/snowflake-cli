@@ -9,8 +9,11 @@ from snowflake.cli._plugins.dcm.commands import (
     _check_project_owner,
 )
 from snowflake.cli._plugins.dcm.models import DCMManifest, DCMTarget
+from snowflake.cli._plugins.dcm.multistep_progress import MultiStepProgress
 from snowflake.cli.api.identifiers import FQN, AccountIdentifier
 from snowflake.cli.api.utils.path_utils import change_directory
+
+TEST_SFQID = "af72f4cc-107c-4f1b-b8a9-7a9811203bc5"
 
 
 def _analyze_response(files=None):
@@ -73,6 +76,24 @@ def mock_manifest_load():
 @pytest.fixture
 def mock_object_manager():
     with mock.patch("snowflake.cli._plugins.dcm.commands.ObjectManager") as _fixture:
+        yield _fixture
+
+
+@pytest.fixture
+def mock_server_poll():
+    with mock.patch("snowflake.cli._plugins.dcm.commands.ServerPoll") as _fixture:
+        yield _fixture
+
+
+@pytest.fixture
+def mock_multistep_progress():
+    """Wraps (rather than replaces) MultiStepProgress: real progress-tracking
+    behavior is preserved, but the constructor call is recorded so a test can
+    assert on the exact StepDefinition list a command wired up."""
+    with mock.patch(
+        "snowflake.cli._plugins.dcm.commands.MultiStepProgress",
+        wraps=MultiStepProgress,
+    ) as _fixture:
         yield _fixture
 
 
@@ -172,6 +193,20 @@ def mock_check_project_owner():
         yield _fixture
 
 
+@pytest.fixture(autouse=True)
+def frozen_elapsed_time():
+    """Elapsed time in printed progress lines is wall-clock and non-deterministic.
+
+    Without this, snapshot assertions on those lines would flake on a slow
+    test run.
+    """
+    with mock.patch(
+        "snowflake.cli._plugins.dcm.multistep_progress.MultiStepProgress._elapsed_suffix",
+        return_value=" (0:00:00)",
+    ):
+        yield
+
+
 def _manifest_without_config():
     """Helper to create a manifest with target that has no templating_config."""
     return DCMManifest.from_dict(
@@ -209,8 +244,10 @@ class TestDCMDeploy:
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
     ):
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
@@ -219,7 +256,7 @@ class TestDCMDeploy:
 
         assert result.exit_code == 0, result.output
 
-        mock_dcm_manager().deploy.assert_called_once_with(
+        mock_dcm_manager().deploy_async.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
@@ -229,6 +266,38 @@ class TestDCMDeploy:
             env_vars={},
         )
 
+    def test_deploy_wires_up_expected_progress_steps(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_server_poll,
+        mock_multistep_progress,
+    ):
+        # given
+        mock_dcm_manager().deploy_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        # when
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "deploy", "fooBar"])
+
+        # then
+        assert result.exit_code == 0, result.output
+        steps = mock_multistep_progress.call_args.args[0]
+        assert [step.label for step in steps] == [
+            "UPLOAD",
+            "RENDER",
+            "COMPILE",
+            "PLAN",
+            "DEPLOY",
+        ]
+
     def test_deploy_project_with_variables(
         self,
         mock_dcm_manager,
@@ -237,8 +306,10 @@ class TestDCMDeploy:
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
     ):
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
@@ -246,7 +317,7 @@ class TestDCMDeploy:
             result = runner.invoke(["dcm", "deploy", "fooBar", "-D", "key=value"])
         assert result.exit_code == 0, result.output
 
-        mock_dcm_manager().deploy.assert_called_once_with(
+        mock_dcm_manager().deploy_async.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
@@ -264,8 +335,10 @@ class TestDCMDeploy:
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
     ):
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
@@ -273,7 +346,7 @@ class TestDCMDeploy:
             result = runner.invoke(["dcm", "deploy", "fooBar", "--alias", "my_alias"])
         assert result.exit_code == 0, result.output
 
-        mock_dcm_manager().deploy.assert_called_once_with(
+        mock_dcm_manager().deploy_async.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
@@ -292,9 +365,11 @@ class TestDCMDeploy:
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
     ):
         """Test that files are synced to project stage when from_stage is not provided."""
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = (
             "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
         )
@@ -303,7 +378,7 @@ class TestDCMDeploy:
             result = runner.invoke(["dcm", "deploy", "my_project"])
             assert result.exit_code == 0, result.output
 
-        call_args = mock_dcm_manager().deploy.call_args
+        call_args = mock_dcm_manager().deploy_async.call_args
         assert "DCM_FOOBAR" in call_args.kwargs["from_stage"]
         assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
 
@@ -316,8 +391,10 @@ class TestDCMDeploy:
         mock_cursor,
         mock_connect,
         tmp_path,
+        mock_server_poll,
     ):
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = (
             "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
         )
@@ -338,9 +415,10 @@ class TestDCMDeploy:
         mock_dcm_manager().sync_local_files.assert_called_once_with(
             project_identifier=FQN.from_string("my_project"),
             source_directory=str(source_dir),
+            progress=mock.ANY,
         )
 
-        call_args = mock_dcm_manager().deploy.call_args
+        call_args = mock_dcm_manager().deploy_async.call_args
         assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
 
     def test_deploy_with_target_flag(
@@ -351,8 +429,10 @@ class TestDCMDeploy:
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
     ):
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
@@ -369,7 +449,7 @@ class TestDCMDeploy:
             result = runner.invoke(["dcm", "deploy", "--target", "dev"])
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().deploy.assert_called_once_with(
+        mock_dcm_manager().deploy_async.assert_called_once_with(
             project_identifier=FQN.from_string("my_project"),
             configuration=None,
             from_stage="TMP_STAGE",
@@ -387,8 +467,10 @@ class TestDCMDeploy:
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
     ):
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
@@ -405,7 +487,7 @@ class TestDCMDeploy:
             result = runner.invoke(["dcm", "deploy"])
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().deploy.assert_called_once_with(
+        mock_dcm_manager().deploy_async.assert_called_once_with(
             project_identifier=FQN.from_string("my_project"),
             configuration=None,
             from_stage="TMP_STAGE",
@@ -423,10 +505,12 @@ class TestDCMDeploy:
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
     ):
         """When explicit identifier is provided, it overrides target's project_name
         but configuration from target should still be applied."""
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
@@ -450,7 +534,7 @@ class TestDCMDeploy:
             )
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().deploy.assert_called_once_with(
+        mock_dcm_manager().deploy_async.assert_called_once_with(
             project_identifier=FQN.from_string("explicit_project"),
             configuration="DEV_CONFIG",
             from_stage="TMP_STAGE",
@@ -468,8 +552,10 @@ class TestDCMDeploy:
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
     ):
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
@@ -491,7 +577,7 @@ class TestDCMDeploy:
             result = runner.invoke(["dcm", "deploy", "--target", "dev"])
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().deploy.assert_called_once_with(
+        mock_dcm_manager().deploy_async.assert_called_once_with(
             project_identifier=FQN.from_string("my_project"),
             configuration="DEV_CONFIG",
             from_stage="TMP_STAGE",
@@ -509,9 +595,11 @@ class TestDCMDeploy:
         mock_cursor,
         mock_connect,
         tmp_path,
+        mock_server_poll,
     ):
         plan_response = {"version": 2, "changeset": []}
-        mock_dcm_manager().deploy.return_value = _plan_cursor(
+        mock_dcm_manager().deploy_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(
             mock_cursor, json.dumps(plan_response)
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
@@ -533,9 +621,11 @@ class TestDCMDeploy:
         mock_connect,
         project_directory,
         format_name,
+        mock_server_poll,
     ):
         plan_response = {"version": 2, "changeset": []}
-        mock_dcm_manager().deploy.return_value = _mock_cursor_for_format(
+        mock_dcm_manager().deploy_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _mock_cursor_for_format(
             mock_cursor, plan_response, format_name
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
@@ -557,11 +647,13 @@ class TestDCMDeploy:
         mock_cursor,
         mock_connect,
         monkeypatch,
+        mock_server_poll,
     ):
         monkeypatch.setenv("DB_HOST", "prod.analytics.internal")
         monkeypatch.setenv("AWS_SECRET_KEY", "shhh")
         monkeypatch.setenv("UNRELATED_VAR", "should-not-be-sent")
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_with_env_vars()
 
@@ -569,7 +661,7 @@ class TestDCMDeploy:
             result = runner.invoke(["dcm", "deploy", "fooBar"])
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().deploy.assert_called_once_with(
+        mock_dcm_manager().deploy_async.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
@@ -588,10 +680,12 @@ class TestDCMDeploy:
         mock_cursor,
         mock_connect,
         monkeypatch,
+        mock_server_poll,
     ):
         monkeypatch.delenv("DB_HOST", raising=False)
         monkeypatch.delenv("AWS_SECRET_KEY", raising=False)
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_with_env_vars()
 
@@ -602,7 +696,7 @@ class TestDCMDeploy:
                 result = runner.invoke(["dcm", "deploy", "fooBar"])
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().deploy.assert_called_once_with(
+        mock_dcm_manager().deploy_async.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
@@ -625,11 +719,13 @@ class TestDCMDeploy:
         mock_cursor,
         mock_connect,
         monkeypatch,
+        mock_server_poll,
     ):
         """--env-file fills in names the shell doesn't already provide."""
         monkeypatch.delenv("DB_HOST", raising=False)
         monkeypatch.delenv("AWS_SECRET_KEY", raising=False)
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_with_env_vars()
 
@@ -642,7 +738,7 @@ class TestDCMDeploy:
             )
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().deploy.assert_called_once_with(
+        mock_dcm_manager().deploy_async.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
@@ -661,10 +757,12 @@ class TestDCMDeploy:
         mock_cursor,
         mock_connect,
         monkeypatch,
+        mock_server_poll,
     ):
         monkeypatch.setenv("DB_HOST", "from-shell")
         monkeypatch.delenv("AWS_SECRET_KEY", raising=False)
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_with_env_vars()
 
@@ -677,7 +775,7 @@ class TestDCMDeploy:
             )
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().deploy.assert_called_once_with(
+        mock_dcm_manager().deploy_async.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
@@ -715,7 +813,7 @@ class TestDCMDeploy:
         # bordered lines -- collapse border/whitespace before checking.
         normalized_output = " ".join(result.output.replace("|", " ").split())
         assert "was not found" in normalized_output
-        mock_dcm_manager().deploy.assert_not_called()
+        mock_dcm_manager().deploy_async.assert_not_called()
 
     def test_deploy_env_file_rejects_stage_path(
         self, mock_dcm_manager, mock_manifest_load, runner, project_directory
@@ -729,6 +827,39 @@ class TestDCMDeploy:
 
         assert result.exit_code == 1, result.output
         assert "Stage paths are not supported" in result.output
+
+    @pytest.mark.parametrize(
+        "extra_args,expected_labels",
+        [
+            ([], ["RENDER", "COMPILE", "PLAN", "DEPLOY"]),
+            (["--skip-plan"], ["RENDER", "COMPILE", "DEPLOY"]),
+        ],
+        ids=["with_plan", "skip_plan"],
+    )
+    def test_deploy_tracks_plan_step_only_when_planning(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_server_poll,
+        extra_args,
+        expected_labels,
+    ):
+        mock_dcm_manager().deploy_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "deploy", "fooBar", *extra_args])
+
+        assert result.exit_code == 0, result.output
+        server_steps = mock_server_poll.call_args.args[2]
+        assert [step.label for step in server_steps] == expected_labels
+        assert f"Step 1/{len(expected_labels) + 1} - UPLOAD" in result.output
 
 
 class TestDCMPurge:
@@ -764,9 +895,11 @@ class TestDCMPurge:
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
     ):
         mock_prompt.side_effect = user_inputs
-        mock_dcm_manager().purge.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().purge_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
@@ -776,7 +909,7 @@ class TestDCMPurge:
 
         assert result.exit_code == 0, result.output
         assert mock_prompt.call_count == expected_prompt_count
-        mock_dcm_manager().purge.assert_called_once_with(
+        mock_dcm_manager().purge_async.assert_called_once_with(
             project_identifier=FQN.from_string(project_identifier),
             alias=None,
             skip_plan=False,
@@ -794,8 +927,10 @@ class TestDCMPurge:
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
     ):
-        mock_dcm_manager().purge.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().purge_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
@@ -805,11 +940,39 @@ class TestDCMPurge:
 
         assert result.exit_code == 0, result.output
 
-        mock_dcm_manager().purge.assert_called_once_with(
+        mock_dcm_manager().purge_async.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             alias="my_alias",
             skip_plan=False,
         )
+
+    def test_purge_wires_up_expected_progress_steps(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_server_poll,
+        mock_multistep_progress,
+    ):
+        # given
+        mock_dcm_manager().purge_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        # when
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "purge", "fooBar", "--force"])
+
+        # then
+        assert result.exit_code == 0, result.output
+        steps = mock_multistep_progress.call_args.args[0]
+        assert [step.label for step in steps] == [
+            "PLAN",
+            "PURGE",
+        ]
 
     @mock.patch(
         "snowflake.cli._plugins.dcm.commands.typer.prompt", return_value="cancel"
@@ -823,6 +986,7 @@ class TestDCMPurge:
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
     ):
         mock_manifest_load.return_value = _manifest_without_config()
 
@@ -830,7 +994,7 @@ class TestDCMPurge:
             result = runner.invoke(["dcm", "purge", "fooBar", "--interactive"])
 
         assert result.exit_code != 0
-        mock_dcm_manager().purge.assert_not_called()
+        mock_dcm_manager().purge_async.assert_not_called()
 
     @mock.patch(
         "snowflake.cli._plugins.dcm.commands.typer.prompt",
@@ -845,8 +1009,10 @@ class TestDCMPurge:
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
     ):
-        mock_dcm_manager().purge.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().purge_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_manifest_load.return_value = DCMManifest.from_dict(
             {
                 "manifest_version": 2,
@@ -862,7 +1028,7 @@ class TestDCMPurge:
             result = runner.invoke(["dcm", "purge", "--target", "dev", "--interactive"])
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().purge.assert_called_once_with(
+        mock_dcm_manager().purge_async.assert_called_once_with(
             project_identifier=FQN.from_string("my_project"),
             alias=None,
             skip_plan=False,
@@ -881,8 +1047,10 @@ class TestDCMPurge:
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
     ):
-        mock_dcm_manager().purge.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().purge_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
@@ -892,7 +1060,7 @@ class TestDCMPurge:
         assert "  Project identifier mismatch" in result.output
         assert "Expected: fooBar" in result.output
         assert "provided: wrong_project" in result.output
-        mock_dcm_manager().purge.assert_called_once()
+        mock_dcm_manager().purge_async.assert_called_once()
 
     @mock.patch(
         "snowflake.cli._plugins.dcm.commands.typer.prompt", return_value="purge fooBar"
@@ -905,10 +1073,12 @@ class TestDCMPurge:
         runner,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
         tmp_path,
     ):
         plan_response = {"version": 2, "changeset": []}
-        mock_dcm_manager().purge.return_value = _plan_cursor(
+        mock_dcm_manager().purge_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(
             mock_cursor, json.dumps(plan_response)
         )
         mock_manifest_load.return_value = _manifest_without_config()
@@ -933,8 +1103,10 @@ class TestDCMPurge:
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
     ):
-        mock_dcm_manager().purge.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().purge_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
@@ -942,7 +1114,7 @@ class TestDCMPurge:
 
         assert result.exit_code == 0, result.output
         mock_confirm_purge.assert_not_called()
-        mock_dcm_manager().purge.assert_called_once_with(
+        mock_dcm_manager().purge_async.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             alias=None,
             skip_plan=False,
@@ -956,6 +1128,7 @@ class TestDCMPurge:
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
     ):
         mock_manifest_load.return_value = _manifest_without_config()
 
@@ -967,7 +1140,7 @@ class TestDCMPurge:
             "Cannot purge the DCM project non-interactively without --force"
             in result.output
         )
-        mock_dcm_manager().purge.assert_not_called()
+        mock_dcm_manager().purge_async.assert_not_called()
 
     @mock.patch(
         "snowflake.cli.api.commands.flags.is_tty_interactive", return_value=False
@@ -981,6 +1154,7 @@ class TestDCMPurge:
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
     ):
         mock_manifest_load.return_value = _manifest_without_config()
 
@@ -992,7 +1166,7 @@ class TestDCMPurge:
             "Cannot purge the DCM project non-interactively without --force"
             in result.output
         )
-        mock_dcm_manager().purge.assert_not_called()
+        mock_dcm_manager().purge_async.assert_not_called()
 
     @mock.patch(
         "snowflake.cli.api.commands.flags.is_tty_interactive", return_value=True
@@ -1010,8 +1184,10 @@ class TestDCMPurge:
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
     ):
-        mock_dcm_manager().purge.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().purge_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_manifest_load.return_value = _manifest_without_config()
 
         with project_directory("dcm_project"):
@@ -1019,7 +1195,38 @@ class TestDCMPurge:
 
         assert result.exit_code == 0, result.output
         mock_prompt.assert_called()
-        mock_dcm_manager().purge.assert_called_once()
+        mock_dcm_manager().purge_async.assert_called_once()
+
+    @pytest.mark.parametrize(
+        "extra_args,expected_labels",
+        [
+            ([], ["PLAN", "PURGE"]),
+            (["--skip-plan"], ["PURGE"]),
+        ],
+        ids=["with_plan", "skip_plan"],
+    )
+    def test_purge_tracks_plan_step_only_when_planning(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_server_poll,
+        extra_args,
+        expected_labels,
+    ):
+        mock_dcm_manager().purge_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "purge", "fooBar", "--force", *extra_args])
+
+        assert result.exit_code == 0, result.output
+        server_steps = mock_server_poll.call_args.args[2]
+        assert [step.label for step in server_steps] == expected_labels
 
 
 class TestDCMPlan:
@@ -1057,6 +1264,35 @@ class TestDCMPlan:
             delta=False,
             env_vars={},
         )
+
+    def test_plan_wires_up_expected_progress_steps(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_multistep_progress,
+    ):
+        # given
+        mock_dcm_manager().plan.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        # when
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "plan", "fooBar"])
+
+        # then
+        assert result.exit_code == 0, result.output
+        steps = mock_multistep_progress.call_args.args[0]
+        assert [step.label for step in steps] == [
+            "UPLOAD",
+            "RENDER",
+            "COMPILE",
+            "PLAN",
+        ]
 
     def test_plan_project_with_delta(
         self,
@@ -1187,6 +1423,7 @@ class TestDCMPlan:
         mock_dcm_manager().sync_local_files.assert_called_once_with(
             project_identifier=FQN.from_string("my_project"),
             source_directory=str(source_dir),
+            progress=mock.ANY,
         )
 
         call_args = mock_dcm_manager().plan.call_args
@@ -1371,6 +1608,32 @@ class TestDCMRawAnalyze:
             save_output=False,
             env_vars={},
         )
+
+    def test_raw_analyze_wires_up_expected_progress_steps(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_multistep_progress,
+    ):
+        # given
+        mock_dcm_manager().raw_analyze.return_value = mock_cursor(
+            rows=[(_analyze_response(),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        # when
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "raw-analyze", "fooBar"])
+
+        # then
+        assert result.exit_code == 0, result.output
+        steps = mock_multistep_progress.call_args.args[0]
+        assert [step.label for step in steps] == ["UPLOAD", "ANALYZE"]
 
     def test_raw_analyze_collects_declared_env_vars_from_shell(
         self,
@@ -1689,6 +1952,7 @@ class TestDCMRawAnalyze:
         mock_dcm_manager().sync_local_files.assert_called_once_with(
             project_identifier=FQN.from_string("my_project"),
             source_directory=str(source_dir),
+            progress=mock.ANY,
         )
 
         call_args = mock_dcm_manager().raw_analyze.call_args
@@ -2152,6 +2416,35 @@ class TestDCMPreview:
             limit=None,
             env_vars={},
         )
+
+    def test_preview_wires_up_expected_progress_steps(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_multistep_progress,
+    ):
+        # given
+        mock_dcm_manager().preview.return_value = mock_cursor(
+            rows=[(1, "Alice", "alice@example.com")],
+            columns=("id", "name", "email"),
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        # when
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "preview", "my_project", "--object", "my_table"]
+            )
+
+        # then
+        assert result.exit_code == 0, result.output
+        steps = mock_multistep_progress.call_args.args[0]
+        assert [step.label for step in steps] == ["UPLOAD", "PREVIEW"]
 
     def test_preview_with_from_stage_fails(
         self, mock_dcm_manager, runner, project_directory
@@ -2703,8 +2996,10 @@ class TestAccountIdentifierValidationForCommands:
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
     ):
-        mock_dcm_manager().deploy.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().deploy_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
