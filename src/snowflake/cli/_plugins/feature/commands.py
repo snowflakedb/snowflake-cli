@@ -262,6 +262,25 @@ def _ops_result(result: dict) -> CommandResult:
     return _to_message("\n".join(parts))
 
 
+def _print_warnings(result: dict) -> None:
+    """Print any operator-facing warnings from a result envelope to stderr.
+
+    Used by ``init`` / ``sync``, whose envelopes render as a key-value
+    object (not the ops table that ``_ops_result`` formats), so the
+    ``warnings`` list — e.g. orphaned OFTs skipped during export — needs a
+    dedicated surface.  Written to stderr so it stays out of the machine
+    -readable stdout payload.
+    """
+    warnings = result.get("warnings") or []
+    if not warnings:
+        return
+    sys.stderr.write("\nWarnings:\n")
+    for w in warnings:
+        sys.stderr.write(f"  - {w}\n")
+    sys.stderr.write("\n")
+    sys.stderr.flush()
+
+
 def _print_target_header(result: dict) -> None:
     """Print the resolved manifest target + warehouse to stderr."""
     db = result.get("target_database", "")
@@ -375,6 +394,7 @@ def init(
         schema=sch_override,
         python=python_form,
     )
+    _print_warnings(result)
     return _to_object(result)
 
 
@@ -424,6 +444,7 @@ def sync(
         name_filter=name,
         python=python_form,
     )
+    _print_warnings(result)
     return _to_object(result)
 
 

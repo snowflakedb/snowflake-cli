@@ -327,9 +327,12 @@ class FeatureManager(SqlExecutionMixin):
 
         Returns:
             ``{status, project_root, manifest_path, target,
-            manifest_written, export}`` envelope.  ``manifest_written``
-            is ``False`` on a re-init.  ``export`` carries the
-            envelope returned by ``decl_api.export_specs(...)``.
+            manifest_written, export, warnings}`` envelope.
+            ``manifest_written`` is ``False`` on a re-init.  ``export``
+            carries the envelope returned by
+            ``decl_api.export_specs(...)``; ``warnings`` lifts that
+            envelope's ``warnings`` (orphaned-OFT skips) to the top
+            level so the CLI can surface them to the operator.
 
         Raises:
             CliError: When the manifest exists but cannot be parsed;
@@ -457,6 +460,7 @@ class FeatureManager(SqlExecutionMixin):
             "target": resolved_target_name,
             "manifest_written": not manifest_existed,
             "export": export_envelope,
+            "warnings": list(export_envelope.get("warnings", [])),
         }
 
     def _export_into_sources(
@@ -617,7 +621,8 @@ class FeatureManager(SqlExecutionMixin):
 
         Returns:
             Dict with ``status='synced'``, ``files``, ``directory``,
-            ``target_database``, and ``target_schema``.
+            ``target_database``, ``target_schema``, and ``warnings``
+            (orphaned-OFT skips lifted from the export envelope).
 
         Raises:
             CliError: When ``manifest.yml`` is not found, the target is
@@ -656,6 +661,7 @@ class FeatureManager(SqlExecutionMixin):
             "directory": export_envelope.get("directory", ""),
             "target_database": target_db,
             "target_schema": target_sch,
+            "warnings": list(export_envelope.get("warnings", [])),
         }
 
     # ------------------------------------------------------------------
