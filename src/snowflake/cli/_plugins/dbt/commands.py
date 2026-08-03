@@ -445,12 +445,11 @@ def before_callback(
         callback=_import_callback,
         help="Stage contents to import into the run, as an IMPORTS clause. "
         "Repeatable. Each value is a stage path (@stage/s1), a dbt snow URL "
-        "(snow://dbt/db.schema.project/versions/live), or one of "
-        "SYSTEM$DBT_GET_LAST_RUN_TARGET, SYSTEM$DBT_GET_LAST_SUCCESSFUL_RUN_TARGET, "
-        "SYSTEM$DBT_GET_LAST_FAILED_RUN_TARGET, SYSTEM$LOCATE_DBT_ARTIFACTS — "
-        'optionally with "as folder" (an ASCII name of letters, digits, '
-        "underscores, and hyphens). Single-quote a value that contains spaces, "
-        "e.g. '@\"my stage\"/dir'.",
+        "(snow://dbt/db.schema.project/versions/live), or a SYSTEM$ function "
+        "(e.g. SYSTEM$DBT_GET_LAST_RUN_TARGET('proj')) — optionally with "
+        '"as folder" (an ASCII name of letters, digits, underscores, and '
+        "hyphens). Single-quote a value that contains spaces, e.g. "
+        "'@\"my stage\"/dir'.",
     ),
     **options,
 ):

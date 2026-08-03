@@ -1223,19 +1223,11 @@ class TestDBTExecute:
                 id="system-func-lowercase",
             ),
             pytest.param(
-                ["--import", "SYSTEM$DBT_GET_LAST_SUCCESSFUL_RUN_TARGET('proj')"],
-                "EXECUTE DBT PROJECT pipeline_name IMPORTS=(SYSTEM$DBT_GET_LAST_SUCCESSFUL_RUN_TARGET('proj')) args='run'",
-                id="system-func-last-successful",
-            ),
-            pytest.param(
-                ["--import", "SYSTEM$DBT_GET_LAST_FAILED_RUN_TARGET('proj')"],
-                "EXECUTE DBT PROJECT pipeline_name IMPORTS=(SYSTEM$DBT_GET_LAST_FAILED_RUN_TARGET('proj')) args='run'",
-                id="system-func-last-failed",
-            ),
-            pytest.param(
-                ["--import", "SYSTEM$LOCATE_DBT_ARTIFACTS('proj')"],
-                "EXECUTE DBT PROJECT pipeline_name IMPORTS=(SYSTEM$LOCATE_DBT_ARTIFACTS('proj')) args='run'",
-                id="system-func-locate-artifacts",
+                # Any SYSTEM$ function name is accepted; the server decides which
+                # are actually supported in IMPORTS.
+                ["--import", "SYSTEM$SOME_OTHER_FUNCTION('proj')"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=(SYSTEM$SOME_OTHER_FUNCTION('proj')) args='run'",
+                id="system-func-arbitrary-name",
             ),
             pytest.param(
                 ["--import", "SYSTEM$DBT_GET_LAST_RUN_TARGET('proj', 'target')"],
@@ -1346,9 +1338,16 @@ class TestDBTExecute:
                 id="system-func-trailing-sql",
             ),
             pytest.param(
-                "SYSTEM$FOO('a')",
-                "is not supported",
-                id="system-func-not-whitelisted",
+                "SYSTEM$FOO(bar())",
+                "is not valid",
+                id="system-func-nested-parens",
+            ),
+            pytest.param(
+                # Non-string-literal args are rejected, mirroring the server
+                # (only string-literal arguments are accepted in IMPORTS).
+                "SYSTEM$FOO(1)",
+                "is not valid",
+                id="system-func-non-literal-arg",
             ),
             pytest.param(
                 "@stage/s1 as as folder1",
