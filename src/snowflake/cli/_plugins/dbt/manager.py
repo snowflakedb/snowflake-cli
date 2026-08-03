@@ -62,22 +62,15 @@ _QUOTED_LITERAL = r"'(?:[^']|'')*'"
 # Valid folder-alias (mount name): the server requires an ASCII name of letters,
 # digits, underscores, and hyphens (GS DBT_IMPORTS_INVALID_MOUNT_NAME).
 _MOUNT_NAME_RE = re.compile(r"[A-Za-z0-9_-]+")
-# The SYSTEM$ functions the server accepts inside an IMPORTS entry, mirroring the
-# hardcoded whitelist in GS SqlExecuteDbtProject.evaluateDbtTargetFunction.
-# Compared case-insensitively (GS upper-cases the name before matching).
-_ALLOWED_DBT_IMPORT_FUNCTIONS = frozenset(
-    {
-        "SYSTEM$DBT_GET_LAST_RUN_TARGET",
-        "SYSTEM$DBT_GET_LAST_SUCCESSFUL_RUN_TARGET",
-        "SYSTEM$DBT_GET_LAST_FAILED_RUN_TARGET",
-        "SYSTEM$LOCATE_DBT_ARTIFACTS",
-    }
-)
-# SYSTEM$ scalar function call whose arguments (if any) are string literals only
-# — emitted into SQL verbatim, so both the function name (against the whitelist
-# above) and the arguments are constrained. Matched case-insensitively.
+# A SYSTEM$ scalar function call whose arguments (if any) are string literals
+# only. Any SYSTEM$ function name is accepted — the server validates whether the
+# function is supported in IMPORTS; the CLI only constrains the shape. The
+# string-literal-only argument rule mirrors the server, which accepts only
+# string-literal arguments in an IMPORTS function call. Restricting to literals
+# also means the value can be emitted into SQL verbatim safely. Matched
+# case-insensitively.
 _SYSTEM_FUNC = (
-    r"(?P<func>SYSTEM\$[A-Za-z_][A-Za-z0-9_]*)"
+    r"SYSTEM\$[A-Za-z_][A-Za-z0-9_]*"
     r"\(\s*(?:'(?:[^']|'')*'(?:\s*,\s*'(?:[^']|'')*')*\s*)?\)"
 )
 # Optional trailing " as <folder>", folder being a quoted literal or a bareword.
@@ -867,8 +860,8 @@ class DBTManager(SqlExecutionMixin):
         """Validate a single --import value and render its SQL form.
 
         An entry is ``VALUE [as ALIAS]``. VALUE is a stage path (``@…``), a dbt
-        snow URL (``snow://dbt/…``), or one of the whitelisted dbt ``SYSTEM$``
-        functions (see ``_ALLOWED_DBT_IMPORT_FUNCTIONS``); ALIAS is a folder
+        snow URL (``snow://dbt/…``), or a ``SYSTEM$`` function (any function
+        name — the server validates which are supported); ALIAS is a folder
         name. Each of VALUE (stage/snow only) and ALIAS may be given as a
         bareword (no spaces) or as a single-quoted literal (spaces allowed in
         the value) — a value containing spaces must therefore be quoted. The
@@ -887,15 +880,6 @@ class DBTManager(SqlExecutionMixin):
             raise CliError("--import value must not be empty.")
         match = _SYSTEM_IMPORT_RE.match(value)
         if match is not None:
-            if match.group("func").upper() not in _ALLOWED_DBT_IMPORT_FUNCTIONS:
-                raise CliError(
-                    f"--import function {match.group('func')!r} is not "
-                    "supported. Allowed functions: "
-                    "SYSTEM$DBT_GET_LAST_RUN_TARGET, "
-                    "SYSTEM$DBT_GET_LAST_SUCCESSFUL_RUN_TARGET, "
-                    "SYSTEM$DBT_GET_LAST_FAILED_RUN_TARGET, "
-                    "SYSTEM$LOCATE_DBT_ARTIFACTS."
-                )
             rendered = match.group("value")  # SYSTEM$ function, emitted raw
         else:
             match = _LOCATION_IMPORT_RE.match(value)
