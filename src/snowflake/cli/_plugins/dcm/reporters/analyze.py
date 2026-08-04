@@ -16,6 +16,7 @@ from typing import Any, Dict, Iterator, List
 
 from rich.text import Text
 from snowflake.cli._plugins.dcm.reporters.base import Reporter, cli_console
+from snowflake.cli._plugins.dcm.utils import RAW_ANALYZE_COMMAND_NAME
 from snowflake.cli.api.exceptions import CliError
 
 log = logging.getLogger(__name__)
@@ -26,7 +27,7 @@ class AnalyzeReporter(Reporter[Dict[str, Any]]):
 
     def __init__(self, save_output: bool = False):
         super().__init__(save_output=save_output)
-        self.command_name = "raw-analyze"
+        self.command_name = RAW_ANALYZE_COMMAND_NAME
         self._error_count = 0
         self._issue_count = 0
 
