@@ -22,6 +22,7 @@ from typing import Any, Dict, Generator
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import EmptyResult
 from snowflake.cli.api.secure_path import SecurePath
@@ -31,59 +32,112 @@ log = logging.getLogger(__name__)
 
 OUTPUT_FOLDER = "out"
 
+# raw-analyze's artifacts are named after the backend's own compile output, so
+# AnalyzeReporter must write and look for that name rather than the command's.
+RAW_ANALYZE_COMMAND_NAME = "compile"
 
-def clear_command_artifacts(command_name: str) -> None:
-    """Clear previous artifacts for the given command from the out/ directory."""
+
+def result_file_name(command_name: str) -> str:
+    return f"{command_name}_result.json"
+
+
+def prepare_output_folder() -> None:
+    """Recreate the out/ directory empty, so a run never mixes its artifacts with
+    anything an earlier one left behind."""
     output_dir = SecurePath(OUTPUT_FOLDER)
-    if not output_dir.exists():
+    if output_dir.exists():
+        log.debug("Dropping previous output folder %s", output_dir.path.resolve())
+        output_dir.rmdir(recursive=True)
+
+    output_dir.mkdir(parents=True)
+
+
+def result_file_exists(command_name: str) -> bool:
+    return (SecurePath(OUTPUT_FOLDER) / result_file_name(command_name)).exists()
+
+
+def _output_folder_has_files() -> bool:
+    output_dir = SecurePath(OUTPUT_FOLDER)
+    return output_dir.exists() and any(
+        path.is_file() for path in output_dir.path.rglob("*")
+    )
+
+
+def announce_output_artifacts() -> None:
+    if _output_folder_has_files():
+        cli_console.step(
+            f"Artifacts saved to: {SecurePath(OUTPUT_FOLDER).path.resolve()}"
+        )
+
+
+def save_command_response(
+    command_name: str,
+    raw_data: Dict[str, Any] | str,
+) -> None:
+    """Save raw JSON response to out/<command>_result.json.
+
+    Does nothing when the file is already there - out/ is recreated empty at
+    command entry, so it can only exist because the backend's download produced
+    it, and that copy is richer than the raw response.
+    """
+    if result_file_exists(command_name):
+        log.debug("Response file already exists. Will not recreate it.")
         return
 
-    json_file = output_dir / f"{command_name}.json"
-    if json_file.exists():
-        json_file.unlink()
-
-    artifacts_dir = output_dir / command_name
-    if artifacts_dir.exists():
-        artifacts_dir.rmdir(recursive=True)
-
-    log.info("Cleared previous artifacts for command '%s'.", command_name)
-
-
-def save_command_response(command_name: str, raw_data: Dict[str, Any] | str) -> None:
-    """Save raw JSON response to out/<command>.json."""
     output_dir = SecurePath(OUTPUT_FOLDER)
-    output_dir.mkdir(exist_ok=True)
-    json_file = output_dir / f"{command_name}.json"
+    json_file = output_dir / result_file_name(command_name)
+    log.debug("Saving response to %s", json_file.path.resolve())
     try:
         if isinstance(raw_data, str):
             json_file.write_text(raw_data)
         else:
             json_file.write_text(json.dumps(raw_data))
     except Exception as e:
-        log.error("Failed to save command response: %s", e)
-        return
+        raise CliError(
+            f"Failed to save command response to {json_file.path.resolve()}: {e}"
+        )
     log.info(
         "Saved raw JSON response for command '%s' in %s.",
         command_name,
-        json_file.resolve(),
+        json_file.path.resolve(),
     )
-    cli_console.step(f"Artifacts saved to: {output_dir.path.resolve()}")
+
+
+@contextmanager
+def command_artifacts(save_output: bool) -> Generator[None, None, None]:
+    """Recreate the out/ folder, then announce whatever the command produced.
+
+    Both only happen with --save-output, so a run that writes nothing back leaves
+    an earlier run's artifacts alone and stays quiet about them.
+
+    Announcing from a finally covers the failure path too: collect_output performs
+    a best-effort download when the command fails, so the user is told where those
+    artifacts landed even though the command errors out.
+    """
+    if save_output:
+        prepare_output_folder()
+    try:
+        yield
+    finally:
+        if save_output:
+            announce_output_artifacts()
 
 
 @contextmanager
 def collect_output(
-    project_identifier: FQN, command_name: str
+    project_identifier: FQN,
+    command_name: str,
 ) -> Generator[str, None, None]:
     """
     Context manager for handling command output artifacts - creates temporary stage,
-    downloads files to out/<command_name>/ folder after execution.
+    downloads files to the out/ folder after execution.
 
     Args:
         project_identifier: The DCM project identifier
-        command_name: Name of the command, used for the output subdirectory
+        command_name: Name of the command, used for logging
 
     Yields:
-        str: The effective output path to use in the DCM command
+        str: The output stage path to use in the DCM command
     """
     stage_manager = StageManager()
     temp_stage_fqn = FQN.from_resource(
@@ -99,23 +153,36 @@ def collect_output(
     effective_output_path = StagePath.from_stage_str(
         temp_stage_fqn.identifier
     ).joinpath("/outputs")
-    local_output_path = SecurePath(OUTPUT_FOLDER) / command_name
+    output_dir = SecurePath(OUTPUT_FOLDER)
 
-    try:
-        yield effective_output_path.absolute_path()
-    finally:
+    def _download_artifacts() -> None:
         log.info(
             "Downloading DCM %s artifacts from stage to local path (project_identifier=%s, stage_path=%s, local_path=%s).",
             command_name,
             project_identifier,
             effective_output_path.absolute_path(),
-            local_output_path.resolve(),
+            output_dir.path.resolve(),
         )
-        local_output_path.mkdir(parents=True, exist_ok=True)
         stage_manager.get_recursive(
             stage_path=effective_output_path.absolute_path(),
-            dest_path=local_output_path.path,
+            dest_path=output_dir.path,
         )
+
+    try:
+        yield effective_output_path.absolute_path()
+    except Exception:
+        try:
+            _download_artifacts()
+        except Exception as download_error:
+            log.warning(
+                "Failed to download DCM %s artifacts after failure (project_identifier=%s): %s",
+                command_name,
+                project_identifier,
+                download_error,
+            )
+        raise
+    else:
+        _download_artifacts()
 
 
 class FakeCursor:

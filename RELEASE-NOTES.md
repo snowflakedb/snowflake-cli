@@ -38,6 +38,7 @@
 * `snow app` commands (`validate`, `open`, `events`, `deploy`, `teardown`) now resolve their database and schema from the active connection like other CLI commands, so a bare `USER$` database configured in `snowflake.yml` is expanded to the caller's personal database.
 * `snow app setup` now defaults to a workspace for code storage on all databases (previously regular databases used a stage). When the role cannot create a workspace it uses a stage instead, and `snow app deploy` also falls back to a stage if a workspace cannot be used.
 * Upgraded `GitPython` from 3.1.50 to 3.1.57.
+* `snow dcm` commands run with `--save-output` now write artifacts directly into the `out/` directory, with each command's response in `out/<command>_result.json`, instead of nesting them under a per-command subdirectory. The `out/` directory is recreated empty at the start of every such run.
 
 
 # v3.23.0
