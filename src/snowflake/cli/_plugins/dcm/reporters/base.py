@@ -75,7 +75,7 @@ class Reporter(ABC, Generic[T]):
         cli_console.styled_message("\n")
 
     def _try_save_response(self, result_json: Dict[str, Any]) -> None:
-        """Save raw JSON response if save_output is enabled and raw data is available."""
+        """Save raw JSON response if save_output is enabled."""
         if self.save_output:
             save_command_response(self.command_name, result_json)
 

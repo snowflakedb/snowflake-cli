@@ -59,8 +59,8 @@ def assert_last_stdout_line_equals(expected, result: CommandResult):
 
 def assert_json_response_saved(command_name: str, project_root: Path):
     output_path = project_root / "out"
-    json_file = output_path / f"{command_name}.json"
-    assert json_file.exists(), f"{command_name}.json was not created."
+    json_file = output_path / f"{command_name}_result.json"
+    assert json_file.exists(), f"{command_name}_result.json was not created."
 
 
 def assert_artifacts_downloaded(artifacts_dir: Path):
@@ -444,9 +444,11 @@ def test_dcm_plan_with_save_output(
         # Verify raw JSON response was saved.
         assert_json_response_saved("plan", project_root)
 
-        plan_artifacts = output_path / "plan"
-        assert plan_artifacts.exists(), "plan/ artifact directory was not created."
-        assert_artifacts_downloaded(plan_artifacts)
+        rendered_artifacts = output_path / "rendered"
+        assert (
+            rendered_artifacts.exists()
+        ), "rendered/ artifact directory was not created."
+        assert_artifacts_downloaded(rendered_artifacts)
 
 
 @pytest.mark.qa_only
@@ -873,15 +875,16 @@ def test_dcm_raw_analyze_with_save_output(
         output_path = project_root / "out"
         assert output_path.exists(), f"Output directory out was not created."
 
-        # Verify raw JSON response was saved.
-        assert_json_response_saved("raw-analyze", project_root)
+        # raw-analyze's result file is named after the backend's own compile
+        # artifact, whether it was downloaded or written from the SQL response.
+        assert_json_response_saved("compile", project_root)
 
-        raw_analyze_artifacts = output_path / "raw-analyze"
+        rendered_artifacts = output_path / "rendered"
         assert (
-            raw_analyze_artifacts.exists()
-        ), "raw-analyze/ artifact directory was not created."
+            rendered_artifacts.exists()
+        ), "rendered/ artifact directory was not created."
 
-        assert_artifacts_downloaded(raw_analyze_artifacts)
+        assert_artifacts_downloaded(rendered_artifacts)
 
 
 @pytest.mark.qa_only
