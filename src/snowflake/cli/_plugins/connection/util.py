@@ -29,7 +29,7 @@ from snowflake.connector.cursor import DictCursor
 log = logging.getLogger(__name__)
 
 
-ALLOWLIST_QUERY = "SELECT SYSTEM$ALLOWLIST()"
+ALLOWLIST_QUERY = "SELECT SYSTEM$ALLOWLIST() AS result"
 SNOWFLAKE_DEPLOYMENT = "SNOWFLAKE_DEPLOYMENT"
 LOCAL_DEPLOYMENT_REGION: str = "us-west-2"
 
@@ -159,7 +159,7 @@ def guess_regioned_host_from_allowlist(conn: SnowflakeConnection) -> str | None:
     """
     try:
         *_, cursor = conn.execute_string(ALLOWLIST_QUERY, cursor_class=DictCursor)
-        allowlist_tuples = json.loads(cursor.fetchone()["SYSTEM$ALLOWLIST()"])
+        allowlist_tuples = json.loads(cursor.fetchone()["RESULT"])
         for t in allowlist_tuples:
             if t["type"] == SNOWFLAKE_DEPLOYMENT:
                 if get_host_region(t["host"]) is not None:
@@ -194,9 +194,9 @@ def get_context(conn: SnowflakeConnection) -> str:
     """
     if is_regionless_redirect(conn):
         *_, cursor = conn.execute_string(
-            f"select system$return_current_org_name()", cursor_class=DictCursor
+            "select system$return_current_org_name() as result", cursor_class=DictCursor
         )
-        return cursor.fetchone()["SYSTEM$RETURN_CURRENT_ORG_NAME()"]
+        return cursor.fetchone()["RESULT"]
 
     return get_region(conn)
 
@@ -207,9 +207,9 @@ def get_account(conn: SnowflakeConnection) -> str:
     """
     try:
         *_, cursor = conn.execute_string(
-            f"select current_account_name()", cursor_class=DictCursor
+            "select current_account_name() as result", cursor_class=DictCursor
         )
-        return cursor.fetchone()["CURRENT_ACCOUNT_NAME()"].lower()
+        return cursor.fetchone()["RESULT"].lower()
     except Exception as e:
         # try to extract the account from the connection information
         if conn.account:
@@ -249,9 +249,9 @@ def get_account_identifier(conn: SnowflakeConnection) -> AccountIdentifier:
 def get_snowsight_host(conn: SnowflakeConnection) -> str:
     try:
         *_, cursor = conn.execute_string(
-            f"select system$get_snowsight_host()", cursor_class=DictCursor
+            "select system$get_snowsight_host() as result", cursor_class=DictCursor
         )
-        return cursor.fetchone()["SYSTEM$GET_SNOWSIGHT_HOST()"]
+        return cursor.fetchone()["RESULT"]
     except Exception as e:
         # if we cannot determine the host, assume we're on prod
         return "https://app.snowflake.com"
