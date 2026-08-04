@@ -320,7 +320,7 @@ def test_guess_regioned_host_from_allowlist(allowlist, expected, mock_cursor):
     mock_conn = mock.MagicMock(spec=SnowflakeConnection)
     mock_conn.execute_string.return_value = (
         None,
-        mock_cursor([{"SYSTEM$ALLOWLIST()": json.dumps(allowlist)}], []),
+        mock_cursor([{"RESULT": json.dumps(allowlist)}], []),
     )
     assert guess_regioned_host_from_allowlist(mock_conn) == expected
 
