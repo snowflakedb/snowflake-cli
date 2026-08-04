@@ -21,7 +21,10 @@ from typing import List
 from snowflake.cli._plugins.dcm.models import MANIFEST_FILE_NAME, SOURCES_FOLDER
 from snowflake.cli._plugins.dcm.multistep_progress import StepProgressUpdater
 from snowflake.cli._plugins.dcm.progress import FileUploadProgress, upload_details
-from snowflake.cli._plugins.dcm.utils import collect_output
+from snowflake.cli._plugins.dcm.utils import (
+    RAW_ANALYZE_COMMAND_NAME,
+    collect_output,
+)
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.artifacts.utils import symlink_or_copy
@@ -114,7 +117,8 @@ class DCMProjectManager(SqlExecutionMixin):
 
         if save_output:
             with collect_output(
-                project_identifier, command_name="raw-analyze"
+                project_identifier,
+                command_name=RAW_ANALYZE_COMMAND_NAME,
             ) as output_stage:
                 query += f" OUTPUT_PATH {output_stage}"
                 result = self._execute_with_optional_env_vars(query, env_vars)
@@ -150,7 +154,8 @@ class DCMProjectManager(SqlExecutionMixin):
 
         if save_output:
             with collect_output(
-                project_identifier, command_name="plan"
+                project_identifier,
+                command_name="plan",
             ) as output_stage:
                 query += f" OUTPUT_PATH {output_stage}"
                 result = self._execute_with_optional_env_vars(query, env_vars)

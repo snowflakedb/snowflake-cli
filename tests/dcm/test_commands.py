@@ -10,6 +10,7 @@ from snowflake.cli._plugins.dcm.commands import (
 )
 from snowflake.cli._plugins.dcm.models import DCMManifest, DCMTarget
 from snowflake.cli._plugins.dcm.multistep_progress import MultiStepProgress
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN, AccountIdentifier
 from snowflake.cli.api.utils.path_utils import change_directory
 
@@ -30,7 +31,7 @@ def _analyze_response(files=None):
 
 
 def _assert_json_dumped(command: str, api_result: dict[str, Any], tmp_path: Path):
-    json_file = tmp_path / "out" / f"{command}.json"
+    json_file = tmp_path / "out" / f"{command}_result.json"
     assert json_file.exists()
     assert json.loads(json_file.read_text()) == api_result
 
@@ -1449,11 +1450,208 @@ class TestDCMPlan:
             result = runner.invoke(["dcm", "plan", "fooBar", "--save-output"])
 
             assert result.exit_code == 0, result.output
-
-            json_file = tmp_path / "out" / "plan.json"
-            assert json_file.exists()
-            assert json.loads(json_file.read_text()) == {"version": 2, "changeset": []}
             _assert_json_dumped("plan", plan_response, tmp_path)
+
+    def test_plan_with_save_output_drops_a_previous_runs_result_file(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        mock_connect,
+        tmp_path,
+    ):
+        """A result file left by an earlier run is cleared at command entry, so a
+        run that writes nothing back cannot leave last run's output behind."""
+        mock_dcm_manager().plan.side_effect = CliError("plan blew up")
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with change_directory(tmp_path):
+            out_dir = tmp_path / "out"
+            out_dir.mkdir()
+            (out_dir / "plan_result.json").write_text(
+                '{"from": "an earlier --save-output run"}'
+            )
+
+            result = runner.invoke(["dcm", "plan", "fooBar", "--save-output"])
+
+            assert result.exit_code != 0
+            assert not (out_dir / "plan_result.json").exists()
+
+    def test_plan_without_save_output_leaves_previous_artifacts_alone(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        mock_cursor,
+        mock_connect,
+        tmp_path,
+    ):
+        """A run that writes nothing back must not delete an earlier run's output."""
+        mock_dcm_manager().plan.return_value = _plan_cursor(
+            mock_cursor, json.dumps({"version": 2, "changeset": []})
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with change_directory(tmp_path):
+            out_dir = tmp_path / "out"
+            out_dir.mkdir()
+            previous = out_dir / "plan_result.json"
+            previous.write_text('{"from": "an earlier --save-output run"}')
+
+            result = runner.invoke(["dcm", "plan", "fooBar"])
+
+            assert result.exit_code == 0, result.output
+            assert json.loads(previous.read_text()) == {
+                "from": "an earlier --save-output run"
+            }
+
+    def test_plan_announces_artifacts_once(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        mock_cursor,
+        mock_connect,
+        tmp_path,
+    ):
+        plan_response = {"version": 2, "changeset": []}
+        mock_dcm_manager().plan.return_value = _plan_cursor(
+            mock_cursor, json.dumps(plan_response)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["dcm", "plan", "fooBar", "--save-output"])
+
+            assert result.exit_code == 0, result.output
+            assert result.output.count("Artifacts saved to") == 1
+
+    def test_plan_announces_artifacts_when_the_response_cannot_be_parsed(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        mock_cursor,
+        mock_connect,
+        tmp_path,
+    ):
+        """The reporter writes the result file before it fails to parse the
+        response, so the user must still be told where it landed."""
+        mock_dcm_manager().plan.return_value = _plan_cursor(
+            mock_cursor, json.dumps({"not": "a plan response"})
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["dcm", "plan", "fooBar", "--save-output"])
+
+            assert result.exit_code != 0
+            assert (tmp_path / "out" / "plan_result.json").exists()
+            assert "Artifacts saved to" in result.output
+
+    def test_plan_does_not_announce_without_save_output(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        mock_cursor,
+        mock_connect,
+        tmp_path,
+    ):
+        plan_response = {"version": 2, "changeset": []}
+        mock_dcm_manager().plan.return_value = _plan_cursor(
+            mock_cursor, json.dumps(plan_response)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["dcm", "plan", "fooBar"])
+
+            assert result.exit_code == 0, result.output
+            assert "Artifacts saved to" not in result.output
+
+    def test_plan_announces_artifacts_downloaded_on_the_failure_path(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        mock_connect,
+        tmp_path,
+    ):
+        """collect_output downloads best-effort when the command fails, so the
+        user must still be told where those artifacts landed."""
+
+        def plan_failing_after_download(*args, **kwargs):
+            out_dir = Path.cwd() / "out"
+            out_dir.mkdir(exist_ok=True)
+            (out_dir / "plan_result.json").write_text('{"errors": ["compile failed"]}')
+            raise CliError("plan blew up")
+
+        mock_dcm_manager().plan.side_effect = plan_failing_after_download
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["dcm", "plan", "fooBar", "--save-output"])
+
+            assert result.exit_code != 0
+            assert (tmp_path / "out" / "plan_result.json").exists()
+            assert "Artifacts saved to" in result.output
+
+    def test_plan_does_not_announce_when_nothing_was_produced(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        mock_connect,
+        tmp_path,
+    ):
+        mock_dcm_manager().plan.side_effect = CliError("plan blew up")
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["dcm", "plan", "fooBar", "--save-output"])
+
+            assert result.exit_code != 0
+            assert "Artifacts saved to" not in result.output
+
+    def test_plan_with_save_output_keeps_downloaded_result_file(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        mock_cursor,
+        mock_connect,
+        tmp_path,
+    ):
+        downloaded_result = {
+            "version": 2,
+            "changeset": [],
+            "downloaded_by_backend": True,
+        }
+        plan_response = {"version": 2, "changeset": []}
+
+        def plan_downloading_result_file(*args, **kwargs):
+            out_dir = Path.cwd() / "out"
+            out_dir.mkdir(exist_ok=True)
+            (out_dir / "plan_result.json").write_text(json.dumps(downloaded_result))
+            return _plan_cursor(mock_cursor, json.dumps(plan_response))
+
+        mock_dcm_manager().plan.side_effect = plan_downloading_result_file
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["dcm", "plan", "fooBar", "--save-output"])
+
+            assert result.exit_code == 0, result.output
+            _assert_json_dumped("plan", downloaded_result, tmp_path)
 
     @pytest.mark.parametrize("format_name", ["json", "json_ext"])
     def test_plan_with_json_formats_returns_response(
@@ -2019,7 +2217,31 @@ class TestDCMRawAnalyze:
             env_vars={},
         )
 
-    def test_raw_analyze_with_save_output_saves_response(
+    def test_raw_analyze_clears_stale_compile_result_before_running(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        mock_connect,
+        tmp_path,
+    ):
+        """A compile_result.json left by a previous run must not survive as if it
+        described this run."""
+        mock_dcm_manager().raw_analyze.side_effect = CliError("analyze blew up")
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with change_directory(tmp_path):
+            out_dir = tmp_path / "out"
+            out_dir.mkdir()
+            (out_dir / "compile_result.json").write_text('{"stale": "previous run"}')
+
+            result = runner.invoke(["dcm", "raw-analyze", "fooBar", "--save-output"])
+
+            assert result.exit_code != 0
+            assert not (out_dir / "compile_result.json").exists()
+
+    def test_raw_analyze_with_save_output_writes_compile_result(
         self,
         mock_dcm_manager,
         mock_manifest_load,
@@ -2028,6 +2250,8 @@ class TestDCMRawAnalyze:
         mock_connect,
         tmp_path,
     ):
+        """raw-analyze's result file is compile_result.json, matching the file the
+        backend itself writes."""
         analyze_response = {
             "files": [
                 {
@@ -2047,7 +2271,38 @@ class TestDCMRawAnalyze:
             result = runner.invoke(["dcm", "raw-analyze", "fooBar", "--save-output"])
 
             assert result.exit_code == 0, result.output
-            _assert_json_dumped("raw-analyze", analyze_response, tmp_path)
+            _assert_json_dumped("compile", analyze_response, tmp_path)
+            assert not (tmp_path / "out" / "raw-analyze_result.json").exists()
+
+    def test_raw_analyze_with_save_output_keeps_downloaded_result_file(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        mock_cursor,
+        mock_connect,
+        tmp_path,
+    ):
+        downloaded_result = {"files": [], "downloaded_by_backend": True}
+        analyze_response = {"files": []}
+
+        def raw_analyze_downloading_result_file(*args, **kwargs):
+            out_dir = Path.cwd() / "out"
+            out_dir.mkdir(exist_ok=True)
+            (out_dir / "compile_result.json").write_text(json.dumps(downloaded_result))
+            return mock_cursor(
+                rows=[(json.dumps(analyze_response),)], columns=("result",)
+            )
+
+        mock_dcm_manager().raw_analyze.side_effect = raw_analyze_downloading_result_file
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["dcm", "raw-analyze", "fooBar", "--save-output"])
+
+            assert result.exit_code == 0, result.output
+            _assert_json_dumped("compile", downloaded_result, tmp_path)
 
     def test_raw_analyze_from_stage_fails(
         self, mock_dcm_manager, runner, project_directory
