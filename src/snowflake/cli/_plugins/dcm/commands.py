@@ -71,6 +71,7 @@ from snowflake.cli.api.constants import (
     ObjectType,
 )
 from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN, AccountIdentifier
 from snowflake.cli.api.output.types import (
     MessageResult,
@@ -155,6 +156,7 @@ env_file_option = typer.Option(
     "truncated at the '#' or trimmed.",
     show_default=False,
     click_type=LocalFileType(),
+    hidden=not FeatureFlag.ENABLE_DCM_PROJECT_ENV_VARS.is_enabled(),
 )
 
 
