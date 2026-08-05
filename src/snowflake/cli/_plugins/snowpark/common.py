@@ -123,6 +123,12 @@ class SnowparkObjectManager(SqlExecutionMixin):
             )
             query.append(f"RESOURCE_CONSTRAINT=({constraints})")
 
+        if entity.strict:
+            query.append("returns null on null input")
+
+        if entity.immutable:
+            query.append("immutable")
+
         if isinstance(entity, ProcedureEntityModel) and entity.execute_as_caller:
             query.append("execute as caller")
 
@@ -235,6 +241,20 @@ def _check_if_replace_is_required(
                 "Execute as caller settings do not match. Replacing the %s", object_type
             )
             return True
+
+    expected_null_handling = (
+        "RETURNS NULL ON NULL INPUT" if entity.strict else "CALLED ON NULL INPUT"
+    )
+    current_null_handling = resource_json.get("null handling", "CALLED ON NULL INPUT")
+    if current_null_handling.upper() != expected_null_handling:
+        log.info("Null handling does not match. Replacing the %s", object_type)
+        return True
+
+    expected_volatility = "IMMUTABLE" if entity.immutable else "VOLATILE"
+    current_volatility = resource_json.get("volatility", "VOLATILE")
+    if current_volatility.upper() != expected_volatility:
+        log.info("Volatility does not match. Replacing the %s", object_type)
+        return True
 
     return False
 

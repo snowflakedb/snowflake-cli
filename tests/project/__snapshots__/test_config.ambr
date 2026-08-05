@@ -229,6 +229,7 @@
             'external_2',
           ]),
           'handler': 'app.func1_handler',
+          'immutable': False,
           'imports': list([
           ]),
           'name': 'func1',
@@ -251,6 +252,7 @@
               'name': 'b',
             }),
           ]),
+          'strict': False,
         }),
       ]),
       'procedures': list([
@@ -273,6 +275,7 @@
           'external_access_integrations': list([
           ]),
           'handler': 'app.hello_function',
+          'immutable': False,
           'imports': list([
           ]),
           'name': 'custom_db.custom_schema.fqn_function',
@@ -288,12 +291,14 @@
               'name': 'name',
             }),
           ]),
+          'strict': False,
         }),
         dict({
           'database': None,
           'external_access_integrations': list([
           ]),
           'handler': 'app.hello_function',
+          'immutable': False,
           'imports': list([
           ]),
           'name': 'custom_schema.fqn_function_only_schema',
@@ -309,12 +314,14 @@
               'name': 'name',
             }),
           ]),
+          'strict': False,
         }),
         dict({
           'database': None,
           'external_access_integrations': list([
           ]),
           'handler': 'app.hello_function',
+          'immutable': False,
           'imports': list([
           ]),
           'name': 'schema_function',
@@ -330,12 +337,14 @@
               'name': 'name',
             }),
           ]),
+          'strict': False,
         }),
         dict({
           'database': 'custom_db',
           'external_access_integrations': list([
           ]),
           'handler': 'app.hello_function',
+          'immutable': False,
           'imports': list([
           ]),
           'name': 'database_function',
@@ -351,12 +360,14 @@
               'name': 'name',
             }),
           ]),
+          'strict': False,
         }),
         dict({
           'database': 'custom_db',
           'external_access_integrations': list([
           ]),
           'handler': 'app.hello_function',
+          'immutable': False,
           'imports': list([
           ]),
           'name': 'custom_schema.database_function',
@@ -372,12 +383,14 @@
               'name': 'name',
             }),
           ]),
+          'strict': False,
         }),
         dict({
           'database': 'custom_database',
           'external_access_integrations': list([
           ]),
           'handler': 'app.hello_function',
+          'immutable': False,
           'imports': list([
           ]),
           'name': 'custom_database.custom_schema.fqn_function_error',
@@ -393,6 +406,7 @@
               'name': 'name',
             }),
           ]),
+          'strict': False,
         }),
       ]),
       'procedures': list([
@@ -415,6 +429,7 @@
           'external_access_integrations': list([
           ]),
           'handler': 'app.func1_handler',
+          'immutable': False,
           'imports': list([
           ]),
           'name': 'func1',
@@ -437,6 +452,7 @@
               'name': 'b',
             }),
           ]),
+          'strict': False,
         }),
       ]),
       'procedures': list([
@@ -459,6 +475,7 @@
           'external_access_integrations': list([
           ]),
           'handler': 'app.func1_handler',
+          'immutable': False,
           'imports': list([
           ]),
           'name': 'func1',
@@ -479,6 +496,7 @@
               'name': 'b',
             }),
           ]),
+          'strict': False,
         }),
       ]),
       'procedures': list([
@@ -506,6 +524,7 @@
             'external_2',
           ]),
           'handler': 'app.hello',
+          'immutable': False,
           'imports': list([
           ]),
           'name': 'procedureName',
@@ -523,6 +542,7 @@
               'name': 'name',
             }),
           ]),
+          'strict': False,
         }),
       ]),
       'project_name': 'my_snowpark_project',
@@ -546,6 +566,7 @@
           'external_access_integrations': list([
           ]),
           'handler': 'app.hello_procedure',
+          'immutable': False,
           'imports': list([
           ]),
           'name': 'custom_db.custom_schema.fqn_procedure',
@@ -561,6 +582,7 @@
               'name': 'name',
             }),
           ]),
+          'strict': False,
         }),
         dict({
           'database': None,
@@ -568,6 +590,7 @@
           'external_access_integrations': list([
           ]),
           'handler': 'app.hello_procedure',
+          'immutable': False,
           'imports': list([
           ]),
           'name': 'custom_schema.fqn_procedure_only_schema',
@@ -583,6 +606,7 @@
               'name': 'name',
             }),
           ]),
+          'strict': False,
         }),
         dict({
           'database': None,
@@ -590,6 +614,7 @@
           'external_access_integrations': list([
           ]),
           'handler': 'app.hello_procedure',
+          'immutable': False,
           'imports': list([
           ]),
           'name': 'schema_procedure',
@@ -605,6 +630,7 @@
               'name': 'name',
             }),
           ]),
+          'strict': False,
         }),
         dict({
           'database': 'custom_db',
@@ -612,6 +638,7 @@
           'external_access_integrations': list([
           ]),
           'handler': 'app.hello_procedure',
+          'immutable': False,
           'imports': list([
           ]),
           'name': 'database_procedure',
@@ -627,6 +654,7 @@
               'name': 'name',
             }),
           ]),
+          'strict': False,
         }),
         dict({
           'database': 'custom_db',
@@ -634,6 +662,7 @@
           'external_access_integrations': list([
           ]),
           'handler': 'app.hello_procedure',
+          'immutable': False,
           'imports': list([
           ]),
           'name': 'custom_schema.database_procedure',
@@ -649,6 +678,7 @@
               'name': 'name',
             }),
           ]),
+          'strict': False,
         }),
         dict({
           'database': 'custom_database',
@@ -656,6 +686,7 @@
           'external_access_integrations': list([
           ]),
           'handler': 'app.hello_procedure',
+          'immutable': False,
           'imports': list([
           ]),
           'name': 'custom_database.custom_schema.fqn_procedure_error',
@@ -671,6 +702,7 @@
               'name': 'name',
             }),
           ]),
+          'strict': False,
         }),
       ]),
       'project_name': 'my_snowpark_project',
@@ -694,6 +726,7 @@
           'external_access_integrations': list([
           ]),
           'handler': 'app.hello',
+          'immutable': False,
           'imports': list([
           ]),
           'name': 'procedureName',
@@ -711,6 +744,7 @@
               'name': 'name',
             }),
           ]),
+          'strict': False,
         }),
       ]),
       'project_name': 'my_snowpark_project',
@@ -734,6 +768,7 @@
           'external_access_integrations': list([
           ]),
           'handler': 'hello',
+          'immutable': False,
           'imports': list([
           ]),
           'name': 'procedureName',
@@ -749,6 +784,7 @@
               'name': 'name',
             }),
           ]),
+          'strict': False,
         }),
         dict({
           'database': None,
@@ -756,6 +792,7 @@
           'external_access_integrations': list([
           ]),
           'handler': 'test',
+          'immutable': False,
           'imports': list([
           ]),
           'name': 'test',
@@ -765,6 +802,7 @@
           'secrets': dict({
           }),
           'signature': '',
+          'strict': False,
         }),
       ]),
       'project_name': 'my_snowpark_project',
