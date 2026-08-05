@@ -914,7 +914,7 @@ def snowflake_app_deploy(
             project_paths = perform_bundle(resolved_entity_id, entity)
 
         def _upload_via_workspace(workspace_fqn: FQN) -> None:
-            """Prepare, upload, and commit the workspace code-storage backend.
+            """Prepare and upload the workspace code-storage backend.
 
             On a permission failure the behaviour depends on the destination: a
             personal database cannot fall back to a stage, so an actionable
@@ -962,13 +962,6 @@ def snowflake_app_deploy(
                         f"  Uploaded {result['source']} -> {result['target']}"
                     )
                 metrics.set_counter(FILES_UPLOADED_COUNTER, files_uploaded)
-            with metrics.span("snowflake_app.upload.commit_workspace"):
-                cli_console.step(
-                    f"Committing workspace live version for {workspace_fqn}"
-                )
-                manager.commit_workspace_live_version(workspace_fqn)
-                cli_console.step(f"Creating a fresh live version for {workspace_fqn}")
-                manager.ensure_workspace_live_version(workspace_fqn)
 
         def _upload_via_stage(stage_fqn: FQN, encryption: str) -> None:
             """Prepare and upload the stage code-storage backend."""
@@ -1088,9 +1081,9 @@ def snowflake_app_deploy(
                     ),
                 )
                 if use_workspace:
-                    build_kwargs[
-                        "source_uri"
-                    ] = manager.workspace_last_subdirectory_uri(storage_fqn, app_name)
+                    build_kwargs["source_uri"] = manager.workspace_subdirectory_uri(
+                        storage_fqn, app_name
+                    )
                 else:
                     build_kwargs["stage_fqn"] = storage_fqn
                 build_result = manager.build_app_artifact_repo(**build_kwargs)

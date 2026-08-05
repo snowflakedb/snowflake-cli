@@ -1262,14 +1262,6 @@ class TestSnowflakeAppManager:
         ]
 
     @patch(EXECUTE_QUERY)
-    def test_commit_workspace_live_version(self, mock_execute):
-        fqn = FQN(database="DB", schema="SCHEMA", name="WORKSPACE")
-        SnowflakeAppManager().commit_workspace_live_version(fqn)
-        mock_execute.assert_called_once_with(
-            "ALTER WORKSPACE IDENTIFIER('DB.SCHEMA.WORKSPACE') COMMIT"
-        )
-
-    @patch(EXECUTE_QUERY)
     def test_ensure_workspace_live_version(self, mock_execute):
         fqn = FQN(database="DB", schema="SCHEMA", name="WORKSPACE")
         SnowflakeAppManager().ensure_workspace_live_version(fqn)
@@ -1296,20 +1288,6 @@ class TestSnowflakeAppManager:
         mock_execute.side_effect = ProgrammingError("some other error")
         with pytest.raises(ProgrammingError):
             SnowflakeAppManager().ensure_workspace_live_version(fqn)
-
-    def test_workspace_last_uri(self):
-        fqn = FQN(database="DB", schema="SCHEMA", name="WORKSPACE")
-        assert (
-            SnowflakeAppManager().workspace_last_uri(fqn)
-            == "snow://workspace/DB.SCHEMA.WORKSPACE/versions/last"
-        )
-
-    def test_workspace_last_subdirectory_uri_normalizes_directory_name(self):
-        fqn = FQN(database="DB", schema="SCHEMA", name="WORKSPACE")
-        assert (
-            SnowflakeAppManager().workspace_last_subdirectory_uri(fqn, "/MY_APP/")
-            == "snow://workspace/DB.SCHEMA.WORKSPACE/versions/last/MY_APP"
-        )
 
     @patch(EXECUTE_QUERY)
     def test_upload_to_workspace_builds_native_file_uri(self, mock_execute, tmp_path):
@@ -6623,9 +6601,7 @@ class TestDeployCommand:
         mock_perform_bundle.return_value = project_paths
 
         mock_mgr = mock_manager_cls.return_value
-        mock_mgr.workspace_last_subdirectory_uri.return_value = (
-            _WORKSPACE_BUILD_SOURCE_URI
-        )
+        mock_mgr.workspace_subdirectory_uri.return_value = _WORKSPACE_BUILD_SOURCE_URI
         mock_mgr.artifact_repo_exists.return_value = False
         mock_mgr.build_app_artifact_repo.return_value = (
             "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
@@ -6655,15 +6631,9 @@ class TestDeployCommand:
             FQN(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP_CODE"),
             "MY_APP",
         )
-        mock_mgr.commit_workspace_live_version.assert_called_once_with(
-            FQN(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP_CODE")
-        )
-        mock_mgr.ensure_workspace_live_version.assert_called_once_with(
-            FQN(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP_CODE")
-        )
         mock_mgr.create_stage.assert_not_called()
         mock_mgr.build_app_artifact_repo.assert_called_once_with(
-            source_uri=mock_mgr.workspace_last_subdirectory_uri.return_value,
+            source_uri=mock_mgr.workspace_subdirectory_uri.return_value,
             artifact_repo_fqn="TEST_DB.TEST_SCHEMA.MY_APP_REPO",
             app_id="MY_APP",
             compute_pool="BUILD_POOL",
@@ -6673,7 +6643,7 @@ class TestDeployCommand:
             build_eai="MY_EAI",
             project_type="",
         )
-        mock_mgr.workspace_last_subdirectory_uri.assert_called_once_with(
+        mock_mgr.workspace_subdirectory_uri.assert_called_with(
             FQN(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP_CODE"),
             "MY_APP",
         )
@@ -6855,9 +6825,7 @@ class TestDeployCommand:
         mock_perform_bundle.return_value = project_paths
 
         mock_mgr = mock_manager_cls.return_value
-        mock_mgr.workspace_last_subdirectory_uri.return_value = (
-            _WORKSPACE_BUILD_SOURCE_URI
-        )
+        mock_mgr.workspace_subdirectory_uri.return_value = _WORKSPACE_BUILD_SOURCE_URI
         mock_mgr.artifact_repo_exists.return_value = False
         mock_mgr.build_app_artifact_repo.return_value = (
             "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
@@ -6877,7 +6845,7 @@ class TestDeployCommand:
             assert result.exit_code == 0, result.output
 
         mock_mgr.build_app_artifact_repo.assert_called_once_with(
-            source_uri=mock_mgr.workspace_last_subdirectory_uri.return_value,
+            source_uri=mock_mgr.workspace_subdirectory_uri.return_value,
             artifact_repo_fqn="TEST_DB.TEST_SCHEMA.MY_APP_REPO",
             app_id="MY_APP",
             compute_pool="BUILD_POOL",
@@ -6967,9 +6935,7 @@ class TestDeployCommand:
         mock_perform_bundle.return_value = project_paths
 
         mock_mgr = mock_manager_cls.return_value
-        mock_mgr.workspace_last_subdirectory_uri.return_value = (
-            _WORKSPACE_BUILD_SOURCE_URI
-        )
+        mock_mgr.workspace_subdirectory_uri.return_value = _WORKSPACE_BUILD_SOURCE_URI
         mock_mgr.artifact_repo_exists.return_value = True
         mock_mgr.build_app_artifact_repo.return_value = (
             "Build job submitted: DB.SCHEMA.BUILD_JOB_123"
@@ -7062,9 +7028,7 @@ class TestDeployCommand:
         mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
 
         mock_mgr = mock_manager_cls.return_value
-        mock_mgr.workspace_last_subdirectory_uri.return_value = (
-            _WORKSPACE_BUILD_SOURCE_URI
-        )
+        mock_mgr.workspace_subdirectory_uri.return_value = _WORKSPACE_BUILD_SOURCE_URI
         mock_mgr.artifact_repo_exists.return_value = False
         mock_mgr.build_app_artifact_repo.return_value = (
             "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
@@ -7914,7 +7878,6 @@ class TestDeployCommand:
             == fallback_stage_fqn
         )
         assert "source_uri" not in mock_mgr.build_app_artifact_repo.call_args.kwargs
-        mock_mgr.workspace_last_subdirectory_uri.assert_not_called()
         # ... and the created stage is dropped once the build completes.
         mock_mgr.drop_stage_if_exists.assert_called_once_with(fallback_stage_fqn)
 
@@ -8156,9 +8119,7 @@ class TestDeployCommand:
         mock_perform_bundle.return_value = project_paths
 
         mock_mgr = mock_manager_cls.return_value
-        mock_mgr.workspace_last_subdirectory_uri.return_value = (
-            _WORKSPACE_BUILD_SOURCE_URI
-        )
+        mock_mgr.workspace_subdirectory_uri.return_value = _WORKSPACE_BUILD_SOURCE_URI
         mock_mgr.artifact_repo_exists.return_value = True
         mock_mgr.build_app_artifact_repo.return_value = (
             "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
@@ -8256,9 +8217,7 @@ class TestDeployCommand:
         mock_perform_bundle.return_value = project_paths
 
         mock_mgr = mock_manager_cls.return_value
-        mock_mgr.workspace_last_subdirectory_uri.return_value = (
-            _WORKSPACE_BUILD_SOURCE_URI
-        )
+        mock_mgr.workspace_subdirectory_uri.return_value = _WORKSPACE_BUILD_SOURCE_URI
         mock_mgr.artifact_repo_exists.return_value = False
         mock_mgr.build_app_artifact_repo.return_value = (
             "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
@@ -8345,8 +8304,6 @@ class TestDeployCommand:
             assert "Artifacts uploaded" in result.output
 
         mock_mgr.create_workspace.assert_called_once()
-        mock_mgr.commit_workspace_live_version.assert_called_once()
-        mock_mgr.ensure_workspace_live_version.assert_called_once()
         mock_perform_bundle.assert_called_once()
         mock_mgr.build_app_artifact_repo.assert_not_called()
         mock_mgr.create_app_service.assert_not_called()
@@ -8397,9 +8354,7 @@ class TestDeployCommand:
         mock_get_entity.return_value = entity
 
         mock_mgr = mock_manager_cls.return_value
-        mock_mgr.workspace_last_subdirectory_uri.return_value = (
-            _WORKSPACE_BUILD_SOURCE_URI
-        )
+        mock_mgr.workspace_subdirectory_uri.return_value = _WORKSPACE_BUILD_SOURCE_URI
         mock_mgr.artifact_repo_exists.return_value = False
         mock_mgr.build_app_artifact_repo.return_value = (
             "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
@@ -8708,9 +8663,7 @@ class TestDeployCommand:
         mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
 
         mock_mgr = mock_manager_cls.return_value
-        mock_mgr.workspace_last_subdirectory_uri.return_value = (
-            _WORKSPACE_BUILD_SOURCE_URI
-        )
+        mock_mgr.workspace_subdirectory_uri.return_value = _WORKSPACE_BUILD_SOURCE_URI
         mock_mgr.artifact_repo_exists.return_value = False
         mock_mgr.build_app_artifact_repo.return_value = (
             "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
@@ -8802,9 +8755,7 @@ class TestDeployCommand:
         mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
 
         mock_mgr = mock_manager_cls.return_value
-        mock_mgr.workspace_last_subdirectory_uri.return_value = (
-            _WORKSPACE_BUILD_SOURCE_URI
-        )
+        mock_mgr.workspace_subdirectory_uri.return_value = _WORKSPACE_BUILD_SOURCE_URI
         mock_mgr.artifact_repo_exists.return_value = False
         mock_mgr.build_app_artifact_repo.return_value = (
             "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
@@ -8893,9 +8844,7 @@ class TestDeployCommand:
         mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
 
         mock_mgr = mock_manager_cls.return_value
-        mock_mgr.workspace_last_subdirectory_uri.return_value = (
-            _WORKSPACE_BUILD_SOURCE_URI
-        )
+        mock_mgr.workspace_subdirectory_uri.return_value = _WORKSPACE_BUILD_SOURCE_URI
         mock_mgr.artifact_repo_exists.return_value = False
         mock_mgr.build_app_artifact_repo.return_value = (
             "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
