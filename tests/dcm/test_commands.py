@@ -735,7 +735,13 @@ class TestDCMDeploy:
                 "DB_HOST=prod.analytics.internal\nAWS_SECRET_KEY=shhh\n"
             )
             result = runner.invoke(
-                ["dcm", "deploy", "fooBar", "--env-file", str(project_dir / ".env")]
+                [
+                    "dcm",
+                    "deploy",
+                    "fooBar",
+                    "--env-file",
+                    str(project_dir / ".env"),
+                ]
             )
 
         assert result.exit_code == 0, result.output
@@ -772,7 +778,13 @@ class TestDCMDeploy:
                 "DB_HOST=from-file\nAWS_SECRET_KEY=from-file\n"
             )
             result = runner.invoke(
-                ["dcm", "deploy", "fooBar", "--env-file", str(project_dir / ".env")]
+                [
+                    "dcm",
+                    "deploy",
+                    "fooBar",
+                    "--env-file",
+                    str(project_dir / ".env"),
+                ]
             )
 
         assert result.exit_code == 0, result.output
