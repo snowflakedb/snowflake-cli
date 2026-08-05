@@ -21,6 +21,13 @@
 ## New additions
 
 ## Fixes and improvements
+* `snow app deploy` with workspace-backed storage now builds from `versions/live/` (the current working state) instead of the last committed version. In the Workspaces editor, files auto-save to the live version continuously — reading `versions/last` during the build phase caused stale content to be deployed when running from a live workspace session.
+* DCM projects: the `--env-file`/`-e` option for sourcing declared
+  `templating.env_vars`/`templating.env_secrets` values from a `.env` file is
+  not yet generally available. It is now hidden from `--help` unless the
+  `enable_dcm_project_env_vars` CLI feature flag is enabled. This fixes a bug
+  introduced in v3.24.0, where the option was visible without requiring any
+  opt-in.
 
 
 # v3.24.0
@@ -35,7 +42,7 @@
 * Added `snow spcs service remote-build`, `remote-build-status`, and `remote-build-history` commands that submit and track SPCS image/app builds via the remote build REST API. These commands are hidden by default and gated by the `enable_spcs_remote_build` CLI feature flag.
 * `snow dcm plan` now supports the `--delta` flag for incremental deployments. This option enables processing only statements that have changed since the last deploy, plus statements potentially impacted by those changes.
 * `snow dcm` commands are now generally available (GA). DCM provides infrastructure-as-code capabilities for managing Snowflake objects through declarative SQL files. All DCM commands are now available without needing to enable the `enable_snowflake_projects` feature flag.
-* DCM projects: `snow dcm deploy`, `snow dcm plan`, `snow dcm preview`, and `snow dcm raw-analyze` now support environment variables and secrets declared in a project manifest's `templating.env_vars`/`templating.env_secrets` sections. Declared values are collected from the shell environment, or from a `.env` file passed via `--env-file`/`-e` (the shell always wins for a name declared in both), and forwarded to the server; `raw-analyze` previously had no support for this at all.
+* DCM projects: `snow dcm deploy`, `snow dcm plan`, and `snow dcm preview` now support environment variables and secrets declared in a project manifest's `templating.env_vars`/`templating.env_secrets` sections. Declared values are collected from the shell environment, or from a `.env` file passed via `--env-file`/`-e` (the shell always wins for a name declared in both), and forwarded to the server.
 * Added `snow helpers check-version`, which reports the installed Snowflake CLI version alongside the latest published version and whether an upgrade is available. Use `--refresh` to bypass the local cache and query PyPI/Homebrew directly. This is the on-demand equivalent of the automatic upgrade banner and always reports its result, even when `ignore_new_version_warning` is set.
 * Added `snow dbt copy`, which copies files between a local directory and a stage (or between stages) for a dbt project. It is an alias of `snow stage copy` and supports the same paths and options (`--recursive`, `--overwrite`, `--parallel`, `--auto-compress`, `--refresh`).
 * `snow app events` now surfaces app health telemetry for Snowflake App Runtime projects. `--type log|metric|lifecycle` selects the stream (default `log`); `--since` / `--until` accept relative shorthand (e.g. `30m`, `6h`, `2d`) or absolute UTC timestamps and switch logs to the historical event table, while `metric` and `lifecycle` are always historical and default to the last hour. `--metric cpu|memory|network` narrows metric output and `--raw` emits unconverted values (bytes, cores). The bare `snow app events` live log tail is unchanged.
@@ -43,7 +50,7 @@
 
 ## Fixes and improvements
 * `snow dcm` commands now summarize the files being uploaded as a tree beneath the upload step, instead of listing every file on its own line.
-* Recursive stage uploads now upload directories concurrently instead of one at a time. This applies to every command that uploads a directory tree to a stage (e.g. `snow stage copy --recursive`, `snow dcm` deploy/plan/analyze, `snow dbt deploy`, `snow spcs service build-image`). Upload wall-clock is dominated by per-PUT round-trip latency, so trees with many nested folders (e.g. one file per directory) see a large speedup. Total upload concurrency is bounded by the `SNOWFLAKE_CLI_STAGE_UPLOAD_WORKERS` setting (config key `cli.stage_upload_workers`, default 16; set to 1 to restore the previous serial behavior). For `snow stage copy` this budget is shared with `--parallel` rather than multiplied by it, so existing invocations do not spawn more threads than before.
+* Recursive stage uploads now upload directories concurrently instead of one at a time. This applies to every command that uploads a directory tree to a stage (e.g. `snow stage copy --recursive`, `snow dcm deploy`, `snow dcm plan`, `snow dbt deploy`, `snow spcs service build-image`). Upload wall-clock is dominated by per-PUT round-trip latency, so trees with many nested folders (e.g. one file per directory) see a large speedup. Total upload concurrency is bounded by the `SNOWFLAKE_CLI_STAGE_UPLOAD_WORKERS` setting (config key `cli.stage_upload_workers`, default 16; set to 1 to restore the previous serial behavior). For `snow stage copy` this budget is shared with `--parallel` rather than multiplied by it, so existing invocations do not spawn more threads than before.
 * `snow dcm plan`, `deploy`, and `purge` now render each altered object's changes as an indented tree, showing added, modified, and removed columns, constraints, grants, and other properties — with previous → new values — instead of only the object name. Long or multi-line values are collapsed to a single line.
 * A bare `USER$` database resolved from the active connection is now expanded to the caller's personal database (`USER$<username>`) when the connection specifies a username, so commands validate and report against the fully-qualified name.
 * `snow app` commands (`validate`, `open`, `events`, `deploy`, `teardown`) now resolve their database and schema from the active connection like other CLI commands, so a bare `USER$` database configured in `snowflake.yml` is expanded to the caller's personal database.
