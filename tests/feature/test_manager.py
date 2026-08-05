@@ -1568,10 +1568,12 @@ class TestFeatureManagerPlan:
         mock_decl.fetch_applied_state.assert_called_once()
         call = mock_decl.fetch_applied_state.call_args
         spec_map = call.kwargs.get("specification_map")
-        assert spec_map is not None, "fetch_applied_state must receive a specification_map"
-        assert "HYBRID_OFT" not in spec_map, (
-            "HYBRID_TABLE OFT must be excluded from specification_map after DESCRIBE failure"
-        )
+        assert (
+            spec_map is not None
+        ), "fetch_applied_state must receive a specification_map"
+        assert (
+            "HYBRID_OFT" not in spec_map
+        ), "HYBRID_TABLE OFT must be excluded from specification_map after DESCRIBE failure"
         assert spec_map.get("SPEC_OFT") is sentinel_spec, (
             "Spec-backed OFT must still be included in specification_map; "
             f"got {spec_map!r}"
@@ -2351,6 +2353,38 @@ class TestFeatureManagerListSpecs:
         result = FeatureManager().list_specs(from_dir=tmp_path, target_name=None)
         assert result.get("target_database") == "MFST_DB"
         assert result.get("target_schema") == "MFST_SCH"
+
+    def test_list_specs_forwards_feature_view_rows_to_enrich(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """bug_offline_bfv_invisible_in_list.md — ``list_specs`` must fetch
+        the ``list_feature_views()`` discovery set and forward it to
+        ``enrich_list_results`` so OFT-less (``online: false``) BFVs appear
+        in ``snow feature list``.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        fv_rows = [
+            {
+                "name": "MY_ADV_BFV_DECL",
+                "version": "V1",
+                "database_name": "TEST_DB",
+                "schema_name": "TEST_SCHEMA",
+                "kind": "BATCH",
+                "entities": ["USER_ID"],
+                "online_enabled": False,
+                "physical_dt_name": "MY_ADV_BFV_DECL$V1",
+                "source_refs": [],
+            }
+        ]
+        mock_decl.fetch_feature_view_rows.return_value = fv_rows
+
+        FeatureManager().list_specs(from_dir=tmp_path, target_name=None)
+
+        mock_decl.enrich_list_results.assert_called()
+        kwargs = mock_decl.enrich_list_results.call_args.kwargs
+        assert kwargs.get("feature_view_rows") == fv_rows
 
 
 class TestFeatureManagerDescribe:

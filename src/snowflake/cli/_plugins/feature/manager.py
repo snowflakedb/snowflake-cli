@@ -1204,7 +1204,10 @@ class FeatureManager(SqlExecutionMixin):
 
         - ``FeatureView`` rows from ``SHOW ONLINE FEATURE TABLES``,
           enriched with the full spec JSON returned by ``DESCRIBE
-          ONLINE FEATURE TABLE <name> TYPE = SPECIFICATION``.
+          ONLINE FEATURE TABLE <name> TYPE = SPECIFICATION``, plus
+          OFT-less FeatureViews (offline-only ``BatchFeatureView``s
+          with ``online: false``) recovered from the
+          ``list_feature_views()`` discovery set.
         - ``Entity`` rows from
           ``SHOW TAGS LIKE 'SNOWML_FEATURE_STORE_ENTITY_%'``.
         - ``Datasource`` rows derived from FV ``spec.sources[]``.
@@ -1228,6 +1231,11 @@ class FeatureManager(SqlExecutionMixin):
 
             entity_rows = self._fetch_entity_rows(target)
             feature_group_rows = self._fetch_feature_group_rows(target)
+            # ``list_feature_views()`` discovery set — the authoritative FV
+            # source that also surfaces OFT-less (``online: false``) BFVs the
+            # ``SHOW ONLINE FEATURE TABLES`` query never returns
+            # (bug_offline_bfv_invisible_in_list.md).
+            feature_view_rows = self._fetch_feature_view_rows(target)
 
             specification_map = self._fetch_oft_state(oft_rows, queries)
 
@@ -1236,6 +1244,7 @@ class FeatureManager(SqlExecutionMixin):
                 entity_rows=entity_rows,
                 specification_map=specification_map,
                 feature_group_rows=feature_group_rows,
+                feature_view_rows=feature_view_rows,
             )
             return {
                 **self._target_info(target),
