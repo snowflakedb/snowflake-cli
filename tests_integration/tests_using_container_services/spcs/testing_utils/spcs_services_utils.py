@@ -297,7 +297,7 @@ class SnowparkServicesTestSteps:
         }
 
     def wait_until_service_is_running(self, service_name: str) -> None:
-        self._wait_until_service_reaches_state(service_name, "RUNNING", 900)
+        self._wait_until_service_reaches_state(service_name, "RUNNING", 300)
 
     def suspend_service(self, service_name: str):
         result = self._setup.runner.invoke_with_connection_json(

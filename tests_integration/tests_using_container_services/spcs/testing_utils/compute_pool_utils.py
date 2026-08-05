@@ -180,7 +180,7 @@ class ComputePoolTestSteps:
         )
 
     def wait_until_compute_pool_is_idle(self, compute_pool_name: str) -> None:
-        self._wait_until_compute_pool_reaches_state(compute_pool_name, "IDLE", 900)
+        self._wait_until_compute_pool_reaches_state(compute_pool_name, "IDLE", 300)
 
     def wait_until_compute_pool_is_suspended(self, compute_pool_name: str) -> None:
         self._wait_until_compute_pool_reaches_state(compute_pool_name, "SUSPENDED", 60)
