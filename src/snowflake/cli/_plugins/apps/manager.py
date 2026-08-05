@@ -1079,10 +1079,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
                 return
             raise
 
-    def commit_workspace_live_version(self, workspace_fqn: FQN) -> None:
-        """Commit the current workspace live version."""
-        self.execute_query(f"ALTER WORKSPACE {workspace_fqn.sql_identifier} COMMIT")
-
     def clear_workspace(self, workspace_fqn: FQN) -> None:
         """Remove all files from the workspace's live version."""
         self.execute_query(
@@ -1101,23 +1097,12 @@ class SnowflakeAppManager(SqlExecutionMixin):
             f"/{WORKSPACE_LIVE_VERSION_PATH}"
         )
 
-    def workspace_last_uri(self, workspace_fqn: FQN) -> str:
-        """Return the ``snow://workspace/...`` URI pointing at the last committed version."""
-        return f"snow://workspace/{workspace_fqn.identifier}" f"/versions/last"
-
     def workspace_subdirectory_uri(
         self, workspace_fqn: FQN, directory_name: str
     ) -> str:
         """Return a workspace URI under the live version for *directory_name*."""
         normalized_directory = directory_name.strip("/")
         return f"{self.workspace_uri(workspace_fqn)}/{normalized_directory}"
-
-    def workspace_last_subdirectory_uri(
-        self, workspace_fqn: FQN, directory_name: str
-    ) -> str:
-        """Return a workspace URI under the last committed version for *directory_name*."""
-        normalized_directory = directory_name.strip("/")
-        return f"{self.workspace_last_uri(workspace_fqn)}/{normalized_directory}"
 
     def clear_workspace_subdirectory(
         self, workspace_fqn: FQN, directory_name: str
