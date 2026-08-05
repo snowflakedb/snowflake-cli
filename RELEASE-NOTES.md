@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Added global `--color` flag to control colored console output. Use `--color off` to disable colors.
 
 ## Fixes and improvements
 * `snow app deploy` with workspace-backed storage now builds from `versions/live/` (the current working state) instead of the last committed version. In the Workspaces editor, files auto-save to the live version continuously — reading `versions/last` during the build phase caused stale content to be deployed when running from a live workspace session.
