@@ -86,6 +86,12 @@ repos:
           ^import requirements.*
         pass_filenames: true
         exclude: ^src/snowflake/cli/_plugins/snowpark/models.py$
+      - id: check-release-notes-duplicates
+        name: "Check RELEASE-NOTES.md for duplicated bullets"
+        language: system
+        entry: python3 scripts/check_release_notes_duplicates.py
+        pass_filenames: false
+        files: ^RELEASE-NOTES\.md$
   - repo: https://github.com/Lucas-C/pre-commit-hooks
     rev: v1.5.5
     hooks:

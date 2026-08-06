@@ -1,2 +1,9 @@
 # Ensure snapshot files are treated as text with LF line endings and UTF-8 encoding
 *.ambr text eol=lf
+
+# Auto-resolve the common RELEASE-NOTES.md conflict where two PRs each append
+# a bullet under the same section. The check-release-notes-duplicates
+# pre-commit hook catches the one case this hides: a bullet ending up in
+# both "Unreleased version" and a released "# vX.Y.Z" section after a
+# release cut.
+RELEASE-NOTES.md merge=union

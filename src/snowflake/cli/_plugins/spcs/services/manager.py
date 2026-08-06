@@ -15,13 +15,14 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
 import yaml
-from snowflake.cli._plugins.connection.util import get_account
+from snowflake.cli._plugins.connection.util import get_account_identifier
 from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.spcs.common import (
@@ -46,6 +47,7 @@ from snowflake.cli.api.artifacts.utils import bundle_artifacts
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.entities.common import Artifacts
+from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
@@ -330,15 +332,13 @@ class ServiceManager(SqlExecutionMixin):
             external_access_integrations: List of EAI names
             async_mode: Whether to run the build asynchronously
         """
-        # Get organization name
-        # Using execute_string (same as get_account) for consistency
-        *_, org_cursor = self._conn.execute_string(
-            "SELECT CURRENT_ORGANIZATION_NAME()", cursor_class=DictCursor
-        )
-        org_name = org_cursor.fetchone()["CURRENT_ORGANIZATION_NAME()"].lower()
-
-        # Get account name using existing utility function
-        account_name = get_account(self._conn)
+        # Resolve org/account via the shared helper — one round-trip, with a
+        # clear error if CURRENT_ORGANIZATION_NAME/CURRENT_ACCOUNT_NAME return
+        # NULL or no row (rather than an opaque ``TypeError: 'NoneType' is not
+        # subscriptable``).
+        account_identifier = get_account_identifier(self._conn)
+        org_name = account_identifier.organization_name.lower()
+        account_name = account_identifier.account_name.lower()
 
         # Parse the image repository using FQN utility
         # This handles [db.][schema.]repo_name format automatically
@@ -393,14 +393,17 @@ class ServiceManager(SqlExecutionMixin):
                 "volumes": [
                     {
                         "name": "code-volume",
-                        "source": f"@{stage}/{build_context_path}",
+                        "source": "stage",
+                        "stageConfig": {
+                            "name": f"@{stage}/{build_context_path}",
+                        },
                         "uid": 65532,
                     }
                 ],
             }
         }
 
-        spec_json = json.dumps(spec)
+        spec_json = self._serialize_spec(spec)
 
         return self._execute_job_service(
             job_service_name=job_service_name,
@@ -414,10 +417,24 @@ class ServiceManager(SqlExecutionMixin):
         # TODO(aivanou): Add validation towards schema
         with SecurePath(path).open("r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fh:
             data = yaml.safe_load(fh)
-        return json.dumps(data)
+        return self._serialize_spec(data)
+
+    @staticmethod
+    def _serialize_spec(data) -> str:
+        # The returned JSON is embedded inside $$...$$ dollar-quoted SQL
+        # literals; json.dumps does not escape $, so any run of two or more
+        # $ in spec content would close the literal early and allow SQL
+        # injection. Replace each $ that is followed by another $ with its
+        # JSON unicode escape — this handles runs of any length
+        # ($$, $$$, $$$$, ...) without mutating legitimate single-$ values,
+        # and the server-side JSON parser decodes the escape back to $ so
+        # spec values reach Snowflake unchanged.
+        return re.sub(r"\$(?=\$)", r"\\u0024", json.dumps(data))
 
     def status(self, service_name: str) -> SnowflakeCursor:
-        return self.execute_query(f"CALL SYSTEM$GET_SERVICE_STATUS('{service_name}')")
+        return self.execute_query(
+            f"CALL SYSTEM$GET_SERVICE_STATUS({to_string_literal(service_name)})"
+        )
 
     def logs(
         self,
@@ -430,8 +447,10 @@ class ServiceManager(SqlExecutionMixin):
         include_timestamps: bool = False,
     ):
         cursor = self.execute_query(
-            f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '{instance_id}', '{container_name}', "
-            f"{num_lines}, {previous_logs}, '{since_timestamp}', {include_timestamps});"
+            f"call SYSTEM$GET_SERVICE_LOGS({to_string_literal(service_name)}, "
+            f"{to_string_literal(instance_id)}, {to_string_literal(container_name)}, "
+            f"{num_lines}, {previous_logs}, {to_string_literal(since_timestamp)}, "
+            f"{include_timestamps});"
         )
 
         for log in cursor.fetchall():
@@ -710,6 +729,15 @@ class ServiceManager(SqlExecutionMixin):
 
     def resume(self, service_name: str):
         return self.execute_query(f"alter service {service_name} resume")
+
+    def drop(
+        self, service_name: str, if_exists: bool = False, force: bool = False
+    ) -> SnowflakeCursor:
+        if_exists_clause = " if exists" if if_exists else ""
+        force_clause = " force" if force else ""
+        return self.execute_query(
+            f"drop service{if_exists_clause} {service_name}{force_clause}"
+        )
 
     def set_property(
         self,

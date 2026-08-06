@@ -16,6 +16,8 @@ from unittest import mock
 
 import pytest
 
+from snowflake.cli.api.project.util import identifier_to_show_like_pattern
+
 from tests_integration.test_utils import row_from_cursor
 from tests_integration.testing_utils.naming_utils import ObjectNameProvider
 
@@ -522,3 +524,27 @@ def test_drop_without_if_exists_fails_for_nonexistent_object(runner, test_databa
     )
     assert result.exit_code == 1, result.output
     assert "does not exist" in result.output.lower()
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "payload_identifier",
+    [
+        '"stream\'lit); GRANT ROLE ACCOUNTADMIN TO USER attacker;--"',
+        '"a\'b"',
+        # Backslash must not start an escape under the default
+        # STANDARD_ESCAPE_SEQUENCES=FALSE session setting.
+        '"x\\\';DROP TABLE t;--"',
+    ],
+)
+def test_show_like_rejects_sql_injection_payload(
+    snowflake_session, test_database, payload_identifier
+):
+    """Server-side check that '' escaping in identifier_to_show_like_pattern is
+    treated as data by Snowflake. A broken escape would either raise or split
+    on the injected ';' and execute the chained GRANT/DROP.
+    """
+    pattern = identifier_to_show_like_pattern(payload_identifier)
+    cursors = snowflake_session.execute_string(f"show streamlits like {pattern}")
+    assert len(cursors) == 1
+    assert row_from_cursor(cursors[0]) == []

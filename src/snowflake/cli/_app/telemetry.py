@@ -86,6 +86,18 @@ class CLITelemetryField(Enum):
     # Project context
     PROJECT_DEFINITION_VERSION = "project_definition_version"
     MODE = "mode"
+    # Which "snow app" product flow ran for this command:
+    # "native_app" for Native App (application / application package entities),
+    # "snowflake_app" for Snowflake App Runtime (snowflake-app entities).
+    # Only emitted for "snow app *" commands; absent for everything else.
+    #
+    # Note: the field appears on TelemetryEvent.CMD_EXECUTION_RESULT and
+    # CMD_EXECUTION_ERROR but NOT on CMD_EXECUTION, because the routing
+    # decorators that resolve the flow run inside the command callable --
+    # i.e. AFTER log_command_usage fires in pre_execute. Consumers who need
+    # the flow on the executing_command event should join on
+    # COMMAND_EXECUTION_ID across the three events for an invocation.
+    APP_FLOW = "app_flow"
 
 
 class TelemetryEvent(Enum):
@@ -169,7 +181,7 @@ def _find_command_info() -> TelemetryDict:
     if format_value is None:
         format_value = OutputFormat.TABLE
 
-    return {
+    info: TelemetryDict = {
         CLITelemetryField.COMMAND: command_path,
         CLITelemetryField.COMMAND_GROUP: command_path[0],
         CLITelemetryField.COMMAND_FLAGS: command_flags,
@@ -177,6 +189,12 @@ def _find_command_info() -> TelemetryDict:
         CLITelemetryField.PROJECT_DEFINITION_VERSION: str(_get_definition_version()),
         CLITelemetryField.MODE: _get_cli_running_mode(),
     }
+
+    app_flow = _get_app_flow()
+    if app_flow is not None:
+        info[CLITelemetryField.APP_FLOW] = app_flow
+
+    return info
 
 
 def _get_cli_running_mode() -> str:
@@ -198,6 +216,23 @@ def _get_definition_version() -> str | None:
         # (especially for commands that don't normally load it)
         pass
     return None
+
+
+def _get_app_flow() -> str | None:
+    """Return the resolved "snow app" product flow for the current command.
+
+    See ``snowflake.cli._plugins.nativeapp.v2_conversions.compat.AppFlow``;
+    this returns ``"native_app"``, ``"snowflake_app"``, or ``None`` for any
+    command outside the ``snow app`` group (or when the routing helpers
+    haven't run yet).
+    """
+    try:
+        return get_cli_context().app_flow
+    except AttributeError:
+        # CLI context not yet populated (e.g. during early startup or in
+        # contrived test scenarios where the manager was reset). Treat as
+        # "no flow recorded" rather than failing the whole telemetry call.
+        return None
 
 
 def _is_env_truthy(name: str) -> bool:

@@ -56,6 +56,7 @@ class SqlManager(SqlExecutionMixin):
         retain_comments: bool = False,
         single_transaction: bool = False,
         template_syntax_config: SQLTemplateSyntaxConfig = SQLTemplateSyntaxConfig(),
+        local_only: bool = False,
     ) -> Tuple[ExpectedResultsCount, Iterable[SnowflakeCursor]]:
         """Reads, transforms and execute statements from input.
 
@@ -122,12 +123,20 @@ class SqlManager(SqlExecutionMixin):
 
         if query:
             stmt_reader = query_reader(
-                query, stmt_operators, remove_comments, jinja_pre_render
+                query,
+                stmt_operators,
+                remove_comments,
+                jinja_pre_render,
+                disable_url_sources=local_only,
             )
         elif files:
             secured_files = [SecurePath(f) for f in files]
             stmt_reader = files_reader(
-                secured_files, stmt_operators, remove_comments, jinja_pre_render
+                secured_files,
+                stmt_operators,
+                remove_comments,
+                jinja_pre_render,
+                disable_url_sources=local_only,
             )
         else:
             raise CliArgumentError("Use either query, filename or input option.")

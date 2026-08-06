@@ -180,3 +180,123 @@ def test_has_client_side_templates():
     assert not has_client_side_templates("<test>")
     assert not has_client_side_templates("{<est}")
     assert not has_client_side_templates("")
+
+
+# --- read_file_content / procedure_from_js_file containment tests -----------
+
+
+@pytest.fixture
+def jinja_cli_context():
+    """Patches get_cli_context wherever jinja.py imports it, for filter tests."""
+    with mock.patch(
+        "snowflake.cli.api.cli_global_context.get_cli_context"
+    ) as ctx, mock.patch(
+        "snowflake.cli.api.rendering.sql_templates.get_cli_context"
+    ) as sql_ctx:
+        sql_ctx().template_context = {
+            "ctx": {"env": ProjectEnvironment(default_env={}, override_env={})}
+        }
+        yield ctx()
+
+
+def _render(content: str) -> str:
+    return snowflake_sql_jinja_render(
+        content,
+        template_syntax_config=SQLTemplateSyntaxConfig(enable_jinja_syntax=True),
+    )
+
+
+def test_read_file_content_allows_file_inside_project_root(tmp_path, jinja_cli_context):
+    jinja_cli_context.project_root = tmp_path
+    target = tmp_path / "inside.txt"
+    target.write_text("hello from project")
+    assert (
+        _render(f"{{{{ '{target.as_posix()}' | read_file_content }}}}")
+        == "hello from project"
+    )
+
+
+def test_read_file_content_allows_relative_path_inside_project_root(
+    tmp_path, jinja_cli_context, monkeypatch
+):
+    jinja_cli_context.project_root = tmp_path
+    target = tmp_path / "relative.txt"
+    target.write_text("relative content")
+    # CWD deliberately differs from project root — relative path must be
+    # anchored to project_root, not CWD.
+    monkeypatch.chdir("/")
+    assert _render("{{ 'relative.txt' | read_file_content }}") == "relative content"
+
+
+def test_read_file_content_rejects_path_outside_project_root(
+    tmp_path, jinja_cli_context
+):
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    jinja_cli_context.project_root = project_root
+
+    outside = tmp_path / "outside.secret"
+    outside.write_text("SECRET")
+
+    with pytest.raises(ClickException) as err:
+        _render(f"{{{{ '{outside.as_posix()}' | read_file_content }}}}")
+    assert "outside the project root" in err.value.message
+    assert "read_file_content" in err.value.message
+
+
+def test_read_file_content_rejects_parent_traversal(tmp_path, jinja_cli_context):
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    jinja_cli_context.project_root = project_root
+
+    outside = tmp_path / "outside.secret"
+    outside.write_text("SECRET")
+
+    traversal = project_root / ".." / "outside.secret"
+    with pytest.raises(ClickException) as err:
+        _render(f"{{{{ '{traversal.as_posix()}' | read_file_content }}}}")
+    assert "outside the project root" in err.value.message
+
+
+def test_procedure_from_js_file_rejects_path_outside_project_root(
+    tmp_path, jinja_cli_context
+):
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    jinja_cli_context.project_root = project_root
+
+    outside_js = tmp_path / "evil.js"
+    outside_js.write_text("return 42;")
+
+    with pytest.raises(ClickException) as err:
+        _render(f"{{{{ '{outside_js.as_posix()}' | procedure_from_js_file }}}}")
+    assert "outside the project root" in err.value.message
+    assert "procedure_from_js_file" in err.value.message
+
+
+def test_procedure_from_js_file_allows_file_inside_project_root(
+    tmp_path, jinja_cli_context
+):
+    jinja_cli_context.project_root = tmp_path
+    js = tmp_path / "proc.js"
+    js.write_text("return arguments[0];")
+    rendered = _render(f"{{{{ '{js.as_posix()}' | procedure_from_js_file }}}}")
+    assert "return arguments[0];" in rendered
+    assert "module.exports = exports;" in rendered
+
+
+def test_read_file_content_enforces_default_size_limit(tmp_path, jinja_cli_context):
+    """A file over DEFAULT_SIZE_LIMIT_MB (128 MB) must be rejected rather than
+    read unbounded (the UNLIMITED bypass is removed)."""
+    from snowflake.cli.api.exceptions import FileTooLargeError
+
+    jinja_cli_context.project_root = tmp_path
+    target = tmp_path / "big.txt"
+    target.write_text("x")
+
+    with mock.patch(
+        "snowflake.cli.api.secure_path.SecurePath._assert_file_size_limit"
+    ) as assert_size:
+        assert_size.side_effect = FileTooLargeError(target, 128)
+        with pytest.raises(FileTooLargeError):
+            _render(f"{{{{ '{target.as_posix()}' | read_file_content }}}}")

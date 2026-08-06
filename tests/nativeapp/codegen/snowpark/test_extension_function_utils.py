@@ -113,8 +113,12 @@ def test_ensure_string_literal():
     assert ef_utils.ensure_string_literal("abc") == "'abc'"
     assert ef_utils.ensure_string_literal("'abc'") == "'abc'"
     assert ef_utils.ensure_string_literal("'abc def'") == "'abc def'"
-    assert ef_utils.ensure_string_literal("'abc") == r"'\'abc'"
-    assert ef_utils.ensure_string_literal("abc'") == r"'abc\''"
+    # Unterminated leading/trailing single quotes are escaped by doubling ('').
+    assert ef_utils.ensure_string_literal("'abc") == "'''abc'"
+    assert ef_utils.ensure_string_literal("abc'") == "'abc'''"
+    # Regression guard: SINGLE_QUOTED_STRING_LITERAL_REGEX's '' alternation
+    # must keep this a valid literal so ensure_string_literal is idempotent.
+    assert ef_utils.ensure_string_literal("'abc''def'") == "'abc''def'"
 
 
 def test_ensure_all_string_literals():

@@ -20,6 +20,7 @@ from snowflake.cli.api.project.util import (
     concat_identifiers,
     escape_like_pattern,
     identifier_in_list,
+    identifier_to_show_like_pattern,
     identifier_to_str,
     is_valid_identifier,
     is_valid_object_name,
@@ -207,20 +208,42 @@ def test_is_valid_string_literal(literal, valid):
     "raw_string,literal",
     [
         ("abc", "'abc'"),
-        ("'abc'", r"'\'abc\''"),
+        # Single quotes escaped by doubling them (Snowflake's native escape mechanism).
+        ("'abc'", "'''abc'''"),
         ("_aBc_$", "'_aBc_$'"),
         ('"abc"', "'\"abc\"'"),
-        ("a\bbc", r"'a\x08bc'"),  # escape sequences
-        ("a\fbc", r"'a\x0cbc'"),
-        ("a\nbc", r"'a\nbc'"),
-        ("a\rbc", r"'a\rbc'"),
-        ("a\tbc", r"'a\tbc'"),
-        ("a\vbc", r"'a\x0bbc'"),
-        ("\xf6", r"'\xf6'"),  # unicode escapes
-        ("'abc", r"'\'abc'"),  # leading unterminated single quote
-        ("a'c", r"'a\'c'"),  # nested single quote
-        ("abc'", r"'abc\''"),  # trailing single quote
+        # Non-quote characters (including control characters and bare backslashes)
+        # are preserved verbatim under STANDARD_ESCAPE_SEQUENCES=FALSE.
+        ("a\bbc", "'a\bbc'"),
+        ("a\fbc", "'a\fbc'"),
+        ("a\nbc", "'a\nbc'"),
+        ("a\rbc", "'a\rbc'"),
+        ("a\tbc", "'a\tbc'"),
+        ("a\vbc", "'a\vbc'"),
+        ("\xf6", "'\xf6'"),
+        ("a\\b", "'a\\b'"),  # bare backslash passes through
+        ("C:\\Users\\RUNNER~1", "'C:\\Users\\RUNNER~1'"),
+        ("'abc", "'''abc'"),  # leading unterminated single quote
+        ("a'c", "'a''c'"),  # nested single quote
+        ("abc'", "'abc'''"),  # trailing single quote
         ('a"bc', "'a\"bc'"),  # double quote
+        # Backslash immediately before a quote is doubled so the connector's
+        # client-side split_statements cannot consume our '' quote-doubling as
+        # an escape pair.
+        ("a\\'b", "'a\\\\''b'"),
+        # SQL injection payloads are neutralised by quote-doubling.
+        (
+            "x'; GRANT ROLE ACCOUNTADMIN TO USER attacker; --",
+            "'x''; GRANT ROLE ACCOUNTADMIN TO USER attacker; --'",
+        ),
+        ("'; DROP TABLE t; --", "'''; DROP TABLE t; --'"),
+        # Backslash-quote payload: the connector's splitter would otherwise treat
+        # \' as an escape pair and slice on the injected ;.
+        ("x\\';DROP TABLE t;--", "'x\\\\'';DROP TABLE t;--'"),
+        # Even-backslash-before-quote: two backslashes before a quote.
+        # split_statements consumes \\ (pair), then \' (pair), leaving the bare '
+        # to exit the string unless the entire run is doubled.
+        ("x\\\\';DROP TABLE t;--", "'x\\\\\\\\'';DROP TABLE t;--'"),
     ],
 )
 def test_to_string_literal(raw_string, literal):
@@ -239,6 +262,38 @@ def test_to_string_literal(raw_string, literal):
 )
 def test_escape_like_pattern(raw_string, escaped):
     assert escape_like_pattern(raw_string) == escaped
+
+
+@pytest.mark.parametrize(
+    "identifier, expected",
+    [
+        # Unquoted identifiers are upper-cased by unquote_identifier, then wrapped.
+        ("streamlit", "'STREAMLIT'"),
+        ("my_table", "'MY\\\\_TABLE'"),
+        # Quoted identifiers preserve case and special chars, with LIKE wildcards escaped.
+        ('"streamlit"', "'streamlit'"),
+        ('"my_table"', "'my\\\\_table'"),
+        ('"pct%table"', "'pct\\\\%table'"),
+        # Regression for SNOW-3411343: a quoted identifier containing a single quote
+        # must not close the SQL string literal. The embedded single quote is escaped
+        # by being doubled ('') so the entire payload ends up as a harmless LIKE pattern.
+        (
+            '"stream\'lit); GRANT ROLE ACCOUNTADMIN TO USER attacker;--"',
+            "'stream''lit); GRANT ROLE ACCOUNTADMIN TO USER attacker;--'",
+        ),
+        # A bare single quote in the identifier is doubled.
+        ('"a\'b"', "'a''b'"),
+        # Multiple embedded single quotes are each doubled.
+        ("\"a'b'c\"", "'a''b''c'"),
+        # Backslash-then-quote payload: the connector's client-side
+        # split_statements treats \' as an escape pair. Doubling the backslash
+        # (\\) keeps the '' quote-doubling effective and blocks statement
+        # slicing on the injected ';'.
+        ('"x\\\';DROP TABLE t;--"', "'x\\\\'';DROP TABLE t;--'"),
+    ],
+)
+def test_identifier_to_show_like_pattern(identifier, expected):
+    assert identifier_to_show_like_pattern(identifier) == expected
 
 
 @pytest.mark.parametrize(

@@ -60,17 +60,20 @@ class Repl:
         data: dict | None = None,
         retain_comments: bool = False,
         template_syntax_config: SQLTemplateSyntaxConfig = SQLTemplateSyntaxConfig(),
+        local_only: bool = False,
     ):
         """Requires a `SqlManager` instance to execute queries.
 
         'pass through' variables for SqlManager.execute method:
         `data` should contain the variables used for template processing,
-        `retain_comments` how to handle comments in queries
+        `retain_comments` how to handle comments in queries,
+        `local_only` whether `!source`/`!load` of remote URLs is disabled.
         """
         super().__init__()
         self._data = data or {}
         self._retain_comments = retain_comments
         self._template_syntax_config = template_syntax_config
+        self._local_only = local_only
         self._history = FileHistory(_get_history_file())
         self._lexer = PygmentsLexer(CliLexer)
         self._completer = cli_completer
@@ -223,6 +226,7 @@ class Repl:
             data=self._data,
             retain_comments=self._retain_comments,
             template_syntax_config=self._template_syntax_config,
+            local_only=self._local_only,
         )
         return cursors
 
@@ -259,6 +263,10 @@ class Repl:
                 except Exception as e:
                     log.debug("error occurred: %s", e)
                     cli_console.warning(f"\nError occurred: {e}")
+                    # Connect failures are cached by OpenConnectionCache; drop
+                    # the cache so the next query can redial after the user
+                    # fixes config or a transient blip clears.
+                    get_cli_context_manager().connection_cache.clear_failures()
 
             except KeyboardInterrupt:  # a.k.a Ctrl-C
                 log.debug("user interrupted with Ctrl-C")
@@ -274,6 +282,7 @@ class Repl:
 
             except Exception as e:
                 cli_console.warning(f"\nError occurred: {e}")
+                get_cli_context_manager().connection_cache.clear_failures()
 
     def set_next_input(self, text: str) -> None:
         """Set the text that will be used as the next REPL input."""

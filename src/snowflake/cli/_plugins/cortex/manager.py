@@ -64,17 +64,18 @@ class CortexManager(SqlExecutionMixin):
         model: Model,
         is_file_input: bool = False,
     ) -> str:
+        escaped_model = self._escape_input(model)
         if not is_file_input:
             query = f"""\
                 SELECT SNOWFLAKE.CORTEX.COMPLETE(
-                    '{model}',
+                    '{escaped_model}',
                     '{self._escape_input(text)}'
                 ) AS CORTEX_RESULT;"""
             return self._query_cortex_result_str(query)
         else:
             query = f"""\
             SELECT SNOWFLAKE.CORTEX.COMPLETE(
-                '{model}',
+                '{escaped_model}',
                 PARSE_JSON('{self._escape_input(text)}'),
                 {{}}
             ) AS CORTEX_RESULT;"""
@@ -205,11 +206,13 @@ class CortexManager(SqlExecutionMixin):
         source_language: Optional[Language],
         target_language: Language,
     ) -> str:
+        escaped_source = self._escape_input(source_language) if source_language else ""
+        escaped_target = self._escape_input(target_language)
         query = f"""\
             SELECT SNOWFLAKE.CORTEX.TRANSLATE(
                 '{self._escape_input(text)}',
-                '{source_language or ""}',
-                '{target_language}'
+                '{escaped_source}',
+                '{escaped_target}'
             ) AS CORTEX_RESULT;"""
         return self._query_cortex_result_str(query)
 

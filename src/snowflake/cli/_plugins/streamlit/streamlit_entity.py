@@ -19,10 +19,59 @@ from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import bundle_root
 from snowflake.cli.api.project.schemas.entities.common import Identifier, PathMapping
+from snowflake.cli.api.project.util import to_string_literal
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
 log = logging.getLogger(__name__)
+
+
+def _main_file_covered_by_artifacts(
+    main_file: str, artifacts: list[PathMapping]
+) -> bool:
+    """Return True if main_file would already be deployed by an existing artifact.
+
+    Coverage means main_file equals an artifact's src, or is a descendant of
+    an artifact's src directory and the artifact's destination matches its
+    source (so the directory walk lands main_file at the same canonical path
+    that the auto-insert would). Artifacts with a different ``dest`` deploy
+    main_file to a different location, so the auto-insert is still needed.
+    """
+    main_path = Path(main_file)
+    return any(_artifact_covers_path(artifact, main_path) for artifact in artifacts)
+
+
+def _artifact_covers_path(artifact: PathMapping, target_path: Path) -> bool:
+    """True if target_path would land at the same deploy path via this artifact
+    as it would via a standalone auto-insert. Glob-style srcs (e.g. ``*.py``)
+    fail the ``relative_to`` check and intentionally fall through to file-level
+    dedup in :class:`_ArtifactPathMap`.
+    """
+    if not artifact.src:
+        return False
+
+    src_path = Path(artifact.src)
+    try:
+        relative_target = target_path.relative_to(src_path)
+    except ValueError:
+        return False
+
+    return _artifact_dest_root(artifact, src_path) / relative_target == target_path
+
+
+def _artifact_dest_root(artifact: PathMapping, src_path: Path) -> Path:
+    """Return the deploy-root path that the artifact's src maps to.
+
+    Trailing-slash semantics mirror :func:`bundle_map._specifies_directory`:
+    a trailing ``/`` on dest means "copy src into dest as a child."
+    """
+    if not artifact.dest:
+        return src_path
+
+    dest_path = Path(artifact.dest.rstrip("/"))
+    if artifact.dest.endswith("/"):
+        return dest_path / src_path.name
+    return dest_path
 
 
 class StreamlitEntity(EntityBase[StreamlitEntityModel]):
@@ -77,7 +126,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
 
         # Ensure main_file is included in artifacts
         main_file = self._entity_model.main_file
-        if main_file and not any(artifact.src == main_file for artifact in artifacts):
+        if main_file and not _main_file_covered_by_artifacts(main_file, artifacts):
             artifacts.insert(0, PathMapping(src=main_file))
 
         return build_bundle(
@@ -187,7 +236,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         elif artifacts_dir:
             query += f"\nFROM '{artifacts_dir}'"
 
-        query += f"\nMAIN_FILE = '{self._entity_model.main_file}'"
+        query += f"\nMAIN_FILE = {to_string_literal(self._entity_model.main_file)}"
 
         if self.model.imports:
             query += "\n" + self.model.get_imports_sql()
@@ -201,10 +250,10 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             query += f"\nQUERY_WAREHOUSE = 'streamlit'"
 
         if self.model.title:
-            query += f"\nTITLE = '{self.model.title}'"
+            query += f"\nTITLE = {to_string_literal(self.model.title)}"
 
         if self.model.comment:
-            query += f"\nCOMMENT = '{self.model.comment}'"
+            query += f"\nCOMMENT = {to_string_literal(self.model.comment)}"
 
         if self.model.external_access_integrations:
             query += "\n" + self.model.get_external_access_integrations_sql()
@@ -215,8 +264,8 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         # SPCS runtime fields are only supported for FBE/versioned streamlits (FROM syntax)
         # Never add these fields for stage-based deployments (ROOT_LOCATION syntax)
         if not from_stage_name and not legacy and self._is_spcs_runtime_v2_mode():
-            query += f"\nRUNTIME_NAME = '{self.model.runtime_name}'"
-            query += f"\nCOMPUTE_POOL = '{self.model.compute_pool}'"
+            query += f"\nRUNTIME_NAME = {to_string_literal(self.model.runtime_name)}"
+            query += f"\nCOMPUTE_POOL = {to_string_literal(self.model.compute_pool)}"
 
         return query + ";"
 

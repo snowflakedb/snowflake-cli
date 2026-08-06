@@ -16,6 +16,7 @@ from unittest import mock
 
 import pytest
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.sql_execution import SqlExecutor
 
 EXECUTE_QUERY = f"snowflake.cli.api.sql_execution.BaseSqlExecutor.execute_query"
@@ -141,3 +142,62 @@ def test_use_warehouse_same_id(
 def test_use_schema_fqn(mock_execute_query):
     SqlExecutor().use(ObjectType.SCHEMA, "db.schema")
     assert mock_execute_query.mock_calls == [mock.call("use schema db.schema")]
+
+
+@pytest.mark.parametrize(
+    "username, password, expected_username, expected_password",
+    [
+        ("john_doe", "admin123", "john_doe", "admin123"),
+        (
+            "ok'); GRANT ROLE ACCOUNTADMIN TO USER attacker;--",
+            "admin123",
+            "ok''); GRANT ROLE ACCOUNTADMIN TO USER attacker;--",
+            "admin123",
+        ),
+        ("john_doe", "a'b'c", "john_doe", "a''b''c"),
+        ("o'brien", "d'arcy", "o''brien", "d''arcy"),
+        # Backslash before quote: doubled so neither STANDARD_ESCAPE_SEQUENCES
+        # mode lets the literal terminate prematurely.
+        ("foo\\'bar", "p\\'wd", "foo\\\\''bar", "p\\\\''wd"),
+    ],
+)
+@mock.patch(EXECUTE_QUERY)
+def test_create_password_secret_escapes_single_quotes(
+    mock_execute_query, username, password, expected_username, expected_password
+):
+    SqlExecutor().create_password_secret(
+        name=FQN.from_string("my_secret"),
+        username=username,
+        password=password,
+    )
+    assert mock_execute_query.call_count == 1
+    query = mock_execute_query.mock_calls[0].args[0]
+    assert f"username = '{expected_username}'" in query
+    assert f"password = '{expected_password}'" in query
+
+
+@pytest.mark.parametrize(
+    "allowed_prefix, expected_prefix",
+    [
+        ("https://github.com/repo.git", "https://github.com/repo.git"),
+        (
+            "https://github.com/'); GRANT ROLE ACCOUNTADMIN TO USER attacker;--",
+            "https://github.com/''); GRANT ROLE ACCOUNTADMIN TO USER attacker;--",
+        ),
+        ("a'b'c", "a''b''c"),
+        ("https://example.com/x\\'y", "https://example.com/x\\\\''y"),
+    ],
+)
+@mock.patch(EXECUTE_QUERY)
+def test_create_api_integration_escapes_allowed_prefix(
+    mock_execute_query, allowed_prefix, expected_prefix
+):
+    SqlExecutor().create_api_integration(
+        name=FQN.from_string("my_api"),
+        api_provider="git_https_api",
+        allowed_prefix=allowed_prefix,
+        secret=None,
+    )
+    assert mock_execute_query.call_count == 1
+    query = mock_execute_query.mock_calls[0].args[0]
+    assert f"api_allowed_prefixes = ('{expected_prefix}')" in query

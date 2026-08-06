@@ -69,6 +69,24 @@ def test_exit_sequence(user_inputs, repl, os_agnostic_snapshot, capsys):
     os_agnostic_snapshot.assert_match(output)
 
 
+def test_repl_clears_cached_failure_after_query_error(repl):
+    """A transient connect failure mid-REPL must not poison the cache for
+    the remainder of the session — otherwise every subsequent query would
+    re-raise the cached exception until the user relaunches `snow sql`.
+    """
+    cache = get_cli_context_manager().connection_cache
+    with mock.patch.object(repl, "_initialize_connection"), mock.patch.object(
+        cache, "clear_failures"
+    ) as mock_clear_failures, mock.patch.object(
+        repl, "_execute", side_effect=Exception("transient connect blip")
+    ), mock.patch.object(
+        repl.session, "prompt", side_effect=iter(("select 1;", "exit", "y"))
+    ):
+        repl.run()
+
+    mock_clear_failures.assert_called_once()
+
+
 def test_repl_full_app(runner, os_agnostic_snapshot, mock_cursor):
     user_inputs = iter(("exit", "y"))
     mocked_cursor = [

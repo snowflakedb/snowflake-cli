@@ -130,6 +130,15 @@ PortOption = typer.Option(
     rich_help_panel=_CONNECTION_SECTION,
 )
 
+ProtocolOption = typer.Option(
+    None,
+    "--protocol",
+    help="Protocol to use for the connection, for example `https`. Overrides the value specified for the connection.",
+    callback=_connection_callback("protocol"),
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
 AccountOption = typer.Option(
     None,
     "--account",
@@ -420,6 +429,19 @@ ClientStoreTemporaryCredentialOption = typer.Option(
     help="Store the temporary credential.",
     callback=_connection_callback("client_store_temporary_credential"),
     is_flag=True,
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
+SecondaryRolesOption = typer.Option(
+    None,
+    "--secondary-roles",
+    help=(
+        "Secondary roles mode applied when the session starts. "
+        "Supported values are `ALL` and `NONE`; pass `NONE` to run the "
+        "session only with the primary role."
+    ),
+    callback=_connection_callback("secondary_roles"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )

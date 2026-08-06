@@ -769,7 +769,28 @@ def test_command_enable_templating_flag(
             enable_standard_syntax=exp_standard,
             enable_jinja_syntax=exp_jinja,
         ),
+        local_only=False,
     )
+
+
+@mock.patch("snowflake.cli._plugins.sql.commands.SqlManager")
+def test_command_local_only_flag(mock_manager, mock_cursor, runner):
+    """`--local-only` must be forwarded to SqlManager.execute."""
+    mock_manager().execute.return_value = (0, mock_cursor([], []))
+    result = runner.invoke(["sql", "-q", "select 1", "--local-only"])
+    assert result.exit_code == 0, result.output
+    _, kwargs = mock_manager().execute.call_args
+    assert kwargs["local_only"] is True
+
+
+@mock.patch("snowflake.cli._plugins.sql.commands.SqlManager")
+def test_command_local_only_default_false(mock_manager, mock_cursor, runner):
+    """Without `--local-only` the flag must default to False (URL fetches allowed)."""
+    mock_manager().execute.return_value = (0, mock_cursor([], []))
+    result = runner.invoke(["sql", "-q", "select 1"])
+    assert result.exit_code == 0, result.output
+    _, kwargs = mock_manager().execute.call_args
+    assert kwargs["local_only"] is False
 
 
 @pytest.mark.parametrize(

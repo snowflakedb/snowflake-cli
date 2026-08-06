@@ -26,6 +26,7 @@ from snowflake.cli._plugins.connection.util import (
     UIParameter,
     get_context,
     get_host_region,
+    get_region,
     get_ui_parameter,
     get_ui_parameters,
     guess_regioned_host_from_allowlist,
@@ -246,6 +247,34 @@ def test_get_account_identifier(mock_get_account):
 
 
 @pytest.mark.parametrize(
+    "fetchone_return",
+    [
+        None,
+        {"ORG": None, "ACCT": "my_account"},
+        {"ORG": "my_org", "ACCT": None},
+        {"ORG": "", "ACCT": "my_account"},
+        {"ORG": "my_org", "ACCT": ""},
+    ],
+)
+def test_get_account_identifier_missing_result_raises_click_exception(fetchone_return):
+    """``get_account_identifier`` must raise a user-visible ``ClickException``
+    when ``CURRENT_ORGANIZATION_NAME()`` / ``CURRENT_ACCOUNT_NAME()`` return
+    no row or a NULL value, instead of a cryptic ``TypeError`` / ``AttributeError``."""
+    from unittest.mock import MagicMock
+
+    from click.exceptions import ClickException
+    from snowflake.cli._plugins.connection.util import get_account_identifier
+
+    mock_conn = MagicMock()
+    mock_cursor = MagicMock()
+    mock_cursor.fetchone.return_value = fetchone_return
+    mock_conn.execute_string.return_value = (None, mock_cursor)
+
+    with pytest.raises(ClickException, match="Could not determine account identifier"):
+        get_account_identifier(mock_conn)
+
+
+@pytest.mark.parametrize(
     "allowlist, expected",
     [
         (
@@ -255,12 +284,29 @@ def test_get_account_identifier(mock_get_account):
                     "type": "SNOWFLAKE_DEPLOYMENT",
                 },
                 {
-                    "host": "myacct.nonregioned.snowflakecomputing.com",
+                    "host": "myorg-myacct.nonregioned.snowflakecomputing.com",
                     "type": "SNOWFLAKE_DEPLOYMENT",
                 },
                 {"type": "unrelated"},
             ],
             "myacct.x.y.z.snowflakecomputing.com",
+        ),
+        # 4-part regioned host in the allowlist is also picked up — the
+        # broadened parser recognizes it, so it should be returned just
+        # like the 6-part case above.
+        (
+            [
+                {
+                    "host": "myorg-myacct.nonregioned.snowflakecomputing.com",
+                    "type": "SNOWFLAKE_DEPLOYMENT",
+                },
+                {
+                    "host": "myacct.us-east-1.snowflakecomputing.com",
+                    "type": "SNOWFLAKE_DEPLOYMENT",
+                },
+                {"type": "unrelated"},
+            ],
+            "myacct.us-east-1.snowflakecomputing.com",
         ),
         (
             [
@@ -279,13 +325,25 @@ def test_guess_regioned_host_from_allowlist(allowlist, expected, mock_cursor):
     assert guess_regioned_host_from_allowlist(mock_conn) == expected
 
 
+@patch("snowflake.cli._plugins.connection.util.guess_regioned_host_from_allowlist")
+def test_get_region_parses_4_part_host_without_allowlist(
+    guess_regioned_host_from_allowlist,
+):
+    # The primary fix: a regioned 4-part host should resolve directly through
+    # get_host_region without ever needing the SYSTEM$ALLOWLIST fallback.
+    mock_conn = mock.MagicMock(spec=SnowflakeConnection)
+    mock_conn.host = "myacct.us-east-1.snowflakecomputing.com"
+    assert get_region(mock_conn) == "us-east-1"
+    guess_regioned_host_from_allowlist.assert_not_called()
+
+
 @patch("snowflake.cli._plugins.connection.util.is_regionless_redirect")
 @patch("snowflake.cli._plugins.connection.util.guess_regioned_host_from_allowlist")
 def test_get_context_non_regionless_uses_region(
     guess_regioned_host_from_allowlist, is_regionless_redirect
 ):
     mock_conn = mock.MagicMock(spec=SnowflakeConnection)
-    mock_conn.host = "myacct.regionless.snowflakecomputing.com"
+    mock_conn.host = "myorg-myacct.regionless.snowflakecomputing.com"
     guess_regioned_host_from_allowlist.return_value = (
         "myacct.x.y.z.snowflakecomputing.com"
     )
@@ -310,9 +368,23 @@ def test_get_context_local_non_regionless_gets_local_region(
     "host, expected",
     [
         ("some.dns.local", LOCAL_DEPLOYMENT_REGION),
+        # Regionless (<org>-<account>.<deployment>.snowflakecomputing.com) — the dash in
+        # the account component distinguishes it from a regioned 4-part host.
         ("org-acct.mydns.snowflakecomputing.com", None),
+        # 4-part regioned hosts (AWS legacy, e.g. us-east-1).
+        ("naf_test_pc.us-west-2.snowflakecomputing.com", "us-west-2"),
+        ("acct.us-east-1.snowflakecomputing.com", "us-east-1"),
+        # 5-part regioned hosts (cloud suffix).
+        ("acct.eu-central-1.aws.snowflakecomputing.com", "eu-central-1.aws"),
+        ("acct.west-europe.azure.snowflakecomputing.com", "west-europe.azure"),
+        ("acct.us-central1.gcp.snowflakecomputing.com", "us-central1.gcp"),
+        # 6-part regioned host (VPS / PrivateLink).
         ("account.x.us-west-2.aws.snowflakecomputing.com", "x.us-west-2.aws"),
-        ("naf_test_pc.us-west-2.snowflakecomputing.com", None),
+        # 6-part VPS host with a dashed account is unambiguously regioned (the
+        # regionless-alias collision only exists for 4- and 5-part hosts), so
+        # the dash in the account component must not suppress the parse.
+        ("acct-foo.x.us-west-2.aws.snowflakecomputing.com", "x.us-west-2.aws"),
+        # Non-Snowsight hosts (internal/legacy zones) return None so callers fall back.
         ("test_account.az.int.snowflakecomputing.com", None),
         ("frozenweb.prod3.external-zone.snowflakecomputing.com", None),
     ],

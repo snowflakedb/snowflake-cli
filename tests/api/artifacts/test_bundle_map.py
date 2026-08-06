@@ -75,7 +75,7 @@ def verify_mappings(
     **kwargs,
 ):
     def normalize_expected_dest(
-        dest: Optional[Union[str, Path, List[str], List[Path]]]
+        dest: Optional[Union[str, Path, List[str], List[Path]]],
     ):
         if dest is None:
             return []
@@ -517,6 +517,96 @@ def test_bundle_map_disallows_absolute_src(bundle_map):
         absolute_src = bundle_map.project_root() / "app"
         assert absolute_src.is_absolute()
         bundle_map.add(PathMapping(src=str(absolute_src), dest="deployed"))
+
+
+@pytest.mark.skipif(
+    IS_WINDOWS, reason="Symlinks on Windows are restricted to Developer mode or admins"
+)
+def test_bundle_map_rejects_top_level_symlink_escaping_project_root(tmp_path):
+    """
+    A symlink committed inside the project root whose target points outside
+    the project root must be rejected by the containment check. Previously
+    ``resolve_without_follow`` (os.path.abspath) only normalised ``..`` and
+    did not follow symlinks, so a symlink like ``project/data -> /etc``
+    passed the lexical ``startswith`` check.
+    """
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    (project_root / "snowflake.yml").write_text("# empty")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secret.txt").write_text("sensitive data")
+
+    os.symlink(outside, project_root / "data", target_is_directory=True)
+
+    deploy_root = project_root / "output" / "deploy"
+    bm = BundleMap(project_root=project_root, deploy_root=deploy_root)
+
+    with pytest.raises(ArtifactError, match="outside the project root"):
+        bm.add(PathMapping(src="data", dest="./data/"))
+
+
+@pytest.mark.skipif(
+    IS_WINDOWS, reason="Symlinks on Windows are restricted to Developer mode or admins"
+)
+def test_bundle_map_skips_nested_symlink_escaping_project_root(tmp_path):
+    """
+    A nested symlink (inside a directory that is itself a legitimate project
+    source) whose target escapes the project root must be pruned from the
+    walked mappings. The legitimate sibling files must still be enumerated.
+    """
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    (project_root / "snowflake.yml").write_text("# empty")
+    (project_root / "src").mkdir()
+    (project_root / "src" / "main.py").write_text("# main")
+
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secret.txt").write_text("sensitive data")
+
+    # Nested escaping symlink inside a legitimate directory source.
+    os.symlink(outside, project_root / "src" / "escape", target_is_directory=True)
+
+    deploy_root = project_root / "output" / "deploy"
+    bm = BundleMap(project_root=project_root, deploy_root=deploy_root)
+    bm.add(PathMapping(src="src", dest="./src/"))
+
+    srcs = [
+        s.relative_to(project_root).as_posix()
+        for s, _ in bm.all_mappings(absolute=True, expand_directories=True)
+    ]
+    assert "src/main.py" in srcs
+    assert not any("escape" in s for s in srcs)
+    assert not any("secret.txt" in s for s in srcs)
+
+
+@pytest.mark.skipif(
+    IS_WINDOWS, reason="Symlinks on Windows are restricted to Developer mode or admins"
+)
+def test_bundle_map_allows_symlink_staying_inside_project_root(tmp_path):
+    """
+    Symlinks whose real target remains inside the project root must continue
+    to be followed — the fix only rejects symlinks that escape, not all
+    symlinks.
+    """
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    (project_root / "snowflake.yml").write_text("# empty")
+    (project_root / "real").mkdir()
+    (project_root / "real" / "file.py").write_text("# file")
+
+    os.symlink(project_root / "real", project_root / "alias", target_is_directory=True)
+
+    deploy_root = project_root / "output" / "deploy"
+    bm = BundleMap(project_root=project_root, deploy_root=deploy_root)
+    bm.add(PathMapping(src="alias", dest="./aliased/"))
+
+    srcs = [
+        s.relative_to(project_root).as_posix()
+        for s, _ in bm.all_mappings(absolute=True, expand_directories=True)
+    ]
+    assert any("alias/file.py" == s for s in srcs)
 
 
 def test_bundle_map_disallows_absolute_dest(bundle_map):

@@ -322,12 +322,26 @@ def test_plan_project_with_from_stage(mock_execute_query, project_directory):
 
 
 @mock.patch(execute_queries)
+def test_plan_project_with_delta(mock_execute_query):
+    mgr = DCMProjectManager()
+    mgr.plan(
+        project_identifier=TEST_PROJECT,
+        from_stage="@my_stage",
+        delta=True,
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN DELTA FROM @my_stage"
+    )
+
+
+@mock.patch(execute_queries)
 def test_list_deployments(mock_execute_query):
     mgr = DCMProjectManager()
     mgr.list_deployments(project_identifier=TEST_PROJECT)
 
     mock_execute_query.assert_called_once_with(
-        query="SHOW DEPLOYMENTS IN DCM PROJECT my_project"
+        query="SHOW DEPLOYMENTS IN DCM PROJECT IDENTIFIER('my_project')"
     )
 
 
@@ -339,7 +353,7 @@ def test_drop_deployment(mock_execute_query, if_exists):
         project_identifier=TEST_PROJECT, deployment_name="v1", if_exists=if_exists
     )
 
-    expected_query = "ALTER DCM PROJECT my_project DROP DEPLOYMENT"
+    expected_query = "ALTER DCM PROJECT IDENTIFIER('my_project') DROP DEPLOYMENT"
     if if_exists:
         expected_query += " IF EXISTS"
     expected_query += ' "v1"'

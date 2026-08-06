@@ -48,8 +48,10 @@ from snowflake.cli.api.commands.flags import (
     PasswordOption,
     PortOption,
     PrivateKeyPathOption,
+    ProtocolOption,
     RoleOption,
     SchemaOption,
+    SecondaryRolesOption,
     SessionTokenOption,
     SilentOption,
     TemporaryConnectionOption,
@@ -241,6 +243,12 @@ GLOBAL_CONNECTION_OPTIONS = [
         default=PortOption,
     ),
     inspect.Parameter(
+        "protocol",
+        inspect.Parameter.KEYWORD_ONLY,
+        annotation=Optional[str],
+        default=ProtocolOption,
+    ),
+    inspect.Parameter(
         "account",
         inspect.Parameter.KEYWORD_ONLY,
         annotation=Optional[str],
@@ -413,6 +421,12 @@ GLOBAL_CONNECTION_OPTIONS = [
         inspect.Parameter.KEYWORD_ONLY,
         annotation=Optional[bool],
         default=ClientStoreTemporaryCredentialOption,
+    ),
+    inspect.Parameter(
+        "secondary_roles",
+        inspect.Parameter.KEYWORD_ONLY,
+        annotation=Optional[str],
+        default=SecondaryRolesOption,
     ),
 ]
 

@@ -744,6 +744,19 @@ def test_status_qualified_name(mock_execute_query):
 
 
 @patch(EXECUTE_QUERY)
+def test_status_escapes_single_quote(mock_execute_query):
+    """A service name containing a single quote must be passed as an escaped literal."""
+    service_name = "svc'); DROP SERVICE foo; --"
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_query.return_value = cursor
+    ServiceManager().status(service_name)
+    expected_query = (
+        f"CALL SYSTEM$GET_SERVICE_STATUS({to_string_literal(service_name)})"
+    )
+    mock_execute_query.assert_called_once_with(expected_query)
+
+
+@patch(EXECUTE_QUERY)
 def test_logs(mock_execute_query):
     service_name = "test_service"
     container_name = "test_container"
@@ -761,7 +774,11 @@ def test_logs(mock_execute_query):
     )
     result = list(result_generator)
 
-    expected_query_1 = f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '{instance_id}', '{container_name}', {num_lines}, False, '', False);"
+    expected_query_1 = (
+        f"call SYSTEM$GET_SERVICE_LOGS({to_string_literal(service_name)}, "
+        f"{to_string_literal(instance_id)}, {to_string_literal(container_name)}, "
+        f"{num_lines}, False, {to_string_literal('')}, False);"
+    )
     expected_output = ["log_line_1", "log_line_2"]
 
     mock_execute_query.assert_has_calls([call(expected_query_1)])
@@ -779,7 +796,11 @@ def test_logs(mock_execute_query):
     )
     result = list(result_generator)
 
-    expected_query_2 = f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '{instance_id}', '{container_name}', {num_lines}, False, '{since_timestamp}', False);"
+    expected_query_2 = (
+        f"call SYSTEM$GET_SERVICE_LOGS({to_string_literal(service_name)}, "
+        f"{to_string_literal(instance_id)}, {to_string_literal(container_name)}, "
+        f"{num_lines}, False, {to_string_literal(since_timestamp)}, False);"
+    )
     expected_output = ["log_line_1", "log_line_2"]
 
     # Assertions for Test Case 2
@@ -801,11 +822,33 @@ def test_logs(mock_execute_query):
     )
     result = list(result_generator)
 
-    expected_query_3 = f"call SYSTEM$GET_SERVICE_LOGS('{service_name}', '{instance_id}', '{container_name}', {num_lines}, True, '', False);"
+    expected_query_3 = (
+        f"call SYSTEM$GET_SERVICE_LOGS({to_string_literal(service_name)}, "
+        f"{to_string_literal(instance_id)}, {to_string_literal(container_name)}, "
+        f"{num_lines}, True, {to_string_literal('')}, False);"
+    )
     expected_output = ["previous_log_line_1", "previous_log_line_2"]
 
     mock_execute_query.assert_has_calls([call(expected_query_3)])
     assert result == expected_output
+
+
+@patch(EXECUTE_QUERY)
+def test_logs_escapes_single_quote(mock_execute_query):
+    """String arguments containing single quotes must be passed as escaped literals."""
+    service_name = "svc'); DROP SERVICE foo; --"
+    instance_id = "0"
+    container_name = "main"
+    num_lines = 10
+
+    cursor = Mock(spec=SnowflakeCursor)
+    cursor.fetchall.return_value = []
+    mock_execute_query.return_value = cursor
+
+    list(ServiceManager().logs(service_name, instance_id, container_name, num_lines))
+
+    sent_query = mock_execute_query.call_args[0][0]
+    assert to_string_literal(service_name) in sent_query
 
 
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.logs")
@@ -1351,6 +1394,151 @@ def test_read_yaml(temporary_directory):
     assert result == json.dumps(SPEC_DICT)
 
 
+@pytest.mark.parametrize(
+    "payload",
+    [
+        "$$ ); GRANT ROLE ACCOUNTADMIN TO USER attacker; --",
+        # Odd-length runs must also be neutralized — a naive replace("$$", "$ $")
+        # would leave the trailing $$ intact and still allow breakout.
+        "$$$); DROP TABLE users;--",
+        "$$$$); DROP TABLE users;--",
+        "$$$$$); DROP TABLE users;--",
+    ],
+)
+def test_read_yaml_escapes_dollar_quote_breakout(payload, temporary_directory):
+    # A spec value containing two or more consecutive $ must not survive
+    # verbatim: the JSON is later embedded inside $$...$$ SQL literals by
+    # create(), _execute_job_service(), and upgrade_spec(), and any $$ in
+    # spec content would close the literal and allow injected SQL. The
+    # escape uses JSON unicode sequences so a JSON-aware parser on the
+    # server side recovers the original spec value unchanged.
+    tmp_dir = Path(temporary_directory)
+    spec_path = tmp_dir / "spec.yml"
+    spec_path.write_text(
+        dedent(
+            f"""
+            spec:
+                containers:
+                - name: main
+                  image: /db/repo:tag
+                  env:
+                    PAYLOAD: "{payload}"
+            """
+        )
+    )
+    result = ServiceManager()._read_yaml(spec_path)  # noqa: SLF001
+    assert "$$" not in result
+    # Round-trip: parsing the serialized JSON must yield the original
+    # payload with the $ run intact, otherwise we would silently corrupt
+    # legitimate spec values (env vars, passwords, etc.) that happen to
+    # contain $$.
+    assert json.loads(result)["spec"]["containers"][0]["env"]["PAYLOAD"] == payload
+
+
+def test_read_yaml_preserves_single_dollar(temporary_directory):
+    # A single $ is not a dollar-quote delimiter and must pass through
+    # unchanged — legitimate spec values (env var references, passwords,
+    # etc.) often contain a lone $.
+    tmp_dir = Path(temporary_directory)
+    spec_path = tmp_dir / "spec.yml"
+    spec_path.write_text(
+        dedent(
+            """
+            spec:
+                containers:
+                - name: main
+                  image: /db/repo:tag
+                  env:
+                    HOME_PATH: "$HOME/data"
+                    PRICE: "cost is $5"
+            """
+        )
+    )
+    result = ServiceManager()._read_yaml(spec_path)  # noqa: SLF001
+    assert "$HOME/data" in result
+    assert "cost is $5" in result
+
+
+@pytest.mark.parametrize(
+    "method_name,query_fragment",
+    [
+        ("create", "FROM SPECIFICATION $$"),
+        ("execute_job", "FROM SPECIFICATION $$"),
+        ("upgrade_spec", "from specification $$"),
+    ],
+)
+@pytest.mark.parametrize(
+    "dollar_run",
+    ["$$", "$$$", "$$$$", "$$$$$"],
+)
+@patch(EXECUTE_QUERY)
+def test_service_spec_dollar_quote_not_broken_out(
+    mock_execute_query, temporary_directory, method_name, query_fragment, dollar_run
+):
+    # End-to-end check: any run of >=2 $ in spec content must not appear
+    # verbatim inside the generated SQL, otherwise the dollar-quoted literal
+    # is terminated early and the rest is parsed as SQL. Covers odd-length
+    # runs where a naive pairwise escape would leave a trailing $$ intact.
+    tmp_dir = Path(temporary_directory)
+    spec_path = tmp_dir / "spec.yml"
+    spec_path.write_text(
+        dedent(
+            f"""
+            spec:
+                containers:
+                - name: main
+                  image: /db/repo:tag
+                  env:
+                    PAYLOAD: "{dollar_run} ); GRANT ROLE ACCOUNTADMIN TO USER attacker; --"
+            """
+        )
+    )
+
+    if method_name == "create":
+        ServiceManager().create(
+            service_name="svc",
+            compute_pool="pool",
+            spec_path=spec_path,
+            min_instances=1,
+            max_instances=1,
+            auto_resume=True,
+            external_access_integrations=None,
+            query_warehouse=None,
+            tags=None,
+            comment=None,
+            if_not_exists=False,
+        )
+    elif method_name == "execute_job":
+        mock_conn = Mock()
+        mock_conn.database = None
+        mock_conn.schema = None
+        ServiceManager(connection=mock_conn).execute_job(
+            job_service_name="svc",
+            compute_pool="pool",
+            spec_path=spec_path,
+            external_access_integrations=None,
+            query_warehouse=None,
+            comment=None,
+            async_mode=False,
+        )
+    else:
+        ServiceManager().upgrade_spec("svc", spec_path)
+
+    query = mock_execute_query.mock_calls[0].args[0]
+    # The spec is embedded inside $$...$$ — the only $$ occurrences in the
+    # final SQL must be the opening and closing delimiters, never inside the
+    # spec payload.
+    assert query.count("$$") == 2, query
+    assert "GRANT ROLE ACCOUNTADMIN" in query  # payload still present, just neutralized
+    assert query_fragment in query
+    # Fidelity check: the bytes between the two $$ delimiters parse back
+    # to the original payload string. The server side does the same JSON
+    # parse, so this is what Snowflake actually receives as the spec value.
+    spec_json = query[query.find("$$") + 2 : query.rfind("$$")].strip()
+    payload = json.loads(spec_json)["spec"]["containers"][0]["env"]["PAYLOAD"]
+    assert payload == f"{dollar_run} ); GRANT ROLE ACCOUNTADMIN TO USER attacker; --"
+
+
 @patch(EXECUTE_QUERY)
 def test_upgrade_spec(mock_execute_query, temporary_directory):
     service_name = "test_service"
@@ -1548,6 +1736,71 @@ def test_resume_cli(mock_resume, mock_cursor, runner):
     result = runner.invoke(["spcs", "service", "resume", service_name])
     assert result.exit_code == 0, result.output
     assert "Statement executed successfully" in result.output
+
+
+@pytest.mark.parametrize(
+    "if_exists, force, expected_query",
+    [
+        (False, False, "drop service test_service"),
+        (True, False, "drop service if exists test_service"),
+        (False, True, "drop service test_service force"),
+        (True, True, "drop service if exists test_service force"),
+    ],
+)
+@patch(EXECUTE_QUERY)
+def test_drop(mock_execute_query, if_exists, force, expected_query):
+    service_name = "test_service"
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_query.return_value = cursor
+    result = ServiceManager().drop(
+        service_name=service_name, if_exists=if_exists, force=force
+    )
+    mock_execute_query.assert_called_once_with(expected_query)
+    assert result == cursor
+
+
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.drop")
+def test_drop_cli_default(mock_drop, mock_cursor, runner):
+    service_name = "test_service"
+    cursor = mock_cursor(
+        rows=[["Statement executed successfully."]], columns=["status"]
+    )
+    mock_drop.return_value = cursor
+    result = runner.invoke(["spcs", "service", "drop", service_name])
+    assert result.exit_code == 0, result.output
+    mock_drop.assert_called_once_with(
+        service_name=f"IDENTIFIER('{service_name}')", if_exists=False, force=False
+    )
+
+
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.drop")
+def test_drop_cli_force(mock_drop, mock_cursor, runner):
+    service_name = "test_service"
+    cursor = mock_cursor(
+        rows=[["Statement executed successfully."]], columns=["status"]
+    )
+    mock_drop.return_value = cursor
+    result = runner.invoke(["spcs", "service", "drop", service_name, "--force"])
+    assert result.exit_code == 0, result.output
+    mock_drop.assert_called_once_with(
+        service_name=f"IDENTIFIER('{service_name}')", if_exists=False, force=True
+    )
+
+
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.drop")
+def test_drop_cli_if_exists_and_force(mock_drop, mock_cursor, runner):
+    service_name = "test_service"
+    cursor = mock_cursor(
+        rows=[["Statement executed successfully."]], columns=["status"]
+    )
+    mock_drop.return_value = cursor
+    result = runner.invoke(
+        ["spcs", "service", "drop", service_name, "--if-exists", "--force"]
+    )
+    assert result.exit_code == 0, result.output
+    mock_drop.assert_called_once_with(
+        service_name=f"IDENTIFIER('{service_name}')", if_exists=True, force=True
+    )
 
 
 @patch(EXECUTE_QUERY)
@@ -1857,9 +2110,8 @@ def normalize_query(query):
 
 
 # Tests for build_image command
-@patch("snowflake.cli._plugins.connection.util.get_account")
 @patch(EXECUTE_QUERY)
-def test_build_image(mock_execute_query, mock_get_account):
+def test_build_image(mock_execute_query):
     """Test build_image with all parameters."""
     job_service_name = "test_build_job"
     compute_pool = "test_pool"
@@ -1870,16 +2122,17 @@ def test_build_image(mock_execute_query, mock_get_account):
     build_context_path = "build_contexts/test"
     external_access_integrations = ["eai1", "eai2"]
 
-    # Mock connection responses
+    # Mock the shared get_account_identifier round-trip (ORG + ACCT in one row).
     mock_org_cursor = Mock()
-    mock_org_cursor.fetchone.return_value = {"CURRENT_ORGANIZATION_NAME()": "TEST_ORG"}
+    mock_org_cursor.fetchone.return_value = {
+        "ORG": "TEST_ORG",
+        "ACCT": "TEST_ACCOUNT",
+    }
     mock_conn = Mock()
     mock_conn.execute_string.return_value = (None, mock_org_cursor)
     mock_conn.database = None
     mock_conn.schema = None
     mock_conn.account = "test_account"
-
-    mock_get_account.return_value = "test_account"
 
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
@@ -1935,11 +2188,19 @@ def test_build_image(mock_execute_query, mock_get_account):
     assert container["env"]["IMAGE_TAG"] == image_tag
     assert container["env"]["BUILD_CONTEXT"] == "/app"
 
+    volumes = spec["spec"]["volumes"]
+    assert len(volumes) == 1
+    assert volumes[0] == {
+        "name": "code-volume",
+        "source": "stage",
+        "stageConfig": {"name": f"@{stage}/{build_context_path}"},
+        "uid": 65532,
+    }
+
     assert result == cursor
 
 
-@patch("snowflake.cli._plugins.connection.util.get_account")
-def test_build_image_repository_validation(mock_get_account):
+def test_build_image_repository_validation():
     """Test build_image validates image repository format.
 
     FQN parsing behavior:
@@ -1950,14 +2211,15 @@ def test_build_image_repository_validation(mock_get_account):
     Note: It's impossible to have database present without schema.
     """
     mock_org_cursor = Mock()
-    mock_org_cursor.fetchone.return_value = {"CURRENT_ORGANIZATION_NAME()": "TEST_ORG"}
+    mock_org_cursor.fetchone.return_value = {
+        "ORG": "TEST_ORG",
+        "ACCT": "TEST_ACCOUNT",
+    }
     mock_conn = Mock()
     mock_conn.execute_string.return_value = (None, mock_org_cursor)
     mock_conn.database = None
     mock_conn.schema = None
     mock_conn.account = "test_account"
-
-    mock_get_account.return_value = "test_account"
 
     manager = ServiceManager(connection=mock_conn)
 

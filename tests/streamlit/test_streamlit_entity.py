@@ -11,6 +11,7 @@ from snowflake.cli._plugins.workspace.context import WorkspaceContext
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.project.schemas.entities.common import PathMapping
 
 from tests.streamlit.streamlit_test_class import STREAMLIT_NAME, StreamlitTestClass
 
@@ -18,6 +19,32 @@ CONNECTOR = "snowflake.connector.connect"
 
 
 class TestStreamlitEntity(StreamlitTestClass):
+    @staticmethod
+    def _create_entity(project_root: Path, main_file: str, artifacts):
+        workspace_ctx = WorkspaceContext(
+            console=mock.MagicMock(spec=AbstractConsole),
+            project_root=project_root,
+            get_default_role=lambda: "mock_role",
+            get_default_warehouse=lambda: "mock_warehouse",
+        )
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file=main_file,
+            artifacts=artifacts,
+        )
+        model.set_entity_id("test_streamlit")
+        return StreamlitEntity(workspace_ctx=workspace_ctx, entity_model=model)
+
+    @staticmethod
+    def _write_file(path: Path, content: str = ""):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
+
+    @staticmethod
+    def _bundle_output(project_root: Path) -> Path:
+        return project_root / "output" / "bundle" / "streamlit" / "test_streamlit"
+
     def test_nativeapp_children_interface(self, example_entity, snapshot):
         example_entity.bundle()
         bundle_artifact = (
@@ -53,28 +80,211 @@ class TestStreamlitEntity(StreamlitTestClass):
         """Test that main_file is automatically included even if not in artifacts."""
 
         with project_directory("example_streamlit_v2"):
-            # Create workspace context inside the context manager so project_root
-            # points to the temporary directory
-            workspace_ctx = WorkspaceContext(
-                console=mock.MagicMock(spec=AbstractConsole),
+            entity = self._create_entity(
                 project_root=Path().resolve(),
-                get_default_role=lambda: "mock_role",
-                get_default_warehouse=lambda: "mock_warehouse",
-            )
-            model = StreamlitEntityModel(
-                type="streamlit",
-                identifier="test_streamlit",
                 main_file="streamlit_app.py",
                 artifacts=["environment.yml"],  # main_file NOT included
             )
-            model.set_entity_id("test_streamlit")
-            entity = StreamlitEntity(workspace_ctx=workspace_ctx, entity_model=model)
 
             entity.bundle()
             output = entity.root / "output" / "bundle" / "streamlit" / "test_streamlit"
 
             assert (output / "streamlit_app.py").exists()  # auto-included
             assert (output / "environment.yml").exists()
+
+    def test_bundle_auto_inserts_main_file_when_no_artifacts(self, tmp_path):
+        self._write_file(tmp_path / "app.py")
+        entity = self._create_entity(
+            project_root=tmp_path,
+            main_file="app.py",
+            artifacts=[],
+        )
+
+        bundle_map = entity.bundle()
+        output = self._bundle_output(tmp_path)
+
+        assert list(bundle_map.all_sources()) == [Path("app.py")]
+        assert (output / "app.py").exists()
+
+    def test_bundle_skips_auto_insert_when_main_file_is_explicit_artifact(
+        self, tmp_path
+    ):
+        self._write_file(tmp_path / "app.py")
+        entity = self._create_entity(
+            project_root=tmp_path,
+            main_file="app.py",
+            artifacts=["app.py"],
+        )
+
+        bundle_map = entity.bundle()
+        output = self._bundle_output(tmp_path)
+
+        assert list(bundle_map.all_sources()) == [Path("app.py")]
+        assert list(bundle_map.to_deploy_paths(Path("app.py"))) == [Path("app.py")]
+        assert (output / "app.py").exists()
+
+    @pytest.mark.parametrize(
+        "main_file, artifact_dir, expected_source, sibling_file",
+        [
+            (
+                "apps/my_app/app.py",
+                "apps/my_app/",
+                Path("apps/my_app"),
+                "apps/my_app/environment.yml",
+            ),
+            (
+                "src/apps/my_app/app.py",
+                "src/",
+                Path("src"),
+                "src/shared.py",
+            ),
+        ],
+    )
+    def test_bundle_skips_auto_insert_when_main_file_inside_directory_artifact(
+        self, tmp_path, main_file, artifact_dir, expected_source, sibling_file
+    ):
+        self._write_file(tmp_path / main_file)
+        self._write_file(tmp_path / sibling_file)
+        entity = self._create_entity(
+            project_root=tmp_path,
+            main_file=main_file,
+            artifacts=[artifact_dir],
+        )
+
+        bundle_map = entity.bundle()
+        output = self._bundle_output(tmp_path)
+
+        assert list(bundle_map.all_sources()) == [expected_source]
+        assert list(bundle_map.to_deploy_paths(Path(main_file))) == [Path(main_file)]
+        assert (output / main_file).exists()
+        assert (output / sibling_file).exists()
+
+    def test_bundle_auto_inserts_when_main_file_outside_artifact_directory(
+        self, tmp_path
+    ):
+        self._write_file(tmp_path / "app.py")
+        self._write_file(tmp_path / "other_dir" / "helper.py")
+        entity = self._create_entity(
+            project_root=tmp_path,
+            main_file="app.py",
+            artifacts=["other_dir/"],
+        )
+
+        bundle_map = entity.bundle()
+        output = self._bundle_output(tmp_path)
+
+        assert list(bundle_map.all_sources()) == [Path("app.py"), Path("other_dir")]
+        assert (output / "app.py").exists()
+        assert (output / "other_dir" / "helper.py").exists()
+
+    def test_bundle_auto_inserts_when_artifact_has_different_dest(self, tmp_path):
+        self._write_file(tmp_path / "apps" / "my_app" / "app.py")
+        self._write_file(tmp_path / "apps" / "my_app" / "helper.py")
+        entity = self._create_entity(
+            project_root=tmp_path,
+            main_file="apps/my_app/app.py",
+            artifacts=[PathMapping(src="apps/my_app/", dest="elsewhere/")],
+        )
+
+        bundle_map = entity.bundle()
+        output = self._bundle_output(tmp_path)
+
+        assert list(bundle_map.all_sources()) == [
+            Path("apps/my_app/app.py"),
+            Path("apps/my_app"),
+        ]
+        assert list(bundle_map.to_deploy_paths(Path("apps/my_app/app.py"))) == [
+            Path("apps/my_app/app.py"),
+            Path("elsewhere/my_app/app.py"),
+        ]
+        assert (output / "apps" / "my_app" / "app.py").exists()
+        assert (output / "elsewhere" / "my_app" / "app.py").exists()
+        assert (output / "elsewhere" / "my_app" / "helper.py").exists()
+
+    def test_bundle_skips_auto_insert_when_artifact_dest_equals_src(self, tmp_path):
+        """Self-referential dest (no trailing slash, equal to src) deploys to the
+        same canonical path as auto-insert, so the auto-insert is skipped."""
+        self._write_file(tmp_path / "apps" / "my_app" / "app.py")
+        self._write_file(tmp_path / "apps" / "my_app" / "env.yml")
+        entity = self._create_entity(
+            project_root=tmp_path,
+            main_file="apps/my_app/app.py",
+            artifacts=[PathMapping(src="apps/my_app/", dest="apps/my_app")],
+        )
+
+        bundle_map = entity.bundle()
+        output = self._bundle_output(tmp_path)
+
+        assert list(bundle_map.all_sources()) == [Path("apps/my_app")]
+        assert (output / "apps" / "my_app" / "app.py").exists()
+        assert (output / "apps" / "my_app" / "env.yml").exists()
+
+    def test_bundle_auto_inserts_when_artifact_dest_is_deploy_root(self, tmp_path):
+        """``dest='./'`` lands the directory's children at the deploy root, which
+        is a different canonical path than auto-insert produces, so the
+        auto-insert still fires (no collision)."""
+        self._write_file(tmp_path / "apps" / "my_app" / "app.py")
+        self._write_file(tmp_path / "apps" / "my_app" / "env.yml")
+        entity = self._create_entity(
+            project_root=tmp_path,
+            main_file="apps/my_app/app.py",
+            artifacts=[PathMapping(src="apps/my_app/", dest="./")],
+        )
+
+        bundle_map = entity.bundle()
+        output = self._bundle_output(tmp_path)
+
+        assert list(bundle_map.all_sources()) == [
+            Path("apps/my_app/app.py"),
+            Path("apps/my_app"),
+        ]
+        # auto-inserted main_file lands at apps/my_app/app.py
+        assert (output / "apps" / "my_app" / "app.py").exists()
+        # dir-walk lands children at ./my_app/...
+        assert (output / "my_app" / "app.py").exists()
+        assert (output / "my_app" / "env.yml").exists()
+
+    def test_bundle_skips_auto_insert_when_dest_root_artifact_covers_root_main_file(
+        self, tmp_path
+    ):
+        """An artifact with ``src=app.py, dest='./'`` deploys ``app.py`` to the
+        deploy root, the same canonical path the auto-insert would produce,
+        so the auto-insert is skipped."""
+        self._write_file(tmp_path / "app.py")
+        entity = self._create_entity(
+            project_root=tmp_path,
+            main_file="app.py",
+            artifacts=[PathMapping(src="app.py", dest="./")],
+        )
+
+        bundle_map = entity.bundle()
+        output = self._bundle_output(tmp_path)
+
+        assert list(bundle_map.all_sources()) == [Path("app.py")]
+        assert list(bundle_map.to_deploy_paths(Path("app.py"))) == [Path("app.py")]
+        assert (output / "app.py").exists()
+
+    def test_bundle_handles_glob_overlap_with_main_file(self, tmp_path):
+        """Glob-style src (``pages/*.py``) fails the helper's ``relative_to``
+        check, so the auto-insert fires. Downstream file-level dedup in
+        ``_ArtifactPathMap.put()`` handles the overlap without raising."""
+        self._write_file(tmp_path / "pages" / "main.py")
+        self._write_file(tmp_path / "pages" / "page.py")
+        entity = self._create_entity(
+            project_root=tmp_path,
+            main_file="pages/main.py",
+            artifacts=["pages/*.py"],
+        )
+
+        bundle_map = entity.bundle()
+        output = self._bundle_output(tmp_path)
+
+        assert sorted(p.as_posix() for p in bundle_map.all_sources()) == [
+            "pages/main.py",
+            "pages/page.py",
+        ]
+        assert (output / "pages" / "main.py").exists()
+        assert (output / "pages" / "page.py").exists()
 
     def test_bundle_deduplicates_pages_directory_and_glob(self, project_directory):
         with project_directory("example_streamlit_v2"):
@@ -533,3 +743,45 @@ class TestStreamlitEntity(StreamlitTestClass):
             "Deployment style is changing from versioned to legacy" in str(call)
             for call in workspace_context.console.warning.call_args_list
         )
+
+    @pytest.mark.parametrize(
+        "field,payload",
+        [
+            ("title", "evil'; DROP TABLE users; --"),
+            ("comment", "it's a trap'); DROP TABLE"),
+            ("main_file", "app.py'; DROP TABLE"),
+            ("compute_pool", "POOL'; DROP TABLE"),
+        ],
+    )
+    def test_get_deploy_sql_escapes_string_literals(
+        self, workspace_context, field, payload
+    ):
+        """Regression for SNOW-3417292: values from snowflake.yml must be
+        escaped before being interpolated into CREATE STREAMLIT SQL so a
+        single quote in any of them cannot break out of the SQL literal."""
+        kwargs = dict(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        if field == "compute_pool":
+            # compute_pool requires a matching runtime_name; pin runtime_name
+            # to the SPCS constant so only compute_pool carries the payload.
+            kwargs["runtime_name"] = SPCS_RUNTIME_V2_NAME
+            kwargs["compute_pool"] = payload
+        else:
+            kwargs[field] = payload
+
+        model = StreamlitEntityModel(**kwargs)
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=False)
+
+        # The raw unescaped payload must not appear as a simple quoted value
+        # in the SQL. to_string_literal uses standard SQL quote-doubling ('')
+        # so if escaping works, the raw `= '<payload>'` pattern cannot match.
+        assert f"= '{payload}'" not in sql
+        # Confirm quote-doubling is present (each ' in payload becomes '')
+        assert "''" in sql

@@ -43,8 +43,10 @@ from snowflake.cli.api.commands.flags import (
     PasswordOption,
     PortOption,
     PrivateKeyPathOption,
+    ProtocolOption,
     RoleOption,
     SchemaOption,
+    SecondaryRolesOption,
     TokenFilePathOption,
     UserOption,
     WarehouseOption,
@@ -225,6 +227,11 @@ def add(
         *PortOption.param_decls,
         help="Port to communicate with on the host.",
     ),
+    protocol: Optional[str] = typer.Option(
+        None,
+        *ProtocolOption.param_decls,
+        help="Protocol to use for the connection, for example `https`.",
+    ),
     region: Optional[str] = typer.Option(
         None,
         "--region",
@@ -256,6 +263,15 @@ def add(
         *TokenFilePathOption.param_decls,
         help="Path to file with an OAuth token that should be used when connecting to Snowflake",
     ),
+    secondary_roles: Optional[str] = typer.Option(
+        None,
+        *SecondaryRolesOption.param_decls,
+        help=(
+            "Secondary roles mode applied when the session starts. "
+            "Supported values are `ALL` and `NONE`; pass `NONE` to run the "
+            "session only with the primary role."
+        ),
+    ),
     set_as_default: bool = typer.Option(
         False,
         "--default",
@@ -277,11 +293,13 @@ def add(
         "schema": schema,
         "host": host,
         "port": port,
+        "protocol": protocol,
         "region": region,
         "authenticator": authenticator,
         "workload_identity_provider": workload_identity_provider,
         "private_key_file": private_key_file,
         "token_file_path": token_file_path,
+        "secondary_roles": secondary_roles,
     }
 
     if not no_interactive:
@@ -434,7 +452,15 @@ def generate_jwt(
     if not connection_details.private_key_file:
         raise UsageError(msq_template.format("Private key file"))
 
-    passphrase = os.getenv("PRIVATE_KEY_PASSPHRASE", None)
+    # `PRIVATE_KEY_PASSPHRASE` env var takes precedence over the config-sourced
+    # `private_key_passphrase` (populated from `private_key_file_pwd` or
+    # `private_key_passphrase` in connections.toml) for back-compat.
+    env_passphrase = os.getenv("PRIVATE_KEY_PASSPHRASE")
+    passphrase = (
+        env_passphrase
+        if env_passphrase is not None
+        else connection_details.private_key_passphrase
+    )
 
     def _decrypt(passphrase: str | None):
         return connector.auth.get_token_from_private_key(

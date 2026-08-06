@@ -113,15 +113,19 @@ class DCMProjectManager(SqlExecutionMixin):
         configuration: str | None = None,
         variables: List[str] | None = None,
         save_output: bool = False,
+        delta: bool = False,
     ) -> SnowflakeCursor:
         log.info(
-            "Running DCM plan manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d, save_output=%s).",
+            "Running DCM plan manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d, save_output=%s, delta=%s).",
             project_identifier,
             bool(configuration),
             len(variables or []),
             save_output,
+            delta,
         )
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} PLAN"
+        if delta:
+            query += " DELTA"
         query += self._get_configuration_and_variables_query(configuration, variables)
         query += self._get_from_stage_query(from_stage)
 
@@ -148,7 +152,7 @@ class DCMProjectManager(SqlExecutionMixin):
             "Running DCM list-deployments manager operation (project_identifier=%s).",
             project_identifier,
         )
-        query = f"SHOW DEPLOYMENTS IN DCM PROJECT {project_identifier.identifier}"
+        query = f"SHOW DEPLOYMENTS IN DCM PROJECT {project_identifier.sql_identifier}"
         return self.execute_query(query=query)
 
     def drop_deployment(
@@ -165,7 +169,7 @@ class DCMProjectManager(SqlExecutionMixin):
             project_identifier,
             if_exists,
         )
-        query = f"ALTER DCM PROJECT {project_identifier.identifier} DROP DEPLOYMENT"
+        query = f"ALTER DCM PROJECT {project_identifier.sql_identifier} DROP DEPLOYMENT"
         if if_exists:
             query += " IF EXISTS"
         query += f' "{deployment_name}"'

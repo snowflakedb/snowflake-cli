@@ -1,0 +1,35 @@
+name: Release notes check
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - labeled
+      - unlabeled
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  changelog:
+    name: Check RELEASE-NOTES.md is updated
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Check RELEASE-NOTES.md was modified
+        if: "!contains(github.event.pull_request.labels.*.name, 'skip-release-notes')"
+        run: |
+          if ! git diff --name-only --diff-filter=ACMRT ${{ github.event.pull_request.base.sha }} ${{ github.sha }} | grep -wq 'RELEASE-NOTES\.md'; then
+            echo "RELEASE-NOTES.md was not modified. Please update it or add the 'skip-release-notes' label to skip this check."
+            exit 1
+          fi

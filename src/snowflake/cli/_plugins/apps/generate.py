@@ -12,13 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 from textwrap import dedent
 from typing import Dict, Optional
 
 from snowflake.cli._plugins.apps.manager import DEFAULT_PERSONAL_WORKSPACE_NAME
-
-log = logging.getLogger(__name__)
 
 
 def _generate_snowflake_yml(
@@ -29,12 +26,15 @@ def _generate_snowflake_yml(
 ) -> str:
     """Generate snowflake.yml content from pre-resolved configuration values.
 
-    Required keys: ``database``, ``schema``, ``warehouse``,
-    ``build_compute_pool``, ``service_compute_pool``.
+    Required keys: ``database``, ``schema``, ``warehouse``.
 
-    Optional keys: ``build_eai``.  When not provided (``None``) the
-    ``build_eai`` block is omitted from the generated YAML — the builder
-    service will run without an external access integration.
+    Optional keys: ``build_compute_pool``, ``service_compute_pool``,
+    ``build_eai``.  When omitted or ``None`` the corresponding block is left
+    out of the generated YAML.  ``build_compute_pool`` and
+    ``service_compute_pool`` should both be omitted when the backend opts
+    the account into managed compute pools (see
+    :data:`MANAGED_COMPUTE_POOL_PARAM`).  ``build_eai`` is omitted when no
+    external access integration is required by the builder service.
 
     The artifact repository is omitted from the generated YAML; the CLI
     will default to ``<app-id>_REPO`` at deploy time.
@@ -50,18 +50,11 @@ def _generate_snowflake_yml(
     resolved against the app's database and schema at deploy time.
     """
 
-    if resolved.get("image_repository"):
-        log.warning(
-            "image_repository is configured but is no longer included in "
-            "generated snowflake.yml. The CLI defaults to <app-id>_REPO at "
-            "deploy time. You can remove the image_repository setting."
-        )
-
     database = resolved["database"]
     schema = resolved["schema"]
     warehouse = resolved["warehouse"]
-    build_compute_pool = resolved["build_compute_pool"]
-    service_compute_pool = resolved["service_compute_pool"]
+    build_compute_pool = resolved.get("build_compute_pool")
+    service_compute_pool = resolved.get("service_compute_pool")
     build_eai = resolved.get("build_eai")
 
     if use_workspace:
@@ -75,6 +68,18 @@ def _generate_snowflake_yml(
         )
     else:
         code_storage_block = f"\n            code_stage: {app_id.upper()}_CODE\n"
+
+    build_compute_pool_block = (
+        f"\n            build_compute_pool:\n              name: {build_compute_pool}"
+        if build_compute_pool
+        else ""
+    )
+
+    service_compute_pool_block = (
+        f"\n            service_compute_pool:\n              name: {service_compute_pool}"
+        if service_compute_pool
+        else ""
+    )
 
     build_eai_block = (
         f"\n            build_eai:\n              name: {build_eai}"
@@ -93,8 +98,6 @@ def _generate_snowflake_yml(
               name: {app_id.upper()}
               database: {database}
               schema: {schema}
-            meta:
-              title: {app_id}
             artifacts:
               - src: ./*
                 dest: ./
@@ -107,11 +110,9 @@ def _generate_snowflake_yml(
                   - .git
                   - snowflake.log
 
-            query_warehouse: {warehouse}
-            build_compute_pool:
-              name: {build_compute_pool}
-            service_compute_pool:
-              name: {service_compute_pool}"""
+            query_warehouse: {warehouse}"""
+        + build_compute_pool_block
+        + service_compute_pool_block
         + build_eai_block
         + code_storage_block
     )

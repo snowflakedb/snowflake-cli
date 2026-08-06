@@ -27,7 +27,7 @@ from snowflake.cli.api.secure_path import SecurePath
 
 log = logging.getLogger(__name__)
 
-DEFINITION_DESCRIPTION = "definition_description.rst.jinja2"
+DEFINITION_DESCRIPTION = "definition_description.mdx.jinja2"
 
 
 def generate_project_definition_docs(root: SecurePath):
@@ -49,9 +49,9 @@ def generate_project_definition_docs(root: SecurePath):
 def _render_definition_description(root: SecurePath, section: Dict[str, Any]) -> None:
     env = get_template_environment()
 
-    # RST files are presumed to be standalone pages in the docs with a matching item in the left nav.
-    # Included files, which these are, need to use the .txt extension.
-    file_path = root / f"definition_{section['name']}.txt"
+    # MDX include fragments that hand-authored project-definition pages in
+    # snowflake-prod-docs compose via MDX imports.
+    file_path = root / f"definition_{section['name']}.mdx"
     log.info("Creating %s", file_path)
     template = env.get_template(DEFINITION_DESCRIPTION)
     with file_path.open("w+") as fh:

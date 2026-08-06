@@ -24,6 +24,10 @@ from snowflake.cli._plugins.object.command_aliases import (
     add_object_command_aliases,
     scope_option,
 )
+from snowflake.cli._plugins.streamlit.log_streaming import (
+    stream_logs,
+    validate_spcs_v2_runtime,
+)
 from snowflake.cli._plugins.streamlit.manager import StreamlitManager
 from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
@@ -33,6 +37,7 @@ from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
 from snowflake.cli.api.commands.flags import (
+    IdentifierType,
     PruneOption,
     ReplaceOption,
     entity_argument,
@@ -44,12 +49,13 @@ from snowflake.cli.api.commands.utils import get_entity_for_operation
 from snowflake.cli.api.console.console import CliConsole
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.entities.utils import EntityActions
-from snowflake.cli.api.exceptions import NoProjectDefinitionError
+from snowflake.cli.api.exceptions import CliArgumentError, NoProjectDefinitionError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CommandResult,
     MessageResult,
     SingleQueryResult,
+    StreamResult,
 )
 from snowflake.cli.api.project.definition_conversion import (
     convert_project_definition_to_v2,
@@ -213,6 +219,78 @@ def get_url(
     if open_:
         typer.launch(url)
     return MessageResult(url)
+
+
+@app.command("logs", requires_connection=True)
+@with_project_definition(is_optional=True)
+def streamlit_logs(
+    entity_id: str = entity_argument("streamlit"),
+    name: FQN = typer.Option(
+        None,
+        "--name",
+        help="Fully qualified name of the Streamlit app (e.g. my_app, schema.my_app, or db.schema.my_app). "
+        "Overrides the project definition when provided.",
+        click_type=IdentifierType(),
+    ),
+    tail: int = typer.Option(
+        100,
+        "--tail",
+        "-n",
+        min=0,
+        max=1000,  # server-side buffer size limit (see logs_service.proto)
+        help="Number of historical log lines to fetch. Use 0 for live logs only.",
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Streams live logs from a deployed Streamlit app to your terminal.
+
+    Reads the Streamlit app name from the project definition file (snowflake.yml)
+    or from the --name option. Connects to the app's developer log service via
+    WebSocket and prints log entries in real time. Press Ctrl+C to stop streaming.
+
+    Log streaming requires SPCSv2 runtime.
+    """
+    cli_context = get_cli_context()
+    conn = cli_context.connection
+
+    if name is not None:
+        if entity_id is not None:
+            raise CliArgumentError(
+                "Cannot specify both --name and an entity ID. "
+                "Use --name to identify the app directly, or use an "
+                "entity ID to reference a snowflake.yml definition."
+            )
+        log.debug("Resolving Streamlit FQN from --name flag: %s", name)
+        fqn = name.using_connection(conn)
+    else:
+        log.debug("No --name provided; resolving Streamlit from project definition")
+        pd = cli_context.project_definition
+        if pd is None:
+            raise CliArgumentError(
+                "No Streamlit app specified. Provide --name or run from a "
+                "directory with a snowflake.yml project definition."
+            )
+        if not pd.meets_version_requirement("2"):
+            if not pd.streamlit:
+                raise NoProjectDefinitionError(
+                    project_type="streamlit", project_root=cli_context.project_root
+                )
+            pd = convert_project_definition_to_v2(cli_context.project_root, pd)
+
+        entity_model = get_entity_for_operation(
+            cli_context=cli_context,
+            entity_id=entity_id,
+            project_definition=pd,
+            entity_type=ObjectType.STREAMLIT.value.cli_name,
+        )
+
+        fqn = entity_model.fqn.using_connection(conn)
+
+    log.debug("Validating SPCSv2 runtime for %s via DESCRIBE STREAMLIT", fqn)
+    validate_spcs_v2_runtime(conn, fqn)
+
+    return StreamResult(stream_logs(conn=conn, fqn=str(fqn), tail_lines=tail))
 
 
 def _get_current_workspace_context():

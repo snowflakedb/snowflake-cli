@@ -26,6 +26,7 @@ from typing import Any, Dict, TextIO
 
 from rich import box, get_console
 from rich import print as rich_print
+from rich.console import Console
 from rich.live import Live
 from rich.table import Table
 from snowflake.cli.api.cli_global_context import get_cli_context
@@ -181,6 +182,23 @@ def _get_table():
     return Table(show_header=True, box=box.ASCII)
 
 
+# Rich falls back to width=80 when stdout is not a terminal. With many columns
+# that squeezes each cell below readability, producing a series of "|"
+# separators with no content (see GH#2725). Use an effectively unlimited width
+# for non-terminal destinations so Rich picks each column's natural width.
+_NON_TERMINAL_RENDER_WIDTH = 1_000_000
+
+
+def _render_console_for_table() -> Console:
+    default_console = get_console()
+    width = (
+        default_console.width
+        if default_console.is_terminal
+        else _NON_TERMINAL_RENDER_WIDTH
+    )
+    return Console(width=width, soft_wrap=True, markup=False)
+
+
 def _print_multiple_table_results(obj: CollectionResult):
     items = obj.result
     try:
@@ -191,7 +209,8 @@ def _print_multiple_table_results(obj: CollectionResult):
     table = _get_table()
     for column in first_item.keys():
         table.add_column(column, overflow="fold")
-    with Live(table, refresh_per_second=4):
+    console = _render_console_for_table()
+    with Live(table, console=console, refresh_per_second=4):
         table.add_row(*[__to_str(i) for i in first_item.values()])
         for item in items:
             table.add_row(*[__to_str(i) for i in item.values()])

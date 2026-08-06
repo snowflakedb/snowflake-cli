@@ -12,20 +12,39 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for the Native App / Snowflake Apps Deploy flow-routing decorator and its
+"""Tests for the Native App / Snowflake App Runtime flow-routing decorator and its
 flow-detection helper used by the shared ``snow app`` subcommands."""
 
+import ast
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
+import snowflake.cli
 from click import ClickException
 from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
     AppFlow,
     _detect_flow_from_project,
     has_snowflake_app_entities_only,
+    set_app_flow,
+)
+from snowflake.cli.api.cli_global_context import (
+    get_cli_context,
+    get_cli_context_manager,
 )
 
 from tests_common import change_directory
+
+
+class _ResetAppFlowMixin:
+    """Reset ``app_flow`` on the CLI context before/after each test so the
+    autouse fixtures don't leak state across tests in the same process."""
+
+    @pytest.fixture(autouse=True)
+    def _reset_app_flow(self):
+        get_cli_context_manager().app_flow = None
+        yield
+        get_cli_context_manager().app_flow = None
 
 
 def _make_project(entity_types_by_id):
@@ -243,7 +262,7 @@ class TestCrossFlowOptionValidation:
             result = runner.invoke(["app", "deploy", "--prune"])
 
         assert result.exit_code != 0
-        assert "Snowflake Apps Deploy entity" in result.output
+        assert "Snowflake App Runtime entity" in result.output
         assert "--prune" in result.output
 
     def test_native_app_rejects_snowflake_app_deploy_options(self, runner, tmp_path):
@@ -263,7 +282,7 @@ class TestCrossFlowOptionValidation:
             result = runner.invoke(["app", "events", "--follow"])
 
         assert result.exit_code != 0
-        assert "Snowflake Apps Deploy entity" in result.output
+        assert "Snowflake App Runtime entity" in result.output
         assert "--follow" in result.output
 
     def test_snowflake_app_rejects_explicit_native_app_follow_interval(
@@ -279,8 +298,53 @@ class TestCrossFlowOptionValidation:
             result = runner.invoke(["app", "events", "--follow-interval", "10"])
 
         assert result.exit_code != 0
-        assert "Snowflake Apps Deploy entity" in result.output
+        assert "Snowflake App Runtime entity" in result.output
         assert "--follow-interval" in result.output
+
+
+class TestSetAppFlow(_ResetAppFlowMixin):
+    """``set_app_flow`` records the resolved product flow on the CLI context
+    so telemetry can attribute commands without inspecting kwargs."""
+
+    def test_set_native_app(self):
+        set_app_flow(AppFlow.NATIVE_APP)
+        assert get_cli_context().app_flow == "native_app"
+
+    def test_set_snowflake_app(self):
+        set_app_flow(AppFlow.SNOWFLAKE_APP)
+        assert get_cli_context().app_flow == "snowflake_app"
+
+    def test_set_app_flow_is_overwritable(self):
+        set_app_flow(AppFlow.NATIVE_APP)
+        set_app_flow(AppFlow.SNOWFLAKE_APP)
+        assert get_cli_context().app_flow == "snowflake_app"
+
+
+class TestAppFlowRoutingPropagatesToContext(_ResetAppFlowMixin):
+    """The routing decorators must record the flow on the CLI context for
+    telemetry, even when the command later raises (e.g. cross-flow option
+    validation)."""
+
+    def _write_yml(self, tmp_path, content):
+        (tmp_path / "snowflake.yml").write_text(content)
+
+    def test_snowflake_app_project_sets_context_flow(self, runner, tmp_path):
+        self._write_yml(tmp_path, _SNOWFLAKE_APP_YML)
+
+        with change_directory(tmp_path):
+            # Triggering the routing decorator is enough; we don't need the
+            # command to succeed (it will error on cross-flow option).
+            runner.invoke(["app", "deploy", "--prune"])
+
+        assert get_cli_context().app_flow == "snowflake_app"
+
+    def test_native_app_project_sets_context_flow(self, runner, tmp_path):
+        self._write_yml(tmp_path, _NATIVE_APP_YML)
+
+        with change_directory(tmp_path):
+            runner.invoke(["app", "deploy", "--upload-only"])
+
+        assert get_cli_context().app_flow == "native_app"
 
 
 class TestNativeAppOnlyGuards:
@@ -314,3 +378,133 @@ class TestNativeAppOnlyGuards:
 
         assert result.exit_code != 0
         assert "only available for Native App" in result.output
+
+
+# ── force_project_definition_v2 caller allowlist ─────────────────────
+
+
+def _find_force_v2_callers(src_root: Path) -> set[tuple[str, str]]:
+    """Walk *src_root* recursively and return the set of
+    ``(relative_path, function_name)`` tuples for every function decorated
+    with ``force_project_definition_v2`` (with or without arguments).
+
+    Uses ``ast`` rather than text search so e.g. commented-out usages or
+    string occurrences don't false-positive.
+    """
+    callers: set[tuple[str, str]] = set()
+    for path in src_root.rglob("*.py"):
+        # Force UTF-8: Path.read_text() defaults to the platform encoding,
+        # which is cp1252 on Windows and trips on UTF-8 source files (e.g.
+        # ones containing em-dashes or smart quotes).
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        except SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for decorator in node.decorator_list:
+                # Match either @force_project_definition_v2 or
+                # @force_project_definition_v2(...).
+                target = (
+                    decorator.func if isinstance(decorator, ast.Call) else decorator
+                )
+                if (
+                    isinstance(target, ast.Name)
+                    and target.id == "force_project_definition_v2"
+                ):
+                    rel = path.relative_to(src_root).as_posix()
+                    callers.add((rel, node.name))
+    return callers
+
+
+class TestForceProjectDefinitionV2Callers:
+    """``force_project_definition_v2`` stamps ``app_flow=native_app`` on
+    the CLI context (after entity resolution succeeds) on the assumption
+    that every caller is a Native-App-only command. Lock that assumption
+    in: any new caller MUST be added to ``EXPECTED_CALLERS`` below after
+    confirming the command is in fact a Native App command (operates on
+    ``application`` / ``application package`` entities).
+
+    If a future command needs ``force_project_definition_v2`` but is NOT
+    Native App (e.g. a shared command, or a Snowflake App Runtime
+    command), use a different decorator -- this one would silently
+    misattribute its telemetry.
+    """
+
+    EXPECTED_CALLERS: frozenset[tuple[str, str]] = frozenset(
+        {
+            ("snowflake/cli/_plugins/nativeapp/commands.py", "app_diff"),
+            ("snowflake/cli/_plugins/nativeapp/commands.py", "app_run"),
+            ("snowflake/cli/_plugins/nativeapp/commands.py", "app_publish"),
+            ("snowflake/cli/_plugins/nativeapp/version/commands.py", "create"),
+            ("snowflake/cli/_plugins/nativeapp/version/commands.py", "drop"),
+            ("snowflake/cli/_plugins/nativeapp/version/commands.py", "version_list"),
+            (
+                "snowflake/cli/_plugins/nativeapp/release_channel/commands.py",
+                "release_channel_list",
+            ),
+            (
+                "snowflake/cli/_plugins/nativeapp/release_channel/commands.py",
+                "release_channel_add_accounts",
+            ),
+            (
+                "snowflake/cli/_plugins/nativeapp/release_channel/commands.py",
+                "release_channel_remove_accounts",
+            ),
+            (
+                "snowflake/cli/_plugins/nativeapp/release_channel/commands.py",
+                "release_channel_set_accounts",
+            ),
+            (
+                "snowflake/cli/_plugins/nativeapp/release_channel/commands.py",
+                "release_channel_add_version",
+            ),
+            (
+                "snowflake/cli/_plugins/nativeapp/release_channel/commands.py",
+                "release_channel_remove_version",
+            ),
+            (
+                "snowflake/cli/_plugins/nativeapp/release_directive/commands.py",
+                "release_directive_list",
+            ),
+            (
+                "snowflake/cli/_plugins/nativeapp/release_directive/commands.py",
+                "release_directive_set",
+            ),
+            (
+                "snowflake/cli/_plugins/nativeapp/release_directive/commands.py",
+                "release_directive_unset",
+            ),
+            (
+                "snowflake/cli/_plugins/nativeapp/release_directive/commands.py",
+                "release_directive_add_accounts",
+            ),
+            (
+                "snowflake/cli/_plugins/nativeapp/release_directive/commands.py",
+                "release_directive_remove_accounts",
+            ),
+        }
+    )
+
+    def test_callers_match_expected_set(self):
+        # Resolve src/ from the snowflake.cli package location:
+        # <repo>/src/snowflake/cli/__init__.py -> <repo>/src
+        src_root = Path(snowflake.cli.__file__).resolve().parents[2]
+        actual = _find_force_v2_callers(src_root)
+
+        unexpected = actual - self.EXPECTED_CALLERS
+        missing = self.EXPECTED_CALLERS - actual
+
+        assert not unexpected, (
+            f"force_project_definition_v2 was applied to a new function: "
+            f"{sorted(unexpected)}. If the new caller is a Native App "
+            f"command (operates on application / application package "
+            f"entities), add it to EXPECTED_CALLERS. If it's a Snowflake "
+            f"Apps Deploy or shared command, use a different decorator -- "
+            f"this one stamps app_flow=native_app for telemetry."
+        )
+        assert not missing, (
+            f"Expected callers no longer present: {sorted(missing)}. "
+            f"Update EXPECTED_CALLERS to remove them."
+        )
