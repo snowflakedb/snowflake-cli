@@ -62,10 +62,12 @@ _METRIC_TS = 0
 _METRIC_NAME = 1
 _METRIC_VALUE = 2
 _METRIC_UNIT = 3
+_METRIC_INSTANCE = 4
 _METRIC_CONTAINER = 5
 
 # Positions within a LOG tuple: [ts, instance, container, body, attributes].
 _LOG_TS = 0
+_LOG_INSTANCE = 1
 _LOG_CONTAINER = 2
 _LOG_BODY = 3
 
@@ -76,6 +78,7 @@ _EVENT_TS = 0
 _EVENT_SEVERITY = 1
 _EVENT_NAME = 2
 _EVENT_BODY = 3
+_EVENT_INSTANCE = 4
 _EVENT_CONTAINER = 5
 
 _BINARY_UNITS = ("B", "KiB", "MiB", "GiB", "TiB", "PiB")
@@ -303,7 +306,10 @@ def parse_metric_records(
     """Decode a METRIC payload into named records.
 
     Optionally filters to a single ``--metric`` *category* (cpu / memory /
-    network). Records are returned latest-first.
+    network). Records are returned latest-first and carry the ``instance``
+    (numeric replica index) and ``container`` (container name) the metric was
+    reported for, so multi-instance/multi-container services can be told
+    apart.
     """
     records: List[dict] = []
     for row in _load_rows(raw):
@@ -321,6 +327,7 @@ def parse_metric_records(
             "metric": name,
         }
         record.update(_metric_value_fields(row[_METRIC_UNIT], numeric, raw_values))
+        record["instance"] = row[_METRIC_INSTANCE]
         record["container"] = row[_METRIC_CONTAINER]
         records.append(record)
 
@@ -355,8 +362,8 @@ def parse_lifecycle_records(raw: str) -> List[dict]:
 
     Each tuple describes a service / container status change. The record
     surfaces the event name (e.g. ``SERVICE.STATUS_CHANGE``), the new status,
-    the human message, severity, and container (when the change is
-    container-scoped).
+    the human message, severity, and the instance (numeric replica index) and
+    container it applies to (when the change is container-scoped).
     """
     records: List[dict] = []
     for row in _load_rows(raw):
@@ -368,6 +375,8 @@ def parse_lifecycle_records(raw: str) -> List[dict]:
         }
         record.update(_event_body_fields(row[_EVENT_BODY]))
         record["severity"] = row[_EVENT_SEVERITY]
+        instance = row[_EVENT_INSTANCE] if len(row) > _EVENT_INSTANCE else None
+        record["instance"] = instance if instance is not None else ""
         container = row[_EVENT_CONTAINER] if len(row) > _EVENT_CONTAINER else None
         record["container"] = container or ""
         records.append(record)
@@ -379,14 +388,18 @@ def format_log_lines(raw: str) -> str:
     """Decode a LOG payload from the event table into printable text.
 
     Each tuple is ``[ts, instance, container, body, attributes]``; render one
-    ``<iso-timestamp> <body>`` line per tuple, oldest first so the output reads
-    like a normal log tail.
+    ``<iso-timestamp> [<instance>/<container>] <body>`` line per tuple, oldest
+    first so the output reads like a normal log tail. The ``[instance/container]``
+    tag lets logs from multi-instance or multi-container services be told
+    apart.
     """
     lines: List[str] = []
     for row in _load_rows(raw):
         if len(row) <= _LOG_BODY:
             continue
         timestamp = _epoch_to_iso(row[_LOG_TS])
+        instance = row[_LOG_INSTANCE]
+        container = row[_LOG_CONTAINER]
         body = row[_LOG_BODY]
-        lines.append(f"{timestamp} {body}".rstrip())
+        lines.append(f"{timestamp} [{instance}/{container}] {body}".rstrip())
     return "\n".join(lines)

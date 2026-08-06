@@ -144,9 +144,9 @@ class TestFormatBytes:
         assert format_bytes(num) == expected
 
 
-# Positional METRIC tuples: [ts, name, value, unit, ?, container, ...].
-def _metric_row(ts, name, value, unit, container="runner"):
-    return [ts, name, value, unit, "0", container, None, "...", "..."]
+# Positional METRIC tuples: [ts, name, value, unit, instance, container, ...].
+def _metric_row(ts, name, value, unit, container="runner", instance="0"):
+    return [ts, name, value, unit, instance, container, None, "...", "..."]
 
 
 class TestParseMetricRecords:
@@ -179,6 +179,7 @@ class TestParseMetricRecords:
         usage = next(r for r in records if r["metric"] == "container.memory.usage")
         assert usage["value"] == "187.4 MiB"
         assert usage["bytes"] == 196517888
+        assert usage["instance"] == "0"
         assert usage["container"] == "runner"
 
     def test_cpu_category(self):
@@ -210,10 +211,34 @@ class TestParseMetricRecords:
         )
         assert parse_metric_records(payload) == []
 
+    def test_distinguishes_multiple_instances(self):
+        payload = json.dumps(
+            [
+                _metric_row(
+                    "1784242528.0",
+                    "container.cpu.usage",
+                    "0.038",
+                    "cpu",
+                    instance="0",
+                ),
+                _metric_row(
+                    "1784242528.0",
+                    "container.cpu.usage",
+                    "0.091",
+                    "cpu",
+                    instance="1",
+                ),
+            ]
+        )
+        records = parse_metric_records(payload)
+        by_instance = {r["instance"]: r for r in records}
+        assert by_instance["0"]["cores"] == 0.038
+        assert by_instance["1"]["cores"] == 0.091
 
-def _event_row(ts, name, message, status, container=None):
+
+def _event_row(ts, name, message, status, container=None, instance="0"):
     body = json.dumps({"message": message, "status": status})
-    return [ts, "INFO", name, body, "0", container, "{}", None]
+    return [ts, "INFO", name, body, instance, container, "{}", None]
 
 
 class TestParseLifecycleRecords:
@@ -232,6 +257,7 @@ class TestParseLifecycleRecords:
                     "Running",
                     "READY",
                     container="runner",
+                    instance="1",
                 ),
             ]
         )
@@ -241,9 +267,11 @@ class TestParseLifecycleRecords:
         assert records[0]["event"] == "CONTAINER.STATUS_CHANGE"
         assert records[0]["status"] == "READY"
         assert records[0]["message"] == "Running"
+        assert records[0]["instance"] == "1"
         assert records[0]["container"] == "runner"
         assert records[0]["severity"] == "INFO"
         assert records[1]["status"] == "PENDING"
+        assert records[1]["instance"] == "0"
         assert records[1]["container"] == ""
         assert records[0]["time"].endswith("Z")
 
@@ -254,6 +282,8 @@ class TestParseLifecycleRecords:
         records = parse_lifecycle_records(payload)
         assert records[0]["message"] == "plain text"
         assert records[0]["status"] == ""
+        assert records[0]["instance"] == ""
+        assert records[0]["container"] == ""
 
     def test_empty(self):
         assert parse_lifecycle_records("") == []
@@ -270,11 +300,23 @@ class TestFormatLogLines:
         text = format_log_lines(payload)
         lines = text.splitlines()
         assert len(lines) == 2
-        assert lines[0].endswith("INFO: app started")
-        assert lines[1].endswith("INFO: listening")
-        # Instance/container/attributes columns are not rendered.
-        assert "runner" not in text
+        assert lines[0] == "2026-07-16T22:55:28Z [0/runner] INFO: app started"
+        assert lines[1] == "2026-07-16T22:55:30Z [0/runner] INFO: listening"
+        # Attributes column is not rendered.
         assert "{}" not in text
+
+    def test_distinguishes_multiple_instances_and_containers(self):
+        payload = json.dumps(
+            [
+                ["1784242528.0", "0", "runner", "from instance 0", "{}"],
+                ["1784242528.0", "1", "runner", "from instance 1", "{}"],
+                ["1784242528.0", "0", "sidecar", "from sidecar", "{}"],
+            ]
+        )
+        lines = format_log_lines(payload).splitlines()
+        assert "[0/runner] from instance 0" in lines[0]
+        assert "[1/runner] from instance 1" in lines[1]
+        assert "[0/sidecar] from sidecar" in lines[2]
 
     def test_empty(self):
         assert format_log_lines("") == ""
