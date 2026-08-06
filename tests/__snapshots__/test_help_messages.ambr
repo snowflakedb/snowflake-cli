@@ -4748,6 +4748,8 @@
   |                                                 keep-alive to prevent the    |
   |                                                 session from timing out      |
   |                                                 during long operations.      |
+  | --client-store-temporary-cre…                   Store the temporary          |
+  |                                                 credential.                  |
   | --default                                       If provided the connection   |
   |                                                 will be configured as        |
   |                                                 default connection.          |
