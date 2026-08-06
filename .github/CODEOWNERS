@@ -13,5 +13,12 @@
 /tests/nativeapp/ @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/native-apps
 /tests_integration/nativeapp/ @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/native-apps
 
+# DCM plugin
+/src/snowflake/cli/_plugins/dcm/ @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/dev-platform-dcm-waw
+/tests/dcm/ @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/dev-platform-dcm-waw
+/tests_integration/test_dcm_project.py @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/dev-platform-dcm-waw
+/tests_integration/test_data/projects/dcm_project/ @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/dev-platform-dcm-waw
+/tests_integration/test_data/projects/dcm_project_multiple_configurations/ @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/dev-platform-dcm-waw
+
 # Release notes
 /RELEASE-NOTES.md @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/native-apps
