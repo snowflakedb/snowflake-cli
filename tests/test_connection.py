@@ -111,6 +111,27 @@ def test_new_connection_can_be_added_with_server_session_keep_alive(runner):
     assert "server_session_keep_alive = true" in content
 
 
+def test_new_connection_can_be_added_with_client_store_temporary_credential(runner):
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        result = runner.invoke_with_config_file(
+            tmp_file.name,
+            [
+                "connection",
+                "add",
+                "--connection-name",
+                "conn-store-cred",
+                "--username",
+                "user1",
+                "--account",
+                "account1",
+                "--client-store-temporary-credential",
+            ],
+        )
+        content = tmp_file.read()
+    assert result.exit_code == 0, result.output
+    assert "client_store_temporary_credential = true" in content
+
+
 def test_new_connection_can_be_added_as_default(runner, os_agnostic_snapshot):
     with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
         result = runner.invoke_with_config_file(
