@@ -22,6 +22,11 @@
 
 ## Fixes and improvements
 * `snow app deploy` with workspace-backed storage now builds from `versions/live/` (the current working state) instead of the last committed version. In the Workspaces editor, files auto-save to the live version continuously — reading `versions/last` during the build phase caused stale content to be deployed when running from a live workspace session.
+
+
+# v3.24.1
+
+## Fixes and improvements
 * DCM projects: the `--env-file`/`-e` option for sourcing declared
   `templating.env_vars`/`templating.env_secrets` values from a `.env` file is
   not yet generally available. It is now hidden from `--help` unless the
