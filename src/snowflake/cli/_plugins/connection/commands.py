@@ -37,6 +37,7 @@ from snowflake.cli.api.commands.flags import (
     PLAIN_PASSWORD_MSG,
     AccountOption,
     AuthenticatorOption,
+    ClientStoreTemporaryCredentialOption,
     DatabaseOption,
     HostOption,
     NoInteractiveOption,
@@ -281,6 +282,12 @@ def add(
             "timing out during long operations."
         ),
     ),
+    client_store_temporary_credential: Optional[bool] = typer.Option(
+        None,
+        *ClientStoreTemporaryCredentialOption.param_decls,
+        is_flag=True,
+        help="Store the temporary credential.",
+    ),
     set_as_default: bool = typer.Option(
         False,
         "--default",
@@ -310,10 +317,14 @@ def add(
         "token_file_path": token_file_path,
         "secondary_roles": secondary_roles,
         "server_session_keep_alive": server_session_keep_alive,
+        "client_store_temporary_credential": client_store_temporary_credential,
     }
 
     # Boolean options that should not be prompted interactively
-    _non_interactive_options = {"server_session_keep_alive"}
+    _non_interactive_options = {
+        "server_session_keep_alive",
+        "client_store_temporary_credential",
+    }
 
     if not no_interactive:
         for option in connection_options:
