@@ -28,7 +28,7 @@ def patch_pyproject(path="pyproject.toml"):
     if content == original:
         print("WARNING: snowflake-connector-python not found in dependencies")
 
-    ud_pip = 'pip install "git+https://github.com/snowflakedb/universal-driver@{env:UD_BRANCH:main}#subdirectory=python"'
+    ud_pip = 'pip install "git+https://github.com/snowflakedb/drivers@{env:UD_BRANCH:main}#subdirectory=python"'
     content = content.replace(
         "[tool.hatch.envs.ud]\n"
         'template = "ud"\n'
