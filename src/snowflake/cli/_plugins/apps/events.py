@@ -40,9 +40,22 @@ from snowflake.cli.api.exceptions import CliError
 log = logging.getLogger(__name__)
 
 # Name of the system function that exposes event-table telemetry for an
-# application service. Accepts an app FQN, an event type, and an optional
-# ``[start_time, end_time]`` window of ``TIMESTAMP`` literals.
+# application service. Accepts an app FQN, an event type, an optional
+# ``[start_time, end_time]`` window of ``TIMESTAMP`` literals, and an optional
+# trailing ``return_uuid`` flag (see below).
 EVENT_TABLE_FUNCTION = "SYSTEM$GET_APPLICATION_SERVICE_EVENT_TABLE_DATA"
+
+# Account/session parameter that bounds how many records the function returns
+# inline as a JSON array. The CLI reads it at runtime rather than assuming a
+# fixed cap (see ``SnowflakeAppManager._event_table_inline_cap``). To retrieve
+# more than the cap, the function is called with its ``return_uuid`` flag set —
+# which makes it return the query id of its underlying result set instead of
+# the JSON payload — and the full result is read back via ``RESULT_SCAN``. See
+# ``SnowflakeAppManager.get_event_table_data``.
+EVENT_TABLE_MAX_ROWS_PARAMETER = "APPLICATION_SERVICE_EVENT_TABLE_MAX_ROWS"
+
+# Fallback inline cap used only when the parameter above cannot be read.
+DEFAULT_EVENT_TABLE_INLINE_LIMIT = 500
 
 # Default look-back applied when the user requests a historical stream without
 # giving an explicit ``--since``. See :func:`resolve_time_window`.

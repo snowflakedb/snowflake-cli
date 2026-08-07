@@ -15,6 +15,7 @@
 import json
 import os
 import sys
+from datetime import datetime, timezone
 from unittest.mock import Mock, call, patch
 
 import pytest
@@ -27,6 +28,7 @@ from snowflake.cli._plugins.apps.commands import (
     _resolve_code_storage,
     _utf8_output,
 )
+from snowflake.cli._plugins.apps.events import parse_lifecycle_records
 from snowflake.cli._plugins.apps.generate import (
     _generate_snowflake_yml,
     _yaml_str,
@@ -2202,6 +2204,213 @@ class TestSnowflakeAppManager:
             "CALL SYSTEM$GET_APPLICATION_SERVICE_EVENT_TABLE_DATA("
             "'DB.SCHEMA.MY_APP', 'EVENT')"
         )
+
+    @patch(EXECUTE_QUERY)
+    def test_get_event_table_data_limit_within_inline_cap_stays_inline(
+        self, mock_execute
+    ):
+        # The inline cap is read from the APPLICATION_SERVICE_EVENT_TABLE_MAX_ROWS
+        # parameter (not hard-coded); a limit at or below it stays inline — a
+        # single plain call is issued, with no return_uuid / RESULT_SCAN paging.
+        param_cursor = Mock()
+        param_cursor.fetchone.return_value = {"value": "500"}
+        call_cursor = Mock()
+        call_cursor.fetchone.return_value = ("[]",)
+        mock_execute.side_effect = [param_cursor, call_cursor]
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="MY_APP")
+        SnowflakeAppManager().get_event_table_data(
+            fqn, "METRIC", "2026-07-16 22:00:00", "2026-07-16 23:00:00", limit=500
+        )
+        assert mock_execute.call_count == 2
+        param_call, table_call = mock_execute.call_args_list
+        assert param_call.args[0] == (
+            "SHOW PARAMETERS LIKE 'APPLICATION_SERVICE_EVENT_TABLE_MAX_ROWS'"
+        )
+        assert table_call.args[0] == (
+            "CALL SYSTEM$GET_APPLICATION_SERVICE_EVENT_TABLE_DATA("
+            "'DB.SCHEMA.MY_APP', 'METRIC', "
+            "'2026-07-16 22:00:00', '2026-07-16 23:00:00')"
+        )
+
+    @patch(EXECUTE_QUERY)
+    def test_get_event_table_data_over_cap_pages_via_result_scan(self, mock_execute):
+        # Above the inline cap the function is called with its return_uuid flag,
+        # then the newest rows are read back via RESULT_SCAN and re-serialized
+        # into the inline JSON tuple layout (oldest-first, epoch timestamps).
+        param_cursor = Mock()
+        param_cursor.fetchone.return_value = {"value": "500"}
+        uuid_cursor = Mock()
+        uuid_cursor.fetchone.return_value = ("query-uuid-123",)
+        scan_cursor = Mock()
+        # RESULT_SCAN returns newest-first; timestamps come back as datetimes.
+        scan_cursor.fetchall.return_value = [
+            (datetime(2026, 7, 16, 22, 0, 2), 0, "runner", "newer line", "{}"),
+            (datetime(2026, 7, 16, 22, 0, 1), 0, "runner", "older line", "{}"),
+        ]
+        mock_execute.side_effect = [param_cursor, uuid_cursor, scan_cursor]
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="MY_APP")
+        payload = SnowflakeAppManager().get_event_table_data(
+            fqn, "LOG", "2026-07-16 22:00:00", "2026-07-16 23:00:00", limit=600
+        )
+
+        assert mock_execute.call_count == 3
+        param_call, uuid_call, scan_call = mock_execute.call_args_list
+        assert param_call.args[0] == (
+            "SHOW PARAMETERS LIKE 'APPLICATION_SERVICE_EVENT_TABLE_MAX_ROWS'"
+        )
+        assert uuid_call.args[0] == (
+            "CALL SYSTEM$GET_APPLICATION_SERVICE_EVENT_TABLE_DATA("
+            "'DB.SCHEMA.MY_APP', 'LOG', "
+            "'2026-07-16 22:00:00', '2026-07-16 23:00:00', 'true')"
+        )
+        assert scan_call.args[0] == (
+            "SELECT * FROM TABLE(RESULT_SCAN('query-uuid-123')) "
+            "ORDER BY TIMESTAMP DESC LIMIT 600"
+        )
+
+        rows = json.loads(payload)
+        # Reversed to oldest-first, and the datetime is now an epoch string.
+        assert [r[3] for r in rows] == ["older line", "newer line"]
+        older_epoch = datetime(2026, 7, 16, 22, 0, 1, tzinfo=timezone.utc).timestamp()
+        assert rows[0][0] == str(older_epoch)
+
+    @patch(EXECUTE_QUERY)
+    def test_get_event_table_data_over_cap_pages_event_result(self, mock_execute):
+        # The paging path must also work for the EVENT (lifecycle) record type:
+        # RESULT_SCAN rows (datetime timestamp, native instance int, JSON body)
+        # are re-serialized so parse_lifecycle_records decodes them identically
+        # to the inline payload.
+        param_cursor = Mock()
+        param_cursor.fetchone.return_value = {"value": "500"}
+        uuid_cursor = Mock()
+        uuid_cursor.fetchone.return_value = ("query-uuid-evt",)
+        scan_cursor = Mock()
+        # EVENT column order matches the inline tuple: ts, severity, name, body,
+        # instance, container. RESULT_SCAN returns newest-first.
+        scan_cursor.fetchall.return_value = [
+            (
+                datetime(2026, 7, 16, 22, 0, 2),
+                "INFO",
+                "SERVICE.STATUS_CHANGE",
+                json.dumps({"message": "Service is ready", "status": "READY"}),
+                0,
+                None,
+            ),
+            (
+                datetime(2026, 7, 16, 22, 0, 1),
+                "INFO",
+                "SERVICE.STATUS_CHANGE",
+                json.dumps({"message": "Container is pending", "status": "PENDING"}),
+                0,
+                None,
+            ),
+        ]
+        mock_execute.side_effect = [param_cursor, uuid_cursor, scan_cursor]
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="MY_APP")
+        payload = SnowflakeAppManager().get_event_table_data(
+            fqn, "EVENT", "2026-07-16 22:00:00", "2026-07-16 23:00:00", limit=600
+        )
+
+        assert mock_execute.call_count == 3
+        _, uuid_call, scan_call = mock_execute.call_args_list
+        assert uuid_call.args[0] == (
+            "CALL SYSTEM$GET_APPLICATION_SERVICE_EVENT_TABLE_DATA("
+            "'DB.SCHEMA.MY_APP', 'EVENT', "
+            "'2026-07-16 22:00:00', '2026-07-16 23:00:00', 'true')"
+        )
+        assert scan_call.args[0] == (
+            "SELECT * FROM TABLE(RESULT_SCAN('query-uuid-evt')) "
+            "ORDER BY TIMESTAMP DESC LIMIT 600"
+        )
+
+        # The reconstructed payload decodes through the lifecycle parser exactly
+        # like an inline EVENT payload would (latest-first, fields normalized).
+        records = parse_lifecycle_records(payload)
+        assert [r["status"] for r in records] == ["READY", "PENDING"]
+        assert records[0]["event"] == "SERVICE.STATUS_CHANGE"
+        assert records[0]["message"] == "Service is ready"
+        assert records[0]["severity"] == "INFO"
+        assert records[0]["instance"] == "0"
+        assert records[0]["container"] == ""
+
+    @patch(EXECUTE_QUERY)
+    def test_get_event_table_data_inline_cap_falls_back_when_param_unreadable(
+        self, mock_execute
+    ):
+        # When the cap parameter cannot be read, the default (500) is used, so an
+        # over-500 windowed limit still pages via return_uuid / RESULT_SCAN.
+        uuid_cursor = Mock()
+        uuid_cursor.fetchone.return_value = ("query-uuid-fallback",)
+        scan_cursor = Mock()
+        scan_cursor.fetchall.return_value = []
+        mock_execute.side_effect = [
+            ProgrammingError("cannot read parameter"),
+            uuid_cursor,
+            scan_cursor,
+        ]
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="MY_APP")
+        SnowflakeAppManager().get_event_table_data(
+            fqn, "LOG", "2026-07-16 22:00:00", "2026-07-16 23:00:00", limit=600
+        )
+
+        assert mock_execute.call_count == 3
+        _, uuid_call, _ = mock_execute.call_args_list
+        assert uuid_call.args[0].endswith("'true')")
+
+    @patch(EXECUTE_QUERY)
+    def test_get_event_table_data_over_cap_without_window_stays_inline(
+        self, mock_execute
+    ):
+        # Paging needs a resolved window (return_uuid is the fifth positional
+        # argument), so an over-cap limit without a window stays inline.
+        cursor = Mock()
+        cursor.fetchone.return_value = ("[]",)
+        mock_execute.return_value = cursor
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="MY_APP")
+        SnowflakeAppManager().get_event_table_data(fqn, "EVENT", limit=1000)
+        mock_execute.assert_called_once_with(
+            "CALL SYSTEM$GET_APPLICATION_SERVICE_EVENT_TABLE_DATA("
+            "'DB.SCHEMA.MY_APP', 'EVENT')"
+        )
+
+    @patch(EXECUTE_QUERY)
+    def test_get_event_table_data_paging_empty_uuid_returns_empty(self, mock_execute):
+        param_cursor = Mock()
+        param_cursor.fetchone.return_value = {"value": "500"}
+        uuid_cursor = Mock()
+        uuid_cursor.fetchone.return_value = None
+        mock_execute.side_effect = [param_cursor, uuid_cursor]
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="MY_APP")
+        payload = SnowflakeAppManager().get_event_table_data(
+            fqn, "LOG", "2026-07-16 22:00:00", "2026-07-16 23:00:00", limit=600
+        )
+        assert payload == ""
+        # The cap lookup and the return_uuid call ran; RESULT_SCAN is skipped.
+        assert mock_execute.call_count == 2
+
+    def test_event_table_row_to_tuple_normalizes_to_inline_shape(self):
+        # Native RESULT_SCAN types are normalized to the inline JSON shape:
+        # epoch-string timestamp, other values stringified, None preserved.
+        row = (datetime(2026, 7, 16, 22, 0, 1), 0, "runner", "line", None)
+        converted = SnowflakeAppManager._event_table_row_to_tuple(row)  # noqa: SLF001
+        expected_epoch = datetime(
+            2026, 7, 16, 22, 0, 1, tzinfo=timezone.utc
+        ).timestamp()
+        assert converted[0] == str(expected_epoch)
+        assert converted[1:] == ["0", "runner", "line", None]
+
+        # A tz-aware timestamp is honored (converted, not relabeled as UTC).
+        aware = (datetime(2026, 7, 16, 22, 0, 1, tzinfo=timezone.utc),)
+        aware_converted = SnowflakeAppManager._event_table_row_to_tuple(  # noqa: SLF001
+            aware
+        )
+        assert aware_converted[0] == str(expected_epoch)
 
     @staticmethod
     def _build_show_containers_cursor(rows):
@@ -5745,6 +5954,175 @@ class TestEventsCommand:
         mock_mgr.get_service_logs.assert_not_called()
         args = mock_mgr.get_event_table_data.call_args.args
         assert args[1] == "METRIC"
+        # No --last given: no explicit cap is forwarded (None) so the manager
+        # returns whatever the inline call yields, up to the server cap.
+        assert mock_mgr.get_event_table_data.call_args.kwargs["limit"] is None
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_events_last_caps_records_and_forwards_limit(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        entity.fqn = Mock(database="DB", schema="SCHEMA", name="MY_APP")
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.get_event_table_data.return_value = json.dumps(
+            [
+                ["100.0", "container.cpu.usage", "0.1", "cpu", "0", "runner", None],
+                ["300.0", "container.cpu.usage", "0.3", "cpu", "0", "runner", None],
+                ["200.0", "container.cpu.usage", "0.2", "cpu", "0", "runner", None],
+            ]
+        )
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(
+                [
+                    "app",
+                    "events",
+                    "--type",
+                    "metric",
+                    "--since",
+                    "1h",
+                    "--last",
+                    "2",
+                    "--format",
+                    "json",
+                ]
+            )
+            assert result.exit_code == 0, result.output
+            records = json.loads(result.output)
+
+        # Only the newest two records are kept, and --last is forwarded to the
+        # manager as the record limit.
+        assert [r["time"] for r in records] == [
+            "1970-01-01T00:05:00Z",
+            "1970-01-01T00:03:20Z",
+        ]
+        assert mock_mgr.get_event_table_data.call_args.kwargs["limit"] == 2
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_events_last_over_cap_forwards_paging_limit(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        entity.fqn = Mock(database="DB", schema="SCHEMA", name="MY_APP")
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.get_event_table_data.return_value = json.dumps([])
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(
+                [
+                    "app",
+                    "events",
+                    "--type",
+                    "lifecycle",
+                    "--since",
+                    "1h",
+                    "--last",
+                    "600",
+                    "--format",
+                    "json",
+                ]
+            )
+            assert result.exit_code == 0, result.output
+
+        # An over-cap --last is forwarded so the manager can page past the
+        # inline 500-record cap.
+        assert mock_mgr.get_event_table_data.call_args.kwargs["limit"] == 600
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_events_windowed_logs_last_keeps_newest_lines(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        entity.fqn = Mock(database="DB", schema="SCHEMA", name="MY_APP")
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        # Log payload is oldest-first, as the event table function returns it.
+        mock_mgr.get_event_table_data.return_value = json.dumps(
+            [
+                ["100.0", "0", "runner", "line1", "{}"],
+                ["200.0", "0", "runner", "line2", "{}"],
+                ["300.0", "0", "runner", "line3", "{}"],
+            ]
+        )
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "events", "--since", "6h", "--last", "2"])
+            assert result.exit_code == 0, result.output
+
+        # Only the newest two lines are printed, oldest-first.
+        assert "line1" not in result.output
+        assert "line2" in result.output
+        assert "line3" in result.output
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_events_windowed_logs_last_zero_returns_nothing(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        entity = Mock()
+        entity.fqn = Mock(database="DB", schema="SCHEMA", name="MY_APP")
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.get_event_table_data.return_value = json.dumps(
+            [["100.0", "0", "runner", "line1", "{}"]]
+        )
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            result = runner.invoke(["app", "events", "--since", "6h", "--last", "0"])
+            assert result.exit_code == 0, result.output
+
+        # ``--last 0`` must yield no lines (not the whole log via ``[-0:]``).
+        assert "line1" not in result.output
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
