@@ -213,7 +213,7 @@ def _app_group_callback() -> None:
 # Sentinel used on events --last to tell "user didn't pass --last" apart
 # from "user explicitly asked for 0". The merged command shares --last across
 # both flows, which have different defaults when the user doesn't set it
-# (Native App: -1, Snowflake App Runtime: 500).
+# (Native App: -1, Snowflake App Runtime: the server-side inline record cap).
 _EVENTS_LAST_UNSET = -1
 
 # Native-App polling interval default when ``--follow`` is used. The
@@ -834,7 +834,10 @@ def app_events(
         help=(
             "Maximum number of events to fetch. "
             "Native App: cannot be used with --first. "
-            "Snowflake App Runtime: number of log lines to retrieve (default: 500, capped at 100KB)."
+            "Snowflake App Runtime: maximum records to return, newest first. "
+            "Sizes the live log tail (capped at 100KB); for metric, lifecycle, "
+            "and windowed log streams a value above the server's inline "
+            "record cap transparently pages the event table past it."
         ),
     ),
     follow: bool = typer.Option(

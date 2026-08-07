@@ -730,6 +730,9 @@ def snowflake_app_events(
         return MessageResult(logs)
 
     # Everything else (windowed logs, metrics, lifecycle) reads the event table.
+    # ``--last`` caps the number of records returned (newest first); the manager
+    # transparently pages past the inline cap when more are requested. ``None``
+    # means "no explicit cap" — return whatever the inline call yields.
     start_time, end_time = resolve_time_window(since, until)
     try:
         with metrics.span(f"snowflake_app.events.fetch_{stream.value}"):
@@ -738,6 +741,7 @@ def snowflake_app_events(
                 stream.event_table_type,
                 start_time,
                 end_time,
+                limit=last,
             )
     except ProgrammingError:
         raise CliError(
@@ -748,12 +752,17 @@ def snowflake_app_events(
         )
 
     if stream is EventStream.METRIC:
-        return CollectionResult(
-            parse_metric_records(payload, category=category, raw_values=raw)
-        )
+        records = parse_metric_records(payload, category=category, raw_values=raw)
+        return CollectionResult(records[:last] if last is not None else records)
     if stream is EventStream.LIFECYCLE:
-        return CollectionResult(parse_lifecycle_records(payload))
-    return MessageResult(format_log_lines(payload))
+        records = parse_lifecycle_records(payload)
+        return CollectionResult(records[:last] if last is not None else records)
+    # Logs render oldest-first; keep the newest ``last`` lines when capped.
+    # ``lines[-0:]`` would return the whole log, so guard the zero case.
+    lines = format_log_lines(payload).splitlines()
+    if last is not None:
+        lines = lines[-last:] if last > 0 else []
+    return MessageResult("\n".join(lines))
 
 
 def _make_build_log_streamer(
