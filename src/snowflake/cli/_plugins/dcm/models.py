@@ -51,6 +51,89 @@ def _section_label(section_name: str) -> str:
     return f"{MANIFEST_FILE_NAME}'s 'templating.{section_name}' section"
 
 
+_ASSET_NAME_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+_MAX_ASSET_NAME_LENGTH = 255
+_MAX_ASSET_PATH_LENGTH = 1024
+
+
+def validate_asset_name(name: Any) -> None:
+    """Validate a manifest asset name against the ``assets:`` spec."""
+    if not name or not isinstance(name, str):
+        raise InvalidManifestError("Manifest asset is missing a non-empty 'name'.")
+    if len(name) > _MAX_ASSET_NAME_LENGTH:
+        raise InvalidManifestError(
+            f"Asset name exceeds {_MAX_ASSET_NAME_LENGTH} characters."
+        )
+    if not _ASSET_NAME_PATTERN.match(name):
+        raise InvalidManifestError(
+            f"Asset name '{name}' is invalid; must match {_ASSET_NAME_PATTERN.pattern}."
+        )
+
+
+def validate_asset_path(entry: Any) -> None:
+    """Validate a single ``path``/``paths`` entry stays repo-relative and in-root."""
+    if not entry or not isinstance(entry, str):
+        raise InvalidManifestError("Asset path entries must be non-empty strings.")
+    if len(entry) > _MAX_ASSET_PATH_LENGTH:
+        raise InvalidManifestError(
+            f"Asset path exceeds {_MAX_ASSET_PATH_LENGTH} characters: {entry}"
+        )
+    if entry.startswith("/") or entry.startswith("\\"):
+        raise InvalidManifestError(
+            f"Asset path must be relative to the project root (no leading '/'): {entry}"
+        )
+    # Only a stage prefix ('@stage/...') or a URL scheme is disallowed -- an '@'
+    # elsewhere is a legitimate filename character (e.g. 'img/logo@2x.png').
+    if entry.startswith("@") or "://" in entry:
+        raise InvalidManifestError(
+            f"Asset path must be a repo-relative path (no leading '@' or '://'): {entry}"
+        )
+    # Split on both separators so a '.'/'..' segment can't slip through in a
+    # backslash-separated path (e.g. '..\\secret') on Windows.
+    segments = re.split(r"[\\/]", entry)
+    if ".." in segments:
+        raise InvalidManifestError(
+            f"Asset path must stay within the project root (no '..'): {entry}"
+        )
+    # A '.' segment ('.', './', 'a/./b') reaches Path.glob unfiltered and crashes
+    # with a version-dependent exception; reject it here. Use '**/*' for "everything".
+    if "." in segments:
+        raise InvalidManifestError(
+            f"Asset path must not contain a '.' segment (use '**/*' for the whole project): {entry}"
+        )
+    if entry.endswith("/") or entry.endswith("\\"):
+        raise InvalidManifestError(
+            f"Asset path must not end with a path separator: {entry}"
+        )
+
+
+def validate_glob_pattern(entry: str) -> None:
+    """Validate the glob metacharacters in a ``path``/``paths`` entry.
+
+    Only ``*`` and ``**`` are wildcards. ``?``, ``{`` and ``}`` are reserved and
+    rejected; ``[`` and ``]`` are matched literally (so they are allowed here).
+    ``**`` is valid only as a full path segment followed by another component
+    (``**/*``, ``dir/**/*``) -- a bare, trailing, or embedded ``**`` is rejected.
+    """
+    for char in ("?", "{", "}"):
+        if char in entry:
+            raise InvalidManifestError(
+                f"Glob metacharacter '{char}' is not supported: {entry}"
+            )
+    segments = entry.split("/")
+    for index, segment in enumerate(segments):
+        if "**" not in segment:
+            continue
+        if segment != "**":
+            raise InvalidManifestError(
+                f"'**' must be a full path segment (write '**/*'), not '{segment}': {entry}"
+            )
+        if index == len(segments) - 1:
+            raise InvalidManifestError(
+                f"'**' must be followed by another component (write '**/*'): {entry}"
+            )
+
+
 @dataclass
 class DCMTemplating:
     """Templating configuration for DCM manifest v2."""
@@ -162,6 +245,67 @@ class DCMTarget:
 
 
 @dataclass
+class DCMAsset:
+    """A named collection of files declared in the DCM manifest v2 ``assets:``.
+
+    Each entry declares exactly one of ``path`` (a single file/dir/glob) or
+    ``paths`` (a list of them); both are normalized here to ``paths``. Entries
+    are repo-relative to the project root (the directory containing
+    ``manifest.yml``). This layer only models and validates the declared
+    configuration -- resolving globs against the filesystem happens later,
+    during upload.
+    """
+
+    name: str
+    paths: List[str] = field(default_factory=list)
+
+    @classmethod
+    def from_entry(cls, name: Any, spec: Any) -> "DCMAsset":
+        """Build an asset from one ``assets:`` mapping entry.
+
+        ``name`` is the mapping key; ``spec`` is its value, a mapping declaring
+        exactly one of ``path`` or ``paths``.
+        """
+        validate_asset_name(name)
+
+        if not isinstance(spec, dict):
+            raise InvalidManifestError(
+                f"Asset '{name}' must be a mapping declaring 'path' or 'paths'."
+            )
+
+        unknown_keys = set(spec) - {"path", "paths"}
+        if unknown_keys:
+            # repr() every key: YAML keys need not be strings, and a raw
+            # sorted()/join() over mixed types would raise TypeError instead of
+            # the InvalidManifestError the user should see (also quotes names).
+            raise InvalidManifestError(
+                f"Unknown key(s) in asset '{name}': {', '.join(sorted(map(repr, unknown_keys)))}."
+            )
+
+        has_path = "path" in spec
+        has_paths = "paths" in spec
+        if has_path == has_paths:
+            raise InvalidManifestError(
+                f"Asset '{name}' must declare exactly one of 'path' or 'paths'."
+            )
+
+        if has_path:
+            entries: List[Any] = [spec["path"]]
+        else:
+            entries = spec["paths"]
+            if not isinstance(entries, list) or not entries:
+                raise InvalidManifestError(
+                    f"Asset '{name}' field 'paths' must be a non-empty list."
+                )
+
+        for entry in entries:
+            validate_asset_path(entry)
+            validate_glob_pattern(entry)
+
+        return cls(name=name, paths=list(entries))
+
+
+@dataclass
 class DCMManifest:
     """DCM manifest v2 structure."""
 
@@ -170,6 +314,7 @@ class DCMManifest:
     default_target: Optional[str] = None
     targets: Dict[str, DCMTarget] = field(default_factory=dict)
     templating: DCMTemplating = field(default_factory=DCMTemplating)
+    assets: Dict[str, DCMAsset] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "DCMManifest":
@@ -199,6 +344,21 @@ class DCMManifest:
                 f"Manifest version '{data.get('manifest_version')}' is not valid. Expected an integer."
             )
 
+        raw_assets = data.get("assets")
+        if raw_assets is None:
+            assets: Dict[str, DCMAsset] = {}
+        elif not isinstance(raw_assets, dict):
+            raise InvalidManifestError(
+                "Manifest 'assets' must be a mapping of asset name to its path(s)."
+            )
+        else:
+            # Name-keyed like `targets`; dict insertion order preserves
+            # declaration order and gives O(1) lookup by asset name.
+            assets = {
+                name: DCMAsset.from_entry(name, spec)
+                for name, spec in raw_assets.items()
+            }
+
         manifest = cls(
             manifest_version=manifest_version,
             project_type=data.get("type", "").lower(),
@@ -207,6 +367,7 @@ class DCMManifest:
             else None,
             targets=targets,
             templating=DCMTemplating.from_dict(data.get("templating")),
+            assets=assets,
         )
         manifest.validate()
         return manifest

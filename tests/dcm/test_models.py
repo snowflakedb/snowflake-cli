@@ -23,9 +23,13 @@ from snowflake.cli._plugins.dcm.exceptions import (
 from snowflake.cli._plugins.dcm.models import (
     DCM_PROJECT_TYPE,
     MANIFEST_FILE_NAME,
+    DCMAsset,
     DCMManifest,
     DCMTarget,
     DCMTemplating,
+    validate_asset_name,
+    validate_asset_path,
+    validate_glob_pattern,
 )
 from snowflake.cli.api.secure_path import SecurePath
 
@@ -49,6 +53,7 @@ class TestDCMManifest:
         assert manifest.templating.env_vars == []
         assert manifest.templating.env_secrets == []
         assert manifest.templating.declared_variable_names == set()
+        assert manifest.assets == {}
 
     def test_manifest_from_dict_with_targets(self):
         data = {
@@ -549,6 +554,294 @@ class TestDCMManifest:
             }
         )
         assert target.account_identifier == "my_org.my_account"
+
+
+class TestValidateAssetName:
+    @pytest.mark.parametrize("name", ["a", "_", "sales_app", "App2", "_x1", "A" * 255])
+    def test_valid(self, name):
+        validate_asset_name(name)  # does not raise
+
+    @pytest.mark.parametrize("bad", [None, "", 123, []])
+    def test_missing_or_non_string_raises(self, bad):
+        with pytest.raises(InvalidManifestError, match="missing a non-empty 'name'"):
+            validate_asset_name(bad)
+
+    @pytest.mark.parametrize(
+        "bad", ["1abc", "my asset", "my-asset", "a.b", "app!", "with/slash", "café"]
+    )
+    def test_bad_pattern_raises(self, bad):
+        with pytest.raises(InvalidManifestError, match="is invalid; must match"):
+            validate_asset_name(bad)
+
+    def test_too_long_raises(self):
+        with pytest.raises(InvalidManifestError, match="exceeds 255 characters"):
+            validate_asset_name("a" * 256)
+
+
+class TestValidateAssetPath:
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "config.yaml",
+            "apps/sales",
+            "apps/sales/main.py",
+            "libs/**/*.py",
+            "**/*",
+            "data[1].csv",  # brackets are literal, allowed
+        ],
+    )
+    def test_valid(self, path):
+        validate_asset_path(path)  # does not raise
+
+    @pytest.mark.parametrize("bad", [None, "", 123, []])
+    def test_non_string_or_empty_raises(self, bad):
+        with pytest.raises(InvalidManifestError, match="must be non-empty strings"):
+            validate_asset_path(bad)
+
+    @pytest.mark.parametrize("bad", ["/etc/passwd", "\\etc\\passwd"])
+    def test_leading_slash_raises(self, bad):
+        with pytest.raises(InvalidManifestError, match="no leading '/'"):
+            validate_asset_path(bad)
+
+    @pytest.mark.parametrize("bad", ["@stage/x", "s3://bucket/x"])
+    def test_at_or_scheme_raises(self, bad):
+        with pytest.raises(InvalidManifestError, match="no leading '@' or '://'"):
+            validate_asset_path(bad)
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "assets/img/logo@2x.png",
+            "node_modules/@scope/pkg/index.js",
+            "src/@types/x.d.ts",
+            "x@y",
+        ],
+    )
+    def test_at_inside_path_is_allowed(self, path):
+        # '@' is only rejected as a stage prefix, not mid-path.
+        validate_asset_path(path)  # does not raise
+
+    @pytest.mark.parametrize("bad", ["apps/", "apps/*/", "conf\\"])
+    def test_trailing_separator_raises(self, bad):
+        with pytest.raises(
+            InvalidManifestError, match="must not end with a path separator"
+        ):
+            validate_asset_path(bad)
+
+    @pytest.mark.parametrize("bad", [".", "./", "a/./b", "conf/.", ".\\x"])
+    def test_dot_segment_raises(self, bad):
+        with pytest.raises(
+            InvalidManifestError, match=r"must not contain a '\.' segment"
+        ):
+            validate_asset_path(bad)
+
+    @pytest.mark.parametrize(
+        "bad",
+        [
+            "../shared/x",
+            "a/../b",
+            "..",
+            # backslash-separated '..' must also be rejected (Windows/CWE-22)
+            "..\\secret",
+            "a\\..\\b",
+        ],
+    )
+    def test_parent_escape_raises(self, bad):
+        with pytest.raises(InvalidManifestError, match="no '..'"):
+            validate_asset_path(bad)
+
+    def test_too_long_raises(self):
+        with pytest.raises(InvalidManifestError, match="exceeds 1024 characters"):
+            validate_asset_path("a/" * 600)
+
+
+class TestValidateGlobPattern:
+    @pytest.mark.parametrize(
+        "pattern",
+        [
+            "config.yaml",
+            "apps/sales",
+            "*",
+            "*.py",
+            "apps/*",
+            "apps/*.py",
+            "**/*",
+            "**/*.py",
+            "apps/**/*",
+            "apps/**/*.py",
+            "a/**/b/**/*",
+            "data[1].csv",  # brackets literal
+            "logs[abc]",
+        ],
+    )
+    def test_valid(self, pattern):
+        validate_glob_pattern(pattern)  # does not raise
+
+    @pytest.mark.parametrize(
+        "ch,pattern", [("?", "logs/*.cs?"), ("{", "{src,test}/**/*"), ("}", "a}b")]
+    )
+    def test_reserved_metacharacters_raise(self, ch, pattern):
+        with pytest.raises(InvalidManifestError, match=r"is not supported"):
+            validate_glob_pattern(pattern)
+
+    @pytest.mark.parametrize("bad", ["**", "apps/**", "a/b/**"])
+    def test_bare_or_trailing_globstar_raises(self, bad):
+        with pytest.raises(
+            InvalidManifestError, match="must be followed by another component"
+        ):
+            validate_glob_pattern(bad)
+
+    @pytest.mark.parametrize("bad", ["a**b", "**b", "a**", "src/a**/*"])
+    def test_embedded_globstar_raises(self, bad):
+        with pytest.raises(InvalidManifestError, match="must be a full path segment"):
+            validate_glob_pattern(bad)
+
+
+class TestDCMAssets:
+    def _manifest(self, assets):
+        return {"manifest_version": 2, "type": "dcm_project", "assets": assets}
+
+    def test_no_assets_key_yields_empty_dict(self):
+        manifest = DCMManifest.from_dict({"manifest_version": 2, "type": "dcm_project"})
+        assert manifest.assets == {}
+
+    def test_empty_assets_section_yields_empty_dict(self):
+        # `assets:` with no entries parses to None via PyYAML.
+        assert DCMManifest.from_dict(self._manifest(None)).assets == {}
+
+    def test_empty_assets_mapping_yields_empty_dict(self):
+        assert DCMManifest.from_dict(self._manifest({})).assets == {}
+
+    def test_single_asset_with_path(self):
+        manifest = DCMManifest.from_dict(
+            self._manifest({"app_config": {"path": "conf/app.yaml"}})
+        )
+        assert manifest.assets == {
+            "app_config": DCMAsset(name="app_config", paths=["conf/app.yaml"])
+        }
+
+    def test_single_asset_with_paths(self):
+        manifest = DCMManifest.from_dict(
+            self._manifest(
+                {"reports": {"paths": ["dashboards/exec", "shared/logo.png"]}}
+            )
+        )
+        assert manifest.assets == {
+            "reports": DCMAsset(
+                name="reports", paths=["dashboards/exec", "shared/logo.png"]
+            )
+        }
+
+    def test_multiple_assets_preserve_order_and_keys_as_names(self):
+        assets = DCMManifest.from_dict(
+            self._manifest(
+                {
+                    "sales_app": {"path": "apps/sales"},
+                    "python_libs": {"path": "libs/**/*.py"},
+                }
+            )
+        ).assets
+        # Name-keyed dict; insertion order preserves declaration order.
+        assert list(assets.keys()) == ["sales_app", "python_libs"]
+        assert assets["python_libs"].paths == ["libs/**/*.py"]
+
+    def test_asset_name_case_preserved(self):
+        manifest = DCMManifest.from_dict(self._manifest({"MixedCase": {"path": "x/y"}}))
+        assert manifest.assets["MixedCase"].name == "MixedCase"
+
+    # --- `assets` must be a mapping (addresses review comment on test_models.py) ---
+    @pytest.mark.parametrize(
+        "bad_assets", ["a string", 123, 4.5, True, ["a", "b"], [{"name": "x"}]]
+    )
+    def test_assets_not_a_mapping_raises(self, bad_assets):
+        with pytest.raises(InvalidManifestError, match="'assets' must be a mapping"):
+            DCMManifest.from_dict(self._manifest(bad_assets))
+
+    def test_asset_spec_not_a_mapping_raises(self):
+        with pytest.raises(InvalidManifestError, match="Asset 'x' must be a mapping"):
+            DCMManifest.from_dict(self._manifest({"x": "conf/app.yaml"}))
+
+    def test_both_path_and_paths_raises(self):
+        with pytest.raises(
+            InvalidManifestError, match="exactly one of 'path' or 'paths'"
+        ):
+            DCMManifest.from_dict(self._manifest({"x": {"path": "a", "paths": ["b"]}}))
+
+    def test_neither_path_nor_paths_raises(self):
+        with pytest.raises(
+            InvalidManifestError, match="exactly one of 'path' or 'paths'"
+        ):
+            DCMManifest.from_dict(self._manifest({"x": {}}))
+
+    def test_empty_paths_raises(self):
+        with pytest.raises(
+            InvalidManifestError, match="'paths' must be a non-empty list"
+        ):
+            DCMManifest.from_dict(self._manifest({"x": {"paths": []}}))
+
+    def test_non_list_paths_raises(self):
+        with pytest.raises(
+            InvalidManifestError, match="'paths' must be a non-empty list"
+        ):
+            DCMManifest.from_dict(self._manifest({"x": {"paths": "src/**/*"}}))
+
+    def test_non_string_path_entry_raises(self):
+        with pytest.raises(InvalidManifestError, match="must be non-empty strings"):
+            DCMManifest.from_dict(self._manifest({"x": {"paths": [123]}}))
+
+    def test_unknown_key_in_asset_raises(self):
+        with pytest.raises(
+            InvalidManifestError, match="Unknown key\\(s\\) in asset 'x': 'dest'"
+        ):
+            DCMManifest.from_dict(self._manifest({"x": {"path": "a", "dest": "b"}}))
+
+    @pytest.mark.parametrize(
+        "spec", [{"path": "a", 1: "b"}, {1: "a"}, {"path": "a", 1: "b", 2.5: "c"}]
+    )
+    def test_unknown_non_string_key_raises_manifest_error(self, spec):
+        # Non-string YAML keys must surface as InvalidManifestError, not a raw
+        # TypeError from sorted()/join() over mixed types.
+        with pytest.raises(InvalidManifestError, match="Unknown key"):
+            DCMManifest.from_dict(self._manifest({"x": spec}))
+
+    def test_invalid_name_key_raises(self):
+        with pytest.raises(InvalidManifestError, match="is invalid; must match"):
+            DCMManifest.from_dict(self._manifest({"my asset": {"path": "a"}}))
+
+    def test_invalid_glob_in_entry_raises(self):
+        with pytest.raises(
+            InvalidManifestError, match="must be followed by another component"
+        ):
+            DCMManifest.from_dict(self._manifest({"x": {"path": "apps/**"}}))
+
+    def test_invalid_path_in_entry_raises(self):
+        with pytest.raises(InvalidManifestError, match="no leading '/'"):
+            DCMManifest.from_dict(self._manifest({"x": {"path": "/abs/path"}}))
+
+    def test_from_entry_direct(self):
+        asset = DCMAsset.from_entry("seeds", {"paths": ["data/*.csv"]})
+        assert asset == DCMAsset(name="seeds", paths=["data/*.csv"])
+
+    def test_load_round_trips_assets_through_yaml(self, project_directory):
+        with project_directory("dcm_project") as project_dir:
+            with open(project_dir / MANIFEST_FILE_NAME, "w") as f:
+                yaml.dump(
+                    {
+                        "manifest_version": 2,
+                        "type": "dcm_project",
+                        "assets": {
+                            "seeds": {"paths": ["data/*.csv"]},
+                            "app": {"path": "conf/app.yaml"},
+                        },
+                    },
+                    f,
+                    sort_keys=False,
+                )
+            manifest = DCMManifest.load(SecurePath(project_dir))
+            assert manifest.assets == {
+                "seeds": DCMAsset(name="seeds", paths=["data/*.csv"]),
+                "app": DCMAsset(name="app", paths=["conf/app.yaml"]),
+            }
 
 
 class TestLoadManifest:
