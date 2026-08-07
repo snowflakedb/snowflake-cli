@@ -467,3 +467,4 @@ class TargetContext:
     project_identifier: FQN
     configuration: Optional[str] = None
     declared_variable_names: Set[str] = field(default_factory=set)
+    assets: List[DCMAsset] = field(default_factory=list)
