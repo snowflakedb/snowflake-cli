@@ -22,12 +22,14 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from contextvars import copy_context
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
     Dict,
+    Iterable,
     Iterator,
     List,
     Optional,
@@ -99,7 +101,11 @@ if TYPE_CHECKING:
     from snowflake.cli._plugins.apps.snowflake_app_entity_model import (
         SnowflakeAppEntityModel,
     )
-from snowflake.cli._plugins.apps.events import EVENT_TABLE_FUNCTION
+from snowflake.cli._plugins.apps.events import (
+    DEFAULT_EVENT_TABLE_INLINE_LIMIT,
+    EVENT_TABLE_FUNCTION,
+    EVENT_TABLE_MAX_ROWS_PARAMETER,
+)
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.artifacts.utils import symlink_or_copy
 from snowflake.cli.api.cli_global_context import get_cli_context
@@ -1281,6 +1287,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         event_type: str,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
+        limit: Optional[int] = None,
     ) -> str:
         """Fetch observability telemetry from an application service's event table.
 
@@ -1290,6 +1297,16 @@ class SnowflakeAppManager(SqlExecutionMixin):
         given the call is scoped to that ``[start_time, end_time]`` window;
         otherwise the function applies its own default window. There is a short
         ingestion delay before recent data appears.
+
+        The inline JSON payload is capped server-side at the
+        ``APPLICATION_SERVICE_EVENT_TABLE_MAX_ROWS`` records (read at runtime by
+        :meth:`_event_table_inline_cap`). When ``limit`` exceeds that cap the
+        function is instead called with its trailing ``return_uuid`` flag —
+        which returns the query id of its underlying result set — and the
+        newest ``limit`` records are read back via ``RESULT_SCAN`` (see
+        :meth:`_read_paged_event_table_data`), lifting the cap. Paging requires
+        a resolved ``[start_time, end_time]`` window because ``return_uuid`` is
+        the function's fifth positional argument.
         """
         from snowflake.cli.api.project.util import to_string_literal
 
@@ -1297,12 +1314,107 @@ class SnowflakeAppManager(SqlExecutionMixin):
             to_string_literal(service_fqn.identifier),
             to_string_literal(event_type),
         ]
-        if start_time is not None and end_time is not None:
+        windowed = start_time is not None and end_time is not None
+        if windowed:
             args.append(to_string_literal(start_time))
             args.append(to_string_literal(end_time))
-        cursor = self.execute_query(f"CALL {EVENT_TABLE_FUNCTION}({', '.join(args)})")
-        row = cursor.fetchone()
-        return row[0] if row else ""
+
+        # ``limit is None`` (the default) and unwindowed calls never page; only
+        # a windowed call with an explicit limit consults the server cap, so the
+        # common path avoids the extra parameter lookup.
+        if not windowed or limit is None or limit <= self._event_table_inline_cap():
+            cursor = self.execute_query(
+                f"CALL {EVENT_TABLE_FUNCTION}({', '.join(args)})"
+            )
+            row = cursor.fetchone()
+            return row[0] if row else ""
+
+        uuid_cursor = self.execute_query(
+            f"CALL {EVENT_TABLE_FUNCTION}"
+            f"({', '.join(args + [to_string_literal('true')])})"
+        )
+        uuid_row = uuid_cursor.fetchone()
+        query_id = uuid_row[0] if uuid_row else None
+        if not query_id:
+            return ""
+        return self._read_paged_event_table_data(query_id, limit)
+
+    def _event_table_inline_cap(self) -> int:
+        """Return the server's inline row cap for the event-table function.
+
+        Reads the ``APPLICATION_SERVICE_EVENT_TABLE_MAX_ROWS`` parameter that
+        bounds the function's inline JSON payload, rather than assuming a fixed
+        value. Falls back to :data:`DEFAULT_EVENT_TABLE_INLINE_LIMIT` when the
+        parameter cannot be read or parsed (e.g. insufficient privileges, or an
+        account that predates it).
+        """
+        try:
+            cursor = self.execute_query(
+                f"SHOW PARAMETERS LIKE '{EVENT_TABLE_MAX_ROWS_PARAMETER}'",
+                cursor_class=DictCursor,
+            )
+            row = cursor.fetchone()
+            if row:
+                value = row.get("value") or row.get("VALUE")
+                if value:
+                    return int(value)
+        except (ProgrammingError, ValueError, TypeError):
+            log.debug(
+                "Could not read %s; using default inline cap of %s.",
+                EVENT_TABLE_MAX_ROWS_PARAMETER,
+                DEFAULT_EVENT_TABLE_INLINE_LIMIT,
+                exc_info=True,
+            )
+        return DEFAULT_EVENT_TABLE_INLINE_LIMIT
+
+    def _read_paged_event_table_data(self, query_id: str, limit: int) -> str:
+        """Read up to ``limit`` newest event-table rows back via ``RESULT_SCAN``.
+
+        ``SYSTEM$GET_APPLICATION_SERVICE_EVENT_TABLE_DATA`` called with its
+        ``return_uuid`` flag yields the query id of its underlying result set
+        instead of the inline JSON payload. ``RESULT_SCAN`` exposes that full
+        result set as columns whose leading positions match the inline JSON
+        tuple layout the :mod:`~snowflake.cli._plugins.apps.events` parsers
+        expect — the only difference is the timestamp, a ``datetime`` here
+        versus epoch seconds inline. The newest ``limit`` rows are re-serialized
+        into that same JSON-array-of-tuples shape so the parsers remain the
+        single source of truth for decoding.
+        """
+        from snowflake.cli.api.project.util import to_string_literal
+
+        cursor = self.execute_query(
+            f"SELECT * FROM TABLE(RESULT_SCAN({to_string_literal(query_id)})) "
+            f"ORDER BY TIMESTAMP DESC LIMIT {int(limit)}"
+        )
+        rows = cursor.fetchall()
+        # RESULT_SCAN returned the newest rows first; reverse to oldest-first so
+        # the reconstructed payload matches the inline function's ordering.
+        tuples = [self._event_table_row_to_tuple(row) for row in reversed(rows)]
+        return json.dumps(tuples, default=str)
+
+    @staticmethod
+    def _event_table_row_to_tuple(row: Iterable[Any]) -> list:
+        """Convert a ``RESULT_SCAN`` row into an inline-JSON positional tuple.
+
+        ``RESULT_SCAN`` returns native column types (e.g. an ``int`` instance
+        id, a naive UTC ``datetime`` timestamp), whereas the inline payload the
+        parsers were written against carries every field as a string (or JSON
+        ``null``). Normalize to that shape — timestamps to epoch seconds, other
+        values to strings, ``None`` preserved — so the parsed output is
+        identical whether the data came from the inline call or from paging.
+        """
+        normalized: list = []
+        for index, value in enumerate(row):
+            if value is None:
+                normalized.append(None)
+            elif index == 0 and isinstance(value, datetime):
+                # Event-table timestamps are naive UTC; assume UTC when naive,
+                # but honor an existing tzinfo rather than relabeling it.
+                ts = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+                normalized.append(str(ts.timestamp()))
+            else:
+                normalized.append(str(value))
+        return normalized
 
     def resolve_application_service_url_from_describe(
         self, desc: Dict[str, Any]

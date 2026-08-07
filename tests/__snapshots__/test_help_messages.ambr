@@ -621,10 +621,17 @@
   |                                                      events to fetch. Native |
   |                                                      App: cannot be used     |
   |                                                      with --first. Snowflake |
-  |                                                      App Runtime: number of  |
-  |                                                      log lines to retrieve   |
-  |                                                      (default: 500, capped   |
-  |                                                      at 100KB).              |
+  |                                                      App Runtime: maximum    |
+  |                                                      records to return,      |
+  |                                                      newest first. Sizes the |
+  |                                                      live log tail (capped   |
+  |                                                      at 100KB); for metric,  |
+  |                                                      lifecycle, and windowed |
+  |                                                      log streams a value     |
+  |                                                      above the server's      |
+  |                                                      inline record cap       |
+  |                                                      transparently pages the |
+  |                                                      event table past it.    |
   | --follow             -f                              (Native App only)       |
   |                                                      Continue polling for    |
   |                                                      events. Implies --last  |
