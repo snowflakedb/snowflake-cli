@@ -8,7 +8,7 @@ from snowflake.cli._plugins.dcm.commands import (
     _check_account_identifier,
     _check_project_owner,
 )
-from snowflake.cli._plugins.dcm.models import DCMManifest, DCMTarget
+from snowflake.cli._plugins.dcm.models import DCMAsset, DCMManifest, DCMTarget
 from snowflake.cli._plugins.dcm.multistep_progress import MultiStepProgress
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN, AccountIdentifier
@@ -220,6 +220,19 @@ def _manifest_without_config():
     )
 
 
+def _manifest_with_assets():
+    """Helper to create a manifest declaring an assets section."""
+    return DCMManifest.from_dict(
+        {
+            "manifest_version": 2,
+            "type": "dcm_project",
+            "default_target": "dev",
+            "targets": {"dev": {"project_name": "ignored", **_DEFAULT_TARGET_FIELDS}},
+            "assets": {"seeds": {"paths": ["data/*.csv"]}},
+        }
+    )
+
+
 def _manifest_with_env_vars():
     """Helper to create a manifest declaring env_vars/env_secrets."""
     return DCMManifest.from_dict(
@@ -417,10 +430,46 @@ class TestDCMDeploy:
             project_identifier=FQN.from_string("my_project"),
             source_directory=str(source_dir),
             progress=mock.ANY,
+            assets=[],
         )
 
         call_args = mock_dcm_manager().deploy_async.call_args
         assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
+
+    def test_deploy_threads_declared_assets_into_sync(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        tmp_path,
+        mock_server_poll,
+    ):
+        # The command resolves assets from the manifest (via TargetContext) and
+        # hands them to sync_local_files -- there is no second manifest load.
+        mock_dcm_manager().deploy_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_with_assets()
+
+        source_dir = tmp_path / "source_project"
+        source_dir.mkdir()
+        (source_dir / "manifest.yml").write_text("type: dcm_project\n")
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "deploy", "my_project", "--from", str(source_dir)]
+            )
+            assert result.exit_code == 0, result.output
+
+        mock_dcm_manager().sync_local_files.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            source_directory=str(source_dir),
+            progress=mock.ANY,
+            assets=[DCMAsset(name="seeds", paths=["data/*.csv"])],
+        )
 
     def test_deploy_with_target_flag(
         self,
@@ -1437,6 +1486,7 @@ class TestDCMPlan:
             project_identifier=FQN.from_string("my_project"),
             source_directory=str(source_dir),
             progress=mock.ANY,
+            assets=[],
         )
 
         call_args = mock_dcm_manager().plan.call_args
@@ -2163,6 +2213,7 @@ class TestDCMRawAnalyze:
             project_identifier=FQN.from_string("my_project"),
             source_directory=str(source_dir),
             progress=mock.ANY,
+            assets=[],
         )
 
         call_args = mock_dcm_manager().raw_analyze.call_args

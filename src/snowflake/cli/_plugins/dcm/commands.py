@@ -23,7 +23,12 @@ from snowflake.cli._plugins.dcm.exceptions import (
     ManifestNotFoundError,
 )
 from snowflake.cli._plugins.dcm.manager import DCMProjectManager
-from snowflake.cli._plugins.dcm.models import DCMManifest, DCMTarget, TargetContext
+from snowflake.cli._plugins.dcm.models import (
+    DCMAsset,
+    DCMManifest,
+    DCMTarget,
+    TargetContext,
+)
 from snowflake.cli._plugins.dcm.multistep_progress import (
     MultiStepProgress,
     StepDefinition,
@@ -290,6 +295,7 @@ def _resolve_target_context(
         project_identifier=project_id,
         configuration=effective_target.templating_config,
         declared_variable_names=manifest.templating.declared_variable_names,
+        assets=list(manifest.assets.values()),
     )
 
 
@@ -350,6 +356,7 @@ def _upload_step(
     manager: DCMProjectManager,
     project_id: FQN,
     from_location: SecurePath,
+    assets: List[DCMAsset],
 ) -> str:
     return progress.run_step(
         UPLOAD.key,
@@ -357,6 +364,7 @@ def _upload_step(
             project_identifier=project_id,
             source_directory=str(from_location.path),
             progress=step,
+            assets=assets,
         ),
     )
 
@@ -411,7 +419,9 @@ def deploy(
                 cli_console.warning("Skipping planning step")
 
             manager = DCMProjectManager()
-            effective_stage = _upload_step(progress, manager, project_id, from_location)
+            effective_stage = _upload_step(
+                progress, manager, project_id, from_location, assets=context.assets
+            )
             sfqid = manager.deploy_async(
                 project_identifier=project_id,
                 configuration=context.configuration,
@@ -545,7 +555,9 @@ def plan(
         progress = MultiStepProgress([UPLOAD, RENDER, COMPILE, PLAN])
         with progress_session(progress):
             manager = DCMProjectManager()
-            effective_stage = _upload_step(progress, manager, project_id, from_location)
+            effective_stage = _upload_step(
+                progress, manager, project_id, from_location, assets=context.assets
+            )
             # The backend doesn't report progress for `plan` yet, so RENDER/COMPILE
             # are simulated as instantly-completing steps. Once it does (soon),
             # replace these with real ServerPoll-driven tracking, as in `deploy`.
@@ -593,7 +605,9 @@ def raw_analyze(
         progress = MultiStepProgress([UPLOAD, ANALYZE])
         with progress_session(progress):
             manager = DCMProjectManager()
-            effective_stage = _upload_step(progress, manager, project_id, from_location)
+            effective_stage = _upload_step(
+                progress, manager, project_id, from_location, assets=context.assets
+            )
             result = progress.run_step(
                 ANALYZE.key,
                 lambda step: manager.raw_analyze(
@@ -786,7 +800,9 @@ def preview(
     progress = MultiStepProgress([UPLOAD, PREVIEW])
     with progress_session(progress):
         manager = DCMProjectManager()
-        effective_stage = _upload_step(progress, manager, project_id, from_location)
+        effective_stage = _upload_step(
+            progress, manager, project_id, from_location, assets=context.assets
+        )
         result = progress.run_step(
             PREVIEW.key,
             lambda step: manager.preview(
