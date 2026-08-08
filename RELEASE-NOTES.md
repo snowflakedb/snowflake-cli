@@ -15,6 +15,7 @@
  -->
 # Unreleased version
 ## Backward incompatibility
+* The deprecated Snowpark annotation processor (`processors: [snowpark]` in a Native App project definition) is now opt-in. Bundling or deploying a Native App with a `snowpark` processor no longer executes it unless the `ENABLE_SNOWPARK_ANNOTATION_PROCESSOR` feature flag is turned on (`snowflake.cli.features.enable_snowpark_annotation_processor = true` in `config.toml`, or `SNOWFLAKE_CLI_FEATURES_ENABLE_SNOWPARK_ANNOTATION_PROCESSOR=1`). The processor's job is to execute every annotated `.py` artifact in a subprocess so that module-level objects can be introspected; gating it behind an explicit opt-in aligns its long-deprecated status with its cost and closes an arbitrary-code-execution path for repository-level attack scenarios.
 
 ## Deprecations
 
