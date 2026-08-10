@@ -46,6 +46,9 @@ from snowflake.cli._plugins.apps.manager import (
     DEFAULT_PERSONAL_SCHEMA,
     DEFAULT_WORKSPACE_NAME,
     DEFINITION_FILENAME,
+    PER_ACCOUNT_CERT_ISSUE_FUNCTION,
+    SERVERLESS_COMPUTE_RESOURCE,
+    PerAccountCertStatus,
     SnowflakeAppManager,
     _get_entity,
     _poll_until,
@@ -670,6 +673,11 @@ def snowflake_app_open(
                     "This may indicate missing privileges on the target schema or application service."
                 ) from err
 
+        # CNG apps serve from per-account URLs; warn (never fail) when the
+        # per-account certificate is not yet provisioned so the user knows why
+        # the browser may show a TLS warning.
+        _warn_if_cng_url_cert_missing(manager, url)
+
     if not print_only:
         typer.launch(url)
     return MessageResult(url)
@@ -809,6 +817,113 @@ def _log_service_logs(manager: SnowflakeAppManager, service_fqn: FQN) -> None:
         log.info(line)
 
 
+def _is_cng_compute_resource(compute_resource: Optional[str]) -> bool:
+    """Return ``True`` for the CNG (serverless) app-service backend."""
+    return (compute_resource or "").upper() == SERVERLESS_COMPUTE_RESOURCE
+
+
+def _ensure_cng_url_cert_ready(
+    manager: SnowflakeAppManager, *, provision: bool, required: bool
+) -> None:
+    """Pre-check that the account's per-account URL certificate is in place.
+
+    CNG (serverless) apps serve from per-account URLs backed by a per-account
+    TLS certificate whose issuance can take up to ~3 hours — far too long to
+    happen inside ``CREATE APPLICATION SERVICE`` — so this probes for it up front
+    (never polling) via a client-side TLS probe.
+
+    The caller gates this on the app being CNG, which also implies the feature
+    flag is on (``compute_resource`` stays ``None`` while it is off), so the flag
+    is not re-checked here.
+
+    ``required`` says whether a missing certificate is fatal for the current
+    phase: only the deploy phase creates the service, so only it passes
+    ``required=True``. ``--upload-only`` / ``--build-only`` still probe (early,
+    cheap diagnosis) but only warn, so the user can upload/build now and promote
+    once issuance completes. An inconclusive probe (``UNKNOWN``) or an
+    underivable host never blocks — a false negative must not prevent a deploy.
+    """
+    probe_host = manager.per_account_cert_probe_host()
+    if probe_host is None:
+        log.debug(
+            "Skipping per-account URL certificate pre-check: could not derive "
+            "the account's app host."
+        )
+        return
+
+    cli_console.step("Checking per-account URL certificate...")
+    status = manager.per_account_cert_status_for_host(probe_host)
+    if status is PerAccountCertStatus.PROVISIONED:
+        return
+
+    if status is PerAccountCertStatus.UNKNOWN:
+        cli_console.warning(
+            "Could not verify the account's per-account URL certificate "
+            "(the ingress was unreachable or untrusted — e.g. PrivateLink, a "
+            "proxy, or a custom CA). Continuing the deploy. If the app URL shows "
+            "a browser TLS warning, provision the certificate by running:\n"
+            f"  SELECT {PER_ACCOUNT_CERT_ISSUE_FUNCTION}();"
+        )
+        return
+
+    # NOT_PROVISIONED.
+    if provision:
+        cli_console.step("Starting per-account URL certificate provisioning...")
+        manager.issue_per_account_url_cert()
+        message = (
+            "This account does not yet have a per-account URL certificate, "
+            "which CNG (serverless) apps require. Provisioning has been started "
+            f"for you via {PER_ACCOUNT_CERT_ISSUE_FUNCTION}(). This can take up "
+            "to 3 hours. Re-run 'snow app deploy' once provisioning completes."
+        )
+    else:
+        message = (
+            "This account does not yet have a per-account URL certificate, which "
+            "CNG (serverless) apps require. Start provisioning by running:\n"
+            f"  SELECT {PER_ACCOUNT_CERT_ISSUE_FUNCTION}();\n"
+            "Provisioning can take up to 3 hours. Re-run 'snow app deploy' once "
+            "it completes, or re-run with '--provision-certs' to start it "
+            "automatically."
+        )
+
+    if required:
+        raise CliError(message)
+    # Upload/build phase: the service is not being created yet, so don't block —
+    # surface the same guidance as a warning and let the phase proceed.
+    cli_console.warning(message)
+
+
+def _warn_if_cng_url_cert_missing(manager: SnowflakeAppManager, url: str) -> None:
+    """Warn (never fail) when the per-account URL certificate is missing.
+
+    Used by ``snow app open``: launching the browser at a CNG app URL without a
+    provisioned certificate shows a TLS warning. The app already exists, so this
+    probes the resolved *url*'s host directly (the exact certificate the browser
+    would see). Unlike the deploy pre-check — which knows the app is CNG from its
+    resolved ``compute_resource`` — ``open`` does not resolve the entity, so it
+    gates on the CNG feature flag and leans on ``per_account_cert_status_for_url``
+    returning ``UNKNOWN`` for non-per-account hosts (e.g. SPCS
+    ``snowflakecomputing.app``), so an SPCS app's TLS state is never
+    misattributed to a per-account cert. Any probe error is swallowed so ``open``
+    never breaks on this advisory.
+    """
+    if not FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE.is_enabled():
+        return
+    try:
+        status = manager.per_account_cert_status_for_url(url)
+    except Exception:
+        log.debug("per-account URL certificate check failed", exc_info=True)
+        return
+    if status is not PerAccountCertStatus.NOT_PROVISIONED:
+        return
+    cli_console.warning(
+        "This account does not yet have a per-account URL certificate, so the "
+        "app URL may show a browser TLS warning. Start provisioning by "
+        f"running:\n  SELECT {PER_ACCOUNT_CERT_ISSUE_FUNCTION}();\n"
+        "This can take up to 3 hours."
+    )
+
+
 @_utf8_output
 def snowflake_app_deploy(
     entity_id: Optional[str],
@@ -816,6 +931,7 @@ def snowflake_app_deploy(
     build_only: bool,
     promote_only: bool,
     interactive: Optional[bool] = None,
+    provision_certs: bool = False,
 ) -> CommandResult:
     """Build and deploy a Snowflake App Runtime through upload, build, and deploy phases."""
     phase_flags = sum((upload_only, build_only, promote_only))
@@ -869,6 +985,15 @@ def snowflake_app_deploy(
     compute_resource: Optional[str] = None
     if FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE.is_enabled():
         compute_resource = defaults.get("compute_resource")
+
+    # Probe for the per-account URL certificate up front (see
+    # _ensure_cng_url_cert_ready): it needs no built artifact, and issuance is
+    # far too slow to happen inside CREATE APPLICATION SERVICE.
+    if _is_cng_compute_resource(compute_resource):
+        with metrics.span("snowflake_app.deploy.cng_cert_precheck"):
+            _ensure_cng_url_cert_ready(
+                manager, provision=provision_certs, required=run_deploy
+            )
 
     # ── Resolve code storage backend ──────────────────────────────────
     # ``code_stage`` and ``code_workspace`` are mutually exclusive (enforced
