@@ -88,3 +88,4 @@ class FeatureFlag(FeatureFlagMixin):
         "ENABLE_APP_SERVICE_COMPUTE_RESOURCE", False
     )
     ENABLE_DCM_PROJECT_ENV_VARS = BooleanFlag("ENABLE_DCM_PROJECT_ENV_VARS", False)
+    ENABLE_DCM_PREVIEW_FEATURES = BooleanFlag("ENABLE_DCM_PREVIEW_FEATURES", False)

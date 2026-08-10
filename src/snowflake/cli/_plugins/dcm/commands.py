@@ -768,7 +768,10 @@ def drop_deployment(
     )
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    hidden=not FeatureFlag.ENABLE_DCM_PREVIEW_FEATURES.is_enabled(),
+)
 def preview(
     identifier: Optional[FQN] = optional_dcm_identifier,
     object_identifier: FQN = typer.Option(
@@ -819,7 +822,10 @@ def preview(
     return QueryResult(result)
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    hidden=not FeatureFlag.ENABLE_DCM_PREVIEW_FEATURES.is_enabled(),
+)
 @mock_dcm_response("refresh")
 def refresh(
     identifier: Optional[FQN] = optional_dcm_identifier,
@@ -850,7 +856,10 @@ def refresh(
         return reporter.process(result)
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    hidden=not FeatureFlag.ENABLE_DCM_PREVIEW_FEATURES.is_enabled(),
+)
 @mock_dcm_response("test")
 def test(
     identifier: Optional[FQN] = optional_dcm_identifier,
