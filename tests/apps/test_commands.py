@@ -16,17 +16,21 @@ import json
 import os
 import sys
 from datetime import datetime, timezone
-from unittest.mock import Mock, call, patch
+from types import SimpleNamespace
+from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest
 from snowflake.cli._plugins.apps.commands import (
     FILES_UPLOADED_COUNTER,
     _CodeStorage,
+    _ensure_cng_url_cert_ready,
     _ensure_utf8_output,
+    _is_cng_compute_resource,
     _log_service_logs,
     _make_build_log_streamer,
     _resolve_code_storage,
     _utf8_output,
+    _warn_if_cng_url_cert_missing,
 )
 from snowflake.cli._plugins.apps.events import parse_lifecycle_records
 from snowflake.cli._plugins.apps.generate import (
@@ -34,7 +38,11 @@ from snowflake.cli._plugins.apps.generate import (
     _yaml_str,
 )
 from snowflake.cli._plugins.apps.manager import (
+    CERT_PROBE_LABEL,
+    CERT_PROBE_TIMEOUT_SECONDS,
+    PER_ACCOUNT_CERT_ISSUE_FUNCTION,
     SNOWFLAKE_APP_ENTITY_TYPE,
+    PerAccountCertStatus,
     SnowflakeAppManager,
     _get_entity,
     _get_snowflake_app_entities,
@@ -538,6 +546,393 @@ class TestMakeBuildLogStreamer:
             streamer()
             assert mock_log.info.call_count == 1
             mock_log.info.assert_called_with("line3")
+
+
+class TestIsCngComputeResource:
+    """Tests for the CNG (serverless) compute-resource predicate."""
+
+    @pytest.mark.parametrize(
+        "value, expected",
+        [
+            ("SERVERLESS", True),
+            ("serverless", True),  # case-insensitive
+            ("Serverless", True),
+            ("COMPUTE_POOL", False),
+            ("", False),
+            (None, False),
+        ],
+    )
+    def test_predicate(self, value, expected):
+        assert _is_cng_compute_resource(value) is expected
+
+
+class TestEnsureCngUrlCertReady:
+    """Tests for the CNG per-account URL certificate deploy pre-check."""
+
+    _PROBE_HOST = (
+        f"{CERT_PROBE_LABEL}.sfengineering-gbloom.qa6.us-west-2.aws.snowflake.app"
+    )
+
+    def _manager(self, status):
+        manager = Mock()
+        manager.per_account_cert_probe_host.return_value = self._PROBE_HOST
+        manager.per_account_cert_status_for_host.return_value = status
+        return manager
+
+    def test_provisioned_proceeds_without_error(self):
+        manager = self._manager(PerAccountCertStatus.PROVISIONED)
+        _ensure_cng_url_cert_ready(manager, provision=False, required=True)  # no raise
+        manager.per_account_cert_status_for_host.assert_called_once_with(
+            self._PROBE_HOST
+        )
+        manager.issue_per_account_url_cert.assert_not_called()
+
+    def test_undeterminable_host_skips_silently(self):
+        # No app host could be derived → no evidence about the cert, so skip
+        # without warning (the common default-connection case must stay quiet).
+        manager = Mock()
+        manager.per_account_cert_probe_host.return_value = None
+        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_cc:
+            _ensure_cng_url_cert_ready(manager, provision=False, required=True)
+        manager.per_account_cert_status_for_host.assert_not_called()
+        mock_cc.warning.assert_not_called()
+        manager.issue_per_account_url_cert.assert_not_called()
+
+    def test_unknown_warns_and_proceeds(self):
+        manager = self._manager(PerAccountCertStatus.UNKNOWN)
+        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_cc:
+            _ensure_cng_url_cert_ready(manager, provision=False, required=True)
+        mock_cc.warning.assert_called_once()
+        manager.issue_per_account_url_cert.assert_not_called()
+
+    def test_not_provisioned_raises_with_guidance_when_required(self):
+        manager = self._manager(PerAccountCertStatus.NOT_PROVISIONED)
+        with pytest.raises(CliError) as exc:
+            _ensure_cng_url_cert_ready(manager, provision=False, required=True)
+        assert PER_ACCOUNT_CERT_ISSUE_FUNCTION in str(exc.value)
+        assert "--provision-certs" in str(exc.value)
+        manager.issue_per_account_url_cert.assert_not_called()
+
+    def test_not_provisioned_warns_but_does_not_raise_when_not_required(self):
+        # --upload-only / --build-only diagnose early but create no service, so a
+        # missing certificate must warn and let the phase proceed, not abort.
+        manager = self._manager(PerAccountCertStatus.NOT_PROVISIONED)
+        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_cc:
+            _ensure_cng_url_cert_ready(
+                manager, provision=False, required=False
+            )  # no raise
+        mock_cc.warning.assert_called_once()
+        assert PER_ACCOUNT_CERT_ISSUE_FUNCTION in mock_cc.warning.call_args.args[0]
+        manager.issue_per_account_url_cert.assert_not_called()
+
+    def test_not_provisioned_with_provision_triggers_issuance_then_raises(self):
+        manager = self._manager(PerAccountCertStatus.NOT_PROVISIONED)
+        with patch("snowflake.cli._plugins.apps.commands.cli_console"):
+            with pytest.raises(CliError) as exc:
+                _ensure_cng_url_cert_ready(manager, provision=True, required=True)
+        manager.issue_per_account_url_cert.assert_called_once()
+        assert "Provisioning has been started" in str(exc.value)
+
+    def test_not_provisioned_with_provision_when_not_required_issues_then_warns(self):
+        # --provision-certs --upload-only must still kick off issuance, then warn
+        # (not refuse the upload it was asked to do).
+        manager = self._manager(PerAccountCertStatus.NOT_PROVISIONED)
+        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_cc:
+            _ensure_cng_url_cert_ready(
+                manager, provision=True, required=False
+            )  # no raise
+        manager.issue_per_account_url_cert.assert_called_once()
+        mock_cc.warning.assert_called_once()
+        assert "Provisioning has been started" in mock_cc.warning.call_args.args[0]
+
+
+class TestWarnIfCngUrlCertMissing:
+    """Tests for the CNG per-account URL certificate ``open`` advisory."""
+
+    _URL = "https://myapp.sfengineering-gbloom.qa6.us-west-2.aws.snowflake.app"
+
+    def test_noop_when_flag_disabled(self):
+        manager = Mock()
+        with patch.object(
+            FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE,
+            "is_enabled",
+            return_value=False,
+        ):
+            with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_cc:
+                _warn_if_cng_url_cert_missing(manager, self._URL)
+        manager.per_account_cert_status_for_url.assert_not_called()
+        mock_cc.warning.assert_not_called()
+
+    def test_warns_when_not_provisioned(self):
+        manager = Mock()
+        manager.per_account_cert_status_for_url.return_value = (
+            PerAccountCertStatus.NOT_PROVISIONED
+        )
+        with patch.object(
+            FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE,
+            "is_enabled",
+            return_value=True,
+        ):
+            with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_cc:
+                _warn_if_cng_url_cert_missing(manager, self._URL)
+        manager.per_account_cert_status_for_url.assert_called_once_with(self._URL)
+        mock_cc.warning.assert_called_once()
+
+    @pytest.mark.parametrize(
+        "status", [PerAccountCertStatus.PROVISIONED, PerAccountCertStatus.UNKNOWN]
+    )
+    def test_quiet_when_provisioned_or_unknown(self, status):
+        manager = Mock()
+        manager.per_account_cert_status_for_url.return_value = status
+        with patch.object(
+            FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE,
+            "is_enabled",
+            return_value=True,
+        ):
+            with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_cc:
+                _warn_if_cng_url_cert_missing(manager, self._URL)
+        mock_cc.warning.assert_not_called()
+
+    def test_probe_error_swallowed(self):
+        manager = Mock()
+        manager.per_account_cert_status_for_url.side_effect = RuntimeError("boom")
+        with patch.object(
+            FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE,
+            "is_enabled",
+            return_value=True,
+        ):
+            _warn_if_cng_url_cert_missing(manager, self._URL)  # should not raise
+
+
+class TestPerAccountAppHostname:
+    """Tests for deriving the per-account app URL host from session + connection."""
+
+    def _manager(self):
+        return SnowflakeAppManager.__new__(SnowflakeAppManager)
+
+    @pytest.mark.parametrize(
+        "sql_host, expected_infra",
+        [
+            # Regioned connection host (qa6): infra is region + cloud.
+            ("gbloom.qa6.us-west-2.aws.snowflakecomputing.com", "qa6.us-west-2.aws"),
+            # PrivateLink: the trailing label is preserved (matches the cert SAN).
+            (
+                "gbloom.qa6.us-west-2.aws.privatelink.snowflakecomputing.com",
+                "qa6.us-west-2.aws.privatelink",
+            ),
+            # Prod regioned host: region + cloud.
+            ("xy12345.us-east-1.aws.snowflakecomputing.com", "us-east-1.aws"),
+            # Region-less alias / us-west-2 legacy host carry no infra.
+            ("myorg-myacct.snowflakecomputing.com", None),
+            ("xy12345.snowflakecomputing.com", None),
+            (None, None),
+        ],
+    )
+    def test_infra_from_sql_host(self, sql_host, expected_infra):
+        assert (
+            SnowflakeAppManager._infra_from_sql_host(sql_host)  # noqa: SLF001
+            == expected_infra
+        )
+
+    def test_account_infra_falls_back_to_allowlist_for_regionless_host(self):
+        # The modern account alias has no region in its host; the infra must be
+        # recovered from SYSTEM$ALLOWLIST's regioned host.
+        mgr = self._manager()
+        conn = Mock(host="myorg-myacct.snowflakecomputing.com")
+        with patch(
+            "snowflake.cli._plugins.apps.manager.get_cli_context"
+        ) as mock_ctx, patch(
+            "snowflake.cli._plugins.apps.manager.guess_regioned_host_from_allowlist",
+            return_value="xy12345.us-east-1.aws.snowflakecomputing.com",
+        ):
+            mock_ctx.return_value.connection = conn
+            assert mgr._account_infra() == "us-east-1.aws"  # noqa: SLF001
+
+    def test_org_account_slug_lowercases_and_hyphenates_underscores(self):
+        # Account names may contain underscores; per-account URLs render them as
+        # hyphens (underscores are illegal in DNS labels).
+        mgr = self._manager()
+        identifier = SimpleNamespace(organization_name="MyOrg", account_name="MY_ACCT")
+        with patch("snowflake.cli._plugins.apps.manager.get_cli_context"), patch(
+            "snowflake.cli._plugins.apps.manager.get_account_identifier",
+            return_value=identifier,
+        ):
+            assert mgr._org_account_slug() == "myorg-my-acct"  # noqa: SLF001
+
+    def test_org_account_slug_none_when_identifier_unavailable(self):
+        mgr = self._manager()
+        with patch("snowflake.cli._plugins.apps.manager.get_cli_context"), patch(
+            "snowflake.cli._plugins.apps.manager.get_account_identifier",
+            side_effect=RuntimeError("no row"),
+        ):
+            assert mgr._org_account_slug() is None  # noqa: SLF001
+
+    def test_builds_org_account_app_host(self):
+        mgr = self._manager()
+        with patch.object(
+            SnowflakeAppManager,
+            "_account_infra",
+            return_value="qa6.us-west-2.aws",
+        ), patch.object(
+            SnowflakeAppManager,
+            "_org_account_slug",
+            return_value="sfengineering-gbloom",
+        ):
+            assert (
+                mgr._per_account_app_hostname()  # noqa: SLF001
+                == "sfengineering-gbloom.qa6.us-west-2.aws.snowflake.app"
+            )
+
+    def test_none_when_infra_cannot_be_derived(self):
+        mgr = self._manager()
+        with patch.object(SnowflakeAppManager, "_account_infra", return_value=None):
+            assert mgr._per_account_app_hostname() is None  # noqa: SLF001
+
+    def test_none_when_org_account_unavailable(self):
+        mgr = self._manager()
+        with patch.object(
+            SnowflakeAppManager,
+            "_account_infra",
+            return_value="qa6.us-west-2.aws",
+        ), patch.object(SnowflakeAppManager, "_org_account_slug", return_value=None):
+            assert mgr._per_account_app_hostname() is None  # noqa: SLF001
+
+
+class TestPerAccountCertStatusProbe:
+    """Tests for the manager's client-side TLS probe status mapping."""
+
+    _BASE = "sfengineering-gbloom.qa6.us-west-2.aws.snowflake.app"
+
+    def _manager(self):
+        return SnowflakeAppManager.__new__(SnowflakeAppManager)
+
+    def test_probe_host_none_when_app_host_cannot_be_derived(self):
+        mgr = self._manager()
+        with patch.object(
+            SnowflakeAppManager, "_per_account_app_hostname", return_value=None
+        ):
+            assert mgr.per_account_cert_probe_host() is None
+
+    def test_probe_host_is_synthetic_label_under_app_host(self):
+        mgr = self._manager()
+        with patch.object(
+            SnowflakeAppManager, "_per_account_app_hostname", return_value=self._BASE
+        ):
+            assert (
+                mgr.per_account_cert_probe_host() == f"{CERT_PROBE_LABEL}.{self._BASE}"
+            )
+
+    def test_provisioned_on_successful_handshake_sets_sni_and_timeout(self):
+        # Bare mocks would pass even for a stubbed-out probe; assert the two
+        # things that make the probe correct — SNI set to the probe host and the
+        # bounded timeout — actually reach the socket/TLS calls.
+        mgr = self._manager()
+        ctx = MagicMock()
+        captured = {}
+
+        def _fake_create_connection(addr, timeout=None):
+            captured["addr"] = addr
+            captured["timeout"] = timeout
+            return MagicMock()
+
+        with patch(
+            "snowflake.cli._plugins.apps.manager.socket.create_connection",
+            side_effect=_fake_create_connection,
+        ), patch(
+            "snowflake.cli._plugins.apps.manager.ssl.create_default_context",
+            return_value=ctx,
+        ):
+            status = mgr.per_account_cert_status_for_host(self._BASE)
+        assert status is PerAccountCertStatus.PROVISIONED
+        assert captured["addr"] == (self._BASE, 443)
+        assert captured["timeout"] == CERT_PROBE_TIMEOUT_SECONDS
+        assert ctx.wrap_socket.call_args.kwargs["server_hostname"] == self._BASE
+
+    @pytest.mark.parametrize("verify_code", [62, 10])
+    def test_not_provisioned_on_hostname_or_expired_verify_codes(self, verify_code):
+        import ssl as _ssl
+
+        mgr = self._manager()
+        ctx = Mock()
+        err = _ssl.SSLCertVerificationError("verification failed")
+        err.verify_code = verify_code
+        ctx.wrap_socket.side_effect = err
+        with patch(
+            "snowflake.cli._plugins.apps.manager.socket.create_connection"
+        ), patch(
+            "snowflake.cli._plugins.apps.manager.ssl.create_default_context",
+            return_value=ctx,
+        ):
+            assert (
+                mgr.per_account_cert_status_for_host(self._BASE)
+                is PerAccountCertStatus.NOT_PROVISIONED
+            )
+
+    @pytest.mark.parametrize("verify_code", [18, 19, 20, 21])
+    def test_unknown_on_trust_chain_verify_codes(self, verify_code):
+        # A trust-chain failure (self-signed, custom CA, TLS-intercepting proxy)
+        # says nothing about the per-account cert — it must not block the deploy.
+        import ssl as _ssl
+
+        mgr = self._manager()
+        ctx = Mock()
+        err = _ssl.SSLCertVerificationError("untrusted issuer")
+        err.verify_code = verify_code
+        ctx.wrap_socket.side_effect = err
+        with patch(
+            "snowflake.cli._plugins.apps.manager.socket.create_connection"
+        ), patch(
+            "snowflake.cli._plugins.apps.manager.ssl.create_default_context",
+            return_value=ctx,
+        ):
+            assert (
+                mgr.per_account_cert_status_for_host(self._BASE)
+                is PerAccountCertStatus.UNKNOWN
+            )
+
+    def test_unknown_on_network_error(self):
+        mgr = self._manager()
+        with patch(
+            "snowflake.cli._plugins.apps.manager.socket.create_connection",
+            side_effect=OSError("dns failure"),
+        ):
+            assert (
+                mgr.per_account_cert_status_for_host(self._BASE)
+                is PerAccountCertStatus.UNKNOWN
+            )
+
+    def test_status_for_host_unknown_for_non_per_account_host(self):
+        # An SPCS app on snowflakecomputing.app is not a per-account host; the
+        # probe must never attribute its TLS state to a per-account cert.
+        mgr = self._manager()
+        with patch(
+            "snowflake.cli._plugins.apps.manager.socket.create_connection"
+        ) as mock_conn:
+            status = mgr.per_account_cert_status_for_host(
+                "myapp.snowflakecomputing.app"
+            )
+        assert status is PerAccountCertStatus.UNKNOWN
+        mock_conn.assert_not_called()
+
+    def test_status_for_url_probes_url_host_directly(self):
+        mgr = self._manager()
+        captured = {}
+
+        def _fake_create_connection(addr, timeout=None):
+            captured["host"] = addr[0]
+            return MagicMock()
+
+        with patch(
+            "snowflake.cli._plugins.apps.manager.socket.create_connection",
+            side_effect=_fake_create_connection,
+        ), patch("snowflake.cli._plugins.apps.manager.ssl.create_default_context"):
+            status = mgr.per_account_cert_status_for_url(f"https://myapp.{self._BASE}")
+        assert status is PerAccountCertStatus.PROVISIONED
+        assert captured["host"] == f"myapp.{self._BASE}"
+
+    def test_status_for_url_unknown_when_no_host(self):
+        mgr = self._manager()
+        assert mgr.per_account_cert_status_for_url("") is PerAccountCertStatus.UNKNOWN
 
 
 class TestLogServiceLogs:
@@ -7121,6 +7516,15 @@ class TestDeployCommand:
         mock_mgr.build_app_artifact_repo.return_value = (
             "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
         )
+        # The CNG (SERVERLESS) deploy path runs a per-account cert pre-check;
+        # treat the cert as provisioned so the test exercises COMPUTE_RESOURCE
+        # emission rather than the pre-check.
+        mock_mgr.per_account_cert_probe_host.return_value = (
+            f"{CERT_PROBE_LABEL}.sfengineering-gbloom.qa6.us-west-2.aws.snowflake.app"
+        )
+        mock_mgr.per_account_cert_status_for_host.return_value = (
+            PerAccountCertStatus.PROVISIONED
+        )
         _real_manager = SnowflakeAppManager()
         mock_mgr.resolve_application_service_url_from_describe.side_effect = (
             _real_manager.resolve_application_service_url_from_describe
@@ -7140,6 +7544,183 @@ class TestDeployCommand:
 
         create_kwargs = mock_mgr.create_app_service.call_args.kwargs
         assert create_kwargs["compute_resource"] == expected_compute_resource
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            # A non-CNG backend: the per-account cert pre-check must not run.
+            "compute_resource": "COMPUTE_POOL",
+            "service_eai": None,
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_non_cng_skips_cert_precheck(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """A non-CNG (non-SERVERLESS) deploy must never run the per-account cert
+        probe — the regression guard that SPCS and Native App flows stay
+        untouched even with the feature flag enabled."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.code_workspace = Mock(database=None, schema_=None)
+        entity.code_workspace.name = "MY_APP_CODE"
+        entity.artifacts = []
+        entity.meta = None
+        entity.runtime_image = "runtime:latest"
+        entity.query_warehouse = "WH"
+        entity.artifact_repository = None
+        entity.build_compute_pool = None
+        entity.service_compute_pool = None
+        entity.build_eai = None
+        mock_get_entity.return_value = entity
+
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.workspace_last_subdirectory_uri.return_value = (
+            _WORKSPACE_BUILD_SOURCE_URI
+        )
+        mock_mgr.artifact_repo_exists.return_value = False
+        mock_mgr.build_app_artifact_repo.return_value = (
+            "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
+        )
+        _real_manager = SnowflakeAppManager()
+        mock_mgr.resolve_application_service_url_from_describe.side_effect = (
+            _real_manager.resolve_application_service_url_from_describe
+        )
+        mock_poll.side_effect = [
+            "DONE",
+            {"url": "my-app.snowflakecomputing.app", "is_upgrading": "false"},
+        ]
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            with with_feature_flags(
+                {FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE: True}
+            ):
+                result = runner.invoke(["app", "deploy"])
+            assert result.exit_code == 0, result.output
+
+        mock_mgr.per_account_cert_probe_host.assert_not_called()
+        mock_mgr.per_account_cert_status_for_host.assert_not_called()
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "compute_resource": "SERVERLESS",
+            "service_eai": None,
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_upload_only_missing_cert_warns_but_does_not_fail(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """``--upload-only`` on a CNG app probes the cert but never creates a
+        service, so a missing certificate must warn and proceed (exit 0), not
+        abort — the workflow the guidance itself recommends."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.code_workspace = Mock(database=None, schema_=None)
+        entity.code_workspace.name = "MY_APP_CODE"
+        entity.artifacts = []
+        entity.meta = None
+        entity.runtime_image = "runtime:latest"
+        entity.query_warehouse = "WH"
+        entity.artifact_repository = None
+        entity.build_compute_pool = None
+        entity.service_compute_pool = None
+        entity.build_eai = None
+        mock_get_entity.return_value = entity
+
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.workspace_last_subdirectory_uri.return_value = (
+            _WORKSPACE_BUILD_SOURCE_URI
+        )
+        mock_mgr.upload_to_workspace.return_value = []
+        # CNG app whose per-account certificate is not yet provisioned.
+        mock_mgr.per_account_cert_probe_host.return_value = (
+            f"{CERT_PROBE_LABEL}.sfengineering-gbloom.qa6.us-west-2.aws.snowflake.app"
+        )
+        mock_mgr.per_account_cert_status_for_host.return_value = (
+            PerAccountCertStatus.NOT_PROVISIONED
+        )
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            with with_feature_flags(
+                {FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE: True}
+            ):
+                result = runner.invoke(["app", "deploy", "--upload-only"])
+
+        assert result.exit_code == 0, result.output
+        # Probe ran, but no service was created and no issuance was triggered.
+        mock_mgr.per_account_cert_status_for_host.assert_called_once()
+        mock_mgr.create_app_service.assert_not_called()
+        mock_mgr.issue_per_account_url_cert.assert_not_called()
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
